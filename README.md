@@ -1,1 +1,70 @@
 # Backlog
+
+A personal work management system built for AI-driven development. Capture work items, prompts, and knowledge across projects, organize them through an inbox-first workflow, and access them where the work happens: desktop, IDE, and phone.
+
+## Current state
+
+The project is currently in setup mode while feature ideas are being shaped and validated.
+
+Current focus:
+- Finalize project setup and working conventions
+- Define and prioritize the first feature set
+- Turn feature ideas into implementation-ready backlog items
+
+## Why
+
+AI-driven development generates a different kind of work artifact: prompts, sessions, decisions, and context that traditional task trackers weren't designed for. Without a structured system, these slip through chat history, scattered notes, and one-off files. This project treats AI work artifacts as first-class items — versioned, searchable, linked to projects and work items, and available wherever you work.
+
+## What it does
+
+### Capture
+
+Get ideas and work items in quickly from any context — mobile speech shortcuts, web clipper, email, IDE, or manual entry. The goal is zero friction between thought and storage.
+
+### Inbox and triage
+
+All captured items land in a shared inbox. Triage classifies, enriches, and routes each item to the right destination: active backlog, project knowledge, or archive. Nothing is lost; everything is intentional.
+
+### Backlog management
+
+Refine and prioritize work items linked to projects and GitHub repositories. Items can carry AI context — the prompt that created them, the session they belong to, decisions made along the way.
+
+### Prompt library
+
+Prompts are stored, versioned, and linked to the project and work item they belong to. One-click copy delivers a prompt directly to your active tooling. Usage is tracked so high-value prompts surface again when they are relevant.
+
+### Second brain
+
+Project knowledge, cross-project notes, and reference material are organized in a PARA-aligned structure. AI sessions and decisions are stored alongside the work they informed.
+
+### Monitoring and dashboards
+
+Progress signals pulled from GitHub, Application Insights, and queue stats give a live view of what is moving and what is blocked — per project and across the portfolio.
+
+### Technology and operations
+
+The system also tracks technology stack baselines, repository health, and development machine compliance so planning and execution stay connected to operational reality.
+
+## Domains and channels
+
+Primary domains:
+- Capture
+- Inbox
+- Backlog Management
+- Second Brain
+- Monitoring and Dashboard
+- Technology Stack
+- Dev PC Management
+- Repository Management
+
+Access channels:
+- Desktop client
+- IDE extensions (VS Code, Visual Studio)
+- Phone app
+
+See [domain/domain.md](domain/domain.md) for functional boundaries and [architecture/Architecture.md](architecture/Architecture.md) for technical design.
+
+
+## Language and conventions
+
+Term definitions and naming conventions are in [domain/naming.md](domain/naming.md).
