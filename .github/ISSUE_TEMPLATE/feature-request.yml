@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a new capability or meaningful enhancement.
+title: "[Feature]: "
+labels:
+  - feature
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What user or business need should this solve?
+      placeholder: Describe the outcome you want to enable.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the capability, workflow, or behavior you want.
+      placeholder: Explain the requested feature.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope notes
+      description: Note constraints, excluded work, channels, or integrations that matter.
+  - type: textarea
+    id: success
+    attributes:
+      label: Success criteria
+      description: How should we know this is complete or useful?

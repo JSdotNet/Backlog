@@ -1,0 +1,20 @@
+# Bootstrap repository baseline. Replace the pre_flight section with solution-specific
+# restore/build/test commands once the implementation scaffold exists.
+automation:
+  auto_issue_session: false
+  remote_control: false
+
+instructions: |
+  Use the repository account for GitHub operations in this repository.
+  Follow .github/copilot-instructions.md and .github/instructions/*.instructions.md for MCP server usage and agent routing.
+
+mcp_servers:
+  - name: jsdotnet-project-guidelines
+    command: jsdotnet-guidelines-mcpserver
+    tools: ["*"]
+  - name: jsdotnet-project-design
+    command: jsdotnet-design-mcpserver
+    tools: ["*"]
+
+# No pre_flight steps yet: this repository has no project manifests to restore, build,
+# or test. Add restore/build/test steps here once an implementation scaffold exists.
