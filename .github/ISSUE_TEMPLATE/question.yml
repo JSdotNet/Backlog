@@ -1,0 +1,24 @@
+name: Question
+description: Ask for clarification about product direction, architecture, or workflow.
+title: "[Question]: "
+labels:
+  - question
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do you need clarified?
+      placeholder: Ask your question here.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Share any links, assumptions, or prior discussion that will help answer the question.
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What you already checked
+      description: Note any files, issues, or docs you reviewed first.
