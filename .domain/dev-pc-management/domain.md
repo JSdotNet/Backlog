@@ -16,7 +16,6 @@ baseline, trigger remote updates, and track Copilot sessions.
 ```meta
 status: draft
 related: [.domain/technology-stack/domain.md#aggregate-technology-registry, .domain/monitoring/domain.md#aggregate-progress-signal]
-issue: null
 ```
 
 The global singleton that owns all registered machines, the team tool baseline,
@@ -111,8 +110,6 @@ Current state of a machine: `online`, `sleeping`, `offline`.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 Coordinates out-of-band actions on registered machines: Wake-on-LAN (local and
@@ -126,7 +123,6 @@ brokering, and the target OS rather than a single machine's stored state.
 ```meta
 status: draft
 related: [.domain/technology-stack/domain.md#aggregate-technology-registry]
-issue: null
 ```
 
 Queues and executes tool updates across machines (single, targeted, or bulk),
@@ -140,7 +136,6 @@ external package managers.
 ```meta
 status: draft
 related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/monitoring/domain.md#aggregate-progress-signal]
-issue: null
 ```
 
 Records Copilot session start/end per machine, links sessions to GitHub issues or
@@ -152,8 +147,6 @@ or locally and must be correlated with external work items.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 > Enums used by more than one aggregate in this bounded context.

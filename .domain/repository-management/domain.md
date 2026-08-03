@@ -16,7 +16,6 @@ at-risk repos surface without manual investigation. It consumes baselines from
 ```meta
 status: draft
 related: [.domain/technology-stack/domain.md#aggregate-technology-registry, .domain/monitoring/domain.md#aggregate-progress-signal]
-issue: null
 ```
 
 The global singleton that owns all registered repositories, technology/dependency
@@ -119,7 +118,6 @@ Security alert severity: `critical`, `high`, `medium`, `low`.
 ```meta
 status: draft
 related: [.domain/technology-stack/domain.md#aggregate-technology-registry]
-issue: null
 ```
 
 Runs scheduled or on-demand scans of a repository: parses dependency manifests,
@@ -133,7 +131,6 @@ GitHub, package registries) to refresh the aggregate.
 ```meta
 status: draft
 related: [.domain/backlog/domain.md#aggregate-backlog-entry]
-issue: null
 ```
 
 Coordinates portfolio-wide actions: queue package updates across repos, run
@@ -145,8 +142,6 @@ many repositories rather than a single aggregate.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 > Enums used by more than one aggregate in this bounded context.

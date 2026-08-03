@@ -16,7 +16,6 @@ context is easy to find later.
 ```meta
 status: draft
 related: [.domain/backlog/domain.md#aggregate-backlog-entry]
-issue: null
 ```
 
 An organized unit of project knowledge stored as markdown and the boundary for
@@ -68,7 +67,6 @@ Origin of the note: `inbox` (routed from triage), `manual`, or `import`.
 ```meta
 status: draft
 related: [.domain/backlog/domain.md#aggregate-backlog-entry]
-issue: null
 ```
 
 Maintains bi-directional links between Knowledge Notes and Backlog Entries and
@@ -81,8 +79,6 @@ rather than living inside a single aggregate.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 > Enums used by more than one aggregate in this bounded context.

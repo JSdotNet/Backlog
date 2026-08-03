@@ -16,7 +16,6 @@ and the Copilot CLI.
 ```meta
 status: draft
 related: [.domain/inbox/domain.md#aggregate-inbox-item]
-issue: null
 ```
 
 A refined, actionable item in the personal backlog and the consistency boundary
@@ -74,7 +73,6 @@ Completion state of a sub-item: `pending`, `done`.
 ```meta
 status: draft
 related: [.domain/monitoring/domain.md#aggregate-progress-signal]
-issue: null
 ```
 
 Creates and closes downstream artifacts for a multi-repo entry: on `EntryProjected`
@@ -87,8 +85,6 @@ spans multiple downstream artifacts rather than a single aggregate mutation.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 > Enums used by more than one aggregate in this bounded context.

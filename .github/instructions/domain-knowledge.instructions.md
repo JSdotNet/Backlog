@@ -62,10 +62,10 @@ using the templates below — do not invent a different file set.
   `.domain` and the actual code/domain-design MCP guidance as a defect.
 - Every Aggregate, Domain Service, Shared Value Objects, and Shared Enums
   chapter in `domain.md`, and every Feature/Sub-feature chapter in
-  `features.md`, must carry the metadata block described in
-  `.github/instructions/chapter-metadata.instructions.md` (status,
-  cross-folder tags, GitHub issue link) — required for the planned
-  visualization tooling.
+  `features.md`, must carry a metadata block as described in
+  `.github/instructions/chapter-metadata.instructions.md`. Only `status` is
+  required; the optional cross-folder tags (`related`) and GitHub issue link
+  (`issue`) are included only when they have a value.
 - The metadata block's `status` field uses `draft`, `proposed`, `active`, or
   `deprecated` in this folder. Domain knowledge describes the current (or
   agreed-future) model, not a task queue, so there is no `done`: `active`
@@ -96,8 +96,6 @@ using the templates below — do not invent a different file set.
 
 \`\`\`meta
 status: draft
-related: []
-issue: null
 \`\`\`
 
 Responsibility, lifecycle, and invariants of the aggregate (what it
@@ -130,8 +128,6 @@ Values and what each one means in business terms.
 
 \`\`\`meta
 status: draft
-related: []
-issue: null
 \`\`\`
 
 Responsibility of the service, which aggregates/policies it coordinates, and
@@ -141,8 +137,6 @@ why the behavior does not belong on a single aggregate.
 
 \`\`\`meta
 status: draft
-related: []
-issue: null
 \`\`\`
 
 > Value Objects used by more than one aggregate in this bounded context.
@@ -155,8 +149,6 @@ Meaning, equality semantics, validation rules, and which aggregates use it.
 
 \`\`\`meta
 status: draft
-related: []
-issue: null
 \`\`\`
 
 > Enums used by more than one aggregate in this bounded context.
@@ -178,9 +170,6 @@ Values and what each one means in business terms, and which aggregates use it.
 
 \`\`\`meta
 status: draft
-depends-on: []
-related: []
-issue: null
 \`\`\`
 
 Short description of the capability and the business value it delivers.
@@ -189,9 +178,6 @@ Short description of the capability and the business value it delivers.
 
 \`\`\`meta
 status: draft
-depends-on: []
-related: []
-issue: null
 \`\`\`
 
 Description of the sub-feature and how it fits under the parent feature.

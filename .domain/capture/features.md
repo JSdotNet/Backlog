@@ -7,9 +7,6 @@
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Frictionless capture from a phone while away from the desktop, with the minimum
@@ -19,9 +16,6 @@ required fields and offline-first behavior.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Rapid title + body capture with optional tags and source context.
@@ -30,9 +24,6 @@ Rapid title + body capture with optional tags and source context.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 On-device transcription of voice notes into usable markdown, with retry on
@@ -42,9 +33,6 @@ transcription failure, preserving source metadata.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Local storage of captures when offline and background synchronization when the
@@ -54,9 +42,6 @@ network returns.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Share-sheet and shortcut integration for quick clipping from other apps.
@@ -65,9 +50,6 @@ Share-sheet and shortcut integration for quick clipping from other apps.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Unattended monitors that watch external sources and create captures on a
@@ -77,9 +59,6 @@ configurable schedule, with retry/backoff and failure logging.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Poll subscribed channels for new videos; auto-tag `#capture/youtube` and file
@@ -89,9 +68,6 @@ under `inbox/incoming/youtube/{channel_name}/`.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Watch configured URLs for content changes (RSS, DOM diff); auto-tag
@@ -101,9 +77,6 @@ Watch configured URLs for content changes (RSS, DOM diff); auto-tag
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Poll an IMAP inbox for newsletters/summaries; auto-tag `#capture/email/{sender}`.
@@ -112,9 +85,6 @@ Poll an IMAP inbox for newsletters/summaries; auto-tag `#capture/email/{sender}`
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Run all monitors on a configurable schedule without manual intervention.
@@ -123,9 +93,6 @@ Run all monitors on a configurable schedule without manual intervention.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Browser extension or bookmarklet that clips web content — URL, title, selected
@@ -136,9 +103,6 @@ preserved.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Adapter that lets IDE extensions trigger a capture from selected code/text,
@@ -148,9 +112,6 @@ attaching file path, line number, and branch as context metadata.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Drag-and-drop files or paste content directly, convert to markdown (MarkItDown
@@ -160,9 +121,7 @@ or equivalent), and extract tags, links, and source metadata automatically.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/inbox/features.md#feature-incoming-queue]
-issue: null
 ```
 
 Every capture source produces a standard Inbox Item (title, `body_md`, source,

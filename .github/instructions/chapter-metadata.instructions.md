@@ -33,12 +33,15 @@ Place the block immediately after the heading, before any prose:
 
 \`\`\`meta
 status: active
-related: []
-issue: null
 \`\`\`
 
 Prose for this chapter starts here.
 ```
+
+Only `status` is required, so a chapter with no relations and no issue carries
+just that one field. Optional fields (`related`, `issue`, and folder-specific
+fields such as `depends-on`) are included only when they have a value; empty
+collections and null values are omitted rather than written out.
 
 Some folders define additional relation fields beyond `related` (e.g.
 `depends-on`, `implements`) — see that folder's own instructions file for
@@ -65,14 +68,16 @@ folder-specific relation field (`depends-on`, `implements`, etc.).
   `.github/instructions/arc42-knowledge.instructions.md`, or
   `.github/instructions/backlog-knowledge.instructions.md` for the value set
   that applies to the folder you're editing.
-- **related** (optional, default `[]`) — list of `<path>#<heading-slug>`
+- **related** (optional) — list of `<path>#<heading-slug>`
   references this chapter points to for context, without a hard dependency
   (e.g. a backlog item linking to the domain aggregate it changes, or an
   arc42 section linking to a domain feature it realizes). This is the
-  general-purpose cross-folder tag mechanism, available in every folder.
-- **issue** (optional, default `null`) — URL (or `owner/repo#number`
+  general-purpose cross-folder tag mechanism, available in every folder. Omit
+  the field entirely when there are no references.
+- **issue** (optional) — URL (or `owner/repo#number`
   shorthand) of the GitHub issue tracking this chapter, if one exists. Keep
-  this in sync when using `create-github-issue` / `update-github-issue`.
+  this in sync when using `create-github-issue` / `update-github-issue`. Omit
+  the field entirely when no issue exists.
 
 Folder-specific relation fields (e.g. `depends-on` on features/backlog
 chapters, `implements` on backlog chapters) are documented in that folder's
@@ -88,6 +93,7 @@ to every folder.
   file (for a universal field) or the relevant folder's instructions file
   (for a folder-specific field) first — the visualization tool depends on a
   fixed schema.
-- Empty list-valued fields are written as `[]`, not omitted, so the metadata
-  block shape stays uniform across chapters.
-- `issue: null` (not omitted) when no issue exists yet, for the same reason.
+- Optional fields are included only when they carry a value. Empty list-valued
+  fields (`related: []`, `depends-on: []`) and null values (`issue: null`) are
+  omitted rather than written out, so a chapter with no relations and no issue
+  shows only `status`.

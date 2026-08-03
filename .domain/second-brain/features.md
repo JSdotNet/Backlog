@@ -7,9 +7,7 @@
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/inbox/features.md#feature-routing]
-issue: null
 ```
 
 Store notes, references, ideas, and learnings as markdown from inbox triage,
@@ -21,8 +19,6 @@ tags.
 ```meta
 status: draft
 depends-on: [.domain/second-brain/features.md#feature-knowledge-capture]
-related: []
-issue: null
 ```
 
 Organize notes into Projects (active, deadline), Areas (ongoing), Resources
@@ -32,9 +28,6 @@ Organize notes into Projects (active, deadline), Areas (ongoing), Resources
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Reference multiple projects and repos from a single note, and discover notes
@@ -44,9 +37,6 @@ across projects by tag.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Group notes by topic (not just project), support cross-cutting tags, and search
@@ -56,9 +46,7 @@ across all knowledge content via the tag index.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/backlog/features.md#feature-search-filter-and-organize]
-issue: null
 ```
 
 Link from backlog entries to notes (reference or embed inline) and from notes

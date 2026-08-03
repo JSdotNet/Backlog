@@ -18,7 +18,6 @@ It provides baselines consumed by
 ```meta
 status: draft
 related: [.domain/dev-pc-management/domain.md#aggregate-machine-registry, .domain/repository-management/domain.md#aggregate-repository-registry]
-issue: null
 ```
 
 The global singleton that owns all technology definitions, baseline profiles,
@@ -119,7 +118,6 @@ Kind of technology: `language`, `runtime`, `framework`, `tool`, `ide`, `utility`
 ```meta
 status: draft
 related: [.domain/monitoring/domain.md#aggregate-progress-signal]
-issue: null
 ```
 
 Collects daily adoption from Dev PC tool reports and Repository tech-stack scans,
@@ -132,8 +130,6 @@ single `Technology` owns.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 Drives the deprecation lifecycle: issues `Deprecation Notice`s with EOL dates and
@@ -146,8 +142,6 @@ consumers.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 > Enums used by more than one aggregate in this bounded context.

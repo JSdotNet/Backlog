@@ -7,9 +7,6 @@
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Register repositories with metadata (name, clone path, language, team, GitHub
@@ -21,8 +18,6 @@ configured folders, and track when each was last scanned.
 ```meta
 status: draft
 depends-on: [.domain/repository-management/features.md#feature-repository-registration]
-related: []
-issue: null
 ```
 
 Scan dependency files, parse package versions and constraints, track transitive
@@ -35,7 +30,6 @@ security patches, and support custom feeds.
 status: draft
 depends-on: [.domain/repository-management/features.md#feature-repository-registration]
 related: [.domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking]
-issue: null
 ```
 
 Detect primary languages, framework versions, build tools, runtimes, and
@@ -45,9 +39,6 @@ Docker/Kubernetes/cloud usage, with custom technology tagging.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Fetch GitHub metadata (stars, forks, last commit, branch protection), track open
@@ -60,7 +51,6 @@ CI/CD status.
 status: draft
 depends-on: [.domain/repository-management/features.md#feature-package-and-dependency-tracking, .domain/repository-management/features.md#feature-github-integration]
 related: [.domain/monitoring/features.md#feature-multi-repo-scanning]
-issue: null
 ```
 
 Compute a health score from package freshness, GitHub issue/PR backlog, test
@@ -71,9 +61,7 @@ per-repo recommendations.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking]
-issue: null
 ```
 
 Aggregate package versions across repos to identify platform-wide adoption,
@@ -86,7 +74,6 @@ new libraries/frameworks.
 status: draft
 depends-on: [.domain/repository-management/features.md#feature-repository-health-scoring]
 related: [.domain/backlog/features.md#feature-backlog-entry-creation]
-issue: null
 ```
 
 Queue package updates across multiple repos, coordinate synchronized upgrades,

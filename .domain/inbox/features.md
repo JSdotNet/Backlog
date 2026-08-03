@@ -7,9 +7,7 @@
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/capture/features.md#feature-normalized-delivery]
-issue: null
 ```
 
 Receive normalized Inbox Items from all Capture sources into a single shared
@@ -21,8 +19,6 @@ queue. New items default to `unprocessed` and are ordered by capture timestamp
 ```meta
 status: draft
 depends-on: [.domain/inbox/features.md#feature-incoming-queue]
-related: []
-issue: null
 ```
 
 Review unprocessed items one by one or in batch and take an action per item.
@@ -31,9 +27,6 @@ Review unprocessed items one by one or in batch and take an action per item.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Route to backlog, store as knowledge, defer, archive, or delete — while tagging
@@ -43,9 +36,6 @@ and annotating, and preserving the original source link and capture timestamp.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Keyboard/shortcut actions for common routing patterns to speed up triage.
@@ -54,9 +44,6 @@ Keyboard/shortcut actions for common routing patterns to speed up triage.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Auto-suggest tags from content analysis, auto-suggest a routing destination from
@@ -69,7 +56,6 @@ enrich items with links to related backlog items or knowledge notes.
 status: draft
 depends-on: [.domain/inbox/features.md#feature-triage-workflow]
 related: [.domain/backlog/features.md#feature-backlog-entry-creation, .domain/second-brain/features.md#feature-knowledge-capture]
-issue: null
 ```
 
 Move a triaged item to its destination.
@@ -78,9 +64,7 @@ Move a triaged item to its destination.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/backlog/features.md#feature-backlog-entry-creation]
-issue: null
 ```
 
 Create a Backlog Entry draft from the item.
@@ -89,9 +73,7 @@ Create a Backlog Entry draft from the item.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/second-brain/features.md#feature-knowledge-capture]
-issue: null
 ```
 
 Create a Knowledge Note from the item.
@@ -100,9 +82,6 @@ Create a Knowledge Note from the item.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Postpone the item with an optional remind-at date; it resurfaces as unprocessed
@@ -112,9 +91,6 @@ when the review date is reached.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Dismiss items that are not actionable while keeping them accessible.
@@ -123,9 +99,7 @@ Dismiss items that are not actionable while keeping them accessible.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/monitoring/features.md#sub-feature-inbox-and-queue-health]
-issue: null
 ```
 
 Track unprocessed count and oldest item age, surface items unprocessed for too

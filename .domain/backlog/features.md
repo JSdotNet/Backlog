@@ -7,9 +7,7 @@
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/inbox/features.md#feature-routing]
-issue: null
 ```
 
 Create entries manually or from triaged inbox items, capturing title, body, type
@@ -21,8 +19,6 @@ to `draft`.
 ```meta
 status: draft
 depends-on: [.domain/backlog/features.md#feature-backlog-entry-creation]
-related: []
-issue: null
 ```
 
 Edit and enrich entries over time: set priority and status, add context links,
@@ -32,9 +28,6 @@ and flag oversized items with suggested splits.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Break an entry into ordered sub-items with title, status (pending → done), and
@@ -47,7 +40,6 @@ completion (e.g. 3/5 done), and they can project to GitHub issue task lists.
 status: draft
 depends-on: [.domain/backlog/features.md#feature-backlog-entry-creation]
 related: [.domain/backlog/features.md#feature-projection]
-issue: null
 ```
 
 Let one logical entry target multiple repositories (`repo_ids[]`) while remaining
@@ -60,7 +52,6 @@ view across all contexts.
 status: draft
 depends-on: [.domain/backlog/features.md#feature-multi-repo-targeting]
 related: [.domain/monitoring/features.md#sub-feature-backlog-and-github-progress]
-issue: null
 ```
 
 Spawn and close downstream artifacts from an entry: one GitHub issue and/or
@@ -71,9 +62,7 @@ completion, without duplicating the backlog item.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/second-brain/features.md#feature-bi-directional-linking]
-issue: null
 ```
 
 Search across title, body, tags, and linked knowledge notes; filter by project,
@@ -84,9 +73,6 @@ Second Brain content.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 One-click copy of prompt text to clipboard, usage-history logging on copy/use,
@@ -96,9 +82,6 @@ and reopening historical prompts from the usage log.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Move entries between active and archived states; archived entries are excluded

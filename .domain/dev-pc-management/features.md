@@ -7,9 +7,6 @@
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 The desktop component registers itself with the cloud on startup, reporting name,
@@ -21,8 +18,6 @@ online/sleeping/offline state and auto-deregisters after inactivity.
 ```meta
 status: draft
 depends-on: [.domain/dev-pc-management/features.md#feature-pc-registration]
-related: []
-issue: null
 ```
 
 Send a magic packet to wake a registered sleeping/powered-off PC over the local
@@ -34,8 +29,6 @@ requests when relay is needed.
 ```meta
 status: draft
 depends-on: [.domain/dev-pc-management/features.md#feature-pc-registration]
-related: []
-issue: null
 ```
 
 Initiate a remote desktop session (RDP, VNC fallback) to any online PC via
@@ -46,9 +39,7 @@ machines behind NAT/firewall.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/monitoring/features.md#feature-multi-layer-dashboards]
-issue: null
 ```
 
 List all registered PCs with current state, last-seen and uptime, running
@@ -58,9 +49,7 @@ desktop-component version, and quick actions (wake, connect, optional shutdown).
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/technology-stack/features.md#feature-technology-baseline-definition]
-issue: null
 ```
 
 Report installed tool versions on startup and on demand, store version snapshots,
@@ -72,8 +61,6 @@ incompatible.
 ```meta
 status: draft
 depends-on: [.domain/dev-pc-management/features.md#feature-configuration-and-tool-version-tracking]
-related: []
-issue: null
 ```
 
 Trigger single, targeted, or bulk tool updates from the dashboard or CLI, queue
@@ -84,9 +71,7 @@ require explicit confirmation.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/monitoring/features.md#feature-multi-layer-dashboards]
-issue: null
 ```
 
 Track active Copilot session IDs, URLs, and status per PC, link sessions to
@@ -97,9 +82,6 @@ for audit.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Require authentication for registration and connections, explicit authorization

@@ -16,7 +16,6 @@ is delivered, Capture's responsibility ends.
 ```meta
 status: draft
 related: [.domain/inbox/domain.md#aggregate-inbox-item]
-issue: null
 ```
 
 A single acquired piece of raw content from one source, before it becomes an
@@ -64,7 +63,6 @@ Origin type of a capture. Values and meaning:
 ```meta
 status: draft
 related: [.domain/inbox/domain.md#aggregate-inbox-item]
-issue: null
 ```
 
 Coordinates acquisition for a given `Capture Source`: polling or event intake,
@@ -80,7 +78,6 @@ transport concerns that are outside a single capture's consistency boundary.
 ```meta
 status: draft
 related: [.domain/inbox/domain.md#aggregate-inbox-item]
-issue: null
 ```
 
 Delivers a normalized Capture to the Inbox incoming queue as an Inbox Item,
@@ -92,8 +89,6 @@ handoff between Capture and Inbox rather than an in-aggregate state change.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 > Enums used by more than one aggregate in this bounded context.

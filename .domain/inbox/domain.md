@@ -18,7 +18,6 @@ deferred, or is archived. It owns no capture sources.
 ```meta
 status: draft
 related: [.domain/capture/domain.md#aggregate-capture]
-issue: null
 ```
 
 A single unit of captured, unprocessed information moving through triage. The
@@ -68,7 +67,6 @@ Origin of the item, mirrored from Capture as provenance: `mobile`, `youtube`,
 ```meta
 status: draft
 related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/second-brain/domain.md#aggregate-knowledge-note]
-issue: null
 ```
 
 Coordinates the triage decision for an Inbox Item and the resulting cross-context
@@ -82,8 +80,6 @@ than mutating a single aggregate.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 Enriches an unprocessed Inbox Item before or during triage: auto-suggests tags
@@ -96,8 +92,6 @@ item's state.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 > Enums used by more than one aggregate in this bounded context.

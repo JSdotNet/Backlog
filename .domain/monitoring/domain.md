@@ -18,7 +18,6 @@ and can run as a standalone team service.
 ```meta
 status: draft
 related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/inbox/domain.md#aggregate-inbox-item]
-issue: null
 ```
 
 An immutable, timestamped event indicating a change somewhere in the system,
@@ -61,8 +60,6 @@ Kind of change a signal represents:
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 Ingests signals from every source, correlates them (e.g. GitHub errors against
@@ -75,8 +72,6 @@ mutating one aggregate.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 Composes multi-layer dashboards — project (Application Insights), backlog/GitHub
@@ -90,8 +85,6 @@ present, rather than own, state.
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 > Enums used by more than one aggregate in this bounded context.

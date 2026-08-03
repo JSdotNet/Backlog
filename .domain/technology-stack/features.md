@@ -7,9 +7,6 @@
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Define team-approved technologies (languages, frameworks, runtimes, tools) with
@@ -21,8 +18,6 @@ status, and per-team or per-project overrides on top of portfolio defaults.
 ```meta
 status: draft
 depends-on: [.domain/technology-stack/features.md#feature-technology-baseline-definition]
-related: []
-issue: null
 ```
 
 Mark technologies deprecated with end-of-life dates and migration guidance,
@@ -33,9 +28,7 @@ exceptions, and recommend replacements.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/dev-pc-management/features.md#feature-configuration-and-tool-version-tracking, .domain/repository-management/features.md#feature-technology-stack-inventory]
-issue: null
 ```
 
 Detect which technologies are in use across the portfolio, track adoption rates
@@ -47,7 +40,6 @@ and outliers, surface adoption velocity, and report technology sprawl.
 status: draft
 depends-on: [.domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking]
 related: [.domain/backlog/features.md#feature-backlog-entry-creation]
-issue: null
 ```
 
 Surface which tools are ready to upgrade, recommend new tools based on team
@@ -58,9 +50,6 @@ choices.
 
 ```meta
 status: draft
-depends-on: []
-related: []
-issue: null
 ```
 
 Define semantic-versioning expectations per tool, map version aliases (latest,
@@ -71,9 +60,7 @@ technologies.
 
 ```meta
 status: draft
-depends-on: []
 related: [.domain/monitoring/features.md#feature-multi-repo-scanning]
-issue: null
 ```
 
 Provide baselines consumed by Dev PC and Repository Management, feed adoption
