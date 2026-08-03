@@ -22,11 +22,15 @@ across `.domain`, ADRs, and code module names where practical.
     domain.md
     features.md
     model.md
+    flow.md        # when the context has lifecycle/process flows
     dependencies.md
+    naming.md
 ```
 
-When starting a new bounded context, create the folder and all four files
-using the templates below — do not invent a different file set.
+When starting a new bounded context, create the folder and the standard files
+(`domain.md`, `features.md`, `model.md`, `dependencies.md`, `naming.md`) using
+the templates below, and add `flow.md` when the context has lifecycle or
+process flows.
 
 ## File responsibilities
 
@@ -41,12 +45,23 @@ using the templates below — do not invent a different file set.
 - **features.md** — The features and sub-features this bounded context
   supports, in business language. Group sub-features under their parent
   feature.
-- **model.md** — The domain model itself: relationships between aggregates,
-  entities, and value objects, ideally as a Mermaid class diagram, plus
-  supporting narrative.
+- **model.md** — The structural domain model: relationships between
+  aggregates, entities, and value objects, ideally as a Mermaid class diagram,
+  plus relationship notes. Lifecycle/process flows live in `flow.md`, not
+  here.
+- **flow.md** — Lifecycle and process flows for the context (state machines,
+  sequence diagrams, flowcharts) — how aggregates move through their states and
+  how work moves across the context over time. Moved out of `model.md` so
+  `model.md` stays purely structural. Include only when the context actually
+  has a flow. Its `##` sections do not carry metadata blocks.
 - **dependencies.md** — Outbound dependencies on other bounded contexts or
   modules, and known inbound dependents. Note the integration pattern (sync
   call, event, shared kernel, ACL) for each.
+- **naming.md** — The context's ubiquitous-language naming registry: one
+  `## Term: <Canonical>` chapter per key term. Surface synonyms are recorded in
+  the `aliases` metadata field; a `related` reference links the term to the
+  chapter where it is modeled. This gives every synonym (code class name, id
+  field, consumer-side copy) a single canonical concept.
 
 ## Authoring guidance
 
@@ -61,11 +76,11 @@ using the templates below — do not invent a different file set.
 - Keep these documents current as the model evolves — treat drift between
   `.domain` and the actual code/domain-design MCP guidance as a defect.
 - Every Aggregate, Domain Service, Shared Value Objects, and Shared Enums
-  chapter in `domain.md`, and every Feature/Sub-feature chapter in
-  `features.md`, must carry a metadata block as described in
-  `.github/instructions/chapter-metadata.instructions.md`. Only `status` is
-  required; the optional cross-folder tags (`related`) and GitHub issue link
-  (`issue`) are included only when they have a value.
+  chapter in `domain.md`, every Feature/Sub-feature chapter in `features.md`,
+  and every `## Term` chapter in `naming.md` must carry a metadata block as
+  described in `.github/instructions/chapter-metadata.instructions.md`. Only
+  `status` is required; the optional cross-folder tags (`related`) and GitHub
+  issue link (`issue`) are included only when they have a value.
 - The metadata block's `status` field uses `draft`, `proposed`, `active`, or
   `deprecated` in this folder. Domain knowledge describes the current (or
   agreed-future) model, not a task queue, so there is no `done`: `active`
@@ -79,6 +94,13 @@ using the templates below — do not invent a different file set.
   Objects/Enums) do not use `depends-on` — they describe standing structure,
   and their relationships belong in `model.md`/`dependencies.md` or the
   `related` field instead.
+- `naming.md` `Term` chapters carry an `aliases` field: a list of
+  plain-string surface names the term is also known by (code class/identifier
+  names, snake_case id fields, or a consumer context's local copy name).
+  Unlike `related`/`depends-on`, `aliases` entries are plain strings, not
+  `<path>#<heading-slug>` references — the link to the canonical modeling
+  chapter is carried by that term's `related` field instead. Omit `aliases`
+  when the term has none.
 
 ## Templates
 
@@ -224,6 +246,26 @@ classDiagram
   object reference).
 ```
 
+### flow.md
+
+```markdown
+# Flow: <Bounded Context Name>
+
+> Lifecycle and process flows for this bounded context: how aggregates move
+> through their states and how work moves across the context over time.
+> Complementary to `model.md` (structure) and `domain.md`
+> (responsibilities/invariants).
+
+## <Flow Name>
+
+\`\`\`mermaid
+<mermaid state/sequence/flow diagram>
+\`\`\`
+
+- Optional notes: transitions, emitted events, and which state is persisted
+  vs. which is a workflow-only phase.
+```
+
 ### dependencies.md
 
 ```markdown
@@ -252,4 +294,27 @@ classDiagram
   anti-corruption layer or published language, so it can be revisited.
 - Link to the relevant `domain-interaction-diagram` / `context-mapping`
   artifact if one exists for this relationship, instead of duplicating it.
+```
+
+
+### naming.md
+
+```markdown
+# Naming: <Bounded Context Name>
+
+> Canonical ubiquitous-language terms for this bounded context and their
+> aliases. Each term links to where it is modeled (related); surface names it
+> is also known by are recorded in the aliases metadata field so any synonym
+> resolves back to one canonical concept.
+
+## Term: <Canonical Term>
+
+\`\`\`meta
+status: draft
+aliases: [<AliasA>, <AliasB>]
+related: [.domain/<context>/domain.md#<heading-slug>]
+\`\`\`
+
+Definition of the term and, where useful, when each alias appears (code
+identifier, id field used by other contexts, consumer-side copy name).
 ```

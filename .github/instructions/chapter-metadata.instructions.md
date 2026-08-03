@@ -20,9 +20,13 @@ already treat as an addressable unit:
   independent status/dependencies/cross-references; otherwise they can be
   covered by their parent Aggregate's block.
 - `.domain/<context>/features.md` — each Feature and Sub-feature.
+- `.domain/<context>/naming.md` — each `Term` chapter.
 - `.arc42/<nn>-<name>.md` — the file's top-level chapter, and any ## section
   inside it that is independently trackable.
 - `.backlog/<concern-type>-<concern-slug>.md` — each Item and Sub-item.
+
+- `.domain` `model.md`, `flow.md`, and `dependencies.md` are structural/diagram
+  files; their `##` sections do **not** carry per-chapter metadata blocks.
 
 ## Metadata block format
 
@@ -45,8 +49,11 @@ collections and null values are omitted rather than written out.
 
 Some folders define additional relation fields beyond `related` (e.g.
 `depends-on`, `implements`) — see that folder's own instructions file for
-which extra fields apply and what they mean. Any such field uses the same
-reference format described below.
+which extra fields apply and what they mean. Most such fields use the same
+reference format described below, but not every folder-specific field is a
+reference field: in `.domain`, `aliases` (defined in
+`.github/instructions/domain-knowledge.instructions.md`) is a list of
+plain-string surface names, not `<path>#<heading-slug>` references.
 
 ### Chapter references
 
