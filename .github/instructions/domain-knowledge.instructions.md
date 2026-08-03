@@ -66,6 +66,10 @@ using the templates below — do not invent a different file set.
   `.github/instructions/chapter-metadata.instructions.md` (status,
   dependencies, cross-folder tags, GitHub issue link) — required for the
   planned visualization tooling.
+- The metadata block's `status` field uses `draft`, `proposed`, `active`, or
+  `deprecated` in this folder. Domain knowledge describes the current (or
+  agreed-future) model, not a task queue, so there is no `done`: `active`
+  means "this is the current model", `deprecated` means superseded.
 
 ## Templates
 

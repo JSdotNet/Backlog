@@ -58,6 +58,9 @@ when a chapter has real content — do not scaffold empty placeholders):
   `.github/instructions/chapter-metadata.instructions.md` (status,
   dependencies, cross-folder tags, GitHub issue link) — required for the
   planned visualization tooling.
+- The metadata block's `status` field uses `draft`, `proposed`, `active`, or
+  `deprecated` in this folder. Architecture documentation describes a
+  standing decision/structure, not a task, so there is no `done`.
 
 ## Template
 

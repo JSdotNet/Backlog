@@ -56,17 +56,11 @@ Use this `<path>#<heading-slug>` form as the entries in `depends-on` and
 ### Fields
 
 - **status** (required) — lifecycle state of this chapter's content. The
-  allowed values depend on which folder the chapter is in:
-  - `.domain` — `draft`, `proposed`, `active`, `deprecated`. Domain
-    knowledge describes the current (or agreed-future) model, not a task
-    queue, so there is no `done`; `active` means "this is the current
-    model", `deprecated` means superseded.
-  - `.arc42` — `draft`, `proposed`, `active`, `deprecated`. Same rationale
-    as `.domain`: architecture documentation describes a standing
-    decision/structure, not a task.
-  - `.backlog` — `draft`, `ready`, `in-progress`, `done`, `blocked`. Backlog
-    items describe work to be executed, so status tracks task progress
-    rather than content lifecycle.
+  allowed values are folder-specific; see the `status` section in
+  `.github/instructions/domain-knowledge.instructions.md`,
+  `.github/instructions/arc42-knowledge.instructions.md`, or
+  `.github/instructions/backlog-knowledge.instructions.md` for the value set
+  that applies to the folder you're editing.
 - **depends-on** (optional, default `[]`, `.domain/features.md` and
   `.backlog` chapters only) — list of `<path>#<heading-slug>` references
   that this chapter structurally or sequentially depends on (e.g. a backlog

@@ -91,7 +91,9 @@ Description of the sub-item.
   backlog artifact to GitHub Issues once it is ready — do not hand-author
   issue bodies that diverge from the saved artifact.
 - Keep item status current in the `meta` block's `status` field so the
-  folder reflects real backlog state, not just history.
+  folder reflects real backlog state, not just history. This folder's
+  `status` field uses `draft`, `ready`, `in-progress`, `done`, or `blocked` —
+  it tracks task progress, since backlog items describe work to be executed.
 - For end-to-end work spanning planning through implementation, route
   through `orch-feature` / `orch-bug` per
   `.github/instructions/workflow-routing.instructions.md` rather than working
