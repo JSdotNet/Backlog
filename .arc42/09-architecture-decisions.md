@@ -2,8 +2,6 @@
 
 ```meta
 status: active
-related: []
-issue: null
 ```
 
 This chapter links to the authoritative Architecture Decision Records rather than
@@ -17,7 +15,6 @@ and are intentionally out of scope for the .NET ADRs.
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md#cloud-service", ".arc42/07-deployment-view.md#cloud-deployment-azure"]
-issue: null
 ```
 
 The following ADRs apply to the ASP.NET Core cloud sync layer. Consult the ADR text
@@ -44,7 +41,6 @@ for full context and consequences before implementing.
 ```meta
 status: active
 related: [".arc42/04-solution-strategy.md"]
-issue: null
 ```
 
 Decisions specific to Prompt Backlog that are not covered by an org-level ADR are

@@ -2,8 +2,6 @@
 
 ```meta
 status: active
-related: []
-issue: null
 ```
 
 How Prompt Backlog's containers map onto infrastructure. There are two deployment
@@ -15,7 +13,6 @@ cloud service** (additive).
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md#desktop-app", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
-issue: null
 ```
 
 The desktop app is installed per machine (Windows, macOS, Linux) and is the canonical
@@ -43,7 +40,6 @@ deployment. Everything needed for core workflows runs here.
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md#cloud-service", ".arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 The optional cloud service is deployed to Azure as a single-region, low-cost

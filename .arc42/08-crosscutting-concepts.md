@@ -2,8 +2,6 @@
 
 ```meta
 status: active
-related: []
-issue: null
 ```
 
 Concepts that apply across multiple channels and domains and must be handled
@@ -14,7 +12,6 @@ uniformly. Shared data types define the vocabulary exchanged between them.
 ```meta
 status: active
 related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding"]
-issue: null
 ```
 
 - **Local-first, markdown canonical** — the desktop's markdown files are the single
@@ -31,8 +28,6 @@ issue: null
 
 ```meta
 status: active
-related: []
-issue: null
 ```
 
 - `#tags` embedded inside markdown, multiple per item.
@@ -45,7 +40,6 @@ issue: null
 ```meta
 status: active
 related: [".arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 - **No account required** for personal use in standalone mode.
@@ -61,7 +55,6 @@ error-contract ADRs apply (see `.arc42/09-architecture-decisions.md`).
 ```meta
 status: active
 related: [".arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Monitoring dashboards read telemetry signals from Application Insights (errors,
@@ -73,7 +66,6 @@ follows the organization's OpenTelemetry guidance.
 ```meta
 status: active
 related: [".arc42/12-glossary.md"]
-issue: null
 ```
 
 The vocabulary exchanged across all applications and domains:

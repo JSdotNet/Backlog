@@ -2,8 +2,6 @@
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 Known open questions, risks, and debt carried by the current architecture. These are
@@ -16,7 +14,6 @@ here rather than restated.
 ```meta
 status: draft
 related: [".arc42/03-context-and-scope.md#business-context"]
-issue: null
 ```
 
 | # | Question / gap | Risk if unresolved |
@@ -31,7 +28,6 @@ issue: null
 ```meta
 status: draft
 related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
-issue: null
 ```
 
 | # | Risk | Mitigation direction |
@@ -45,8 +41,6 @@ issue: null
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 No implementation debt exists yet — the system is at the architecture-setup stage.

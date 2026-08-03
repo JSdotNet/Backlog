@@ -3,7 +3,6 @@
 ```meta
 status: active
 related: [".arc42/08-crosscutting-concepts.md#shared-data-types"]
-issue: null
 ```
 
 Ubiquitous terms used across Prompt Backlog. Domain-specific vocabulary is owned per
@@ -14,8 +13,6 @@ data types. Keep it aligned with the `.domain` ubiquitous language.
 
 ```meta
 status: active
-related: []
-issue: null
 ```
 
 | Term | Definition |
@@ -38,7 +35,6 @@ issue: null
 ```meta
 status: active
 related: [".arc42/08-crosscutting-concepts.md#shared-data-types"]
-issue: null
 ```
 
 | Type | Meaning |

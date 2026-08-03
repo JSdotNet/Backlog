@@ -3,7 +3,6 @@
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md"]
-issue: null
 ```
 
 Key runtime scenarios that exercise the building blocks from chapter 05 and show how
@@ -14,7 +13,6 @@ the local-first and thin-cloud strategies play out dynamically.
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md#desktop-app"]
-issue: null
 ```
 
 Creating a backlog entry writes markdown locally first, then asynchronously creates
@@ -52,7 +50,6 @@ sequenceDiagram
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md#cloud-service"]
-issue: null
 ```
 
 In connected mode the desktop pushes state snapshots to the cloud, the phone pulls
@@ -89,7 +86,6 @@ sequenceDiagram
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md#mobile-app"]
-issue: null
 ```
 
 Captures are stored locally first and flushed to the cloud when the network is
@@ -127,7 +123,6 @@ sequenceDiagram
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md#mobile-app"]
-issue: null
 ```
 
 ```mermaid
@@ -154,7 +149,6 @@ stateDiagram-v2
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md#ide-extensions"]
-issue: null
 ```
 
 Selecting code in the IDE captures it with repo context (file, line, branch) into the

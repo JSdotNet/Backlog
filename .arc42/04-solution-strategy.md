@@ -3,7 +3,6 @@
 ```meta
 status: active
 related: [".arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 The core strategic decisions that turn the goals and constraints of chapters 01–02
@@ -14,7 +13,6 @@ into a coherent architecture.
 ```meta
 status: active
 related: [".arc42/02-constraints.md#technical-constraints"]
-issue: null
 ```
 
 The desktop app is fully functional standalone and owns the canonical data:
@@ -37,7 +35,6 @@ This directly serves quality goals 1 (availability) and 2 (credential privacy) i
 ```meta
 status: active
 related: [".arc42/01-introduction-and-goals.md#requirements-overview"]
-issue: null
 ```
 
 The system is split into independent functional domains (Capture, Inbox, Backlog,
@@ -52,7 +49,6 @@ domains without owning domain lifecycle rules.
 ```meta
 status: active
 related: [".arc42/07-deployment-view.md#cloud-deployment-azure"]
-issue: null
 ```
 
 Responsibilities are deliberately pushed to the desktop; the cloud is minimized:
@@ -70,7 +66,6 @@ Responsibilities are deliberately pushed to the desktop; the cloud is minimized:
 ```meta
 status: active
 related: [".arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 | Channel | Candidate stack |
@@ -89,7 +84,6 @@ per platform and are intentionally not governed by the .NET ADRs.
 ```meta
 status: active
 related: [".arc42/08-crosscutting-concepts.md"]
-issue: null
 ```
 
 Storage & sync (markdown canonical, last-write-wins on edits, always-create on new

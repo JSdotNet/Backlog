@@ -3,7 +3,6 @@
 ```meta
 status: draft
 related: [".arc42/01-introduction-and-goals.md#quality-goals"]
-issue: null
 ```
 
 Refines the quality goals from chapter 01 into concrete, testable scenarios. Marked
@@ -13,8 +12,6 @@ Refines the quality goals from chapter 01 into concrete, testable scenarios. Mar
 
 ```meta
 status: draft
-related: []
-issue: null
 ```
 
 | # | Quality attribute | Scenario | Target |

@@ -2,8 +2,6 @@
 
 ```meta
 status: active
-related: []
-issue: null
 ```
 
 Constraints the architecture must respect. They are stable design boundaries, not
@@ -14,7 +12,6 @@ decisions open for reconsideration per feature.
 ```meta
 status: active
 related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
-issue: null
 ```
 
 | Constraint | Implication |
@@ -30,8 +27,6 @@ issue: null
 
 ```meta
 status: active
-related: []
-issue: null
 ```
 
 | Constraint | Implication |

@@ -2,8 +2,6 @@
 
 ```meta
 status: active
-related: []
-issue: null
 ```
 
 Prompt Backlog's boundary, the external systems it depends on, and the internal
@@ -14,7 +12,6 @@ domain boundaries that shape its scope.
 ```meta
 status: active
 related: [".arc42/01-introduction-and-goals.md#requirements-overview"]
-issue: null
 ```
 
 ```mermaid
@@ -63,8 +60,6 @@ becomes independently owned (tracked in
 
 ```meta
 status: active
-related: []
-issue: null
 ```
 
 | External system | Direction | Interface | Purpose |
@@ -85,7 +80,6 @@ desktop workers**, so their credentials never leave the user's machine.
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md#container-view"]
-issue: null
 ```
 
 Three cross-domain access channels plus one optional platform component are in scope:

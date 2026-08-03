@@ -2,8 +2,6 @@
 
 ```meta
 status: active
-related: []
-issue: null
 ```
 
 Static decomposition of Prompt Backlog, from the system-level container view down to
@@ -14,7 +12,6 @@ the internal structure of each access channel.
 ```meta
 status: active
 related: [".arc42/03-context-and-scope.md#access-channels-scope"]
-issue: null
 ```
 
 ```mermaid
@@ -156,7 +153,6 @@ flowchart TB
 ```meta
 status: active
 related: [".arc42/06-runtime-view.md#backlog-entry-to-github-issue"]
-issue: null
 ```
 
 Local-first client for Windows, macOS, and Linux. Serves Inbox, Backlog Management,
@@ -235,7 +231,6 @@ fetches), and give the user full control over frequency and retry behavior.
 ```meta
 status: active
 related: [".arc42/06-runtime-view.md#mobile-capture-and-sync", ".arc42/06-runtime-view.md#sync-item-lifecycle"]
-issue: null
 ```
 
 Mobile-first, offline-first capture app for iOS and Android. Serves Capture, Inbox,
@@ -276,7 +271,6 @@ graph TB
 ```meta
 status: active
 related: [".arc42/06-runtime-view.md#ide-context-aware-capture"]
-issue: null
 ```
 
 Repo-aware integrations for VS Code and Visual Studio. Serve Inbox (capture intake),
@@ -329,7 +323,6 @@ graph TB
 ```meta
 status: active
 related: [".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".arc42/07-deployment-view.md#cloud-deployment-azure"]
-issue: null
 ```
 
 A thin sync and coordination layer — deliberately not the backbone. It coordinates
