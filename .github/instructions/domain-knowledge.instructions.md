@@ -64,12 +64,21 @@ using the templates below — do not invent a different file set.
   chapter in `domain.md`, and every Feature/Sub-feature chapter in
   `features.md`, must carry the metadata block described in
   `.github/instructions/chapter-metadata.instructions.md` (status,
-  dependencies, cross-folder tags, GitHub issue link) — required for the
-  planned visualization tooling.
+  cross-folder tags, GitHub issue link) — required for the planned
+  visualization tooling.
 - The metadata block's `status` field uses `draft`, `proposed`, `active`, or
   `deprecated` in this folder. Domain knowledge describes the current (or
   agreed-future) model, not a task queue, so there is no `done`: `active`
   means "this is the current model", `deprecated` means superseded.
+- `features.md` Feature/Sub-feature chapters may carry an additional
+  `depends-on` field: a list of `<path>#<heading-slug>` references (see
+  `.github/instructions/chapter-metadata.instructions.md` for the reference
+  format) to other features that must be delivered first, e.g.
+  `depends-on: [.domain/order-management/features.md#feature-refunds]`.
+  `domain.md` chapters (Aggregates, Domain Services, Shared Value
+  Objects/Enums) do not use `depends-on` — they describe standing structure,
+  and their relationships belong in `model.md`/`dependencies.md` or the
+  `related` field instead.
 
 ## Templates
 

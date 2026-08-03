@@ -33,13 +33,17 @@ Place the block immediately after the heading, before any prose:
 
 \`\`\`meta
 status: active
-depends-on: []
 related: []
 issue: null
 \`\`\`
 
 Prose for this chapter starts here.
 ```
+
+Some folders define additional relation fields beyond `related` (e.g.
+`depends-on`, `implements`) — see that folder's own instructions file for
+which extra fields apply and what they mean. Any such field uses the same
+reference format described below.
 
 ### Chapter references
 
@@ -50,8 +54,8 @@ of its heading text: `<path>#<heading-slug>`, e.g.
 renders as the heading's link target, so it stays correct automatically when
 read in any Markdown viewer and never needs to be kept in sync by hand.
 
-Use this `<path>#<heading-slug>` form as the entries in `depends-on` and
-`related` below.
+Use this `<path>#<heading-slug>` form as the entries in `related` and in any
+folder-specific relation field (`depends-on`, `implements`, etc.).
 
 ### Fields
 
@@ -61,31 +65,29 @@ Use this `<path>#<heading-slug>` form as the entries in `depends-on` and
   `.github/instructions/arc42-knowledge.instructions.md`, or
   `.github/instructions/backlog-knowledge.instructions.md` for the value set
   that applies to the folder you're editing.
-- **depends-on** (optional, default `[]`, `.domain/features.md` and
-  `.backlog` chapters only) — list of `<path>#<heading-slug>` references
-  that this chapter structurally or sequentially depends on (e.g. a backlog
-  item that can't start before another finishes, or a feature that requires
-  another feature to be delivered first). Not used in `.arc42` or in
-  `domain.md` (Aggregates/Domain Services/Shared Value Objects/Shared Enums)
-  — those describe standing structure, and their relationships belong in
-  `model.md`/`dependencies.md` or the `related` field, not a dependency
-  queue.
 - **related** (optional, default `[]`) — list of `<path>#<heading-slug>`
   references this chapter points to for context, without a hard dependency
   (e.g. a backlog item linking to the domain aggregate it changes, or an
   arc42 section linking to a domain feature it realizes). This is the
-  general-purpose cross-folder tag mechanism.
+  general-purpose cross-folder tag mechanism, available in every folder.
 - **issue** (optional, default `null`) — URL (or `owner/repo#number`
   shorthand) of the GitHub issue tracking this chapter, if one exists. Keep
   this in sync when using `create-github-issue` / `update-github-issue`.
 
+Folder-specific relation fields (e.g. `depends-on` on features/backlog
+chapters, `implements` on backlog chapters) are documented in that folder's
+own instructions file, not here — this file only defines the fields common
+to every folder.
+
 ## Authoring guidance
 
-- If a chapter heading is renamed, update every `depends-on`/`related` entry
-  elsewhere that references its old `<path>#<heading-slug>` in the same
-  change.
-- Do not invent additional top-level fields without updating this file
-  first — the visualization tool depends on a fixed schema.
-- Empty `depends-on`/`related` lists are written as `[]`, not omitted,
-  so the metadata block shape stays uniform across chapters.
+- If a chapter heading is renamed, update every relation field entry
+  elsewhere (`related` or any folder-specific field) that references its
+  old `<path>#<heading-slug>` in the same change.
+- Do not invent additional top-level fields without updating either this
+  file (for a universal field) or the relevant folder's instructions file
+  (for a folder-specific field) first — the visualization tool depends on a
+  fixed schema.
+- Empty list-valued fields are written as `[]`, not omitted, so the metadata
+  block shape stays uniform across chapters.
 - `issue: null` (not omitted) when no issue exists yet, for the same reason.

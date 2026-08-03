@@ -56,6 +56,7 @@ folder is organized by concern, not by item type.
 \`\`\`meta
 status: draft
 depends-on: []
+implements: []
 related: []
 issue: null
 \`\`\`
@@ -67,6 +68,7 @@ Description of the item.
 \`\`\`meta
 status: draft
 depends-on: []
+implements: []
 related: []
 issue: null
 \`\`\`
@@ -100,5 +102,21 @@ Description of the sub-item.
   ad hoc from these files alone.
 - Every Item and Sub-item must carry the metadata block described in
   `.github/instructions/chapter-metadata.instructions.md` (status,
-  dependencies, cross-folder tags, GitHub issue link) — required for the
-  planned visualization tooling.
+  cross-folder tags, GitHub issue link) — required for the planned
+  visualization tooling.
+- `depends-on` (optional, default `[]`) — list of `<path>#<heading-slug>`
+  references (see `.github/instructions/chapter-metadata.instructions.md`
+  for the reference format) to other backlog items/sub-items that must
+  finish before this one can start, e.g.
+  `depends-on: [.backlog/domain-order-management.md#split-order]`. Use it
+  only for sequencing between backlog items — not for pointing at
+  `.domain`/`.arc42` content, which is what `implements` is for.
+- `implements` (optional, default `[]`) — list of `<path>#<heading-slug>`
+  references to the `.domain` (Feature/Sub-feature or Aggregate/Domain
+  Service) or `.arc42` chapter this item realizes, e.g.
+  `implements: [.domain/order-management/features.md#feature-checkout]`.
+  This is the standard way to relate a backlog item to the feature, domain
+  chapter, or architecture chapter it delivers — prefer it over the
+  general-purpose `related` field for this specific relationship, since it
+  gives the visualization tool an explicit "implements" edge rather than a
+  generic tag.

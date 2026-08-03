@@ -56,8 +56,10 @@ when a chapter has real content — do not scaffold empty placeholders):
 - Each file's top-level chapter, and any independently trackable ## section
   inside it, must carry the metadata block described in
   `.github/instructions/chapter-metadata.instructions.md` (status,
-  dependencies, cross-folder tags, GitHub issue link) — required for the
-  planned visualization tooling.
+  cross-folder tags, GitHub issue link) — required for the planned
+  visualization tooling. There is no `depends-on` field in `.arc42` —
+  architecture chapters describe standing structure, not sequenced work;
+  cross-references use `related` instead.
 - The metadata block's `status` field uses `draft`, `proposed`, `active`, or
   `deprecated` in this folder. Architecture documentation describes a
   standing decision/structure, not a task, so there is no `done`.
