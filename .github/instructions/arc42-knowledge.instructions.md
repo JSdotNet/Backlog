@@ -53,3 +53,36 @@ when a chapter has real content — do not scaffold empty placeholders):
   context in `.domain`.
 - Prefer diagrams (Mermaid) over long prose for building-block and runtime
   views.
+- Each file's top-level chapter, and any independently trackable ## section
+  inside it, must carry the metadata block described in
+  `.github/instructions/chapter-metadata.instructions.md` (status,
+  dependencies, cross-folder tags, GitHub issue link) — required for the
+  planned visualization tooling.
+
+## Template
+
+```markdown
+# <NN>. <Chapter Name>
+
+\`\`\`meta
+id: arc42:<nn>-<chapter-slug>#<chapter-slug>
+status: draft
+depends-on: []
+related: []
+issue: null
+\`\`\`
+
+Chapter content.
+
+## <Section Name>
+
+\`\`\`meta
+id: arc42:<nn>-<chapter-slug>#<section-slug>
+status: draft
+depends-on: []
+related: []
+issue: null
+\`\`\`
+
+Section content.
+```

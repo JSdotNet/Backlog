@@ -53,12 +53,27 @@ filename or folder structure.
 
 ## <Item Name>
 
+\`\`\`meta
+id: backlog:<concern-type>-<concern-slug>#<item-slug>
+status: draft
+depends-on: []
+related: []
+issue: null
+\`\`\`
+
 Type: epic | feature | story | bug
-Status: draft | ready | in progress | done
 
 Description of the item.
 
 ### <Sub-item Name>
+
+\`\`\`meta
+id: backlog:<concern-type>-<concern-slug>#<item-slug>-<sub-item-slug>
+status: draft
+depends-on: []
+related: []
+issue: null
+\`\`\`
 
 Description of the sub-item.
 
@@ -78,10 +93,13 @@ Description of the sub-item.
 - Use `create-github-issue` / `update-github-issue` to publish or sync a
   backlog artifact to GitHub Issues once it is ready — do not hand-author
   issue bodies that diverge from the saved artifact.
-- Keep item status current (e.g. a short status line: draft / ready / in
-  progress / done) so the folder reflects real backlog state, not just
-  history.
+- Keep item status current in the `meta` block's `status` field so the
+  folder reflects real backlog state, not just history.
 - For end-to-end feature or bug work spanning planning through
   implementation, route through `orch-feature` / `orch-bug` per
   `.github/instructions/workflow-routing.instructions.md` rather than working
   ad hoc from these files alone.
+- Every Item and Sub-item must carry the metadata block described in
+  `.github/instructions/chapter-metadata.instructions.md` (status,
+  dependencies, cross-folder tags, GitHub issue link) — required for the
+  planned visualization tooling.

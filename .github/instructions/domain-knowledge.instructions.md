@@ -60,6 +60,12 @@ using the templates below — do not invent a different file set.
   per `.github/instructions/workflow-routing.instructions.md`.
 - Keep these documents current as the model evolves — treat drift between
   `.domain` and the actual code/domain-design MCP guidance as a defect.
+- Every Aggregate, Domain Service, Shared Value Objects, and Shared Enums
+  chapter in `domain.md`, and every Feature/Sub-feature chapter in
+  `features.md`, must carry the metadata block described in
+  `.github/instructions/chapter-metadata.instructions.md` (status,
+  dependencies, cross-folder tags, GitHub issue link) — required for the
+  planned visualization tooling.
 
 ## Templates
 
@@ -74,6 +80,14 @@ using the templates below — do not invent a different file set.
 > get their own chapter at the end instead of being duplicated.
 
 ## Aggregate: <AggregateName>
+
+\`\`\`meta
+id: domain:<context-slug>#aggregate-<aggregate-slug>
+status: draft
+depends-on: []
+related: []
+issue: null
+\`\`\`
 
 Responsibility, lifecycle, and invariants of the aggregate (what it
 guarantees to be true at all times, and why it exists as a consistency
@@ -103,10 +117,26 @@ Values and what each one means in business terms.
 
 ## Domain Service: <DomainServiceName>
 
+\`\`\`meta
+id: domain:<context-slug>#service-<service-slug>
+status: draft
+depends-on: []
+related: []
+issue: null
+\`\`\`
+
 Responsibility of the service, which aggregates/policies it coordinates, and
 why the behavior does not belong on a single aggregate.
 
 ## Shared Value Objects
+
+\`\`\`meta
+id: domain:<context-slug>#shared-value-objects
+status: draft
+depends-on: []
+related: []
+issue: null
+\`\`\`
 
 > Value Objects used by more than one aggregate in this bounded context.
 
@@ -115,6 +145,14 @@ why the behavior does not belong on a single aggregate.
 Meaning, equality semantics, validation rules, and which aggregates use it.
 
 ## Shared Enums
+
+\`\`\`meta
+id: domain:<context-slug>#shared-enums
+status: draft
+depends-on: []
+related: []
+issue: null
+\`\`\`
 
 > Enums used by more than one aggregate in this bounded context.
 
@@ -133,9 +171,25 @@ Values and what each one means in business terms, and which aggregates use it.
 
 ## Feature: <FeatureName>
 
+\`\`\`meta
+id: domain:<context-slug>#feature-<feature-slug>
+status: draft
+depends-on: []
+related: []
+issue: null
+\`\`\`
+
 Short description of the capability and the business value it delivers.
 
 ### Sub-feature: <SubFeatureName>
+
+\`\`\`meta
+id: domain:<context-slug>#feature-<feature-slug>-<sub-feature-slug>
+status: draft
+depends-on: []
+related: []
+issue: null
+\`\`\`
 
 Description of the sub-feature and how it fits under the parent feature.
 

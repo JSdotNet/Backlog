@@ -1,0 +1,84 @@
+---
+applyTo: ".domain/**,.arc42/**,.backlog/**"
+description: Common per-chapter metadata convention for .domain, .arc42, and .backlog, so a future visualization tool can parse status, dependencies, and cross-references.
+---
+
+# Chapter metadata
+
+`.domain`, `.arc42`, and `.backlog` are intended to be read by a
+visualization tool (to be built later), not just by humans. To make that
+possible, every **chapter** in these folders carries a small, parseable
+metadata block directly under its heading, in a fenced `meta` (YAML) code
+block.
+
+A "chapter" here means any heading that these folders' own instructions
+already treat as an addressable unit:
+
+- `.domain/<context>/domain.md` — each Aggregate, Domain Service, and each
+  Shared Value Objects / Shared Enums chapter. Entity/Value Object/Enum
+  sub-chapters inside an Aggregate use the metadata block too if they need
+  independent status/dependencies/cross-references; otherwise they can be
+  covered by their parent Aggregate's block.
+- `.domain/<context>/features.md` — each Feature and Sub-feature.
+- `.arc42/<nn>-<name>.md` — the file's top-level chapter, and any ## section
+  inside it that is independently trackable.
+- `.backlog/<concern-type>-<concern-slug>.md` — each Item and Sub-item.
+
+## Metadata block format
+
+Place the block immediately after the heading, before any prose:
+
+```markdown
+## <Chapter Heading>
+
+\`\`\`meta
+id: domain:order-management#aggregate-order
+status: active
+depends-on: []
+related: []
+issue: null
+\`\`\`
+
+Prose for this chapter starts here.
+```
+
+### Fields
+
+- **id** (required) — globally unique, stable identifier for this chapter,
+  used as the target of cross-references from anywhere in `.domain`,
+  `.arc42`, or `.backlog`. Format:
+  `<folder>:<file-slug>#<chapter-slug>`, where:
+  - `<folder>` is `domain`, `arc42`, or `backlog`.
+  - `<file-slug>` is the file name without extension (e.g. bounded context
+    folder name for `.domain`, arc42 file name for `.arc42`, concern file
+    name for `.backlog`).
+  - `<chapter-slug>` is a kebab-case slug of the heading text.
+  - Example: `backlog:domain-order-management#split-order`.
+- **status** (required) — lifecycle state of this chapter's content. Use one
+  of: `draft`, `proposed`, `active`, `deprecated`, `done`. Pick the closest
+  match for the chapter's kind (e.g. a backlog item's `done` means
+  delivered; a domain aggregate's `deprecated` means superseded).
+- **depends-on** (optional, default `[]`) — list of chapter `id`s that this
+  chapter structurally or sequentially depends on (e.g. a backlog item that
+  can't start before another finishes, or a domain service that requires an
+  aggregate to exist first). Same-folder or cross-folder references are both
+  valid.
+- **related** (optional, default `[]`) — list of chapter `id`s this chapter
+  points to for context, without a hard dependency (e.g. a backlog item
+  linking to the domain aggregate it changes, or an arc42 section linking to
+  a domain feature it realizes). This is the general-purpose cross-folder
+  tag mechanism.
+- **issue** (optional, default `null`) — URL (or `owner/repo#number`
+  shorthand) of the GitHub issue tracking this chapter, if one exists. Keep
+  this in sync when using `create-github-issue` / `update-github-issue`.
+
+## Authoring guidance
+
+- Keep `id` stable once assigned — other chapters' `depends-on`/`related`
+  lists reference it. If a chapter is renamed, update its `id`'s
+  `chapter-slug` and fix incoming references in the same change.
+- Do not invent additional top-level fields without updating this file
+  first — the visualization tool depends on a fixed schema.
+- Empty `depends-on`/`related` lists are written as `[]`, not omitted,
+  so the metadata block shape stays uniform across chapters.
+- `issue: null` (not omitted) when no issue exists yet, for the same reason.
