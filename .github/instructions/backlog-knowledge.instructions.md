@@ -5,9 +5,10 @@ description: Structure and authoring rules for the backlog work-item knowledge f
 
 # Backlog knowledge (`.backlog`)
 
-`.backlog` tracks planned and in-progress work — epics, features, stories,
-and bugs — as durable Markdown artifacts, separate from whatever issue
-tracker or project board is in use day to day.
+`.backlog` tracks planned and in-progress work as durable Markdown
+artifacts, separate from whatever issue tracker or project board is in use
+day to day. Items are not typed as epics/features/stories/bugs — a work
+item is simply an item, optionally broken into sub-items.
 
 ## Relationship to other knowledge folders
 
@@ -44,9 +45,8 @@ sub-items nested as sub-chapters within the same file — the same way
   matches the relevant `.arc42` chapter/topic
   (e.g. `architecture-observability.md`).
 
-Do not sort items into type-named subfolders (`epics/`, `bugs/`, etc.) —
-type is a property of the item (see template below), not part of the
-filename or folder structure.
+Do not sort items into type-named subfolders (`epics/`, `bugs/`, etc.) — the
+folder is organized by concern, not by item type.
 
 ```markdown
 # <Concern Name>
@@ -60,8 +60,6 @@ depends-on: []
 related: []
 issue: null
 \`\`\`
-
-Type: epic | feature | story | bug
 
 Description of the item.
 
@@ -89,14 +87,15 @@ Description of the sub-item.
 ## Authoring guidance
 
 - Use `write-epic`, `write-story`, and `write-bug` skills to draft new items
-  in a consistent format before saving them here.
+  in a consistent format before saving them here — these skills shape
+  content quality, not a stored type label.
 - Use `create-github-issue` / `update-github-issue` to publish or sync a
   backlog artifact to GitHub Issues once it is ready — do not hand-author
   issue bodies that diverge from the saved artifact.
 - Keep item status current in the `meta` block's `status` field so the
   folder reflects real backlog state, not just history.
-- For end-to-end feature or bug work spanning planning through
-  implementation, route through `orch-feature` / `orch-bug` per
+- For end-to-end work spanning planning through implementation, route
+  through `orch-feature` / `orch-bug` per
   `.github/instructions/workflow-routing.instructions.md` rather than working
   ad hoc from these files alone.
 - Every Item and Sub-item must carry the metadata block described in
