@@ -1,6 +1,11 @@
+---
+applyTo: ".arc42/**"
+description: Structure and authoring rules for the arc42 architecture documentation folder.
+---
+
 # Architecture documentation (`.arc42`)
 
-This folder holds arc42-structured architecture documentation for the system:
+`.arc42` holds arc42-structured architecture documentation for the system:
 context, building blocks, runtime views, cross-cutting concerns, and
 architecture decisions, at the level of the whole system or a major
 deployable unit.

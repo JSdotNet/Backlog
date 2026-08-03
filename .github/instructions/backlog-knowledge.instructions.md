@@ -1,6 +1,11 @@
+---
+applyTo: ".backlog/**"
+description: Structure and authoring rules for the backlog work-item knowledge folder.
+---
+
 # Backlog knowledge (`.backlog`)
 
-This folder tracks planned and in-progress work — epics, features, stories,
+`.backlog` tracks planned and in-progress work — epics, features, stories,
 and bugs — as durable Markdown artifacts, separate from whatever issue
 tracker or project board is in use day to day.
 
