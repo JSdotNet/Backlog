@@ -54,7 +54,6 @@ folder is organized by concern, not by item type.
 ## <Item Name>
 
 \`\`\`meta
-id: backlog:<concern-type>-<concern-slug>#<item-slug>
 status: draft
 depends-on: []
 related: []
@@ -66,7 +65,6 @@ Description of the item.
 ### <Sub-item Name>
 
 \`\`\`meta
-id: backlog:<concern-type>-<concern-slug>#<item-slug>-<sub-item-slug>
 status: draft
 depends-on: []
 related: []

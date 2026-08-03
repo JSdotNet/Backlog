@@ -82,7 +82,6 @@ using the templates below — do not invent a different file set.
 ## Aggregate: <AggregateName>
 
 \`\`\`meta
-id: domain:<context-slug>#aggregate-<aggregate-slug>
 status: draft
 depends-on: []
 related: []
@@ -118,7 +117,6 @@ Values and what each one means in business terms.
 ## Domain Service: <DomainServiceName>
 
 \`\`\`meta
-id: domain:<context-slug>#service-<service-slug>
 status: draft
 depends-on: []
 related: []
@@ -131,7 +129,6 @@ why the behavior does not belong on a single aggregate.
 ## Shared Value Objects
 
 \`\`\`meta
-id: domain:<context-slug>#shared-value-objects
 status: draft
 depends-on: []
 related: []
@@ -147,7 +144,6 @@ Meaning, equality semantics, validation rules, and which aggregates use it.
 ## Shared Enums
 
 \`\`\`meta
-id: domain:<context-slug>#shared-enums
 status: draft
 depends-on: []
 related: []
@@ -172,7 +168,6 @@ Values and what each one means in business terms, and which aggregates use it.
 ## Feature: <FeatureName>
 
 \`\`\`meta
-id: domain:<context-slug>#feature-<feature-slug>
 status: draft
 depends-on: []
 related: []
@@ -184,7 +179,6 @@ Short description of the capability and the business value it delivers.
 ### Sub-feature: <SubFeatureName>
 
 \`\`\`meta
-id: domain:<context-slug>#feature-<feature-slug>-<sub-feature-slug>
 status: draft
 depends-on: []
 related: []

@@ -65,7 +65,6 @@ when a chapter has real content — do not scaffold empty placeholders):
 # <NN>. <Chapter Name>
 
 \`\`\`meta
-id: arc42:<nn>-<chapter-slug>#<chapter-slug>
 status: draft
 depends-on: []
 related: []
@@ -77,7 +76,6 @@ Chapter content.
 ## <Section Name>
 
 \`\`\`meta
-id: arc42:<nn>-<chapter-slug>#<section-slug>
 status: draft
 depends-on: []
 related: []

@@ -32,7 +32,6 @@ Place the block immediately after the heading, before any prose:
 ## <Chapter Heading>
 
 \`\`\`meta
-id: domain:order-management#aggregate-order
 status: active
 depends-on: []
 related: []
@@ -42,41 +41,43 @@ issue: null
 Prose for this chapter starts here.
 ```
 
+### Chapter references
+
+Chapters are not given a separate stored id. A chapter is addressed by its
+file path (relative to the repository root) plus a GitHub-style anchor slug
+of its heading text: `<path>#<heading-slug>`, e.g.
+`.domain/order-management/domain.md#aggregate-order`. This is exactly what
+renders as the heading's link target, so it stays correct automatically when
+read in any Markdown viewer and never needs to be kept in sync by hand.
+
+Use this `<path>#<heading-slug>` form as the entries in `depends-on` and
+`related` below.
+
 ### Fields
 
-- **id** (required) — globally unique, stable identifier for this chapter,
-  used as the target of cross-references from anywhere in `.domain`,
-  `.arc42`, or `.backlog`. Format:
-  `<folder>:<file-slug>#<chapter-slug>`, where:
-  - `<folder>` is `domain`, `arc42`, or `backlog`.
-  - `<file-slug>` is the file name without extension (e.g. bounded context
-    folder name for `.domain`, arc42 file name for `.arc42`, concern file
-    name for `.backlog`).
-  - `<chapter-slug>` is a kebab-case slug of the heading text.
-  - Example: `backlog:domain-order-management#split-order`.
 - **status** (required) — lifecycle state of this chapter's content. Use one
   of: `draft`, `proposed`, `active`, `deprecated`, `done`. Pick the closest
   match for the chapter's kind (e.g. a backlog item's `done` means
   delivered; a domain aggregate's `deprecated` means superseded).
-- **depends-on** (optional, default `[]`) — list of chapter `id`s that this
-  chapter structurally or sequentially depends on (e.g. a backlog item that
-  can't start before another finishes, or a domain service that requires an
-  aggregate to exist first). Same-folder or cross-folder references are both
-  valid.
-- **related** (optional, default `[]`) — list of chapter `id`s this chapter
-  points to for context, without a hard dependency (e.g. a backlog item
-  linking to the domain aggregate it changes, or an arc42 section linking to
-  a domain feature it realizes). This is the general-purpose cross-folder
-  tag mechanism.
+- **depends-on** (optional, default `[]`) — list of `<path>#<heading-slug>`
+  references that this chapter structurally or sequentially depends on (e.g.
+  a backlog item that can't start before another finishes, or a domain
+  service that requires an aggregate to exist first). Same-folder or
+  cross-folder references are both valid.
+- **related** (optional, default `[]`) — list of `<path>#<heading-slug>`
+  references this chapter points to for context, without a hard dependency
+  (e.g. a backlog item linking to the domain aggregate it changes, or an
+  arc42 section linking to a domain feature it realizes). This is the
+  general-purpose cross-folder tag mechanism.
 - **issue** (optional, default `null`) — URL (or `owner/repo#number`
   shorthand) of the GitHub issue tracking this chapter, if one exists. Keep
   this in sync when using `create-github-issue` / `update-github-issue`.
 
 ## Authoring guidance
 
-- Keep `id` stable once assigned — other chapters' `depends-on`/`related`
-  lists reference it. If a chapter is renamed, update its `id`'s
-  `chapter-slug` and fix incoming references in the same change.
+- If a chapter heading is renamed, update every `depends-on`/`related` entry
+  elsewhere that references its old `<path>#<heading-slug>` in the same
+  change.
 - Do not invent additional top-level fields without updating this file
   first — the visualization tool depends on a fixed schema.
 - Empty `depends-on`/`related` lists are written as `[]`, not omitted,
