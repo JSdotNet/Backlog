@@ -56,19 +56,6 @@ classDiagram
     KnowledgeNote "1" *-- "0..*" BacklogLink : linked to
 ```
 
-## Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Created : Captured from Inbox or manually
-    Created --> Organized : Assigned topic and PARA category
-    Organized --> Linked : Linked to backlog entries or other notes
-    Linked --> Organized : Links updated
-    Organized --> Archived : Note no longer active
-    Linked --> Archived : Note no longer active
-    Archived --> Organized : Restored
-```
-
 ## Relationship notes
 
 - `KnowledgeNote` is the aggregate root; `ProjectRef`, `Tag`, and `BacklogLink`
@@ -76,6 +63,3 @@ stateDiagram-v2
 - `BacklogLink` references a Backlog Entry by id only, never by object reference,
   so the two contexts stay decoupled; the Cross-Linking service keeps both
   directions consistent.
-- The lifecycle states (Created/Organized/Linked/Archived) are workflow phases,
-  not a stored enum field; `PARA Category` = `archive` is the persisted archived
-  state.

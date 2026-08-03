@@ -56,27 +56,10 @@ classDiagram
     InboxItem "1" *-- "0..1" RoutingTarget : routed to
 ```
 
-## Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Unprocessed : Capture delivers item
-    Unprocessed --> Triaged : Triage action taken
-    Triaged --> Routed : Route to Backlog or Knowledge
-    Triaged --> Deferred : Defer for later review
-    Triaged --> Archived : Dismiss / not actionable
-    Deferred --> Unprocessed : Review date reached
-    Deferred --> Archived : Dismissed after deferral
-    Routed --> [*]
-    Archived --> [*]
-```
-
 ## Relationship notes
 
 - `InboxItem` is the aggregate root; `Tag` and `RoutingTarget` are owned value
-  objects. `Routed` is not a stored status value — it is the terminal outcome of
-  triage represented by the presence of a `RoutingTarget` plus emission of
-  `ItemTriaged`; the persisted `status` remains `triaged`.
+  objects.
 - `captured_at` is set by Capture and preserved; `received_at` is set by the
   Inbox on intake — the two are kept distinct on purpose.
 - Routing does not embed the target aggregate; it records the destination

@@ -78,21 +78,6 @@ classDiagram
     SubItem --> SubItemStatus : has status
 ```
 
-## Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Draft : Created
-    Draft --> Ready : Refined and actionable
-    Ready --> InProgress : Work started (EntryProjected)
-    InProgress --> Done : Work completed (EntryCompleted)
-    Done --> Archived : Archived
-    Archived --> Draft : Restored
-    Ready --> Draft : Revision needed
-    InProgress --> Ready : Paused
-    Done --> InProgress : Reopened
-```
-
 ## Relationship notes
 
 - `BacklogEntry` is the aggregate root and the only consistency boundary.
@@ -101,5 +86,3 @@ stateDiagram-v2
 - `repo_ids` is a plain list of repository identifiers, not object references —
   Backlog stays decoupled from Repository Management. Projection turns each
   `repo_id` into a `ProjectionRef` when the entry starts work.
-- The `Ready → InProgress` transition emits `EntryProjected` (one artifact per
-  `repo_id`); `Done` emits `EntryCompleted` to close all projections.

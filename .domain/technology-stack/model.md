@@ -98,18 +98,6 @@ classDiagram
     Technology --> TechCategory : classified as
 ```
 
-## Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Beta : Proposed and added to registry
-    Beta --> Stable : Approved for portfolio use
-    Stable --> Deprecated : New version; EOL date + migration set
-    Deprecated --> Unsupported : EOL reached; exceptions flagged
-    Unsupported --> [*]
-    Stable --> Beta : Reverted to evaluation (edge case)
-```
-
 ## Relationship notes
 
 - `TechnologyRegistry` is the single aggregate root (global singleton).

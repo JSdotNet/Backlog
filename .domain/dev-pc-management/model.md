@@ -99,18 +99,6 @@ classDiagram
     Machine --> MachineStatus : has status
 ```
 
-## Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Online : Registers and sends heartbeat
-    Online --> Sleeping : OS sleeps (heartbeat pauses)
-    Sleeping --> Online : WoL received; heartbeat resumes
-    Online --> Offline : Heartbeat timeout
-    Sleeping --> Offline : Heartbeat timeout
-    Offline --> Online : Component restarts and heartbeats
-```
-
 ## Relationship notes
 
 - `MachineRegistry` is the single aggregate root (global singleton). `Machine` is

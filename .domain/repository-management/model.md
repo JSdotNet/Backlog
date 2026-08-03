@@ -98,21 +98,6 @@ classDiagram
     SecurityAlert --> Severity : rated
 ```
 
-## Health scoring
-
-```mermaid
-flowchart TD
-    Scan["Repository Scan"] --> Packages["Package freshness"]
-    Scan --> GitHub["GitHub metrics"]
-    Scan --> Coverage["Test coverage"]
-    Scan --> Security["Security alerts"]
-    Packages --> Score["HealthScore (0-100)"]
-    GitHub --> Score
-    Coverage --> Score
-    Security --> Score
-    Score --> Action["Recommendations to Monitoring / Backlog"]
-```
-
 ## Relationship notes
 
 - `RepositoryRegistry` is the single aggregate root (global singleton).
