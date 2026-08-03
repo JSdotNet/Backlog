@@ -22,28 +22,51 @@ tracker or project board is in use day to day.
 
 ```
 .backlog/
-  <item-slug>.md
+  <concern-type>-<concern-slug>.md
 ```
 
-Each file is one top-level work item (epic, feature, story, or bug), written
-as a chapter. Break the item into sub-items as sub-chapters within the same
-file, the same way `domain.md` nests Entities/Value Objects/Enums under
-their owning Aggregate — do not split sub-items into separate files or sort
-items into type-named subfolders.
+`.backlog` can hold multiple files, split by concern rather than by work
+item type. Each file groups the work items for one concern as chapters, with
+sub-items nested as sub-chapters within the same file — the same way
+`domain.md` nests Entities/Value Objects/Enums under their owning Aggregate.
+
+### Filename convention
+
+`<concern-type>-<concern-slug>.md`, where `concern-type` is one of:
+
+- `domain` — work scoped to one bounded context; `concern-slug` matches the
+  `.domain/<bounded-context-name>` folder name
+  (e.g. `domain-order-management.md`).
+- `feature` — work scoped to a cross-cutting feature that spans bounded
+  contexts; `concern-slug` is the feature name
+  (e.g. `feature-checkout.md`).
+- `architecture` — work scoped to an architectural concern; `concern-slug`
+  matches the relevant `.arc42` chapter/topic
+  (e.g. `architecture-observability.md`).
+
+Do not sort items into type-named subfolders (`epics/`, `bugs/`, etc.) —
+type is a property of the item (see template below), not part of the
+filename or folder structure.
 
 ```markdown
-# <Item Name>
+# <Concern Name>
+
+## <Item Name>
 
 Type: epic | feature | story | bug
 Status: draft | ready | in progress | done
 
 Description of the item.
 
-## <Sub-item Name>
+### <Sub-item Name>
 
 Description of the sub-item.
 
-## <Next Sub-item Name>
+### <Next Sub-item Name>
+
+...
+
+## <Next Item Name>
 
 ...
 ```
