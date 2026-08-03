@@ -22,18 +22,31 @@ tracker or project board is in use day to day.
 
 ```
 .backlog/
-  epics/
-    <epic-slug>.md
-  features/
-    <feature-slug>.md
-  stories/
-    <story-slug>.md
-  bugs/
-    <bug-slug>.md
+  <item-slug>.md
 ```
 
-Only create the subfolders you actually need; do not pre-create empty
-placeholders for work item types that don't yet exist.
+Each file is one top-level work item (epic, feature, story, or bug), written
+as a chapter. Break the item into sub-items as sub-chapters within the same
+file, the same way `domain.md` nests Entities/Value Objects/Enums under
+their owning Aggregate — do not split sub-items into separate files or sort
+items into type-named subfolders.
+
+```markdown
+# <Item Name>
+
+Type: epic | feature | story | bug
+Status: draft | ready | in progress | done
+
+Description of the item.
+
+## <Sub-item Name>
+
+Description of the sub-item.
+
+## <Next Sub-item Name>
+
+...
+```
 
 ## Authoring guidance
 
