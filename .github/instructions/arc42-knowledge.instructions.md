@@ -66,7 +66,6 @@ when a chapter has real content — do not scaffold empty placeholders):
 
 \`\`\`meta
 status: draft
-depends-on: []
 related: []
 issue: null
 \`\`\`
@@ -77,7 +76,6 @@ Chapter content.
 
 \`\`\`meta
 status: draft
-depends-on: []
 related: []
 issue: null
 \`\`\`

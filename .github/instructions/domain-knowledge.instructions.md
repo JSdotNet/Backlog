@@ -83,7 +83,6 @@ using the templates below — do not invent a different file set.
 
 \`\`\`meta
 status: draft
-depends-on: []
 related: []
 issue: null
 \`\`\`
@@ -118,7 +117,6 @@ Values and what each one means in business terms.
 
 \`\`\`meta
 status: draft
-depends-on: []
 related: []
 issue: null
 \`\`\`
@@ -130,7 +128,6 @@ why the behavior does not belong on a single aggregate.
 
 \`\`\`meta
 status: draft
-depends-on: []
 related: []
 issue: null
 \`\`\`
@@ -145,7 +142,6 @@ Meaning, equality semantics, validation rules, and which aggregates use it.
 
 \`\`\`meta
 status: draft
-depends-on: []
 related: []
 issue: null
 \`\`\`

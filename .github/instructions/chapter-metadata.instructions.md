@@ -67,11 +67,15 @@ Use this `<path>#<heading-slug>` form as the entries in `depends-on` and
   - `.backlog` — `draft`, `ready`, `in-progress`, `done`, `blocked`. Backlog
     items describe work to be executed, so status tracks task progress
     rather than content lifecycle.
-- **depends-on** (optional, default `[]`) — list of `<path>#<heading-slug>`
-  references that this chapter structurally or sequentially depends on (e.g.
-  a backlog item that can't start before another finishes, or a domain
-  service that requires an aggregate to exist first). Same-folder or
-  cross-folder references are both valid.
+- **depends-on** (optional, default `[]`, `.domain/features.md` and
+  `.backlog` chapters only) — list of `<path>#<heading-slug>` references
+  that this chapter structurally or sequentially depends on (e.g. a backlog
+  item that can't start before another finishes, or a feature that requires
+  another feature to be delivered first). Not used in `.arc42` or in
+  `domain.md` (Aggregates/Domain Services/Shared Value Objects/Shared Enums)
+  — those describe standing structure, and their relationships belong in
+  `model.md`/`dependencies.md` or the `related` field, not a dependency
+  queue.
 - **related** (optional, default `[]`) — list of `<path>#<heading-slug>`
   references this chapter points to for context, without a hard dependency
   (e.g. a backlog item linking to the domain aggregate it changes, or an
