@@ -93,6 +93,15 @@ instructions.
   `.github/instructions/chapter-metadata.instructions.md`. Only `status` is
   required; the optional cross-folder tags (`related`) and GitHub issue link
   (`issue`) are included only when they have a value.
+- Every file in `.domain` — `context-map.md` and, per bounded context,
+  `domain.md`, `features.md`, `model.md`, `flow.md` (when present),
+  `dependencies.md`, and `naming.md` — must also carry the file-level
+  metadata block described in
+  `.github/instructions/chapter-metadata.instructions.md`, placed directly
+  under the file's top-level `#` heading. This applies even to
+  `context-map.md`, `model.md`, `flow.md`, and `dependencies.md`, whose `##`
+  sections do not carry their own per-chapter blocks — the file-level block
+  is the only metadata those files carry.
 - The metadata block's `status` field uses `draft`, `proposed`, `active`, or
   `deprecated` in this folder. Domain knowledge describes the current (or
   agreed-future) model, not a task queue, so there is no `done`: `active`
@@ -132,6 +141,10 @@ instructions.
 
 ```markdown
 # Domain: <Bounded Context Name>
+
+\`\`\`meta
+status: draft
+\`\`\`
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
 > Objects / Shared Enums grouping in this bounded context.
@@ -233,6 +246,10 @@ Values and what each one means in business terms, and which aggregates use it.
 ```markdown
 # Features: <Bounded Context Name>
 
+\`\`\`meta
+status: draft
+\`\`\`
+
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
@@ -265,6 +282,10 @@ Description of the sub-feature and how it fits under the parent feature.
 
 ```markdown
 # Domain Model: <Bounded Context Name>
+
+\`\`\`meta
+status: draft
+\`\`\`
 
 > Structural view of the domain model for this bounded context: aggregates,
 > entities, value objects, and their relationships. Keep this in sync with
@@ -299,6 +320,10 @@ classDiagram
 ```markdown
 # Flow: <Bounded Context Name>
 
+\`\`\`meta
+status: draft
+\`\`\`
+
 > Lifecycle and process flows for this bounded context: how aggregates move
 > through their states and how work moves across the context over time.
 > Complementary to `model.md` (structure) and `domain.md`
@@ -318,6 +343,10 @@ classDiagram
 
 ```markdown
 # Dependencies: <Bounded Context Name>
+
+\`\`\`meta
+status: draft
+\`\`\`
 
 > Dependencies this bounded context has on other bounded contexts or
 > modules, and known dependents. Use explicit DDD relationship semantics,
@@ -349,6 +378,10 @@ classDiagram
 
 ```markdown
 # Naming: <Bounded Context Name>
+
+\`\`\`meta
+status: draft
+\`\`\`
 
 > Canonical ubiquitous-language terms for this bounded context and their
 > aliases. Each term links to where it is modeled (related); surface names it

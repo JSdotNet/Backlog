@@ -1,5 +1,9 @@
 # Features: Capture
 
+```meta
+status: draft
+```
+
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 

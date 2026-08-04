@@ -1,5 +1,9 @@
 # Flow: Inbox
 
+```meta
+status: draft
+```
+
 > Lifecycle and process flows for this bounded context. Flows describe how an
 > inbox item moves through its states over time — complementary to `model.md`
 > (structure) and `domain.md` (responsibilities/invariants).

@@ -1,5 +1,9 @@
 # Flow: Second Brain
 
+```meta
+status: draft
+```
+
 > Lifecycle and process flows for this bounded context. Flows describe how a
 > knowledge note moves through its workflow phases over time — complementary to
 > `model.md` (structure) and `domain.md` (responsibilities/invariants).

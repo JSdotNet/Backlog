@@ -1,5 +1,9 @@
 # Context Map: Backlog
 
+```meta
+status: draft
+```
+
 > Strategic DDD view of the Backlog product domain: bounded-context roles,
 > subdomain classification, and the relationships that carry work, knowledge,
 > standards, and signals across the system.

@@ -1,5 +1,9 @@
 # Flow: Technology Stack
 
+```meta
+status: draft
+```
+
 > Lifecycle and process flows for this bounded context. Flows describe how a
 > technology moves through its adoption states over time — complementary to
 > `model.md` (structure) and `domain.md` (responsibilities/invariants).
