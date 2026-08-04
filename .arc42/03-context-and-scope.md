@@ -40,6 +40,8 @@ C4Context
 
 ### Domain boundary: Capture vs. Inbox
 
+> TODO: Revisit and align this boundary with .domain once the domain chapters are available and the bounded-context split is finalized.
+
 The most important internal boundary distinguishes *how items enter* from *what
 happens after arrival*:
 
@@ -88,4 +90,5 @@ Three cross-domain access channels plus one optional platform component are in s
 | **Mobile App** | Mobile-first, offline-first capture; syncs via cloud. |
 | **IDE Extensions** | VS Code & Visual Studio integration for backlog/knowledge browsing and capture. |
 | **Cloud Service** (optional) | Thin sync/coordination layer: device sync, webhook forwarding, push, machine registry. |
+
 
