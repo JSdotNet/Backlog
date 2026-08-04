@@ -34,7 +34,7 @@ related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 |---|---|---|
 | R5 | **Last-write-wins** edit conflicts can silently lose concurrent edits across devices. | Surface conflicts to the user; consider field-level merge for high-value fields. |
 | R6 | Markdown-as-canonical + SQLite index can drift if writes are not transactional. | Define a rebuild/repair path for the SQLite index from markdown. |
-| R7 | Multiple candidate stacks per channel (Electron vs. Tauri; RN vs. Flutter) are still open. | Decide and record via ADRs before deep implementation to avoid rework. |
+| R7 | Multiple candidate stacks per channel (for example Electron vs. Tauri and .NET MAUI vs. Blazor PWA/Hybrid) are still open. | Decide and record via ADRs before deep implementation to avoid rework. |
 | R8 | Local fetch workers hold external credentials on-device. | Use OS secure storage (Keychain/Vault); document a rotation/backup story. |
 
 ## Technical Debt
@@ -45,3 +45,4 @@ status: draft
 
 No implementation debt exists yet — the system is at the architecture-setup stage.
 As code lands, record concrete debt items as TDRs and link them from this section.
+

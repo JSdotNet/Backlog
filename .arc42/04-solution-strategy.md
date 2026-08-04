@@ -71,7 +71,7 @@ related: [".arc42/09-architecture-decisions.md"]
 | Channel | Candidate stack |
 |---|---|
 | **Desktop** | Electron (Node.js + Chromium) or Tauri (Rust + WebView); SQLite + markdown |
-| **Mobile** | Swift/SwiftUI (iOS), Kotlin/Compose (Android), or React Native / Flutter; SQLite/Realm |
+| **Mobile** | .NET MAUI (preferred, C#) with Blazor Hybrid or Blazor WebAssembly PWA as the closest fallback options; SQLite |
 | **IDE** | VS Code extension (TypeScript, webview) and Visual Studio extension (C#, WPF) |
 | **Cloud** | C# / ASP.NET Core Minimal APIs on .NET, Azure hosting, Cosmos DB / PostgreSQL |
 
@@ -91,3 +91,4 @@ items), tagging/organization (`#tags`, PARA grouping, tag index), and authentica
 (no account for personal use, OAuth for GitHub, device auth for cloud) are treated as
 cross-cutting concepts applied uniformly across channels. They are detailed in
 `.arc42/08-crosscutting-concepts.md`.
+

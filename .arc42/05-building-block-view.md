@@ -22,7 +22,7 @@ C4Container
 
     System_Boundary(b0, "Prompt Backlog") {
         Container(desktop, "Desktop App", "Electron / Tauri, SQLite", "Local-first full client — runs all fetch workers and manages all domains")
-        Container(mobile, "Mobile App", "React Native / Flutter, SQLite", "Capture-first mobile client with offline storage")
+        Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, SQLite", "Capture-first mobile client with offline storage")
         Container(ide, "IDE Extensions", "TypeScript / C#", "VS Code and Visual Studio integrations")
         Container(cloud, "Cloud Service", ".NET / ASP.NET Core", "Thin optional sync layer: device sync, webhook forwarding, push, PC registry")
         ContainerDb(localStore, "Local Storage", "Markdown files, SQLite", "Desktop canonical data store — markdown is source of truth")
@@ -237,11 +237,11 @@ transport, but not domain lifecycle rules.
 
 ```mermaid
 graph TB
-  UI["UI Layer\n(React Native / Flutter)"]
+  UI["UI Layer\n(.NET MAUI / Blazor Hybrid)"]
 
   subgraph "App Layer"
     Capture["Capture Service\n(Quick add, Voice, Shortcuts)"]
-    Storage["Local Storage\n(SQLite / Realm)"]
+    Storage["Local Storage\n(SQLite)"]
     Sync["Sync Engine\n(Conflict resolution)"]
   end
 
@@ -372,6 +372,7 @@ Cloud components:
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
 | **Notification Service** | Push to phone (FCM/APNs); SSE/WebSocket to desktop for real-time forwarding. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
+
 
 
 
