@@ -19,7 +19,7 @@ at-risk repos surface without manual investigation. It consumes baselines from
 
 ```meta
 status: draft
-related: [.domain/technology-stack/domain.md#aggregate-technology-registry, .domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/technology-stack/domain.md#aggregate-technology-registry, .domain/monitoring/domain.md#aggregate-progress-signal, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 The global singleton that owns all registered repositories, technology/dependency
@@ -121,7 +121,7 @@ Security alert severity: `critical`, `high`, `medium`, `low`.
 
 ```meta
 status: draft
-related: [.domain/technology-stack/domain.md#aggregate-technology-registry]
+related: [.domain/technology-stack/domain.md#aggregate-technology-registry, .arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal]
 ```
 
 Runs scheduled or on-demand scans of a repository: parses dependency manifests,

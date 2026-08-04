@@ -21,7 +21,7 @@ deferred, or is archived. It owns no capture sources.
 
 ```meta
 status: draft
-related: [.domain/capture/domain.md#aggregate-capture]
+related: [.domain/capture/domain.md#aggregate-capture, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 A single unit of captured, unprocessed information moving through triage. The

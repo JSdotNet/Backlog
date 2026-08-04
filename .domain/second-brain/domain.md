@@ -19,7 +19,7 @@ context is easy to find later.
 
 ```meta
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+related: [.domain/backlog/domain.md#aggregate-backlog-entry, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 An organized unit of project knowledge stored as markdown and the boundary for

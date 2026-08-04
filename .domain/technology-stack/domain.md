@@ -21,7 +21,7 @@ It provides baselines consumed by
 
 ```meta
 status: draft
-related: [.domain/dev-pc-management/domain.md#aggregate-machine-registry, .domain/repository-management/domain.md#aggregate-repository-registry]
+related: [.domain/dev-pc-management/domain.md#aggregate-machine-registry, .domain/repository-management/domain.md#aggregate-repository-registry, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 The global singleton that owns all technology definitions, baseline profiles,

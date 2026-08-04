@@ -19,7 +19,7 @@ and the Copilot CLI.
 
 ```meta
 status: draft
-related: [.domain/inbox/domain.md#aggregate-inbox-item]
+related: [.domain/inbox/domain.md#aggregate-inbox-item, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 A refined, actionable item in the personal backlog and the consistency boundary
@@ -76,7 +76,7 @@ Completion state of a sub-item: `pending`, `done`.
 
 ```meta
 status: draft
-related: [.domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/monitoring/domain.md#aggregate-progress-signal, .arc42/06-runtime-view.md#backlog-entry-to-github-issue]
 ```
 
 Creates and closes downstream artifacts for a multi-repo entry: on `EntryProjected`

@@ -19,7 +19,7 @@ baseline, trigger remote updates, and track Copilot sessions.
 
 ```meta
 status: draft
-related: [.domain/technology-stack/domain.md#aggregate-technology-registry, .domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/technology-stack/domain.md#aggregate-technology-registry, .domain/monitoring/domain.md#aggregate-progress-signal, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 The global singleton that owns all registered machines, the team tool baseline,
@@ -114,6 +114,7 @@ Current state of a machine: `online`, `sleeping`, `offline`.
 
 ```meta
 status: draft
+related: [.arc42/06-runtime-view.md#remote-pc-wake-and-status-update, .arc42/07-deployment-view.md#cloud-deployment-azure]
 ```
 
 Coordinates out-of-band actions on registered machines: Wake-on-LAN (local and
