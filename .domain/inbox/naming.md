@@ -1,5 +1,9 @@
 # Naming: Inbox
 
+```meta
+status: draft
+```
+
 > Canonical ubiquitous-language terms for this bounded context and their
 > aliases. Each term links to where it is modeled (`related`); the surface
 > names it is also known by are recorded in the `aliases` metadata field so a

@@ -51,6 +51,10 @@ folder is organized by concern, not by item type.
 ```markdown
 # <Concern Name>
 
+\`\`\`meta
+status: draft
+\`\`\`
+
 ## <Item Name>
 
 \`\`\`meta
@@ -104,6 +108,12 @@ Description of the sub-item.
   `.github/instructions/chapter-metadata.instructions.md` (status,
   cross-folder tags, GitHub issue link) — required for the planned
   visualization tooling.
+- Every `.backlog/<concern-type>-<concern-slug>.md` file must also carry the
+  file-level metadata block described in
+  `.github/instructions/chapter-metadata.instructions.md`, placed directly
+  under the file's top-level `# <Concern Name>` heading. Its `status`
+  reflects the concern file as a whole and does not need to match every
+  individual Item's `status`.
 - `depends-on` (optional, default `[]`) — list of `<path>#<heading-slug>`
   references (see `.github/instructions/chapter-metadata.instructions.md`
   for the reference format) to other backlog items/sub-items that must

@@ -1,5 +1,9 @@
 # Dependencies: Dev PC Management
 
+```meta
+status: draft
+```
+
 > Dependencies this bounded context has on other bounded contexts or
 > modules, and known dependents. Note the DDD relationship pattern,
 > integration mechanism, and published contract for each relationship.

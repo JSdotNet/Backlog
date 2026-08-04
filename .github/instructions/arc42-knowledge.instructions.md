@@ -71,6 +71,10 @@ instructions.
   visualization tooling. There is no `depends-on` field in `.arc42` —
   architecture chapters describe standing structure, not sequenced work;
   cross-references use `related` instead.
+- Because an `.arc42` file is always exactly one top-level chapter, that
+  chapter's metadata block also serves as the file's file-level metadata
+  block described in `.github/instructions/chapter-metadata.instructions.md`
+  — do not add a second, duplicate block for the file.
 - The metadata block's `status` field uses `draft`, `proposed`, `active`, or
   `deprecated` in this folder. Architecture documentation describes a
   standing decision/structure, not a task, so there is no `done`.

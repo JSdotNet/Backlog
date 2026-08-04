@@ -1,5 +1,9 @@
 # Domain: Dev PC Management
 
+```meta
+status: draft
+```
+
 > One chapter per Aggregate or Domain Service in this bounded context.
 > Aggregate chapters include sub-chapters for their owned Entities, Value
 > Objects, and Enums. Value Objects/Enums shared across multiple aggregates
