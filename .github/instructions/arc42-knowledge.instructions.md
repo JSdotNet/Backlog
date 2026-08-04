@@ -10,6 +10,19 @@ context, building blocks, runtime views, cross-cutting concerns, and
 architecture decisions, at the level of the whole system or a major
 deployable unit.
 
+## Context-loading policy
+
+- `.arc42` is **not** baseline repository context. Load it only for architecture,
+  ADR, blueprint, TDR, or explicit arc42 tasks, normally after routing through
+  `orch-arc42`, `orch-architecture`, `orch-blueprint`, `orch-adr`, `orch-tdr`, or
+  `architecture:architect`.
+- When `.arc42` is needed as task context, load only the relevant chapter(s) or
+  sections instead of reading the whole folder by default.
+- For non-architecture implementation or documentation tasks, consult `.arc42`
+  only when the user asks for architecture context or when the work depends on a
+  specific documented constraint, decision, runtime view, deployment view, or
+  glossary entry.
+
 ## Relationship to other knowledge folders
 
 - `.domain` describes *what the domain is* (bounded contexts, aggregates,
