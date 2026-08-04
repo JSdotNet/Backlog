@@ -11,8 +11,14 @@ the internal structure of each access channel.
 
 ```meta
 status: active
-related: [".arc42/03-context-and-scope.md#access-channels-scope"]
+related: [".arc42/03-context-and-scope.md#access-channels-scope", ".domain/context-map.md"]
 ```
+
+Container boundaries below are the deployable/runtime split; the domains they
+serve (Capture, Inbox, Backlog Management, Second Brain, Monitoring, Technology
+Stack, Dev PC Management, Repository Management) are defined in
+`.domain/context-map.md` and each context's own `.domain/<context>/domain.md` —
+this view does not restate domain responsibilities.
 
 ```mermaid
 C4Container
