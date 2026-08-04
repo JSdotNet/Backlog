@@ -62,7 +62,7 @@ Origin type of a capture. Values and meaning:
 
 ```meta
 status: draft
-related: [.domain/inbox/domain.md#aggregate-inbox-item]
+related: [.domain/inbox/domain.md#aggregate-inbox-item, .arc42/06-runtime-view.md#mobile-capture-and-sync, .arc42/06-runtime-view.md#ide-context-aware-capture]
 ```
 
 Coordinates acquisition for a given `Capture Source`: polling or event intake,

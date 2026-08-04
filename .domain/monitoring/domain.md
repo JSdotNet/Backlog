@@ -17,7 +17,7 @@ and can run as a standalone team service.
 
 ```meta
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/inbox/domain.md#aggregate-inbox-item]
+related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/inbox/domain.md#aggregate-inbox-item, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 An immutable, timestamped event indicating a change somewhere in the system,
@@ -72,6 +72,7 @@ mutating one aggregate. Invocation semantics: event-triggered read-side service 
 
 ```meta
 status: draft
+related: [.arc42/08-crosscutting-concepts.md#observability]
 ```
 
 Composes multi-layer dashboards — project (Application Insights), backlog/GitHub

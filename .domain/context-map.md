@@ -4,6 +4,11 @@
 > subdomain classification, and the relationships that carry work, knowledge,
 > standards, and signals across the system.
 
+> See also: `.arc42/03-context-and-scope.md` for the system-level context this
+> map's bounded contexts sit inside, and `.arc42/05-building-block-view.md` for
+> how these contexts are realized across the desktop, mobile, IDE, and cloud
+> containers.
+
 ## Subdomain landscape
 
 | Bounded context | Subdomain type | Why |
