@@ -33,7 +33,7 @@ technology choices, not to serve as a final ADR inventory.
 | **0012 - Authentication with External Identity Providers (OIDC)** | Relevant only for the GitHub OAuth callback / any future external identity flow, not for device-session auth. |
 | **0013 - Authorization & Zero Trust** | Relevant for device/team authorization, least-privilege checks, and audit logging. |
 | **0014 - Persistence Strategy & Repository Boundaries** | Relevant for sync-state persistence and data ownership boundaries. |
-| **0015 - Resilience for Outbound Dependencies** | Relevant for GitHub, FCM, and APNs outbound calls. |
+| **0015 - Resilience for Outbound Dependencies** | Relevant for GitHub and FCM outbound calls. |
 | **0016 - Messaging & Integration-Event Delivery** | Relevant only if webhook forwarding or sync delivery is implemented with durable asynchronous messaging. |
 | **0017 - HTTP Error Contract & Problem Details** | Expected error contract for the cloud API surface. |
 | **0018 - Configuration & Options Binding** | Relevant for strongly typed settings and externalized secrets. |
@@ -55,4 +55,5 @@ captured as solution strategy in `.arc42/04-solution-strategy.md`:
 
 If any of these harden into formally governed decisions, promote them to ADRs via the
 `orch-adr` skill and link them here rather than duplicating the content.
+
 

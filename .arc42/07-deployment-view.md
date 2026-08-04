@@ -60,7 +60,7 @@ flowchart TB
     subgraph "External"
         GitHub["GitHub\n(webhooks in)"]
         FCM["Firebase Cloud Messaging\n(Android push)"]
-        APNs["Apple APNs\n(iOS push)"]
+
     end
 
     subgraph "Clients"
@@ -79,10 +79,10 @@ flowchart TB
     GitHub -->|"Webhook events"| AppService
 
     AppService -->|"Android push"| FCM
-    AppService -->|"iOS push"| APNs
+
 
     FCM -.->|Notification| Mobile
-    APNs -.->|Notification| Mobile
+
 ```
 
 Deployment considerations:
@@ -95,5 +95,6 @@ Deployment considerations:
   service stores-and-forwards.
 - **Secrets in Key Vault** — webhook secrets and OAuth tokens are externalized.
 - **No blob storage** — attachments live on the desktop's local file system.
+
 
 

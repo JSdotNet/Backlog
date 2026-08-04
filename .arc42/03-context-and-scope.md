@@ -27,7 +27,7 @@ C4Context
     System_Ext(email, "Email / IMAP", "Email capture inbox")
     System_Ext(websites, "Websites / RSS", "Web content monitoring")
     System_Ext(appInsights, "Application Insights", "Telemetry for monitoring dashboards")
-    System_Ext(pushProvider, "Push Notification Provider", "FCM or APNs for mobile alerts")
+    System_Ext(pushProvider, "Push Notification Provider", "FCM for Android mobile alerts")
 
     Rel(user, promptBacklog, "Captures, triages, manages backlog and knowledge")
     Rel(promptBacklog, github, "Syncs issues; receives webhook events")
@@ -70,7 +70,7 @@ status: active
 | **Email / IMAP** | in | IMAP | Ingest configured mailboxes as inbox items |
 | **Package Registries** (npm, NuGet, PyPI) | in | HTTPS | Dependency scanning for Repository Management |
 | **Application Insights** | in | HTTPS | Read telemetry signals for monitoring dashboards |
-| **Push Provider** (FCM / APNs) | out | HTTPS | Deliver push notifications to the mobile app |
+| **Push Provider** (FCM) | out | HTTPS | Deliver push notifications to the Android mobile app |
 
 All inbound polling interfaces (YouTube, Websites, Email) are driven by **local
 desktop workers**, so their credentials never leave the user's machine.
@@ -90,6 +90,7 @@ Three cross-domain access channels plus one optional platform component are in s
 | **Mobile App** | Mobile-first, offline-first capture; syncs via cloud. |
 | **IDE Extensions** | VS Code & Visual Studio integration for backlog/knowledge browsing and capture. |
 | **Cloud Service** (optional) | Thin sync/coordination layer: device sync, webhook forwarding, push, machine registry. |
+
 
 
 

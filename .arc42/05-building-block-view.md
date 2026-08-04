@@ -30,7 +30,7 @@ C4Container
     }
 
     System_Ext(github, "GitHub", "Issues and webhooks")
-    System_Ext(pushProvider, "Push Provider", "FCM / APNs")
+    System_Ext(pushProvider, "Push Provider", "FCM")
     System_Ext(externalSources, "External Sources", "YouTube, Email, Websites / RSS")
 
     Rel(user, desktop, "Uses — capture, backlog, knowledge, monitoring", "local")
@@ -231,7 +231,7 @@ status: active
 related: [".arc42/06-runtime-view.md#mobile-capture-and-sync", ".arc42/06-runtime-view.md#sync-item-lifecycle"]
 ```
 
-Mobile-first, offline-first capture app for iOS and Android. Serves Capture, Inbox,
+Android-first, offline-first capture app. Serves Capture, Inbox,
 and lightweight Backlog Management. It owns mobile UI, push plumbing, and sync
 transport, but not domain lifecycle rules.
 
@@ -370,8 +370,9 @@ Cloud components:
 | **API Gateway & Auth** | Minimal REST surface; GitHub OAuth for webhook registration; JWT device sessions; rate limiting. |
 | **Sync Service** | The only domain-aware service; stores sync *state* (not domain data); delta push/pull, conflict listing/resolution. |
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
-| **Notification Service** | Push to phone (FCM/APNs); SSE/WebSocket to desktop for real-time forwarding. |
+| **Notification Service** | Push to phone (FCM); SSE/WebSocket to desktop for real-time forwarding. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
+
 
 
 
