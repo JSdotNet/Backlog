@@ -40,20 +40,27 @@ C4Context
 
 ### Domain boundary: Capture vs. Inbox
 
-> TODO: Revisit and align this boundary with .domain once the domain chapters are available and the bounded-context split is finalized.
+```meta
+status: active
+related: [".domain/context-map.md", ".domain/capture/domain.md#aggregate-capture", ".domain/inbox/domain.md#aggregate-inbox-item"]
+```
 
 The most important internal boundary distinguishes *how items enter* from *what
-happens after arrival*:
+happens after arrival*. Bounded-context ownership, the `ItemCaptured` published
+language contract, and the DDD relationship semantics for this boundary are the
+authority of `.domain/context-map.md`; this chapter only records the
+architectural consequence:
 
 | Concern | Owner |
 |---|---|
 | How items enter the system (sources, polling, syncing) | **Capture** |
 | What happens to items after arrival (triage, classify, route) | **Inbox** |
 
-Capture delivers normalized `InboxItem`s to the Inbox incoming queue. The current
-recommendation keeps capture tightly coupled to Inbox as one pipeline
-(raw input → triage → route), with an optional future split if capture tooling
-becomes independently owned (tracked in
+Capture delivers normalized `InboxItem`s to the Inbox incoming queue via the
+`ItemCaptured` contract (see `.domain/capture/domain.md#domain-event-itemcaptured`).
+The current recommendation keeps capture tightly coupled to Inbox as one
+deployable pipeline (raw input → triage → route), with an optional future split
+if capture tooling becomes independently owned (tracked in
 `.arc42/11-risks-and-technical-debt.md`).
 
 ## External Interfaces
