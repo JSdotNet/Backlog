@@ -21,7 +21,7 @@ C4Container
     Person(user, "Developer", "Personal developer")
 
     System_Boundary(b0, "Prompt Backlog") {
-        Container(desktop, "Desktop App", "Electron / Tauri, SQLite", "Local-first full client — runs all fetch workers and manages all domains")
+        Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid / WinUI 3, SQLite", "Local-first full client — runs all fetch workers and manages all domains")
         Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, SQLite", "Capture-first mobile client with offline storage")
         Container(ide, "IDE Extensions", "TypeScript / C#", "VS Code and Visual Studio integrations")
         Container(cloud, "Cloud Service", ".NET / ASP.NET Core", "Thin optional sync layer: device sync, webhook forwarding, push, PC registry")
@@ -161,7 +161,7 @@ Local-first client for Windows, macOS, and Linux. Serves Capture, Inbox, Backlog
 ```mermaid
 graph TB
   subgraph "Desktop App"
-    UI["UI Layer\n(Electron / Tauri)"]
+    UI["UI Layer\n(.NET MAUI Blazor Hybrid / WinUI 3)"]
 
     subgraph "Core Services"
       Inbox["Inbox Service\n(capture, triage)"]
@@ -372,6 +372,7 @@ Cloud components:
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
 | **Notification Service** | Push to phone (FCM/APNs); SSE/WebSocket to desktop for real-time forwarding. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
+
 
 
 
