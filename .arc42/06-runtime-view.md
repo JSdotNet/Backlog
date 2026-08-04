@@ -33,7 +33,7 @@ sequenceDiagram
     Backlog->>DB: Update SQLite index
     Backlog-->>UI: Entry created (id)
 
-    Note over Backlog,GitHub: Async GitHub sync — one issue per repo_id
+    Note over Backlog,GitHub: Async GitHub sync - one issue per repo_id
     loop For each repo_id
         Backlog->>GitHub: POST /repos/{repo}/issues
         GitHub-->>Backlog: 201 Created (issue_number, html_url)
@@ -78,7 +78,7 @@ sequenceDiagram
     Cloud->>Cloud: Validate HMAC signature
     Cloud->>DB: Store WebhookEvent (TTL 24h)
     Cloud-->>-GH: 202 Accepted
-    Cloud-)Desktop: SSE — github.event forwarded
+    Cloud-)Desktop: SSE - github.event forwarded
 ```
 
 ## Mobile Capture and Sync
@@ -163,15 +163,85 @@ sequenceDiagram
     participant API as Backend API
     participant Store as Local Markdown
 
-    Dev->>IDE: Select code → right-click Capture
+    Dev->>IDE: Select code -> right-click Capture
     IDE->>Ext: Get repo context
     Ext-->>IDE: file_path, line, branch, selection
     IDE->>Dev: Show capture dialog (pre-filled context)
-    Dev->>IDE: Add title and tags → confirm
+    Dev->>IDE: Add title and tags -> confirm
     IDE->>Capture: createItem(title, body, metadata)
     Capture->>Store: Write to local markdown cache
     Capture->>API: POST /inbox/items (source=ide-vs-code)
     API-->>Capture: 201 Created (id)
     Capture-->>IDE: Item created (id, deep_link)
     IDE-->>Dev: Confirmation + deep-link to item
+```
+
+## Repository Baseline Scan and Health Signal
+
+```meta
+status: active
+related: [".arc42/05-building-block-view.md#desktop-app", ".arc42/08-crosscutting-concepts.md#shared-data-types"]
+```
+
+Repository Management scans registered repositories, compares discovered package
+versions with Technology Stack baselines, and emits monitoring signals when drift is
+found.
+
+```mermaid
+sequenceDiagram
+    participant Scheduler as Desktop Scheduler
+    participant RepoMgmt as Repository Management
+    participant RepoRegistry as Repository Registry
+    participant Pkg as Package Registries
+    participant TechStack as Technology Stack
+    participant DB as SQLite
+    participant Monitoring as Monitoring Service
+
+    Scheduler->>RepoMgmt: Start dependency scan
+    RepoMgmt->>RepoRegistry: Load registered repos and manifests
+    loop For each registered manifest
+        RepoMgmt->>Pkg: Query latest package metadata
+        Pkg-->>RepoMgmt: Current versions / advisories
+    end
+    RepoMgmt->>TechStack: Compare discovered versions to baselines
+    TechStack-->>RepoMgmt: Drift and policy evaluation
+    RepoMgmt->>DB: Persist repository health snapshot
+    RepoMgmt->>Monitoring: Emit ProgressSignal(s)
+    Monitoring-->>Scheduler: Dashboard/alert state updated
+```
+
+## Remote PC Wake and Status Update
+
+```meta
+status: active
+related: [".arc42/05-building-block-view.md#desktop-app", ".arc42/05-building-block-view.md#cloud-service"]
+```
+
+Dev PC Management uses the optional cloud registry to wake a registered machine and
+reconcile its status when the target desktop comes back online.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Desktop as Desktop App
+    participant DevPC as Dev PC Management
+    participant Cloud as Cloud Service
+    participant Registry as Machine Registry
+    participant Target as Remote Desktop Agent
+    participant Monitoring as Monitoring Service
+
+    User->>Desktop: Wake remote machine
+    Desktop->>DevPC: wake(machine_id)
+    DevPC->>Cloud: POST /pc/wake/{machine_id}
+    Cloud->>Registry: Load machine registration
+    Registry-->>Cloud: MAC address, last status
+    Cloud->>Target: Relay WoL packet
+    Cloud-->>DevPC: 202 Accepted
+
+    Note over Target,Cloud: Machine resumes and heartbeat starts
+    Target->>Cloud: POST /pc/heartbeat
+    Cloud->>Registry: Update status=online
+    Cloud-->>DevPC: pc.wake-result / status update
+    DevPC->>Monitoring: Emit machine-online signal
+    Monitoring-->>User: Machine visible as online
 ```

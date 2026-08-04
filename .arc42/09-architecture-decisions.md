@@ -6,35 +6,37 @@ status: active
 
 This chapter links to the authoritative Architecture Decision Records rather than
 restating them. ADRs are maintained in the organization's guidance corpus
-(`jsdotnet-project-guidelines`) and govern the **cloud service** (.NET) part of
-Prompt Backlog. The desktop, mobile, and IDE channels use their own platform stacks
-and are intentionally out of scope for the .NET ADRs.
+(`jsdotnet-project-guidelines`) and primarily affect the **cloud service** (.NET)
+part of Prompt Backlog. The desktop, mobile, and IDE channels use their own platform
+stacks and are intentionally out of scope for the .NET ADR set.
 
-## Cloud-service ADRs (applicable)
+## Cloud-service ADR alignments (pending MCP verification)
 
 ```meta
-status: active
+status: draft
 related: [".arc42/05-building-block-view.md#cloud-service", ".arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 
-The following ADRs apply to the ASP.NET Core cloud sync layer. Consult the ADR text
-for full context and consequences before implementing.
+The `jsdotnet-project-guidelines` MCP server was not available while drafting this
+branch, so the mapping below is a **local fallback** based on repository context and
+must be re-verified before implementation. It is intended to prevent obviously wrong
+technology choices, not to serve as a final ADR inventory.
 
-| ADR | Relevance to the cloud service |
+| ADR | Current alignment for the cloud service |
 |---|---|
-| **0001 — Adopt .NET 10** | Target framework for the cloud service. |
-| **0003 — .NET Aspire for ASP.NET** | Orchestration / ServiceDefaults for the web service. |
-| **0005 — Modular Monolith Structure** | Canonical solution layout if the cloud service grows beyond a single API. |
-| **0006 — CQRS for ASP.NET API** | Command/query handlers for sync and webhook endpoints. |
-| **0007 — Minimal APIs over Controllers** | Endpoint style for the sync / webhook / PC-registry APIs. |
-| **0010 — OpenTelemetry Observability** | Traces/metrics/logs for the cloud service. |
-| **0012 — Authentication with External IdPs (OIDC)** | GitHub OAuth and device-session auth. |
-| **0013 — Authorization & Zero Trust** | Device/team authorization and audit logging. |
-| **0014 — Persistence Strategy & Repository Boundaries** | Sync-state persistence (Cosmos DB / PostgreSQL). |
-| **0015 — Resilience for Outbound Dependencies** | Polly policies for GitHub, FCM/APNs calls. |
-| **0016 — Messaging & Integration-Event Delivery** | Reliable webhook-forwarding / sync delivery, if event-driven. |
-| **0017 — HTTP Error Contract & Problem Details** | RFC 7807 responses for the cloud API. |
-| **0018 — Configuration & Options Binding** | Strongly typed options; secrets via Key Vault. |
+| **0001 - Adopt .NET 10** | Expected target framework for the cloud service. |
+| **0003 - .NET Aspire for ASP.NET** | Expected orchestration / ServiceDefaults guidance if the sync layer is implemented as an ASP.NET workload. |
+| **0005 - Modular Monolith Structure** | Relevant if the cloud service grows beyond a single small API and needs standard project boundaries. |
+| **0006 - CQRS for ASP.NET API** | Relevant for separating sync commands from query-style status/read endpoints. |
+| **0007 - Minimal APIs over Controllers** | Expected endpoint style for sync, webhook, and PC-registry APIs. |
+| **0010 - OpenTelemetry Observability** | Relevant for traces, metrics, and logs in the cloud service. |
+| **0012 - Authentication with External Identity Providers (OIDC)** | Relevant only for the GitHub OAuth callback / any future external identity flow, not for device-session auth. |
+| **0013 - Authorization & Zero Trust** | Relevant for device/team authorization, least-privilege checks, and audit logging. |
+| **0014 - Persistence Strategy & Repository Boundaries** | Relevant for sync-state persistence and data ownership boundaries. |
+| **0015 - Resilience for Outbound Dependencies** | Relevant for GitHub, FCM, and APNs outbound calls. |
+| **0016 - Messaging & Integration-Event Delivery** | Relevant only if webhook forwarding or sync delivery is implemented with durable asynchronous messaging. |
+| **0017 - HTTP Error Contract & Problem Details** | Expected error contract for the cloud API surface. |
+| **0018 - Configuration & Options Binding** | Relevant for strongly typed settings and externalized secrets. |
 
 ## Local system decisions
 

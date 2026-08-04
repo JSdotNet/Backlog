@@ -155,9 +155,7 @@ status: active
 related: [".arc42/06-runtime-view.md#backlog-entry-to-github-issue"]
 ```
 
-Local-first client for Windows, macOS, and Linux. Serves Inbox, Backlog Management,
-Second Brain, Monitoring, Technology Stack, Dev PC Management, and Repository
-Management. It runs in two seamless modes: **Standalone** (no cloud) and
+Local-first client for Windows, macOS, and Linux. Serves Capture, Inbox, Backlog Management, Second Brain, Monitoring, Technology Stack, Dev PC Management, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
 **Connected** (adds cloud sync, phone access, and webhook forwarding).
 
 ```mermaid
@@ -378,3 +376,4 @@ Cloud components:
 | **Notification Service** | Push to phone (FCM/APNs); SSE/WebSocket to desktop for real-time forwarding. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
 | **Team Monitoring Service** (optional) | Aggregated team dashboard, signal ingestion, role-based visibility. |
+
