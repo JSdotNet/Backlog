@@ -52,7 +52,7 @@ public partial class EntryEditViewModel : ObservableObject
 
     public ObservableCollection<SubItemViewModel> SubItems { get; } = new();
 
-    public ObservableCollection<EntryStatus> AvailableStatusTargets { get; } = new();
+    public ObservableCollection<StatusTargetOption> AvailableStatusTargets { get; } = new();
 
     [ObservableProperty]
     public partial string Title { get; set; }
@@ -70,7 +70,7 @@ public partial class EntryEditViewModel : ObservableObject
     public partial Priority SelectedPriority { get; set; }
 
     [ObservableProperty]
-    public partial EntryStatus? SelectedStatusTarget { get; set; }
+    public partial StatusTargetOption? SelectedStatusTarget { get; set; }
 
     [ObservableProperty]
     public partial string NewSubItemTitle { get; set; } = string.Empty;
@@ -118,8 +118,9 @@ public partial class EntryEditViewModel : ObservableObject
     [RelayCommand]
     private async Task ApplyStatusAsync()
     {
-        if (_entry is null || SelectedStatusTarget is not { } target)
+        if (_entry is null || SelectedStatusTarget is not { } option)
             return;
+        var target = option.Value;
         if (!_entry.CanChangeStatusTo(target))
             return;
 
@@ -194,7 +195,7 @@ public partial class EntryEditViewModel : ObservableObject
 
             foreach (var target in Enum.GetValues<EntryStatus>())
                 if (_entry.CanChangeStatusTo(target))
-                    AvailableStatusTargets.Add(target);
+                    AvailableStatusTargets.Add(new StatusTargetOption(target, Format.Status(target)));
         }
 
         OnPropertyChanged(nameof(IsPersisted));

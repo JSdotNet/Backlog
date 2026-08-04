@@ -64,9 +64,15 @@
                       BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                       BorderThickness="1"
                       CornerRadius="8">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="AutomationProperties.AccessibilityView" Value="Content" />
+                    </Style>
+                </ListView.ItemContainerStyle>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="vm:SummaryRowViewModel">
-                        <Grid Padding="4" RowSpacing="2">
+                        <Grid Padding="4" RowSpacing="2"
+                              AutomationProperties.Name="{x:Bind Title}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
@@ -175,6 +181,7 @@
                                           MinWidth="180"
                                           AutomationProperties.AutomationId="StatusComboBox"
                                           AutomationProperties.Name="Move status to"
+                                          DisplayMemberPath="Label"
                                           ItemsSource="{x:Bind ViewModel.Detail.AvailableStatusTargets, Mode=OneWay}"
                                           SelectedItem="{x:Bind ViewModel.Detail.SelectedStatusTarget, Mode=TwoWay}" />
                                 <Button x:Name="ApplyStatusButton"

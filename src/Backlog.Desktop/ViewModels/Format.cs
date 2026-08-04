@@ -2,6 +2,9 @@ using Backlog.Domain;
 
 namespace Backlog_Desktop.ViewModels;
 
+/// <summary>A selectable status transition target with a friendly display label.</summary>
+public sealed record StatusTargetOption(EntryStatus Value, string Label);
+
 /// <summary>Friendly display strings for domain enums.</summary>
 public static class Format
 {
