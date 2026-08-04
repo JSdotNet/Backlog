@@ -23,6 +23,10 @@ specialist agent only when the skill is unavailable.
 - User flows, wireframes, or UX review: use `ux-design:ux-designer`.
 - GitHub issue creation or updates, and pull request automation: use `create-github-issue`,
   `update-github-issue`, and `pr-jsdotnet`.
+- End-to-end runtime validation, feature/bug verification against a running app, or
+  continuous log/trace monitoring during testing: use `qa:qa` (its `delegate-to-qa-monitor`
+  skill invokes the `qa:qa-monitor` persona for log/trace watching). Fall back to running
+  `aspire-run` plus `aspire-log-monitor` manually if the agent is unavailable.
 
 ## Context loading by orchestration and agent
 
@@ -37,6 +41,11 @@ specialist agent only when the skill is unavailable.
   should not load `.arc42/` by default. Consult it only when the user explicitly asks
   for architecture context or when implementation depends on a specific documented
   decision, view, constraint, or glossary term.
+
+- `orch-feature` and `orch-bug` already delegate their local-run/validation stage to
+  `qa:qa` internally — do not invoke `qa:qa` separately when already inside one of those
+  orchestrations. Invoke `qa:qa` directly only for standalone QA/testing requests that
+  aren't part of a full feature/bug orchestration run.
 
 If neither the preferred skill nor its fallback agent is installed, use the closest
 available specialist agent and note that orchestration routing was unavailable.
