@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Backlog.Desktop (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Backlog.Desktop (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
