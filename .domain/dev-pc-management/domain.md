@@ -116,7 +116,7 @@ Coordinates out-of-band actions on registered machines: Wake-on-LAN (local and
 cloud-relayed) with wake verification, remote desktop brokering (RDP/VNC,
 optional relay for NAT/firewall), and authorization/encryption of every wake and
 connect. It is a service because these actions span the cloud relay, connection
-brokering, and the target OS rather than a single machine's stored state.
+brokering, and the target OS rather than a single machine's stored state. Invocation semantics: command-invoked orchestration service.
 
 ## Domain Service: Remote Update
 
@@ -129,7 +129,7 @@ Queues and executes tool updates across machines (single, targeted, or bulk),
 runs them via native package managers on the desktop component, reports progress
 (in-progress/completed/failed) with rollback, and requires authorization. It is a
 service because it orchestrates queued work against offline/online machines and
-external package managers.
+external package managers. Invocation semantics: command-invoked orchestration service.
 
 ## Domain Service: Copilot Session Tracking
 
@@ -141,7 +141,61 @@ related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/monitoring/
 Records Copilot session start/end per machine, links sessions to GitHub issues or
 backlog items when available, alerts on stalled/inactive sessions, and archives
 history for audit. It is a service because session identity may originate cloud-
-or locally and must be correlated with external work items.
+or locally and must be correlated with external work items. Invocation semantics: event-triggered tracking service consuming session start/end and heartbeat updates.
+
+## Domain Event: MachineStatusChanged
+
+```meta
+status: draft
+related: [.domain/dev-pc-management/domain.md#aggregate-machine-registry, .domain/monitoring/domain.md#aggregate-progress-signal]
+```
+
+Published when a registered machine changes runtime status.
+
+### Payload
+
+- `machine_id` - machine identifier.
+- `previous_status` - prior `Machine Status`.
+- `new_status` - new `Machine Status`.
+- `last_heartbeat` - latest heartbeat observed.
+- `changed_at` - time the change was recognized.
+
+### Consumers
+
+- Monitoring & Dashboard, which turns machine-state changes into infrastructure signals.
+
+### Published language rules
+
+- Runtime status is owned here; consumers do not infer compliance or session state
+  from this event unless that meaning is explicitly carried in the payload.
+
+## Domain Event: ComplianceUpdated
+
+```meta
+status: draft
+related: [.domain/dev-pc-management/domain.md#aggregate-machine-registry, .domain/monitoring/domain.md#aggregate-progress-signal, .domain/technology-stack/domain.md#aggregate-technology-registry]
+```
+
+Published when a machine's compliance score is recalculated against the current
+team tools baseline.
+
+### Payload
+
+- `machine_id` - machine identifier.
+- `compliance_score` - current score.
+- `baseline_version` - baseline snapshot used for the calculation.
+- `out_of_date_tools` - tools outside the baseline.
+- `updated_at` - time the score was recalculated.
+
+### Consumers
+
+- Monitoring & Dashboard, which shows compliance health.
+- Technology Stack, which can correlate adoption lag against approved baselines.
+
+### Published language rules
+
+- Compliance meaning is anchored to the supplied baseline snapshot; consumers do
+  not reinterpret the score without the corresponding baseline context.
 
 ## Shared Enums
 

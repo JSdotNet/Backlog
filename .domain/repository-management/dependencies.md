@@ -1,27 +1,26 @@
 # Dependencies: Repository Management
 
 > Dependencies this bounded context has on other bounded contexts or
-> modules, and known dependents. Note the integration pattern for each
-> relationship (synchronous call, domain/integration event, shared kernel,
-> anti-corruption layer, etc.).
+> modules, and known dependents. Note the DDD relationship pattern,
+> integration mechanism, and published contract for each relationship.
 
 ## Outbound dependencies
 
-| Depends on (context/module) | Integration pattern | Why |
-|---|---|---|
-| [Technology Stack](../technology-stack/domain.md#aggregate-technology-registry) | Baseline consumption (sync/read) | Consumes tech/dependency baselines to flag deprecated tech and enforce versions. |
-| GitHub (external) | REST API (ACL) | Repository metadata, issues, PRs, branch protection, and security alerts. |
-| Package registries (NuGet, npm, PyPI, etc.) | Polling (ACL) | Latest package versions used to detect outdated dependencies. |
-| [Second Brain](../second-brain/domain.md#aggregate-knowledge-note) | Id reference (ADR links) | Architecture/technology decisions are cross-linked from repo metadata. |
+| Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
+|---|---|---|---|---|
+| [Technology Stack](../technology-stack/domain.md#aggregate-technology-registry) | Customer/Supplier (Repository Management = customer) | Baseline consumption (sync/read) | `.domain/technology-stack/domain.md#aggregate-technology-registry` | Consumes tech/dependency baselines to flag deprecated tech and enforce versions. |
+| GitHub (external) | ACL | REST API | `.domain/repository-management/domain.md#domain-service-repository-scan` | Repository metadata, issues, PRs, branch protection, and security alerts. |
+| Package registries (NuGet, npm, PyPI, etc.) | ACL | Polling | `.domain/repository-management/domain.md#domain-service-repository-scan` | Latest package versions used to detect outdated dependencies. |
+| [Second Brain](../second-brain/domain.md#aggregate-knowledge-note) | Customer/Supplier (Repository Management = customer) | ADR cross-link by id | `.domain/second-brain/domain.md#aggregate-knowledge-note` | Architecture/technology decisions are cross-linked from repo metadata. |
 
 ## Inbound dependents (known)
 
-| Consumer (context/module) | Integration pattern | What it relies on |
-|---|---|---|
-| [Technology Stack](../technology-stack/domain.md#aggregate-technology-registry) | Consumes tech-stack scans | Relies on per-repo technology snapshots for portfolio adoption. |
-| [Monitoring](../monitoring/domain.md#aggregate-progress-signal) | Subscribes to health/freshness signals | Relies on health scores, package freshness, and issue backlog for dashboards. |
-| [Backlog](../backlog/domain.md#aggregate-backlog-entry) | Recommendation → task creation | Low-health repos generate backlog items for updates/cleanup. |
-| [Dev PC Management](../dev-pc-management/domain.md#aggregate-machine-registry) | Shared repo registry (`config/repos.json`) | Aligns registered repos with local clone paths for developer workflows. |
+| Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
+|---|---|---|---|---|
+| [Technology Stack](../technology-stack/domain.md#aggregate-technology-registry) | Customer/Supplier (Repository Management = supplier) | Consumes tech-stack scans | `.domain/repository-management/domain.md#domain-service-repository-scan` | Relies on per-repo technology snapshots for portfolio adoption. |
+| [Monitoring](../monitoring/domain.md#aggregate-progress-signal) | Customer/Supplier (Repository Management = supplier) | Subscribes to health/freshness feed | `.domain/repository-management/domain.md#aggregate-repository-registry` | Relies on health scores, package freshness, and issue backlog for dashboards. |
+| [Backlog](../backlog/domain.md#aggregate-backlog-entry) | Customer/Supplier (Repository Management = supplier) | Recommendation -> task creation | `.domain/repository-management/domain.md#aggregate-repository-registry` | Low-health repos generate backlog items for updates/cleanup. |
+| [Dev PC Management](../dev-pc-management/domain.md#aggregate-machine-registry) | Customer/Supplier (Repository Management = supplier) | Shared repo registry (`config/repos.json`) | `.domain/repository-management/naming.md#term-repository` | Aligns registered repos with local clone paths for developer workflows. |
 
 ## Notes
 

@@ -71,7 +71,7 @@ and normalization of raw content into a Capture. Each source (mobile monitor,
 YouTube monitor, website monitor, email ingestion, web clipper, IDE adapter,
 manual import) is a concrete adapter behind this service. The behavior does not
 belong on the Capture aggregate because it spans external I/O, scheduling, and
-transport concerns that are outside a single capture's consistency boundary.
+transport concerns that are outside a single capture's consistency boundary. Invocation semantics: command-/scheduler-invoked application service behind per-source adapters.
 
 ## Domain Service: Delivery
 
@@ -83,7 +83,38 @@ related: [.domain/inbox/domain.md#aggregate-inbox-item]
 Delivers a normalized Capture to the Inbox incoming queue as an Inbox Item,
 emitting the `ItemCaptured` event (source, title, `body_md`, tags,
 `captured_at`). It exists as a service because delivery is a cross-boundary
-handoff between Capture and Inbox rather than an in-aggregate state change.
+handoff between Capture and Inbox rather than an in-aggregate state change. Invocation semantics: handoff service invoked after normalization completes; its cross-boundary side effect is publishing `ItemCaptured`.
+
+## Domain Event: ItemCaptured
+
+```meta
+status: draft
+related: [.domain/capture/domain.md#aggregate-capture, .domain/inbox/domain.md#aggregate-inbox-item]
+```
+
+Published by `Delivery` when a normalized Capture is handed off to the Inbox.
+This is Capture's published language for intake into the shared queue.
+
+### Payload
+
+- `capture_id` - originating Capture identifier.
+- `source` - `Capture Source` value.
+- `title` - normalized title.
+- `body_md` - normalized markdown body.
+- `tags` - normalized tags.
+- `source_url` - original link when present.
+- `captured_at` - time the source was captured.
+
+### Consumers
+
+- Inbox intake, which creates the `Inbox Item` and becomes the owner of further lifecycle.
+
+### Published language rules
+
+- Capture owns the meaning of the fields above; consumers conform to the contract
+  and do not depend on Capture's internal aggregate shape.
+- Additive payload changes are allowed; breaking shape changes require coordinated
+  versioning with Inbox.
 
 ## Shared Enums
 

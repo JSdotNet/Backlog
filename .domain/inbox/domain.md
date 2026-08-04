@@ -74,7 +74,7 @@ handoff: routing to Backlog (emitting `ItemTriaged` with title, type, tags,
 `repo_ids`, `source_inbox_id`), routing to Second Brain (emitting `ItemTriaged`
 with title, `body_md`, topic, tags), or setting the item to deferred or archived.
 It lives as a service because routing crosses bounded-context boundaries rather
-than mutating a single aggregate.
+than mutating a single aggregate. Invocation semantics: command-invoked application service triggered by a human or automated triage decision.
 
 ## Domain Service: Classification
 
@@ -86,7 +86,42 @@ Enriches an unprocessed Inbox Item before or during triage: auto-suggests tags
 from content analysis, auto-suggests a routing destination from keywords/patterns,
 and applies configured routing rules (source/tag patterns → repo mapping). It is
 a service because suggestions draw on rules and analysis external to any single
-item's state.
+item's state. Invocation semantics: invoked during intake/triage or by configured queue-processing rules.
+
+## Domain Event: ItemTriaged
+
+```meta
+status: draft
+related: [.domain/inbox/domain.md#aggregate-inbox-item, .domain/backlog/domain.md#aggregate-backlog-entry, .domain/second-brain/domain.md#aggregate-knowledge-note]
+```
+
+Published by `Triage` when an Inbox Item is routed out of the inbox. The route
+shape is stable even though the destination-specific fields differ.
+
+### Payload
+
+- `inbox_item_id` - originating Inbox Item identifier.
+- `route` - `backlog` or `second-brain`.
+- `title` - normalized title.
+- `body_md` - normalized body when routing to knowledge.
+- `tags` - final tags after classification.
+- `repo_ids` - targeted repositories when routing to backlog.
+- `type` - requested backlog entry type when routing to backlog.
+- `topic` - requested knowledge topic when routing to Second Brain.
+- `source_inbox_id` - preserved source id for traceability.
+- `triaged_at` - time of the routing decision.
+
+### Consumers
+
+- Backlog Management, which creates a draft `Backlog Entry`.
+- Second Brain, which creates a `Knowledge Note`.
+
+### Published language rules
+
+- Inbox owns the event name and field meanings; consumers conform to it instead of
+  depending on `Inbox Item` internals.
+- Route-specific fields are optional outside their route; consumers ignore fields
+  not relevant to their own destination.
 
 ## Shared Enums
 

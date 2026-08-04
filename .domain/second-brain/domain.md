@@ -73,7 +73,7 @@ Maintains bi-directional links between Knowledge Notes and Backlog Entries and
 supports queries that span both domains (search backlog + knowledge together,
 embed knowledge snippets into backlog details). It is a service because a link
 has two owners in different contexts and must be kept consistent from both sides
-rather than living inside a single aggregate.
+rather than living inside a single aggregate. Invocation semantics: consistency policy invoked when note/backlog links are created, removed, or reconciled.
 
 ## Shared Enums
 

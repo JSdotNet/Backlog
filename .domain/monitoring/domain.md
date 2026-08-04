@@ -66,7 +66,7 @@ Ingests signals from every source, correlates them (e.g. GitHub errors against
 backlog delays), detects staleness/attention conditions against configurable
 thresholds, and computes rollups including team-level aggregates. It is a service
 because it spans many signal sources and produces cross-cutting views rather than
-mutating one aggregate.
+mutating one aggregate. Invocation semantics: event-triggered read-side service consuming published signals from other contexts.
 
 ## Domain Service: Dashboard
 
@@ -79,7 +79,35 @@ progress, inbox/queue health, Copilot sessions, and infrastructure (PC status,
 repo health) — with role-based visibility for personal vs. team views. It emits
 `FollowUpCaptured` back to the Inbox when a dashboard follow-up should become a
 new item. It is a service because it reads across aggregates and contexts to
-present, rather than own, state.
+present, rather than own, state. Invocation semantics: query/composition service invoked when a dashboard view or follow-up decision is requested.
+
+## Domain Event: FollowUpCaptured
+
+```meta
+status: draft
+related: [.domain/monitoring/domain.md#domain-service-dashboard, .domain/inbox/domain.md#aggregate-inbox-item]
+```
+
+Published by `Dashboard` when an observed condition should become a new Inbox item.
+It is the only write-back contract from Monitoring into the core workflow.
+
+### Payload
+
+- `follow_up_title` - generated title for the new item.
+- `body_md` - dashboard summary or remediation notes.
+- `source` - monitoring source or dashboard that raised the follow-up.
+- `related_subject_ref` - backlog item, repository, machine, or issue reference.
+- `captured_at` - time the follow-up was raised.
+
+### Consumers
+
+- Inbox, which creates a new `Inbox Item` for human or automated triage.
+
+### Published language rules
+
+- Monitoring owns the observation payload; Inbox owns the resulting item lifecycle.
+- `FollowUpCaptured` is the only feedback-loop write allowed from Monitoring into
+  another bounded context.
 
 ## Shared Enums
 

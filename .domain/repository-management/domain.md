@@ -124,7 +124,7 @@ Runs scheduled or on-demand scans of a repository: parses dependency manifests,
 detects the technology stack, fetches GitHub metadata and security alerts, and
 recomputes the health score from package freshness, GitHub backlog, coverage, and
 security. It is a service because it coordinates external systems (file system,
-GitHub, package registries) to refresh the aggregate.
+GitHub, package registries) to refresh the aggregate. Invocation semantics: scheduled or on-demand orchestration service.
 
 ## Domain Service: Bulk Operations
 
@@ -136,7 +136,7 @@ related: [.domain/backlog/domain.md#aggregate-backlog-entry]
 Coordinates portfolio-wide actions: queue package updates across repos, run
 synchronized upgrades (e.g. "upgrade all ASP.NET Core projects to 9.0") via
 GitHub Actions, and generate migration guides. It is a service because it spans
-many repositories rather than a single aggregate.
+many repositories rather than a single aggregate. Invocation semantics: command-invoked orchestration service.
 
 ## Shared Enums
 

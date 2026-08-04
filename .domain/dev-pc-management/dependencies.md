@@ -1,26 +1,25 @@
 # Dependencies: Dev PC Management
 
 > Dependencies this bounded context has on other bounded contexts or
-> modules, and known dependents. Note the integration pattern for each
-> relationship (synchronous call, domain/integration event, shared kernel,
-> anti-corruption layer, etc.).
+> modules, and known dependents. Note the DDD relationship pattern,
+> integration mechanism, and published contract for each relationship.
 
 ## Outbound dependencies
 
-| Depends on (context/module) | Integration pattern | Why |
-|---|---|---|
-| [Technology Stack](../technology-stack/domain.md#aggregate-technology-registry) | `BaselineRequested` → `BaselineProvided` (sync) | Consumes the team tool baseline to compute per-machine compliance. |
-| [Monitoring](../monitoring/domain.md#aggregate-progress-signal) | Emits `MachineStatusChanged` / `ComplianceUpdated` | Machine status, compliance, uptime, and session metrics feed dashboards. |
-| [Backlog](../backlog/domain.md#aggregate-backlog-entry) | Id reference | Copilot sessions link to backlog items; compliance gaps can drive update tasks. |
-| Native package managers (external) | Command execution on target machine (ACL) | Tool updates run via `dotnet tool update`, `npm update`, `git upgrade`, etc. |
-| Cloud service (relay/broker) | Registration, WoL relay, connection brokering | Provides registry, wake relay, and connection details. |
+| Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
+|---|---|---|---|---|
+| [Technology Stack](../technology-stack/domain.md#aggregate-technology-registry) | Customer/Supplier (Dev PC Management = customer) | `BaselineRequested` -> `BaselineProvided` sync contract | `.domain/technology-stack/domain.md#domain-service-deprecation-management` | Consumes the team tool baseline to compute per-machine compliance. |
+| [Monitoring](../monitoring/domain.md#aggregate-progress-signal) | OHS + Published Language (Dev PC Management = supplier) | Emits `MachineStatusChanged` / `ComplianceUpdated` | `.domain/dev-pc-management/domain.md#domain-event-machinestatuschanged`, `.domain/dev-pc-management/domain.md#domain-event-complianceupdated` | Machine status, compliance, uptime, and session metrics feed dashboards. |
+| [Backlog](../backlog/domain.md#aggregate-backlog-entry) | Customer/Supplier (Dev PC Management = customer) | Id reference to work items | `.domain/backlog/naming.md#term-backlog-entry` | Copilot sessions link to backlog items; compliance gaps can drive update tasks. |
+| Native package managers (external) | ACL | Command execution on target machine | `.domain/dev-pc-management/domain.md#domain-service-remote-update` | Tool updates run via `dotnet tool update`, `npm update`, `git upgrade`, etc. |
+| Cloud service (relay/broker) | ACL | Registration, WoL relay, connection brokering | `.domain/dev-pc-management/domain.md#domain-service-remote-control` | Provides registry, wake relay, and connection details. |
 
 ## Inbound dependents (known)
 
-| Consumer (context/module) | Integration pattern | What it relies on |
-|---|---|---|
-| [Technology Stack](../technology-stack/domain.md#aggregate-technology-registry) | Consumes tool-version reports | Relies on machine tool inventories for portfolio adoption metrics. |
-| [Monitoring](../monitoring/domain.md#aggregate-progress-signal) | Subscribes to machine/compliance/session signals | Relies on infrastructure dashboard signals from this context. |
+| Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
+|---|---|---|---|---|
+| [Technology Stack](../technology-stack/domain.md#aggregate-technology-registry) | Customer/Supplier (Technology Stack = customer) | Consumes tool-version reports | `.domain/dev-pc-management/domain.md#aggregate-machine-registry` | Relies on machine tool inventories for portfolio adoption metrics. |
+| [Monitoring](../monitoring/domain.md#aggregate-progress-signal) | OHS + Published Language (Dev PC Management = supplier) | Subscribes to machine/compliance/session signals | `.domain/dev-pc-management/domain.md#domain-event-machinestatuschanged`, `.domain/dev-pc-management/domain.md#domain-event-complianceupdated` | Relies on infrastructure dashboard signals from this context. |
 
 ## Notes
 

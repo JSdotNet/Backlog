@@ -79,7 +79,85 @@ Creates and closes downstream artifacts for a multi-repo entry: on `EntryProject
 it creates one GitHub issue and/or CLI task per `repo_id`, recording each as a
 `Projection Ref`; on `EntryCompleted` it closes all projections. It is a service
 because it coordinates the entry with external systems (GitHub, Copilot CLI) and
-spans multiple downstream artifacts rather than a single aggregate mutation.
+spans multiple downstream artifacts rather than a single aggregate mutation. Invocation semantics: event-triggered policy / process manager. It reacts to `EntryProjected` and `EntryCompleted`; it is not invoked as part of a synchronous aggregate command.
+
+## Domain Event: StatusChanged
+
+```meta
+status: draft
+related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/monitoring/domain.md#aggregate-progress-signal]
+```
+
+Published when a `Backlog Entry` changes `Entry Status`.
+
+### Payload
+
+- `backlog_item_id` - entry identifier.
+- `previous_status` - prior `Entry Status`.
+- `new_status` - new `Entry Status`.
+- `changed_at` - time of the transition.
+- `repo_ids` - targeted repositories for correlation.
+
+### Consumers
+
+- Monitoring & Dashboard, which turns work-state changes into progress signals.
+
+### Published language rules
+
+- The event reflects the durable work-state transition; consumers do not infer
+  additional semantics from projection side effects.
+
+## Domain Event: EntryProjected
+
+```meta
+status: draft
+related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/backlog/domain.md#domain-service-projection, .domain/monitoring/domain.md#aggregate-progress-signal]
+```
+
+Published when a `Backlog Entry` begins external execution and the Projection
+policy creates one downstream artifact per targeted repository.
+
+### Payload
+
+- `backlog_item_id` - entry identifier.
+- `repo_id` - repository receiving a projection.
+- `projection_target` - `github-issue` or `copilot-task`.
+- `external_id` - created downstream artifact identifier.
+- `projected_at` - time the projection was created.
+
+### Consumers
+
+- Monitoring & Dashboard, which correlates planned work with external execution.
+
+### Published language rules
+
+- One event instance is emitted per projection target so consumers can reason
+  about multi-repo fan-out without inspecting `Projection Ref` internals.
+
+## Domain Event: EntryCompleted
+
+```meta
+status: draft
+related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/backlog/domain.md#domain-service-projection, .domain/monitoring/domain.md#aggregate-progress-signal]
+```
+
+Published when a completed `Backlog Entry` closes its downstream projections.
+
+### Payload
+
+- `backlog_item_id` - entry identifier.
+- `repo_ids` - repositories whose projections are being closed.
+- `closed_projection_ids` - downstream artifact identifiers that were closed.
+- `completed_at` - time the projections were closed.
+
+### Consumers
+
+- Monitoring & Dashboard, which reconciles work completion against external systems.
+
+### Published language rules
+
+- Completion is owned by Backlog Management; external systems consume the closing
+  signal but do not redefine what completion means.
 
 ## Shared Enums
 

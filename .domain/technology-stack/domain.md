@@ -124,7 +124,7 @@ Collects daily adoption from Dev PC tool reports and Repository tech-stack scans
 computes portfolio coverage, version distribution, adoption velocity, and
 sprawl, and flags deprecated tech still in use. It is a service because it
 aggregates data reported by other contexts into portfolio analytics that no
-single `Technology` owns.
+single `Technology` owns. Invocation semantics: scheduled/event-triggered analytics service.
 
 ## Domain Service: Deprecation Management
 
@@ -136,7 +136,7 @@ Drives the deprecation lifecycle: issues `Deprecation Notice`s with EOL dates an
 migration guidance, enforces minimum versions, tracks approved exceptions, and on
 EOL flags remaining machines/repos for forced migration. It is a service because
 it coordinates policy across many technologies, baselines, and external
-consumers.
+consumers. Invocation semantics: policy service triggered by baseline changes, EOL thresholds, and approval decisions.
 
 ## Shared Enums
 
