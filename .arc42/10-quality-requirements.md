@@ -23,8 +23,9 @@ status: draft
 | Q5 | **Sync reliability** | A sync POST fails or times out. | Item enters `SyncFailed`, retries with exponential backoff (max 5), and self-heals without data loss. |
 | Q6 | **Conflict handling** | Same item edited on two devices. | Edits resolve last-write-wins; new items never overwrite; conflicts are surfaced for manual review. |
 | Q7 | **Operational cost** | Cloud service under normal personal load. | Runs on a single App Service / Container App instance; TTL cleanup keeps storage bounded. |
-| Q8 | **Search performance** | Full-text search across all domains on the desktop. | Returns from local SQLite FTS with no cloud round-trip. |
+| Q8 | **Search performance** | Full-text search across all domains on the desktop. | Returns from local JSON-backed indexes with no cloud round-trip. |
 | Q9 | **Portability** | Same domain data accessed at workspace, repo, and project scope. | Dot-folder contract (`.inbox/`, `.backlog/`, `.brain/`) resolves consistently at every scope. |
 
 These scenarios should be reviewed once MVP scope per domain and per channel is
 defined (see `.arc42/11-risks-and-technical-debt.md`).
+

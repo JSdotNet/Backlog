@@ -21,11 +21,11 @@ C4Container
     Person(user, "ME", "Personal owner of the system")
 
     System_Boundary(b0, "Prompt Backlog") {
-        Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid / WinUI 3, SQLite", "Local-first full client — runs all fetch workers and manages all domains")
-        Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, SQLite", "Capture-first mobile client with offline storage")
+        Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid / WinUI 3, Markdown + JSON", "Local-first full client — runs all fetch workers and manages all domains")
+        Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, JSON", "Capture-first mobile client with offline storage")
         Container(ide, "IDE Extensions", "TypeScript / C#", "VS Code and Visual Studio integrations")
         Container(cloud, "Cloud Service", ".NET / ASP.NET Core", "Thin optional sync layer: device sync, webhook forwarding, push, PC registry")
-        ContainerDb(localStore, "Local Storage", "Markdown files, SQLite", "Desktop canonical data store — markdown is source of truth")
+        ContainerDb(localStore, "Local Storage", "Markdown files, JSON", "Desktop canonical data store — markdown is source of truth")
         ContainerDb(cloudDb, "Cloud Database", "Cosmos DB / PostgreSQL", "Sync state, webhook events, machine registry")
     }
 
@@ -88,7 +88,7 @@ flowchart TB
 
     subgraph "Local Storage"
       LocalMD["Local Markdown\n(Canonical)"]
-      SQLite["SQLite\n(FTS, Indexes)"]
+      JsonIndex["JSON\n(Indexes, Metadata)"]
     end
 
     subgraph "External Services"
@@ -137,9 +137,9 @@ flowchart TB
   BacklogSvc --> LocalMD
   KnowledgeSvc --> LocalMD
   InboxQueue --> LocalMD
-  BacklogSvc --> SQLite
-  RepoMgmtSvc --> SQLite
-  DevPCSvc --> SQLite
+  BacklogSvc --> JsonIndex
+  RepoMgmtSvc --> JsonIndex
+  DevPCSvc --> JsonIndex
 
   SyncAPI -.->|push| Notifications
   Notifications -.->|push| Mobile
@@ -180,7 +180,7 @@ graph TB
 
     subgraph "Infrastructure"
       LocalStore["Local Storage\n(Markdown files)"]
-      SQLite["SQLite DB\n(indexes, FTS)"]
+      JsonIndex["JSON Indexes\n(metadata, search)"]
       SyncClient["Sync Client\n(optional)"]
     end
   end
@@ -202,9 +202,9 @@ graph TB
   Knowledge --> LocalStore
   Monitoring --> LocalStore
 
-  Inbox --> SQLite
-  Backlog --> SQLite
-  Knowledge --> SQLite
+  Inbox --> JsonIndex
+  Backlog --> JsonIndex
+  Knowledge --> JsonIndex
 
   YTWorker --> YouTube
   WebWorker --> Websites
@@ -241,7 +241,7 @@ graph TB
 
   subgraph "App Layer"
     Capture["Capture Service\n(Quick add, Voice, Shortcuts)"]
-    Storage["Local Storage\n(SQLite)"]
+    Storage["Local Storage\n(JSON)"]
     Sync["Sync Engine\n(Conflict resolution)"]
   end
 
@@ -372,6 +372,7 @@ Cloud components:
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
 | **Notification Service** | Push to phone (FCM/APNs); SSE/WebSocket to desktop for real-time forwarding. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
+
 
 
 

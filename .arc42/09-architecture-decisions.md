@@ -48,10 +48,11 @@ related: [".arc42/04-solution-strategy.md"]
 Decisions specific to Prompt Backlog that are not covered by an org-level ADR are
 captured as solution strategy in `.arc42/04-solution-strategy.md`:
 
-- **Local-first, markdown-canonical** storage with SQLite as a derived index.
+- **Local-first, markdown-canonical** storage with JSON files as derived indexes and metadata.
 - **Thin cloud, rich desktop** responsibility split.
 - **Conflict policy**: new items always create; edits are last-write-wins.
 - **Capture/Inbox kept as one pipeline** for now, with a possible future split.
 
 If any of these harden into formally governed decisions, promote them to ADRs via the
 `orch-adr` skill and link them here rather than duplicating the content.
+

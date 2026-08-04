@@ -19,7 +19,7 @@ The desktop app is installed per machine (Windows, macOS, Linux) and is the cano
 deployment. Everything needed for core workflows runs here.
 
 - **Local Storage** — markdown files under a user-owned root (e.g. `~/PromptBacklog/`)
-  are the source of truth; a SQLite database provides FTS and indexes.
+  are the source of truth; JSON files provide indexes and metadata.
 - **Local Fetch Workers** — YouTube, website, email, GitHub-sync, and stale-detection
   workers run in-process/background on the desktop.
 - **IDE Extensions** — installed in VS Code / Visual Studio on the same machine; read
@@ -32,7 +32,7 @@ deployment. Everything needed for core workflows runs here.
   knowledge/topics/               # knowledge notes by topic
   monitoring/dashboards/          # saved dashboard configs
   tags/index.md                   # tag registry
-  .db/index.db                    # SQLite full-text search index
+  .index/*.json                   # JSON indexes and metadata
 ```
 
 ## Cloud Deployment (Azure)
@@ -95,3 +95,4 @@ Deployment considerations:
   service stores-and-forwards.
 - **Secrets in Key Vault** — webhook secrets and OAuth tokens are externalized.
 - **No blob storage** — attachments live on the desktop's local file system.
+

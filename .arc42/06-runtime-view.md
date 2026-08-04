@@ -24,13 +24,13 @@ sequenceDiagram
     participant UI as Desktop UI
     participant Backlog as Backlog Service
     participant Store as Local Storage
-    participant DB as SQLite
+    participant Index as Local JSON Index
     participant GitHub as GitHub API
 
     ME->>UI: Create backlog entry
     UI->>Backlog: createEntry(title, body, repo_ids, tags)
     Backlog->>Store: Write markdown file
-    Backlog->>DB: Update SQLite index
+    Backlog->>Index: Update JSON index
     Backlog-->>UI: Entry created (id)
 
     Note over Backlog,GitHub: Async GitHub sync - one issue per repo_id
@@ -95,7 +95,7 @@ available, with exponential-backoff retry on failure.
 sequenceDiagram
     actor ME
     participant App as Phone App
-    participant Storage as Local SQLite
+    participant Storage as Local JSON Store
     participant Sync as Sync Engine
     participant Cloud as Cloud Service
 
@@ -194,7 +194,7 @@ sequenceDiagram
     participant RepoRegistry as Repository Registry
     participant Pkg as Package Registries
     participant TechStack as Technology Stack
-    participant DB as SQLite
+    participant Index as Local JSON Index
     participant Monitoring as Monitoring Service
 
     Scheduler->>RepoMgmt: Start dependency scan
@@ -205,7 +205,7 @@ sequenceDiagram
     end
     RepoMgmt->>TechStack: Compare discovered versions to baselines
     TechStack-->>RepoMgmt: Drift and policy evaluation
-    RepoMgmt->>DB: Persist repository health snapshot
+    RepoMgmt->>Index: Persist repository health snapshot
     RepoMgmt->>Monitoring: Emit ProgressSignal(s)
     Monitoring-->>Scheduler: Dashboard/alert state updated
 ```
@@ -245,4 +245,5 @@ sequenceDiagram
     DevPC->>Monitoring: Emit machine-online signal
     Monitoring-->>ME: Machine visible as online
 ```
+
 

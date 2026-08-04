@@ -15,7 +15,7 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 ```
 
 - **Local-first, markdown canonical** — the desktop's markdown files are the single
-  source of truth; SQLite is a derived index (FTS, relationships).
+  source of truth; JSON files hold derived indexes, metadata, and relationships.
 - **Configurable repo paths** via a repo registry (`config/repos.json`).
 - **Scope-portable dot-folder contract** — `.inbox/`, `.backlog/`, `.brain/` exist at
   workspace, repo, and project levels; shared tags/relationships live in the
@@ -84,4 +84,5 @@ The vocabulary exchanged across all applications and domains:
 The cloud service persists only sync-oriented state derived from these types
 (`SyncState`, `SyncPayload`, `WebhookEvents`, `GitHubWebhookConfig`,
 `MachineRegistry`, `TeamConfig`) — never the canonical domain data itself.
+
 

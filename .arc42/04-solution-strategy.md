@@ -57,7 +57,7 @@ Responsibilities are deliberately pushed to the desktop; the cloud is minimized:
 |---|---|---|
 | YouTube / website / email fetching | Desktop workers | Keep external credentials off the cloud |
 | GitHub issue sync | Desktop (`gh` CLI / API) | Direct calls, no relay needed |
-| Full-text search | Desktop SQLite FTS | Fast local search, no cloud index cost |
+| Full-text search | Desktop JSON-backed local indexes | Fast local search, no cloud index cost |
 | Backlog / Knowledge CRUD | Desktop local storage | Markdown is canonical |
 | Sync coordination, webhook forwarding, push, PC registry | Cloud | Cross-device concerns only |
 
@@ -70,8 +70,8 @@ related: [".arc42/09-architecture-decisions.md"]
 
 | Channel | Candidate stack |
 |---|---|
-| **Desktop** | .NET MAUI Blazor Hybrid (preferred, C#) or WinUI 3 for a Windows-first scope; SQLite + markdown |
-| **Mobile** | .NET MAUI (preferred, C#) with Blazor Hybrid or Blazor WebAssembly PWA as the closest fallback options; SQLite |
+| **Desktop** | .NET MAUI Blazor Hybrid (preferred, C#) or WinUI 3 for a Windows-first scope; markdown + JSON |
+| **Mobile** | .NET MAUI (preferred, C#) with Blazor Hybrid or Blazor WebAssembly PWA as the closest fallback options; JSON-backed local storage |
 | **IDE** | VS Code extension (TypeScript, webview) and Visual Studio extension (C#, WPF) |
 | **Cloud** | C# / ASP.NET Core Minimal APIs on .NET, Azure hosting, Cosmos DB / PostgreSQL |
 
@@ -91,5 +91,6 @@ items), tagging/organization (`#tags`, PARA grouping, tag index), and authentica
 (no account for personal use, OAuth for GitHub, device auth for cloud) are treated as
 cross-cutting concepts applied uniformly across channels. They are detailed in
 `.arc42/08-crosscutting-concepts.md`.
+
 
 
