@@ -41,14 +41,12 @@ when a chapter has real content — do not scaffold empty placeholders):
   12-glossary.md
 ```
 
-## Authoring guidance
+## Folder rules
 
-- For new or updated arc42 content, use the `orch-arc42` orchestration skill
-  (fallback: `architecture:architect`) per
-  `.github/instructions/workflow-routing.instructions.md`.
-- Ground every section in existing ADRs, recommendations, and structures from
-  `jsdotnet-project-guidelines` before writing; do not invent architecture
-  decisions that conflict with recorded guidance.
+These rules describe the persisted shape of `.arc42` assets only. Authoring
+workflow, routing, and cross-document governance are handled by separate
+instructions.
+
 - Keep the glossary aligned with the ubiquitous language defined per bounded
   context in `.domain`.
 - Prefer diagrams (Mermaid) over long prose for building-block and runtime
