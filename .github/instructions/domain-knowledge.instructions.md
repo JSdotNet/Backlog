@@ -81,18 +81,11 @@ process flows.
   chapter where it is modeled. This gives every synonym (code class name, id
   field, consumer-side copy) a single canonical concept.
 
-## Authoring guidance
+## Folder rules
 
-- Use ubiquitous language consistently; if a term's meaning differs from
-  another context, say so explicitly rather than silently reusing the word.
-- Ground new or changed content in existing ADRs and design guidance from
-  `jsdotnet-project-guidelines` / `jsdotnet-project-design` before writing;
-  do not invent structure that conflicts with a recorded decision.
-- For domain modeling work (new bounded contexts, aggregate design,
-  ubiquitous language questions), route through `domain-design:domain-architect`
-  per `.github/instructions/workflow-routing.instructions.md`.
-- Keep these documents current as the model evolves — treat drift between
-  `.domain` and the actual code/domain-design MCP guidance as a defect.
+These rules describe the persisted shape of `.domain` assets only. Authoring
+workflow, routing, and cross-document governance are handled by separate
+instructions.
 - Every Aggregate, Domain Service, Domain Event, Shared Value Objects, and
   Shared Enums chapter in `domain.md`, every Feature/Sub-feature chapter in
   `features.md`, and every `## Term` chapter in `naming.md` must carry a
