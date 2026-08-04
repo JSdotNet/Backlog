@@ -24,5 +24,19 @@ specialist agent only when the skill is unavailable.
 - GitHub issue creation or updates, and pull request automation: use `create-github-issue`,
   `update-github-issue`, and `pr-jsdotnet`.
 
+## Context loading by orchestration and agent
+
+- `orch-architecture`, `orch-arc42`, `orch-blueprint`, `orch-adr`, `orch-tdr`, and
+  `architecture:architect` may load `.arc42/` as working context, but should load only
+  the chapter(s) relevant to the requested scope.
+- `domain-design:domain-architect` may load `.domain/` as working context, but should
+  load only the relevant bounded-context chapters.
+- Backlog-writing or issue-writing workflows may load `.backlog/` as working context,
+  but should load only the relevant work-item chapters.
+- Non-architecture implementation, bug-fix, package-update, documentation, and UX flows
+  should not load `.arc42/` by default. Consult it only when the user explicitly asks
+  for architecture context or when implementation depends on a specific documented
+  decision, view, constraint, or glossary term.
+
 If neither the preferred skill nor its fallback agent is installed, use the closest
 available specialist agent and note that orchestration routing was unavailable.
