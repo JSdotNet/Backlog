@@ -21,7 +21,7 @@ C4Container
     Person(user, "ME", "Personal owner of the system")
 
     System_Boundary(b0, "Prompt Backlog") {
-        Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid / WinUI 3, Markdown + JSON", "Local-first full client — runs all fetch workers and manages all domains")
+        Container(desktop, "Desktop App", "WinUI 3, Markdown + JSON", "Local-first Windows client — runs all fetch workers and manages all domains")
         Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, JSON", "Capture-first mobile client with offline storage")
         Container(ide, "IDE Extensions", "TypeScript / C#", "VS Code and Visual Studio integrations")
         Container(cloud, "Cloud Service", ".NET / ASP.NET Core", "Thin optional sync layer: device sync, webhook forwarding, push, PC registry")
@@ -155,13 +155,13 @@ status: active
 related: [".arc42/06-runtime-view.md#backlog-entry-to-github-issue"]
 ```
 
-Local-first client for Windows, macOS, and Linux. Serves Capture, Inbox, Backlog Management, Second Brain, Monitoring, Technology Stack, Dev PC Management, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
+Local-first Windows client. Serves Capture, Inbox, Backlog Management, Second Brain, Monitoring, Technology Stack, Dev PC Management, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
 **Connected** (adds cloud sync, phone access, and webhook forwarding).
 
 ```mermaid
 graph TB
   subgraph "Desktop App"
-    UI["UI Layer\n(.NET MAUI Blazor Hybrid / WinUI 3)"]
+    UI["UI Layer\n(WinUI 3)"]
 
     subgraph "Core Services"
       Inbox["Inbox Service\n(capture, triage)"]
@@ -372,6 +372,7 @@ Cloud components:
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
 | **Notification Service** | Push to phone (FCM/APNs); SSE/WebSocket to desktop for real-time forwarding. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
+
 
 
 

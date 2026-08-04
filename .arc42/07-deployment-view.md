@@ -96,3 +96,4 @@ Deployment considerations:
 - **Secrets in Key Vault** — webhook secrets and OAuth tokens are externalized.
 - **No blob storage** — attachments live on the desktop's local file system.
 
+
