@@ -15,8 +15,7 @@ status: active
 related: [".arc42/05-building-block-view.md#desktop-app", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
-The desktop app is installed per machine (Windows, macOS, Linux) and is the canonical
-deployment. Everything needed for core workflows runs here.
+The desktop app is installed on Windows machines and is the canonical deployment. Everything needed for core workflows runs here.
 
 - **Local Storage** — markdown files under a user-owned root (e.g. `~/PromptBacklog/`)
   are the source of truth; JSON files provide indexes and metadata.
@@ -95,6 +94,7 @@ Deployment considerations:
   service stores-and-forwards.
 - **Secrets in Key Vault** — webhook secrets and OAuth tokens are externalized.
 - **No blob storage** — attachments live on the desktop's local file system.
+
 
 
 
