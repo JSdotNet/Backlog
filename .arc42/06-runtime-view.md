@@ -20,14 +20,14 @@ one GitHub issue per targeted repo.
 
 ```mermaid
 sequenceDiagram
-    actor User
+    actor ME
     participant UI as Desktop UI
     participant Backlog as Backlog Service
     participant Store as Local Storage
     participant DB as SQLite
     participant GitHub as GitHub API
 
-    User->>UI: Create backlog entry
+    ME->>UI: Create backlog entry
     UI->>Backlog: createEntry(title, body, repo_ids, tags)
     Backlog->>Store: Write markdown file
     Backlog->>DB: Update SQLite index
@@ -42,7 +42,7 @@ sequenceDiagram
     end
 
     Backlog-->>UI: github_issue_ids available
-    UI-->>User: Entry visible with GitHub issue links
+    UI-->>ME: Entry visible with GitHub issue links
 ```
 
 ## State Sync and Webhook Forwarding
@@ -93,15 +93,15 @@ available, with exponential-backoff retry on failure.
 
 ```mermaid
 sequenceDiagram
-    actor User
+    actor ME
     participant App as Phone App
     participant Storage as Local SQLite
     participant Sync as Sync Engine
     participant Cloud as Cloud Service
 
-    User->>App: Capture item (text or voice)
+    ME->>App: Capture item (text or voice)
     App->>Storage: INSERT inbox_item (status=captured)
-    App-->>User: Stored locally
+    App-->>ME: Stored locally
 
     Note over Sync,Cloud: When network becomes available
     Sync->>Storage: Query pending items
@@ -109,7 +109,7 @@ sequenceDiagram
     Sync->>+Cloud: POST /sync/items (batch upload)
     Cloud-->>-Sync: 200 OK (merged_count)
     Sync->>Storage: UPDATE status=synced
-    App-->>User: Sync complete
+    App-->>ME: Sync complete
 
     Note over Sync,Cloud: On sync failure
     Sync->>+Cloud: POST /sync/items
@@ -156,24 +156,24 @@ local markdown cache and posts it to the inbox.
 
 ```mermaid
 sequenceDiagram
-    actor Dev as Developer
+    actor ME
     participant IDE as IDE Extension
     participant Ext as Extension API
     participant Capture as Capture Service
     participant API as Backend API
     participant Store as Local Markdown
 
-    Dev->>IDE: Select code -> right-click Capture
+    ME->>IDE: Select code -> right-click Capture
     IDE->>Ext: Get repo context
     Ext-->>IDE: file_path, line, branch, selection
-    IDE->>Dev: Show capture dialog (pre-filled context)
-    Dev->>IDE: Add title and tags -> confirm
+    IDE->>ME: Show capture dialog (pre-filled context)
+    ME->>IDE: Add title and tags -> confirm
     IDE->>Capture: createItem(title, body, metadata)
     Capture->>Store: Write to local markdown cache
     Capture->>API: POST /inbox/items (source=ide-vs-code)
     API-->>Capture: 201 Created (id)
     Capture-->>IDE: Item created (id, deep_link)
-    IDE-->>Dev: Confirmation + deep-link to item
+    IDE-->>ME: Confirmation + deep-link to item
 ```
 
 ## Repository Baseline Scan and Health Signal
@@ -222,7 +222,7 @@ reconcile its status when the target desktop comes back online.
 
 ```mermaid
 sequenceDiagram
-    actor User
+    actor ME
     participant Desktop as Desktop App
     participant DevPC as Dev PC Management
     participant Cloud as Cloud Service
@@ -230,7 +230,7 @@ sequenceDiagram
     participant Target as Remote Desktop Agent
     participant Monitoring as Monitoring Service
 
-    User->>Desktop: Wake remote machine
+    ME->>Desktop: Wake remote machine
     Desktop->>DevPC: wake(machine_id)
     DevPC->>Cloud: POST /pc/wake/{machine_id}
     Cloud->>Registry: Load machine registration
@@ -243,5 +243,6 @@ sequenceDiagram
     Cloud->>Registry: Update status=online
     Cloud-->>DevPC: pc.wake-result / status update
     DevPC->>Monitoring: Emit machine-online signal
-    Monitoring-->>User: Machine visible as online
+    Monitoring-->>ME: Machine visible as online
 ```
+

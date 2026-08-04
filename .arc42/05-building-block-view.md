@@ -18,7 +18,7 @@ related: [".arc42/03-context-and-scope.md#access-channels-scope"]
 C4Container
     title Container Diagram — Prompt Backlog
 
-    Person(user, "Developer", "Personal developer")
+    Person(user, "ME", "Personal owner of the system")
 
     System_Boundary(b0, "Prompt Backlog") {
         Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid / WinUI 3, SQLite", "Local-first full client — runs all fetch workers and manages all domains")
@@ -372,6 +372,7 @@ Cloud components:
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
 | **Notification Service** | Push to phone (FCM/APNs); SSE/WebSocket to desktop for real-time forwarding. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
+
 
 
 

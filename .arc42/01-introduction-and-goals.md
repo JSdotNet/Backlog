@@ -57,14 +57,14 @@ The top quality goals shaping the architecture, in priority order:
 Detailed, measurable scenarios are elaborated in
 `.arc42/10-quality-requirements.md`.
 
-## Stakeholders
+## Person
 
 ```meta
 status: active
 ```
 
-| Role | Concern |
+| Name | Concern |
 |---|---|
-| **Me (primary user)** | Personal developer managing AI-driven work across projects and devices; wants fast capture, organized backlog/knowledge, and progress visibility. |
-| **Maintainer / Architect** | Keeps domain boundaries, cross-cutting concerns, and the local-first contract coherent as the system grows. |
+| **ME** | Personal owner of the system across projects and devices; wants fast capture, organized backlog/knowledge, and progress visibility. |
+
 
