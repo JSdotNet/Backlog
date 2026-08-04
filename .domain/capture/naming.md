@@ -31,7 +31,10 @@ related: [.domain/capture/domain.md#capture-source]
 
 Which channel produced a capture (mobile, youtube, website, email, web_clipper,
 ide, manual). This is a published enum shared with the Inbox — both contexts use
-the same value set (see `.domain/inbox/naming.md#term-capture-source`).
+the same value set (see `.domain/inbox/naming.md#term-capture-source`). The
+`ide` value covers every IDE-class host that captures via the Source Adapter's
+IDE-family adapters: VS Code, Visual Studio, and the GitHub Copilot App (an
+agentic session-management tool treated as a peer of the editor extensions).
 
 ## Term: Source Adapter
 

@@ -11,7 +11,8 @@ status: draft
 
 Capture owns **how items enter the system**. It acquires raw content from any
 source — mobile devices, automated monitors, email subscriptions, web clippers,
-IDE extensions, and manual import — normalizes it, and delivers it to the
+IDE-class hosts (IDE extensions and agentic session tools such as the GitHub
+Copilot App), and manual import — normalizes it, and delivers it to the
 [Inbox](../inbox/domain.md#aggregate-inbox-item) as an Inbox Item. Once an item
 is delivered, Capture's responsibility ends.
 
@@ -39,9 +40,11 @@ carried by the `Source Metadata` value object and the `Capture Source` enum.
 #### Source Metadata
 
 Source-specific context attached to a capture, e.g. YouTube channel name,
-clipped `source_url`, email sender, or IDE file path / line / branch. Equality
-is by value. Its concrete keys depend on the `Capture Source`; it is opaque to
-downstream domains except as provenance.
+clipped `source_url`, email sender, or IDE-class file path / line / branch. For
+captures from an agentic session tool (e.g. the GitHub Copilot App), the same
+`ide` shape also carries a `session_id` and the local worktree path in place of
+an open-editor selection. Equality is by value. Its concrete keys depend on the
+`Capture Source`; it is opaque to downstream domains except as provenance.
 
 #### Tag
 
@@ -59,7 +62,9 @@ Origin type of a capture. Values and meaning:
 - `website` — a change detected by the website monitor.
 - `email` — a newsletter/summary ingested from an IMAP inbox.
 - `web_clipper` — content clipped by the browser extension/bookmarklet.
-- `ide` — content captured from a selection in an IDE extension adapter.
+- `ide` — content captured from an IDE-class host: a selection in an IDE
+  extension adapter (VS Code, Visual Studio) or an in-session capture command
+  from an agentic session tool such as the GitHub Copilot App.
 - `manual` — drag-and-drop or pasted content imported by hand.
 
 ## Domain Service: Source Adapter
@@ -73,9 +78,14 @@ Coordinates acquisition for a given `Capture Source`: polling or event intake,
 retry with exponential backoff, offline-first buffering with background sync,
 and normalization of raw content into a Capture. Each source (mobile monitor,
 YouTube monitor, website monitor, email ingestion, web clipper, IDE adapter,
-manual import) is a concrete adapter behind this service. The behavior does not
-belong on the Capture aggregate because it spans external I/O, scheduling, and
-transport concerns that are outside a single capture's consistency boundary. Invocation semantics: command-/scheduler-invoked application service behind per-source adapters.
+GitHub Copilot App session adapter, manual import) is a concrete adapter behind
+this service. The GitHub Copilot App adapter runs as a peer of the IDE
+extension adapters: it is invoked from within a Copilot App session against
+the session's local worktree, so it reads/writes through the same local-first
+path as the Desktop App and never routes credentials through the optional
+Cloud Service. The behavior does not belong on the Capture aggregate because it
+spans external I/O, scheduling, and transport concerns that are outside a
+single capture's consistency boundary. Invocation semantics: command-/scheduler-invoked application service behind per-source adapters.
 
 ## Domain Service: Delivery
 

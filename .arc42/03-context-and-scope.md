@@ -95,7 +95,7 @@ Three cross-domain access channels plus one optional platform component are in s
 |---|---|
 | **Desktop App** | Local-first full client; runs all fetch workers and manages all domains. |
 | **Mobile App** | Mobile-first, offline-first capture; syncs via cloud. |
-| **IDE Extensions** | VS Code & Visual Studio integration for backlog/knowledge browsing and capture. |
+| **IDE Extensions** | VS Code, Visual Studio & GitHub Copilot App integration for backlog/knowledge browsing and capture. |
 | **Cloud Service** (optional) | Thin sync/coordination layer: device sync, webhook forwarding, push, machine registry. |
 
 

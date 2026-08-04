@@ -109,8 +109,24 @@ preserved.
 status: draft
 ```
 
-Adapter that lets IDE extensions trigger a capture from selected code/text,
-attaching file path, line number, and branch as context metadata.
+Adapter that lets IDE-class hosts trigger a capture of selected code/text or an
+in-session note, attaching file path, line number, and branch (or session and
+worktree context) as context metadata. Covers both editor extensions (VS Code,
+Visual Studio) and agentic session tools (GitHub Copilot App).
+
+### Sub-feature: Copilot App session capture
+
+```meta
+status: draft
+related: [.domain/capture/domain.md#domain-service-source-adapter]
+```
+
+Let a GitHub Copilot App session capture a backlog idea, follow-up, or
+knowledge note directly from within its agent conversation, attaching the
+session id, local worktree path, and current branch as context metadata. Runs
+against the session's local worktree only, so no source credential leaves the
+machine — the same local-first constraint that applies to the desktop's
+inbound polling workers.
 
 ## Feature: Manual import
 

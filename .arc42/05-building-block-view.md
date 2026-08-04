@@ -29,7 +29,7 @@ C4Container
     System_Boundary(b0, "Prompt Backlog") {
         Container(desktop, "Desktop App", "WinUI 3, Markdown + JSON", "Local-first Windows client — runs all fetch workers and manages all domains")
         Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, JSON", "Capture-first mobile client with offline storage")
-        Container(ide, "IDE Extensions", "TypeScript / C#", "VS Code and Visual Studio integrations")
+        Container(ide, "IDE Extensions", "TypeScript / C#", "VS Code, Visual Studio, and GitHub Copilot App integrations")
         Container(cloud, "Cloud Service", ".NET / ASP.NET Core", "Thin optional sync layer: device sync, webhook forwarding, push, PC registry")
         ContainerDb(localStore, "Local Storage", "Markdown files, JSON", "Desktop canonical data store — markdown is source of truth")
         ContainerDb(cloudDb, "Cloud Database", "Cosmos DB / PostgreSQL", "Sync state, webhook events, machine registry")
@@ -41,7 +41,7 @@ C4Container
 
     Rel(user, desktop, "Uses — capture, backlog, knowledge, monitoring", "local")
     Rel(user, mobile, "Captures on mobile", "touch / voice")
-    Rel(user, ide, "Browses backlog and knowledge", "IDE commands")
+    Rel(user, ide, "Browses backlog and knowledge; captures from IDE and Copilot sessions", "IDE commands / session prompts")
 
     Rel(desktop, localStore, "Reads and writes", "file system")
     Rel(desktop, github, "Syncs issues", "HTTPS / gh CLI")
@@ -274,13 +274,17 @@ graph TB
 
 ```meta
 status: active
-related: [".arc42/06-runtime-view.md#ide-context-aware-capture"]
+related: [".arc42/06-runtime-view.md#ide-context-aware-capture", ".arc42/06-runtime-view.md#copilot-app-session-capture"]
 ```
 
-Repo-aware integrations for VS Code and Visual Studio. Serve Inbox (capture intake),
-Backlog Management, and Second Brain browsing. IDE packaging, extension-host APIs, and
-release cadence are architecture concerns; domain lifecycle rules stay with the
-owning domains.
+Repo-aware integrations for VS Code and Visual Studio, plus GitHub Copilot App sessions
+running one local agent process per worktree. These hosts serve Inbox (capture intake),
+Backlog Management, and Second Brain browsing. Packaging and host APIs are architecture
+concerns; domain lifecycle rules stay with the owning domains.
+
+The GitHub Copilot App path is a peer IDE-class host, not a new container: it reuses
+the same local capture/query services and local markdown + API paths already used by
+the desktop and extension adapters.
 
 ```mermaid
 graph TB
@@ -321,6 +325,10 @@ graph TB
   KnowBrowser --> API
   Capture -->|Sync| API
 ```
+
+Note: this capture-channel integration is distinct from Dev PC Management
+`Copilot Session Tracking`. Tracking records active/archived session lifecycle for
+compliance/monitoring; capture uses session context to create backlog/knowledge items.
 
 ## Cloud Service
 
