@@ -45,7 +45,7 @@ related: [".arc42/09-architecture-decisions.md"]
 - **No account required** for personal use in standalone mode.
 - **OAuth 2.0** for GitHub integration (issue sync, webhook registration).
 - **Cloud connection uses device-based auth** — JWT device sessions, no user login.
-- **Team monitoring mode** adds role-based visibility (admin vs. member).
+- The current architecture assumes a single personal user and does not include team-oriented authorization roles.
 
 For the cloud service specifically, the organization's identity, authorization, and
 error-contract ADRs apply (see `.arc42/09-architecture-decisions.md`).
@@ -84,3 +84,4 @@ The vocabulary exchanged across all applications and domains:
 The cloud service persists only sync-oriented state derived from these types
 (`SyncState`, `SyncPayload`, `WebhookEvents`, `GitHubWebhookConfig`,
 `MachineRegistry`, `TeamConfig`) — never the canonical domain data itself.
+

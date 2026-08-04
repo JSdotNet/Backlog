@@ -65,6 +65,6 @@ status: active
 
 | Role | Concern |
 |---|---|
-| **Developer (primary user)** | Personal developer managing AI-driven work across projects and devices; wants fast capture, organized backlog/knowledge, and progress visibility. |
-| **Team Member (optional)** | Participates in optional team monitoring; views shared dashboards. |
+| **Me (primary user)** | Personal developer managing AI-driven work across projects and devices; wants fast capture, organized backlog/knowledge, and progress visibility. |
 | **Maintainer / Architect** | Keeps domain boundaries, cross-cutting concerns, and the local-first contract coherent as the system grows. |
+

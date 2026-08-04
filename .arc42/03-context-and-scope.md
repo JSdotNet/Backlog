@@ -18,8 +18,7 @@ related: [".arc42/01-introduction-and-goals.md#requirements-overview"]
 C4Context
     title System Context — Prompt Backlog
 
-    Person(user, "Developer", "Personal developer managing AI-driven work across projects and devices")
-    Person(teamMember, "Team Member", "Optional team monitoring participant")
+    Person(user, "Me", "Personal developer managing AI-driven work across projects and devices")
 
     System(promptBacklog, "Prompt Backlog", "Local-first personal productivity system: capture, triage, backlog, knowledge, and monitoring")
 
@@ -31,7 +30,6 @@ C4Context
     System_Ext(pushProvider, "Push Notification Provider", "FCM or APNs for mobile alerts")
 
     Rel(user, promptBacklog, "Captures, triages, manages backlog and knowledge")
-    Rel(teamMember, promptBacklog, "Views team monitoring dashboards")
     Rel(promptBacklog, github, "Syncs issues; receives webhook events")
     Rel(promptBacklog, youtube, "Polls subscription feed")
     Rel(promptBacklog, email, "Ingests via IMAP")
@@ -90,3 +88,4 @@ Three cross-domain access channels plus one optional platform component are in s
 | **Mobile App** | Mobile-first, offline-first capture; syncs via cloud. |
 | **IDE Extensions** | VS Code & Visual Studio integration for backlog/knowledge browsing and capture. |
 | **Cloud Service** (optional) | Thin sync/coordination layer: device sync, webhook forwarding, push, machine registry. |
+

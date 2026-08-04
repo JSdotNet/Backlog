@@ -324,10 +324,7 @@ related: [".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".arc42
 ```
 
 A thin sync and coordination layer — deliberately not the backbone. It coordinates
-device sync, receives and forwards GitHub webhooks, sends push notifications, hosts a
-Remote PC registry / Wake-on-LAN relay, and optionally provides a team monitoring
-service. It stores minimal, mostly TTL-based state — never domain data or external
-credentials.
+device sync, receives and forwards GitHub webhooks, sends push notifications, and hosts a Remote PC registry / Wake-on-LAN relay. It stores minimal, mostly TTL-based state — never domain data or external credentials.
 
 ```mermaid
 flowchart TB
@@ -375,5 +372,6 @@ Cloud components:
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
 | **Notification Service** | Push to phone (FCM/APNs); SSE/WebSocket to desktop for real-time forwarding. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
-| **Team Monitoring Service** (optional) | Aggregated team dashboard, signal ingestion, role-based visibility. |
+
+
 
