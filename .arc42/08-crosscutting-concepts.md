@@ -11,7 +11,7 @@ uniformly. Shared data types define the vocabulary exchanged between them.
 
 ```meta
 status: active
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".arc42/06-runtime-view.md#copilot-app-session-capture", ".domain/capture/domain.md#domain-service-source-adapter"]
 ```
 
 - **Local-first, markdown canonical** — the desktop's markdown files are the single
@@ -23,6 +23,13 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 - **Optional cloud sync** for multi-device. Conflict resolution:
   **new items always create; edits are last-write-wins**.
 - **Desktop works fully standalone**; the cloud connection is purely additive.
+- **Local credential handling includes Copilot sessions** — desktop workers and
+  GitHub Copilot App session adapters both run on the same machine and pass local
+  context (`session_id`, `worktree_path`, `branch`) without routing credentials
+  through the optional Cloud Service.
+- **Copilot capture vs. Copilot session tracking** — capture uses session context to
+  create Inbox/Backlog/Knowledge items, while Dev PC Management tracking is a
+  separate compliance/monitoring concern.
 
 ## Tagging and Organization
 

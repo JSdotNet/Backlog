@@ -176,6 +176,39 @@ sequenceDiagram
     IDE-->>ME: Confirmation + deep-link to item
 ```
 
+## Copilot App Session Capture
+
+```meta
+status: active
+related: [".arc42/05-building-block-view.md#ide-extensions", ".domain/capture/domain.md#domain-service-source-adapter", ".domain/capture/features.md#sub-feature-copilot-app-session-capture"]
+```
+
+A GitHub Copilot App session can capture a backlog follow-up or knowledge note using
+local session metadata (`session_id`, `worktree_path`, `branch`) via
+`.domain/capture/domain.md#domain-service-source-adapter`, reusing the same local
+capture pipeline as IDE extensions and desktop workers.
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Copilot as GitHub Copilot App Session
+    participant Adapter as Source Adapter
+    participant Capture as Capture Service
+    participant Store as Local Markdown
+    participant API as Backend API
+
+    ME->>Copilot: /capture "follow-up"
+    Copilot->>Adapter: Build source metadata (session_id, worktree_path, branch)
+    Adapter->>Capture: createItem(title, body, source=ide, metadata)
+    Capture->>Store: Write to local markdown cache
+    Capture->>API: POST /inbox/items
+    API-->>Capture: 201 Created (id)
+    Capture-->>Copilot: Item created (id, deep_link)
+    Copilot-->>ME: Confirmation + deep-link
+
+    Note over Copilot,API: Local-first path only; no credential forwarding through Cloud Service
+```
+
 ## Repository Baseline Scan and Health Signal
 
 ```meta
