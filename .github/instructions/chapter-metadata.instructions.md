@@ -14,19 +14,20 @@ block.
 A "chapter" here means any heading that these folders' own instructions
 already treat as an addressable unit:
 
-- `.domain/<context>/domain.md` — each Aggregate, Domain Service, and each
-  Shared Value Objects / Shared Enums chapter. Entity/Value Object/Enum
-  sub-chapters inside an Aggregate use the metadata block too if they need
-  independent status/dependencies/cross-references; otherwise they can be
-  covered by their parent Aggregate's block.
+- `.domain/<context>/domain.md` — each Aggregate, Domain Service, Domain Event,
+  and each Shared Value Objects / Shared Enums chapter. Entity/Value
+  Object/Enum sub-chapters inside an Aggregate use the metadata block too if
+  they need independent status/dependencies/cross-references; otherwise they
+  can be covered by their parent Aggregate's block.
 - `.domain/<context>/features.md` — each Feature and Sub-feature.
 - `.domain/<context>/naming.md` — each `Term` chapter.
 - `.arc42/<nn>-<name>.md` — the file's top-level chapter, and any ## section
   inside it that is independently trackable.
 - `.backlog/<concern-type>-<concern-slug>.md` — each Item and Sub-item.
 
-- `.domain` `model.md`, `flow.md`, and `dependencies.md` are structural/diagram
-  files; their `##` sections do **not** carry per-chapter metadata blocks.
+- `.domain` `context-map.md`, `model.md`, `flow.md`, and `dependencies.md` are
+  strategic/structural artifacts; their `##` sections do **not** carry
+  per-chapter metadata blocks.
 
 ## Metadata block format
 

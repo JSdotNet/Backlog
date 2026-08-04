@@ -1,6 +1,6 @@
 ---
 applyTo: ".domain/**"
-description: Structure and authoring rules for the domain knowledge folder, organized per bounded context.
+description: Structure and authoring rules for the domain knowledge folder, including root strategic DDD context mapping and per-bounded-context documentation.
 ---
 
 # Domain knowledge (`.domain`)
@@ -12,17 +12,21 @@ domain looks like" — complementary to `.arc42` (system architecture) and
 
 ## Structure
 
+`.domain/` contains one root strategic artifact plus one folder per bounded
+context.
+
 Each bounded context gets its own subfolder, named in kebab-case after the
 context (e.g. `.domain/order-management/`). Use the same name consistently
 across `.domain`, ADRs, and code module names where practical.
 
 ```
 .domain/
+  context-map.md
   <bounded-context-name>/
     domain.md
     features.md
     model.md
-    flow.md        # when the context has lifecycle/process flows
+    flow.md          # optional: when the context has lifecycle/process flows
     dependencies.md
     naming.md
 ```
@@ -34,14 +38,24 @@ process flows.
 
 ## File responsibilities
 
-- **domain.md** — One chapter per Aggregate or Domain Service in the context.
+- **context-map.md** — Strategic DDD view across bounded contexts at the
+  `.domain` root.
+  - Documents the subdomain landscape/classification (core/supporting/generic
+    as applicable).
+  - Captures bounded-context relationships in a context map.
+  - Records published languages/contracts used across context boundaries.
+  - States strategic rules that constrain cross-context collaboration.
+- **domain.md** — One chapter per Aggregate, Domain Service, Domain Event, or
+  Shared Value Objects / Shared Enums grouping in the context.
   - Aggregate chapters include sub-chapters for their owned Entities, Value
     Objects, and Enums.
   - Domain Service chapters describe the service's responsibility and the
     aggregates/policies it coordinates.
+  - Domain Event chapters are first-class addressable chapters and carry
+    metadata blocks like other `domain.md` chapters.
   - Value Objects and Enums **shared across multiple aggregates** within the
-    context get their own separate chapter — do not duplicate them under
-    each aggregate that uses them.
+    context get their own separate chapter — do not duplicate them under each
+    aggregate that uses them.
 - **features.md** — The features and sub-features this bounded context
   supports, in business language. Group sub-features under their parent
   feature.
@@ -55,8 +69,12 @@ process flows.
   `model.md` stays purely structural. Include only when the context actually
   has a flow. Its `##` sections do not carry metadata blocks.
 - **dependencies.md** — Outbound dependencies on other bounded contexts or
-  modules, and known inbound dependents. Note the integration pattern (sync
-  call, event, shared kernel, ACL) for each.
+  modules, and known inbound dependents.
+  - Use explicit DDD relationship semantics (`ACL`, `Customer/Supplier`,
+    `Partnership`, `OHS + Published Language`, etc.) instead of ad hoc
+    integration prose.
+  - For each relationship, document DDD pattern, integration mechanism,
+    contract, and why/what the dependency relies on.
 - **naming.md** — The context's ubiquitous-language naming registry: one
   `## Term: <Canonical>` chapter per key term. Surface synonyms are recorded in
   the `aliases` metadata field; a `related` reference links the term to the
@@ -75,12 +93,13 @@ process flows.
   per `.github/instructions/workflow-routing.instructions.md`.
 - Keep these documents current as the model evolves — treat drift between
   `.domain` and the actual code/domain-design MCP guidance as a defect.
-- Every Aggregate, Domain Service, Shared Value Objects, and Shared Enums
-  chapter in `domain.md`, every Feature/Sub-feature chapter in `features.md`,
-  and every `## Term` chapter in `naming.md` must carry a metadata block as
-  described in `.github/instructions/chapter-metadata.instructions.md`. Only
-  `status` is required; the optional cross-folder tags (`related`) and GitHub
-  issue link (`issue`) are included only when they have a value.
+- Every Aggregate, Domain Service, Domain Event, Shared Value Objects, and
+  Shared Enums chapter in `domain.md`, every Feature/Sub-feature chapter in
+  `features.md`, and every `## Term` chapter in `naming.md` must carry a
+  metadata block as described in
+  `.github/instructions/chapter-metadata.instructions.md`. Only `status` is
+  required; the optional cross-folder tags (`related`) and GitHub issue link
+  (`issue`) are included only when they have a value.
 - The metadata block's `status` field uses `draft`, `proposed`, `active`, or
   `deprecated` in this folder. Domain knowledge describes the current (or
   agreed-future) model, not a task queue, so there is no `done`: `active`
@@ -90,10 +109,22 @@ process flows.
   `.github/instructions/chapter-metadata.instructions.md` for the reference
   format) to other features that must be delivered first, e.g.
   `depends-on: [.domain/order-management/features.md#feature-refunds]`.
-  `domain.md` chapters (Aggregates, Domain Services, Shared Value
-  Objects/Enums) do not use `depends-on` — they describe standing structure,
-  and their relationships belong in `model.md`/`dependencies.md` or the
-  `related` field instead.
+  `domain.md` chapters (Aggregates, Domain Services, Domain Events, Shared
+  Value Objects/Enums) do not use `depends-on` — they describe standing
+  structure, and their relationships belong in `model.md`/`dependencies.md` or
+  the `related` field instead.
+- In `dependencies.md`, use explicit DDD relationship terminology for each
+  cross-context row when applicable (for example: `ACL`,
+  `Customer/Supplier`, `Partnership`, `OHS + Published Language`) and identify
+  the contract/published language entry used by consumers.
+- In Domain Service chapters, state invocation semantics when it clarifies
+  behavior boundaries: whether logic is command-invoked, scheduled,
+  query/composition-oriented, or event-triggered policy/process-manager
+  behavior.
+- Do not introduce a separate `policy.md` or a distinct `Policy` chapter type
+  just to document process-manager behavior; keep that semantics in the
+  relevant Domain Service chapter unless a separate structure is later decided
+  explicitly.
 - `naming.md` `Term` chapters carry an `aliases` field: a list of
   plain-string surface names the term is also known by (code class/identifier
   names, snake_case id fields, or a consumer context's local copy name).
@@ -109,7 +140,8 @@ process flows.
 ```markdown
 # Domain: <Bounded Context Name>
 
-> One chapter per Aggregate or Domain Service in this bounded context.
+> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
+> Objects / Shared Enums grouping in this bounded context.
 > Aggregate chapters include sub-chapters for their owned Entities, Value
 > Objects, and Enums. Value Objects/Enums shared across multiple aggregates
 > get their own chapter at the end instead of being duplicated.
@@ -154,6 +186,29 @@ status: draft
 
 Responsibility of the service, which aggregates/policies it coordinates, and
 why the behavior does not belong on a single aggregate.
+
+Invocation semantics: <command-invoked | scheduled |
+query/composition-oriented | event-triggered policy/process manager>.
+
+## Domain Event: <EventName>
+
+\`\`\`meta
+status: draft
+\`\`\`
+
+Published when <business trigger>.
+
+### Payload
+
+- `<field>` - <meaning and type/shape expectations>
+
+### Consumers
+
+- <Consumer context/service and why it consumes the event>
+
+### Published language rules
+
+- <contract stability and interpretation rules for consumers>
 
 ## Shared Value Objects
 
@@ -272,24 +327,24 @@ classDiagram
 # Dependencies: <Bounded Context Name>
 
 > Dependencies this bounded context has on other bounded contexts or
-> modules, and known dependents. Note the integration pattern for each
-> relationship (synchronous call, domain/integration event, shared kernel,
-> anti-corruption layer, etc.).
+> modules, and known dependents. Use explicit DDD relationship semantics,
+> integration mechanism details, and contract references.
 
 ## Outbound dependencies
 
-| Depends on (context/module) | Integration pattern | Why |
-|---|---|---|
-| <OtherContext> | <e.g. async event, REST call, shared kernel> | <reason this context needs it> |
+| Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
+|---|---|---|---|---|
+| <OtherContext> | <ACL / Customer-Supplier / Partnership / OHS + Published Language> | <event, API call, registry lookup, id link, etc.> | <published language / contract chapter reference> | <reason this context needs it> |
 
 ## Inbound dependents (known)
 
-| Consumer (context/module) | Integration pattern | What it relies on |
-|---|---|---|
-| <OtherContext> | <e.g. subscribes to event X> | <what would break if changed> |
+| Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
+|---|---|---|---|---|
+| <OtherContext> | <ACL / Customer-Supplier / Partnership / OHS + Published Language> | <how the consumer integrates> | <published language / contract chapter reference> | <what would break if changed> |
 
 ## Notes
 
+- Prefer explicit DDD pattern names over free-text integration wording.
 - Flag any dependency that crosses a bounded-context boundary without an
   anti-corruption layer or published language, so it can be revisited.
 - Link to the relevant `domain-interaction-diagram` / `context-mapping`
