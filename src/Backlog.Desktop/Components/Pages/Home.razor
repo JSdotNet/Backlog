@@ -1,0 +1,172 @@
+@page "/"
+@inject BacklogDesktopState State
+
+<div class="shell">
+    <section class="master-pane">
+        <div class="master-header">
+            <h1>Backlog</h1>
+            <button id="new-entry-button" data-testid="new-entry-button" @onclick="OnNewEntry">New</button>
+            <button id="delete-entry-button" data-testid="delete-entry-button" disabled="@(!State.HasSelection)" @onclick="OnDeleteEntryAsync">Delete</button>
+        </div>
+
+        <label for="status-filter-select">Filter by status</label>
+        <select id="status-filter-select" data-testid="status-filter-select" value="@State.SelectedStatusFilterWire" @onchange="OnFilterChanged">
+            @foreach (var filter in State.StatusFilters)
+            {
+                <option value="@filter.Wire">@filter.Label</option>
+            }
+        </select>
+
+        <ul id="entry-list" data-testid="entry-list" class="entry-list">
+            @foreach (var row in State.FilteredEntries)
+            {
+                <li>
+                    <button id="entry-@row.Id" data-testid="entry-item" class="entry-item @(State.IsSelected(row.Id) ? "selected" : string.Empty)" @onclick="() => OnSelectEntryAsync(row.Id)">
+                        <strong>@row.Title</strong>
+                        <span>@row.TypeLabel • @row.StatusLabel • @row.PriorityLabel • @row.ProgressText</span>
+                    </button>
+                </li>
+            }
+        </ul>
+    </section>
+
+    <section class="detail-pane">
+        @if (!State.HasEditor)
+        {
+            <p>Select an entry or create a new one.</p>
+        }
+        else
+        {
+            <div class="editor-grid">
+                <label for="entry-title-input">Title</label>
+                <input id="entry-title-input" data-testid="entry-title-input" @bind="State.Title" />
+
+                <label for="entry-type-select">Type</label>
+                <select id="entry-type-select" data-testid="entry-type-select" @bind="State.SelectedType">
+                    @foreach (var type in State.Types)
+                    {
+                        <option value="@type">@State.FormatType(type)</option>
+                    }
+                </select>
+
+                <label for="priority-select">Priority</label>
+                <select id="priority-select" data-testid="priority-select" @bind="State.SelectedPriority">
+                    @foreach (var priority in State.Priorities)
+                    {
+                        <option value="@priority">@State.FormatPriority(priority)</option>
+                    }
+                </select>
+
+                <label for="entry-content-input">Content (markdown)</label>
+                <textarea id="entry-content-input" data-testid="entry-content-input" rows="6" @bind="State.ContentMd"></textarea>
+
+                <label for="entry-tags-input">Tags (comma separated)</label>
+                <input id="entry-tags-input" data-testid="entry-tags-input" @bind="State.TagsText" />
+
+                <button id="save-entry-button" data-testid="save-entry-button" @onclick="OnSaveAsync">Save</button>
+            </div>
+
+            @if (State.IsPersisted)
+            {
+                <div class="persisted-section">
+                    <div>
+                        <strong>Status:</strong>
+                        <span id="current-status-text" data-testid="current-status-text">@State.StatusText</span>
+                        <strong>Progress:</strong>
+                        <span id="progress-text" data-testid="progress-text">@State.ProgressText</span>
+                    </div>
+
+                    <label for="status-select">Move status to</label>
+                    <select id="status-select" data-testid="status-select" @bind="State.SelectedStatusTarget">
+                        <option value="">Select…</option>
+                        @foreach (var option in State.AvailableStatusTargets)
+                        {
+                            <option value="@option">@State.FormatStatus(option)</option>
+                        }
+                    </select>
+                    <button id="apply-status-button" data-testid="apply-status-button" @onclick="OnApplyStatusAsync">Apply</button>
+
+                    <h2>Sub-items</h2>
+
+                    <input id="new-subitem-input" data-testid="new-subitem-input" @bind="State.NewSubItemTitle" placeholder="Sub-item title" />
+                    <button id="add-subitem-button" data-testid="add-subitem-button" @onclick="OnAddSubItemAsync">Add</button>
+
+                    <ul id="subitem-list" data-testid="subitem-list" class="subitem-list">
+                        @foreach (var item in State.SubItems)
+                        {
+                            <li class="subitem-row">
+                                <input id="subitem-toggle-@item.Id" data-testid="subitem-toggle" type="checkbox" checked="@item.IsDone" @onchange="() => OnToggleSubItemAsync(item.Id)" />
+                                <span>@item.Title</span>
+                                <button id="subitem-up-@item.Id" data-testid="subitem-up" @onclick="() => OnMoveSubItemUpAsync(item.Id)">↑</button>
+                                <button id="subitem-down-@item.Id" data-testid="subitem-down" @onclick="() => OnMoveSubItemDownAsync(item.Id)">↓</button>
+                                <button id="subitem-remove-@item.Id" data-testid="subitem-remove" @onclick="() => OnRemoveSubItemAsync(item.Id)">Remove</button>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
+    </section>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await State.InitializeAsync();
+    }
+
+    private void OnNewEntry()
+    {
+        State.NewEntry();
+    }
+
+    private async Task OnSelectEntryAsync(Guid id)
+    {
+        await State.SelectEntryAsync(id);
+    }
+
+    private async Task OnDeleteEntryAsync()
+    {
+        await State.DeleteSelectedAsync();
+    }
+
+    private async Task OnSaveAsync()
+    {
+        await State.SaveAsync();
+    }
+
+    private async Task OnApplyStatusAsync()
+    {
+        await State.ApplyStatusAsync();
+    }
+
+    private async Task OnAddSubItemAsync()
+    {
+        await State.AddSubItemAsync();
+    }
+
+    private async Task OnToggleSubItemAsync(Guid subItemId)
+    {
+        await State.ToggleSubItemAsync(subItemId);
+    }
+
+    private async Task OnRemoveSubItemAsync(Guid subItemId)
+    {
+        await State.RemoveSubItemAsync(subItemId);
+    }
+
+    private async Task OnMoveSubItemUpAsync(Guid subItemId)
+    {
+        await State.MoveSubItemUpAsync(subItemId);
+    }
+
+    private async Task OnMoveSubItemDownAsync(Guid subItemId)
+    {
+        await State.MoveSubItemDownAsync(subItemId);
+    }
+
+    private void OnFilterChanged(ChangeEventArgs args)
+    {
+        State.SetStatusFilter(args.Value?.ToString());
+    }
+}
