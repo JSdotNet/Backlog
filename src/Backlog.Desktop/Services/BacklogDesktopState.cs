@@ -268,7 +268,7 @@ public sealed class BacklogDesktopState
                 x.Id,
                 x.Title,
                 x.Type,
-                x.Status.Replace('_', ' '),
+                x.Status,
                 x.Priority,
                 $"{x.CompletedSubItems}/{x.TotalSubItems}"))
             .ToList();
@@ -354,9 +354,12 @@ public sealed record SummaryRow(
 {
     public string TypeLabel => TypeWire;
 
-    public string StatusLabel => StatusWire;
+    public string StatusLabel => CapitalizeFirst(StatusWire.Replace('_', ' '));
 
     public string PriorityLabel => PriorityWire;
+
+    private static string CapitalizeFirst(string value) =>
+        string.IsNullOrEmpty(value) ? value : char.ToUpperInvariant(value[0]) + value[1..];
 }
 
 public sealed record SubItemRow(Guid Id, string Title, bool IsDone, int Order);
