@@ -1,11 +1,11 @@
 ---
-applyTo: ".domain/**,.arc42/**,.backlog/**"
-description: Common per-chapter and per-file metadata convention for .domain, .arc42, and .backlog, so a future visualization tool can parse status, dependencies, and cross-references.
+applyTo: ".domain/**,.arc42/**,.backlog/**,.tech/**"
+description: Common per-chapter and per-file metadata convention for .domain, .arc42, .backlog, and .tech, so a future visualization tool can parse status, dependencies, and cross-references.
 ---
 
 # Chapter and file metadata
 
-`.domain`, `.arc42`, and `.backlog` are intended to be read by a
+`.domain`, `.arc42`, `.backlog`, and `.tech` are intended to be read by a
 visualization tool (to be built later), not just by humans. To make that
 possible, every **chapter** in these folders carries a small, parseable
 metadata block directly under its heading, in a fenced `meta` (YAML) code
@@ -25,10 +25,12 @@ already treat as an addressable unit:
 - `.arc42/<nn>-<name>.md` — the file's top-level chapter, and any ## section
   inside it that is independently trackable.
 - `.backlog/<concern-type>-<concern-slug>.md` — each Item and Sub-item.
+- `.tech/<layer>.md` — each `## <Technology Name>` chapter (one graph node per
+  chapter).
 
-- `.domain` `context-map.md`, `model.md`, `flow.md`, and `dependencies.md` are
-  strategic/structural artifacts; their `##` sections do **not** carry
-  per-chapter metadata blocks.
+- `.domain` `context-map.md`, `model.md`, `flow.md`, and `dependencies.md` and
+  `.tech` `technology-graph.md` are strategic/structural artifacts; their `##`
+  sections do **not** carry per-chapter metadata blocks.
 
 ## Chapter metadata block format
 
@@ -51,8 +53,8 @@ collections and null values are omitted rather than written out.
 
 ## File-level metadata block
 
-In addition to per-chapter blocks, every file in `.domain`, `.arc42`, and
-`.backlog` carries one file-level metadata block describing the document as
+In addition to per-chapter blocks, every file in `.domain`, `.arc42`,
+`.backlog`, and `.tech` carries one file-level metadata block describing the document as
 a whole. This gives the visualization tool a status/relations rollup for the
 file itself, distinct from the status of any individual chapter inside it —
 useful for files such as `.domain` `context-map.md`, `model.md`, `flow.md`,
@@ -76,8 +78,8 @@ Prose or the first chapter starts here.
 
 The file-level block uses the same fields as a chapter block (`status`
 required; `related` and `issue` optional) and the same omit-when-empty rule.
-Folder-specific relation fields defined for chapters (`depends-on`,
-`implements`, `aliases`) are chapter-scoped and are not used at file level —
+Folder-specific fields defined for chapters (`depends-on`, `implements`,
+`aliases`, `kind`, `version`, `alternatives`) are chapter-scoped and are not used at file level —
 a file's overall relationships are expressed through `related` only.
 
 In `.arc42`, the file's top-level chapter heading (e.g. `# 01. Introduction
@@ -92,7 +94,10 @@ which extra fields apply and what they mean. Most such fields use the same
 reference format described below, but not every folder-specific field is a
 reference field: in `.domain`, `aliases` (defined in
 `.github/instructions/domain-knowledge.instructions.md`) is a list of
-plain-string surface names, not `<path>#<heading-slug>` references.
+plain-string surface names, not `<path>#<heading-slug>` references, and in
+`.tech`, `alternatives` (defined in
+`.github/instructions/tech-knowledge.instructions.md`) is likewise a
+plain-string list.
 
 ### Chapter and file references
 
@@ -117,8 +122,9 @@ entries in `related` and in any folder-specific relation field (`depends-on`,
 - **status** (required) — lifecycle state of this chapter's or file's
   content. The allowed values are folder-specific; see the `status` section
   in `.github/instructions/domain-knowledge.instructions.md`,
-  `.github/instructions/arc42-knowledge.instructions.md`, or
-  `.github/instructions/backlog-knowledge.instructions.md` for the value set
+  `.github/instructions/arc42-knowledge.instructions.md`,
+  `.github/instructions/backlog-knowledge.instructions.md`, or
+  `.github/instructions/tech-knowledge.instructions.md` for the value set
   that applies to the folder you're editing. A file-level `status` reflects
   the document as a whole and is set independently of its chapters' own
   `status` values (e.g. a file can be `active` overall while one chapter
@@ -134,8 +140,9 @@ entries in `related` and in any folder-specific relation field (`depends-on`,
   exists. Keep this in sync when using `create-github-issue` /
   `update-github-issue`. Omit the field entirely when no issue exists.
 
-Folder-specific relation fields (e.g. `depends-on` on features/backlog
-chapters, `implements` on backlog chapters) are documented in that folder's
+Folder-specific fields (e.g. `depends-on` on features/backlog/tech chapters,
+`implements` on backlog chapters, `kind`/`version`/`alternatives` on tech
+chapters) are documented in that folder's
 own instructions file, not here — this file only defines the fields common
 to every folder.
 

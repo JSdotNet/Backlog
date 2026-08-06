@@ -26,6 +26,9 @@ specialist agent only when the skill is unavailable.
   publishing to GitHub Issues): use `orch-backlog-knowledge`. Fall back to
   `write-epic`/`write-story`/`write-bug` plus `create-github-issue`/
   `update-github-issue` directly.
+- Any change to `.tech/` (technology graph: platforms, runtimes, frameworks,
+  libraries, packages, services, tools): use `orch-tech-knowledge`. Fall back
+  to `architecture:architect`.
 - Repository documentation, explanatory docs, or governance text: use
   `documentation:documentation` (no dedicated orchestration skill for this repository yet).
 - User flows, wireframes, or UX review: use `ux-design:ux-designer`.
@@ -45,6 +48,9 @@ specialist agent only when the skill is unavailable.
   working context, but should load only the relevant bounded-context chapters.
 - `orch-backlog-knowledge` and other backlog-writing or issue-writing workflows may load
   `.backlog/` as working context, but should load only the relevant work-item chapters.
+- `orch-tech-knowledge` may load `.tech/` as working context, plus the
+  `.arc42` chapters (solution strategy, deployment view, ADRs) that ground the
+  stack choices it records.
 - Non-architecture implementation, bug-fix, package-update, documentation, and UX flows
   should not load `.arc42/` by default. Consult it only when the user explicitly asks
   for architecture context or when implementation depends on a specific documented

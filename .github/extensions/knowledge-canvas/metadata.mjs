@@ -1,7 +1,7 @@
 // metadata.mjs — parsing and validation for the chapter/file `meta` YAML
 // blocks defined in .github/instructions/chapter-metadata.instructions.md.
 //
-// The schema used across .domain/.arc42/.backlog is intentionally small and
+// The schema used across .domain/.arc42/.backlog/.tech is intentionally small and
 // flat (single-line scalars, null, or bracket lists), so we parse it with a
 // tiny hand-written reader instead of pulling in a YAML dependency.
 
@@ -9,7 +9,30 @@ const STATUS_BY_FOLDER = {
     domain: ["draft", "proposed", "active", "deprecated"],
     arc42: ["draft", "proposed", "active", "deprecated"],
     backlog: ["draft", "ready", "in-progress", "done", "blocked"],
+    tech: ["candidate", "trial", "adopted", "hold", "retired"],
 };
+
+// Fields a folder requires on every metadata block, beyond `status`.
+const FOLDER_REQUIRED_FIELDS = {
+    domain: [],
+    arc42: [],
+    backlog: [],
+    tech: ["kind"],
+};
+
+// Allowed values for enumerated folder-specific fields.
+const TECH_KINDS = [
+    "language",
+    "runtime",
+    "framework",
+    "library",
+    "package",
+    "tool",
+    "service",
+    "platform",
+    "protocol",
+    "format",
+];
 
 // Fields every folder's chapter/file block may carry, plus folder-specific
 // extras layered in below.
@@ -18,6 +41,7 @@ const FOLDER_EXTRA_FIELDS = {
     domain: ["depends-on", "aliases"],
     arc42: [],
     backlog: ["depends-on", "implements"],
+    tech: ["kind", "version", "depends-on", "alternatives"],
 };
 
 /** Determine which knowledge folder a repo-relative path belongs to. */
@@ -26,6 +50,7 @@ export function folderKindForPath(relPath) {
     if (normalized.startsWith(".domain/")) return "domain";
     if (normalized.startsWith(".arc42/")) return "arc42";
     if (normalized.startsWith(".backlog/")) return "backlog";
+    if (normalized.startsWith(".tech/")) return "tech";
     return null;
 }
 
@@ -140,7 +165,7 @@ export function validateDocument(relPath, markdown) {
     if (!kind) {
         issues.push({
             severity: "info",
-            message: `${relPath} is not under .domain/, .arc42/, or .backlog/ — no metadata rules apply.`,
+            message: `${relPath} is not under .domain/, .arc42/, .backlog/, or .tech/ — no metadata rules apply.`,
         });
         return issues;
     }
@@ -183,6 +208,26 @@ export function validateDocument(relPath, markdown) {
             issues.push({
                 severity: "error",
                 message: `${label} has status "${chapter.meta.status}", expected one of: ${allowedStatus.join(", ")}.`,
+            });
+        }
+
+        // Folder-specific required fields apply to chapter blocks, not to the
+        // file-level block (which describes the document as a whole).
+        if (chapter.level > 1) {
+            for (const required of FOLDER_REQUIRED_FIELDS[kind]) {
+                if (!(required in chapter.meta) || chapter.meta[required] === null) {
+                    issues.push({
+                        severity: "error",
+                        message: `${label} is missing required \`${required}\` for the ${kind} folder.`,
+                    });
+                }
+            }
+        }
+
+        if (kind === "tech" && chapter.meta.kind && !TECH_KINDS.includes(chapter.meta.kind)) {
+            issues.push({
+                severity: "error",
+                message: `${label} has kind "${chapter.meta.kind}", expected one of: ${TECH_KINDS.join(", ")}.`,
             });
         }
 
