@@ -1,0 +1,64 @@
+{
+  "name": "backlog-vscode",
+  "displayName": "Backlog",
+  "description": "Browse and capture Backlog items without leaving the editor.",
+  "version": "0.1.0",
+  "publisher": "jsdotnet",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "backlog.capture",
+        "title": "Backlog: Capture Selection"
+      },
+      {
+        "command": "backlog.refreshInbox",
+        "title": "Backlog: Refresh Inbox",
+        "icon": "$(refresh)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "backlogInbox",
+          "name": "Backlog Inbox"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "backlog.refreshInbox",
+          "when": "view == backlogInbox",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Backlog",
+      "properties": {
+        "backlog.cloudUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Base URL of the Backlog cloud sync service. Aspire assigns a dynamic port per run — copy the 'cloud' resource URL from the Aspire dashboard."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.6.0"
+  }
+}
