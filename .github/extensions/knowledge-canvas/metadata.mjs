@@ -144,12 +144,16 @@ export function parseDocument(markdown) {
     return { fileTitle, fileMeta, chapters };
 }
 
+// GitHub's anchor algorithm lowercases, strips punctuation, then replaces each
+// remaining whitespace character with a hyphen — it does *not* collapse runs.
+// "Organizational & Process Constraints" therefore anchors as
+// "organizational--process-constraints" (double hyphen where the & was).
 function slugify(text) {
     return text
         .toLowerCase()
         .trim()
         .replace(/[^\w\s-]/g, "")
-        .replace(/\s+/g, "-");
+        .replace(/\s/g, "-");
 }
 
 /**

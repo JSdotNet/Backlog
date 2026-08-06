@@ -164,3 +164,20 @@ to every folder.
   fields (`related: []`, `depends-on: []`) and null values (`issue: null`) are
   omitted rather than written out, so a chapter or file with no relations and
   no issue shows only `status`.
+
+## Derived graph index
+
+These metadata blocks are compiled into a single cross-folder graph at
+`.index/knowledge-graph.json` by
+`.github/tools/knowledge-graph/build-graph.mjs`. Regenerate it whenever a
+chapter or file is added, renamed, or re-linked:
+
+```bash
+node .github/tools/knowledge-graph/build-graph.mjs
+```
+
+The index is derived output — never edit it by hand. CI
+(`.github/workflows/knowledge-graph.yml`) fails when a reference does not
+resolve or when the committed index is stale. Open the **Knowledge graph**
+canvas to explore it visually. See
+`.github/tools/knowledge-graph/README.md` for the output shape.

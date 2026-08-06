@@ -16,6 +16,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { joinSession, createCanvas } from "@github/copilot-sdk/extension";
 import { renderPage } from "./render.mjs";
+import { renderGraphPage } from "./graph-render.mjs";
+import { buildGraphDocument } from "../../tools/knowledge-graph/graph.mjs";
 import { parseDocument, validateDocument, folderKindForPath } from "./metadata.mjs";
 
 // Repository root: the CLI launches project-scoped extensions with cwd set
@@ -24,6 +26,8 @@ const REPO_ROOT = process.cwd();
 
 // One local HTTP server + current document path per open canvas instance.
 const instances = new Map();
+// Same, for knowledge-graph canvas instances.
+const graphInstances = new Map();
 
 function resolveRelPath(relPath) {
     const normalized = relPath.replace(/\\/g, "/").replace(/^\/+/, "");
@@ -91,8 +95,83 @@ function setDocument(entry, relPath) {
     entry.state.absolutePath = absolute;
 }
 
+/**
+ * Local server for a knowledge-graph canvas instance. The graph is rebuilt
+ * from disk on open (and on `refresh_graph`) rather than read from
+ * `.index/knowledge-graph.json`, so the view never shows a stale index.
+ */
+async function startGraphServer() {
+    const entry = { document: null };
+
+    const server = createServer(async (req, res) => {
+        try {
+            if (req.url === "/" || req.url?.startsWith("/?")) {
+                res.setHeader("Content-Type", "text/html; charset=utf-8");
+                res.end(renderGraphPage());
+                return;
+            }
+            if (req.url === "/api/graph") {
+                if (!entry.document) entry.document = await buildGraphDocument(REPO_ROOT);
+                res.setHeader("Content-Type", "application/json; charset=utf-8");
+                res.end(JSON.stringify(entry.document));
+                return;
+            }
+            res.statusCode = 404;
+            res.end("Not found");
+        } catch (err) {
+            res.statusCode = 500;
+            res.setHeader("Content-Type", "application/json; charset=utf-8");
+            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+        }
+    });
+
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    entry.server = server;
+    entry.url = `http://127.0.0.1:${port}/`;
+    return entry;
+}
+
 const session = await joinSession({
     canvases: [
+        createCanvas({
+            id: "knowledge-graph",
+            displayName: "Knowledge graph",
+            description:
+                "Obsidian-style force-directed view of the whole knowledge graph derived from the `meta` blocks in .arc42/.domain/.backlog/.tech, with folder colouring, status shading, filters, and neighbourhood inspection.",
+            inputSchema: { type: "object", properties: {} },
+            actions: [
+                {
+                    name: "refresh_graph",
+                    description:
+                        "Rebuild the knowledge graph from the current Markdown on disk. Reload the canvas afterwards to see the new graph.",
+                    handler: async (ctx) => {
+                        const entry = graphInstances.get(ctx.instanceId);
+                        if (!entry) throw new Error("Canvas instance not open.");
+                        const document = await buildGraphDocument(REPO_ROOT);
+                        entry.document = document;
+                        return { stats: document.stats, problems: document.problems };
+                    },
+                },
+            ],
+            open: async (ctx) => {
+                let entry = graphInstances.get(ctx.instanceId);
+                if (!entry) {
+                    entry = await startGraphServer();
+                    graphInstances.set(ctx.instanceId, entry);
+                }
+                entry.document = await buildGraphDocument(REPO_ROOT);
+                return { title: "Knowledge graph", url: entry.url };
+            },
+            onClose: async (ctx) => {
+                const entry = graphInstances.get(ctx.instanceId);
+                if (entry) {
+                    graphInstances.delete(ctx.instanceId);
+                    await new Promise((resolve) => entry.server.close(() => resolve()));
+                }
+            },
+        }),
         createCanvas({
             id: "knowledge-canvas",
             displayName: "Knowledge canvas",
