@@ -1,0 +1,165 @@
+# Component Libraries
+
+```meta
+status: active
+related: [".arc42/04-solution-strategy.md#technology-choices", ".design/color-scheme.md#per-stack-token-mapping", ".design/content-editing.md", ".design/interaction-guidelines.md#drag-and-drop-reordering"]
+```
+
+> Research and recommendation of component libraries covering the **full**
+> Backlog architecture: Desktop (WinUI 3), Mobile (.NET MAUI), IDE (VS Code +
+> Visual Studio extensions), and Cloud (headless). The channel stacks are fixed
+> by `.arc42/04-solution-strategy.md#technology-choices`; this file recommends the
+> component/library layer per channel against the product's specific needs:
+> dark-mode-only, a shared token set, a Markdown WYSIWYG editor, and accessible
+> drag-and-drop reorder. Facts about WinUI/MAUI/Fluent reflect published Microsoft
+> documentation; where a claim is a judgement call it is marked as such. **No
+> packages were installed.**
+
+## Evaluation Criteria
+
+```meta
+status: active
+```
+
+| # | Criterion | Why it matters |
+|---|---|---|
+| C1 | Dark-mode-only support | Product ships a single dark theme; libraries must theme cleanly to dark without fighting a built-in light default. |
+| C2 | Design-token / theming story | One logical token set must drive WinUI, MAUI, and web/webview (see `color-scheme.md#per-stack-token-mapping`). |
+| C3 | Markdown rich-text / WYSIWYG editor | Core editing surface where Markdown is canonical (see `content-editing.md`). |
+| C4 | Accessible drag-and-drop reorder (list + tree) | Reorder of items and chapters with keyboard parity (see `interaction-guidelines.md#drag-and-drop-reordering`). |
+| C5 | Accessibility (WCAG AA) | Platform a11y semantics must be first-class (see `accessibility.md`). |
+| C6 | Maintenance / license / longevity | Prefer actively maintained, permissively licensed, first-party-aligned options. |
+
+## Key Finding: Tokens Are the Shared Layer
+
+```meta
+status: active
+related: [".design/color-scheme.md#per-stack-token-mapping"]
+```
+
+> **There is no single cross-stack component library** that spans WinUI 3, .NET
+> MAUI, and web/webview. Native XAML controls (WinUI/MAUI) and web components
+> (webviews) are different rendering technologies. The **shared layer is the
+> design-token set**, not shared components. Each channel picks the best native
+> library and maps it to the same logical tokens (`color-scheme.md`). Attempts to
+> force one component library everywhere (e.g. Blazor everywhere) trade native
+> feel and performance for reuse — a trade the current architecture deliberately
+> rejects for desktop and mobile.
+
+The **Markdown WYSIWYG editor** is the one component worth sharing where
+possible: a web-based editor (TipTap/ProseMirror/Milkdown or Monaco for raw) can
+run inside the IDE webviews and inside WinUI/MAUI via a WebView2/`BlazorWebView`
+host, giving one editor implementation across channels. This is the primary
+reuse opportunity.
+
+## Per-Channel Recommendations
+
+```meta
+status: active
+related: [".arc42/04-solution-strategy.md#technology-choices"]
+```
+
+### Desktop — WinUI 3
+
+| Aspect | Recommendation |
+|---|---|
+| Base controls | **WinUI 3 (Windows App SDK) + Windows Community Toolkit.** Native, first-party, best Windows integration and performance. |
+| Theming (C1/C2) | Define a **single dark `ResourceDictionary`** of the `color-*`/typography tokens (`color-scheme.md#per-stack-token-mapping`); do not ship a Light theme dictionary. WinUI theming/`ThemeResource` maps cleanly to tokens. |
+| Markdown editor (C3) | Host the shared **web editor in WebView2** (recommended for full WYSIWYG parity), or use the Community Toolkit `MarkdownTextBlock` for read-only/preview only — it is not a full WYSIWYG editor. |
+| Reorder (C4) | `ListView`/`TreeView` support drag reorder; **keyboard reorder must be added explicitly** (Move up/down commands + announcements) — not free out of the box. |
+| A11y (C5) | `AutomationProperties`; validate with Accessibility Insights. |
+
+### Mobile — .NET MAUI
+
+| Aspect | Recommendation |
+|---|---|
+| Base controls | **.NET MAUI + .NET MAUI Community Toolkit.** Preferred per architecture. Fallbacks: Blazor Hybrid / Blazor WASM PWA. |
+| Theming (C1/C2) | Single dark resource dictionary of the same tokens; disable system light/dark switching (`UserAppTheme = Dark`, no toggle). |
+| Markdown editor (C3) | Host the shared **web editor via `BlazorWebView`/WebView**; native MAUI has no first-class Markdown WYSIWYG control. |
+| Reorder (C4) | `CollectionView` supports drag reorder (`CanReorderItems`); **keyboard/switch-accessible reorder commands must be added** and single-column drag must autoscroll. |
+| A11y (C5) | `SemanticProperties`; test Narrator/VoiceOver/TalkBack + OS text scaling. |
+
+### IDE — VS Code extension (TypeScript webview)
+
+| Aspect | Recommendation |
+|---|---|
+| Base controls | **`@vscode-elements/elements`** (the maintained successor to the deprecated VS Code Webview UI Toolkit) or **Fluent UI Web Components** for a richer set; either themes from CSS variables. |
+| Theming (C1/C2) | Expose the product `--color-*` CSS custom properties; product dark tokens take precedence over host theme vars for content surfaces. |
+| Markdown editor (C3) | **TipTap (on ProseMirror)** or **Milkdown** for WYSIWYG; **Monaco** for the raw-Markdown escape hatch (Monaco already ships with VS Code). |
+| Reorder (C4) | **dnd-kit** (accessible, keyboard support, `@dnd-kit/sortable` + tree) preferred; **SortableJS** is lighter but weaker on built-in keyboard a11y. |
+| A11y (C5) | ARIA + `aria-live`; respect host reduced-motion/high-contrast. |
+
+### IDE — Visual Studio extension (C#, WPF)
+
+| Aspect | Recommendation |
+|---|---|
+| Base controls | **WPF** with VS shell theming; reuse the same token set as a WPF `ResourceDictionary`. |
+| Markdown editor (C3) | Host the **shared web editor in WebView2** for parity with the other channels (recommended), avoiding a second editor implementation. |
+| Reorder (C4) | WPF `ItemsControl`/`TreeView` drag reorder + explicit keyboard Move commands. |
+| A11y (C5) | UIA/`AutomationProperties`. |
+
+### Cloud — ASP.NET Core Minimal APIs
+
+| Aspect | Recommendation |
+|---|---|
+| UI | **None.** Headless sync/coordination service (`.arc42/04-solution-strategy.md#thin-cloud-rich-desktop`) — no component library needed. |
+
+## Candidate Comparison
+
+```meta
+status: active
+```
+
+Rating: ✔ strong · ◑ partial/with work · ✘ weak/absent · — n/a.
+
+| Candidate | Channel fit | C1 Dark-only | C2 Tokens | C3 MD editor | C4 DnD reorder | C5 A11y | C6 Maint/License |
+|---|---|---|---|---|---|---|---|
+| **WinUI 3 + Windows Community Toolkit** | Desktop | ✔ | ✔ (ResourceDictionary) | ◑ (preview only; WYSIWYG via WebView2) | ◑ (drag yes; keyboard manual) | ✔ (UIA) | ✔ MIT / first-party |
+| **.NET MAUI + Community Toolkit** | Mobile | ✔ (`UserAppTheme`) | ✔ (resources) | ✘ native (host web editor) | ◑ (`CanReorderItems`; keyboard manual) | ✔ (SemanticProperties) | ✔ MIT / first-party |
+| **FluentUI-Blazor** | Mobile fallback / web | ✔ | ◑ (Fluent tokens; map to product) | ✘ (no MD editor) | ◑ | ✔ | ✔ MIT |
+| **MudBlazor** | Mobile fallback / web | ✔ | ◑ (MudTheme; light-oriented defaults) | ✘ | ◑ (MudDropContainer) | ◑ | ✔ MIT |
+| **Fluent UI Web Components / React** | Webview | ✔ | ✔ (design tokens) | ✘ (no MD editor) | ✘ (bring your own) | ✔ | ✔ MIT |
+| **`@vscode-elements/elements`** | VS Code webview | ✔ (theme vars) | ◑ (host theme vars) | ✘ | ✘ | ✔ | ✔ MIT (maintained successor) |
+| **Radix + shadcn/ui** | Webview | ✔ | ✔ (CSS vars) | ✘ | ◑ (pair with dnd-kit) | ✔ (Radix primitives) | ✔ MIT |
+| **TipTap (ProseMirror)** | Editor (all via web host) | ✔ | ✔ (CSS) | ✔ (WYSIWYG, MD via config) | — | ✔ (ProseMirror) | ✔ MIT core (some pro modules paid) |
+| **Milkdown** | Editor | ✔ | ✔ | ✔ (Markdown-native, plugin-based) | — | ✔ | ✔ MIT |
+| **ProseMirror (direct)** | Editor | ✔ | ✔ | ✔ (max control, more work) | — | ✔ | ✔ MIT |
+| **Monaco** | Raw-MD hatch | ✔ | ◑ (editor themes) | ◑ (source, not WYSIWYG) | — | ◑ | ✔ MIT |
+| **dnd-kit (+ sortable/tree)** | Reorder (web) | — | — | — | ✔ (keyboard + live regions) | ✔ | ✔ MIT |
+| **SortableJS** | Reorder (web) | — | — | — | ◑ (weak built-in keyboard a11y) | ◑ | ✔ MIT |
+
+## Recommendation Summary
+
+```meta
+status: active
+```
+
+| Layer | Recommendation | Rationale |
+|---|---|---|
+| Shared design layer | **Tokens, not components** — one logical token set (`color-scheme.md`) emitted to XAML + CSS. | No cross-stack component library exists; tokens are the durable shared contract. |
+| Desktop | **WinUI 3 + Windows Community Toolkit**, dark-only ResourceDictionary. | Native, first-party, best Windows fit; matches architecture. |
+| Mobile | **.NET MAUI + Community Toolkit** (`UserAppTheme = Dark`). | Preferred stack; native mobile feel. |
+| VS Code | **`@vscode-elements`/Fluent Web Components** + product CSS tokens. | Themeable, host-aligned, maintained. |
+| Visual Studio | **WPF + shared tokens**, editor via WebView2. | Reuses the shared web editor; avoids a second editor. |
+| Markdown WYSIWYG editor (shared) | **TipTap or Milkdown** (WYSIWYG) + **Monaco** for the raw hatch, hosted in webviews and in WinUI/MAUI/WPF via WebView2/`BlazorWebView`. | The single highest-value reuse; Markdown-canonical, round-trip-friendly, one implementation. |
+| Drag-and-drop reorder (web surfaces) | **dnd-kit** (`sortable` + tree). | Best accessible DnD: built-in keyboard support and live-region announcements — satisfies C4/`interaction-guidelines`. Native channels add explicit keyboard Move commands. |
+
+## Risks and Gaps
+
+```meta
+status: active
+```
+
+| Risk / gap | Impact | Mitigation |
+|---|---|---|
+| No shared cross-stack component library | Duplicated component effort across WinUI/MAUI/web | Accept it; invest in the shared **token pipeline** and the shared **web editor** as the reuse points. |
+| Token pipeline not yet decided | Drift between XAML and CSS token values | Adopt a build-time token source (e.g. Style Dictionary → XAML + CSS). `[TODO: clarify]` if in scope for v1 (also flagged in `color-scheme.md#per-stack-token-mapping`). |
+| Native controls lack accessible keyboard reorder out of the box | C4 gap on WinUI/MAUI/WPF | Implement explicit Move up/down/top/bottom commands + live announcements per `interaction-guidelines.md#keyboard-accessible-reordering`. |
+| Web editor hosted in WebView2/BlazorWebView | Startup cost, bridge complexity, offline asset bundling | Bundle editor assets locally (local-first); measure cold-start; keep a native raw-text fallback. |
+| Round-trip Markdown fidelity | Editor could rewrite/lose untouched content | Enforce `content-editing.md#round-trip-fidelity`; prefer Markdown-native editors (Milkdown/ProseMirror with a strict serializer); add round-trip tests. |
+| TipTap "Pro" modules / SortableJS keyboard a11y | Cost or accessibility shortfall | Prefer TipTap/ProseMirror OSS core or Milkdown; prefer dnd-kit over SortableJS for accessible reorder. |
+| Fluent/Mud default palettes are light-oriented | Fighting built-in light themes (C1) | Override with product dark tokens; verify no light defaults leak; test high-contrast. |
+| Blazor fallbacks (mobile) reduce native feel | UX divergence if fallback is used | Keep MAUI native as primary; treat Blazor Hybrid/WASM strictly as fallbacks per architecture. |
+
+`[TODO: clarify]` final selection between **TipTap** vs **Milkdown** for the
+shared editor, and whether the token pipeline is delivered in the first release.

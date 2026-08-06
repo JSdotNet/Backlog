@@ -1,0 +1,2124 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
+  "scope": ".design",
+  "sources": [
+    ".design"
+  ],
+  "stats": {
+    "nodes": 71,
+    "edges": 128,
+    "nodesByFolder": {
+      "design": 67,
+      "arc42": 4
+    },
+    "nodesByType": {
+      "file": 8,
+      "chapter": 60,
+      "heading": 3
+    },
+    "nodesByStatus": {
+      "active": 68,
+      "none": 3
+    },
+    "edgesByType": {
+      "contains": 59,
+      "related": 69
+    }
+  },
+  "problems": [],
+  "elements": {
+    "nodes": [
+      {
+        "data": {
+          "id": ".design/README.md",
+          "label": "Design Knowledge (`.design`)",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/README.md",
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/04-solution-strategy.md#technology-choices",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/README.md#purpose",
+          "label": "Purpose",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/README.md",
+          "slug": "purpose",
+          "level": 2,
+          "line": 21,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/README.md#headline-principles",
+          "label": "Headline Principles",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/README.md",
+          "slug": "headline-principles",
+          "level": 2,
+          "line": 39,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/README.md#how-to-use-this-folder",
+          "label": "How to Use This Folder",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/README.md",
+          "slug": "how-to-use-this-folder",
+          "level": 2,
+          "line": 53,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/README.md#table-of-contents",
+          "label": "Table of Contents",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/README.md",
+          "slug": "table-of-contents",
+          "level": 2,
+          "line": 71,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/README.md#provenance",
+          "label": "Provenance",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/README.md",
+          "slug": "provenance",
+          "level": 2,
+          "line": 87,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/README.md#status-vocabulary",
+          "label": "Status Vocabulary",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/README.md",
+          "slug": "status-vocabulary",
+          "level": 2,
+          "line": 100,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/accessibility.md",
+          "label": "Accessibility",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "status": "active",
+          "related": [
+            ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
+            ".design/interaction-guidelines.md",
+            ".design/design-principles.md#keyboard-first"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/accessibility.md#target-and-scope",
+          "label": "Target and Scope",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "slug": "target-and-scope",
+          "level": 2,
+          "line": 16,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/accessibility.md#contrast",
+          "label": "Contrast",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "slug": "contrast",
+          "level": 2,
+          "line": 29,
+          "status": "active",
+          "related": [
+            ".design/color-scheme.md#contrast-rules-wcag-aa-minimum"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/accessibility.md#keyboard-navigation",
+          "label": "Keyboard Navigation",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "slug": "keyboard-navigation",
+          "level": 2,
+          "line": 51,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#keyboard-first",
+            ".design/interaction-guidelines.md#keyboard-accessible-reordering"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/accessibility.md#screen-reader--announcements",
+          "label": "Screen Reader / Announcements",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "slug": "screen-reader--announcements",
+          "level": 2,
+          "line": 68,
+          "status": "active",
+          "related": [
+            ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
+            ".design/interaction-guidelines.md#drag-and-drop-reordering"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/accessibility.md#focus-visibility",
+          "label": "Focus Visibility",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "slug": "focus-visibility",
+          "level": 2,
+          "line": 116,
+          "status": "active",
+          "related": [
+            ".design/interaction-guidelines.md#focus-and-selection"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/accessibility.md#reduced-motion",
+          "label": "Reduced Motion",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "slug": "reduced-motion",
+          "level": 2,
+          "line": 131,
+          "status": "active",
+          "related": [
+            ".design/interaction-guidelines.md#motion-and-reduced-motion"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/accessibility.md#target-sizes-and-text",
+          "label": "Target Sizes and Text",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "slug": "target-sizes-and-text",
+          "level": 2,
+          "line": 144,
+          "status": "active",
+          "related": [
+            ".design/typography-and-layout.md#iconography"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/accessibility.md#iconography-accessibility",
+          "label": "Iconography Accessibility",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "slug": "iconography-accessibility",
+          "level": 2,
+          "line": 159,
+          "status": "active",
+          "related": [
+            ".design/typography-and-layout.md#iconography"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/accessibility.md#per-channel-notes",
+          "label": "Per-Channel Notes",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "slug": "per-channel-notes",
+          "level": 2,
+          "line": 174,
+          "status": "active",
+          "related": [
+            ".design/component-libraries.md",
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md",
+          "label": "Color Scheme",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#dark-mode-only",
+            ".design/accessibility.md#contrast",
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#provenance",
+          "label": "Provenance",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "provenance",
+          "level": 2,
+          "line": 16,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#dark-palette",
+          "label": "Dark Palette",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "dark-palette",
+          "level": 2,
+          "line": 30,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#dark-mode-only"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#full-token-reference",
+          "label": "Full Token Reference",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "full-token-reference",
+          "level": 2,
+          "line": 89,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
+          "label": "Contrast Rules (WCAG AA minimum)",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "contrast-rules-wcag-aa-minimum",
+          "level": 2,
+          "line": 120,
+          "status": "active",
+          "related": [
+            ".design/accessibility.md#contrast"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#elevation-by-color",
+          "label": "Elevation by Color",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "elevation-by-color",
+          "level": 2,
+          "line": 147,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#dark-mode-only"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#per-stack-token-mapping",
+          "label": "Per-Stack Token Mapping",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "per-stack-token-mapping",
+          "level": 2,
+          "line": 174,
+          "status": "active",
+          "related": [
+            ".design/component-libraries.md",
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md",
+          "label": "Component Libraries",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "status": "active",
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices",
+            ".design/color-scheme.md#per-stack-token-mapping",
+            ".design/content-editing.md",
+            ".design/interaction-guidelines.md#drag-and-drop-reordering"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#evaluation-criteria",
+          "label": "Evaluation Criteria",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "evaluation-criteria",
+          "level": 2,
+          "line": 18,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#key-finding-tokens-are-the-shared-layer",
+          "label": "Key Finding: Tokens Are the Shared Layer",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "key-finding-tokens-are-the-shared-layer",
+          "level": 2,
+          "line": 33,
+          "status": "active",
+          "related": [
+            ".design/color-scheme.md#per-stack-token-mapping"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#per-channel-recommendations",
+          "label": "Per-Channel Recommendations",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "per-channel-recommendations",
+          "level": 2,
+          "line": 55,
+          "status": "active",
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#candidate-comparison",
+          "label": "Candidate Comparison",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "candidate-comparison",
+          "level": 2,
+          "line": 107,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#recommendation-summary",
+          "label": "Recommendation Summary",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "recommendation-summary",
+          "level": 2,
+          "line": 131,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#risks-and-gaps",
+          "label": "Risks and Gaps",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "risks-and-gaps",
+          "level": 2,
+          "line": 147,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md",
+          "label": "Content Editing",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+            ".design/typography-and-layout.md#type-scale",
+            ".design/accessibility.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#editing-model",
+          "label": "Editing Model",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "editing-model",
+          "level": 2,
+          "line": 16,
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#round-trip-fidelity",
+          "label": "Round-Trip Fidelity",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "round-trip-fidelity",
+          "level": 2,
+          "line": 31,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#raw-markdown-escape-hatch",
+          "label": "Raw-Markdown Escape Hatch",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "raw-markdown-escape-hatch",
+          "level": 2,
+          "line": 47,
+          "status": "active",
+          "related": [
+            ".design/typography-and-layout.md#font-families"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#supported-constructs",
+          "label": "Supported Constructs",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "supported-constructs",
+          "level": 2,
+          "line": 64,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#paste-behavior",
+          "label": "Paste Behavior",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "paste-behavior",
+          "level": 2,
+          "line": 100,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#slash-and-inline-commands",
+          "label": "Slash and Inline Commands",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "slash-and-inline-commands",
+          "level": 2,
+          "line": 122,
+          "status": "active",
+          "related": [
+            ".design/interaction-guidelines.md#feedback-and-toasts",
+            ".design/design-principles.md#keyboard-first"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#unsupported-syntax-preservation",
+          "label": "Unsupported Syntax Preservation",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "unsupported-syntax-preservation",
+          "level": 2,
+          "line": 138,
+          "status": "active",
+          "related": [
+            ".design/interaction-guidelines.md#reorder--auto-save"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#editing-feedback-and-state",
+          "label": "Editing Feedback and State",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "editing-feedback-and-state",
+          "level": 2,
+          "line": 155,
+          "status": "active",
+          "related": [
+            ".design/interaction-guidelines.md#save-state-indicator-vocabulary"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/design-principles.md",
+          "label": "Design Principles",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/design-principles.md",
+          "status": "active",
+          "related": [
+            ".arc42/04-solution-strategy.md#local-first-architecture",
+            ".arc42/02-constraints.md#technical-constraints",
+            ".design/interaction-guidelines.md",
+            ".design/accessibility.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/design-principles.md#dark-mode-only",
+          "label": "Dark Mode Only",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/design-principles.md",
+          "slug": "dark-mode-only",
+          "level": 2,
+          "line": 18,
+          "status": "active",
+          "related": [
+            ".design/color-scheme.md#dark-palette"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/design-principles.md#local-first-offline-first-ux",
+          "label": "Local-First, Offline-First UX",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/design-principles.md",
+          "slug": "local-first-offline-first-ux",
+          "level": 2,
+          "line": 40,
+          "status": "active",
+          "related": [
+            ".arc42/04-solution-strategy.md#local-first-architecture",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
+          "label": "No Save Buttons — Auto-Save Everywhere",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/design-principles.md",
+          "slug": "no-save-buttons--auto-save-everywhere",
+          "level": 2,
+          "line": 58,
+          "status": "active",
+          "related": [
+            ".design/interaction-guidelines.md#auto-save-no-save-buttons"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/design-principles.md#keyboard-first",
+          "label": "Keyboard-First",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/design-principles.md",
+          "slug": "keyboard-first",
+          "level": 2,
+          "line": 73,
+          "status": "active",
+          "related": [
+            ".design/accessibility.md#keyboard-navigation",
+            ".design/interaction-guidelines.md#keyboard-accessible-reordering"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/design-principles.md#low-chrome-content-first",
+          "label": "Low-Chrome, Content-First",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/design-principles.md",
+          "slug": "low-chrome-content-first",
+          "level": 2,
+          "line": 91,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/design-principles.md#ai-first-surfaces",
+          "label": "AI-First Surfaces",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/design-principles.md",
+          "slug": "ai-first-surfaces",
+          "level": 2,
+          "line": 107,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/design-principles.md#consistency-across-channels",
+          "label": "Consistency Across Channels",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/design-principles.md",
+          "slug": "consistency-across-channels",
+          "level": 2,
+          "line": 124,
+          "status": "active",
+          "related": [
+            ".design/component-libraries.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md",
+          "label": "Interaction Guidelines",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
+            ".design/accessibility.md",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "label": "Auto-Save (No Save Buttons)",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "auto-save-no-save-buttons",
+          "level": 2,
+          "line": 17,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#drag-and-drop-reordering",
+          "label": "Drag-and-Drop Reordering",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "drag-and-drop-reordering",
+          "level": 2,
+          "line": 92,
+          "status": "active",
+          "related": [
+            ".design/accessibility.md#keyboard-navigation",
+            ".design/design-principles.md#keyboard-first"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#feedback-and-toasts",
+          "label": "Feedback and Toasts",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "feedback-and-toasts",
+          "level": 2,
+          "line": 171,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#motion-and-reduced-motion",
+          "label": "Motion and Reduced Motion",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "motion-and-reduced-motion",
+          "level": 2,
+          "line": 186,
+          "status": "active",
+          "related": [
+            ".design/typography-and-layout.md#shadows-and-elevation",
+            ".design/accessibility.md#reduced-motion"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#focus-and-selection",
+          "label": "Focus and Selection",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "focus-and-selection",
+          "level": 2,
+          "line": 226,
+          "status": "active",
+          "related": [
+            ".design/accessibility.md#focus-visibility"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#empty-loading-and-error-states",
+          "label": "Empty, Loading, and Error States",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "empty-loading-and-error-states",
+          "level": 2,
+          "line": 241,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md",
+          "label": "Typography and Layout",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "status": "active",
+          "related": [
+            ".design/color-scheme.md",
+            ".design/design-principles.md#low-chrome-content-first",
+            ".design/accessibility.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md#font-families",
+          "label": "Font Families",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "font-families",
+          "level": 2,
+          "line": 15,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md#type-scale",
+          "label": "Type Scale",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "type-scale",
+          "level": 2,
+          "line": 36,
+          "status": "active",
+          "related": [
+            ".design/accessibility.md#target-sizes-and-text"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md#spacing-scale",
+          "label": "Spacing Scale",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "spacing-scale",
+          "level": 2,
+          "line": 95,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md#density",
+          "label": "Density",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "density",
+          "level": 2,
+          "line": 116,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#low-chrome-content-first"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md#layout-grid-and-breakpoints",
+          "label": "Layout Grid and Breakpoints",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "layout-grid-and-breakpoints",
+          "level": 2,
+          "line": 133,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md#border-radius-and-width",
+          "label": "Border Radius and Width",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "border-radius-and-width",
+          "level": 2,
+          "line": 156,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md#shadows-and-elevation",
+          "label": "Shadows and Elevation",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "shadows-and-elevation",
+          "level": 2,
+          "line": 174,
+          "status": "active",
+          "related": [
+            ".design/color-scheme.md#elevation-by-color"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md#iconography",
+          "label": "Iconography",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "iconography",
+          "level": 2,
+          "line": 208,
+          "status": "active",
+          "related": [
+            ".design/accessibility.md#target-sizes-and-text"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#keyboard-accessible-reordering",
+          "label": "Keyboard-Accessible Reordering",
+          "type": "heading",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "keyboard-accessible-reordering",
+          "level": 3,
+          "line": 124
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
+          "label": "Save-State Indicator Vocabulary",
+          "type": "heading",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "save-state-indicator-vocabulary",
+          "level": 3,
+          "line": 46
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#reorder--auto-save",
+          "label": "Reorder × Auto-Save",
+          "type": "heading",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "reorder--auto-save",
+          "level": 3,
+          "line": 162
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/02-constraints.md#technical-constraints",
+          "label": "Technical Constraints",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/02-constraints.md",
+          "slug": "technical-constraints",
+          "level": 2,
+          "line": 10,
+          "status": "active",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/04-solution-strategy.md#technology-choices",
+          "label": "Technology Choices",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/04-solution-strategy.md",
+          "slug": "technology-choices",
+          "level": 2,
+          "line": 64,
+          "status": "active",
+          "related": [
+            ".arc42/09-architecture-decisions.md"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "label": "Storage and Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "storage-and-sync",
+          "level": 2,
+          "line": 10,
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+            ".arc42/06-runtime-view.md#copilot-app-session-capture",
+            ".domain/capture/domain.md#domain-service-source-adapter"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/04-solution-strategy.md#local-first-architecture",
+          "label": "Local-first Architecture",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/04-solution-strategy.md",
+          "slug": "local-first-architecture",
+          "level": 2,
+          "line": 11,
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints"
+          ],
+          "outOfScope": true
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "id": "contains:.design/README.md->.design/README.md#purpose",
+          "source": ".design/README.md",
+          "target": ".design/README.md#purpose",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/README.md->.design/README.md#headline-principles",
+          "source": ".design/README.md",
+          "target": ".design/README.md#headline-principles",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/README.md->.design/README.md#how-to-use-this-folder",
+          "source": ".design/README.md",
+          "target": ".design/README.md#how-to-use-this-folder",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/README.md->.design/README.md#table-of-contents",
+          "source": ".design/README.md",
+          "target": ".design/README.md#table-of-contents",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/README.md->.design/README.md#provenance",
+          "source": ".design/README.md",
+          "target": ".design/README.md#provenance",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/README.md->.design/README.md#status-vocabulary",
+          "source": ".design/README.md",
+          "target": ".design/README.md#status-vocabulary",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/accessibility.md->.design/accessibility.md#target-and-scope",
+          "source": ".design/accessibility.md",
+          "target": ".design/accessibility.md#target-and-scope",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/accessibility.md->.design/accessibility.md#contrast",
+          "source": ".design/accessibility.md",
+          "target": ".design/accessibility.md#contrast",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/accessibility.md->.design/accessibility.md#keyboard-navigation",
+          "source": ".design/accessibility.md",
+          "target": ".design/accessibility.md#keyboard-navigation",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/accessibility.md->.design/accessibility.md#screen-reader--announcements",
+          "source": ".design/accessibility.md",
+          "target": ".design/accessibility.md#screen-reader--announcements",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/accessibility.md->.design/accessibility.md#focus-visibility",
+          "source": ".design/accessibility.md",
+          "target": ".design/accessibility.md#focus-visibility",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/accessibility.md->.design/accessibility.md#reduced-motion",
+          "source": ".design/accessibility.md",
+          "target": ".design/accessibility.md#reduced-motion",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/accessibility.md->.design/accessibility.md#target-sizes-and-text",
+          "source": ".design/accessibility.md",
+          "target": ".design/accessibility.md#target-sizes-and-text",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/accessibility.md->.design/accessibility.md#iconography-accessibility",
+          "source": ".design/accessibility.md",
+          "target": ".design/accessibility.md#iconography-accessibility",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/accessibility.md->.design/accessibility.md#per-channel-notes",
+          "source": ".design/accessibility.md",
+          "target": ".design/accessibility.md#per-channel-notes",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#provenance",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#provenance",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#dark-palette",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#dark-palette",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#full-token-reference",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#full-token-reference",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#contrast-rules-wcag-aa-minimum",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#elevation-by-color",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#elevation-by-color",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#per-stack-token-mapping",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#per-stack-token-mapping",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md->.design/component-libraries.md#evaluation-criteria",
+          "source": ".design/component-libraries.md",
+          "target": ".design/component-libraries.md#evaluation-criteria",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md->.design/component-libraries.md#key-finding-tokens-are-the-shared-layer",
+          "source": ".design/component-libraries.md",
+          "target": ".design/component-libraries.md#key-finding-tokens-are-the-shared-layer",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md->.design/component-libraries.md#per-channel-recommendations",
+          "source": ".design/component-libraries.md",
+          "target": ".design/component-libraries.md#per-channel-recommendations",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md->.design/component-libraries.md#candidate-comparison",
+          "source": ".design/component-libraries.md",
+          "target": ".design/component-libraries.md#candidate-comparison",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md->.design/component-libraries.md#recommendation-summary",
+          "source": ".design/component-libraries.md",
+          "target": ".design/component-libraries.md#recommendation-summary",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md->.design/component-libraries.md#risks-and-gaps",
+          "source": ".design/component-libraries.md",
+          "target": ".design/component-libraries.md#risks-and-gaps",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#editing-model",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#editing-model",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#round-trip-fidelity",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#round-trip-fidelity",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#raw-markdown-escape-hatch",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#raw-markdown-escape-hatch",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#supported-constructs",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#supported-constructs",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#paste-behavior",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#paste-behavior",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#slash-and-inline-commands",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#slash-and-inline-commands",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#unsupported-syntax-preservation",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#unsupported-syntax-preservation",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#editing-feedback-and-state",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#editing-feedback-and-state",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/design-principles.md->.design/design-principles.md#dark-mode-only",
+          "source": ".design/design-principles.md",
+          "target": ".design/design-principles.md#dark-mode-only",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/design-principles.md->.design/design-principles.md#local-first-offline-first-ux",
+          "source": ".design/design-principles.md",
+          "target": ".design/design-principles.md#local-first-offline-first-ux",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/design-principles.md->.design/design-principles.md#no-save-buttons--auto-save-everywhere",
+          "source": ".design/design-principles.md",
+          "target": ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/design-principles.md->.design/design-principles.md#keyboard-first",
+          "source": ".design/design-principles.md",
+          "target": ".design/design-principles.md#keyboard-first",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/design-principles.md->.design/design-principles.md#low-chrome-content-first",
+          "source": ".design/design-principles.md",
+          "target": ".design/design-principles.md#low-chrome-content-first",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/design-principles.md->.design/design-principles.md#ai-first-surfaces",
+          "source": ".design/design-principles.md",
+          "target": ".design/design-principles.md#ai-first-surfaces",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/design-principles.md->.design/design-principles.md#consistency-across-channels",
+          "source": ".design/design-principles.md",
+          "target": ".design/design-principles.md#consistency-across-channels",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#drag-and-drop-reordering",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#drag-and-drop-reordering",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#feedback-and-toasts",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#feedback-and-toasts",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#motion-and-reduced-motion",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#motion-and-reduced-motion",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#focus-and-selection",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#focus-and-selection",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#empty-loading-and-error-states",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#empty-loading-and-error-states",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#font-families",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/typography-and-layout.md#font-families",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#type-scale",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/typography-and-layout.md#type-scale",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#spacing-scale",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/typography-and-layout.md#spacing-scale",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#density",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/typography-and-layout.md#density",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#layout-grid-and-breakpoints",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/typography-and-layout.md#layout-grid-and-breakpoints",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#border-radius-and-width",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/typography-and-layout.md#border-radius-and-width",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#shadows-and-elevation",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/typography-and-layout.md#shadows-and-elevation",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#iconography",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/typography-and-layout.md#iconography",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/README.md->.arc42/02-constraints.md#technical-constraints",
+          "source": ".design/README.md",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/README.md->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".design/README.md",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/README.md->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".design/README.md",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md->.design/color-scheme.md#contrast-rules-wcag-aa-minimum",
+          "source": ".design/accessibility.md",
+          "target": ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md->.design/interaction-guidelines.md",
+          "source": ".design/accessibility.md",
+          "target": ".design/interaction-guidelines.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md->.design/design-principles.md#keyboard-first",
+          "source": ".design/accessibility.md",
+          "target": ".design/design-principles.md#keyboard-first",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#contrast->.design/color-scheme.md#contrast-rules-wcag-aa-minimum",
+          "source": ".design/accessibility.md#contrast",
+          "target": ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#keyboard-navigation->.design/design-principles.md#keyboard-first",
+          "source": ".design/accessibility.md#keyboard-navigation",
+          "target": ".design/design-principles.md#keyboard-first",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md#drag-and-drop-reordering->.design/interaction-guidelines.md#keyboard-accessible-reordering",
+          "source": ".design/interaction-guidelines.md#drag-and-drop-reordering",
+          "target": ".design/interaction-guidelines.md#keyboard-accessible-reordering",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#keyboard-navigation->.design/interaction-guidelines.md#keyboard-accessible-reordering",
+          "source": ".design/accessibility.md#keyboard-navigation",
+          "target": ".design/interaction-guidelines.md#keyboard-accessible-reordering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md#auto-save-no-save-buttons->.design/interaction-guidelines.md#save-state-indicator-vocabulary",
+          "source": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "target": ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#screen-reader--announcements->.design/interaction-guidelines.md#save-state-indicator-vocabulary",
+          "source": ".design/accessibility.md#screen-reader--announcements",
+          "target": ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#screen-reader--announcements->.design/interaction-guidelines.md#drag-and-drop-reordering",
+          "source": ".design/accessibility.md#screen-reader--announcements",
+          "target": ".design/interaction-guidelines.md#drag-and-drop-reordering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#focus-visibility->.design/interaction-guidelines.md#focus-and-selection",
+          "source": ".design/accessibility.md#focus-visibility",
+          "target": ".design/interaction-guidelines.md#focus-and-selection",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#reduced-motion->.design/interaction-guidelines.md#motion-and-reduced-motion",
+          "source": ".design/accessibility.md#reduced-motion",
+          "target": ".design/interaction-guidelines.md#motion-and-reduced-motion",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#target-sizes-and-text->.design/typography-and-layout.md#iconography",
+          "source": ".design/accessibility.md#target-sizes-and-text",
+          "target": ".design/typography-and-layout.md#iconography",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#iconography-accessibility->.design/typography-and-layout.md#iconography",
+          "source": ".design/accessibility.md#iconography-accessibility",
+          "target": ".design/typography-and-layout.md#iconography",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#per-channel-notes->.design/component-libraries.md",
+          "source": ".design/accessibility.md#per-channel-notes",
+          "target": ".design/component-libraries.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#per-channel-notes->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".design/accessibility.md#per-channel-notes",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md->.design/design-principles.md#dark-mode-only",
+          "source": ".design/color-scheme.md",
+          "target": ".design/design-principles.md#dark-mode-only",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md->.design/accessibility.md#contrast",
+          "source": ".design/color-scheme.md",
+          "target": ".design/accessibility.md#contrast",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".design/color-scheme.md",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#dark-palette->.design/design-principles.md#dark-mode-only",
+          "source": ".design/color-scheme.md#dark-palette",
+          "target": ".design/design-principles.md#dark-mode-only",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#contrast-rules-wcag-aa-minimum->.design/accessibility.md#contrast",
+          "source": ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
+          "target": ".design/accessibility.md#contrast",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#elevation-by-color->.design/design-principles.md#dark-mode-only",
+          "source": ".design/color-scheme.md#elevation-by-color",
+          "target": ".design/design-principles.md#dark-mode-only",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#per-stack-token-mapping->.design/component-libraries.md",
+          "source": ".design/color-scheme.md#per-stack-token-mapping",
+          "target": ".design/component-libraries.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#per-stack-token-mapping->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".design/color-scheme.md#per-stack-token-mapping",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".design/component-libraries.md",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md->.design/color-scheme.md#per-stack-token-mapping",
+          "source": ".design/component-libraries.md",
+          "target": ".design/color-scheme.md#per-stack-token-mapping",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md->.design/content-editing.md",
+          "source": ".design/component-libraries.md",
+          "target": ".design/content-editing.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md->.design/interaction-guidelines.md#drag-and-drop-reordering",
+          "source": ".design/component-libraries.md",
+          "target": ".design/interaction-guidelines.md#drag-and-drop-reordering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#key-finding-tokens-are-the-shared-layer->.design/color-scheme.md#per-stack-token-mapping",
+          "source": ".design/component-libraries.md#key-finding-tokens-are-the-shared-layer",
+          "target": ".design/color-scheme.md#per-stack-token-mapping",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#per-channel-recommendations->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".design/component-libraries.md#per-channel-recommendations",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md->.arc42/02-constraints.md#technical-constraints",
+          "source": ".design/content-editing.md",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md->.design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "source": ".design/content-editing.md",
+          "target": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md->.design/typography-and-layout.md#type-scale",
+          "source": ".design/content-editing.md",
+          "target": ".design/typography-and-layout.md#type-scale",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md->.design/accessibility.md",
+          "source": ".design/content-editing.md",
+          "target": ".design/accessibility.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#editing-model->.arc42/02-constraints.md#technical-constraints",
+          "source": ".design/content-editing.md#editing-model",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#raw-markdown-escape-hatch->.design/typography-and-layout.md#font-families",
+          "source": ".design/content-editing.md#raw-markdown-escape-hatch",
+          "target": ".design/typography-and-layout.md#font-families",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#slash-and-inline-commands->.design/interaction-guidelines.md#feedback-and-toasts",
+          "source": ".design/content-editing.md#slash-and-inline-commands",
+          "target": ".design/interaction-guidelines.md#feedback-and-toasts",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#slash-and-inline-commands->.design/design-principles.md#keyboard-first",
+          "source": ".design/content-editing.md#slash-and-inline-commands",
+          "target": ".design/design-principles.md#keyboard-first",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md#drag-and-drop-reordering->.design/interaction-guidelines.md#reorder--auto-save",
+          "source": ".design/interaction-guidelines.md#drag-and-drop-reordering",
+          "target": ".design/interaction-guidelines.md#reorder--auto-save",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#unsupported-syntax-preservation->.design/interaction-guidelines.md#reorder--auto-save",
+          "source": ".design/content-editing.md#unsupported-syntax-preservation",
+          "target": ".design/interaction-guidelines.md#reorder--auto-save",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#editing-feedback-and-state->.design/interaction-guidelines.md#save-state-indicator-vocabulary",
+          "source": ".design/content-editing.md#editing-feedback-and-state",
+          "target": ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md->.arc42/04-solution-strategy.md#local-first-architecture",
+          "source": ".design/design-principles.md",
+          "target": ".arc42/04-solution-strategy.md#local-first-architecture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md->.arc42/02-constraints.md#technical-constraints",
+          "source": ".design/design-principles.md",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md->.design/interaction-guidelines.md",
+          "source": ".design/design-principles.md",
+          "target": ".design/interaction-guidelines.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md->.design/accessibility.md",
+          "source": ".design/design-principles.md",
+          "target": ".design/accessibility.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md#dark-mode-only->.design/color-scheme.md#dark-palette",
+          "source": ".design/design-principles.md#dark-mode-only",
+          "target": ".design/color-scheme.md#dark-palette",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md#local-first-offline-first-ux->.arc42/04-solution-strategy.md#local-first-architecture",
+          "source": ".design/design-principles.md#local-first-offline-first-ux",
+          "target": ".arc42/04-solution-strategy.md#local-first-architecture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md#local-first-offline-first-ux->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".design/design-principles.md#local-first-offline-first-ux",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md#no-save-buttons--auto-save-everywhere->.design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "source": ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
+          "target": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md#keyboard-first->.design/accessibility.md#keyboard-navigation",
+          "source": ".design/design-principles.md#keyboard-first",
+          "target": ".design/accessibility.md#keyboard-navigation",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md#keyboard-first->.design/interaction-guidelines.md#keyboard-accessible-reordering",
+          "source": ".design/design-principles.md#keyboard-first",
+          "target": ".design/interaction-guidelines.md#keyboard-accessible-reordering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/design-principles.md#consistency-across-channels->.design/component-libraries.md",
+          "source": ".design/design-principles.md#consistency-across-channels",
+          "target": ".design/component-libraries.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md->.design/design-principles.md#no-save-buttons--auto-save-everywhere",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md->.design/accessibility.md",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/accessibility.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#auto-save-no-save-buttons->.design/design-principles.md#no-save-buttons--auto-save-everywhere",
+          "source": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "target": ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#auto-save-no-save-buttons->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#drag-and-drop-reordering->.design/accessibility.md#keyboard-navigation",
+          "source": ".design/interaction-guidelines.md#drag-and-drop-reordering",
+          "target": ".design/accessibility.md#keyboard-navigation",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#drag-and-drop-reordering->.design/design-principles.md#keyboard-first",
+          "source": ".design/interaction-guidelines.md#drag-and-drop-reordering",
+          "target": ".design/design-principles.md#keyboard-first",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#motion-and-reduced-motion->.design/typography-and-layout.md#shadows-and-elevation",
+          "source": ".design/interaction-guidelines.md#motion-and-reduced-motion",
+          "target": ".design/typography-and-layout.md#shadows-and-elevation",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#motion-and-reduced-motion->.design/accessibility.md#reduced-motion",
+          "source": ".design/interaction-guidelines.md#motion-and-reduced-motion",
+          "target": ".design/accessibility.md#reduced-motion",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#focus-and-selection->.design/accessibility.md#focus-visibility",
+          "source": ".design/interaction-guidelines.md#focus-and-selection",
+          "target": ".design/accessibility.md#focus-visibility",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md->.design/color-scheme.md",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/color-scheme.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md->.design/design-principles.md#low-chrome-content-first",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/design-principles.md#low-chrome-content-first",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md->.design/accessibility.md",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/accessibility.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md#type-scale->.design/accessibility.md#target-sizes-and-text",
+          "source": ".design/typography-and-layout.md#type-scale",
+          "target": ".design/accessibility.md#target-sizes-and-text",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md#density->.design/design-principles.md#low-chrome-content-first",
+          "source": ".design/typography-and-layout.md#density",
+          "target": ".design/design-principles.md#low-chrome-content-first",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md#shadows-and-elevation->.design/color-scheme.md#elevation-by-color",
+          "source": ".design/typography-and-layout.md#shadows-and-elevation",
+          "target": ".design/color-scheme.md#elevation-by-color",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md#iconography->.design/accessibility.md#target-sizes-and-text",
+          "source": ".design/typography-and-layout.md#iconography",
+          "target": ".design/accessibility.md#target-sizes-and-text",
+          "type": "related"
+        }
+      }
+    ]
+  }
+}

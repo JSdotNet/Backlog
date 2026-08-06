@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
+  "scope": ".design",
+  "sources": [
+    ".design"
+  ],
+  "problems": [],
+  "entries": [
+    {
+      "type": "file",
+      "name": "README.md",
+      "path": ".design/README.md",
+      "title": "Design Knowledge (`.design`)",
+      "status": "active",
+      "root": true
+    },
+    {
+      "type": "file",
+      "name": "design-principles.md",
+      "path": ".design/design-principles.md",
+      "title": "Design Principles",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "color-scheme.md",
+      "path": ".design/color-scheme.md",
+      "title": "Color Scheme",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "typography-and-layout.md",
+      "path": ".design/typography-and-layout.md",
+      "title": "Typography and Layout",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "interaction-guidelines.md",
+      "path": ".design/interaction-guidelines.md",
+      "title": "Interaction Guidelines",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "content-editing.md",
+      "path": ".design/content-editing.md",
+      "title": "Content Editing",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "accessibility.md",
+      "path": ".design/accessibility.md",
+      "title": "Accessibility",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "component-libraries.md",
+      "path": ".design/component-libraries.md",
+      "title": "Component Libraries",
+      "status": "active"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 // metadata.mjs — parsing and validation for the chapter/file `meta` YAML
 // blocks defined in .github/instructions/chapter-metadata.instructions.md.
 //
-// The schema used across .domain/.arc42/.backlog/.tech is intentionally small and
+// The schema used across .domain/.arc42/.backlog/.tech/.design is intentionally small and
 // flat (single-line scalars, null, or bracket lists), so we parse it with a
 // tiny hand-written reader instead of pulling in a YAML dependency.
 
@@ -10,6 +10,7 @@ const STATUS_BY_FOLDER = {
     arc42: ["draft", "proposed", "active", "deprecated"],
     backlog: ["draft", "ready", "in-progress", "done", "blocked"],
     tech: ["candidate", "trial", "adopted", "hold", "retired"],
+    design: ["draft", "active", "deprecated"],
 };
 
 // Fields a folder requires on every metadata block, beyond `status`.
@@ -18,6 +19,7 @@ const FOLDER_REQUIRED_FIELDS = {
     arc42: [],
     backlog: [],
     tech: ["kind"],
+    design: [],
 };
 
 // Allowed values for enumerated folder-specific fields.
@@ -44,6 +46,7 @@ const FOLDER_EXTRA_FIELDS = {
     arc42: [],
     backlog: ["depends-on", "implements"],
     tech: ["kind", "version", "depends-on", "alternatives"],
+    design: [],
 };
 
 /** Determine which knowledge folder a repo-relative path belongs to. */
@@ -53,6 +56,7 @@ export function folderKindForPath(relPath) {
     if (normalized.startsWith(".arc42/")) return "arc42";
     if (normalized.startsWith(".backlog/")) return "backlog";
     if (normalized.startsWith(".tech/")) return "tech";
+    if (normalized.startsWith(".design/")) return "design";
     return null;
 }
 
@@ -171,7 +175,7 @@ export function validateDocument(relPath, markdown) {
     if (!kind) {
         issues.push({
             severity: "info",
-            message: `${relPath} is not under .domain/, .arc42/, .backlog/, or .tech/ — no metadata rules apply.`,
+            message: `${relPath} is not under .domain/, .arc42/, .backlog/, .tech/, or .design/ — no metadata rules apply.`,
         });
         return issues;
     }

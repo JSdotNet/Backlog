@@ -21,8 +21,9 @@ See `.github/instructions/naming.instructions.md` for file and folder naming, in
 - Keep repository instruction files policy-focused; do not duplicate long-form MCP guidance into them.
 - Do not invent permanent project structure before architecture and domain decisions make the boundaries clear.
 - Ground governance and coding decisions in repository guidance instead of memory.
-- Treat checked-in knowledge folders such as `.arc42/`, `.domain/`, `.backlog/`, and `.tech/` as **task-scoped context**, not baseline context. Load only the relevant chapters after routing to the correct orchestration or specialist agent, or when the user explicitly asks for that knowledge.
+- Treat checked-in knowledge folders such as `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/` as **task-scoped context**, not baseline context. Load only the relevant chapters after routing to the correct orchestration or specialist agent, or when the user explicitly asks for that knowledge.
 - Never hand-edit anything under an `_meta/` folder; it is generated. Re-run the generator instead.
+- Honor the standing product UX rules recorded in `.design/`: dark mode only, no save buttons (everything auto-saves), Markdown stays canonical behind the rich text editor, and every drag-and-drop reorder has a keyboard equivalent.
 - Commit changes as they are made; do not leave edits uncommitted across multiple turns of the same task.
 - Never open a pull request unless the user explicitly asks for one (via the create-PR action, a PR-creation skill, or a direct request). Committing to the session branch is not an implicit request to open a PR.
 

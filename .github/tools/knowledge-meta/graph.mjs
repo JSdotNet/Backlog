@@ -1,5 +1,5 @@
 // graph.mjs — derives the cross-folder knowledge graph from the `meta` blocks
-// embedded in .arc42/, .domain/, .backlog/, and .tech/.
+// embedded in .arc42/, .domain/, .backlog/, .tech/, and .design/.
 //
 // Markdown stays canonical (see .arc42/02-constraints.md#technical-constraints);
 // this produces the *derived* index. Output shape is Cytoscape.js `elements`
@@ -12,7 +12,7 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { parseDocument, folderKindForPath } from "../../extensions/knowledge-canvas/metadata.mjs";
 
-export const KNOWLEDGE_FOLDERS = [".arc42", ".domain", ".backlog", ".tech"];
+export const KNOWLEDGE_FOLDERS = [".arc42", ".domain", ".backlog", ".tech", ".design"];
 export const SCHEMA_VERSION = 1;
 export const REPO_SCOPE = ".";
 export const GENERATOR = ".github/tools/knowledge-meta/build.mjs";

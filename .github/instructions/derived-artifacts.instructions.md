@@ -114,6 +114,7 @@ payload:
 | `.domain/_meta/*.json` | `.domain` | both of the above, scoped | same |
 | `.backlog/_meta/*.json` | `.backlog` | both of the above, scoped | same |
 | `.tech/_meta/*.json` | `.tech` | both of the above, scoped | same |
+| `.design/_meta/*.json` | `.design` | both of the above, scoped | same |
 
 `index.json` carries the **reading order** of an area, which a viewer uses
 instead of sorting filenames alphabetically. Its source of truth is the
