@@ -158,7 +158,7 @@ flowchart TB
 
 ```meta
 status: active
-related: [".arc42/06-runtime-view.md#backlog-entry-to-github-issue", "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
+related: [".arc42/06-runtime-view.md#backlog-entry-to-github-issue", ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
 Local-first Windows client. Serves Capture, Inbox, Backlog Management, Second Brain, Monitoring, Technology Stack, Dev PC Management, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and

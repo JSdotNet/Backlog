@@ -35,7 +35,7 @@ toggle.
 
 Rationale: the product is a focused, long-session authoring tool; a single dark
 surface reduces eye strain and removes an entire class of theming bugs across
-the WinUI, MAUI, and webview channels.
+the MAUI (mobile-native), Razor/webview (desktop, IDE), and webview channels.
 
 ## Local-First, Offline-First UX
 
@@ -128,9 +128,9 @@ status: active
 related: [".design/component-libraries.md"]
 ```
 
-The desktop (WinUI 3), mobile (.NET MAUI), and IDE (VS Code / Visual Studio)
-channels share one design language even though they use different component
-libraries.
+The desktop (.NET MAUI Blazor Hybrid, Razor in WebView2), mobile (.NET MAUI),
+and IDE (VS Code / Visual Studio) channels share one design language even
+though they use different component libraries.
 
 | Rule | Requirement |
 |---|---|

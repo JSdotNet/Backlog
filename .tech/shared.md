@@ -130,6 +130,49 @@ The implementation language for the VS Code channel and repository tooling.
   knowledge-canvas Copilot extension in `.github/extensions/`.
 - **Why** — the only first-class option for VS Code extensibility.
 
+## .NET MAUI
+
+```meta
+status: adopted
+kind: framework
+depends-on: [".tech/desktop.md#winui-3", ".tech/mobile.md#android", ".tech/shared.md#c-language"]
+related: [".arc42/04-solution-strategy.md#technology-choices", ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
+alternatives: ["Plain WinUI 3", "Blazor WebAssembly PWA", "Kotlin native"]
+```
+
+The cross-platform native app shell used by both the desktop and mobile
+channels: a WinUI 3 head on Windows, native Android views on Android.
+
+- **Used for** — the desktop client's native shell (per
+  `.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md`) and the phone client's
+  native Android app shell, platform integrations, and offline storage.
+- **Why** — accepted by ADR 0001 for desktop, so the whole stack can be
+  launched from one Aspire AppHost and driven by Playwright; named as the
+  preferred stack for mobile in `.arc42/04-solution-strategy.md#technology-choices`,
+  keeping both channels in C# alongside the cloud service. Mobile's choice is
+  not yet hardened into its own ADR.
+
+## Blazor Hybrid
+
+```meta
+status: adopted
+kind: framework
+depends-on: [".tech/shared.md#net-maui"]
+related: [".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
+alternatives: ["XAML-only MAUI UI", "Plain WinUI 3", "Blazor WebAssembly PWA"]
+```
+
+Razor Components rendered inside the MAUI shell's embedded WebView2/WebView.
+
+- **Used for** — the desktop client's entire UI (accepted, per ADR 0001) —
+  authored as Razor components instead of XAML, so Playwright can attach over
+  WebView2's CDP debugging port. On mobile it remains a candidate fallback to
+  plain MAUI XAML UI, for sharing components between channels.
+- **Why** — accepted for desktop by
+  `.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md`: unlike plain MAUI XAML,
+  it gives desktop a Chromium-based, Playwright-drivable UI surface while
+  keeping full native filesystem/background-worker access.
+
 ## GitHub Platform
 
 ```meta

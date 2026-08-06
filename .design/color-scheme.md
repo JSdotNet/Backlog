@@ -182,20 +182,20 @@ The **same logical token set** is the shared layer across all channels. Each
 stack maps token names to its native theming mechanism. Names MUST match exactly
 (kebab-case here; adapt casing per platform convention but keep the stem).
 
-| Logical token | WinUI 3 (ResourceDictionary) | .NET MAUI (Resources) | Web / webview (CSS custom property) |
+| Logical token | Desktop (.NET MAUI Blazor Hybrid, CSS custom property) | Mobile — .NET MAUI (Resources) | Web / webview (CSS custom property) |
 |---|---|---|---|
-| `color-primary` | `<Color x:Key="ColorPrimary">#F2C14E</Color>` + `SolidColorBrush ColorPrimaryBrush` | `<Color x:Key="ColorPrimary">#F2C14E</Color>` in `Resources/Styles` | `--color-primary: #F2C14E;` |
-| `color-background` | `<Color x:Key="ColorBackground">#0F172A</Color>` | `<Color x:Key="ColorBackground">#0F172A</Color>` | `--color-background: #0F172A;` |
-| `color-text-primary` | `<Color x:Key="ColorTextPrimary">#F8F9FA</Color>` | `<Color x:Key="ColorTextPrimary">#F8F9FA</Color>` | `--color-text-primary: #F8F9FA;` |
-| `color-border-focus` | `<Color x:Key="ColorBorderFocus">#F2C14E</Color>` | `<Color x:Key="ColorBorderFocus">#F2C14E</Color>` | `--color-border-focus: #F2C14E;` |
+| `color-primary` | `--color-primary: #F2C14E;` | `<Color x:Key="ColorPrimary">#F2C14E</Color>` in `Resources/Styles` | `--color-primary: #F2C14E;` |
+| `color-background` | `--color-background: #0F172A;` | `<Color x:Key="ColorBackground">#0F172A</Color>` | `--color-background: #0F172A;` |
+| `color-text-primary` | `--color-text-primary: #F8F9FA;` | `<Color x:Key="ColorTextPrimary">#F8F9FA</Color>` | `--color-text-primary: #F8F9FA;` |
+| `color-border-focus` | `--color-border-focus: #F2C14E;` | `<Color x:Key="ColorBorderFocus">#F2C14E</Color>` | `--color-border-focus: #F2C14E;` |
 
 Rules:
 
 - **One source of truth:** a single token definition file per stack, generated
   from this table — do not scatter literals across components.
-- **Dark only:** WinUI and MAUI resource dictionaries MUST define only the dark
-  `ThemeDictionary` (or a single default dictionary); do not ship a `Light`
-  theme dictionary.
+- **Dark only:** desktop's CSS custom properties and mobile's MAUI resource
+  dictionary MUST define only the dark theme (or a single default dictionary);
+  do not ship a `Light` theme.
 - **No raw literals in components:** components reference the keyed resource /
   CSS variable, never the hex value.
 - **Webview parity:** the VS Code / Visual Studio webview MUST expose the same
