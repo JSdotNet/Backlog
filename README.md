@@ -64,6 +64,31 @@ Access channels:
 
 See [domain/domain.md](domain/domain.md) for functional boundaries and [architecture/Architecture.md](architecture/Architecture.md) for technical design.
 
+## Solution structure
+
+| Project | Channel / role |
+|---|---|
+| `src/Backlog.Domain` | Domain model (backlog entries, sub-items, lifecycle rules) |
+| `src/Backlog.Storage` | Markdown + JSON file storage — canonical local data |
+| `src/Backlog.UI` | Shared Razor components used by the desktop and web hosts |
+| `src/Backlog.Web` | Blazor Server host of the shared UI |
+| `src/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
+| `src/Backlog.Mobile` | Mobile channel — .NET MAUI Blazor Hybrid (Android), inbox capture and triage |
+| `src/Backlog.Ide.VsCode` | IDE channel — VS Code extension (TypeScript) |
+| `src/Backlog.Cloud` | Cloud channel — thin ASP.NET Core sync service (Azure) |
+| `src/Backlog.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
+| `src/Backlog.AppHost` | .NET Aspire app model that composes all channels |
+
+## Running locally
+
+```powershell
+dotnet run --project src/Backlog.AppHost
+```
+
+The AppHost starts the cloud service and the web host. The desktop, mobile, and
+VS Code resources are registered with **explicit start** — they need a window, an
+emulator, or an extension host, so start them on demand from the Aspire dashboard.
+
 
 ## Language and conventions
 
