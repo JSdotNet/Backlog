@@ -42,6 +42,8 @@ flowchart TB
         NodeJS["Node.js"]
         TypeScript["TypeScript"]
         GitHubPlatform["GitHub Platform"]
+        MAUI[".NET MAUI"]
+        BlazorHybrid["Blazor Hybrid"]
     end
 
     subgraph Desktop
@@ -56,8 +58,6 @@ flowchart TB
 
     subgraph Mobile
         Android["Android"]
-        MAUI[".NET MAUI"]
-        BlazorHybrid["Blazor Hybrid"]
         OfflineStore["Local Offline Store"]
     end
 
@@ -106,6 +106,7 @@ flowchart TB
     MSIX --> WinAppSDK
 
     MAUI --> Android
+    MAUI --> WinUI
     MAUI --> CSharp
     BlazorHybrid --> MAUI
     OfflineStore --> JSON
@@ -166,9 +167,9 @@ Full authoring rules: `.github/instructions/tech.instructions.md`.
 
 ## Open questions
 
-- Desktop UI framework is preferred but not yet decided by ADR (WinUI 3 vs. a
-  cross-platform alternative).
-- Mobile shape is unsettled: MAUI native vs. Blazor Hybrid vs. PWA.
+- Mobile shape is unsettled: MAUI native vs. Blazor Hybrid vs. PWA. Desktop's
+  shape is decided (`.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md`:
+  MAUI Blazor Hybrid, WinUI 3 head).
 - Cloud data store choice (Cosmos DB vs. PostgreSQL) is still open in
   `.arc42/04-solution-strategy.md#technology-choices`.
 - No versions are pinned yet beyond the target .NET runtime; `version` fields

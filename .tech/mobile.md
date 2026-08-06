@@ -13,49 +13,21 @@ related: [".tech/technology-graph.md", ".arc42/04-solution-strategy.md#technolog
 ```meta
 status: candidate
 kind: platform
-related: [".tech/cloud.md#firebase-cloud-messaging"]
+related: [".tech/cloud.md#firebase-cloud-messaging", ".tech/shared.md#net-maui"]
 ```
 
-The primary mobile target platform.
+The primary mobile target platform; the platform head that `.tech/shared.md#net-maui`
+uses on this channel.
 
 - **Used for** — speech-shortcut capture, share-sheet capture, inbox review, and
   push notifications.
 - **Why** — the personal-use scope is Android-first; iOS is not in the current
   baseline.
 
-## .NET MAUI
-
-```meta
-status: candidate
-kind: framework
-depends-on: [".tech/mobile.md#android", ".tech/shared.md#c-language"]
-related: [".arc42/04-solution-strategy.md#technology-choices"]
-alternatives: [".NET MAUI Blazor Hybrid", "Blazor WebAssembly PWA", "Kotlin native"]
-```
-
-The preferred cross-platform app framework for the phone client.
-
-- **Used for** — the native Android app shell, platform integrations (share
-  target, speech, notifications), and offline storage.
-- **Why** — named as the preferred mobile stack in
-  `.arc42/04-solution-strategy.md#technology-choices`; keeps the phone channel in
-  C# alongside desktop and cloud.
-
-## Blazor Hybrid
-
-```meta
-status: candidate
-kind: framework
-depends-on: [".tech/mobile.md#net-maui"]
-alternatives: ["XAML-only MAUI UI"]
-```
-
-Web-technology UI rendered inside the MAUI shell.
-
-- **Used for** — sharing UI components between the phone client and any future
-  web surface.
-- **Why** — the closest documented fallback/complement to plain MAUI; keeps a
-  path open to a PWA without a rewrite.
+The mobile app shell itself (.NET MAUI, optionally with Blazor Hybrid) is
+documented once in `.tech/shared.md#net-maui` and `.tech/shared.md#blazor-hybrid`,
+since the desktop channel now uses the same framework
+(`.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md`).
 
 ## Local Offline Store
 

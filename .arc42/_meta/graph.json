@@ -6,36 +6,27 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 68,
+    "nodes": 67,
     "edges": 109,
     "nodesByFolder": {
       "arc42": 56,
-      "domain": 11,
-      "none": 1
+      "domain": 11
     },
     "nodesByType": {
       "file": 14,
-      "chapter": 53,
-      "external": 1
+      "chapter": 53
     },
     "nodesByStatus": {
       "active": 48,
       "draft": 18,
-      "accepted": 1,
-      "none": 1
+      "accepted": 1
     },
     "edgesByType": {
       "contains": 43,
       "related": 66
     }
   },
-  "problems": [
-    {
-      "severity": "warning",
-      "path": ".arc42/05-building-block-view.md",
-      "message": ".arc42/05-building-block-view.md#desktop-app has `related` reference \"docs/adr/0001-desktop-stack-maui-blazor-hybrid.md\" pointing outside the knowledge folders; recorded as an external node."
-    }
-  ],
+  "problems": [],
   "elements": {
     "nodes": [
       {
@@ -332,7 +323,7 @@
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
-            "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md"
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
           ]
         }
       },
@@ -914,16 +905,6 @@
             ".domain/capture/domain.md#aggregate-capture",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
-          "outOfScope": true
-        }
-      },
-      {
-        "data": {
-          "id": "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md",
-          "label": "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md",
-          "type": "external",
-          "folder": null,
-          "path": "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "outOfScope": true
         }
       },
@@ -1543,9 +1524,9 @@
       },
       {
         "data": {
-          "id": "related:.arc42/05-building-block-view.md#desktop-app->docs/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "id": "related:.arc42/05-building-block-view.md#desktop-app->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "source": ".arc42/05-building-block-view.md#desktop-app",
-          "target": "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "type": "related"
         }
       },

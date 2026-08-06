@@ -1,0 +1,93 @@
+@page "/"
+@using Backlog.Mobile.UI.Services
+@inject CloudSyncClient Sync
+
+<PageTitle>Inbox</PageTitle>
+
+<h1>Inbox</h1>
+
+<div class="capture">
+    <input @bind="_draft" @bind:event="oninput" placeholder="Quick capture…" aria-label="Quick capture" />
+    <button @onclick="CaptureAsync" disabled="@string.IsNullOrWhiteSpace(_draft)">Capture</button>
+</div>
+
+@if (_error is not null)
+{
+    <p class="error">Cloud sync unavailable: @_error</p>
+}
+else if (_items is null)
+{
+    <p>Loading…</p>
+}
+else if (_items.Count == 0)
+{
+    <p>Inbox is empty.</p>
+}
+else
+{
+    <ul class="inbox">
+        @foreach (var item in _items)
+        {
+            <li>
+                <span class="title">@item.Title</span>
+                <span class="source">@item.Source</span>
+                <button @onclick="() => AcknowledgeAsync(item.Id)" aria-label="@($"Triage {item.Title}")">Triage</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private IReadOnlyList<InboxItem>? _items;
+    private string _draft = string.Empty;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => RefreshAsync();
+
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            _error = null;
+            _items = await Sync.GetInboxAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task CaptureAsync()
+    {
+        var title = _draft.Trim();
+        if (title.Length == 0) return;
+
+        _draft = string.Empty;
+        try
+        {
+            await Sync.CaptureAsync(title);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            return;
+        }
+
+        await RefreshAsync();
+    }
+
+    private async Task AcknowledgeAsync(Guid id)
+    {
+        try
+        {
+            await Sync.AcknowledgeAsync(id);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            return;
+        }
+
+        await RefreshAsync();
+    }
+}

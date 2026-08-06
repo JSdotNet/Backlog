@@ -90,6 +90,29 @@ Invoke: orch-tech
 - All `depends-on` references resolve, and the graph diagram matches them.
 - Changed paths summarized for the user.
 
+## Canvas Interface
+
+This skill reports progress through the `orch-dashboard` canvas extension
+(`plugins/copilot-app/extensions/orch-dashboard/`). If the extension is not
+installed, skip the canvas calls below and continue through standard chat
+interaction.
+
+- Open canvas `orch-dashboard`, then call `start_run` with
+  `skillId: "orch-tech"` and these stages: Context Loading, Technology
+  Reasoning, Authoring & Metadata Enforcement, Graph Sync & Review.
+- Before each stage, call `update_stage` with `status: "in_progress"`.
+- After each stage, call `update_stage` again with `status: "done"` (or
+  `"blocked"`/`"skipped"`) and an `output` summary — e.g. reasoning outcome,
+  metadata fixes applied, or graph-sync verification results.
+- Call `finish_run` with the final status and a summary once the `.tech/`
+  change is complete.
+- During **Graph Sync & Review**, also open/update the `knowledge-graph`
+  canvas scoped to `.tech`, per `instructions/canvas-usage.instructions.md`.
+  Optional; skip gracefully if not installed.
+
+See `plugins/copilot-app/extensions/orch-dashboard/README.md` for the full
+canvas action contract.
+
 ## Reference
 
 - `.github/instructions/tech.instructions.md`

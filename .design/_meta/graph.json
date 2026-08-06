@@ -6,26 +6,27 @@
     ".design"
   ],
   "stats": {
-    "nodes": 79,
-    "edges": 140,
+    "nodes": 81,
+    "edges": 143,
     "nodesByFolder": {
-      "design": 71,
-      "arc42": 4,
+      "design": 72,
+      "arc42": 5,
       "domain": 4
     },
     "nodesByType": {
-      "file": 8,
-      "chapter": 67,
+      "file": 9,
+      "chapter": 68,
       "heading": 4
     },
     "nodesByStatus": {
-      "active": 71,
+      "active": 72,
       "none": 4,
+      "accepted": 1,
       "draft": 4
     },
     "edgesByType": {
-      "contains": 63,
-      "related": 77
+      "contains": 64,
+      "related": 79
     }
   },
   "problems": [],
@@ -148,7 +149,7 @@
           "path": ".design/accessibility.md",
           "slug": "target-and-scope",
           "level": 2,
-          "line": 16,
+          "line": 17,
           "status": "active"
         }
       },
@@ -161,7 +162,7 @@
           "path": ".design/accessibility.md",
           "slug": "contrast",
           "level": 2,
-          "line": 29,
+          "line": 30,
           "status": "active",
           "related": [
             ".design/color-scheme.md#contrast-rules-wcag-aa-minimum"
@@ -177,7 +178,7 @@
           "path": ".design/accessibility.md",
           "slug": "keyboard-navigation",
           "level": 2,
-          "line": 51,
+          "line": 52,
           "status": "active",
           "related": [
             ".design/design-principles.md#keyboard-first",
@@ -194,7 +195,7 @@
           "path": ".design/accessibility.md",
           "slug": "screen-reader--announcements",
           "level": 2,
-          "line": 68,
+          "line": 69,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
@@ -211,7 +212,7 @@
           "path": ".design/accessibility.md",
           "slug": "focus-visibility",
           "level": 2,
-          "line": 116,
+          "line": 117,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#focus-and-selection"
@@ -227,7 +228,7 @@
           "path": ".design/accessibility.md",
           "slug": "reduced-motion",
           "level": 2,
-          "line": 131,
+          "line": 132,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#motion-and-reduced-motion"
@@ -243,7 +244,7 @@
           "path": ".design/accessibility.md",
           "slug": "target-sizes-and-text",
           "level": 2,
-          "line": 144,
+          "line": 145,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#iconography"
@@ -259,7 +260,7 @@
           "path": ".design/accessibility.md",
           "slug": "iconography-accessibility",
           "level": 2,
-          "line": 159,
+          "line": 160,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#iconography"
@@ -275,7 +276,7 @@
           "path": ".design/accessibility.md",
           "slug": "per-channel-notes",
           "level": 2,
-          "line": 174,
+          "line": 175,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -414,7 +415,7 @@
           "path": ".design/component-libraries.md",
           "slug": "evaluation-criteria",
           "level": 2,
-          "line": 18,
+          "line": 20,
           "status": "active"
         }
       },
@@ -427,7 +428,7 @@
           "path": ".design/component-libraries.md",
           "slug": "key-finding-tokens-are-the-shared-layer",
           "level": 2,
-          "line": 33,
+          "line": 35,
           "status": "active",
           "related": [
             ".design/color-scheme.md#per-stack-token-mapping"
@@ -443,10 +444,27 @@
           "path": ".design/component-libraries.md",
           "slug": "per-channel-recommendations",
           "level": 2,
-          "line": 55,
+          "line": 58,
           "status": "active",
           "related": [
-            ".arc42/04-solution-strategy.md#technology-choices"
+            ".arc42/04-solution-strategy.md#technology-choices",
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2",
+          "label": "Desktop — .NET MAUI Blazor Hybrid (Razor in WebView2)",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "desktop--net-maui-blazor-hybrid-razor-in-webview2",
+          "level": 3,
+          "line": 65,
+          "status": "active",
+          "related": [
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
           ]
         }
       },
@@ -459,7 +477,7 @@
           "path": ".design/component-libraries.md",
           "slug": "candidate-comparison",
           "level": 2,
-          "line": 107,
+          "line": 120,
           "status": "active"
         }
       },
@@ -472,7 +490,7 @@
           "path": ".design/component-libraries.md",
           "slug": "recommendation-summary",
           "level": 2,
-          "line": 131,
+          "line": 144,
           "status": "active"
         }
       },
@@ -485,7 +503,7 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 147,
+          "line": 160,
           "status": "active"
         }
       },
@@ -1005,7 +1023,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "border-radius-and-width",
           "level": 2,
-          "line": 156,
+          "line": 157,
           "status": "active"
         }
       },
@@ -1018,7 +1036,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "shadows-and-elevation",
           "level": 2,
-          "line": 174,
+          "line": 175,
           "status": "active",
           "related": [
             ".design/color-scheme.md#elevation-by-color"
@@ -1034,7 +1052,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "iconography",
           "level": 2,
-          "line": 208,
+          "line": 209,
           "status": "active",
           "related": [
             ".design/accessibility.md#target-sizes-and-text"
@@ -1139,6 +1157,22 @@
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
             ".arc42/06-runtime-view.md#copilot-app-session-capture",
             ".domain/capture/domain.md#domain-service-source-adapter"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "label": "ADR 0001: Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "status": "accepted",
+          "related": [
+            ".arc42/04-solution-strategy.md",
+            ".arc42/02-constraints.md",
+            ".arc42/09-architecture-decisions.md"
           ],
           "outOfScope": true
         }
@@ -1429,6 +1463,14 @@
           "id": "contains:.design/component-libraries.md->.design/component-libraries.md#per-channel-recommendations",
           "source": ".design/component-libraries.md",
           "target": ".design/component-libraries.md#per-channel-recommendations",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md#per-channel-recommendations->.design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2",
+          "source": ".design/component-libraries.md#per-channel-recommendations",
+          "target": ".design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2",
           "type": "contains"
         }
       },
@@ -1973,6 +2015,22 @@
           "id": "related:.design/component-libraries.md#per-channel-recommendations->.arc42/04-solution-strategy.md#technology-choices",
           "source": ".design/component-libraries.md#per-channel-recommendations",
           "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#per-channel-recommendations->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".design/component-libraries.md#per-channel-recommendations",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "type": "related"
         }
       },
