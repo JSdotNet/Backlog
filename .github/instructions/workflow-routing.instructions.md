@@ -3,6 +3,10 @@
 Prefer the named orchestration skill for each task category. Fall back to the paired
 specialist agent only when the skill is unavailable.
 
+For this repository, route through an orchestration skill by default. If a task does
+not have a dedicated orchestration skill, use the repo-native generic orchestration
+entrypoint `orch-fallback` before falling back to specialist agents directly.
+
 - Direct `.arc42/` chapter content edits (refreshing an existing chapter or
   diagram, not authoring a new ADR/TDR/blueprint): use `orch-arc42-content`.
   Fall back to `architecture:architect`.
@@ -81,3 +85,6 @@ specialist agent only when the skill is unavailable.
 
 If neither the preferred skill nor its fallback agent is installed, use the closest
 available specialist agent and note that orchestration routing was unavailable.
+
+When a recurring task category has no dedicated orchestration skill yet, recommend
+creating one in a separate session so repository routing can stay orchestration-first.
