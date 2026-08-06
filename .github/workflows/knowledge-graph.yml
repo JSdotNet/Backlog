@@ -46,8 +46,8 @@ jobs:
       - name: Check committed indexes are up to date
         run: |
           node .github/tools/knowledge-graph/build-graph.mjs
-          if ! git diff --quiet -- '*.index/graph.json'; then
+          if ! git diff --quiet -- '*_index/graph.json'; then
             echo "::error::Derived graph indexes are stale. Run: node .github/tools/knowledge-graph/build-graph.mjs"
-            git --no-pager diff --stat -- '*.index/graph.json'
+            git --no-pager diff --stat -- '*_index/graph.json'
             exit 1
           fi

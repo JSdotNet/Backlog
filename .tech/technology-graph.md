@@ -161,7 +161,7 @@ them.
   it with `related` instead of restating it.
 - When a node or edge changes, update this diagram in the same change.
 
-Full authoring rules: `.github/instructions/tech-knowledge.instructions.md`.
+Full authoring rules: `.github/instructions/tech.instructions.md`.
 
 ## Open questions
 

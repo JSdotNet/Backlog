@@ -5,7 +5,7 @@ Derives machine-readable graphs from the `meta` blocks embedded in
 
 Markdown stays canonical; these indexes are **derived output** — never edit
 them by hand. Placement and naming follow
-`.github/instructions/derived-index.instructions.md`.
+`.github/instructions/derived-artifacts.instructions.md`.
 
 ## Usage
 
@@ -30,11 +30,11 @@ One artifact per scope, each co-located with what it describes:
 
 | Path | Scope |
 |---|---|
-| `.index/graph.json` | repository-wide rollup across all knowledge folders |
-| `.arc42/.index/graph.json` | `.arc42` only |
-| `.domain/.index/graph.json` | `.domain` only |
-| `.backlog/.index/graph.json` | `.backlog` only |
-| `.tech/.index/graph.json` | `.tech` only |
+| `_index/graph.json` | repository-wide rollup across all knowledge folders |
+| `.arc42/_index/graph.json` | `.arc42` only |
+| `.domain/_index/graph.json` | `.domain` only |
+| `.backlog/_index/graph.json` | `.backlog` only |
+| `.tech/_index/graph.json` | `.tech` only |
 
 A scoped graph contains every node in its folder, plus any node **outside** it
 that an in-scope node references. Those boundary nodes are flagged

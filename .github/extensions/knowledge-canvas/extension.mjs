@@ -99,7 +99,7 @@ function setDocument(entry, relPath) {
  * Local server for a knowledge-graph canvas instance.
  *
  * The graph is rebuilt from the Markdown on disk rather than read from the
- * committed `.index/` artifacts, so the view can never show a stale index. The
+ * committed `_index/` artifacts, so the view can never show a stale index. The
  * parsed corpus is cached per instance and projected per requested scope, so
  * switching scope in the UI costs no disk I/O.
  */

@@ -1,6 +1,6 @@
 // graph-render.mjs — HTML shell for the knowledge-graph canvas.
 //
-// An Obsidian-style force-directed view over .index/knowledge-graph.json.
+// An Obsidian-style force-directed view over _index/knowledge-graph.json.
 // Rendering uses CDN-hosted Cytoscape.js (core only, built-in `cose` layout)
 // so the extension itself stays dependency-free, matching render.mjs.
 

@@ -31,7 +31,7 @@ The desktop app is installed on Windows machines and is the canonical deployment
   knowledge/topics/               # knowledge notes by topic
   monitoring/dashboards/          # saved dashboard configs
   tags/index.md                   # tag registry
-  .index/*.json                   # JSON indexes and metadata
+  _index/*.json                   # JSON indexes and metadata
 ```
 
 ## Cloud Deployment (Azure)

@@ -6,10 +6,10 @@
 //   node .github/tools/knowledge-graph/build-graph.mjs --scope .tech
 //
 // Writes one artifact per scope, per
-// `.github/instructions/derived-index.instructions.md`:
+// `.github/instructions/derived-artifacts.instructions.md`:
 //
-//   .index/graph.json          (repository-wide rollup)
-//   .tech/.index/graph.json    (scoped to .tech)
+//   _index/graph.json          (repository-wide rollup)
+//   .tech/_index/graph.json    (scoped to .tech)
 //   ...one per knowledge folder
 //
 // Graph construction lives in graph.mjs, which the knowledge-graph canvas also

@@ -1,6 +1,6 @@
 ---
-name: orch-tech-knowledge
-description: 'Orchestrate changes to .tech/ (this project''s technology graph of platforms, runtimes, frameworks, libraries, packages, services, and tools) for this repository. Use for any create/update of .tech/technology-graph.md or a layer file (shared.md, desktop.md, mobile.md, ide.md, cloud.md, tooling.md). Enforces tech-knowledge.instructions.md structure and chapter-metadata.instructions.md metadata blocks, and keeps the graph diagram in sync with depends-on edges.'
+name: orch-tech
+description: 'Orchestrate changes to .tech/ (this project''s technology graph of platforms, runtimes, frameworks, libraries, packages, services, and tools) for this repository. Use for any create/update of .tech/technology-graph.md or a layer file (shared.md, desktop.md, mobile.md, ide.md, cloud.md, tooling.md). Enforces tech.instructions.md structure and chapter-metadata.instructions.md metadata blocks, and keeps the graph diagram in sync with depends-on edges.'
 ---
 
 # Orchestrate Technology Knowledge (`.tech/`)
@@ -25,7 +25,7 @@ decisions and with this repository's structure and metadata conventions.
 > directly using the same instructions files and continue.
 
 ### Stage 1: Context Loading
-- Load `.github/instructions/tech-knowledge.instructions.md` and
+- Load `.github/instructions/tech.instructions.md` and
   `.github/instructions/chapter-metadata.instructions.md` (task-scoped, not
   baseline context).
 - Load `.tech/technology-graph.md` plus only the layer files in scope.
@@ -47,7 +47,7 @@ decisions and with this repository's structure and metadata conventions.
 
 ### Stage 3: Authoring & Metadata Enforcement
 - Draft or update chapters using the technology chapter template in
-  `tech-knowledge.instructions.md`; keep each chapter short.
+  `tech.instructions.md`; keep each chapter short.
 - Add or update the chapter metadata block on every touched technology chapter:
   `status` and `kind` required; `version`, `depends-on`, `alternatives`,
   `related`, `issue` optional and omitted when empty.
@@ -78,20 +78,20 @@ decisions and with this repository's structure and metadata conventions.
 ## Usage Pattern
 
 ```text
-Invoke: orch-tech-knowledge
+Invoke: orch-tech
 - Files: cloud.md, technology-graph.md
 - Goal: promote ASP.NET Core Minimal APIs from candidate to adopted and pin the version
 ```
 
 ## Output Expectations
 
-- `.tech/` files updated following `tech-knowledge.instructions.md`.
+- `.tech/` files updated following `tech.instructions.md`.
 - Every touched chapter and file carries a correct metadata block.
 - All `depends-on` references resolve, and the graph diagram matches them.
 - Changed paths summarized for the user.
 
 ## Reference
 
-- `.github/instructions/tech-knowledge.instructions.md`
+- `.github/instructions/tech.instructions.md`
 - `.github/instructions/chapter-metadata.instructions.md`
 - `.github/instructions/workflow-routing.instructions.md`

@@ -283,7 +283,7 @@ export function projectScope(graph, scope) {
 
 /**
  * Build the serializable index document for one scope, following
- * `.github/instructions/derived-index.instructions.md`.
+ * `.github/instructions/derived-artifacts.instructions.md`.
  *
  * Pass a pre-built graph to project several scopes without re-reading disk.
  */
@@ -313,5 +313,5 @@ export const SCOPES = [REPO_SCOPE, ...KNOWLEDGE_FOLDERS];
 
 /** Repo-relative output path for a scope, per the derived-index convention. */
 export function outputPathFor(scope) {
-    return scope === REPO_SCOPE ? ".index/graph.json" : `${scope}/.index/graph.json`;
+    return scope === REPO_SCOPE ? "_index/graph.json" : `${scope}/_index/graph.json`;
 }
