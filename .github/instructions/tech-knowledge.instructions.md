@@ -32,6 +32,7 @@ the way it does; `.tech` links back to it rather than restating rationale.
   ide.md                # IDE extension stacks
   cloud.md              # optional cloud service stack
   tooling.md            # development, AI, build, CI/CD, and governance tooling
+  .index/graph.json     # derived: generated graph index, never hand-edited
 ```
 
 Add a new layer file only when a technology genuinely does not belong to an
@@ -46,6 +47,9 @@ existing layer, and register it in `technology-graph.md` in the same change.
   - Explains the status ladder and how to read/extend the graph.
   - Its `##` sections do **not** carry per-chapter metadata blocks; the file
     carries a file-level block only (same rule as `.domain/context-map.md`).
+- **`.index/graph.json`** — Derived, generated graph index for this folder.
+  Never hand-edited; see `.github/instructions/derived-index.instructions.md`
+  and `.github/tools/knowledge-graph/README.md`.
 - **`<layer>.md`** — One `## <Technology Name>` chapter per technology used (or
   under consideration) in that layer. Each chapter is an addressable node in
   the graph and carries a chapter metadata block.
@@ -120,7 +124,8 @@ Omit every optional field that has no value (no `related: []`, no
   `.arc42`/`.domain`/`.backlog` — use `related` for those.
 - Keep `technology-graph.md`'s Mermaid diagram in sync with the `depends-on`
   edges in the layer files whenever a node or edge is added, removed, or
-  renamed.
+  renamed, and regenerate the derived index in the same change:
+  `node .github/tools/knowledge-graph/build-graph.mjs --scope .tech`.
 - Ground stack claims in `.arc42` (especially
   `.arc42/04-solution-strategy.md#technology-choices` and
   `.arc42/09-architecture-decisions.md`) rather than inventing new choices here.

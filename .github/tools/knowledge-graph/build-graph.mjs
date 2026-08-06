@@ -1,43 +1,64 @@
 #!/usr/bin/env node
-// build-graph.mjs — CLI wrapper that writes the derived knowledge graph index.
+// build-graph.mjs — CLI wrapper that writes the derived knowledge graph indexes.
 //
-//   node .github/tools/knowledge-graph/build-graph.mjs
-//   node .github/tools/knowledge-graph/build-graph.mjs --check       # CI: fail on broken refs, write nothing
-//   node .github/tools/knowledge-graph/build-graph.mjs --out <path>
+//   node .github/tools/knowledge-graph/build-graph.mjs           # all scopes
+//   node .github/tools/knowledge-graph/build-graph.mjs --check   # CI: verify only, write nothing
+//   node .github/tools/knowledge-graph/build-graph.mjs --scope .tech
+//
+// Writes one artifact per scope, per
+// `.github/instructions/derived-index.instructions.md`:
+//
+//   .index/graph.json          (repository-wide rollup)
+//   .tech/.index/graph.json    (scoped to .tech)
+//   ...one per knowledge folder
 //
 // Graph construction lives in graph.mjs, which the knowledge-graph canvas also
-// imports, so the written index and the live view are always the same graph.
+// imports, so the written indexes and the live view are always the same graph.
 
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildGraphDocument, KNOWLEDGE_FOLDERS } from "./graph.mjs";
+import { buildGraph, buildGraphDocument, outputPathFor, SCOPES } from "./graph.mjs";
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../../", import.meta.url)));
-const DEFAULT_OUT = ".index/knowledge-graph.json";
 
 const args = process.argv.slice(2);
 const checkOnly = args.includes("--check");
-const outIndex = args.indexOf("--out");
-const outPath = outIndex !== -1 ? args[outIndex + 1] : DEFAULT_OUT;
+const scopeIndex = args.indexOf("--scope");
+const requestedScope = scopeIndex !== -1 ? args[scopeIndex + 1] : null;
 
-const document = await buildGraphDocument(REPO_ROOT);
-const { stats, problems } = document;
-
-if (!checkOnly) {
-    const absoluteOut = path.resolve(REPO_ROOT, outPath);
-    await mkdir(path.dirname(absoluteOut), { recursive: true });
-    await writeFile(absoluteOut, `${JSON.stringify(document, null, 2)}\n`, "utf8");
-    console.log(`Wrote ${outPath}`);
+if (requestedScope && !SCOPES.includes(requestedScope)) {
+    console.error(`Unknown scope "${requestedScope}". Known scopes: ${SCOPES.join(", ")}`);
+    process.exit(2);
 }
 
-console.log(`${stats.nodes} nodes, ${stats.edges} edges across ${KNOWLEDGE_FOLDERS.join(", ")}`);
-for (const problem of problems) {
-    console.log(`  [${problem.severity}] ${problem.message}`);
+const scopes = requestedScope ? [requestedScope] : SCOPES;
+
+// Parse the corpus once and project it per scope.
+const graph = await buildGraph(REPO_ROOT);
+let errorCount = 0;
+
+for (const scope of scopes) {
+    const document = await buildGraphDocument(REPO_ROOT, scope, graph);
+    const outPath = outputPathFor(scope);
+
+    if (!checkOnly) {
+        const absoluteOut = path.resolve(REPO_ROOT, outPath);
+        await mkdir(path.dirname(absoluteOut), { recursive: true });
+        await writeFile(absoluteOut, `${JSON.stringify(document, null, 2)}\n`, "utf8");
+    }
+
+    const { stats, problems } = document;
+    console.log(
+        `${checkOnly ? "checked" : "wrote  "} ${outPath.padEnd(26)} ${String(stats.nodes).padStart(4)} nodes, ${String(stats.edges).padStart(4)} edges`
+    );
+    for (const problem of problems) {
+        console.log(`  [${problem.severity}] ${problem.message}`);
+        if (problem.severity === "error") errorCount++;
+    }
 }
 
-const errors = problems.filter((p) => p.severity === "error");
-if (errors.length) {
-    console.error(`\n${errors.length} broken reference(s).`);
+if (errorCount) {
+    console.error(`\n${errorCount} broken reference(s).`);
     process.exit(1);
 }

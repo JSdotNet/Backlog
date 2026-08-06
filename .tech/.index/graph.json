@@ -1,0 +1,2031 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-graph/build-graph.mjs",
+  "scope": ".tech",
+  "sources": [
+    ".tech"
+  ],
+  "stats": {
+    "nodes": 57,
+    "edges": 120,
+    "nodesByFolder": {
+      "tech": 48,
+      "arc42": 9
+    },
+    "nodesByType": {
+      "file": 9,
+      "chapter": 48
+    },
+    "nodesByStatus": {
+      "candidate": 34,
+      "adopted": 14,
+      "active": 9
+    },
+    "edgesByType": {
+      "contains": 41,
+      "related": 41,
+      "depends-on": 38
+    }
+  },
+  "problems": [],
+  "elements": {
+    "nodes": [
+      {
+        "data": {
+          "id": ".tech/cloud.md",
+          "label": "Cloud Stack",
+          "type": "file",
+          "folder": "tech",
+          "path": ".tech/cloud.md",
+          "status": "candidate",
+          "related": [
+            ".tech/technology-graph.md",
+            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/cloud.md#aspnet-core-minimal-apis",
+          "label": "ASP.NET Core Minimal APIs",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/cloud.md",
+          "slug": "aspnet-core-minimal-apis",
+          "level": 2,
+          "line": 12,
+          "status": "candidate",
+          "kind": "framework",
+          "alternatives": [
+            "Azure Functions",
+            "Controller-based ASP.NET Core"
+          ],
+          "depends-on": [
+            ".tech/shared.md#net-runtime",
+            ".tech/shared.md#c-language"
+          ],
+          "related": [
+            ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/cloud.md#net-aspire",
+          "label": ".NET Aspire",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/cloud.md",
+          "slug": "net-aspire",
+          "level": 2,
+          "line": 29,
+          "status": "candidate",
+          "kind": "framework",
+          "alternatives": [
+            "Docker Compose only",
+            "no orchestration"
+          ],
+          "depends-on": [
+            ".tech/cloud.md#aspnet-core-minimal-apis"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/cloud.md#azure-container-apps",
+          "label": "Azure Container Apps",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/cloud.md",
+          "slug": "azure-container-apps",
+          "level": 2,
+          "line": 45,
+          "status": "candidate",
+          "kind": "platform",
+          "alternatives": [
+            "Azure App Service"
+          ],
+          "depends-on": [
+            ".tech/cloud.md#aspnet-core-minimal-apis"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/cloud.md#azure-cosmos-db",
+          "label": "Azure Cosmos DB",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/cloud.md",
+          "slug": "azure-cosmos-db",
+          "level": 2,
+          "line": 62,
+          "status": "candidate",
+          "kind": "service",
+          "alternatives": [
+            "Azure PostgreSQL",
+            "Azure Table Storage"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/cloud.md#azure-key-vault",
+          "label": "Azure Key Vault",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/cloud.md",
+          "slug": "azure-key-vault",
+          "level": 2,
+          "line": 78,
+          "status": "candidate",
+          "kind": "service",
+          "related": [
+            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/cloud.md#firebase-cloud-messaging",
+          "label": "Firebase Cloud Messaging",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/cloud.md",
+          "slug": "firebase-cloud-messaging",
+          "level": 2,
+          "line": 92,
+          "status": "candidate",
+          "kind": "service",
+          "alternatives": [
+            "Azure Notification Hubs"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".tech/mobile.md#android"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md",
+          "label": "Desktop Stack",
+          "type": "file",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "status": "candidate",
+          "related": [
+            ".tech/technology-graph.md",
+            ".arc42/07-deployment-view.md#local-deployment-desktop"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#windows",
+          "label": "Windows",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "windows",
+          "level": 2,
+          "line": 11,
+          "status": "candidate",
+          "kind": "platform",
+          "related": [
+            ".arc42/07-deployment-view.md#local-deployment-desktop"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#windows-app-sdk",
+          "label": "Windows App SDK",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "windows-app-sdk",
+          "level": 2,
+          "line": 26,
+          "status": "candidate",
+          "kind": "framework",
+          "depends-on": [
+            ".tech/desktop.md#windows",
+            ".tech/shared.md#net-runtime"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#winui-3",
+          "label": "WinUI 3",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "winui-3",
+          "level": 2,
+          "line": 39,
+          "status": "candidate",
+          "kind": "framework",
+          "alternatives": [
+            "WPF",
+            "Avalonia",
+            "Electron"
+          ],
+          "depends-on": [
+            ".tech/desktop.md#windows-app-sdk",
+            ".tech/shared.md#c-language"
+          ],
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#local-markdown-and-json-store",
+          "label": "Local Markdown and JSON Store",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "local-markdown-and-json-store",
+          "level": 2,
+          "line": 57,
+          "status": "candidate",
+          "kind": "library",
+          "alternatives": [
+            "SQLite",
+            "LiteDB"
+          ],
+          "depends-on": [
+            ".tech/shared.md#markdown",
+            ".tech/shared.md#json"
+          ],
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#background-workers",
+          "label": "Background Workers",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "background-workers",
+          "level": 2,
+          "line": 74,
+          "status": "candidate",
+          "kind": "library",
+          "depends-on": [
+            ".tech/shared.md#net-runtime"
+          ],
+          "related": [
+            ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#github-cli",
+          "label": "GitHub CLI",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "github-cli",
+          "level": 2,
+          "line": 90,
+          "status": "adopted",
+          "kind": "tool",
+          "alternatives": [
+            "Octokit.NET",
+            "raw REST calls"
+          ],
+          "depends-on": [
+            ".tech/shared.md#github-platform"
+          ],
+          "related": [
+            ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#msix-packaging",
+          "label": "MSIX Packaging",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "msix-packaging",
+          "level": 2,
+          "line": 107,
+          "status": "candidate",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/desktop.md#windows-app-sdk"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ide.md",
+          "label": "IDE Stack",
+          "type": "file",
+          "folder": "tech",
+          "path": ".tech/ide.md",
+          "status": "candidate",
+          "related": [
+            ".tech/technology-graph.md",
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ide.md#vs-code-extension-api",
+          "label": "VS Code Extension API",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ide.md",
+          "slug": "vs-code-extension-api",
+          "level": 2,
+          "line": 11,
+          "status": "candidate",
+          "kind": "framework",
+          "depends-on": [
+            ".tech/shared.md#typescript",
+            ".tech/shared.md#nodejs"
+          ],
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ide.md#vs-code-webview-ui",
+          "label": "VS Code Webview UI",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ide.md",
+          "slug": "vs-code-webview-ui",
+          "level": 2,
+          "line": 27,
+          "status": "candidate",
+          "kind": "framework",
+          "alternatives": [
+            "Native tree/quick-pick UI only"
+          ],
+          "depends-on": [
+            ".tech/ide.md#vs-code-extension-api"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ide.md#visual-studio-extensibility",
+          "label": "Visual Studio Extensibility",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ide.md",
+          "slug": "visual-studio-extensibility",
+          "level": 2,
+          "line": 42,
+          "status": "candidate",
+          "kind": "framework",
+          "depends-on": [
+            ".tech/shared.md#c-language"
+          ],
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ide.md#wpf",
+          "label": "WPF",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ide.md",
+          "slug": "wpf",
+          "level": 2,
+          "line": 58,
+          "status": "candidate",
+          "kind": "framework",
+          "depends-on": [
+            ".tech/ide.md#visual-studio-extensibility",
+            ".tech/shared.md#net-runtime"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/mobile.md",
+          "label": "Mobile Stack",
+          "type": "file",
+          "folder": "tech",
+          "path": ".tech/mobile.md",
+          "status": "candidate",
+          "related": [
+            ".tech/technology-graph.md",
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/mobile.md#android",
+          "label": "Android",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/mobile.md",
+          "slug": "android",
+          "level": 2,
+          "line": 11,
+          "status": "candidate",
+          "kind": "platform",
+          "related": [
+            ".tech/cloud.md#firebase-cloud-messaging"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/mobile.md#net-maui",
+          "label": ".NET MAUI",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/mobile.md",
+          "slug": "net-maui",
+          "level": 2,
+          "line": 26,
+          "status": "candidate",
+          "kind": "framework",
+          "alternatives": [
+            ".NET MAUI Blazor Hybrid",
+            "Blazor WebAssembly PWA",
+            "Kotlin native"
+          ],
+          "depends-on": [
+            ".tech/mobile.md#android",
+            ".tech/shared.md#c-language"
+          ],
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/mobile.md#blazor-hybrid",
+          "label": "Blazor Hybrid",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/mobile.md",
+          "slug": "blazor-hybrid",
+          "level": 2,
+          "line": 44,
+          "status": "candidate",
+          "kind": "framework",
+          "alternatives": [
+            "XAML-only MAUI UI"
+          ],
+          "depends-on": [
+            ".tech/mobile.md#net-maui"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/mobile.md#local-offline-store",
+          "label": "Local Offline Store",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/mobile.md",
+          "slug": "local-offline-store",
+          "level": 2,
+          "line": 60,
+          "status": "candidate",
+          "kind": "library",
+          "alternatives": [
+            "SQLite"
+          ],
+          "depends-on": [
+            ".tech/shared.md#json"
+          ],
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md",
+          "label": "Shared Technologies",
+          "type": "file",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "status": "candidate",
+          "related": [
+            ".tech/technology-graph.md",
+            ".arc42/02-constraints.md#technical-constraints"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#markdown",
+          "label": "Markdown",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "markdown",
+          "level": 2,
+          "line": 11,
+          "status": "adopted",
+          "kind": "format",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#json",
+          "label": "JSON",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "json",
+          "level": 2,
+          "line": 27,
+          "status": "adopted",
+          "kind": "format",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#yaml",
+          "label": "YAML",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "yaml",
+          "level": 2,
+          "line": 42,
+          "status": "adopted",
+          "kind": "format"
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#mermaid",
+          "label": "Mermaid",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "mermaid",
+          "level": 2,
+          "line": 55,
+          "status": "adopted",
+          "kind": "format",
+          "depends-on": [
+            ".tech/shared.md#markdown"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#net-runtime",
+          "label": ".NET Runtime",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "net-runtime",
+          "level": 2,
+          "line": 70,
+          "status": "candidate",
+          "kind": "runtime",
+          "version": "10.0",
+          "alternatives": [
+            "Node.js only",
+            "Rust + Tauri"
+          ],
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#c-language",
+          "label": "C# Language",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "c-language",
+          "level": 2,
+          "line": 87,
+          "status": "candidate",
+          "kind": "language",
+          "depends-on": [
+            ".tech/shared.md#net-runtime"
+          ],
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#nodejs",
+          "label": "Node.js",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "nodejs",
+          "level": 2,
+          "line": 102,
+          "status": "candidate",
+          "kind": "runtime",
+          "related": [
+            ".tech/ide.md#vs-code-extension-api"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#typescript",
+          "label": "TypeScript",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "typescript",
+          "level": 2,
+          "line": 118,
+          "status": "candidate",
+          "kind": "language",
+          "depends-on": [
+            ".tech/shared.md#nodejs"
+          ],
+          "related": [
+            ".tech/ide.md#vs-code-extension-api"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#github-platform",
+          "label": "GitHub Platform",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "github-platform",
+          "level": 2,
+          "line": 133,
+          "status": "adopted",
+          "kind": "service",
+          "related": [
+            ".arc42/02-constraints.md#organizational--process-constraints"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/technology-graph.md",
+          "label": "Technology Graph",
+          "type": "file",
+          "folder": "tech",
+          "path": ".tech/technology-graph.md",
+          "status": "candidate",
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices",
+            ".arc42/07-deployment-view.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md",
+          "label": "Development and Governance Tooling",
+          "type": "file",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "status": "adopted",
+          "related": [
+            ".tech/technology-graph.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#git",
+          "label": "Git",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "git",
+          "level": 2,
+          "line": 12,
+          "status": "adopted",
+          "kind": "tool"
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#net-sdk",
+          "label": ".NET SDK",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "net-sdk",
+          "level": 2,
+          "line": 26,
+          "status": "candidate",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/shared.md#net-runtime"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#nuget",
+          "label": "NuGet",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "nuget",
+          "level": 2,
+          "line": 40,
+          "status": "candidate",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/tooling.md#net-sdk"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#npm",
+          "label": "npm",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "npm",
+          "level": 2,
+          "line": 54,
+          "status": "candidate",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/shared.md#nodejs"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#github-actions",
+          "label": "GitHub Actions",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "github-actions",
+          "level": 2,
+          "line": 68,
+          "status": "adopted",
+          "kind": "service",
+          "depends-on": [
+            ".tech/shared.md#github-platform"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#codeql",
+          "label": "CodeQL",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "codeql",
+          "level": 2,
+          "line": 82,
+          "status": "adopted",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/tooling.md#github-actions"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#dependabot",
+          "label": "Dependabot",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "dependabot",
+          "level": 2,
+          "line": 96,
+          "status": "adopted",
+          "kind": "service",
+          "depends-on": [
+            ".tech/shared.md#github-platform"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#github-copilot-cli",
+          "label": "GitHub Copilot CLI",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "github-copilot-cli",
+          "level": 2,
+          "line": 110,
+          "status": "adopted",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/shared.md#github-platform"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#model-context-protocol-servers",
+          "label": "Model Context Protocol Servers",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "model-context-protocol-servers",
+          "level": 2,
+          "line": 125,
+          "status": "adopted",
+          "kind": "protocol",
+          "depends-on": [
+            ".tech/tooling.md#github-copilot-cli"
+          ],
+          "related": [
+            ".tech/tooling.md#knowledge-canvas-extension"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#knowledge-canvas-extension",
+          "label": "Knowledge Canvas Extension",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "knowledge-canvas-extension",
+          "level": 2,
+          "line": 140,
+          "status": "adopted",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/tooling.md#github-copilot-cli",
+            ".tech/shared.md#nodejs",
+            ".tech/shared.md#mermaid"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#aspire-cli",
+          "label": "Aspire CLI",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "aspire-cli",
+          "level": 2,
+          "line": 155,
+          "status": "candidate",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/cloud.md#net-aspire"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "label": "Cloud Deployment (Azure)",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "slug": "cloud-deployment-azure",
+          "level": 2,
+          "line": 37,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#cloud-service",
+            ".arc42/09-architecture-decisions.md"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "label": "Thin Cloud, Rich Desktop",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/04-solution-strategy.md",
+          "slug": "thin-cloud-rich-desktop",
+          "level": 2,
+          "line": 47,
+          "status": "active",
+          "related": [
+            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/09-architecture-decisions.md",
+          "label": "09. Architecture Decisions",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/09-architecture-decisions.md",
+          "status": "active",
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "label": "Local Deployment (Desktop)",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "slug": "local-deployment-desktop",
+          "level": 2,
+          "line": 11,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#desktop-app",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/04-solution-strategy.md#technology-choices",
+          "label": "Technology Choices",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/04-solution-strategy.md",
+          "slug": "technology-choices",
+          "level": 2,
+          "line": 64,
+          "status": "active",
+          "related": [
+            ".arc42/09-architecture-decisions.md"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "label": "Storage and Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "storage-and-sync",
+          "level": 2,
+          "line": 10,
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+            ".arc42/06-runtime-view.md#copilot-app-session-capture",
+            ".domain/capture/domain.md#domain-service-source-adapter"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/02-constraints.md#technical-constraints",
+          "label": "Technical Constraints",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/02-constraints.md",
+          "slug": "technical-constraints",
+          "level": 2,
+          "line": 10,
+          "status": "active",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/02-constraints.md#organizational--process-constraints",
+          "label": "Organizational & Process Constraints",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/02-constraints.md",
+          "slug": "organizational--process-constraints",
+          "level": 2,
+          "line": 26,
+          "status": "active",
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/07-deployment-view.md",
+          "label": "07. Deployment View",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "status": "active",
+          "outOfScope": true
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "id": "contains:.tech/cloud.md->.tech/cloud.md#aspnet-core-minimal-apis",
+          "source": ".tech/cloud.md",
+          "target": ".tech/cloud.md#aspnet-core-minimal-apis",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/cloud.md->.tech/cloud.md#net-aspire",
+          "source": ".tech/cloud.md",
+          "target": ".tech/cloud.md#net-aspire",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/cloud.md->.tech/cloud.md#azure-container-apps",
+          "source": ".tech/cloud.md",
+          "target": ".tech/cloud.md#azure-container-apps",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/cloud.md->.tech/cloud.md#azure-cosmos-db",
+          "source": ".tech/cloud.md",
+          "target": ".tech/cloud.md#azure-cosmos-db",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/cloud.md->.tech/cloud.md#azure-key-vault",
+          "source": ".tech/cloud.md",
+          "target": ".tech/cloud.md#azure-key-vault",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/cloud.md->.tech/cloud.md#firebase-cloud-messaging",
+          "source": ".tech/cloud.md",
+          "target": ".tech/cloud.md#firebase-cloud-messaging",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#windows",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#windows",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#windows-app-sdk",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#windows-app-sdk",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#winui-3",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#winui-3",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#local-markdown-and-json-store",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#local-markdown-and-json-store",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#background-workers",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#background-workers",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#github-cli",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#github-cli",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#msix-packaging",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#msix-packaging",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ide.md->.tech/ide.md#vs-code-extension-api",
+          "source": ".tech/ide.md",
+          "target": ".tech/ide.md#vs-code-extension-api",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ide.md->.tech/ide.md#vs-code-webview-ui",
+          "source": ".tech/ide.md",
+          "target": ".tech/ide.md#vs-code-webview-ui",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ide.md->.tech/ide.md#visual-studio-extensibility",
+          "source": ".tech/ide.md",
+          "target": ".tech/ide.md#visual-studio-extensibility",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ide.md->.tech/ide.md#wpf",
+          "source": ".tech/ide.md",
+          "target": ".tech/ide.md#wpf",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/mobile.md->.tech/mobile.md#android",
+          "source": ".tech/mobile.md",
+          "target": ".tech/mobile.md#android",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/mobile.md->.tech/mobile.md#net-maui",
+          "source": ".tech/mobile.md",
+          "target": ".tech/mobile.md#net-maui",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/mobile.md->.tech/mobile.md#blazor-hybrid",
+          "source": ".tech/mobile.md",
+          "target": ".tech/mobile.md#blazor-hybrid",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/mobile.md->.tech/mobile.md#local-offline-store",
+          "source": ".tech/mobile.md",
+          "target": ".tech/mobile.md#local-offline-store",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#markdown",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#markdown",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#json",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#json",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#yaml",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#yaml",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#mermaid",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#mermaid",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#net-runtime",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#c-language",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#c-language",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#nodejs",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#nodejs",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#typescript",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#typescript",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#github-platform",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#github-platform",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#git",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#git",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#net-sdk",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#net-sdk",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#nuget",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#nuget",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#npm",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#npm",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#github-actions",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#github-actions",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#codeql",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#codeql",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#dependabot",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#dependabot",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#github-copilot-cli",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#github-copilot-cli",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#model-context-protocol-servers",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#model-context-protocol-servers",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#knowledge-canvas-extension",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#knowledge-canvas-extension",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#aspire-cli",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#aspire-cli",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md->.tech/technology-graph.md",
+          "source": ".tech/cloud.md",
+          "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".tech/cloud.md",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/cloud.md#aspnet-core-minimal-apis->.tech/shared.md#net-runtime",
+          "source": ".tech/cloud.md#aspnet-core-minimal-apis",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/cloud.md#aspnet-core-minimal-apis->.tech/shared.md#c-language",
+          "source": ".tech/cloud.md#aspnet-core-minimal-apis",
+          "target": ".tech/shared.md#c-language",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#aspnet-core-minimal-apis->.arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "source": ".tech/cloud.md#aspnet-core-minimal-apis",
+          "target": ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#aspnet-core-minimal-apis->.arc42/09-architecture-decisions.md",
+          "source": ".tech/cloud.md#aspnet-core-minimal-apis",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/cloud.md#net-aspire->.tech/cloud.md#aspnet-core-minimal-apis",
+          "source": ".tech/cloud.md#net-aspire",
+          "target": ".tech/cloud.md#aspnet-core-minimal-apis",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/cloud.md#azure-container-apps->.tech/cloud.md#aspnet-core-minimal-apis",
+          "source": ".tech/cloud.md#azure-container-apps",
+          "target": ".tech/cloud.md#aspnet-core-minimal-apis",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-container-apps->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".tech/cloud.md#azure-container-apps",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".tech/cloud.md#azure-cosmos-db",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-key-vault->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".tech/cloud.md#azure-key-vault",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#firebase-cloud-messaging->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".tech/cloud.md#firebase-cloud-messaging",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#firebase-cloud-messaging->.tech/mobile.md#android",
+          "source": ".tech/cloud.md#firebase-cloud-messaging",
+          "target": ".tech/mobile.md#android",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md->.tech/technology-graph.md",
+          "source": ".tech/desktop.md",
+          "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md->.arc42/07-deployment-view.md#local-deployment-desktop",
+          "source": ".tech/desktop.md",
+          "target": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#windows->.arc42/07-deployment-view.md#local-deployment-desktop",
+          "source": ".tech/desktop.md#windows",
+          "target": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#windows-app-sdk->.tech/desktop.md#windows",
+          "source": ".tech/desktop.md#windows-app-sdk",
+          "target": ".tech/desktop.md#windows",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#windows-app-sdk->.tech/shared.md#net-runtime",
+          "source": ".tech/desktop.md#windows-app-sdk",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#winui-3->.tech/desktop.md#windows-app-sdk",
+          "source": ".tech/desktop.md#winui-3",
+          "target": ".tech/desktop.md#windows-app-sdk",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#winui-3->.tech/shared.md#c-language",
+          "source": ".tech/desktop.md#winui-3",
+          "target": ".tech/shared.md#c-language",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#winui-3->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".tech/desktop.md#winui-3",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#local-markdown-and-json-store->.tech/shared.md#markdown",
+          "source": ".tech/desktop.md#local-markdown-and-json-store",
+          "target": ".tech/shared.md#markdown",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#local-markdown-and-json-store->.tech/shared.md#json",
+          "source": ".tech/desktop.md#local-markdown-and-json-store",
+          "target": ".tech/shared.md#json",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#local-markdown-and-json-store->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".tech/desktop.md#local-markdown-and-json-store",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#background-workers->.tech/shared.md#net-runtime",
+          "source": ".tech/desktop.md#background-workers",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#background-workers->.arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "source": ".tech/desktop.md#background-workers",
+          "target": ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#github-cli->.tech/shared.md#github-platform",
+          "source": ".tech/desktop.md#github-cli",
+          "target": ".tech/shared.md#github-platform",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#github-cli->.arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "source": ".tech/desktop.md#github-cli",
+          "target": ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#msix-packaging->.tech/desktop.md#windows-app-sdk",
+          "source": ".tech/desktop.md#msix-packaging",
+          "target": ".tech/desktop.md#windows-app-sdk",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ide.md->.tech/technology-graph.md",
+          "source": ".tech/ide.md",
+          "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ide.md->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".tech/ide.md",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ide.md#vs-code-extension-api->.tech/shared.md#typescript",
+          "source": ".tech/ide.md#vs-code-extension-api",
+          "target": ".tech/shared.md#typescript",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ide.md#vs-code-extension-api->.tech/shared.md#nodejs",
+          "source": ".tech/ide.md#vs-code-extension-api",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ide.md#vs-code-extension-api->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".tech/ide.md#vs-code-extension-api",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ide.md#vs-code-webview-ui->.tech/ide.md#vs-code-extension-api",
+          "source": ".tech/ide.md#vs-code-webview-ui",
+          "target": ".tech/ide.md#vs-code-extension-api",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ide.md#visual-studio-extensibility->.tech/shared.md#c-language",
+          "source": ".tech/ide.md#visual-studio-extensibility",
+          "target": ".tech/shared.md#c-language",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ide.md#visual-studio-extensibility->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".tech/ide.md#visual-studio-extensibility",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ide.md#wpf->.tech/ide.md#visual-studio-extensibility",
+          "source": ".tech/ide.md#wpf",
+          "target": ".tech/ide.md#visual-studio-extensibility",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ide.md#wpf->.tech/shared.md#net-runtime",
+          "source": ".tech/ide.md#wpf",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/mobile.md->.tech/technology-graph.md",
+          "source": ".tech/mobile.md",
+          "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/mobile.md->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".tech/mobile.md",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/mobile.md#android->.tech/cloud.md#firebase-cloud-messaging",
+          "source": ".tech/mobile.md#android",
+          "target": ".tech/cloud.md#firebase-cloud-messaging",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/mobile.md#net-maui->.tech/mobile.md#android",
+          "source": ".tech/mobile.md#net-maui",
+          "target": ".tech/mobile.md#android",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/mobile.md#net-maui->.tech/shared.md#c-language",
+          "source": ".tech/mobile.md#net-maui",
+          "target": ".tech/shared.md#c-language",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/mobile.md#net-maui->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".tech/mobile.md#net-maui",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/mobile.md#blazor-hybrid->.tech/mobile.md#net-maui",
+          "source": ".tech/mobile.md#blazor-hybrid",
+          "target": ".tech/mobile.md#net-maui",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/mobile.md#local-offline-store->.tech/shared.md#json",
+          "source": ".tech/mobile.md#local-offline-store",
+          "target": ".tech/shared.md#json",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/mobile.md#local-offline-store->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".tech/mobile.md#local-offline-store",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md->.tech/technology-graph.md",
+          "source": ".tech/shared.md",
+          "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md->.arc42/02-constraints.md#technical-constraints",
+          "source": ".tech/shared.md",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#markdown->.arc42/02-constraints.md#technical-constraints",
+          "source": ".tech/shared.md#markdown",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#markdown->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".tech/shared.md#markdown",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#json->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".tech/shared.md#json",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#mermaid->.tech/shared.md#markdown",
+          "source": ".tech/shared.md#mermaid",
+          "target": ".tech/shared.md#markdown",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#net-runtime->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".tech/shared.md#net-runtime",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#net-runtime->.arc42/09-architecture-decisions.md",
+          "source": ".tech/shared.md#net-runtime",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#c-language->.tech/shared.md#net-runtime",
+          "source": ".tech/shared.md#c-language",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#c-language->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".tech/shared.md#c-language",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#nodejs->.tech/ide.md#vs-code-extension-api",
+          "source": ".tech/shared.md#nodejs",
+          "target": ".tech/ide.md#vs-code-extension-api",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#typescript->.tech/shared.md#nodejs",
+          "source": ".tech/shared.md#typescript",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#typescript->.tech/ide.md#vs-code-extension-api",
+          "source": ".tech/shared.md#typescript",
+          "target": ".tech/ide.md#vs-code-extension-api",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#github-platform->.arc42/02-constraints.md#organizational--process-constraints",
+          "source": ".tech/shared.md#github-platform",
+          "target": ".arc42/02-constraints.md#organizational--process-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/technology-graph.md->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".tech/technology-graph.md",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/technology-graph.md->.arc42/07-deployment-view.md",
+          "source": ".tech/technology-graph.md",
+          "target": ".arc42/07-deployment-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/technology-graph.md->.arc42/09-architecture-decisions.md",
+          "source": ".tech/technology-graph.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md->.tech/technology-graph.md",
+          "source": ".tech/tooling.md",
+          "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#net-sdk->.tech/shared.md#net-runtime",
+          "source": ".tech/tooling.md#net-sdk",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#nuget->.tech/tooling.md#net-sdk",
+          "source": ".tech/tooling.md#nuget",
+          "target": ".tech/tooling.md#net-sdk",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#npm->.tech/shared.md#nodejs",
+          "source": ".tech/tooling.md#npm",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#github-actions->.tech/shared.md#github-platform",
+          "source": ".tech/tooling.md#github-actions",
+          "target": ".tech/shared.md#github-platform",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#codeql->.tech/tooling.md#github-actions",
+          "source": ".tech/tooling.md#codeql",
+          "target": ".tech/tooling.md#github-actions",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#dependabot->.tech/shared.md#github-platform",
+          "source": ".tech/tooling.md#dependabot",
+          "target": ".tech/shared.md#github-platform",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#github-copilot-cli->.tech/shared.md#github-platform",
+          "source": ".tech/tooling.md#github-copilot-cli",
+          "target": ".tech/shared.md#github-platform",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#model-context-protocol-servers->.tech/tooling.md#github-copilot-cli",
+          "source": ".tech/tooling.md#model-context-protocol-servers",
+          "target": ".tech/tooling.md#github-copilot-cli",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#model-context-protocol-servers->.tech/tooling.md#knowledge-canvas-extension",
+          "source": ".tech/tooling.md#model-context-protocol-servers",
+          "target": ".tech/tooling.md#knowledge-canvas-extension",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#knowledge-canvas-extension->.tech/tooling.md#github-copilot-cli",
+          "source": ".tech/tooling.md#knowledge-canvas-extension",
+          "target": ".tech/tooling.md#github-copilot-cli",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#knowledge-canvas-extension->.tech/shared.md#nodejs",
+          "source": ".tech/tooling.md#knowledge-canvas-extension",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#knowledge-canvas-extension->.tech/shared.md#mermaid",
+          "source": ".tech/tooling.md#knowledge-canvas-extension",
+          "target": ".tech/shared.md#mermaid",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#aspire-cli->.tech/cloud.md#net-aspire",
+          "source": ".tech/tooling.md#aspire-cli",
+          "target": ".tech/cloud.md#net-aspire",
+          "type": "depends-on"
+        }
+      }
+    ]
+  }
+}

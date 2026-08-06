@@ -17,7 +17,7 @@ import path from "node:path";
 import { joinSession, createCanvas } from "@github/copilot-sdk/extension";
 import { renderPage } from "./render.mjs";
 import { renderGraphPage } from "./graph-render.mjs";
-import { buildGraphDocument } from "../../tools/knowledge-graph/graph.mjs";
+import { buildGraph, buildGraphDocument, SCOPES, REPO_SCOPE } from "../../tools/knowledge-graph/graph.mjs";
 import { parseDocument, validateDocument, folderKindForPath } from "./metadata.mjs";
 
 // Repository root: the CLI launches project-scoped extensions with cwd set
@@ -96,24 +96,31 @@ function setDocument(entry, relPath) {
 }
 
 /**
- * Local server for a knowledge-graph canvas instance. The graph is rebuilt
- * from disk on open (and on `refresh_graph`) rather than read from
- * `.index/knowledge-graph.json`, so the view never shows a stale index.
+ * Local server for a knowledge-graph canvas instance.
+ *
+ * The graph is rebuilt from the Markdown on disk rather than read from the
+ * committed `.index/` artifacts, so the view can never show a stale index. The
+ * parsed corpus is cached per instance and projected per requested scope, so
+ * switching scope in the UI costs no disk I/O.
  */
-async function startGraphServer() {
-    const entry = { document: null };
+async function startGraphServer(defaultScope) {
+    const entry = { graph: null, scope: defaultScope };
 
     const server = createServer(async (req, res) => {
         try {
-            if (req.url === "/" || req.url?.startsWith("/?")) {
+            const url = new URL(req.url ?? "/", "http://127.0.0.1");
+            if (url.pathname === "/") {
                 res.setHeader("Content-Type", "text/html; charset=utf-8");
-                res.end(renderGraphPage());
+                res.end(renderGraphPage({ scopes: SCOPES, scope: entry.scope }));
                 return;
             }
-            if (req.url === "/api/graph") {
-                if (!entry.document) entry.document = await buildGraphDocument(REPO_ROOT);
+            if (url.pathname === "/api/graph") {
+                const requested = url.searchParams.get("scope") ?? entry.scope;
+                const scope = SCOPES.includes(requested) ? requested : entry.scope;
+                if (!entry.graph) entry.graph = await buildGraph(REPO_ROOT);
+                const document = await buildGraphDocument(REPO_ROOT, scope, entry.graph);
                 res.setHeader("Content-Type", "application/json; charset=utf-8");
-                res.end(JSON.stringify(entry.document));
+                res.end(JSON.stringify(document));
                 return;
             }
             res.statusCode = 404;
@@ -133,36 +140,76 @@ async function startGraphServer() {
     return entry;
 }
 
+function resolveScope(value) {
+    if (!value) return REPO_SCOPE;
+    const normalized = String(value).replace(/\\/g, "/").replace(/\/+$/, "");
+    if (SCOPES.includes(normalized)) return normalized;
+    throw new Error(`Unknown scope "${value}". Known scopes: ${SCOPES.join(", ")}`);
+}
+
 const session = await joinSession({
     canvases: [
         createCanvas({
             id: "knowledge-graph",
             displayName: "Knowledge graph",
             description:
-                "Obsidian-style force-directed view of the whole knowledge graph derived from the `meta` blocks in .arc42/.domain/.backlog/.tech, with folder colouring, status shading, filters, and neighbourhood inspection.",
-            inputSchema: { type: "object", properties: {} },
+                "Obsidian-style force-directed view of the knowledge graph derived from the `meta` blocks in .arc42/.domain/.backlog/.tech. Open it scoped to one folder (e.g. .tech) or repository-wide, with folder colouring, status shading, filters, and neighbourhood inspection.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    scope: {
+                        type: "string",
+                        enum: SCOPES,
+                        description:
+                            'Which graph to show: a knowledge folder such as ".tech", or "." for the repository-wide rollup. Defaults to ".".',
+                    },
+                },
+            },
             actions: [
                 {
                     name: "refresh_graph",
                     description:
-                        "Rebuild the knowledge graph from the current Markdown on disk. Reload the canvas afterwards to see the new graph.",
+                        "Re-read the Markdown from disk and rebuild the graph. Reload the canvas afterwards to see the new graph.",
                     handler: async (ctx) => {
                         const entry = graphInstances.get(ctx.instanceId);
                         if (!entry) throw new Error("Canvas instance not open.");
-                        const document = await buildGraphDocument(REPO_ROOT);
-                        entry.document = document;
-                        return { stats: document.stats, problems: document.problems };
+                        entry.graph = await buildGraph(REPO_ROOT);
+                        const document = await buildGraphDocument(REPO_ROOT, entry.scope, entry.graph);
+                        return { scope: entry.scope, stats: document.stats, problems: document.problems };
+                    },
+                },
+                {
+                    name: "set_scope",
+                    description:
+                        'Switch the canvas to a different graph scope (a knowledge folder such as ".tech", or "." for repository-wide). Reload the canvas afterwards.',
+                    inputSchema: {
+                        type: "object",
+                        properties: {
+                            scope: { type: "string", enum: SCOPES, description: "The scope to display." },
+                        },
+                        required: ["scope"],
+                    },
+                    handler: async (ctx) => {
+                        const entry = graphInstances.get(ctx.instanceId);
+                        if (!entry) throw new Error("Canvas instance not open.");
+                        entry.scope = resolveScope(ctx.input?.scope);
+                        return { ok: true, scope: entry.scope };
                     },
                 },
             ],
             open: async (ctx) => {
+                const scope = resolveScope(ctx.input?.scope);
                 let entry = graphInstances.get(ctx.instanceId);
                 if (!entry) {
-                    entry = await startGraphServer();
+                    entry = await startGraphServer(scope);
                     graphInstances.set(ctx.instanceId, entry);
                 }
-                entry.document = await buildGraphDocument(REPO_ROOT);
-                return { title: "Knowledge graph", url: entry.url };
+                entry.scope = scope;
+                entry.graph = await buildGraph(REPO_ROOT);
+                return {
+                    title: scope === REPO_SCOPE ? "Knowledge graph" : `Knowledge graph: ${scope}`,
+                    url: entry.url,
+                };
             },
             onClose: async (ctx) => {
                 const entry = graphInstances.get(ctx.instanceId);

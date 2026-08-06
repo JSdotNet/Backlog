@@ -14,6 +14,8 @@ import { parseDocument, folderKindForPath } from "../../extensions/knowledge-can
 
 export const KNOWLEDGE_FOLDERS = [".arc42", ".domain", ".backlog", ".tech"];
 export const SCHEMA_VERSION = 1;
+export const REPO_SCOPE = ".";
+const GENERATOR = ".github/tools/knowledge-graph/build-graph.mjs";
 
 // Metadata fields that hold `<path>` / `<path>#<slug>` references, and the edge
 // type each one produces. Non-reference list fields (`aliases`, `alternatives`)
@@ -228,17 +230,75 @@ function summarize(nodes, edges) {
     };
 }
 
-/** Build the full serializable index document written to `.index/`. */
-export async function buildGraphDocument(repoRoot) {
-    const { nodes, edges, problems } = await buildGraph(repoRoot);
+/**
+ * Project the full graph down to one scope.
+ *
+ * A scoped graph keeps every node inside the scope, plus any node outside it
+ * that an in-scope node references — those boundary nodes are flagged
+ * `outOfScope: true` so a viewer can render them as stubs rather than pretend
+ * they are part of the scope. Edges are kept when both ends survive.
+ *
+ * `scope` is a knowledge folder path (".tech") or "." for the whole repository.
+ */
+export function projectScope(graph, scope) {
+    if (scope === REPO_SCOPE) {
+        return { nodes: graph.nodes, edges: graph.edges, problems: graph.problems };
+    }
+
+    const prefix = `${scope}/`;
+    const inScope = (node) => node.path === scope || node.path?.startsWith(prefix);
+
+    const kept = new Map();
+    for (const node of graph.nodes) {
+        if (inScope(node)) kept.set(node.id, node);
+    }
+
+    const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+    const boundary = new Map();
+    for (const edge of graph.edges) {
+        const sourceIn = kept.has(edge.source);
+        const targetIn = kept.has(edge.target);
+        if (!sourceIn && !targetIn) continue;
+        // Only outbound references pull a boundary node in; an unrelated
+        // document merely pointing *at* this scope must not drag its whole
+        // neighbourhood into the scoped graph.
+        if (sourceIn && !targetIn) {
+            const target = byId.get(edge.target);
+            if (target) boundary.set(target.id, { ...target, outOfScope: true });
+        }
+    }
+
+    const nodes = [...kept.values(), ...boundary.values()];
+    const available = new Set(nodes.map((node) => node.id));
+    const edges = graph.edges.filter(
+        (edge) => available.has(edge.source) && available.has(edge.target) && kept.has(edge.source)
+    );
+
     return {
-        // Bumped whenever the emitted shape changes, so viewers detect drift.
+        nodes,
+        edges,
+        problems: graph.problems.filter((problem) => !problem.path || inScope({ path: problem.path })),
+    };
+}
+
+/**
+ * Build the serializable index document for one scope, following
+ * `.github/instructions/derived-index.instructions.md`.
+ *
+ * Pass a pre-built graph to project several scopes without re-reading disk.
+ */
+export async function buildGraphDocument(repoRoot, scope = REPO_SCOPE, prebuilt = null) {
+    const graph = prebuilt ?? (await buildGraph(repoRoot));
+    const { nodes, edges, problems } = projectScope(graph, scope);
+    return {
+        // Bumped whenever the emitted shape changes, so consumers detect drift.
         schemaVersion: SCHEMA_VERSION,
-        generatedBy: ".github/tools/knowledge-graph/build-graph.mjs",
+        generatedBy: GENERATOR,
+        scope,
+        sources: scope === REPO_SCOPE ? KNOWLEDGE_FOLDERS : [scope],
         // Deliberately no timestamp: the index is a deterministic function of
         // the Markdown, so re-running it produces a byte-identical file and CI
         // can diff it to detect a stale commit.
-        folders: KNOWLEDGE_FOLDERS,
         stats: summarize(nodes, edges),
         problems,
         elements: {
@@ -246,4 +306,12 @@ export async function buildGraphDocument(repoRoot) {
             edges: edges.map((data) => ({ data })),
         },
     };
+}
+
+/** Every scope this generator writes: the repo-wide rollup plus one per folder. */
+export const SCOPES = [REPO_SCOPE, ...KNOWLEDGE_FOLDERS];
+
+/** Repo-relative output path for a scope, per the derived-index convention. */
+export function outputPathFor(scope) {
+    return scope === REPO_SCOPE ? ".index/graph.json" : `${scope}/.index/graph.json`;
 }

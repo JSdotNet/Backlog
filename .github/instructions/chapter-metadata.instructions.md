@@ -167,17 +167,27 @@ to every folder.
 
 ## Derived graph index
 
-These metadata blocks are compiled into a single cross-folder graph at
-`.index/knowledge-graph.json` by
-`.github/tools/knowledge-graph/build-graph.mjs`. Regenerate it whenever a
-chapter or file is added, renamed, or re-linked:
+These metadata blocks are compiled into graph indexes by
+`.github/tools/knowledge-graph/build-graph.mjs` — one per knowledge folder plus
+a repository-wide rollup, placed per
+`.github/instructions/derived-index.instructions.md`:
+
+```text
+.index/graph.json          # all folders
+.arc42/.index/graph.json   # .arc42 only
+.domain/.index/graph.json
+.backlog/.index/graph.json
+.tech/.index/graph.json
+```
+
+Regenerate whenever a chapter or file is added, renamed, or re-linked:
 
 ```bash
 node .github/tools/knowledge-graph/build-graph.mjs
 ```
 
-The index is derived output — never edit it by hand. CI
+These are derived output — never edit them by hand. CI
 (`.github/workflows/knowledge-graph.yml`) fails when a reference does not
-resolve or when the committed index is stale. Open the **Knowledge graph**
-canvas to explore it visually. See
+resolve or when a committed index is stale. Open the **Knowledge graph**
+canvas (optionally scoped to one folder) to explore it visually. See
 `.github/tools/knowledge-graph/README.md` for the output shape.

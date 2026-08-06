@@ -4,7 +4,16 @@
 // Rendering uses CDN-hosted Cytoscape.js (core only, built-in `cose` layout)
 // so the extension itself stays dependency-free, matching render.mjs.
 
-export function renderGraphPage() {
+export function renderGraphPage({ scopes = ["."], scope = "." } = {}) {
+    const scopeOptions = scopes
+        .map(
+            (value) =>
+                `<option value="${value}"${value === scope ? " selected" : ""}>${
+                    value === "." ? "All folders" : value
+                }</option>`
+        )
+        .join("");
+
     return `<!doctype html>
 <html>
 <head>
@@ -45,6 +54,7 @@ export function renderGraphPage() {
   <div id="cy"></div>
   <div id="toolbar">
     <input id="search" type="search" placeholder="Search nodes…" />
+    <select id="scope" title="Graph scope">${scopeOptions}</select>
     <select id="folder"><option value="">All folders</option></select>
     <label class="toggle"><input id="show-contains" type="checkbox" /> containment edges</label>
     <label class="toggle"><input id="show-headings" type="checkbox" /> plain headings</label>
@@ -89,8 +99,11 @@ function escapeHtml(value) {
 }
 
 async function load() {
-  const res = await fetch("/api/graph");
+  const scope = document.getElementById("scope").value;
+  const res = await fetch("/api/graph?scope=" + encodeURIComponent(scope));
   graph = await res.json();
+
+  if (cy) cy.destroy();
 
   // Folder is stored as the bare kind ("arc42"); colour and filter by it.
   const elements = [
@@ -121,6 +134,7 @@ async function load() {
       { selector: 'node[type = "file"]', style: { width: 20, height: 20, "font-size": 9, shape: "round-rectangle", color: "#aaa" } },
       { selector: 'node[type = "heading"]', style: { width: 6, height: 6, "background-opacity": 0.5 } },
       { selector: 'node[type = "external"]', style: { shape: "diamond", "background-opacity": 0.6 } },
+      { selector: "node[?outOfScope]", style: { "background-opacity": 0.35, "border-width": 1, "border-style": "dashed", "border-color": "#8888", "font-size": 6 } },
       { selector: 'node[status = "deprecated"], node[status = "retired"], node[status = "blocked"]', style: { "border-width": 2, "border-color": "#cf222e" } },
       {
         selector: "edge",
@@ -251,6 +265,7 @@ function showDetails(node) {
 
 function populateFolders() {
   const select = document.getElementById("folder");
+  select.innerHTML = '<option value="">All folders</option>';
   const folders = [...new Set(cy.nodes().map((n) => n.data("folder")).filter(Boolean))].sort();
   for (const folder of folders) {
     const option = document.createElement("option");
@@ -266,6 +281,7 @@ function renderLegend() {
   );
   rows.push('<div class="legend-row"><span class="swatch" style="background:' + EXTERNAL_COLOR + '"></span>external</div>');
   rows.push('<div class="legend-row muted">large = file · small = chapter · diamond = external</div>');
+  rows.push('<div class="legend-row muted">dashed = outside the current scope</div>');
   document.getElementById("legend").innerHTML = rows.join("");
 }
 
@@ -299,6 +315,7 @@ function renderProblems() {
 for (const id of ["folder", "show-contains", "show-headings"]) {
   document.getElementById(id).addEventListener("change", applyFilters);
 }
+document.getElementById("scope").addEventListener("change", load);
 document.getElementById("search").addEventListener("input", applyFilters);
 document.getElementById("relayout").addEventListener("click", runLayout);
 document.getElementById("fit").addEventListener("click", () => cy.fit(undefined, 40));

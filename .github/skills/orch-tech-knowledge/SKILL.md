@@ -62,10 +62,14 @@ decisions and with this repository's structure and metadata conventions.
 ### Stage 4: Graph Sync & Review
 - Update the Mermaid diagram in `.tech/technology-graph.md` so its nodes and
   edges match the `depends-on` fields exactly.
+- Regenerate the derived index:
+  `node .github/tools/knowledge-graph/build-graph.mjs --scope .tech`, and
+  confirm it reports no broken references.
 - Update the layer table and "Open questions" section when layers or open
   choices change.
-- Verify with the `knowledge-canvas` canvas (open the changed file; check the
-  metadata/lint panel is clean apart from the intentional no-meta sections of
+- Verify with the `knowledge-graph` canvas scoped to `.tech`, and with the
+  `knowledge-canvas` canvas (open the changed file; check the metadata/lint
+  panel is clean apart from the intentional no-meta sections of
   `technology-graph.md`).
 - Summarize changed files/chapters for the user.
 

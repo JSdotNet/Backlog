@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-graph/build-graph.mjs",
+  "scope": ".backlog",
+  "sources": [
+    ".backlog"
+  ],
+  "stats": {
+    "nodes": 0,
+    "edges": 0,
+    "nodesByFolder": {},
+    "nodesByType": {},
+    "nodesByStatus": {},
+    "edgesByType": {}
+  },
+  "problems": [],
+  "elements": {
+    "nodes": [],
+    "edges": []
+  }
+}
