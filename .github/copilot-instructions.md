@@ -25,3 +25,7 @@ See `.github/instructions/naming.instructions.md` for file and folder naming, in
 - Never hand-edit anything under an `_meta/` folder; it is generated. Re-run the generator instead.
 - Commit changes as they are made; do not leave edits uncommitted across multiple turns of the same task.
 - Never open a pull request unless the user explicitly asks for one (via the create-PR action, a PR-creation skill, or a direct request). Committing to the session branch is not an implicit request to open a PR.
+
+## Pull Request Creation
+
+When creating a pull request in this repository, always invoke the `pr-jsdotnet` skill (`.github/skills/pr-jsdotnet/SKILL.md`) instead of the built-in PR creation tool, so the PR is authored using JSdotNet organization credentials via `gh pr create`.
