@@ -30,8 +30,8 @@ Rules:
   if a web/embedded font fails to load.
 - The raw-Markdown escape hatch (see `content-editing.md#raw-markdown-escape-hatch`)
   MUST use `font-family-mono`.
-- On WinUI/MAUI, bundle the fonts as app resources; do not rely on OS
-  availability.
+- On .NET MAUI (desktop and mobile), bundle the fonts as app resources; do not
+  rely on OS availability.
 
 ## Type Scale
 
@@ -40,9 +40,9 @@ status: active
 related: [".design/accessibility.md#target-sizes-and-text"]
 ```
 
-Modular scale on a 16 px (1 rem) base. Use `rem` on web; use the equivalent
-device-independent point value on WinUI/MAUI. MUST NOT introduce sizes outside
-this scale.
+Modular scale on a 16 px (1 rem) base. Use `rem` on web and on desktop's
+Razor/WebView2 surface; use the equivalent device-independent point value on
+mobile's native .NET MAUI. MUST NOT introduce sizes outside this scale.
 
 | Token | rem | px | Usage |
 |---|---|---|---|
@@ -147,9 +147,10 @@ status: active
 
 Channel guidance:
 
-- **Desktop (WinUI 3)** and **IDE webviews** target the `lg`+ range and a
-  multi-pane layout (navigation rail + list + editor).
-- **Mobile (.NET MAUI)** targets `sm`; panes collapse to a single-column,
+- **Desktop (.NET MAUI Blazor Hybrid, Razor/WebView2)** and **IDE webviews**
+  target the `lg`+ range and a multi-pane layout (navigation rail + list +
+  editor).
+- **Mobile (.NET MAUI, native)** targets `sm`; panes collapse to a single-column,
   navigation-drawer layout. Reorder and editing MUST remain fully usable in the
   single-column layout.
 

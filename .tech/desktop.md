@@ -39,20 +39,21 @@ The modern Windows application platform underneath the UI framework.
 ## WinUI 3
 
 ```meta
-status: candidate
+status: adopted
 kind: framework
 depends-on: [".tech/desktop.md#windows-app-sdk", ".tech/shared.md#c-language"]
-related: [".arc42/04-solution-strategy.md#technology-choices"]
-alternatives: ["WPF", "Avalonia", "Electron"]
+related: [".arc42/04-solution-strategy.md#technology-choices", ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
-The preferred UI framework for the desktop client.
+The native Windows head that `.tech/shared.md#net-maui` uses on this platform.
 
-- **Used for** — the full desktop experience: inbox triage, backlog, prompt
-  library, second brain, and dashboards.
-- **Why** — named as the preferred desktop stack in
-  `.arc42/04-solution-strategy.md#technology-choices`; native Windows fidelity
-  with a modern XAML/C# model.
+- **Used for** — hosting the desktop client's native shell, windowing, and OS
+  integration; also hosts the WebView2 surface that renders the app's actual UI
+  (`.tech/shared.md#blazor-hybrid`).
+- **Why** — `.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md` supersedes the
+  original plain-WinUI-3 choice: the app is no longer authored directly as WinUI
+  XAML, but MAUI's Windows head still is WinUI 3, so the native filesystem-access
+  and background-worker guarantees are unchanged.
 
 ## Local Markdown and JSON Store
 

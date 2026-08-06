@@ -10,30 +10,31 @@
     ".design"
   ],
   "stats": {
-    "nodes": 388,
-    "edges": 668,
+    "nodes": 391,
+    "edges": 682,
     "nodesByFolder": {
-      "arc42": 54,
+      "arc42": 56,
       "domain": 219,
       "tech": 48,
-      "design": 67
+      "design": 68
     },
     "nodesByType": {
-      "file": 75,
-      "chapter": 285,
+      "file": 76,
+      "chapter": 287,
       "heading": 28
     },
     "nodesByStatus": {
-      "active": 111,
+      "active": 113,
       "draft": 201,
-      "candidate": 34,
-      "adopted": 14,
+      "accepted": 1,
+      "candidate": 31,
+      "adopted": 17,
       "none": 28
     },
     "edgesByType": {
-      "contains": 313,
-      "related": 300,
-      "depends-on": 55
+      "contains": 315,
+      "related": 311,
+      "depends-on": 56
     }
   },
   "problems": [],
@@ -332,7 +333,8 @@
           "line": 157,
           "status": "active",
           "related": [
-            ".arc42/06-runtime-view.md#backlog-entry-to-github-issue"
+            ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
           ]
         }
       },
@@ -718,6 +720,22 @@
       },
       {
         "data": {
+          "id": ".arc42/09-architecture-decisions.md#local-adrs",
+          "label": "Local ADRs",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/09-architecture-decisions.md",
+          "slug": "local-adrs",
+          "level": 2,
+          "line": 59,
+          "status": "active",
+          "related": [
+            ".arc42/04-solution-strategy.md"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/10-quality-requirements.md",
           "label": "10. Quality Requirements",
           "type": "file",
@@ -837,6 +855,21 @@
           "status": "active",
           "related": [
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "label": "ADR 0001: Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "status": "accepted",
+          "related": [
+            ".arc42/04-solution-strategy.md",
+            ".arc42/02-constraints.md",
+            ".arc42/09-architecture-decisions.md"
           ]
         }
       },
@@ -3916,19 +3949,15 @@
           "slug": "winui-3",
           "level": 2,
           "line": 39,
-          "status": "candidate",
+          "status": "adopted",
           "kind": "framework",
-          "alternatives": [
-            "WPF",
-            "Avalonia",
-            "Electron"
-          ],
           "depends-on": [
             ".tech/desktop.md#windows-app-sdk",
             ".tech/shared.md#c-language"
           ],
           "related": [
-            ".arc42/04-solution-strategy.md#technology-choices"
+            ".arc42/04-solution-strategy.md#technology-choices",
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
           ]
         }
       },
@@ -3941,7 +3970,7 @@
           "path": ".tech/desktop.md",
           "slug": "local-markdown-and-json-store",
           "level": 2,
-          "line": 57,
+          "line": 58,
           "status": "candidate",
           "kind": "library",
           "alternatives": [
@@ -3966,7 +3995,7 @@
           "path": ".tech/desktop.md",
           "slug": "background-workers",
           "level": 2,
-          "line": 74,
+          "line": 75,
           "status": "candidate",
           "kind": "library",
           "depends-on": [
@@ -3986,7 +4015,7 @@
           "path": ".tech/desktop.md",
           "slug": "github-cli",
           "level": 2,
-          "line": 90,
+          "line": 91,
           "status": "adopted",
           "kind": "tool",
           "alternatives": [
@@ -4010,7 +4039,7 @@
           "path": ".tech/desktop.md",
           "slug": "msix-packaging",
           "level": 2,
-          "line": 107,
+          "line": 108,
           "status": "candidate",
           "kind": "tool",
           "depends-on": [
@@ -4138,53 +4167,8 @@
           "status": "candidate",
           "kind": "platform",
           "related": [
-            ".tech/cloud.md#firebase-cloud-messaging"
-          ]
-        }
-      },
-      {
-        "data": {
-          "id": ".tech/mobile.md#net-maui",
-          "label": ".NET MAUI",
-          "type": "chapter",
-          "folder": "tech",
-          "path": ".tech/mobile.md",
-          "slug": "net-maui",
-          "level": 2,
-          "line": 26,
-          "status": "candidate",
-          "kind": "framework",
-          "alternatives": [
-            ".NET MAUI Blazor Hybrid",
-            "Blazor WebAssembly PWA",
-            "Kotlin native"
-          ],
-          "depends-on": [
-            ".tech/mobile.md#android",
-            ".tech/shared.md#c-language"
-          ],
-          "related": [
-            ".arc42/04-solution-strategy.md#technology-choices"
-          ]
-        }
-      },
-      {
-        "data": {
-          "id": ".tech/mobile.md#blazor-hybrid",
-          "label": "Blazor Hybrid",
-          "type": "chapter",
-          "folder": "tech",
-          "path": ".tech/mobile.md",
-          "slug": "blazor-hybrid",
-          "level": 2,
-          "line": 44,
-          "status": "candidate",
-          "kind": "framework",
-          "alternatives": [
-            "XAML-only MAUI UI"
-          ],
-          "depends-on": [
-            ".tech/mobile.md#net-maui"
+            ".tech/cloud.md#firebase-cloud-messaging",
+            ".tech/shared.md#net-maui"
           ]
         }
       },
@@ -4197,7 +4181,7 @@
           "path": ".tech/mobile.md",
           "slug": "local-offline-store",
           "level": 2,
-          "line": 60,
+          "line": 32,
           "status": "candidate",
           "kind": "library",
           "alternatives": [
@@ -4373,6 +4357,59 @@
       },
       {
         "data": {
+          "id": ".tech/shared.md#net-maui",
+          "label": ".NET MAUI",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "net-maui",
+          "level": 2,
+          "line": 133,
+          "status": "adopted",
+          "kind": "framework",
+          "alternatives": [
+            "Plain WinUI 3",
+            "Blazor WebAssembly PWA",
+            "Kotlin native"
+          ],
+          "depends-on": [
+            ".tech/desktop.md#winui-3",
+            ".tech/mobile.md#android",
+            ".tech/shared.md#c-language"
+          ],
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices",
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#blazor-hybrid",
+          "label": "Blazor Hybrid",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "blazor-hybrid",
+          "level": 2,
+          "line": 155,
+          "status": "adopted",
+          "kind": "framework",
+          "alternatives": [
+            "XAML-only MAUI UI",
+            "Plain WinUI 3",
+            "Blazor WebAssembly PWA"
+          ],
+          "depends-on": [
+            ".tech/shared.md#net-maui"
+          ],
+          "related": [
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/shared.md#github-platform",
           "label": "GitHub Platform",
           "type": "chapter",
@@ -4380,7 +4417,7 @@
           "path": ".tech/shared.md",
           "slug": "github-platform",
           "level": 2,
-          "line": 133,
+          "line": 176,
           "status": "adopted",
           "kind": "service",
           "related": [
@@ -4722,7 +4759,7 @@
           "path": ".design/accessibility.md",
           "slug": "target-and-scope",
           "level": 2,
-          "line": 16,
+          "line": 17,
           "status": "active"
         }
       },
@@ -4735,7 +4772,7 @@
           "path": ".design/accessibility.md",
           "slug": "contrast",
           "level": 2,
-          "line": 29,
+          "line": 30,
           "status": "active",
           "related": [
             ".design/color-scheme.md#contrast-rules-wcag-aa-minimum"
@@ -4751,7 +4788,7 @@
           "path": ".design/accessibility.md",
           "slug": "keyboard-navigation",
           "level": 2,
-          "line": 51,
+          "line": 52,
           "status": "active",
           "related": [
             ".design/design-principles.md#keyboard-first",
@@ -4768,7 +4805,7 @@
           "path": ".design/accessibility.md",
           "slug": "screen-reader--announcements",
           "level": 2,
-          "line": 68,
+          "line": 69,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
@@ -4785,7 +4822,7 @@
           "path": ".design/accessibility.md",
           "slug": "focus-visibility",
           "level": 2,
-          "line": 116,
+          "line": 117,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#focus-and-selection"
@@ -4801,7 +4838,7 @@
           "path": ".design/accessibility.md",
           "slug": "reduced-motion",
           "level": 2,
-          "line": 131,
+          "line": 132,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#motion-and-reduced-motion"
@@ -4817,7 +4854,7 @@
           "path": ".design/accessibility.md",
           "slug": "target-sizes-and-text",
           "level": 2,
-          "line": 144,
+          "line": 145,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#iconography"
@@ -4833,7 +4870,7 @@
           "path": ".design/accessibility.md",
           "slug": "iconography-accessibility",
           "level": 2,
-          "line": 159,
+          "line": 160,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#iconography"
@@ -4849,7 +4886,7 @@
           "path": ".design/accessibility.md",
           "slug": "per-channel-notes",
           "level": 2,
-          "line": 174,
+          "line": 175,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -4988,7 +5025,7 @@
           "path": ".design/component-libraries.md",
           "slug": "evaluation-criteria",
           "level": 2,
-          "line": 18,
+          "line": 20,
           "status": "active"
         }
       },
@@ -5001,7 +5038,7 @@
           "path": ".design/component-libraries.md",
           "slug": "key-finding-tokens-are-the-shared-layer",
           "level": 2,
-          "line": 33,
+          "line": 35,
           "status": "active",
           "related": [
             ".design/color-scheme.md#per-stack-token-mapping"
@@ -5017,10 +5054,27 @@
           "path": ".design/component-libraries.md",
           "slug": "per-channel-recommendations",
           "level": 2,
-          "line": 55,
+          "line": 58,
           "status": "active",
           "related": [
-            ".arc42/04-solution-strategy.md#technology-choices"
+            ".arc42/04-solution-strategy.md#technology-choices",
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2",
+          "label": "Desktop — .NET MAUI Blazor Hybrid (Razor in WebView2)",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "desktop--net-maui-blazor-hybrid-razor-in-webview2",
+          "level": 3,
+          "line": 65,
+          "status": "active",
+          "related": [
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
           ]
         }
       },
@@ -5033,7 +5087,7 @@
           "path": ".design/component-libraries.md",
           "slug": "candidate-comparison",
           "level": 2,
-          "line": 107,
+          "line": 120,
           "status": "active"
         }
       },
@@ -5046,7 +5100,7 @@
           "path": ".design/component-libraries.md",
           "slug": "recommendation-summary",
           "level": 2,
-          "line": 131,
+          "line": 144,
           "status": "active"
         }
       },
@@ -5059,7 +5113,7 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 147,
+          "line": 160,
           "status": "active"
         }
       },
@@ -5526,7 +5580,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "border-radius-and-width",
           "level": 2,
-          "line": 156,
+          "line": 157,
           "status": "active"
         }
       },
@@ -5539,7 +5593,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "shadows-and-elevation",
           "level": 2,
-          "line": 174,
+          "line": 175,
           "status": "active",
           "related": [
             ".design/color-scheme.md#elevation-by-color"
@@ -5555,7 +5609,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "iconography",
           "level": 2,
-          "line": 208,
+          "line": 209,
           "status": "active",
           "related": [
             ".design/accessibility.md#target-sizes-and-text"
@@ -6185,6 +6239,14 @@
           "id": "contains:.arc42/09-architecture-decisions.md->.arc42/09-architecture-decisions.md#local-system-decisions",
           "source": ".arc42/09-architecture-decisions.md",
           "target": ".arc42/09-architecture-decisions.md#local-system-decisions",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/09-architecture-decisions.md->.arc42/09-architecture-decisions.md#local-adrs",
+          "source": ".arc42/09-architecture-decisions.md",
+          "target": ".arc42/09-architecture-decisions.md#local-adrs",
           "type": "contains"
         }
       },
@@ -7550,22 +7612,6 @@
       },
       {
         "data": {
-          "id": "contains:.tech/mobile.md->.tech/mobile.md#net-maui",
-          "source": ".tech/mobile.md",
-          "target": ".tech/mobile.md#net-maui",
-          "type": "contains"
-        }
-      },
-      {
-        "data": {
-          "id": "contains:.tech/mobile.md->.tech/mobile.md#blazor-hybrid",
-          "source": ".tech/mobile.md",
-          "target": ".tech/mobile.md#blazor-hybrid",
-          "type": "contains"
-        }
-      },
-      {
-        "data": {
           "id": "contains:.tech/mobile.md->.tech/mobile.md#local-offline-store",
           "source": ".tech/mobile.md",
           "target": ".tech/mobile.md#local-offline-store",
@@ -7633,6 +7679,22 @@
           "id": "contains:.tech/shared.md->.tech/shared.md#typescript",
           "source": ".tech/shared.md",
           "target": ".tech/shared.md#typescript",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#net-maui",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#net-maui",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#blazor-hybrid",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#blazor-hybrid",
           "type": "contains"
         }
       },
@@ -7921,6 +7983,14 @@
           "id": "contains:.design/component-libraries.md->.design/component-libraries.md#per-channel-recommendations",
           "source": ".design/component-libraries.md",
           "target": ".design/component-libraries.md#per-channel-recommendations",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md#per-channel-recommendations->.design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2",
+          "source": ".design/component-libraries.md#per-channel-recommendations",
+          "target": ".design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2",
           "type": "contains"
         }
       },
@@ -8302,6 +8372,14 @@
       },
       {
         "data": {
+          "id": "related:.arc42/05-building-block-view.md#desktop-app->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".arc42/05-building-block-view.md#desktop-app",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/05-building-block-view.md#mobile-app->.arc42/06-runtime-view.md#mobile-capture-and-sync",
           "source": ".arc42/05-building-block-view.md#mobile-app",
           "target": ".arc42/06-runtime-view.md#mobile-capture-and-sync",
@@ -8622,6 +8700,14 @@
       },
       {
         "data": {
+          "id": "related:.arc42/09-architecture-decisions.md#local-adrs->.arc42/04-solution-strategy.md",
+          "source": ".arc42/09-architecture-decisions.md#local-adrs",
+          "target": ".arc42/04-solution-strategy.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/10-quality-requirements.md->.arc42/01-introduction-and-goals.md#quality-goals",
           "source": ".arc42/10-quality-requirements.md",
           "target": ".arc42/01-introduction-and-goals.md#quality-goals",
@@ -8665,6 +8751,30 @@
           "id": "related:.arc42/12-glossary.md#shared-data-types->.arc42/08-crosscutting-concepts.md#shared-data-types",
           "source": ".arc42/12-glossary.md#shared-data-types",
           "target": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md->.arc42/04-solution-strategy.md",
+          "source": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "target": ".arc42/04-solution-strategy.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md->.arc42/02-constraints.md",
+          "source": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "target": ".arc42/02-constraints.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "target": ".arc42/09-architecture-decisions.md",
           "type": "related"
         }
       },
@@ -10206,6 +10316,14 @@
       },
       {
         "data": {
+          "id": "related:.tech/desktop.md#winui-3->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".tech/desktop.md#winui-3",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.tech/desktop.md#local-markdown-and-json-store->.tech/shared.md#markdown",
           "source": ".tech/desktop.md#local-markdown-and-json-store",
           "target": ".tech/shared.md#markdown",
@@ -10374,34 +10492,10 @@
       },
       {
         "data": {
-          "id": "depends-on:.tech/mobile.md#net-maui->.tech/mobile.md#android",
-          "source": ".tech/mobile.md#net-maui",
-          "target": ".tech/mobile.md#android",
-          "type": "depends-on"
-        }
-      },
-      {
-        "data": {
-          "id": "depends-on:.tech/mobile.md#net-maui->.tech/shared.md#c-language",
-          "source": ".tech/mobile.md#net-maui",
-          "target": ".tech/shared.md#c-language",
-          "type": "depends-on"
-        }
-      },
-      {
-        "data": {
-          "id": "related:.tech/mobile.md#net-maui->.arc42/04-solution-strategy.md#technology-choices",
-          "source": ".tech/mobile.md#net-maui",
-          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "id": "related:.tech/mobile.md#android->.tech/shared.md#net-maui",
+          "source": ".tech/mobile.md#android",
+          "target": ".tech/shared.md#net-maui",
           "type": "related"
-        }
-      },
-      {
-        "data": {
-          "id": "depends-on:.tech/mobile.md#blazor-hybrid->.tech/mobile.md#net-maui",
-          "source": ".tech/mobile.md#blazor-hybrid",
-          "target": ".tech/mobile.md#net-maui",
-          "type": "depends-on"
         }
       },
       {
@@ -10521,6 +10615,62 @@
           "id": "related:.tech/shared.md#typescript->.tech/ide.md#vs-code-extension-api",
           "source": ".tech/shared.md#typescript",
           "target": ".tech/ide.md#vs-code-extension-api",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#net-maui->.tech/desktop.md#winui-3",
+          "source": ".tech/shared.md#net-maui",
+          "target": ".tech/desktop.md#winui-3",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#net-maui->.tech/mobile.md#android",
+          "source": ".tech/shared.md#net-maui",
+          "target": ".tech/mobile.md#android",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#net-maui->.tech/shared.md#c-language",
+          "source": ".tech/shared.md#net-maui",
+          "target": ".tech/shared.md#c-language",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#net-maui->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".tech/shared.md#net-maui",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#net-maui->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".tech/shared.md#net-maui",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#blazor-hybrid->.tech/shared.md#net-maui",
+          "source": ".tech/shared.md#blazor-hybrid",
+          "target": ".tech/shared.md#net-maui",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#blazor-hybrid->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".tech/shared.md#blazor-hybrid",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "type": "related"
         }
       },
@@ -10929,6 +11079,22 @@
           "id": "related:.design/component-libraries.md#per-channel-recommendations->.arc42/04-solution-strategy.md#technology-choices",
           "source": ".design/component-libraries.md#per-channel-recommendations",
           "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#per-channel-recommendations->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".design/component-libraries.md#per-channel-recommendations",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "type": "related"
         }
       },

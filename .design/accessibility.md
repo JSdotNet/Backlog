@@ -6,9 +6,10 @@ related: [".design/color-scheme.md#contrast-rules-wcag-aa-minimum", ".design/int
 ```
 
 > Accessibility rules for the Backlog product. Target: **WCAG 2.1 Level AA** as a
-> minimum across every channel (WinUI 3, .NET MAUI, VS Code / Visual Studio
-> webviews). Because the product is dark-mode-only, keyboard-first, and has no
-> save buttons, accessibility here focuses heavily on keyboard operation, save-
+> minimum across every channel (desktop — .NET MAUI Blazor Hybrid/WebView2,
+> mobile — .NET MAUI native, VS Code / Visual Studio webviews). Because the
+> product is dark-mode-only, keyboard-first, and has no save buttons,
+> accessibility here focuses heavily on keyboard operation, save-
 > state and reorder announcements, focus visibility, and reduced motion. Grounded
 > in the `jsdotnet-project-design` MCP guides `04-motion-and-interaction`,
 > `06-component-patterns`, `07-iconography`, and `09-interaction-patterns`.
@@ -22,7 +23,7 @@ status: active
 | Rule | Requirement |
 |---|---|
 | Conformance | Every channel MUST meet **WCAG 2.1 AA**. Primary body text targets AAA contrast (see `color-scheme.md`). |
-| Platform APIs | Native channels MUST expose correct accessibility semantics via their platform API — UIA/AutomationProperties (WinUI, WPF), SemanticProperties (MAUI), ARIA (webviews). |
+| Platform APIs | Native channels MUST expose correct accessibility semantics via their platform API — UIA/`AutomationProperties` for native shell chrome (desktop's thin MAUI/WinUI 3 shell, WPF) and SemanticProperties (mobile MAUI native XAML); ARIA for webview-rendered content (desktop's Razor/WebView2 UI, VS Code / VS webviews). |
 | Parity | Accessibility parity across channels is required; a feature usable by mouse MUST be usable by keyboard and assistive tech on every channel. |
 | Testable | Each rule below is a review acceptance criterion. |
 
@@ -180,8 +181,8 @@ related: [".design/component-libraries.md", ".arc42/04-solution-strategy.md#tech
 
 | Channel | Accessibility notes |
 |---|---|
-| Desktop — WinUI 3 | Use `AutomationProperties` for names/roles; verify with Accessibility Insights; ensure High Contrast rendering keeps focus visible (outline-based). |
-| Mobile — .NET MAUI | Use `SemanticProperties`; support platform screen readers (Narrator/VoiceOver/TalkBack) and OS text-scaling; ensure single-column reorder is keyboard/switch accessible. |
+| Desktop — .NET MAUI Blazor Hybrid | UI is Razor in WebView2 (ADR 0001): use ARIA for the app content, same as the IDE webviews; `AutomationProperties` still applies to the thin native shell/window chrome; verify with Accessibility Insights; ensure High Contrast rendering keeps focus visible (outline-based). |
+| Mobile — .NET MAUI (native) | Use `SemanticProperties`; support platform screen readers (Narrator/VoiceOver/TalkBack) and OS text-scaling; ensure single-column reorder is keyboard/switch accessible. |
 | IDE webviews (VS Code / VS) | Use ARIA; announce via `aria-live`; respect the host's reduced-motion and high-contrast signals but keep product tokens for content contrast; keep focus visible against the webview surface. |
 
 `[TODO: clarify]` whether a formal accessibility audit / VPAT is required per
