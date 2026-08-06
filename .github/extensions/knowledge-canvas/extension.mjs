@@ -17,7 +17,8 @@ import path from "node:path";
 import { joinSession, createCanvas } from "@github/copilot-sdk/extension";
 import { renderPage } from "./render.mjs";
 import { renderGraphPage } from "./graph-render.mjs";
-import { buildGraph, buildGraphDocument, SCOPES, REPO_SCOPE } from "../../tools/knowledge-graph/graph.mjs";
+import { buildGraph, buildGraphDocument, SCOPES, REPO_SCOPE } from "../../tools/knowledge-meta/graph.mjs";
+import { buildOutlineDocument } from "../../tools/knowledge-meta/outline.mjs";
 import { parseDocument, validateDocument, folderKindForPath } from "./metadata.mjs";
 
 // Repository root: the CLI launches project-scoped extensions with cwd set
@@ -99,7 +100,7 @@ function setDocument(entry, relPath) {
  * Local server for a knowledge-graph canvas instance.
  *
  * The graph is rebuilt from the Markdown on disk rather than read from the
- * committed `_index/` artifacts, so the view can never show a stale index. The
+ * committed `_meta/` artifacts, so the view can never show a stale index. The
  * parsed corpus is cached per instance and projected per requested scope, so
  * switching scope in the UI costs no disk I/O.
  */
@@ -121,6 +122,13 @@ async function startGraphServer(defaultScope) {
                 const document = await buildGraphDocument(REPO_ROOT, scope, entry.graph);
                 res.setHeader("Content-Type", "application/json; charset=utf-8");
                 res.end(JSON.stringify(document));
+                return;
+            }
+            if (url.pathname === "/api/outline") {
+                const requested = url.searchParams.get("scope") ?? entry.scope;
+                const scope = SCOPES.includes(requested) ? requested : entry.scope;
+                res.setHeader("Content-Type", "application/json; charset=utf-8");
+                res.end(JSON.stringify(await buildOutlineDocument(REPO_ROOT, scope)));
                 return;
             }
             res.statusCode = 404;

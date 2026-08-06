@@ -63,7 +63,7 @@ decisions and with this repository's structure and metadata conventions.
 - Update the Mermaid diagram in `.tech/technology-graph.md` so its nodes and
   edges match the `depends-on` fields exactly.
 - Regenerate the derived index:
-  `node .github/tools/knowledge-graph/build-graph.mjs --scope .tech`, and
+  `node .github/tools/knowledge-meta/build.mjs --scope .tech`, and
   confirm it reports no broken references.
 - Update the layer table and "Open questions" section when layers or open
   choices change.

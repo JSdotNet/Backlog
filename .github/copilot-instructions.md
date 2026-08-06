@@ -14,7 +14,7 @@ See `.github/instructions/workflow-routing.instructions.md` for orchestration-sk
 
 ## Naming
 
-See `.github/instructions/naming.instructions.md` for file and folder naming, including the leading `_` that marks tooling assets such as `_index/`.
+See `.github/instructions/naming.instructions.md` for file and folder naming, including the leading `_` that marks tooling assets such as `_meta/`.
 
 ## Guardrails
 
@@ -22,6 +22,6 @@ See `.github/instructions/naming.instructions.md` for file and folder naming, in
 - Do not invent permanent project structure before architecture and domain decisions make the boundaries clear.
 - Ground governance and coding decisions in repository guidance instead of memory.
 - Treat checked-in knowledge folders such as `.arc42/`, `.domain/`, `.backlog/`, and `.tech/` as **task-scoped context**, not baseline context. Load only the relevant chapters after routing to the correct orchestration or specialist agent, or when the user explicitly asks for that knowledge.
-- Never hand-edit anything under an `_index/` folder; it is generated. Re-run the generator instead.
+- Never hand-edit anything under an `_meta/` folder; it is generated. Re-run the generator instead.
 - Commit changes as they are made; do not leave edits uncommitted across multiple turns of the same task.
 - Never open a pull request unless the user explicitly asks for one (via the create-PR action, a PR-creation skill, or a direct request). Committing to the session branch is not an implicit request to open a PR.

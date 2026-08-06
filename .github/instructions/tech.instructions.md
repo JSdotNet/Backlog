@@ -32,11 +32,13 @@ the way it does; `.tech` links back to it rather than restating rationale.
   ide.md                # IDE extension stacks
   cloud.md              # optional cloud service stack
   tooling.md            # development, AI, build, CI/CD, and governance tooling
-  _index/graph.json     # derived: generated graph index, never hand-edited
+  _meta/graph.json      # derived: generated reference graph, never hand-edited
+  _meta/index.json      # derived: generated reading outline, never hand-edited
 ```
 
 Add a new layer file only when a technology genuinely does not belong to an
-existing layer, and register it in `technology-graph.md` in the same change.
+existing layer, and register it in `technology-graph.md` in the same change —
+both in its layer table and in its file-level `order` field.
 
 ## File responsibilities
 
@@ -47,9 +49,11 @@ existing layer, and register it in `technology-graph.md` in the same change.
   - Explains the status ladder and how to read/extend the graph.
   - Its `##` sections do **not** carry per-chapter metadata blocks; the file
     carries a file-level block only (same rule as `.domain/context-map.md`).
-- **`_index/graph.json`** — Derived, generated graph index for this folder.
+  - As `.tech`'s root document, its file-level `order` declares the reading
+    order of the layer files.
+- **`_meta/*.json`** — Derived, generated indexes for this folder.
   Never hand-edited; see `.github/instructions/derived-artifacts.instructions.md`
-  and `.github/tools/knowledge-graph/README.md`.
+  and `.github/tools/knowledge-meta/README.md`.
 - **`<layer>.md`** — One `## <Technology Name>` chapter per technology used (or
   under consideration) in that layer. Each chapter is an addressable node in
   the graph and carries a chapter metadata block.
@@ -125,7 +129,7 @@ Omit every optional field that has no value (no `related: []`, no
 - Keep `technology-graph.md`'s Mermaid diagram in sync with the `depends-on`
   edges in the layer files whenever a node or edge is added, removed, or
   renamed, and regenerate the derived index in the same change:
-  `node .github/tools/knowledge-graph/build-graph.mjs --scope .tech`.
+  `node .github/tools/knowledge-meta/build.mjs --scope .tech`.
 - Ground stack claims in `.arc42` (especially
   `.arc42/04-solution-strategy.md#technology-choices` and
   `.arc42/09-architecture-decisions.md`) rather than inventing new choices here.

@@ -5,7 +5,7 @@
 // this produces the *derived* index. Output shape is Cytoscape.js `elements`
 // JSON, which most graph libraries consume natively or map from trivially.
 //
-// Consumed by the `build-graph.mjs` CLI and by the knowledge-graph canvas, so
+// Consumed by the `build.mjs` CLI and by the knowledge-graph canvas, so
 // the CLI output and the live view can never disagree.
 
 import { readFile, readdir } from "node:fs/promises";
@@ -15,7 +15,7 @@ import { parseDocument, folderKindForPath } from "../../extensions/knowledge-can
 export const KNOWLEDGE_FOLDERS = [".arc42", ".domain", ".backlog", ".tech"];
 export const SCHEMA_VERSION = 1;
 export const REPO_SCOPE = ".";
-const GENERATOR = ".github/tools/knowledge-graph/build-graph.mjs";
+export const GENERATOR = ".github/tools/knowledge-meta/build.mjs";
 
 // Metadata fields that hold `<path>` / `<path>#<slug>` references, and the edge
 // type each one produces. Non-reference list fields (`aliases`, `alternatives`)
@@ -313,5 +313,5 @@ export const SCOPES = [REPO_SCOPE, ...KNOWLEDGE_FOLDERS];
 
 /** Repo-relative output path for a scope, per the derived-index convention. */
 export function outputPathFor(scope) {
-    return scope === REPO_SCOPE ? "_index/graph.json" : `${scope}/_index/graph.json`;
+    return scope === REPO_SCOPE ? "_meta/graph.json" : `${scope}/_meta/graph.json`;
 }

@@ -1,7 +1,10 @@
-# Knowledge graph tooling
+# Knowledge metadata tooling
 
-Derives machine-readable graphs from the `meta` blocks embedded in
-`.arc42/`, `.domain/`, `.backlog/`, and `.tech/`.
+Derives machine-readable indexes from the `meta` blocks embedded in
+`.arc42/`, `.domain/`, `.backlog/`, and `.tech/`:
+
+- **`graph.json`** — the reference graph between chapters and files.
+- **`index.json`** — the ordered reading outline of each area.
 
 Markdown stays canonical; these indexes are **derived output** — never edit
 them by hand. Placement and naming follow
@@ -11,30 +14,30 @@ them by hand. Placement and naming follow
 
 ```bash
 # Regenerate every scope
-node .github/tools/knowledge-graph/build-graph.mjs
+node .github/tools/knowledge-meta/build.mjs
 
 # One scope only
-node .github/tools/knowledge-graph/build-graph.mjs --scope .tech
+node .github/tools/knowledge-meta/build.mjs --scope .tech
 
 # Validate references without writing (exit 1 on a broken reference)
-node .github/tools/knowledge-graph/build-graph.mjs --check
+node .github/tools/knowledge-meta/build.mjs --check
 ```
 
 Run the generator whenever you add, rename, or re-link a chapter or file in a
-knowledge folder. `.github/workflows/knowledge-graph.yml` enforces both that
+knowledge folder. `.github/workflows/knowledge-meta.yml` enforces both that
 every reference resolves and that the committed indexes are current.
 
 ## Outputs
 
-One artifact per scope, each co-located with what it describes:
+Two artifacts per scope, each co-located with what it describes:
 
 | Path | Scope |
 |---|---|
-| `_index/graph.json` | repository-wide rollup across all knowledge folders |
-| `.arc42/_index/graph.json` | `.arc42` only |
-| `.domain/_index/graph.json` | `.domain` only |
-| `.backlog/_index/graph.json` | `.backlog` only |
-| `.tech/_index/graph.json` | `.tech` only |
+| `_meta/graph.json`, `_meta/index.json` | repository-wide rollup across all knowledge folders |
+| `.arc42/_meta/*.json` | `.arc42` only |
+| `.domain/_meta/*.json` | `.domain` only |
+| `.backlog/_meta/*.json` | `.backlog` only |
+| `.tech/_meta/*.json` | `.tech` only |
 
 A scoped graph contains every node in its folder, plus any node **outside** it
 that an in-scope node references. Those boundary nodes are flagged
@@ -47,14 +50,15 @@ followed, so a scoped graph stays about its own folder.
 | File | Role |
 |---|---|
 | `graph.mjs` | Graph construction and scope projection. Imported by the CLI *and* by the `knowledge-graph` canvas, so the written indexes and the live view can never disagree. |
-| `build-graph.mjs` | CLI wrapper: writes one artifact per scope, prints stats, exits non-zero on broken references. |
+| `outline.mjs` | Reading-order resolution from the `order` field on each directory's root document. |
+| `build.mjs` | CLI wrapper: writes both artifacts per scope, prints stats, exits non-zero on errors. |
 
 Metadata parsing itself lives in
 `.github/extensions/knowledge-canvas/metadata.mjs`, which is the single
 implementation of the schema defined in
 `.github/instructions/chapter-metadata.instructions.md`.
 
-## Output shape
+## Output shape: `graph.json`
 
 The required envelope from the derived-index convention, followed by
 Cytoscape.js `elements` JSON — consumable directly by Cytoscape and trivially
@@ -63,7 +67,7 @@ mappable to D3, vis.js, or Sigma.
 ```jsonc
 {
   "schemaVersion": 1,
-  "generatedBy": ".github/tools/knowledge-graph/build-graph.mjs",
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
   "scope": ".tech",
   "sources": [".tech"],
   "stats": { "nodes": 57, "edges": 120, "nodesByFolder": { }, "nodesByStatus": { } },
@@ -120,6 +124,47 @@ included only because an in-scope node references them.
 `aliases` (`.domain`) and `alternatives` (`.tech`) are plain-string fields, not
 references, so they stay node attributes and produce no edges.
 
+## Output shape: `index.json`
+
+The same envelope, followed by `entries` — a nested, **ordered** tree of the
+area's readable content. A viewer walks `entries` top to bottom instead of
+sorting filenames.
+
+```jsonc
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
+  "scope": ".domain",
+  "sources": [".domain"],
+  "problems": [],
+  "entries": [
+    { "type": "file", "name": "context-map.md", "path": ".domain/context-map.md",
+      "title": "Context Map: Backlog", "status": "draft", "root": true },
+    { "type": "directory", "name": "inbox", "path": ".domain/inbox",
+      "title": "Domain: Inbox",
+      "children": [
+        { "type": "file", "name": "domain.md", "path": ".domain/inbox/domain.md",
+          "title": "Domain: Inbox", "status": "draft", "root": true },
+        { "type": "file", "name": "features.md", "path": ".domain/inbox/features.md",
+          "title": "Features: Inbox", "status": "draft" }
+      ] }
+  ]
+}
+```
+
+At the repository scope the top level is `type: "area"` — one entry per
+knowledge folder, in canonical area order.
+
+Ordering comes from the `order` field on the file-level `meta` block of each
+directory's **root document**, which always sorts first. A directory with no
+root document falls back to filename sort — which is why the numbered `.arc42`
+chapters need no declaration. Entries listed but missing are errors; entries
+present but unlisted are warnings and get appended alphabetically. See
+`.github/instructions/chapter-metadata.instructions.md`.
+
+`_`-prefixed folders (such as `_meta/` itself) are tooling, not content, and
+are excluded from the outline.
+
 ## Viewing
 
 Open the **Knowledge graph** canvas in Copilot CLI for an Obsidian-style
@@ -131,4 +176,6 @@ open the knowledge graph canvas with scope .tech
 ```
 
 The canvas has a scope selector, rebuilds from disk on open (so it never shows
-a stale index), and exposes `refresh_graph` and `set_scope` actions.
+a stale index), and exposes `refresh_graph` and `set_scope` actions. It also
+serves the live outline at `/api/outline?scope=<scope>` for tools that want the
+reading order without reading the committed `index.json`.

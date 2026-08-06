@@ -34,7 +34,7 @@ related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 
 The derived-data format sitting beside the canonical Markdown.
 
-- **Used for** — indexes (`_index/*.json`), metadata, relationships, the repo
+- **Used for** — indexes (`_meta/*.json`), metadata, relationships, the repo
   registry (`config/repos.json`), and the tag graph (`.tags/`).
 - **Why** — cheap to write from every channel's stack and fast to load into
   memory for local search without a database engine.

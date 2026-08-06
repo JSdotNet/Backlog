@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedBy": ".github/tools/knowledge-graph/build-graph.mjs",
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
   "scope": ".backlog",
   "sources": [
     ".backlog"

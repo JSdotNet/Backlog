@@ -139,6 +139,9 @@ entries in `related` and in any folder-specific relation field (`depends-on`,
   shorthand) of the GitHub issue tracking this chapter or file, if one
   exists. Keep this in sync when using `create-github-issue` /
   `update-github-issue`. Omit the field entirely when no issue exists.
+- **order** (optional, **file-level blocks only**) — declares the reading
+  order of the directory this document sits in. See
+  "[Declaring reading order](#declaring-reading-order)" below.
 
 Folder-specific fields (e.g. `depends-on` on features/backlog/tech chapters,
 `implements` on backlog chapters, `kind`/`version`/`alternatives` on tech
@@ -165,29 +168,66 @@ to every folder.
   omitted rather than written out, so a chapter or file with no relations and
   no issue shows only `status`.
 
-## Derived graph index
+## Declaring reading order
 
-These metadata blocks are compiled into graph indexes by
-`.github/tools/knowledge-graph/build-graph.mjs` — one per knowledge folder plus
+Files in a knowledge folder have an intended reading order that alphabetical
+sorting does not capture — `.domain` reads `domain` → `features` → `model`
+before `naming`, not the other way round. That order is declared in Markdown
+so it stays canonical, and compiled into `_meta/index.json` for viewers.
+
+Per directory, exactly one file may be the **root document**: the one whose
+file-level block carries `order`. It always sorts first, and its `order` lists
+the remaining entries — plain names of sibling files (`shared.md`) or
+subdirectories (`inbox`), never paths:
+
+```markdown
+# Technology Graph
+
+\`\`\`meta
+status: candidate
+order: ["shared.md", "desktop.md", "ide.md", "mobile.md", "cloud.md", "tooling.md"]
+\`\`\`
+```
+
+Rules:
+
+- `order` is valid on a **file-level** block only. On a chapter block it is an
+  error — chapters are already ordered by their position in the document.
+- A directory with no root document falls back to filename sort. This is why
+  the numbered `.arc42` chapters (`01-…`, `02-…`) need no declaration.
+- An entry listed in `order` that does not exist is an error; a file or
+  subdirectory that exists but is unlisted is a warning and gets appended
+  alphabetically. Add it to `order` to pin its position.
+- Two documents in one directory both declaring `order` is an error.
+
+Update `order` whenever a file is added to or removed from a directory that
+has a root document, then regenerate.
+
+## Derived metadata index
+
+These metadata blocks are compiled into derived indexes by
+`.github/tools/knowledge-meta/build.mjs` — one pair per knowledge folder plus
 a repository-wide rollup, placed per
 `.github/instructions/derived-artifacts.instructions.md`:
 
 ```text
-_index/graph.json          # all folders
-.arc42/_index/graph.json   # .arc42 only
-.domain/_index/graph.json
-.backlog/_index/graph.json
-.tech/_index/graph.json
+_meta/graph.json          # reference graph, all folders
+_meta/index.json          # reading outline, all folders
+.arc42/_meta/graph.json   # .arc42 only
+.arc42/_meta/index.json
+.domain/_meta/…
+.backlog/_meta/…
+.tech/_meta/…
 ```
 
 Regenerate whenever a chapter or file is added, renamed, or re-linked:
 
 ```bash
-node .github/tools/knowledge-graph/build-graph.mjs
+node .github/tools/knowledge-meta/build.mjs
 ```
 
 These are derived output — never edit them by hand. CI
-(`.github/workflows/knowledge-graph.yml`) fails when a reference does not
+(`.github/workflows/knowledge-meta.yml`) fails when a reference does not
 resolve or when a committed index is stale. Open the **Knowledge graph**
 canvas (optionally scoped to one folder) to explore it visually. See
-`.github/tools/knowledge-graph/README.md` for the output shape.
+`.github/tools/knowledge-meta/README.md` for the output shape.

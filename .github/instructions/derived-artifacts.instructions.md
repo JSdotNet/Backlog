@@ -1,39 +1,39 @@
 ---
-applyTo: "**/_index/**"
+applyTo: "**/_meta/**"
 description: Convention for derived index artifacts — where generated, machine-readable views of canonical Markdown live, how they are named, and what every such file must declare.
 ---
 
-# Derived index artifacts (`_index/`)
+# Derived metadata artifacts (`_meta/`)
 
 This repository keeps **Markdown canonical and derived data generated** (see
 `.arc42/02-constraints.md#technical-constraints`). Generated, machine-readable
-views of that Markdown — graphs, search indexes, rollups — are *derived index
-artifacts*, and they all follow one convention so a new one can be added
-anywhere without inventing placement or naming rules again.
+views of that Markdown — graphs, outlines, search indexes, rollups — are
+*derived metadata artifacts*, and they all follow one convention so a new one
+can be added anywhere without inventing placement or naming rules again.
 
 This convention is deliberately generic: it applies to any current or future
 generated artifact, not just the knowledge graph.
 
 ## Location
 
-A derived artifact lives in an `_index/` subfolder **of the thing it
+A derived artifact lives in an `_meta/` subfolder **of the thing it
 describes**:
 
 ```
-.tech/_index/graph.json        # derived from .tech only
-.domain/_index/graph.json      # derived from .domain only
-_index/graph.json              # repo-root: spans multiple source folders
+.tech/_meta/graph.json        # derived from .tech only
+.domain/_meta/graph.json      # derived from .domain only
+_meta/graph.json              # repo-root: spans multiple source folders
 ```
 
 - **Scoped artifact** — derived from exactly one folder: it belongs in that
-  folder's own `_index/`. Co-locating it means the folder stays
+  folder's own `_meta/`. Co-locating it means the folder stays
   self-contained, and moving or removing the folder takes its derived data
   with it.
 - **Cross-cutting artifact** — derived from two or more source folders: it
-  belongs in the repository-root `_index/`.
+  belongs in the repository-root `_meta/`.
 
-Never nest `_index/` deeper than one level below its scope, and never put a
-derived artifact anywhere other than an `_index/` folder.
+Never nest `_meta/` deeper than one level below its scope, and never put a
+derived artifact anywhere other than an `_meta/` folder.
 
 The underscore prefix marks the folder as tooling machinery rather than
 readable content — see `.github/instructions/naming.instructions.md`.
@@ -46,12 +46,12 @@ readable content — see `.github/instructions/naming.instructions.md`.
 
 - **`<artifact>`** — kebab-case, describing *what the artifact is*, not what
   produced it or what it covers. The enclosing folder already states the
-  scope, so `.tech/_index/graph.json` — not `tech-graph.json`.
+  scope, so `.tech/_meta/graph.json` — not `tech-graph.json`.
 - **`<format>`** — the real file extension (`json`, `ndjson`, `csv`).
-- Files inside `_index/` are **not** underscore-prefixed again; the folder
+- Files inside `_meta/` are **not** underscore-prefixed again; the folder
   already carries that signal.
 - Use the same `<artifact>` name for the same kind of artifact in every scope,
-  so tooling can glob `**/_index/graph.json` across scopes.
+  so tooling can glob `**/_meta/graph.json` across scopes.
 
 ## Required envelope
 
@@ -61,7 +61,7 @@ payload:
 ```jsonc
 {
   "schemaVersion": 1,
-  "generatedBy": ".github/tools/knowledge-graph/build-graph.mjs",
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
   "scope": ".tech",
   "sources": [".tech"]
   // ...artifact-specific payload
@@ -88,7 +88,7 @@ payload:
   byte-identical file, so CI can diff the committed artifact to detect
   staleness.
 - **One generator, one artifact per scope.** A generator that produces several
-  scopes writes each to its own `_index/`; it does not merge them into one
+  scopes writes each to its own `_meta/`; it does not merge them into one
   file.
 - **CI enforces freshness.** Every derived artifact needs a workflow that
   regenerates it and fails when the committed copy differs.
@@ -100,16 +100,22 @@ payload:
 1. Decide the scope: one folder (scoped) or several (repository-root).
 2. Add the generator under `.github/tools/<tool-name>/`, with a README.
 3. Emit the required envelope and keep the output deterministic.
-4. Write it to `<scope>/_index/<artifact>.<format>`.
+4. Write it to `<scope>/_meta/<artifact>.<format>`.
 5. Add a CI workflow that runs the generator and fails on a stale artifact.
 6. Reference it from the instructions file of the folder it describes.
 
 ## Current artifacts
 
-| Path | Scope | Generator |
-|---|---|---|
-| `_index/graph.json` | repository-wide | `.github/tools/knowledge-graph/build-graph.mjs` |
-| `.arc42/_index/graph.json` | `.arc42` | same |
-| `.domain/_index/graph.json` | `.domain` | same |
-| `.backlog/_index/graph.json` | `.backlog` | same |
-| `.tech/_index/graph.json` | `.tech` | same |
+| Path | Scope | Contents | Generator |
+|---|---|---|---|
+| `_meta/graph.json` | repository-wide | reference graph | `.github/tools/knowledge-meta/build.mjs` |
+| `_meta/index.json` | repository-wide | ordered reading outline | same |
+| `.arc42/_meta/*.json` | `.arc42` | both of the above, scoped | same |
+| `.domain/_meta/*.json` | `.domain` | both of the above, scoped | same |
+| `.backlog/_meta/*.json` | `.backlog` | both of the above, scoped | same |
+| `.tech/_meta/*.json` | `.tech` | both of the above, scoped | same |
+
+`index.json` carries the **reading order** of an area, which a viewer uses
+instead of sorting filenames alphabetically. Its source of truth is the
+`order` field on the file-level `meta` block of each directory's root
+document — see `.github/instructions/chapter-metadata.instructions.md`.

@@ -35,8 +35,10 @@ const TECH_KINDS = [
 ];
 
 // Fields every folder's chapter/file block may carry, plus folder-specific
-// extras layered in below.
+// extras layered in below. `order` is file-level only (see validateDocument):
+// it declares the reading order of a directory's entries.
 const COMMON_OPTIONAL_FIELDS = ["related", "issue"];
+const FILE_ONLY_FIELDS = ["order"];
 const FOLDER_EXTRA_FIELDS = {
     domain: ["depends-on", "aliases"],
     arc42: [],
@@ -178,6 +180,7 @@ export function validateDocument(relPath, markdown) {
     const allowedStatus = STATUS_BY_FOLDER[kind];
     const optionalFields = new Set([
         ...COMMON_OPTIONAL_FIELDS,
+        ...FILE_ONLY_FIELDS,
         ...FOLDER_EXTRA_FIELDS[kind],
     ]);
 
@@ -237,6 +240,13 @@ export function validateDocument(relPath, markdown) {
 
         for (const [key, value] of Object.entries(chapter.meta)) {
             if (key === "status") continue;
+            if (FILE_ONLY_FIELDS.includes(key) && chapter.level > 1) {
+                issues.push({
+                    severity: "error",
+                    message: `${label} has \`${key}\`, which belongs on the file-level block only — it describes the document's directory, not a chapter.`,
+                });
+                continue;
+            }
             if (!optionalFields.has(key)) {
                 issues.push({
                     severity: "warning",
@@ -250,6 +260,32 @@ export function validateDocument(relPath, markdown) {
                     severity: "warning",
                     message: `${label} sets \`${key}\` to an empty/null value — omit the field instead per the omit-when-empty rule.`,
                 });
+            }
+        }
+
+        if (chapter.level === 1 && "order" in chapter.meta) {
+            const entries = chapter.meta.order;
+            if (!Array.isArray(entries)) {
+                issues.push({
+                    severity: "error",
+                    message: `${label} has \`order\` that is not a list. Use a list of sibling file or directory names.`,
+                });
+            } else {
+                for (const entry of entries) {
+                    if (typeof entry !== "string" || entry.includes("/")) {
+                        issues.push({
+                            severity: "error",
+                            message: `${label} has \`order\` entry "${entry}" — entries must be plain names of siblings in the same directory, not paths.`,
+                        });
+                    }
+                }
+                const duplicates = entries.filter((e, i) => entries.indexOf(e) !== i);
+                if (duplicates.length) {
+                    issues.push({
+                        severity: "error",
+                        message: `${label} lists ${[...new Set(duplicates)].join(", ")} more than once in \`order\`.`,
+                    });
+                }
             }
         }
     }

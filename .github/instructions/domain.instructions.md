@@ -36,6 +36,13 @@ When starting a new bounded context, create the folder and the standard files
 the templates below, and add `flow.md` when the context has lifecycle or
 process flows.
 
+Reading order is declared in Markdown, not inferred from filenames:
+`context-map.md` is `.domain`'s root document and its file-level `order` lists
+the bounded contexts; each context's `domain.md` is that folder's root document
+and its `order` lists the remaining files. Update both when adding a context or
+a file, then regenerate `_meta/`. See
+`.github/instructions/chapter-metadata.instructions.md`.
+
 ## File responsibilities
 
 - **context-map.md** — Strategic DDD view across bounded contexts at the

@@ -11,9 +11,9 @@ Anything that exists **for tooling rather than for reading** carries a leading
 underscore, so a human scanning a folder can tell content from machinery at a
 glance.
 
-- **Tooling folders** are prefixed: `_index/` (derived artifacts). Files
+- **Tooling folders** are prefixed: `_meta/` (derived artifacts). Files
   *inside* such a folder are not prefixed again — the folder already carries
-  the signal, so it is `_index/graph.json`, never `_index/_graph.json`.
+  the signal, so it is `_meta/graph.json`, never `_meta/_graph.json`.
 - **Tooling files** sitting alongside content are prefixed individually:
   `_template.md`, `_schema.json`.
 
@@ -36,15 +36,15 @@ A name should not repeat what its location already says.
 - Instruction files are named after the area they govern:
   `.github/instructions/tech.instructions.md`, not `tech-knowledge.…`.
 - Derived artifacts are named after what they are, not their scope:
-  `.tech/_index/graph.json`, not `.tech/_index/tech-graph.json`.
+  `.tech/_meta/graph.json`, not `.tech/_meta/tech-graph.json`.
 
 ## Casing
 
-Use kebab-case for files and folders (`knowledge-graph/`,
+Use kebab-case for files and folders (`knowledge-meta/`,
 `chapter-metadata.instructions.md`). Keep any casing that an external tool
 requires, such as `SKILL.md` and `README.md`.
 
 ## Reference
 
 - `.github/instructions/derived-artifacts.instructions.md` — placement, naming,
-  and envelope rules for generated artifacts under `_index/`.
+  and envelope rules for generated artifacts under `_meta/`.
