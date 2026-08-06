@@ -1,0 +1,659 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
+  "scope": ".",
+  "sources": [
+    ".arc42",
+    ".domain",
+    ".backlog",
+    ".tech",
+    ".design"
+  ],
+  "problems": [],
+  "entries": [
+    {
+      "type": "area",
+      "name": ".arc42",
+      "path": ".arc42",
+      "kind": "arc42",
+      "title": ".arc42",
+      "children": [
+        {
+          "type": "file",
+          "name": "01-introduction-and-goals.md",
+          "path": ".arc42/01-introduction-and-goals.md",
+          "title": "01. Introduction and Goals",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "02-constraints.md",
+          "path": ".arc42/02-constraints.md",
+          "title": "02. Constraints",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "03-context-and-scope.md",
+          "path": ".arc42/03-context-and-scope.md",
+          "title": "03. Context and Scope",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "04-solution-strategy.md",
+          "path": ".arc42/04-solution-strategy.md",
+          "title": "04. Solution Strategy",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "05-building-block-view.md",
+          "path": ".arc42/05-building-block-view.md",
+          "title": "05. Building Block View",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "06-runtime-view.md",
+          "path": ".arc42/06-runtime-view.md",
+          "title": "06. Runtime View",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "07-deployment-view.md",
+          "path": ".arc42/07-deployment-view.md",
+          "title": "07. Deployment View",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "08-crosscutting-concepts.md",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "title": "08. Cross-cutting Concepts",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "09-architecture-decisions.md",
+          "path": ".arc42/09-architecture-decisions.md",
+          "title": "09. Architecture Decisions",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "10-quality-requirements.md",
+          "path": ".arc42/10-quality-requirements.md",
+          "title": "10. Quality Requirements",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "11-risks-and-technical-debt.md",
+          "path": ".arc42/11-risks-and-technical-debt.md",
+          "title": "11. Risks and Technical Debt",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "12-glossary.md",
+          "path": ".arc42/12-glossary.md",
+          "title": "12. Glossary",
+          "status": "active"
+        }
+      ]
+    },
+    {
+      "type": "area",
+      "name": ".domain",
+      "path": ".domain",
+      "kind": "domain",
+      "title": "Context Map: Backlog",
+      "children": [
+        {
+          "type": "file",
+          "name": "context-map.md",
+          "path": ".domain/context-map.md",
+          "title": "Context Map: Backlog",
+          "status": "draft",
+          "root": true
+        },
+        {
+          "type": "directory",
+          "name": "inbox",
+          "path": ".domain/inbox",
+          "title": "Domain: Inbox",
+          "children": [
+            {
+              "type": "file",
+              "name": "domain.md",
+              "path": ".domain/inbox/domain.md",
+              "title": "Domain: Inbox",
+              "status": "draft",
+              "root": true
+            },
+            {
+              "type": "file",
+              "name": "features.md",
+              "path": ".domain/inbox/features.md",
+              "title": "Features: Inbox",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "model.md",
+              "path": ".domain/inbox/model.md",
+              "title": "Domain Model: Inbox",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "flow.md",
+              "path": ".domain/inbox/flow.md",
+              "title": "Flow: Inbox",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "dependencies.md",
+              "path": ".domain/inbox/dependencies.md",
+              "title": "Dependencies: Inbox",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "naming.md",
+              "path": ".domain/inbox/naming.md",
+              "title": "Naming: Inbox",
+              "status": "draft"
+            }
+          ]
+        },
+        {
+          "type": "directory",
+          "name": "capture",
+          "path": ".domain/capture",
+          "title": "Domain: Capture",
+          "children": [
+            {
+              "type": "file",
+              "name": "domain.md",
+              "path": ".domain/capture/domain.md",
+              "title": "Domain: Capture",
+              "status": "draft",
+              "root": true
+            },
+            {
+              "type": "file",
+              "name": "features.md",
+              "path": ".domain/capture/features.md",
+              "title": "Features: Capture",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "model.md",
+              "path": ".domain/capture/model.md",
+              "title": "Domain Model: Capture",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "dependencies.md",
+              "path": ".domain/capture/dependencies.md",
+              "title": "Dependencies: Capture",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "naming.md",
+              "path": ".domain/capture/naming.md",
+              "title": "Naming: Capture",
+              "status": "draft"
+            }
+          ]
+        },
+        {
+          "type": "directory",
+          "name": "backlog",
+          "path": ".domain/backlog",
+          "title": "Domain: Backlog Management",
+          "children": [
+            {
+              "type": "file",
+              "name": "domain.md",
+              "path": ".domain/backlog/domain.md",
+              "title": "Domain: Backlog Management",
+              "status": "draft",
+              "root": true
+            },
+            {
+              "type": "file",
+              "name": "features.md",
+              "path": ".domain/backlog/features.md",
+              "title": "Features: Backlog Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "model.md",
+              "path": ".domain/backlog/model.md",
+              "title": "Domain Model: Backlog Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "flow.md",
+              "path": ".domain/backlog/flow.md",
+              "title": "Flow: Backlog Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "dependencies.md",
+              "path": ".domain/backlog/dependencies.md",
+              "title": "Dependencies: Backlog Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "naming.md",
+              "path": ".domain/backlog/naming.md",
+              "title": "Naming: Backlog Management",
+              "status": "draft"
+            }
+          ]
+        },
+        {
+          "type": "directory",
+          "name": "second-brain",
+          "path": ".domain/second-brain",
+          "title": "Domain: Second Brain",
+          "children": [
+            {
+              "type": "file",
+              "name": "domain.md",
+              "path": ".domain/second-brain/domain.md",
+              "title": "Domain: Second Brain",
+              "status": "draft",
+              "root": true
+            },
+            {
+              "type": "file",
+              "name": "features.md",
+              "path": ".domain/second-brain/features.md",
+              "title": "Features: Second Brain",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "model.md",
+              "path": ".domain/second-brain/model.md",
+              "title": "Domain Model: Second Brain",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "flow.md",
+              "path": ".domain/second-brain/flow.md",
+              "title": "Flow: Second Brain",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "dependencies.md",
+              "path": ".domain/second-brain/dependencies.md",
+              "title": "Dependencies: Second Brain",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "naming.md",
+              "path": ".domain/second-brain/naming.md",
+              "title": "Naming: Second Brain",
+              "status": "draft"
+            }
+          ]
+        },
+        {
+          "type": "directory",
+          "name": "repository-management",
+          "path": ".domain/repository-management",
+          "title": "Domain: Repository Management",
+          "children": [
+            {
+              "type": "file",
+              "name": "domain.md",
+              "path": ".domain/repository-management/domain.md",
+              "title": "Domain: Repository Management",
+              "status": "draft",
+              "root": true
+            },
+            {
+              "type": "file",
+              "name": "features.md",
+              "path": ".domain/repository-management/features.md",
+              "title": "Features: Repository Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "model.md",
+              "path": ".domain/repository-management/model.md",
+              "title": "Domain Model: Repository Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "flow.md",
+              "path": ".domain/repository-management/flow.md",
+              "title": "Flow: Repository Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "dependencies.md",
+              "path": ".domain/repository-management/dependencies.md",
+              "title": "Dependencies: Repository Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "naming.md",
+              "path": ".domain/repository-management/naming.md",
+              "title": "Naming: Repository Management",
+              "status": "draft"
+            }
+          ]
+        },
+        {
+          "type": "directory",
+          "name": "dev-pc-management",
+          "path": ".domain/dev-pc-management",
+          "title": "Domain: Dev PC Management",
+          "children": [
+            {
+              "type": "file",
+              "name": "domain.md",
+              "path": ".domain/dev-pc-management/domain.md",
+              "title": "Domain: Dev PC Management",
+              "status": "draft",
+              "root": true
+            },
+            {
+              "type": "file",
+              "name": "features.md",
+              "path": ".domain/dev-pc-management/features.md",
+              "title": "Features: Dev PC Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "model.md",
+              "path": ".domain/dev-pc-management/model.md",
+              "title": "Domain Model: Dev PC Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "flow.md",
+              "path": ".domain/dev-pc-management/flow.md",
+              "title": "Flow: Dev PC Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "dependencies.md",
+              "path": ".domain/dev-pc-management/dependencies.md",
+              "title": "Dependencies: Dev PC Management",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "naming.md",
+              "path": ".domain/dev-pc-management/naming.md",
+              "title": "Naming: Dev PC Management",
+              "status": "draft"
+            }
+          ]
+        },
+        {
+          "type": "directory",
+          "name": "monitoring",
+          "path": ".domain/monitoring",
+          "title": "Domain: Monitoring & Dashboard",
+          "children": [
+            {
+              "type": "file",
+              "name": "domain.md",
+              "path": ".domain/monitoring/domain.md",
+              "title": "Domain: Monitoring & Dashboard",
+              "status": "draft",
+              "root": true
+            },
+            {
+              "type": "file",
+              "name": "features.md",
+              "path": ".domain/monitoring/features.md",
+              "title": "Features: Monitoring & Dashboard",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "model.md",
+              "path": ".domain/monitoring/model.md",
+              "title": "Domain Model: Monitoring & Dashboard",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "flow.md",
+              "path": ".domain/monitoring/flow.md",
+              "title": "Flow: Monitoring & Dashboard",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "dependencies.md",
+              "path": ".domain/monitoring/dependencies.md",
+              "title": "Dependencies: Monitoring & Dashboard",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "naming.md",
+              "path": ".domain/monitoring/naming.md",
+              "title": "Naming: Monitoring & Dashboard",
+              "status": "draft"
+            }
+          ]
+        },
+        {
+          "type": "directory",
+          "name": "technology-stack",
+          "path": ".domain/technology-stack",
+          "title": "Domain: Technology Stack",
+          "children": [
+            {
+              "type": "file",
+              "name": "domain.md",
+              "path": ".domain/technology-stack/domain.md",
+              "title": "Domain: Technology Stack",
+              "status": "draft",
+              "root": true
+            },
+            {
+              "type": "file",
+              "name": "features.md",
+              "path": ".domain/technology-stack/features.md",
+              "title": "Features: Technology Stack",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "model.md",
+              "path": ".domain/technology-stack/model.md",
+              "title": "Domain Model: Technology Stack",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "flow.md",
+              "path": ".domain/technology-stack/flow.md",
+              "title": "Flow: Technology Stack",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "dependencies.md",
+              "path": ".domain/technology-stack/dependencies.md",
+              "title": "Dependencies: Technology Stack",
+              "status": "draft"
+            },
+            {
+              "type": "file",
+              "name": "naming.md",
+              "path": ".domain/technology-stack/naming.md",
+              "title": "Naming: Technology Stack",
+              "status": "draft"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "area",
+      "name": ".backlog",
+      "path": ".backlog",
+      "kind": "backlog",
+      "title": ".backlog",
+      "children": []
+    },
+    {
+      "type": "area",
+      "name": ".tech",
+      "path": ".tech",
+      "kind": "tech",
+      "title": "Technology Graph",
+      "children": [
+        {
+          "type": "file",
+          "name": "technology-graph.md",
+          "path": ".tech/technology-graph.md",
+          "title": "Technology Graph",
+          "status": "candidate",
+          "root": true
+        },
+        {
+          "type": "file",
+          "name": "shared.md",
+          "path": ".tech/shared.md",
+          "title": "Shared Technologies",
+          "status": "candidate"
+        },
+        {
+          "type": "file",
+          "name": "desktop.md",
+          "path": ".tech/desktop.md",
+          "title": "Desktop Stack",
+          "status": "candidate"
+        },
+        {
+          "type": "file",
+          "name": "ide.md",
+          "path": ".tech/ide.md",
+          "title": "IDE Stack",
+          "status": "candidate"
+        },
+        {
+          "type": "file",
+          "name": "mobile.md",
+          "path": ".tech/mobile.md",
+          "title": "Mobile Stack",
+          "status": "candidate"
+        },
+        {
+          "type": "file",
+          "name": "cloud.md",
+          "path": ".tech/cloud.md",
+          "title": "Cloud Stack",
+          "status": "candidate"
+        },
+        {
+          "type": "file",
+          "name": "tooling.md",
+          "path": ".tech/tooling.md",
+          "title": "Development and Governance Tooling",
+          "status": "adopted"
+        }
+      ]
+    },
+    {
+      "type": "area",
+      "name": ".design",
+      "path": ".design",
+      "kind": "design",
+      "title": "Design Knowledge (`.design`)",
+      "children": [
+        {
+          "type": "file",
+          "name": "README.md",
+          "path": ".design/README.md",
+          "title": "Design Knowledge (`.design`)",
+          "status": "active",
+          "root": true
+        },
+        {
+          "type": "file",
+          "name": "design-principles.md",
+          "path": ".design/design-principles.md",
+          "title": "Design Principles",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "color-scheme.md",
+          "path": ".design/color-scheme.md",
+          "title": "Color Scheme",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "typography-and-layout.md",
+          "path": ".design/typography-and-layout.md",
+          "title": "Typography and Layout",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "interaction-guidelines.md",
+          "path": ".design/interaction-guidelines.md",
+          "title": "Interaction Guidelines",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "content-editing.md",
+          "path": ".design/content-editing.md",
+          "title": "Content Editing",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "accessibility.md",
+          "path": ".design/accessibility.md",
+          "title": "Accessibility",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "component-libraries.md",
+          "path": ".design/component-libraries.md",
+          "title": "Component Libraries",
+          "status": "active"
+        }
+      ]
+    }
+  ]
+}

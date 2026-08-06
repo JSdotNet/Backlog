@@ -2,6 +2,7 @@
 
 ```meta
 status: draft
+order: ["inbox", "capture", "backlog", "second-brain", "repository-management", "dev-pc-management", "monitoring", "technology-stack"]
 ```
 
 > Strategic DDD view of the Backlog product domain: bounded-context roles,

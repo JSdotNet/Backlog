@@ -2,6 +2,7 @@
 
 ```meta
 status: active
+order: ["design-principles.md", "color-scheme.md", "typography-and-layout.md", "interaction-guidelines.md", "content-editing.md", "accessibility.md", "component-libraries.md"]
 related: [".arc42/02-constraints.md#technical-constraints", ".arc42/04-solution-strategy.md#technology-choices", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
@@ -106,5 +107,5 @@ Files and chapters in `.design` use `status: draft | active | deprecated`
 (`draft` = proposed/unverified, `active` = current binding guidance,
 `deprecated` = superseded). Metadata blocks follow
 `.github/instructions/chapter-metadata.instructions.md` and
-`.github/instructions/design-knowledge.instructions.md`: only `status` is
+`.github/instructions/design.instructions.md`: only `status` is
 required; `related` and `issue` are optional and omitted when empty.

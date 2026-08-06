@@ -2,7 +2,7 @@
 
 ```meta
 status: active
-related: [".design/design-principles.md#no-save-buttons-auto-save-everywhere", ".design/accessibility.md", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
+related: [".design/design-principles.md#no-save-buttons--auto-save-everywhere", ".design/accessibility.md", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
 > Binding interaction rules for the Backlog product: auto-save (there are no save
@@ -18,7 +18,7 @@ related: [".design/design-principles.md#no-save-buttons-auto-save-everywhere", "
 
 ```meta
 status: active
-related: [".design/design-principles.md#no-save-buttons-auto-save-everywhere", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
+related: [".design/design-principles.md#no-save-buttons--auto-save-everywhere", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
 There is **no manual save anywhere in the product**. Every edit persists

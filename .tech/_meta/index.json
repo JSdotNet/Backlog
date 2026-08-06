@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
+  "scope": ".tech",
+  "sources": [
+    ".tech"
+  ],
+  "problems": [],
+  "entries": [
+    {
+      "type": "file",
+      "name": "technology-graph.md",
+      "path": ".tech/technology-graph.md",
+      "title": "Technology Graph",
+      "status": "candidate",
+      "root": true
+    },
+    {
+      "type": "file",
+      "name": "shared.md",
+      "path": ".tech/shared.md",
+      "title": "Shared Technologies",
+      "status": "candidate"
+    },
+    {
+      "type": "file",
+      "name": "desktop.md",
+      "path": ".tech/desktop.md",
+      "title": "Desktop Stack",
+      "status": "candidate"
+    },
+    {
+      "type": "file",
+      "name": "ide.md",
+      "path": ".tech/ide.md",
+      "title": "IDE Stack",
+      "status": "candidate"
+    },
+    {
+      "type": "file",
+      "name": "mobile.md",
+      "path": ".tech/mobile.md",
+      "title": "Mobile Stack",
+      "status": "candidate"
+    },
+    {
+      "type": "file",
+      "name": "cloud.md",
+      "path": ".tech/cloud.md",
+      "title": "Cloud Stack",
+      "status": "candidate"
+    },
+    {
+      "type": "file",
+      "name": "tooling.md",
+      "path": ".tech/tooling.md",
+      "title": "Development and Governance Tooling",
+      "status": "adopted"
+    }
+  ]
+}

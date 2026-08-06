@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
+  "scope": ".backlog",
+  "sources": [
+    ".backlog"
+  ],
+  "problems": [],
+  "entries": []
+}

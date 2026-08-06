@@ -1,0 +1,1854 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
+  "scope": ".arc42",
+  "sources": [
+    ".arc42"
+  ],
+  "stats": {
+    "nodes": 65,
+    "edges": 103,
+    "nodesByFolder": {
+      "arc42": 54,
+      "domain": 11
+    },
+    "nodesByType": {
+      "file": 13,
+      "chapter": 52
+    },
+    "nodesByStatus": {
+      "active": 47,
+      "draft": 18
+    },
+    "edgesByType": {
+      "contains": 42,
+      "related": 61
+    }
+  },
+  "problems": [],
+  "elements": {
+    "nodes": [
+      {
+        "data": {
+          "id": ".arc42/01-introduction-and-goals.md",
+          "label": "01. Introduction and Goals",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/01-introduction-and-goals.md",
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/01-introduction-and-goals.md#requirements-overview",
+          "label": "Requirements Overview",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/01-introduction-and-goals.md",
+          "slug": "requirements-overview",
+          "level": 2,
+          "line": 16,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/01-introduction-and-goals.md#quality-goals",
+          "label": "Quality Goals",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/01-introduction-and-goals.md",
+          "slug": "quality-goals",
+          "level": 2,
+          "line": 41,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/01-introduction-and-goals.md#person",
+          "label": "Person",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/01-introduction-and-goals.md",
+          "slug": "person",
+          "level": 2,
+          "line": 60,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/02-constraints.md",
+          "label": "02. Constraints",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/02-constraints.md",
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/02-constraints.md#technical-constraints",
+          "label": "Technical Constraints",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/02-constraints.md",
+          "slug": "technical-constraints",
+          "level": 2,
+          "line": 10,
+          "status": "active",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/02-constraints.md#organizational--process-constraints",
+          "label": "Organizational & Process Constraints",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/02-constraints.md",
+          "slug": "organizational--process-constraints",
+          "level": 2,
+          "line": 26,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/03-context-and-scope.md",
+          "label": "03. Context and Scope",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/03-context-and-scope.md",
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/03-context-and-scope.md#business-context",
+          "label": "Business Context",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/03-context-and-scope.md",
+          "slug": "business-context",
+          "level": 2,
+          "line": 10,
+          "status": "active",
+          "related": [
+            ".arc42/01-introduction-and-goals.md#requirements-overview"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox",
+          "label": "Domain boundary: Capture vs. Inbox",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/03-context-and-scope.md",
+          "slug": "domain-boundary-capture-vs-inbox",
+          "level": 3,
+          "line": 41,
+          "status": "active",
+          "related": [
+            ".domain/context-map.md",
+            ".domain/capture/domain.md#aggregate-capture",
+            ".domain/inbox/domain.md#aggregate-inbox-item"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/03-context-and-scope.md#external-interfaces",
+          "label": "External Interfaces",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/03-context-and-scope.md",
+          "slug": "external-interfaces",
+          "level": 2,
+          "line": 66,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/03-context-and-scope.md#access-channels-scope",
+          "label": "Access Channels (Scope)",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/03-context-and-scope.md",
+          "slug": "access-channels-scope",
+          "level": 2,
+          "line": 85,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#container-view"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/04-solution-strategy.md",
+          "label": "04. Solution Strategy",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/04-solution-strategy.md",
+          "status": "active",
+          "related": [
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/04-solution-strategy.md#local-first-architecture",
+          "label": "Local-first Architecture",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/04-solution-strategy.md",
+          "slug": "local-first-architecture",
+          "level": 2,
+          "line": 11,
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/04-solution-strategy.md#domain-decomposition",
+          "label": "Domain Decomposition",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/04-solution-strategy.md",
+          "slug": "domain-decomposition",
+          "level": 2,
+          "line": 33,
+          "status": "active",
+          "related": [
+            ".arc42/01-introduction-and-goals.md#requirements-overview"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "label": "Thin Cloud, Rich Desktop",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/04-solution-strategy.md",
+          "slug": "thin-cloud-rich-desktop",
+          "level": 2,
+          "line": 47,
+          "status": "active",
+          "related": [
+            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/04-solution-strategy.md#technology-choices",
+          "label": "Technology Choices",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/04-solution-strategy.md",
+          "slug": "technology-choices",
+          "level": 2,
+          "line": 64,
+          "status": "active",
+          "related": [
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/04-solution-strategy.md#cross-cutting-strategy",
+          "label": "Cross-cutting Strategy",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/04-solution-strategy.md",
+          "slug": "cross-cutting-strategy",
+          "level": 2,
+          "line": 82,
+          "status": "active",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/05-building-block-view.md",
+          "label": "05. Building Block View",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/05-building-block-view.md",
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/05-building-block-view.md#container-view",
+          "label": "Container View",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/05-building-block-view.md",
+          "slug": "container-view",
+          "level": 2,
+          "line": 10,
+          "status": "active",
+          "related": [
+            ".arc42/03-context-and-scope.md#access-channels-scope",
+            ".domain/context-map.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/05-building-block-view.md#desktop-app",
+          "label": "Desktop App",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/05-building-block-view.md",
+          "slug": "desktop-app",
+          "level": 2,
+          "line": 157,
+          "status": "active",
+          "related": [
+            ".arc42/06-runtime-view.md#backlog-entry-to-github-issue"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/05-building-block-view.md#mobile-app",
+          "label": "Mobile App",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/05-building-block-view.md",
+          "slug": "mobile-app",
+          "level": 2,
+          "line": 233,
+          "status": "active",
+          "related": [
+            ".arc42/06-runtime-view.md#mobile-capture-and-sync",
+            ".arc42/06-runtime-view.md#sync-item-lifecycle"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/05-building-block-view.md#ide-extensions",
+          "label": "IDE Extensions",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/05-building-block-view.md",
+          "slug": "ide-extensions",
+          "level": 2,
+          "line": 273,
+          "status": "active",
+          "related": [
+            ".arc42/06-runtime-view.md#ide-context-aware-capture",
+            ".arc42/06-runtime-view.md#copilot-app-session-capture"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/05-building-block-view.md#cloud-service",
+          "label": "Cloud Service",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/05-building-block-view.md",
+          "slug": "cloud-service",
+          "level": 2,
+          "line": 333,
+          "status": "active",
+          "related": [
+            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/06-runtime-view.md",
+          "label": "06. Runtime View",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/06-runtime-view.md",
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "label": "Backlog Entry to GitHub Issue",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/06-runtime-view.md",
+          "slug": "backlog-entry-to-github-issue",
+          "level": 2,
+          "line": 11,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#desktop-app"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "label": "State Sync and Webhook Forwarding",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/06-runtime-view.md",
+          "slug": "state-sync-and-webhook-forwarding",
+          "level": 2,
+          "line": 48,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#cloud-service"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/06-runtime-view.md#mobile-capture-and-sync",
+          "label": "Mobile Capture and Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/06-runtime-view.md",
+          "slug": "mobile-capture-and-sync",
+          "level": 2,
+          "line": 84,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#mobile-app"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/06-runtime-view.md#sync-item-lifecycle",
+          "label": "Sync Item Lifecycle",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/06-runtime-view.md",
+          "slug": "sync-item-lifecycle",
+          "level": 2,
+          "line": 121,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#mobile-app"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/06-runtime-view.md#ide-context-aware-capture",
+          "label": "IDE Context-aware Capture",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/06-runtime-view.md",
+          "slug": "ide-context-aware-capture",
+          "level": 2,
+          "line": 147,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#ide-extensions"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/06-runtime-view.md#copilot-app-session-capture",
+          "label": "Copilot App Session Capture",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/06-runtime-view.md",
+          "slug": "copilot-app-session-capture",
+          "level": 2,
+          "line": 179,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#ide-extensions",
+            ".domain/capture/domain.md#domain-service-source-adapter",
+            ".domain/capture/features.md#sub-feature-copilot-app-session-capture"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal",
+          "label": "Repository Baseline Scan and Health Signal",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/06-runtime-view.md",
+          "slug": "repository-baseline-scan-and-health-signal",
+          "level": 2,
+          "line": 212,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#desktop-app",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/06-runtime-view.md#remote-pc-wake-and-status-update",
+          "label": "Remote PC Wake and Status Update",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/06-runtime-view.md",
+          "slug": "remote-pc-wake-and-status-update",
+          "level": 2,
+          "line": 246,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#desktop-app",
+            ".arc42/05-building-block-view.md#cloud-service"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/07-deployment-view.md",
+          "label": "07. Deployment View",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "label": "Local Deployment (Desktop)",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "slug": "local-deployment-desktop",
+          "level": 2,
+          "line": 11,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#desktop-app",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "label": "Cloud Deployment (Azure)",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "slug": "cloud-deployment-azure",
+          "level": 2,
+          "line": 37,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#cloud-service",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md",
+          "label": "08. Cross-cutting Concepts",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "label": "Storage and Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "storage-and-sync",
+          "level": 2,
+          "line": 10,
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+            ".arc42/06-runtime-view.md#copilot-app-session-capture",
+            ".domain/capture/domain.md#domain-service-source-adapter"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#tagging-and-organization",
+          "label": "Tagging and Organization",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "tagging-and-organization",
+          "level": 2,
+          "line": 34,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+          "label": "Authentication and Authorization",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "authentication-and-authorization",
+          "level": 2,
+          "line": 45,
+          "status": "active",
+          "related": [
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#observability",
+          "label": "Observability",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "observability",
+          "level": 2,
+          "line": 60,
+          "status": "active",
+          "related": [
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "label": "Shared Data Types",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "shared-data-types",
+          "level": 2,
+          "line": 71,
+          "status": "active",
+          "related": [
+            ".arc42/12-glossary.md",
+            ".domain/inbox/domain.md#aggregate-inbox-item",
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/second-brain/domain.md#aggregate-knowledge-note",
+            ".domain/monitoring/domain.md#aggregate-progress-signal",
+            ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+            ".domain/repository-management/domain.md#aggregate-repository-registry",
+            ".domain/technology-stack/domain.md#aggregate-technology-registry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/09-architecture-decisions.md",
+          "label": "09. Architecture Decisions",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/09-architecture-decisions.md",
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification",
+          "label": "Cloud-service ADR alignments (pending MCP verification)",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/09-architecture-decisions.md",
+          "slug": "cloud-service-adr-alignments-pending-mcp-verification",
+          "level": 2,
+          "line": 13,
+          "status": "draft",
+          "related": [
+            ".arc42/05-building-block-view.md#cloud-service",
+            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/09-architecture-decisions.md#local-system-decisions",
+          "label": "Local system decisions",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/09-architecture-decisions.md",
+          "slug": "local-system-decisions",
+          "level": 2,
+          "line": 41,
+          "status": "active",
+          "related": [
+            ".arc42/04-solution-strategy.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/10-quality-requirements.md",
+          "label": "10. Quality Requirements",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/10-quality-requirements.md",
+          "status": "draft",
+          "related": [
+            ".arc42/01-introduction-and-goals.md#quality-goals"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/10-quality-requirements.md#quality-scenarios",
+          "label": "Quality Scenarios",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/10-quality-requirements.md",
+          "slug": "quality-scenarios",
+          "level": 2,
+          "line": 11,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/11-risks-and-technical-debt.md",
+          "label": "11. Risks and Technical Debt",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/11-risks-and-technical-debt.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/11-risks-and-technical-debt.md#open-design-questions",
+          "label": "Open Design Questions",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/11-risks-and-technical-debt.md",
+          "slug": "open-design-questions",
+          "level": 2,
+          "line": 12,
+          "status": "draft",
+          "related": [
+            ".arc42/03-context-and-scope.md#business-context"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/11-risks-and-technical-debt.md#architectural-risks",
+          "label": "Architectural Risks",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/11-risks-and-technical-debt.md",
+          "slug": "architectural-risks",
+          "level": 2,
+          "line": 26,
+          "status": "draft",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/11-risks-and-technical-debt.md#technical-debt",
+          "label": "Technical Debt",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/11-risks-and-technical-debt.md",
+          "slug": "technical-debt",
+          "level": 2,
+          "line": 40,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/12-glossary.md",
+          "label": "12. Glossary",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/12-glossary.md",
+          "status": "active",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#shared-data-types",
+            ".domain/context-map.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/12-glossary.md#terms",
+          "label": "Terms",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/12-glossary.md",
+          "slug": "terms",
+          "level": 2,
+          "line": 14,
+          "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/12-glossary.md#shared-data-types",
+          "label": "Shared Data Types",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/12-glossary.md",
+          "slug": "shared-data-types",
+          "level": 2,
+          "line": 34,
+          "status": "active",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/context-map.md",
+          "label": "Context Map: Backlog",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/context-map.md",
+          "status": "draft",
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/capture/domain.md#aggregate-capture",
+          "label": "Aggregate: Capture",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/capture/domain.md",
+          "slug": "aggregate-capture",
+          "level": 2,
+          "line": 20,
+          "status": "draft",
+          "related": [
+            ".domain/inbox/domain.md#aggregate-inbox-item"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/domain.md#aggregate-inbox-item",
+          "label": "Aggregate: Inbox Item",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/domain.md",
+          "slug": "aggregate-inbox-item",
+          "level": 2,
+          "line": 21,
+          "status": "draft",
+          "related": [
+            ".domain/capture/domain.md#aggregate-capture",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/capture/domain.md#domain-service-source-adapter",
+          "label": "Domain Service: Source Adapter",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/capture/domain.md",
+          "slug": "domain-service-source-adapter",
+          "level": 2,
+          "line": 71,
+          "status": "draft",
+          "related": [
+            ".domain/inbox/domain.md#aggregate-inbox-item",
+            ".arc42/06-runtime-view.md#mobile-capture-and-sync",
+            ".arc42/06-runtime-view.md#ide-context-aware-capture"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/capture/features.md#sub-feature-copilot-app-session-capture",
+          "label": "Sub-feature: Copilot App session capture",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/capture/features.md",
+          "slug": "sub-feature-copilot-app-session-capture",
+          "level": 3,
+          "line": 117,
+          "status": "draft",
+          "related": [
+            ".domain/capture/domain.md#domain-service-source-adapter"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "label": "Aggregate: Backlog Entry",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "slug": "aggregate-backlog-entry",
+          "level": 2,
+          "line": 19,
+          "status": "draft",
+          "related": [
+            ".domain/inbox/domain.md#aggregate-inbox-item",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/domain.md#aggregate-knowledge-note",
+          "label": "Aggregate: Knowledge Note",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/domain.md",
+          "slug": "aggregate-knowledge-note",
+          "level": 2,
+          "line": 19,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/monitoring/domain.md#aggregate-progress-signal",
+          "label": "Aggregate: Progress Signal",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/monitoring/domain.md",
+          "slug": "aggregate-progress-signal",
+          "level": 2,
+          "line": 21,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/inbox/domain.md#aggregate-inbox-item",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+          "label": "Aggregate: Machine Registry",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/dev-pc-management/domain.md",
+          "slug": "aggregate-machine-registry",
+          "level": 2,
+          "line": 19,
+          "status": "draft",
+          "related": [
+            ".domain/technology-stack/domain.md#aggregate-technology-registry",
+            ".domain/monitoring/domain.md#aggregate-progress-signal",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/repository-management/domain.md#aggregate-repository-registry",
+          "label": "Aggregate: Repository Registry",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/repository-management/domain.md",
+          "slug": "aggregate-repository-registry",
+          "level": 2,
+          "line": 19,
+          "status": "draft",
+          "related": [
+            ".domain/technology-stack/domain.md#aggregate-technology-registry",
+            ".domain/monitoring/domain.md#aggregate-progress-signal",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/technology-stack/domain.md#aggregate-technology-registry",
+          "label": "Aggregate: Technology Registry",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/technology-stack/domain.md",
+          "slug": "aggregate-technology-registry",
+          "level": 2,
+          "line": 21,
+          "status": "draft",
+          "related": [
+            ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+            ".domain/repository-management/domain.md#aggregate-repository-registry",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ],
+          "outOfScope": true
+        }
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "id": "contains:.arc42/01-introduction-and-goals.md->.arc42/01-introduction-and-goals.md#requirements-overview",
+          "source": ".arc42/01-introduction-and-goals.md",
+          "target": ".arc42/01-introduction-and-goals.md#requirements-overview",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/01-introduction-and-goals.md->.arc42/01-introduction-and-goals.md#quality-goals",
+          "source": ".arc42/01-introduction-and-goals.md",
+          "target": ".arc42/01-introduction-and-goals.md#quality-goals",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/01-introduction-and-goals.md->.arc42/01-introduction-and-goals.md#person",
+          "source": ".arc42/01-introduction-and-goals.md",
+          "target": ".arc42/01-introduction-and-goals.md#person",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/02-constraints.md->.arc42/02-constraints.md#technical-constraints",
+          "source": ".arc42/02-constraints.md",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/02-constraints.md->.arc42/02-constraints.md#organizational--process-constraints",
+          "source": ".arc42/02-constraints.md",
+          "target": ".arc42/02-constraints.md#organizational--process-constraints",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/03-context-and-scope.md->.arc42/03-context-and-scope.md#business-context",
+          "source": ".arc42/03-context-and-scope.md",
+          "target": ".arc42/03-context-and-scope.md#business-context",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/03-context-and-scope.md#business-context->.arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox",
+          "source": ".arc42/03-context-and-scope.md#business-context",
+          "target": ".arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/03-context-and-scope.md->.arc42/03-context-and-scope.md#external-interfaces",
+          "source": ".arc42/03-context-and-scope.md",
+          "target": ".arc42/03-context-and-scope.md#external-interfaces",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/03-context-and-scope.md->.arc42/03-context-and-scope.md#access-channels-scope",
+          "source": ".arc42/03-context-and-scope.md",
+          "target": ".arc42/03-context-and-scope.md#access-channels-scope",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/04-solution-strategy.md->.arc42/04-solution-strategy.md#local-first-architecture",
+          "source": ".arc42/04-solution-strategy.md",
+          "target": ".arc42/04-solution-strategy.md#local-first-architecture",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/04-solution-strategy.md->.arc42/04-solution-strategy.md#domain-decomposition",
+          "source": ".arc42/04-solution-strategy.md",
+          "target": ".arc42/04-solution-strategy.md#domain-decomposition",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/04-solution-strategy.md->.arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "source": ".arc42/04-solution-strategy.md",
+          "target": ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/04-solution-strategy.md->.arc42/04-solution-strategy.md#technology-choices",
+          "source": ".arc42/04-solution-strategy.md",
+          "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/04-solution-strategy.md->.arc42/04-solution-strategy.md#cross-cutting-strategy",
+          "source": ".arc42/04-solution-strategy.md",
+          "target": ".arc42/04-solution-strategy.md#cross-cutting-strategy",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/05-building-block-view.md->.arc42/05-building-block-view.md#container-view",
+          "source": ".arc42/05-building-block-view.md",
+          "target": ".arc42/05-building-block-view.md#container-view",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/05-building-block-view.md->.arc42/05-building-block-view.md#desktop-app",
+          "source": ".arc42/05-building-block-view.md",
+          "target": ".arc42/05-building-block-view.md#desktop-app",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/05-building-block-view.md->.arc42/05-building-block-view.md#mobile-app",
+          "source": ".arc42/05-building-block-view.md",
+          "target": ".arc42/05-building-block-view.md#mobile-app",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/05-building-block-view.md->.arc42/05-building-block-view.md#ide-extensions",
+          "source": ".arc42/05-building-block-view.md",
+          "target": ".arc42/05-building-block-view.md#ide-extensions",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/05-building-block-view.md->.arc42/05-building-block-view.md#cloud-service",
+          "source": ".arc42/05-building-block-view.md",
+          "target": ".arc42/05-building-block-view.md#cloud-service",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/06-runtime-view.md->.arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "source": ".arc42/06-runtime-view.md",
+          "target": ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/06-runtime-view.md->.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "source": ".arc42/06-runtime-view.md",
+          "target": ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/06-runtime-view.md->.arc42/06-runtime-view.md#mobile-capture-and-sync",
+          "source": ".arc42/06-runtime-view.md",
+          "target": ".arc42/06-runtime-view.md#mobile-capture-and-sync",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/06-runtime-view.md->.arc42/06-runtime-view.md#sync-item-lifecycle",
+          "source": ".arc42/06-runtime-view.md",
+          "target": ".arc42/06-runtime-view.md#sync-item-lifecycle",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/06-runtime-view.md->.arc42/06-runtime-view.md#ide-context-aware-capture",
+          "source": ".arc42/06-runtime-view.md",
+          "target": ".arc42/06-runtime-view.md#ide-context-aware-capture",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/06-runtime-view.md->.arc42/06-runtime-view.md#copilot-app-session-capture",
+          "source": ".arc42/06-runtime-view.md",
+          "target": ".arc42/06-runtime-view.md#copilot-app-session-capture",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/06-runtime-view.md->.arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal",
+          "source": ".arc42/06-runtime-view.md",
+          "target": ".arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/06-runtime-view.md->.arc42/06-runtime-view.md#remote-pc-wake-and-status-update",
+          "source": ".arc42/06-runtime-view.md",
+          "target": ".arc42/06-runtime-view.md#remote-pc-wake-and-status-update",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/07-deployment-view.md->.arc42/07-deployment-view.md#local-deployment-desktop",
+          "source": ".arc42/07-deployment-view.md",
+          "target": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/07-deployment-view.md->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".arc42/07-deployment-view.md",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/08-crosscutting-concepts.md",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#tagging-and-organization",
+          "source": ".arc42/08-crosscutting-concepts.md",
+          "target": ".arc42/08-crosscutting-concepts.md#tagging-and-organization",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+          "source": ".arc42/08-crosscutting-concepts.md",
+          "target": ".arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#observability",
+          "source": ".arc42/08-crosscutting-concepts.md",
+          "target": ".arc42/08-crosscutting-concepts.md#observability",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#shared-data-types",
+          "source": ".arc42/08-crosscutting-concepts.md",
+          "target": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/09-architecture-decisions.md->.arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification",
+          "source": ".arc42/09-architecture-decisions.md",
+          "target": ".arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/09-architecture-decisions.md->.arc42/09-architecture-decisions.md#local-system-decisions",
+          "source": ".arc42/09-architecture-decisions.md",
+          "target": ".arc42/09-architecture-decisions.md#local-system-decisions",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/10-quality-requirements.md->.arc42/10-quality-requirements.md#quality-scenarios",
+          "source": ".arc42/10-quality-requirements.md",
+          "target": ".arc42/10-quality-requirements.md#quality-scenarios",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/11-risks-and-technical-debt.md->.arc42/11-risks-and-technical-debt.md#open-design-questions",
+          "source": ".arc42/11-risks-and-technical-debt.md",
+          "target": ".arc42/11-risks-and-technical-debt.md#open-design-questions",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/11-risks-and-technical-debt.md->.arc42/11-risks-and-technical-debt.md#architectural-risks",
+          "source": ".arc42/11-risks-and-technical-debt.md",
+          "target": ".arc42/11-risks-and-technical-debt.md#architectural-risks",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/11-risks-and-technical-debt.md->.arc42/11-risks-and-technical-debt.md#technical-debt",
+          "source": ".arc42/11-risks-and-technical-debt.md",
+          "target": ".arc42/11-risks-and-technical-debt.md#technical-debt",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/12-glossary.md->.arc42/12-glossary.md#terms",
+          "source": ".arc42/12-glossary.md",
+          "target": ".arc42/12-glossary.md#terms",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/12-glossary.md->.arc42/12-glossary.md#shared-data-types",
+          "source": ".arc42/12-glossary.md",
+          "target": ".arc42/12-glossary.md#shared-data-types",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/02-constraints.md#technical-constraints->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/02-constraints.md#technical-constraints",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/03-context-and-scope.md#business-context->.arc42/01-introduction-and-goals.md#requirements-overview",
+          "source": ".arc42/03-context-and-scope.md#business-context",
+          "target": ".arc42/01-introduction-and-goals.md#requirements-overview",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox->.domain/context-map.md",
+          "source": ".arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox",
+          "target": ".domain/context-map.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox->.domain/capture/domain.md#aggregate-capture",
+          "source": ".arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox",
+          "target": ".domain/capture/domain.md#aggregate-capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox->.domain/inbox/domain.md#aggregate-inbox-item",
+          "source": ".arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox",
+          "target": ".domain/inbox/domain.md#aggregate-inbox-item",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/03-context-and-scope.md#access-channels-scope->.arc42/05-building-block-view.md#container-view",
+          "source": ".arc42/03-context-and-scope.md#access-channels-scope",
+          "target": ".arc42/05-building-block-view.md#container-view",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/04-solution-strategy.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/04-solution-strategy.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/04-solution-strategy.md#local-first-architecture->.arc42/02-constraints.md#technical-constraints",
+          "source": ".arc42/04-solution-strategy.md#local-first-architecture",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/04-solution-strategy.md#domain-decomposition->.arc42/01-introduction-and-goals.md#requirements-overview",
+          "source": ".arc42/04-solution-strategy.md#domain-decomposition",
+          "target": ".arc42/01-introduction-and-goals.md#requirements-overview",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/04-solution-strategy.md#thin-cloud-rich-desktop->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/04-solution-strategy.md#technology-choices->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/04-solution-strategy.md#technology-choices",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/04-solution-strategy.md#cross-cutting-strategy->.arc42/08-crosscutting-concepts.md",
+          "source": ".arc42/04-solution-strategy.md#cross-cutting-strategy",
+          "target": ".arc42/08-crosscutting-concepts.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/05-building-block-view.md#container-view->.arc42/03-context-and-scope.md#access-channels-scope",
+          "source": ".arc42/05-building-block-view.md#container-view",
+          "target": ".arc42/03-context-and-scope.md#access-channels-scope",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/05-building-block-view.md#container-view->.domain/context-map.md",
+          "source": ".arc42/05-building-block-view.md#container-view",
+          "target": ".domain/context-map.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/05-building-block-view.md#desktop-app->.arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "source": ".arc42/05-building-block-view.md#desktop-app",
+          "target": ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/05-building-block-view.md#mobile-app->.arc42/06-runtime-view.md#mobile-capture-and-sync",
+          "source": ".arc42/05-building-block-view.md#mobile-app",
+          "target": ".arc42/06-runtime-view.md#mobile-capture-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/05-building-block-view.md#mobile-app->.arc42/06-runtime-view.md#sync-item-lifecycle",
+          "source": ".arc42/05-building-block-view.md#mobile-app",
+          "target": ".arc42/06-runtime-view.md#sync-item-lifecycle",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/05-building-block-view.md#ide-extensions->.arc42/06-runtime-view.md#ide-context-aware-capture",
+          "source": ".arc42/05-building-block-view.md#ide-extensions",
+          "target": ".arc42/06-runtime-view.md#ide-context-aware-capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/05-building-block-view.md#ide-extensions->.arc42/06-runtime-view.md#copilot-app-session-capture",
+          "source": ".arc42/05-building-block-view.md#ide-extensions",
+          "target": ".arc42/06-runtime-view.md#copilot-app-session-capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/05-building-block-view.md#cloud-service->.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "source": ".arc42/05-building-block-view.md#cloud-service",
+          "target": ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/05-building-block-view.md#cloud-service->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".arc42/05-building-block-view.md#cloud-service",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md->.arc42/05-building-block-view.md",
+          "source": ".arc42/06-runtime-view.md",
+          "target": ".arc42/05-building-block-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#backlog-entry-to-github-issue->.arc42/05-building-block-view.md#desktop-app",
+          "source": ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "target": ".arc42/05-building-block-view.md#desktop-app",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding->.arc42/05-building-block-view.md#cloud-service",
+          "source": ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "target": ".arc42/05-building-block-view.md#cloud-service",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#mobile-capture-and-sync->.arc42/05-building-block-view.md#mobile-app",
+          "source": ".arc42/06-runtime-view.md#mobile-capture-and-sync",
+          "target": ".arc42/05-building-block-view.md#mobile-app",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#sync-item-lifecycle->.arc42/05-building-block-view.md#mobile-app",
+          "source": ".arc42/06-runtime-view.md#sync-item-lifecycle",
+          "target": ".arc42/05-building-block-view.md#mobile-app",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#ide-context-aware-capture->.arc42/05-building-block-view.md#ide-extensions",
+          "source": ".arc42/06-runtime-view.md#ide-context-aware-capture",
+          "target": ".arc42/05-building-block-view.md#ide-extensions",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#copilot-app-session-capture->.arc42/05-building-block-view.md#ide-extensions",
+          "source": ".arc42/06-runtime-view.md#copilot-app-session-capture",
+          "target": ".arc42/05-building-block-view.md#ide-extensions",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#copilot-app-session-capture->.domain/capture/domain.md#domain-service-source-adapter",
+          "source": ".arc42/06-runtime-view.md#copilot-app-session-capture",
+          "target": ".domain/capture/domain.md#domain-service-source-adapter",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#copilot-app-session-capture->.domain/capture/features.md#sub-feature-copilot-app-session-capture",
+          "source": ".arc42/06-runtime-view.md#copilot-app-session-capture",
+          "target": ".domain/capture/features.md#sub-feature-copilot-app-session-capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal->.arc42/05-building-block-view.md#desktop-app",
+          "source": ".arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal",
+          "target": ".arc42/05-building-block-view.md#desktop-app",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal->.arc42/08-crosscutting-concepts.md#shared-data-types",
+          "source": ".arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal",
+          "target": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#remote-pc-wake-and-status-update->.arc42/05-building-block-view.md#desktop-app",
+          "source": ".arc42/06-runtime-view.md#remote-pc-wake-and-status-update",
+          "target": ".arc42/05-building-block-view.md#desktop-app",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/06-runtime-view.md#remote-pc-wake-and-status-update->.arc42/05-building-block-view.md#cloud-service",
+          "source": ".arc42/06-runtime-view.md#remote-pc-wake-and-status-update",
+          "target": ".arc42/05-building-block-view.md#cloud-service",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#local-deployment-desktop->.arc42/05-building-block-view.md#desktop-app",
+          "source": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "target": ".arc42/05-building-block-view.md#desktop-app",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#local-deployment-desktop->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#cloud-deployment-azure->.arc42/05-building-block-view.md#cloud-service",
+          "source": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "target": ".arc42/05-building-block-view.md#cloud-service",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#cloud-deployment-azure->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.arc42/02-constraints.md#technical-constraints",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.arc42/06-runtime-view.md#copilot-app-session-capture",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".arc42/06-runtime-view.md#copilot-app-session-capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.domain/capture/domain.md#domain-service-source-adapter",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".domain/capture/domain.md#domain-service-source-adapter",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#authentication-and-authorization->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#observability->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/08-crosscutting-concepts.md#observability",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.arc42/12-glossary.md",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".arc42/12-glossary.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/inbox/domain.md#aggregate-inbox-item",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/inbox/domain.md#aggregate-inbox-item",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/second-brain/domain.md#aggregate-knowledge-note",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/second-brain/domain.md#aggregate-knowledge-note",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/monitoring/domain.md#aggregate-progress-signal",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/monitoring/domain.md#aggregate-progress-signal",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/dev-pc-management/domain.md#aggregate-machine-registry",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/repository-management/domain.md#aggregate-repository-registry",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/repository-management/domain.md#aggregate-repository-registry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/technology-stack/domain.md#aggregate-technology-registry",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/technology-stack/domain.md#aggregate-technology-registry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification->.arc42/05-building-block-view.md#cloud-service",
+          "source": ".arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification",
+          "target": ".arc42/05-building-block-view.md#cloud-service",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/09-architecture-decisions.md#local-system-decisions->.arc42/04-solution-strategy.md",
+          "source": ".arc42/09-architecture-decisions.md#local-system-decisions",
+          "target": ".arc42/04-solution-strategy.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/10-quality-requirements.md->.arc42/01-introduction-and-goals.md#quality-goals",
+          "source": ".arc42/10-quality-requirements.md",
+          "target": ".arc42/01-introduction-and-goals.md#quality-goals",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/11-risks-and-technical-debt.md#open-design-questions->.arc42/03-context-and-scope.md#business-context",
+          "source": ".arc42/11-risks-and-technical-debt.md#open-design-questions",
+          "target": ".arc42/03-context-and-scope.md#business-context",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/11-risks-and-technical-debt.md#architectural-risks->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/11-risks-and-technical-debt.md#architectural-risks",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/12-glossary.md->.arc42/08-crosscutting-concepts.md#shared-data-types",
+          "source": ".arc42/12-glossary.md",
+          "target": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/12-glossary.md->.domain/context-map.md",
+          "source": ".arc42/12-glossary.md",
+          "target": ".domain/context-map.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/12-glossary.md#shared-data-types->.arc42/08-crosscutting-concepts.md#shared-data-types",
+          "source": ".arc42/12-glossary.md#shared-data-types",
+          "target": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "type": "related"
+        }
+      }
+    ]
+  }
+}

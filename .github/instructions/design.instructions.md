@@ -32,7 +32,7 @@ product has a stable, reviewable, offline copy:
 
 - `.design` is **not** baseline repository context. Load it only for design,
   UX, or UI-implementation tasks, normally after routing through
-  `orch-design-knowledge` or `ux-design:ux-designer`.
+  `orch-design` or `ux-design:ux-designer`.
 - When `.design` is needed as task context, load only the relevant file(s)
   instead of reading the whole folder.
 - UI implementation work (feature or bug) consults `.design` when the change

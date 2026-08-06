@@ -1,6 +1,6 @@
 ---
-name: orch-design-knowledge
-description: 'Orchestrate changes to .design/ (UX principles, dark-mode color tokens, typography/layout, interaction guidelines, content editing, accessibility, component libraries) for this repository. Use for any create/update/refresh of .design/README.md, design-principles.md, color-scheme.md, typography-and-layout.md, interaction-guidelines.md, content-editing.md, accessibility.md, or component-libraries.md. Grounds guidance in the jsdotnet-project-design MCP server and enforces design-knowledge.instructions.md structure and chapter-metadata.instructions.md metadata blocks before saving.'
+name: orch-design
+description: 'Orchestrate changes to .design/ (UX principles, dark-mode color tokens, typography/layout, interaction guidelines, content editing, accessibility, component libraries) for this repository. Use for any create/update/refresh of .design/README.md, design-principles.md, color-scheme.md, typography-and-layout.md, interaction-guidelines.md, content-editing.md, accessibility.md, or component-libraries.md. Grounds guidance in the jsdotnet-project-design MCP server and enforces design.instructions.md structure and chapter-metadata.instructions.md metadata blocks before saving.'
 ---
 
 # Orchestrate Design Knowledge (`.design/`)
@@ -33,7 +33,7 @@ structure and metadata conventions.
 > using the same instructions files and continue.
 
 ### Stage 1: Context Loading
-- Load `.github/instructions/design-knowledge.instructions.md` and
+- Load `.github/instructions/design.instructions.md` and
   `.github/instructions/chapter-metadata.instructions.md` (task-scoped, not
   baseline context).
 - Load only the relevant `.design/` file(s), not the whole folder.
@@ -58,7 +58,7 @@ structure and metadata conventions.
 ### Stage 3: Design Authoring
 - Hand off to `ux-design:ux-designer` for the actual design decisions.
 - Draft or refresh content following the structure and folder rules in
-  `design-knowledge.instructions.md`.
+  `design.instructions.md`.
 - Enforce the standing product rules on every edit: dark mode only, no save
   buttons (auto-save everywhere), Markdown canonical behind the rich text
   editor, drag-and-drop reordering of both files and chapters with a keyboard
@@ -89,7 +89,7 @@ structure and metadata conventions.
 - Confirm tokens are declared once and referenced elsewhere, and that
   per-stack mapping guidance did not fork into divergent designs.
 - Confirm no new top-level metadata field was invented without updating
-  `chapter-metadata.instructions.md` or `design-knowledge.instructions.md`
+  `chapter-metadata.instructions.md` or `design.instructions.md`
   first.
 - Summarize changed files/chapters for the user.
 
@@ -98,7 +98,7 @@ structure and metadata conventions.
 ## Usage Pattern
 
 ```text
-Invoke: orch-design-knowledge
+Invoke: orch-design
 - Files: color-scheme.md, interaction-guidelines.md
 - Goal: refresh the dark palette from the design MCP and add the
   drag-and-drop chapter-reorder rules
@@ -106,7 +106,7 @@ Invoke: orch-design-knowledge
 
 ## Output Expectations
 
-- `.design/` files updated following `design-knowledge.instructions.md`.
+- `.design/` files updated following `design.instructions.md`.
 - Color and typography tokens traceable to `jsdotnet-project-design`, or
   explicitly marked `draft` when the MCP server could not be reached.
 - Every touched chapter and file carries a correct metadata block per
@@ -116,7 +116,7 @@ Invoke: orch-design-knowledge
 
 ## Reference
 
-- `.github/instructions/design-knowledge.instructions.md`
+- `.github/instructions/design.instructions.md`
 - `.github/instructions/chapter-metadata.instructions.md`
 - `.github/instructions/mcp-usage.instructions.md`
 - `.github/instructions/workflow-routing.instructions.md`

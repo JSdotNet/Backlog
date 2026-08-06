@@ -139,7 +139,7 @@ related: [".design/interaction-guidelines.md#feedback-and-toasts", ".design/desi
 
 ```meta
 status: active
-related: [".design/interaction-guidelines.md#reorder-auto-save"]
+related: [".design/interaction-guidelines.md#reorder--auto-save"]
 ```
 
 The editor MUST **preserve, never destroy**, Markdown it cannot render richly.

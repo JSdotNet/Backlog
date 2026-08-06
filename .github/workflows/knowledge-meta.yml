@@ -1,0 +1,55 @@
+name: Knowledge metadata
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.arc42/**'
+      - '.domain/**'
+      - '.backlog/**'
+      - '.tech/**'
+      - '.design/**'
+      - '.github/tools/knowledge-meta/**'
+      - '.github/extensions/knowledge-canvas/metadata.mjs'
+      - '.github/workflows/knowledge-meta.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.arc42/**'
+      - '.domain/**'
+      - '.backlog/**'
+      - '.tech/**'
+      - '.design/**'
+      - '.github/tools/knowledge-meta/**'
+      - '.github/extensions/knowledge-canvas/metadata.mjs'
+      - '.github/workflows/knowledge-meta.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowledge-meta-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Validate metadata and derived indexes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check references and reading order
+        run: node .github/tools/knowledge-meta/build.mjs --check
+
+      - name: Check committed indexes are up to date
+        run: |
+          node .github/tools/knowledge-meta/build.mjs
+          if ! git diff --quiet -- '*_meta/*.json'; then
+            echo "::error::Derived _meta indexes are stale. Run: node .github/tools/knowledge-meta/build.mjs"
+            git --no-pager diff --stat -- '*_meta/*.json'
+            exit 1
+          fi
