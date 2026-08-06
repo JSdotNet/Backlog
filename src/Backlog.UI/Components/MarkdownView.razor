@@ -1,26 +1,33 @@
 @*
     The read view of an entry's body: what markdown looks like when you are not
-    editing it. Headings render at their level, `##` headings render as
-    sub-items with their state, #tags render as chips. Text is emitted through
-    Razor's normal escaping, so nothing typed into an entry can inject markup.
+    editing it. A `##` heading is a sub-item, so it renders as one — an indented
+    block with its own marker and its notes attached, not a heading with some
+    loose paragraphs beneath it. Other headings render at their level, and #tags
+    render as chips. Text is emitted through Razor's normal escaping, so nothing
+    typed into an entry can inject markup.
 *@
 
 @foreach (var block in Blocks)
 {
     switch (block)
     {
-        case MdHeading heading:
-            @if (heading.Level == 2)
-            {
-                <div class="md-subitem @(heading.Done == true ? "md-subitem--done" : string.Empty)">
-                    <span class="md-check" aria-hidden="true">@(heading.Done == true ? "✔" : "○")</span>
-                    <span class="md-subitem__title">@RenderInlines(heading.Content)</span>
+        case MdSubItem subItem:
+            <div class="md-subitem @(subItem.Done ? "md-subitem--done" : string.Empty)" data-testid="entry-subitem">
+                <span class="md-subitem__mark" aria-hidden="true">@(subItem.Done ? "✔" : string.Empty)</span>
+                <div class="md-subitem__body">
+                    <p class="md-subitem__title">@RenderInlines(subItem.Title)</p>
+                    @if (subItem.Children.Count > 0)
+                    {
+                        <div class="md-subitem__notes">
+                            <MarkdownView Blocks="subItem.Children" />
+                        </div>
+                    }
                 </div>
-            }
-            else
-            {
-                <p class="md-heading md-heading--@heading.Level">@RenderInlines(heading.Content)</p>
-            }
+            </div>
+            break;
+
+        case MdHeading heading:
+            <p class="md-heading md-heading--@heading.Level">@RenderInlines(heading.Content)</p>
             break;
 
         case MdParagraph paragraph:

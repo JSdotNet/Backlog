@@ -120,7 +120,8 @@ public sealed class FileBacklogRepository : IBacklogRepository
                 entry.CompletedSubItemCount,
                 entry.TotalSubItemCount,
                 entry.CreatedAt,
-                entry.Order));
+                entry.Order,
+                entry.Area));
         }
 
         // Hand-ranked order wins; entries that have never been ranked share the
@@ -148,6 +149,7 @@ public sealed class FileBacklogRepository : IBacklogRepository
             SourceInboxId = entry.SourceInboxId,
             CreatedAt = entry.CreatedAt,
             Order = entry.Order,
+            Area = entry.Area,
             SubItems = entry.SubItems.Select(s => new SubItemDto
             {
                 Id = s.Id.ToString(),
@@ -198,6 +200,7 @@ public sealed class FileBacklogRepository : IBacklogRepository
             fm.CreatedAt);
 
         entry.SetOrder(fm.Order);
+        entry.SetArea(fm.Area);
         foreach (var s in fm.SubItems.OrderBy(s => s.Order))
         {
             var subItem = entry.CreateSubItemForLoad(

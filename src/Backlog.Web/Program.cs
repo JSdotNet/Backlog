@@ -10,7 +10,7 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddSingleton<IBacklogRepository, FileBacklogRepository>();
+builder.Services.AddSingleton<BacklogStore>();
 builder.Services.AddScoped<BacklogDesktopState>();
 
 var app = builder.Build();

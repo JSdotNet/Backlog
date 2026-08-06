@@ -69,6 +69,7 @@ internal static class EntryTextParser
         EntryType? Type,
         Priority? Priority,
         EntryStatus? Status,
+        string? Area,
         string Body,
         IReadOnlyList<string> Tags,
         IReadOnlyList<ParsedSubItem> SubItems);
@@ -150,15 +151,28 @@ internal static class EntryTextParser
         EntryType? type = null;
         Priority? priority = null;
         EntryStatus? status = null;
+        string? area = null;
 
         if (i < lines.Length && MetaLineRegex.IsMatch(lines[i].Trim()))
         {
             foreach (Match match in TokenRegex.Matches(lines[i]))
             {
-                var token = NormalizeToken(match.Groups[1].Value);
-                if (TypeTokens.TryGetValue(token, out var t)) type = t;
-                else if (PriorityTokens.TryGetValue(token, out var p)) priority = p;
-                else if (StatusTokens.TryGetValue(token, out var s)) status = s;
+                var token = match.Groups[1].Value.Trim();
+
+                // `@something` files the entry under an area. Free-form on
+                // purpose — the vocabulary is the person's, not ours — so it is
+                // only lower-cased and trimmed, never matched against a list.
+                if (token.StartsWith('@'))
+                {
+                    var value = token[1..].Trim();
+                    if (value.Length > 0) area = value.ToLowerInvariant();
+                    continue;
+                }
+
+                var normalized = NormalizeToken(token);
+                if (TypeTokens.TryGetValue(normalized, out var t)) type = t;
+                else if (PriorityTokens.TryGetValue(normalized, out var p)) priority = p;
+                else if (StatusTokens.TryGetValue(normalized, out var s)) status = s;
             }
 
             i++;
@@ -173,7 +187,7 @@ internal static class EntryTextParser
             .Distinct()
             .ToList();
 
-        return new ParsedEntry(title, type, priority, status, body, tags, ExtractSubItems(body));
+        return new ParsedEntry(title, type, priority, status, area, body, tags, ExtractSubItems(body));
     }
 
     /// <summary>Collects sub-items from a body, in document order. A <c>##</c>
@@ -221,7 +235,9 @@ internal static class EntryTextParser
             if (checklist.Success)
             {
                 // A checklist line is always its own sub-item, never notes text
-                // for the heading it happens to sit under.
+                // for the heading it happens to sit under — and closing the open
+                // heading first keeps sub-items in the order they were written.
+                CloseOpen();
                 items.Add(new ParsedSubItem(
                     checklist.Groups[2].Value.Trim(),
                     checklist.Groups[1].Value is "x" or "X",
@@ -307,6 +323,8 @@ internal static class EntryTextParser
     public static string ToRawText(BacklogEntry entry)
     {
         var meta = $"`{TypeToken(entry.Type)}` `{PriorityToken(entry.Priority)}` `{StatusToken(entry.Status)}`";
+        if (!string.IsNullOrWhiteSpace(entry.Area)) meta += $" `@{entry.Area}`";
+
         var body = entry.ContentMd.TrimEnd('\n');
         return body.Length == 0
             ? $"# {entry.Title}\n{meta}\n"

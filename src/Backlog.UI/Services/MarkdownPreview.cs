@@ -152,7 +152,42 @@ public static class MarkdownPreview
         }
 
         FlushAll();
-        return blocks;
+        return GroupSubItems(blocks);
+    }
+
+    /// <summary>
+    /// Folds each level-2 heading and everything under it into a single
+    /// <see cref="MdSubItem"/>. A <c>##</c> heading is not really a heading in
+    /// this editor — it is a sub-item — so the read view should show it as one
+    /// thing with its notes attached, not as a heading followed by some
+    /// unrelated paragraphs that happen to sit below it.
+    /// </summary>
+    private static IReadOnlyList<MdBlock> GroupSubItems(List<MdBlock> blocks)
+    {
+        if (!blocks.Any(b => b is MdHeading { Level: 2 })) return blocks;
+
+        var grouped = new List<MdBlock>();
+        var index = 0;
+
+        while (index < blocks.Count)
+        {
+            if (blocks[index] is not MdHeading { Level: 2 } heading)
+            {
+                grouped.Add(blocks[index++]);
+                continue;
+            }
+
+            index++;
+            var children = new List<MdBlock>();
+            while (index < blocks.Count && blocks[index] is not MdHeading { Level: <= 2 })
+            {
+                children.Add(blocks[index++]);
+            }
+
+            grouped.Add(new MdSubItem(heading.Content, heading.Done ?? false, children));
+        }
+
+        return grouped;
     }
 
     public static IReadOnlyList<MdInline> ParseInlines(string text)
@@ -191,6 +226,10 @@ public abstract record MdBlock;
 /// <summary>A heading. <see cref="Done"/> is non-null only for the level-2
 /// headings that carry sub-item state.</summary>
 public sealed record MdHeading(int Level, IReadOnlyList<MdInline> Content, bool? Done) : MdBlock;
+
+/// <summary>A level-2 heading and everything written beneath it — the read
+/// view's rendering of a sub-item.</summary>
+public sealed record MdSubItem(IReadOnlyList<MdInline> Title, bool Done, IReadOnlyList<MdBlock> Children) : MdBlock;
 
 public sealed record MdParagraph(IReadOnlyList<MdInline> Content) : MdBlock;
 

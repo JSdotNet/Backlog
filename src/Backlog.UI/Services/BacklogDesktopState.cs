@@ -35,14 +35,17 @@ public sealed class BacklogDesktopState : IDisposable
 {
     private const int DebounceMilliseconds = 750;
 
-    private readonly IBacklogRepository _repository;
+    private readonly BacklogStore _store;
     private readonly Dictionary<Guid, BacklogEntry> _entries = new();
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
 
-    public BacklogDesktopState(IBacklogRepository repository)
+    public BacklogDesktopState(BacklogStore store)
     {
-        _repository = repository;
+        _store = store;
+        _store.RootChanged += OnRootChanged;
     }
+
+    private IBacklogRepository Repository => _store.Repository;
 
     /// <summary>Raised whenever rows or save state change from a background
     /// callback (a debounce timer) so the component can re-render.</summary>
@@ -63,6 +66,19 @@ public sealed class BacklogDesktopState : IDisposable
     public List<EntryRow> FilteredRows { get; private set; } = [];
 
     public string SelectedStatusFilterWire { get; private set; } = string.Empty;
+
+    /// <summary>The selected area, or empty for all. <see cref="UnfiledArea"/>
+    /// selects the entries that have no area at all.</summary>
+    public string SelectedArea { get; private set; } = string.Empty;
+
+    /// <summary>Sentinel for "entries with no area" — a real area can never be
+    /// this because the parser lower-cases and would never produce a leading
+    /// space.</summary>
+    public const string UnfiledArea = " unfiled";
+
+    /// <summary>The areas actually in use, in alphabetical order. There is no
+    /// fixed taxonomy: an area exists because somebody typed it.</summary>
+    public List<AreaFilterOption> AreaFilters { get; private set; } = [];
 
     public AppSaveState SaveState { get; private set; } = AppSaveState.Saved;
 
@@ -101,14 +117,28 @@ public sealed class BacklogDesktopState : IDisposable
         ApplyFilter();
     }
 
-    /// <summary>Inserts a new, unsaved draft row at the top of the list and
+    public void SetAreaFilter(string? area)
+    {
+        SelectedArea = area ?? string.Empty;
+        ApplyFilter();
+    }
+
+    /// <summary>Appends a new, unsaved draft row at the end of the list and
     /// opens it for editing. It is only persisted once a title line is typed
     /// (the domain requires a title), so free typing before that is held
-    /// locally.</summary>
+    /// locally. When an area is being filtered, the new entry starts already
+    /// filed there — otherwise it would vanish the moment it saved.</summary>
     public void NewRow()
     {
         var row = new EntryRow();
-        Rows.Insert(0, row);
+
+        if (SelectedArea.Length > 0 && SelectedArea != UnfiledArea)
+        {
+            row.RawText = $"# \n`task` `medium` `draft` `@{SelectedArea}`\n";
+            row.SeedText = row.RawText;
+        }
+
+        Rows.Add(row);
         BeginEdit(row);
         ApplyFilter();
     }
@@ -144,7 +174,7 @@ public sealed class BacklogDesktopState : IDisposable
 
         // An entry someone opened and left untouched was never an entry. Drop
         // it rather than leaving an "Untitled" husk in the list.
-        if (!row.IsPersisted && row.IsEmpty)
+        if (!row.IsPersisted && row.IsUntouched)
         {
             Rows.Remove(row);
             ApplyFilter();
@@ -153,6 +183,10 @@ public sealed class BacklogDesktopState : IDisposable
         }
 
         await SaveRowAsync(row, isFlush: true);
+
+        // What was just typed can change which area an entry belongs to, so the
+        // area chips are rebuilt against the text as it now stands.
+        ApplyFilter();
         Changed?.Invoke();
     }
 
@@ -169,7 +203,7 @@ public sealed class BacklogDesktopState : IDisposable
             SetSaveState(AppSaveState.Saving);
             try
             {
-                await _repository.DeleteAsync(id);
+                await Repository.DeleteAsync(id);
                 _entries.Remove(id);
                 SetSaveState(AppSaveState.Saved);
             }
@@ -231,12 +265,26 @@ public sealed class BacklogDesktopState : IDisposable
 
     public void Dispose()
     {
+        _store.RootChanged -= OnRootChanged;
+
         foreach (var timer in _debounceTimers.Values)
         {
             timer.Dispose();
         }
 
         _debounceTimers.Clear();
+    }
+
+    /// <summary>The backlog moved to a different folder, so everything held in
+    /// memory is about the old one. Start over from the new store.</summary>
+    private async void OnRootChanged()
+    {
+        EditingRow = null;
+        DraggedRow = null;
+        _entries.Clear();
+
+        await ReloadRowsAsync();
+        Changed?.Invoke();
     }
 
     // --- Internals ------------------------------------------------------
@@ -320,12 +368,13 @@ public sealed class BacklogDesktopState : IDisposable
             }
 
             entry.SetOrder(Math.Max(Rows.IndexOf(row), 0));
+            entry.SetArea(parsed.Area);
             EntryTextParser.SyncSubItems(entry, parsed.SubItems);
 
             SetSaveState(AppSaveState.Saving);
             try
             {
-                await _repository.SaveAsync(entry);
+                await Repository.SaveAsync(entry);
             }
             catch
             {
@@ -355,6 +404,7 @@ public sealed class BacklogDesktopState : IDisposable
         existing.ChangeType(parsed.Type ?? existing.Type);
         existing.ChangePriority(parsed.Priority ?? existing.Priority);
         existing.SetTags(parsed.Tags);
+        existing.SetArea(parsed.Area);
 
         if (parsed.Status is { } targetStatus && existing.CanChangeStatusTo(targetStatus))
         {
@@ -366,7 +416,7 @@ public sealed class BacklogDesktopState : IDisposable
         SetSaveState(AppSaveState.Saving);
         try
         {
-            await _repository.SaveAsync(existing);
+            await Repository.SaveAsync(existing);
         }
         catch
         {
@@ -392,7 +442,7 @@ public sealed class BacklogDesktopState : IDisposable
             entry.SetOrder(index);
             try
             {
-                await _repository.SaveAsync(entry);
+                await Repository.SaveAsync(entry);
             }
             catch
             {
@@ -421,6 +471,7 @@ public sealed class BacklogDesktopState : IDisposable
         row.Type = entry.Type;
         row.Priority = entry.Priority;
         row.Status = entry.Status;
+        row.Area = entry.Area;
         row.Tags = entry.Tags;
         row.SubItemCount = entry.TotalSubItemCount;
         row.CompletedSubItemCount = entry.CompletedSubItemCount;
@@ -437,12 +488,12 @@ public sealed class BacklogDesktopState : IDisposable
 
     private async Task ReloadRowsAsync()
     {
-        var summaries = await _repository.ListAsync();
+        var summaries = await Repository.ListAsync();
         var rows = new List<EntryRow>();
 
         foreach (var summary in summaries)
         {
-            var entry = await _repository.GetAsync(summary.Id);
+            var entry = await Repository.GetAsync(summary.Id);
             if (entry is null) continue;
 
             _entries[entry.Id] = entry;
@@ -458,13 +509,60 @@ public sealed class BacklogDesktopState : IDisposable
 
     private void ApplyFilter()
     {
-        if (string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
+        RebuildAreaFilters();
+
+        IEnumerable<EntryRow> rows = Rows;
+
+        if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
-            FilteredRows = [.. Rows];
-            return;
+            rows = rows.Where(x => StatusWire(x.PreviewStatus) == SelectedStatusFilterWire);
         }
 
-        FilteredRows = [.. Rows.Where(x => StatusWire(x.Status) == SelectedStatusFilterWire)];
+        if (SelectedArea == UnfiledArea)
+        {
+            rows = rows.Where(x => string.IsNullOrEmpty(x.PreviewArea));
+        }
+        else if (SelectedArea.Length > 0)
+        {
+            rows = rows.Where(x => x.PreviewArea == SelectedArea);
+        }
+
+        // A row being written right now always stays put, even if what was just
+        // typed no longer matches the filter — having an entry disappear
+        // mid-sentence is never what someone meant.
+        FilteredRows = [.. rows.Union(Rows.Where(r => ReferenceEquals(r, EditingRow))).OrderBy(Rows.IndexOf)];
+    }
+
+    /// <summary>Areas exist because somebody typed one, so the filter is
+    /// rebuilt from what is actually in the list.</summary>
+    private void RebuildAreaFilters()
+    {
+        var options = new List<AreaFilterOption> { new("All", string.Empty, Rows.Count) };
+
+        var used = Rows
+            .Select(r => r.PreviewArea)
+            .Where(a => !string.IsNullOrEmpty(a))
+            .GroupBy(a => a!, StringComparer.Ordinal)
+            .OrderBy(g => g.Key, StringComparer.Ordinal);
+
+        foreach (var group in used)
+        {
+            options.Add(new AreaFilterOption(group.Key, group.Key, group.Count()));
+        }
+
+        var unfiled = Rows.Count(r => string.IsNullOrEmpty(r.PreviewArea));
+        if (unfiled > 0 && options.Count > 1)
+        {
+            options.Add(new AreaFilterOption("Unfiled", UnfiledArea, unfiled));
+        }
+
+        AreaFilters = options;
+
+        // An area stops existing when its last entry leaves it.
+        if (SelectedArea.Length > 0 && options.All(o => o.Value != SelectedArea))
+        {
+            SelectedArea = string.Empty;
+        }
     }
 
     private static string StatusWire(EntryStatus status) => status switch
@@ -479,6 +577,10 @@ public sealed class BacklogDesktopState : IDisposable
 }
 
 public sealed record StatusFilterOption(string Label, string Wire);
+
+/// <summary>One entry in the area filter. <see cref="Count"/> is shown so the
+/// filter doubles as a sense of where the work actually is.</summary>
+public sealed record AreaFilterOption(string Label, string Value, int Count);
 
 /// <summary>A row in the quick-edit list. <see cref="Key"/> is a stable
 /// client-side identity used for <c>@key</c> and debounce tracking, independent
@@ -504,6 +606,9 @@ public sealed class EntryRow
 
     public EntryStatus Status { get; set; } = EntryStatus.Draft;
 
+    /// <summary>Free-form area the entry is filed under, or null for unfiled.</summary>
+    public string? Area { get; set; }
+
     public IReadOnlyList<string> Tags { get; set; } = [];
 
     public int SubItemCount { get; set; }
@@ -517,6 +622,16 @@ public sealed class EntryRow
     public bool JustSaved { get; set; }
 
     public bool IsEmpty => string.IsNullOrWhiteSpace(RawText);
+
+    /// <summary>Text this row was pre-filled with when it was created (e.g. the
+    /// area it inherits from the active filter). Used to tell a genuinely
+    /// untouched row from one that was actually written in.</summary>
+    public string? SeedText { get; set; }
+
+    /// <summary>True when nothing has really been written here — either the row
+    /// is blank, or it still holds exactly the text it was seeded with.</summary>
+    public bool IsUntouched =>
+        IsEmpty || (SeedText is not null && string.Equals(SeedText, RawText, StringComparison.Ordinal));
 
     public string ProgressText => SubItemCount == 0 ? string.Empty : $"{CompletedSubItemCount}/{SubItemCount}";
 
@@ -552,6 +667,11 @@ public sealed class EntryRow
     public IReadOnlyList<string> PreviewTags
     {
         get { Render(); return _parsed!.Tags.Count > 0 ? _parsed.Tags : Tags; }
+    }
+
+    public string? PreviewArea
+    {
+        get { Render(); return _parsed!.Area ?? Area; }
     }
 
     private void Render()

@@ -13,6 +13,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The text parser is the contract between what a person types and what
+         gets stored, so it is worth testing directly rather than only through
+         the component that happens to call it. -->
+    <InternalsVisibleTo Include="Backlog.UI.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Backlog.Domain\Backlog.Domain.csproj" />
     <ProjectReference Include="..\Backlog.Storage\Backlog.Storage.csproj" />
   </ItemGroup>

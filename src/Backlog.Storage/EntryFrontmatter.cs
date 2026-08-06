@@ -16,6 +16,7 @@ internal sealed class EntryFrontmatter
     public string? SourceInboxId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public int Order { get; set; }
+    public string? Area { get; set; }
     public List<SubItemDto> SubItems { get; set; } = new();
     public List<ProjectionRefDto> Projections { get; set; } = new();
     public List<UsageEventDto> UsageEvents { get; set; } = new();

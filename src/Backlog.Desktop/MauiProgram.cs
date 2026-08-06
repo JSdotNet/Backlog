@@ -21,7 +21,7 @@ public static class MauiProgram
 
         builder.Services.AddMauiBlazorWebView();
         builder.AddServiceDefaults();
-        builder.Services.AddSingleton<IBacklogRepository, FileBacklogRepository>();
+        builder.Services.AddSingleton<BacklogStore>();
         builder.Services.AddSingleton<BacklogDesktopState>();
 
 #if DEBUG

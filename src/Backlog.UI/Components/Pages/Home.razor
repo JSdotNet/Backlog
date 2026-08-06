@@ -17,32 +17,47 @@
             @State.SaveStateLabel
         </div>
 
-        <button id="new-entry-button" data-testid="new-entry-button" class="btn btn--primary" @onclick="OnNewEntry">
-            New entry
-        </button>
+        <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
-    <div class="status-filters" role="radiogroup" aria-label="Filter by status">
-        @foreach (var filter in State.StatusFilters)
-        {
-            <button type="button"
-                    class="chip chip--filter @(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : string.Empty)"
-                    id="status-filter-@(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)"
-                    data-testid="status-filter-option"
-                    role="radio"
-                    aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
-                    @onclick="() => OnFilterChanged(filter.Wire)">
-                @filter.Label
-            </button>
-        }
+    @* Areas on the left, because that is what you pick first — which pile am I
+       in. Status narrows what is already in view, so it sits on the right. *@
+    <div class="filter-bar">
+        <div class="filter-group filter-group--areas" role="radiogroup" aria-label="Filter by area">
+            @foreach (var area in State.AreaFilters)
+            {
+                <button type="button"
+                        class="chip chip--filter @(State.SelectedArea == area.Value ? "chip--active" : string.Empty)"
+                        data-testid="area-filter-option"
+                        role="radio"
+                        aria-checked="@(State.SelectedArea == area.Value ? "true" : "false")"
+                        @onclick="() => State.SetAreaFilter(area.Value)">
+                    @area.Label<span class="chip__count">@area.Count</span>
+                </button>
+            }
+        </div>
+
+        <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
+            @foreach (var filter in State.StatusFilters)
+            {
+                <button type="button"
+                        class="chip chip--filter @(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : string.Empty)"
+                        id="status-filter-@(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)"
+                        data-testid="status-filter-option"
+                        role="radio"
+                        aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
+                        @onclick="() => OnFilterChanged(filter.Wire)">
+                    @filter.Label
+                </button>
+            }
+        </div>
     </div>
 
     @if (State.FilteredRows.Count == 0)
     {
         <div class="empty-state" data-testid="empty-state">
             <p class="empty-state__title">Nothing here yet.</p>
-            <p class="empty-state__body">Create your first entry to start triaging the backlog.</p>
-            <button type="button" class="btn btn--primary" @onclick="OnNewEntry">New entry</button>
+            <p class="empty-state__body">Write your first entry to start triaging the backlog.</p>
         </div>
     }
     else
@@ -55,81 +70,106 @@
                 <li class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)"
                     @key="row.Key">
 
-                    @RenderGrip(row, before: true)
+                    @RenderGrip(row, before: true, "top")
+                    @RenderGrip(row, before: true, "left")
 
-                    <div class="entry-doc__meta">
-                        <span class="badge badge--status badge--status-@row.PreviewStatus.ToString().ToLowerInvariant()" data-testid="status-badge">@Humanize(row.PreviewStatus.ToString())</span>
-                        <span class="badge badge--type" data-testid="type-badge">@Humanize(row.PreviewType.ToString())</span>
-                        <span class="badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">@Humanize(row.PreviewPriority.ToString())</span>
+                    <div class="entry-doc__body">
+                        <div class="entry-doc__meta">
+                            <span class="badge badge--type" data-testid="type-badge">@Humanize(row.PreviewType.ToString())</span>
+                            <span class="badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">@Humanize(row.PreviewPriority.ToString())</span>
 
-                        @foreach (var tag in row.PreviewTags)
+                            @if (!string.IsNullOrEmpty(row.PreviewArea))
+                            {
+                                <span class="badge badge--area" data-testid="area-badge">@("@" + row.PreviewArea)</span>
+                            }
+
+                            @foreach (var tag in row.PreviewTags)
+                            {
+                                <span class="tag-chip" data-testid="entry-tag">#@tag</span>
+                            }
+
+                            @if (row.SubItemCount > 0)
+                            {
+                                <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
+                            }
+
+                            @if (!row.IsPersisted)
+                            {
+                                <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
+                            }
+
+                            @* Status leads the top-right corner: it is the one
+                               thing you scan a backlog for. Delete sits beyond
+                               it, revealed on hover. *@
+                            <span class="badge badge--status badge--status-@row.PreviewStatus.ToString().ToLowerInvariant()" data-testid="status-badge">@Humanize(row.PreviewStatus.ToString())</span>
+
+                            <button type="button"
+                                    class="entry-doc__delete"
+                                    id="delete-entry-@row.Key"
+                                    data-testid="delete-entry-button"
+                                    aria-label="Delete entry"
+                                    @onmousedown:preventDefault="true"
+                                    @onclick="() => OnDeleteEntryAsync(row)">
+                                ✕
+                            </button>
+                        </div>
+
+                        @if (editing)
                         {
-                            <span class="tag-chip" data-testid="entry-tag">#@tag</span>
+                            <div class="grow-wrap" data-replicated-value="@(row.RawText + "\n")">
+                                <textarea class="entry-doc__editor"
+                                          id="entry-raw-@row.Key"
+                                          data-testid="entry-raw-input"
+                                          aria-label="Entry markdown"
+                                          placeholder="@BacklogDesktopState.NewEntryPlaceholder"
+                                          @ref="_editor"
+                                          @oninput="e => State.OnRawTextInput(row, e.Value?.ToString() ?? string.Empty)"
+                                          @onkeydown="e => OnEditorKeyDownAsync(row, e)"
+                                          @onblur="() => OnEndEditAsync(row)">@row.RawText</textarea>
+                            </div>
                         }
-
-                        @if (row.SubItemCount > 0)
+                        else
                         {
-                            <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
-                        }
+                            <div class="entry-doc__read"
+                                 data-testid="entry-read-view"
+                                 role="button"
+                                 tabindex="0"
+                                 aria-label="Edit markdown for @(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)"
+                                 @onclick="() => State.BeginEdit(row)"
+                                 @onkeydown="e => OnReadViewKeyDown(row, e)">
 
-                        @if (!row.IsPersisted)
-                        {
-                            <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
-                        }
+                                @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
+                                {
+                                    <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
+                                }
+                                else
+                                {
+                                    <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
+                                }
 
-                        <button type="button"
-                                class="entry-doc__delete"
-                                id="delete-entry-@row.Key"
-                                data-testid="delete-entry-button"
-                                aria-label="Delete entry"
-                                @onmousedown:preventDefault="true"
-                                @onclick="() => OnDeleteEntryAsync(row)">
-                            ✕
-                        </button>
+                                <MarkdownView Blocks="row.PreviewBlocks" />
+                            </div>
+                        }
                     </div>
 
-                    @if (editing)
-                    {
-                        <div class="grow-wrap" data-replicated-value="@(row.RawText + "\n")">
-                            <textarea class="entry-doc__editor"
-                                      id="entry-raw-@row.Key"
-                                      data-testid="entry-raw-input"
-                                      aria-label="Entry markdown"
-                                      placeholder="@BacklogDesktopState.NewEntryPlaceholder"
-                                      @ref="_editor"
-                                      @oninput="e => State.OnRawTextInput(row, e.Value?.ToString() ?? string.Empty)"
-                                      @onkeydown="e => OnEditorKeyDownAsync(row, e)"
-                                      @onblur="() => OnEndEditAsync(row)">@row.RawText</textarea>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="entry-doc__read"
-                             data-testid="entry-read-view"
-                             role="button"
-                             tabindex="0"
-                             aria-label="Edit markdown for @(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)"
-                             @onclick="() => State.BeginEdit(row)"
-                             @onkeydown="e => OnReadViewKeyDown(row, e)">
-
-                            @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
-                            {
-                                <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
-                            }
-                            else
-                            {
-                                <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
-                            }
-
-                            <MarkdownView Blocks="row.PreviewBlocks" />
-                        </div>
-                    }
-
-                    @RenderGrip(row, before: false)
+                    @RenderGrip(row, before: false, "right")
+                    @RenderGrip(row, before: false, "bottom")
                 </li>
             }
         </ul>
     }
+
+    @* Creating an entry is the same gesture as writing in one, so the control
+       sits where the next entry will actually appear rather than up in the
+       chrome. *@
+    <button type="button"
+            class="entry-add"
+            id="new-entry-button"
+            data-testid="new-entry-button"
+            @onclick="OnNewEntry">
+        <span class="entry-add__plus" aria-hidden="true">+</span>
+        New entry
+    </button>
 </div>
 
 @code {
@@ -157,19 +197,24 @@
         }
     }
 
-    /// <summary>The grab areas at the top and bottom of every entry: drag
-    /// sources, drop targets, and — because a drag always needs a keyboard
-    /// equivalent — arrow-key reorder controls.</summary>
-    private RenderFragment RenderGrip(EntryRow row, bool before) =>
+    /// <summary>The grab areas around an entry — one on each side. All four are
+    /// drag sources and drop targets. Only the top rail takes tab focus (four
+    /// stops per entry would wreck keyboard travel through the list), and it
+    /// carries the arrow-key reorder that every drag needs an equivalent
+    /// for.</summary>
+    private RenderFragment RenderGrip(EntryRow row, bool before, string side) =>
         @<button type="button"
-                 class="entry-doc__grip @(before ? "entry-doc__grip--top" : "entry-doc__grip--bottom")"
-                 data-testid="@(before ? "entry-grip-top" : "entry-grip-bottom")"
+                 class="entry-doc__grip entry-doc__grip--@side"
+                 data-testid="entry-grip-@side"
+                 data-drag-grip="@row.Key"
                  draggable="true"
+                 tabindex="@(side == "top" ? "0" : "-1")"
+                 aria-hidden="@(side == "top" ? "false" : "true")"
                  aria-label="Reorder entry — drag, or use the up and down arrow keys"
-                 @onmousedown:preventDefault="true"
                  @ondragstart="() => State.BeginDrag(row)"
                  @ondragend="() => State.EndDrag()"
                  @ondragover:preventDefault="true"
+                 @ondragenter:preventDefault="true"
                  @ondrop="() => State.DropAsync(row, before)"
                  @onkeydown="e => OnGripKeyDownAsync(row, e)">
             <span class="entry-doc__grip-dots" aria-hidden="true"></span>

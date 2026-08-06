@@ -14,4 +14,5 @@ public sealed record BacklogEntrySummary(
     int CompletedSubItems,
     int TotalSubItems,
     DateTimeOffset CreatedAt,
-    int Order = 0);
+    int Order = 0,
+    string? Area = null);

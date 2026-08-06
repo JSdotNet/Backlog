@@ -96,6 +96,12 @@ public sealed class BacklogEntry
     /// have never been ranked share the default 0 and fall back to recency.</summary>
     public int Order { get; private set; }
 
+    /// <summary>Free-form grouping the entry belongs to — "repos", "projects",
+    /// "inbox", or whatever vocabulary the person actually uses. Deliberately a
+    /// string rather than an enum: the taxonomy is theirs, not ours. Null means
+    /// unfiled.</summary>
+    public string? Area { get; private set; }
+
     public IReadOnlyList<string> RepoIds => _repoIds;
 
     public IReadOnlyList<string> Tags => _tags;
@@ -123,6 +129,11 @@ public sealed class BacklogEntry
 
     /// <summary>Sets the manual rank used to order the backlog by hand.</summary>
     public void SetOrder(int order) => Order = order;
+
+    /// <summary>Files the entry under an area, or clears it. Blank is stored as
+    /// null so "unfiled" has exactly one representation.</summary>
+    public void SetArea(string? area) =>
+        Area = string.IsNullOrWhiteSpace(area) ? null : area.Trim();
 
     public void SetRepoIds(IEnumerable<string> repoIds)
     {
