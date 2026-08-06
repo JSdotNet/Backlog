@@ -17,6 +17,14 @@ specialist agent only when the skill is unavailable.
   to `csharp-coding:coding`.
 - New service scaffolding inside an existing project: use `orch-create-service`. Fall
   back to `csharp-coding:coding`.
+- Initial project scaffolding inside an existing, configured repository (`.github/`
+  setup, guidelines, solution/app structure): use `orch-project`. For a WinUI 3
+  desktop track specifically, fall back to `winui:winui-dev` (not
+  `csharp-coding:coding`); for an Aspire/service API track, fall back to
+  `csharp-coding:coding`. Confirm the project type (desktop vs. service API) — by
+  asking the user or checking `.arc42/04-solution-strategy.md` — before delegating,
+  since `orch-project`'s default stages assume an Aspire/API project unless told
+  otherwise.
 - Dependency or package updates: use `orch-update-packages`. Fall back to
   `csharp-coding:coding`.
 - Any change to `.domain/` (bounded-context domain model, features, model

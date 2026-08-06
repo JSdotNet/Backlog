@@ -35,6 +35,10 @@ deployable unit.
 - Architecture Decision Records referenced from arc42 sections should stay
   aligned with ADRs already tracked via `jsdotnet-project-guidelines`; do not
   duplicate ADR content here — link to it instead.
+- Local ADRs and TDRs (decisions/debt specific to this system, not covered by
+  an org-level ADR) live under `.arc42/adr/` and `.arc42/tdr/` respectively,
+  and are linked from `09-architecture-decisions.md` /
+  `11-risks-and-technical-debt.md` rather than restated there.
 
 ## Structure
 
@@ -55,6 +59,8 @@ when a chapter has real content — do not scaffold empty placeholders):
   10-quality-requirements.md
   11-risks-and-technical-debt.md (links out to TDRs)
   12-glossary.md
+  adr/                           (Architecture Decision Records)
+  tdr/                           (Technical Debt Records)
 ```
 
 ## Folder rules

@@ -27,7 +27,7 @@ C4Container
     Person(user, "ME", "Personal owner of the system")
 
     System_Boundary(b0, "Prompt Backlog") {
-        Container(desktop, "Desktop App", "WinUI 3, Markdown + JSON", "Local-first Windows client — runs all fetch workers and manages all domains")
+        Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid, Markdown + JSON", "Local-first Windows client — runs all fetch workers and manages all domains")
         Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, JSON", "Capture-first mobile client with offline storage")
         Container(ide, "IDE Extensions", "TypeScript / C#", "VS Code, Visual Studio, and GitHub Copilot App integrations")
         Container(cloud, "Cloud Service", ".NET / ASP.NET Core", "Thin optional sync layer: device sync, webhook forwarding, push, PC registry")
@@ -158,7 +158,7 @@ flowchart TB
 
 ```meta
 status: active
-related: [".arc42/06-runtime-view.md#backlog-entry-to-github-issue"]
+related: [".arc42/06-runtime-view.md#backlog-entry-to-github-issue", "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
 Local-first Windows client. Serves Capture, Inbox, Backlog Management, Second Brain, Monitoring, Technology Stack, Dev PC Management, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
@@ -167,7 +167,7 @@ Local-first Windows client. Serves Capture, Inbox, Backlog Management, Second Br
 ```mermaid
 graph TB
   subgraph "Desktop App"
-    UI["UI Layer\n(WinUI 3)"]
+    UI["UI Layer\n(.NET MAUI Blazor Hybrid)"]
 
     subgraph "Core Services"
       Inbox["Inbox Service\n(capture, triage)"]

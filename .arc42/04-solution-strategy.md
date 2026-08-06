@@ -70,7 +70,7 @@ related: [".arc42/09-architecture-decisions.md"]
 
 | Channel | Candidate stack |
 |---|---|
-| **Desktop** | WinUI 3 (preferred, C#) for a Windows-only client; markdown + JSON |
+| **Desktop** | .NET MAUI Blazor Hybrid (WinUI 3 head on Windows, Razor UI in embedded WebView2); markdown + JSON. See `docs/adr/0001-desktop-stack-maui-blazor-hybrid.md` — chosen so the desktop client can be launched from an Aspire AppHost and driven end-to-end with Playwright (via WebView2's CDP debugging port), while keeping the same native filesystem access and background-worker guarantees as plain WinUI 3. |
 | **Mobile** | .NET MAUI (preferred, C#) with Blazor Hybrid or Blazor WebAssembly PWA as the closest fallback options; JSON-backed local storage |
 | **IDE** | VS Code extension (TypeScript, webview) and Visual Studio extension (C#, WPF) |
 | **Cloud** | C# / ASP.NET Core Minimal APIs on .NET, Azure hosting, Cosmos DB / PostgreSQL |
