@@ -89,6 +89,11 @@ The AppHost starts the cloud service and the web host. The desktop, mobile, and
 VS Code resources are registered with **explicit start** — they need a window, an
 emulator, or an extension host, so start them on demand from the Aspire dashboard.
 
+All ports are dynamic (`port 0` in every `launchSettings.json`), so several git
+worktrees of this repository can run their own AppHost side by side. Read the
+actual dashboard and resource URLs from the `aspire start` output, or with
+`aspire describe`.
+
 
 ## Language and conventions
 

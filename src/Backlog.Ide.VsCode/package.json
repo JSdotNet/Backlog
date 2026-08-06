@@ -46,8 +46,8 @@
       "properties": {
         "backlog.cloudUrl": {
           "type": "string",
-          "default": "http://localhost:15310",
-          "description": "Base URL of the Backlog cloud sync service."
+          "default": "",
+          "description": "Base URL of the Backlog cloud sync service. Aspire assigns a dynamic port per run — copy the 'cloud' resource URL from the Aspire dashboard."
         }
       }
     }

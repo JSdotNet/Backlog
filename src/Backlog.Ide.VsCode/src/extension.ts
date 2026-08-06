@@ -7,8 +7,14 @@ interface InboxItem {
     capturedAt: string;
 }
 
-function cloudUrl(): string {
-    return vscode.workspace.getConfiguration('backlog').get<string>('cloudUrl', 'http://localhost:15310');
+function cloudUrl(): string | undefined {
+    const configured = vscode.workspace.getConfiguration('backlog').get<string>('cloudUrl', '').trim();
+    if (configured.length === 0) {
+        vscode.window.showWarningMessage(
+            'Backlog: set "backlog.cloudUrl" to the cloud resource URL shown in the Aspire dashboard.');
+        return undefined;
+    }
+    return configured.replace(/\/+$/, '');
 }
 
 class InboxProvider implements vscode.TreeDataProvider<InboxItem> {
@@ -27,8 +33,13 @@ class InboxProvider implements vscode.TreeDataProvider<InboxItem> {
     }
 
     async getChildren(): Promise<InboxItem[]> {
+        const url = cloudUrl();
+        if (!url) {
+            return [];
+        }
+
         try {
-            const response = await fetch(`${cloudUrl()}/api/sync/inbox`);
+            const response = await fetch(`${url}/api/sync/inbox`);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
@@ -41,6 +52,11 @@ class InboxProvider implements vscode.TreeDataProvider<InboxItem> {
 }
 
 async function capture(): Promise<void> {
+    const url = cloudUrl();
+    if (!url) {
+        return;
+    }
+
     const selection = vscode.window.activeTextEditor?.document.getText(
         vscode.window.activeTextEditor.selection);
 
@@ -54,7 +70,7 @@ async function capture(): Promise<void> {
     }
 
     try {
-        const response = await fetch(`${cloudUrl()}/api/sync/inbox`, {
+        const response = await fetch(`${url}/api/sync/inbox`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ title, source: 'vscode' })
