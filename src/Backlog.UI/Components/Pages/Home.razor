@@ -1,173 +1,221 @@
 @page "/"
+@implements IDisposable
 @inject BacklogDesktopState State
 
 <div class="shell">
-    <section class="master-pane">
-        <div class="master-header">
-            <h1>Backlog</h1>
-            <button id="new-entry-button" data-testid="new-entry-button" @onclick="OnNewEntry">New</button>
-            <button id="delete-entry-button" data-testid="delete-entry-button" disabled="@(!State.HasSelection)" @onclick="OnDeleteEntryAsync">Delete</button>
+    <header class="app-header">
+        <h1>Backlog</h1>
+
+        <div class="save-indicator save-indicator--@State.SaveState.ToString().ToLowerInvariant()" id="save-state-indicator" data-testid="save-state-indicator" role="status">
+            <span class="save-indicator__dot" aria-hidden="true"></span>
+            @State.SaveStateLabel
         </div>
 
-        <label for="status-filter-select">Filter by status</label>
-        <select id="status-filter-select" data-testid="status-filter-select" value="@State.SelectedStatusFilterWire" @onchange="OnFilterChanged">
-            @foreach (var filter in State.StatusFilters)
-            {
-                <option value="@filter.Wire">@filter.Label</option>
-            }
-        </select>
+        <button id="new-entry-button" data-testid="new-entry-button" class="btn btn--primary" @onclick="OnNewEntry">
+            New entry
+        </button>
+    </header>
 
+    <div class="status-filters" role="radiogroup" aria-label="Filter by status">
+        @foreach (var filter in State.StatusFilters)
+        {
+            <button type="button"
+                    class="chip chip--filter @(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : string.Empty)"
+                    id="status-filter-@(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)"
+                    data-testid="status-filter-option"
+                    role="radio"
+                    aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
+                    @onclick="() => OnFilterChanged(filter.Wire)">
+                @filter.Label
+            </button>
+        }
+    </div>
+
+    @if (State.FilteredRows.Count == 0)
+    {
+        <div class="empty-state" data-testid="empty-state">
+            <p class="empty-state__title">Nothing here yet.</p>
+            <p class="empty-state__body">Create your first entry to start triaging the backlog.</p>
+            <button type="button" class="btn btn--primary" @onclick="OnNewEntry">New entry</button>
+        </div>
+    }
+    else
+    {
         <ul id="entry-list" data-testid="entry-list" class="entry-list">
-            @foreach (var row in State.FilteredEntries)
+            @foreach (var row in State.FilteredRows)
             {
-                <li>
-                    <button id="entry-@row.Id" data-testid="entry-item" class="entry-item @(State.IsSelected(row.Id) ? "selected" : string.Empty)" @onclick="() => OnSelectEntryAsync(row.Id)">
-                        <strong>@row.Title</strong>
-                        <span>@row.TypeLabel • @row.StatusLabel • @row.PriorityLabel • @row.ProgressText</span>
-                    </button>
+                <li class="entry-row @(row.JustSaved ? "entry-row--saved-flash" : string.Empty)" @key="row.Key">
+                    <div class="entry-row__quick-bar">
+                        <button type="button"
+                                class="entry-row__expand"
+                                aria-expanded="@row.IsExpanded.ToString().ToLowerInvariant()"
+                                aria-label="@(row.IsExpanded ? "Collapse details" : "Expand details")"
+                                data-testid="entry-expand-toggle"
+                                @onclick="() => State.ToggleExpanded(row)">
+                            <span class="chevron @(row.IsExpanded ? "chevron--open" : string.Empty)" aria-hidden="true">›</span>
+                        </button>
+
+                        <input class="entry-row__title"
+                               id="entry-title-@row.Key"
+                               data-testid="entry-title-input"
+                               placeholder="Untitled entry"
+                               aria-label="Title"
+                               value="@row.Title"
+                               @oninput="e => State.OnTitleInput(row, e.Value?.ToString() ?? string.Empty)"
+                               @onblur="() => OnFlush(row)" />
+
+                        <select class="chip-select" id="entry-type-@row.Key" data-testid="entry-type-select" aria-label="Type"
+                                value="@row.Type" @onchange="e => OnTypeChanged(row, e.Value)">
+                            @foreach (var type in State.Types)
+                            {
+                                <option value="@type">@State.FormatType(type)</option>
+                            }
+                        </select>
+
+                        <select class="chip-select" id="entry-priority-@row.Key" data-testid="priority-select" aria-label="Priority"
+                                value="@row.Priority" @onchange="e => OnPriorityChanged(row, e.Value)">
+                            @foreach (var priority in State.Priorities)
+                            {
+                                <option value="@priority">@State.FormatPriority(priority)</option>
+                            }
+                        </select>
+
+                        @if (row.IsPersisted)
+                        {
+                            <span class="badge badge--status" data-testid="current-status-text">@State.FormatStatus(row.Status)</span>
+
+                            <select class="chip-select" id="status-select-@row.Key" data-testid="status-select" aria-label="Move status to"
+                                    value="" @onchange="e => OnStatusTargetChanged(row, e.Value)">
+                                <option value="">Move to…</option>
+                                @foreach (var option in row.AvailableStatusTargets)
+                                {
+                                    <option value="@option">@State.FormatStatus(option)</option>
+                                }
+                            </select>
+
+                            <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge--draft">Draft — not saved yet</span>
+                        }
+
+                        <button type="button"
+                                class="btn btn--ghost btn--destructive"
+                                id="delete-entry-@row.Key"
+                                data-testid="delete-entry-button"
+                                aria-label="Delete entry"
+                                @onclick="() => OnDeleteEntryAsync(row)">
+                            Delete
+                        </button>
+                    </div>
+
+                    @if (row.IsExpanded)
+                    {
+                        <div class="entry-row__details">
+                            <label for="entry-content-@row.Key">Content (markdown)</label>
+                            <textarea id="entry-content-@row.Key" data-testid="entry-content-input" rows="5"
+                                      value="@row.ContentMd"
+                                      @oninput="e => State.OnContentInput(row, e.Value?.ToString() ?? string.Empty)"
+                                      @onblur="() => OnFlush(row)"></textarea>
+
+                            <label for="entry-tags-@row.Key">Tags (comma separated)</label>
+                            <input id="entry-tags-@row.Key" data-testid="entry-tags-input"
+                                   value="@row.TagsText"
+                                   @oninput="e => State.OnTagsInput(row, e.Value?.ToString() ?? string.Empty)"
+                                   @onblur="() => OnFlush(row)" />
+
+                            @if (row.IsPersisted)
+                            {
+                                <div class="subitems">
+                                    <h2>Sub-items</h2>
+
+                                    <div class="subitems__add">
+                                        <input id="new-subitem-@row.Key" data-testid="new-subitem-input"
+                                               placeholder="Sub-item title"
+                                               value="@row.NewSubItemTitle"
+                                               @oninput="e => row.NewSubItemTitle = e.Value?.ToString() ?? string.Empty" />
+                                        <button type="button" class="btn btn--secondary" id="add-subitem-@row.Key" data-testid="add-subitem-button" @onclick="() => OnAddSubItemAsync(row)">Add</button>
+                                    </div>
+
+                                    <ul id="subitem-list-@row.Key" data-testid="subitem-list" class="subitem-list">
+                                        @foreach (var item in row.SubItems)
+                                        {
+                                            <li class="subitem-row" @key="item.Id">
+                                                <input id="subitem-toggle-@item.Id" data-testid="subitem-toggle" type="checkbox" checked="@item.IsDone" @onchange="() => OnToggleSubItemAsync(row, item.Id)" />
+                                                <span class="@(item.IsDone ? "subitem-row__title--done" : string.Empty)">@item.Title</span>
+                                                <button type="button" class="btn btn--ghost btn--icon" id="subitem-up-@item.Id" data-testid="subitem-up" aria-label="Move up" @onclick="() => OnMoveSubItemUpAsync(row, item.Id)">↑</button>
+                                                <button type="button" class="btn btn--ghost btn--icon" id="subitem-down-@item.Id" data-testid="subitem-down" aria-label="Move down" @onclick="() => OnMoveSubItemDownAsync(row, item.Id)">↓</button>
+                                                <button type="button" class="btn btn--ghost btn--icon btn--destructive" id="subitem-remove-@item.Id" data-testid="subitem-remove" aria-label="Remove sub-item" @onclick="() => OnRemoveSubItemAsync(row, item.Id)">✕</button>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    }
                 </li>
             }
         </ul>
-    </section>
-
-    <section class="detail-pane">
-        @if (!State.HasEditor)
-        {
-            <p>Select an entry or create a new one.</p>
-        }
-        else
-        {
-            <div class="editor-grid">
-                <label for="entry-title-input">Title</label>
-                <input id="entry-title-input" data-testid="entry-title-input" @bind="State.Title" />
-
-                <label for="entry-type-select">Type</label>
-                <select id="entry-type-select" data-testid="entry-type-select" @bind="State.SelectedType">
-                    @foreach (var type in State.Types)
-                    {
-                        <option value="@type">@State.FormatType(type)</option>
-                    }
-                </select>
-
-                <label for="priority-select">Priority</label>
-                <select id="priority-select" data-testid="priority-select" @bind="State.SelectedPriority">
-                    @foreach (var priority in State.Priorities)
-                    {
-                        <option value="@priority">@State.FormatPriority(priority)</option>
-                    }
-                </select>
-
-                <label for="entry-content-input">Content (markdown)</label>
-                <textarea id="entry-content-input" data-testid="entry-content-input" rows="6" @bind="State.ContentMd"></textarea>
-
-                <label for="entry-tags-input">Tags (comma separated)</label>
-                <input id="entry-tags-input" data-testid="entry-tags-input" @bind="State.TagsText" />
-
-                <button id="save-entry-button" data-testid="save-entry-button" @onclick="OnSaveAsync">Save</button>
-            </div>
-
-            @if (State.IsPersisted)
-            {
-                <div class="persisted-section">
-                    <div>
-                        <strong>Status:</strong>
-                        <span id="current-status-text" data-testid="current-status-text">@State.StatusText</span>
-                        <strong>Progress:</strong>
-                        <span id="progress-text" data-testid="progress-text">@State.ProgressText</span>
-                    </div>
-
-                    <label for="status-select">Move status to</label>
-                    <select id="status-select" data-testid="status-select" @bind="State.SelectedStatusTarget">
-                        <option value="">Select…</option>
-                        @foreach (var option in State.AvailableStatusTargets)
-                        {
-                            <option value="@option">@State.FormatStatus(option)</option>
-                        }
-                    </select>
-                    <button id="apply-status-button" data-testid="apply-status-button" @onclick="OnApplyStatusAsync">Apply</button>
-
-                    <h2>Sub-items</h2>
-
-                    <label for="new-subitem-input">Sub-item title</label>
-                    <input id="new-subitem-input" data-testid="new-subitem-input" @bind="State.NewSubItemTitle" placeholder="Sub-item title" />
-                    <button id="add-subitem-button" data-testid="add-subitem-button" @onclick="OnAddSubItemAsync">Add</button>
-
-                    <ul id="subitem-list" data-testid="subitem-list" class="subitem-list">
-                        @foreach (var item in State.SubItems)
-                        {
-                            <li class="subitem-row">
-                                <input id="subitem-toggle-@item.Id" data-testid="subitem-toggle" type="checkbox" checked="@item.IsDone" @onchange="() => OnToggleSubItemAsync(item.Id)" />
-                                <span>@item.Title</span>
-                                <button id="subitem-up-@item.Id" data-testid="subitem-up" @onclick="() => OnMoveSubItemUpAsync(item.Id)">↑</button>
-                                <button id="subitem-down-@item.Id" data-testid="subitem-down" @onclick="() => OnMoveSubItemDownAsync(item.Id)">↓</button>
-                                <button id="subitem-remove-@item.Id" data-testid="subitem-remove" @onclick="() => OnRemoveSubItemAsync(item.Id)">Remove</button>
-                            </li>
-                        }
-                    </ul>
-                </div>
-            }
-        }
-    </section>
+    }
 </div>
 
 @code {
     protected override async Task OnInitializedAsync()
     {
+        State.Changed += HandleStateChanged;
         await State.InitializeAsync();
     }
 
-    private void OnNewEntry()
+    private void HandleStateChanged()
     {
-        State.NewEntry();
+        InvokeAsync(StateHasChanged);
     }
 
-    private async Task OnSelectEntryAsync(Guid id)
+    private void OnNewEntry() => State.NewRow();
+
+    private async Task OnFlush(EntryRow row) => await State.FlushAsync(row);
+
+    private async Task OnTypeChanged(EntryRow row, object? value)
     {
-        await State.SelectEntryAsync(id);
+        if (value is string text && Enum.TryParse<EntryType>(text, out var type))
+        {
+            await State.OnTypeChangedAsync(row, type);
+        }
     }
 
-    private async Task OnDeleteEntryAsync()
+    private async Task OnPriorityChanged(EntryRow row, object? value)
     {
-        await State.DeleteSelectedAsync();
+        if (value is string text && Enum.TryParse<Priority>(text, out var priority))
+        {
+            await State.OnPriorityChangedAsync(row, priority);
+        }
     }
 
-    private async Task OnSaveAsync()
+    private async Task OnStatusTargetChanged(EntryRow row, object? value)
     {
-        await State.SaveAsync();
+        if (value is string text && !string.IsNullOrEmpty(text) && Enum.TryParse<EntryStatus>(text, out var status))
+        {
+            await State.OnStatusTargetChangedAsync(row, status);
+        }
     }
 
-    private async Task OnApplyStatusAsync()
-    {
-        await State.ApplyStatusAsync();
-    }
+    private async Task OnDeleteEntryAsync(EntryRow row) => await State.DeleteRowAsync(row);
 
-    private async Task OnAddSubItemAsync()
-    {
-        await State.AddSubItemAsync();
-    }
+    private async Task OnAddSubItemAsync(EntryRow row) => await State.AddSubItemAsync(row);
 
-    private async Task OnToggleSubItemAsync(Guid subItemId)
-    {
-        await State.ToggleSubItemAsync(subItemId);
-    }
+    private async Task OnToggleSubItemAsync(EntryRow row, Guid subItemId) => await State.ToggleSubItemAsync(row, subItemId);
 
-    private async Task OnRemoveSubItemAsync(Guid subItemId)
-    {
-        await State.RemoveSubItemAsync(subItemId);
-    }
+    private async Task OnRemoveSubItemAsync(EntryRow row, Guid subItemId) => await State.RemoveSubItemAsync(row, subItemId);
 
-    private async Task OnMoveSubItemUpAsync(Guid subItemId)
-    {
-        await State.MoveSubItemUpAsync(subItemId);
-    }
+    private async Task OnMoveSubItemUpAsync(EntryRow row, Guid subItemId) => await State.MoveSubItemUpAsync(row, subItemId);
 
-    private async Task OnMoveSubItemDownAsync(Guid subItemId)
-    {
-        await State.MoveSubItemDownAsync(subItemId);
-    }
+    private async Task OnMoveSubItemDownAsync(EntryRow row, Guid subItemId) => await State.MoveSubItemDownAsync(row, subItemId);
 
-    private void OnFilterChanged(ChangeEventArgs args)
+    private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
+
+    public void Dispose()
     {
-        State.SetStatusFilter(args.Value?.ToString());
+        State.Changed -= HandleStateChanged;
     }
 }

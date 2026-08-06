@@ -3,15 +3,44 @@ using Backlog.Storage;
 
 namespace Backlog.UI.Services;
 
-public sealed class BacklogDesktopState
+/// <summary>
+/// Global, always-visible persistence state for the quick-edit list, per the
+/// save-state indicator vocabulary in
+/// <c>.design/interaction-guidelines.md#save-state-indicator-vocabulary</c>.
+/// Offline/Conflict states are out of scope here because this desktop slice
+/// talks to a single local file store with no sync layer yet.
+/// </summary>
+public enum AppSaveState
 {
+    Saved,
+    Saving,
+    Error
+}
+
+/// <summary>
+/// Drives the quick-edit backlog list: every entry is an inline-editable row
+/// in the master list (title, type, priority, status, tags, sub-items) so all
+/// currently supported fields can be edited without leaving the list. There is
+/// no Save or Apply button anywhere — text edits auto-save on a debounce and
+/// flush on blur; discrete changes (dropdowns, checkboxes, reorder) save
+/// immediately. See <c>.design/interaction-guidelines.md#auto-save-no-save-buttons</c>.
+/// </summary>
+public sealed class BacklogDesktopState : IDisposable
+{
+    private const int DebounceMilliseconds = 750;
+
     private readonly IBacklogRepository _repository;
-    private BacklogEntry? _entry;
+    private readonly Dictionary<Guid, BacklogEntry> _entries = new();
+    private readonly Dictionary<Guid, Timer> _debounceTimers = new();
 
     public BacklogDesktopState(IBacklogRepository repository)
     {
         _repository = repository;
     }
+
+    /// <summary>Raised whenever rows or save state change from a background
+    /// callback (a debounce timer) so the component can re-render.</summary>
+    public event Action? Changed;
 
     public IReadOnlyList<EntryType> Types { get; } = Enum.GetValues<EntryType>();
 
@@ -27,123 +56,24 @@ public sealed class BacklogDesktopState
         new("Archived", "archived")
     ];
 
-    public List<SummaryRow> FilteredEntries { get; private set; } = [];
+    public List<EntryRow> Rows { get; private set; } = [];
 
-    public List<SummaryRow> AllEntries { get; private set; } = [];
-
-    public List<EntryStatus> AvailableStatusTargets { get; private set; } = [];
-
-    public List<SubItemRow> SubItems { get; private set; } = [];
+    public List<EntryRow> FilteredRows { get; private set; } = [];
 
     public string SelectedStatusFilterWire { get; private set; } = string.Empty;
 
-    public Guid? SelectedEntryId { get; private set; }
+    public AppSaveState SaveState { get; private set; } = AppSaveState.Saved;
 
-    public bool HasSelection => SelectedEntryId.HasValue;
-
-    public bool HasEditor { get; private set; }
-
-    public bool IsPersisted => _entry is not null;
-
-    public string Title { get; set; } = string.Empty;
-
-    public string ContentMd { get; set; } = string.Empty;
-
-    public string TagsText { get; set; } = string.Empty;
-
-    public EntryType SelectedType { get; set; } = EntryType.Task;
-
-    public Priority SelectedPriority { get; set; } = Priority.Medium;
-
-    public EntryStatus? SelectedStatusTarget { get; set; }
-
-    public string NewSubItemTitle { get; set; } = string.Empty;
-
-    public string StatusText => _entry is null ? "(unsaved)" : FormatStatus(_entry.Status);
-
-    public string ProgressText => _entry is null
-        ? "0/0"
-        : $"{_entry.CompletedSubItemCount}/{_entry.TotalSubItemCount}";
+    public string SaveStateLabel => SaveState switch
+    {
+        AppSaveState.Saving => "Saving…",
+        AppSaveState.Error => "Couldn't save",
+        _ => "Saved"
+    };
 
     public async Task InitializeAsync()
     {
-        await ReloadAsync();
-    }
-
-    public bool IsSelected(Guid id) => SelectedEntryId == id;
-
-    public async Task SelectEntryAsync(Guid id)
-    {
-        var entry = await _repository.GetAsync(id);
-        if (entry is null)
-        {
-            return;
-        }
-
-        SelectedEntryId = id;
-        _entry = entry;
-        PopulateEditorFromEntry(entry);
-        RefreshPersistedDetails();
-    }
-
-    public void NewEntry()
-    {
-        SelectedEntryId = null;
-        _entry = null;
-        HasEditor = true;
-        Title = string.Empty;
-        ContentMd = string.Empty;
-        TagsText = string.Empty;
-        SelectedType = EntryType.Task;
-        SelectedPriority = Priority.Medium;
-        SelectedStatusTarget = null;
-        NewSubItemTitle = string.Empty;
-        AvailableStatusTargets = [];
-        SubItems = [];
-    }
-
-    public async Task SaveAsync()
-    {
-        if (string.IsNullOrWhiteSpace(Title))
-        {
-            return;
-        }
-
-        var tags = ParseTags(TagsText);
-
-        if (_entry is null)
-        {
-            _entry = new BacklogEntry(Title.Trim(), ContentMd ?? string.Empty, SelectedType, SelectedPriority, tags: tags);
-        }
-        else
-        {
-            _entry.Rename(Title.Trim());
-            _entry.UpdateContent(ContentMd ?? string.Empty);
-            _entry.ChangeType(SelectedType);
-            _entry.ChangePriority(SelectedPriority);
-            _entry.SetTags(tags);
-        }
-
-        await _repository.SaveAsync(_entry);
-        SelectedEntryId = _entry.Id;
-        await ReloadAsync();
-        RefreshPersistedDetails();
-    }
-
-    public async Task DeleteSelectedAsync()
-    {
-        if (SelectedEntryId is not { } selectedId)
-        {
-            return;
-        }
-
-        await _repository.DeleteAsync(selectedId);
-        SelectedEntryId = null;
-        _entry = null;
-        HasEditor = false;
-        await ReloadAsync();
-        AvailableStatusTargets = [];
-        SubItems = [];
+        await ReloadRowsAsync();
     }
 
     public void SetStatusFilter(string? wire)
@@ -152,83 +82,168 @@ public sealed class BacklogDesktopState
         ApplyFilter();
     }
 
-    public async Task ApplyStatusAsync()
+    /// <summary>Inserts a new, unsaved draft row at the top of the list. It is
+    /// only persisted once the title becomes non-empty (the domain requires a
+    /// title), so quick discrete edits made before that point are held locally.</summary>
+    public void NewRow()
     {
-        if (_entry is null || SelectedStatusTarget is not { } target || !_entry.CanChangeStatusTo(target))
+        var row = new EntryRow
         {
-            return;
-        }
-
-        _entry.ChangeStatus(target);
-        await PersistEntryChangeAsync();
+            IsExpanded = true,
+            Status = EntryStatus.Draft
+        };
+        Rows.Insert(0, row);
+        ApplyFilter();
     }
 
-    public async Task AddSubItemAsync()
-    {
-        if (_entry is null || string.IsNullOrWhiteSpace(NewSubItemTitle))
-        {
-            return;
-        }
+    public void ToggleExpanded(EntryRow row) => row.IsExpanded = !row.IsExpanded;
 
-        _entry.AddSubItem(NewSubItemTitle.Trim());
-        NewSubItemTitle = string.Empty;
-        await PersistEntryChangeAsync();
+    // --- Debounced text fields (title / content / tags) --------------------
+
+    public void OnTitleInput(EntryRow row, string value)
+    {
+        row.Title = value;
+        ScheduleDebouncedSave(row);
     }
 
-    public async Task ToggleSubItemAsync(Guid subItemId)
+    public void OnContentInput(EntryRow row, string value)
     {
-        if (_entry is null)
-        {
-            return;
-        }
-
-        _entry.ToggleSubItem(subItemId);
-        await PersistEntryChangeAsync();
+        row.ContentMd = value;
+        ScheduleDebouncedSave(row);
     }
 
-    public async Task RemoveSubItemAsync(Guid subItemId)
+    public void OnTagsInput(EntryRow row, string value)
     {
-        if (_entry is null)
-        {
-            return;
-        }
-
-        _entry.RemoveSubItem(subItemId);
-        await PersistEntryChangeAsync();
+        row.TagsText = value;
+        ScheduleDebouncedSave(row);
     }
 
-    public async Task MoveSubItemUpAsync(Guid subItemId)
+    /// <summary>Flushes any pending debounce immediately on blur, per the
+    /// idle/blur-flush rule.</summary>
+    public async Task FlushAsync(EntryRow row)
     {
-        if (_entry is null)
-        {
-            return;
-        }
-
-        var item = _entry.SubItems.FirstOrDefault(x => x.Id == subItemId);
-        if (item is null || item.Order <= 0)
-        {
-            return;
-        }
-
-        _entry.ReorderSubItem(subItemId, item.Order - 1);
-        await PersistEntryChangeAsync();
+        CancelDebounce(row);
+        await SaveRowAsync(row);
     }
 
-    public async Task MoveSubItemDownAsync(Guid subItemId)
+    // --- Discrete fields (save immediately, no debounce) --------------------
+
+    public async Task OnTypeChangedAsync(EntryRow row, EntryType type)
     {
-        if (_entry is null)
+        row.Type = type;
+        CancelDebounce(row);
+        await SaveRowAsync(row);
+    }
+
+    public async Task OnPriorityChangedAsync(EntryRow row, Priority priority)
+    {
+        row.Priority = priority;
+        CancelDebounce(row);
+        await SaveRowAsync(row);
+    }
+
+    public async Task OnStatusTargetChangedAsync(EntryRow row, EntryStatus? target)
+    {
+        if (row.Id is not { } id || target is not { } value || !_entries.TryGetValue(id, out var entry))
         {
             return;
         }
 
-        var item = _entry.SubItems.FirstOrDefault(x => x.Id == subItemId);
-        if (item is null || item.Order >= _entry.TotalSubItemCount - 1)
+        if (!entry.CanChangeStatusTo(value))
         {
             return;
         }
 
-        _entry.ReorderSubItem(subItemId, item.Order + 1);
-        await PersistEntryChangeAsync();
+        entry.ChangeStatus(value);
+        await PersistExistingAsync(row, entry);
+    }
+
+    public async Task AddSubItemAsync(EntryRow row)
+    {
+        if (row.Id is not { } id || string.IsNullOrWhiteSpace(row.NewSubItemTitle) || !_entries.TryGetValue(id, out var entry))
+        {
+            return;
+        }
+
+        entry.AddSubItem(row.NewSubItemTitle.Trim());
+        row.NewSubItemTitle = string.Empty;
+        await PersistExistingAsync(row, entry);
+    }
+
+    public async Task ToggleSubItemAsync(EntryRow row, Guid subItemId)
+    {
+        if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry))
+        {
+            return;
+        }
+
+        entry.ToggleSubItem(subItemId);
+        await PersistExistingAsync(row, entry);
+    }
+
+    public async Task RemoveSubItemAsync(EntryRow row, Guid subItemId)
+    {
+        if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry))
+        {
+            return;
+        }
+
+        entry.RemoveSubItem(subItemId);
+        await PersistExistingAsync(row, entry);
+    }
+
+    public async Task MoveSubItemUpAsync(EntryRow row, Guid subItemId)
+    {
+        if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry))
+        {
+            return;
+        }
+
+        var item = entry.SubItems.FirstOrDefault(x => x.Id == subItemId);
+        if (item is null || item.Order <= 0) return;
+
+        entry.ReorderSubItem(subItemId, item.Order - 1);
+        await PersistExistingAsync(row, entry);
+    }
+
+    public async Task MoveSubItemDownAsync(EntryRow row, Guid subItemId)
+    {
+        if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry))
+        {
+            return;
+        }
+
+        var item = entry.SubItems.FirstOrDefault(x => x.Id == subItemId);
+        if (item is null || item.Order >= entry.TotalSubItemCount - 1) return;
+
+        entry.ReorderSubItem(subItemId, item.Order + 1);
+        await PersistExistingAsync(row, entry);
+    }
+
+    /// <summary>Explicit, deliberate destructive action — distinct from the
+    /// forbidden "Save" gesture, so it stays as a confirmed button.</summary>
+    public async Task DeleteRowAsync(EntryRow row)
+    {
+        CancelDebounce(row);
+
+        if (row.Id is { } id)
+        {
+            SetSaveState(AppSaveState.Saving);
+            try
+            {
+                await _repository.DeleteAsync(id);
+                _entries.Remove(id);
+                SetSaveState(AppSaveState.Saved);
+            }
+            catch
+            {
+                SetSaveState(AppSaveState.Error);
+                return;
+            }
+        }
+
+        Rows.Remove(row);
+        ApplyFilter();
     }
 
     public string FormatStatus(EntryStatus status) => status switch
@@ -252,87 +267,184 @@ public sealed class BacklogDesktopState
 
     public string FormatPriority(Priority priority) => priority.ToString();
 
-    private async Task PersistEntryChangeAsync()
+    public void Dispose()
     {
-        await _repository.SaveAsync(_entry!);
-        await ReloadAsync();
-        RefreshPersistedDetails();
+        foreach (var timer in _debounceTimers.Values)
+        {
+            timer.Dispose();
+        }
+
+        _debounceTimers.Clear();
     }
 
-    private async Task ReloadAsync()
+    // --- Internals ------------------------------------------------------
+
+    private void ScheduleDebouncedSave(EntryRow row)
+    {
+        CancelDebounce(row);
+
+        var timer = new Timer(_ => OnDebounceElapsed(row), null, DebounceMilliseconds, Timeout.Infinite);
+        _debounceTimers[row.Key] = timer;
+    }
+
+    private async void OnDebounceElapsed(EntryRow row)
+    {
+        _debounceTimers.Remove(row.Key);
+        await SaveRowAsync(row);
+        Changed?.Invoke();
+    }
+
+    private void CancelDebounce(EntryRow row)
+    {
+        if (_debounceTimers.Remove(row.Key, out var timer))
+        {
+            timer.Dispose();
+        }
+    }
+
+    private async Task SaveRowAsync(EntryRow row)
+    {
+        var tags = ParseTags(row.TagsText);
+
+        if (row.Id is not { } id)
+        {
+            if (string.IsNullOrWhiteSpace(row.Title))
+            {
+                // Nothing to persist yet — the domain requires a title.
+                return;
+            }
+
+            var entry = new BacklogEntry(row.Title.Trim(), row.ContentMd, row.Type, row.Priority, tags: tags);
+            SetSaveState(AppSaveState.Saving);
+            try
+            {
+                await _repository.SaveAsync(entry);
+            }
+            catch
+            {
+                SetSaveState(AppSaveState.Error);
+                return;
+            }
+
+            _entries[entry.Id] = entry;
+            row.Id = entry.Id;
+            RefreshRowFromEntry(row, entry);
+            SetSaveState(AppSaveState.Saved);
+            FlashSaved(row);
+            return;
+        }
+
+        if (!_entries.TryGetValue(id, out var existing))
+        {
+            return;
+        }
+
+        existing.Rename(string.IsNullOrWhiteSpace(row.Title) ? existing.Title : row.Title.Trim());
+        existing.UpdateContent(row.ContentMd);
+        existing.ChangeType(row.Type);
+        existing.ChangePriority(row.Priority);
+        existing.SetTags(tags);
+
+        await PersistExistingAsync(row, existing, flash: true);
+    }
+
+    private async Task PersistExistingAsync(EntryRow row, BacklogEntry entry, bool flash = false)
+    {
+        SetSaveState(AppSaveState.Saving);
+        try
+        {
+            await _repository.SaveAsync(entry);
+        }
+        catch
+        {
+            SetSaveState(AppSaveState.Error);
+            return;
+        }
+
+        RefreshRowFromEntry(row, entry);
+        SetSaveState(AppSaveState.Saved);
+        if (flash) FlashSaved(row);
+    }
+
+    private async void FlashSaved(EntryRow row)
+    {
+        row.JustSaved = true;
+        Changed?.Invoke();
+        await Task.Delay(900);
+        row.JustSaved = false;
+        Changed?.Invoke();
+    }
+
+    private void SetSaveState(AppSaveState state)
+    {
+        SaveState = state;
+    }
+
+    private static void RefreshRowFromEntry(EntryRow row, BacklogEntry entry)
+    {
+        row.Status = entry.Status;
+        row.AvailableStatusTargets =
+        [
+            .. Enum.GetValues<EntryStatus>().Where(target => entry.CanChangeStatusTo(target))
+        ];
+        row.SubItems =
+        [
+            .. entry.SubItems
+                .OrderBy(x => x.Order)
+                .Select(x => new SubItemRow(x.Id, x.Title, x.Status == SubItemStatus.Done, x.Order))
+        ];
+    }
+
+    private async Task ReloadRowsAsync()
     {
         var summaries = await _repository.ListAsync();
+        var rows = new List<EntryRow>();
 
-        AllEntries = summaries
-            .Select(x => new SummaryRow(
-                x.Id,
-                x.Title,
-                x.Type,
-                x.Status,
-                x.Priority,
-                $"{x.CompletedSubItems}/{x.TotalSubItems}"))
-            .ToList();
-
-        ApplyFilter();
-
-        if (SelectedEntryId is { } selectedId && FilteredEntries.All(x => x.Id != selectedId))
+        foreach (var summary in summaries)
         {
-            SelectedEntryId = null;
+            var entry = await _repository.GetAsync(summary.Id);
+            if (entry is null) continue;
+
+            _entries[entry.Id] = entry;
+
+            var row = new EntryRow
+            {
+                Id = entry.Id,
+                Title = entry.Title,
+                ContentMd = entry.ContentMd,
+                TagsText = string.Join(", ", entry.Tags),
+                Type = entry.Type,
+                Priority = entry.Priority,
+                Status = entry.Status
+            };
+            RefreshRowFromEntry(row, entry);
+            rows.Add(row);
         }
+
+        Rows = rows;
+        ApplyFilter();
     }
 
     private void ApplyFilter()
     {
         if (string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
-            FilteredEntries = [.. AllEntries];
+            FilteredRows = [.. Rows];
             return;
         }
 
-        FilteredEntries =
-        [
-            .. AllEntries.Where(x =>
-                string.Equals(
-                    x.StatusWire,
-                    SelectedStatusFilterWire,
-                    StringComparison.OrdinalIgnoreCase))
-        ];
+        FilteredRows = [.. Rows.Where(x => StatusWire(x.Status) == SelectedStatusFilterWire)];
     }
 
-    private void PopulateEditorFromEntry(BacklogEntry entry)
+    private static string StatusWire(EntryStatus status) => status switch
     {
-        HasEditor = true;
-        Title = entry.Title;
-        ContentMd = entry.ContentMd;
-        TagsText = string.Join(", ", entry.Tags);
-        SelectedType = entry.Type;
-        SelectedPriority = entry.Priority;
-        SelectedStatusTarget = null;
-        NewSubItemTitle = string.Empty;
-    }
-
-    private void RefreshPersistedDetails()
-    {
-        if (_entry is null)
-        {
-            AvailableStatusTargets = [];
-            SubItems = [];
-            return;
-        }
-
-        AvailableStatusTargets =
-        [
-            .. Enum.GetValues<EntryStatus>()
-                .Where(target => _entry.CanChangeStatusTo(target))
-        ];
-
-        SubItems =
-        [
-            .. _entry.SubItems
-                .OrderBy(x => x.Order)
-                .Select(x => new SubItemRow(x.Id, x.Title, x.Status == SubItemStatus.Done, x.Order))
-        ];
-    }
+        EntryStatus.Draft => "draft",
+        EntryStatus.Ready => "ready",
+        EntryStatus.InProgress => "in_progress",
+        EntryStatus.Done => "done",
+        EntryStatus.Archived => "archived",
+        _ => status.ToString().ToLowerInvariant()
+    };
 
     private static IReadOnlyList<string> ParseTags(string text)
     {
@@ -344,22 +456,44 @@ public sealed class BacklogDesktopState
 
 public sealed record StatusFilterOption(string Label, string Wire);
 
-public sealed record SummaryRow(
-    Guid Id,
-    string Title,
-    string TypeWire,
-    string StatusWire,
-    string PriorityWire,
-    string ProgressText)
-{
-    public string TypeLabel => TypeWire;
-
-    public string StatusLabel => CapitalizeFirst(StatusWire.Replace('_', ' '));
-
-    public string PriorityLabel => PriorityWire;
-
-    private static string CapitalizeFirst(string value) =>
-        string.IsNullOrEmpty(value) ? value : char.ToUpperInvariant(value[0]) + value[1..];
-}
-
 public sealed record SubItemRow(Guid Id, string Title, bool IsDone, int Order);
+
+/// <summary>An inline-editable row in the quick-edit list. <see cref="Key"/> is
+/// a stable client-side identity used for <c>@key</c> and debounce tracking,
+/// independent of <see cref="Id"/> which is null until the row is first saved.</summary>
+public sealed class EntryRow
+{
+    public Guid Key { get; } = Guid.NewGuid();
+
+    public Guid? Id { get; set; }
+
+    public string Title { get; set; } = string.Empty;
+
+    public string ContentMd { get; set; } = string.Empty;
+
+    public string TagsText { get; set; } = string.Empty;
+
+    public EntryType Type { get; set; } = EntryType.Task;
+
+    public Priority Priority { get; set; } = Priority.Medium;
+
+    public EntryStatus Status { get; set; } = EntryStatus.Draft;
+
+    public List<EntryStatus> AvailableStatusTargets { get; set; } = [];
+
+    public List<SubItemRow> SubItems { get; set; } = [];
+
+    public string NewSubItemTitle { get; set; } = string.Empty;
+
+    public bool IsExpanded { get; set; }
+
+    public bool IsPersisted => Id.HasValue;
+
+    /// <summary>True briefly after a successful save, driving the inline
+    /// "ease-bounce" saved-flash per the Inline Editing pattern.</summary>
+    public bool JustSaved { get; set; }
+
+    public int CompletedSubItemCount => SubItems.Count(x => x.IsDone);
+
+    public string ProgressText => $"{CompletedSubItemCount}/{SubItems.Count}";
+}
