@@ -99,6 +99,31 @@ Invoke: orch-backlog
 - GitHub Issue created or updated and its reference recorded, when
   publishing was requested.
 
+## Canvas Interface
+
+This skill reports progress through the `orch-dashboard` canvas extension
+(`plugins/copilot-app/extensions/orch-dashboard/`). If the extension is not
+installed, skip the canvas calls below and continue through standard chat
+interaction.
+
+- Open canvas `orch-dashboard`, then call `start_run` with
+  `skillId: "orch-backlog"` and these stages: Context Loading, Item
+  Drafting, Metadata & Cross-Reference Enforcement, Publish / Sync
+  (optional).
+- Before each stage, call `update_stage` with `status: "in_progress"`.
+- After each stage, call `update_stage` again with `status: "done"` (or
+  `"blocked"`/`"skipped"`) and an `output` summary — e.g. drafted item
+  content, metadata fixes applied, or publish/sync results.
+- Call `finish_run` with the final status and a summary once the backlog
+  change is complete.
+- During **Item Drafting**, also open/update `markdown-canvas`
+  (`markdown-preview`) with the drafted epic/story/bug content, per
+  `instructions/canvas-usage.instructions.md`. Optional; skip gracefully if
+  not installed.
+
+See `plugins/copilot-app/extensions/orch-dashboard/README.md` for the full
+canvas action contract.
+
 ## Reference
 
 - `.github/instructions/backlog.instructions.md`

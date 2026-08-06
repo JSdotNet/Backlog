@@ -99,6 +99,30 @@ Invoke: orch-domain
   the changed and any dependent files.
 - Changed paths summarized for the user.
 
+## Canvas Interface
+
+This skill reports progress through the `orch-dashboard` canvas extension
+(`plugins/copilot-app/extensions/orch-dashboard/`). If the extension is not
+installed, skip the canvas calls below and continue through standard chat
+interaction.
+
+- Open canvas `orch-dashboard`, then call `start_run` with
+  `skillId: "orch-domain"` and these stages: Context Loading, Domain
+  Modeling, Metadata & Cross-Reference Enforcement, Consistency Review.
+- Before each stage, call `update_stage` with `status: "in_progress"`.
+- After each stage, call `update_stage` again with `status: "done"` (or
+  `"blocked"`/`"skipped"`) and an `output` summary — e.g. modeling
+  decisions, metadata fixes applied, or consistency findings.
+- Call `finish_run` with the final status and a summary once the `.domain/`
+  change is complete.
+- During **Domain Modeling**, also open/update `mermaid-diagram` with any
+  updated aggregate/context-map/event-flow diagram, per
+  `instructions/canvas-usage.instructions.md`. Optional; skip gracefully if
+  not installed.
+
+See `plugins/copilot-app/extensions/orch-dashboard/README.md` for the full
+canvas action contract.
+
 ## Reference
 
 - `.github/instructions/domain.instructions.md`

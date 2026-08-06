@@ -94,6 +94,30 @@ Invoke: orch-arc42-content
 - ADR/TDR content linked rather than duplicated.
 - Changed paths summarized for the user.
 
+## Canvas Interface
+
+This skill reports progress through the `orch-dashboard` canvas extension
+(`plugins/copilot-app/extensions/orch-dashboard/`). If the extension is not
+installed, skip the canvas calls below and continue through standard chat
+interaction.
+
+- Open canvas `orch-dashboard`, then call `start_run` with
+  `skillId: "orch-arc42-content"` and these stages: Context Loading, Content
+  Drafting, Metadata Enforcement, Consistency Review.
+- Before each stage, call `update_stage` with `status: "in_progress"`.
+- After each stage, call `update_stage` again with `status: "done"` (or
+  `"blocked"`/`"skipped"`) and an `output` summary — e.g. drafted chapter
+  content, metadata fixes applied, or consistency findings.
+- Call `finish_run` with the final status and a summary once the `.arc42/`
+  chapter change is complete.
+- During **Content Drafting**, also open/update `markdown-canvas`
+  (`markdown-preview`) with the drafted chapter content, per
+  `instructions/canvas-usage.instructions.md`. Optional; skip gracefully if
+  not installed.
+
+See `plugins/copilot-app/extensions/orch-dashboard/README.md` for the full
+canvas action contract.
+
 ## Reference
 
 - `.github/instructions/arc42.instructions.md`
