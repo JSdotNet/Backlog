@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
+  "scope": ".arc42",
+  "sources": [
+    ".arc42"
+  ],
+  "problems": [],
+  "entries": [
+    {
+      "type": "file",
+      "name": "01-introduction-and-goals.md",
+      "path": ".arc42/01-introduction-and-goals.md",
+      "title": "01. Introduction and Goals",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "02-constraints.md",
+      "path": ".arc42/02-constraints.md",
+      "title": "02. Constraints",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "03-context-and-scope.md",
+      "path": ".arc42/03-context-and-scope.md",
+      "title": "03. Context and Scope",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "04-solution-strategy.md",
+      "path": ".arc42/04-solution-strategy.md",
+      "title": "04. Solution Strategy",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "05-building-block-view.md",
+      "path": ".arc42/05-building-block-view.md",
+      "title": "05. Building Block View",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "06-runtime-view.md",
+      "path": ".arc42/06-runtime-view.md",
+      "title": "06. Runtime View",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "07-deployment-view.md",
+      "path": ".arc42/07-deployment-view.md",
+      "title": "07. Deployment View",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "08-crosscutting-concepts.md",
+      "path": ".arc42/08-crosscutting-concepts.md",
+      "title": "08. Cross-cutting Concepts",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "09-architecture-decisions.md",
+      "path": ".arc42/09-architecture-decisions.md",
+      "title": "09. Architecture Decisions",
+      "status": "active"
+    },
+    {
+      "type": "file",
+      "name": "10-quality-requirements.md",
+      "path": ".arc42/10-quality-requirements.md",
+      "title": "10. Quality Requirements",
+      "status": "draft"
+    },
+    {
+      "type": "file",
+      "name": "11-risks-and-technical-debt.md",
+      "path": ".arc42/11-risks-and-technical-debt.md",
+      "title": "11. Risks and Technical Debt",
+      "status": "draft"
+    },
+    {
+      "type": "file",
+      "name": "12-glossary.md",
+      "path": ".arc42/12-glossary.md",
+      "title": "12. Glossary",
+      "status": "active"
+    }
+  ]
+}

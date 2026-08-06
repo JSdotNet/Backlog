@@ -2,6 +2,7 @@
 
 ```meta
 status: draft
+order: ["features.md", "model.md", "flow.md", "dependencies.md", "naming.md"]
 ```
 
 > One chapter per Aggregate or Domain Service in this bounded context.
