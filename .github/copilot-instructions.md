@@ -20,3 +20,7 @@ See `.github/instructions/workflow-routing.instructions.md` for orchestration-sk
 - Treat checked-in knowledge folders such as `.arc42/`, `.domain/`, and `.backlog/` as **task-scoped context**, not baseline context. Load only the relevant chapters after routing to the correct orchestration or specialist agent, or when the user explicitly asks for that knowledge.
 - Commit changes as they are made; do not leave edits uncommitted across multiple turns of the same task.
 - Never open a pull request unless the user explicitly asks for one (via the create-PR action, a PR-creation skill, or a direct request). Committing to the session branch is not an implicit request to open a PR.
+
+## Pull Request Creation
+
+When creating a pull request in this repository, always invoke the `pr-jsdotnet` skill (`.github/skills/pr-jsdotnet/SKILL.md`) instead of the built-in PR creation tool, so the PR is authored using JSdotNet organization credentials via `gh pr create`.
