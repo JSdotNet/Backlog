@@ -1,7 +1,7 @@
 // metadata.mjs — parsing and validation for the chapter/file `meta` YAML
 // blocks defined in .github/instructions/chapter-metadata.instructions.md.
 //
-// The schema used across .domain/.arc42/.backlog is intentionally small and
+// The schema used across .domain/.arc42/.backlog/.tech is intentionally small and
 // flat (single-line scalars, null, or bracket lists), so we parse it with a
 // tiny hand-written reader instead of pulling in a YAML dependency.
 
@@ -9,15 +9,41 @@ const STATUS_BY_FOLDER = {
     domain: ["draft", "proposed", "active", "deprecated"],
     arc42: ["draft", "proposed", "active", "deprecated"],
     backlog: ["draft", "ready", "in-progress", "done", "blocked"],
+    tech: ["candidate", "trial", "adopted", "hold", "retired"],
 };
 
+// Fields a folder requires on every metadata block, beyond `status`.
+const FOLDER_REQUIRED_FIELDS = {
+    domain: [],
+    arc42: [],
+    backlog: [],
+    tech: ["kind"],
+};
+
+// Allowed values for enumerated folder-specific fields.
+const TECH_KINDS = [
+    "language",
+    "runtime",
+    "framework",
+    "library",
+    "package",
+    "tool",
+    "service",
+    "platform",
+    "protocol",
+    "format",
+];
+
 // Fields every folder's chapter/file block may carry, plus folder-specific
-// extras layered in below.
+// extras layered in below. `order` is file-level only (see validateDocument):
+// it declares the reading order of a directory's entries.
 const COMMON_OPTIONAL_FIELDS = ["related", "issue"];
+const FILE_ONLY_FIELDS = ["order"];
 const FOLDER_EXTRA_FIELDS = {
     domain: ["depends-on", "aliases"],
     arc42: [],
     backlog: ["depends-on", "implements"],
+    tech: ["kind", "version", "depends-on", "alternatives"],
 };
 
 /** Determine which knowledge folder a repo-relative path belongs to. */
@@ -26,6 +52,7 @@ export function folderKindForPath(relPath) {
     if (normalized.startsWith(".domain/")) return "domain";
     if (normalized.startsWith(".arc42/")) return "arc42";
     if (normalized.startsWith(".backlog/")) return "backlog";
+    if (normalized.startsWith(".tech/")) return "tech";
     return null;
 }
 
@@ -119,12 +146,16 @@ export function parseDocument(markdown) {
     return { fileTitle, fileMeta, chapters };
 }
 
+// GitHub's anchor algorithm lowercases, strips punctuation, then replaces each
+// remaining whitespace character with a hyphen — it does *not* collapse runs.
+// "Organizational & Process Constraints" therefore anchors as
+// "organizational--process-constraints" (double hyphen where the & was).
 function slugify(text) {
     return text
         .toLowerCase()
         .trim()
         .replace(/[^\w\s-]/g, "")
-        .replace(/\s+/g, "-");
+        .replace(/\s/g, "-");
 }
 
 /**
@@ -140,7 +171,7 @@ export function validateDocument(relPath, markdown) {
     if (!kind) {
         issues.push({
             severity: "info",
-            message: `${relPath} is not under .domain/, .arc42/, or .backlog/ — no metadata rules apply.`,
+            message: `${relPath} is not under .domain/, .arc42/, .backlog/, or .tech/ — no metadata rules apply.`,
         });
         return issues;
     }
@@ -149,6 +180,7 @@ export function validateDocument(relPath, markdown) {
     const allowedStatus = STATUS_BY_FOLDER[kind];
     const optionalFields = new Set([
         ...COMMON_OPTIONAL_FIELDS,
+        ...FILE_ONLY_FIELDS,
         ...FOLDER_EXTRA_FIELDS[kind],
     ]);
 
@@ -186,8 +218,35 @@ export function validateDocument(relPath, markdown) {
             });
         }
 
+        // Folder-specific required fields apply to chapter blocks, not to the
+        // file-level block (which describes the document as a whole).
+        if (chapter.level > 1) {
+            for (const required of FOLDER_REQUIRED_FIELDS[kind]) {
+                if (!(required in chapter.meta) || chapter.meta[required] === null) {
+                    issues.push({
+                        severity: "error",
+                        message: `${label} is missing required \`${required}\` for the ${kind} folder.`,
+                    });
+                }
+            }
+        }
+
+        if (kind === "tech" && chapter.meta.kind && !TECH_KINDS.includes(chapter.meta.kind)) {
+            issues.push({
+                severity: "error",
+                message: `${label} has kind "${chapter.meta.kind}", expected one of: ${TECH_KINDS.join(", ")}.`,
+            });
+        }
+
         for (const [key, value] of Object.entries(chapter.meta)) {
             if (key === "status") continue;
+            if (FILE_ONLY_FIELDS.includes(key) && chapter.level > 1) {
+                issues.push({
+                    severity: "error",
+                    message: `${label} has \`${key}\`, which belongs on the file-level block only — it describes the document's directory, not a chapter.`,
+                });
+                continue;
+            }
             if (!optionalFields.has(key)) {
                 issues.push({
                     severity: "warning",
@@ -201,6 +260,32 @@ export function validateDocument(relPath, markdown) {
                     severity: "warning",
                     message: `${label} sets \`${key}\` to an empty/null value — omit the field instead per the omit-when-empty rule.`,
                 });
+            }
+        }
+
+        if (chapter.level === 1 && "order" in chapter.meta) {
+            const entries = chapter.meta.order;
+            if (!Array.isArray(entries)) {
+                issues.push({
+                    severity: "error",
+                    message: `${label} has \`order\` that is not a list. Use a list of sibling file or directory names.`,
+                });
+            } else {
+                for (const entry of entries) {
+                    if (typeof entry !== "string" || entry.includes("/")) {
+                        issues.push({
+                            severity: "error",
+                            message: `${label} has \`order\` entry "${entry}" — entries must be plain names of siblings in the same directory, not paths.`,
+                        });
+                    }
+                }
+                const duplicates = entries.filter((e, i) => entries.indexOf(e) !== i);
+                if (duplicates.length) {
+                    issues.push({
+                        severity: "error",
+                        message: `${label} lists ${[...new Set(duplicates)].join(", ")} more than once in \`order\`.`,
+                    });
+                }
             }
         }
     }

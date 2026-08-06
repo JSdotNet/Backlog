@@ -1,6 +1,6 @@
 ---
-name: orch-backlog-knowledge
-description: 'Orchestrate changes to .backlog/ (durable work-item artifacts grouped by concern) for this repository. Use for any create/update of a .backlog/<concern-type>-<concern-slug>.md file, its Items, or Sub-items. Drafts content via write-epic/write-story/write-bug, enforces backlog-knowledge.instructions.md structure and chapter-metadata.instructions.md metadata blocks, and hands off to create-github-issue/update-github-issue when publishing.'
+name: orch-backlog
+description: 'Orchestrate changes to .backlog/ (durable work-item artifacts grouped by concern) for this repository. Use for any create/update of a .backlog/<concern-type>-<concern-slug>.md file, its Items, or Sub-items. Drafts content via write-epic/write-story/write-bug, enforces backlog.instructions.md structure and chapter-metadata.instructions.md metadata blocks, and hands off to create-github-issue/update-github-issue when publishing.'
 ---
 
 # Orchestrate Backlog Knowledge (`.backlog/`)
@@ -27,7 +27,7 @@ artifact.
 > Agent transitions require explicit user approval before switching.
 
 ### Stage 1: Context Loading
-- Load `.github/instructions/backlog-knowledge.instructions.md` and
+- Load `.github/instructions/backlog.instructions.md` and
   `.github/instructions/chapter-metadata.instructions.md` (task-scoped, not
   baseline context).
 - Load only the target concern file (create it from the template if it does
@@ -42,7 +42,7 @@ artifact.
   quality/shape: `write-epic`, `write-story`, or `write-bug`. These skills
   shape content quality, not a stored type label — the saved artifact still
   uses the plain Item/Sub-item chapter structure from
-  `backlog-knowledge.instructions.md`.
+  `backlog.instructions.md`.
 - Nest Sub-items under their parent Item in the same concern file, matching
   the `domain.md` Aggregate/Entity nesting pattern.
 - For a content/status update to an existing item, edit in place without
@@ -81,7 +81,7 @@ artifact.
 ## Usage Pattern
 
 ```text
-Invoke: orch-backlog-knowledge
+Invoke: orch-backlog
 - Concern: feature-checkout
 - Item: "Support partial refunds" (new Item, type: story)
 - Implements: .domain/order-management/features.md#feature-refunds
@@ -91,7 +91,7 @@ Invoke: orch-backlog-knowledge
 ## Output Expectations
 
 - `.backlog/<concern-type>-<concern-slug>.md` updated following the exact
-  structure in `backlog-knowledge.instructions.md`.
+  structure in `backlog.instructions.md`.
 - Every touched Item/Sub-item and the file itself carry a correct metadata
   block per `chapter-metadata.instructions.md`.
 - `depends-on`/`implements`/`related` correctly distinguished and kept in
@@ -101,6 +101,6 @@ Invoke: orch-backlog-knowledge
 
 ## Reference
 
-- `.github/instructions/backlog-knowledge.instructions.md`
+- `.github/instructions/backlog.instructions.md`
 - `.github/instructions/chapter-metadata.instructions.md`
 - `.github/instructions/workflow-routing.instructions.md`

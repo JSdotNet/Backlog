@@ -1,6 +1,6 @@
 ---
-name: orch-domain-knowledge
-description: 'Orchestrate changes to .domain/ (bounded-context domain model, features, model diagrams, dependencies, naming) for this repository. Use for any create/update/refresh of .domain/context-map.md or a bounded context''s domain.md, features.md, model.md, flow.md, dependencies.md, or naming.md. Enforces domain-knowledge.instructions.md structure/templates and chapter-metadata.instructions.md metadata blocks before saving.'
+name: orch-domain
+description: 'Orchestrate changes to .domain/ (bounded-context domain model, features, model diagrams, dependencies, naming) for this repository. Use for any create/update/refresh of .domain/context-map.md or a bounded context''s domain.md, features.md, model.md, flow.md, dependencies.md, or naming.md. Enforces domain.instructions.md structure/templates and chapter-metadata.instructions.md metadata blocks before saving.'
 ---
 
 # Orchestrate Domain Knowledge (`.domain/`)
@@ -27,7 +27,7 @@ structure and metadata conventions.
 > step directly using the same instructions files and continue.
 
 ### Stage 1: Context Loading
-- Load `.github/instructions/domain-knowledge.instructions.md` and
+- Load `.github/instructions/domain.instructions.md` and
   `.github/instructions/chapter-metadata.instructions.md` (task-scoped, not
   baseline context).
 - Load only the relevant bounded-context files already in `.domain/` (not the
@@ -42,7 +42,7 @@ structure and metadata conventions.
   decisions: aggregate boundaries, invariants, domain services, domain
   events, feature breakdown, or naming/alias resolution.
 - Draft or refresh content using the exact templates in
-  `domain-knowledge.instructions.md` (`domain.md`, `features.md`, `model.md`,
+  `domain.instructions.md` (`domain.md`, `features.md`, `model.md`,
   `flow.md`, `dependencies.md`, `naming.md`).
 - Keep `model.md` structural (Mermaid class diagram) and `flow.md`
   lifecycle/process-oriented (Mermaid state/sequence diagrams) — do not mix
@@ -74,7 +74,7 @@ structure and metadata conventions.
 - Confirm `dependencies.md` uses explicit DDD relationship terminology (ACL,
   Customer/Supplier, Partnership, OHS + Published Language) for every row.
 - Confirm no new top-level metadata field was invented without updating
-  `chapter-metadata.instructions.md` or `domain-knowledge.instructions.md`
+  `chapter-metadata.instructions.md` or `domain.instructions.md`
   first.
 - Summarize changed files/chapters for the user.
 
@@ -83,7 +83,7 @@ structure and metadata conventions.
 ## Usage Pattern
 
 ```text
-Invoke: orch-domain-knowledge
+Invoke: orch-domain
 - Context: order-management
 - Files: domain.md, features.md
 - Goal: add a new "Split Order" aggregate behavior and its feature entry
@@ -92,7 +92,7 @@ Invoke: orch-domain-knowledge
 ## Output Expectations
 
 - `.domain/` files updated following the exact templates in
-  `domain-knowledge.instructions.md`.
+  `domain.instructions.md`.
 - Every touched chapter and file carries a correct metadata block per
   `chapter-metadata.instructions.md`.
 - Cross-references (`related`, `depends-on`, `aliases`) kept in sync across
@@ -101,6 +101,6 @@ Invoke: orch-domain-knowledge
 
 ## Reference
 
-- `.github/instructions/domain-knowledge.instructions.md`
+- `.github/instructions/domain.instructions.md`
 - `.github/instructions/chapter-metadata.instructions.md`
 - `.github/instructions/workflow-routing.instructions.md`

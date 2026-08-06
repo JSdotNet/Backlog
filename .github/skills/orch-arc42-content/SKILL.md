@@ -1,6 +1,6 @@
 ---
 name: orch-arc42-content
-description: 'Orchestrate direct content edits to .arc42/ chapters for this repository (refreshing an existing chapter/section, not authoring a new ADR, TDR, or blueprint). Use for updates to .arc42/<nn>-<name>.md content, structure, or diagrams. Enforces arc42-knowledge.instructions.md structure and chapter-metadata.instructions.md metadata blocks, and defers to orch-adr/orch-tdr/orch-blueprint/orch-architecture for decision-record or blueprint-scale work.'
+description: 'Orchestrate direct content edits to .arc42/ chapters for this repository (refreshing an existing chapter/section, not authoring a new ADR, TDR, or blueprint). Use for updates to .arc42/<nn>-<name>.md content, structure, or diagrams. Enforces arc42.instructions.md structure and chapter-metadata.instructions.md metadata blocks, and defers to orch-adr/orch-tdr/orch-blueprint/orch-architecture for decision-record or blueprint-scale work.'
 ---
 
 # Orchestrate arc42 Content Edits (`.arc42/`)
@@ -34,7 +34,7 @@ those specific flows:
 > directly using the same instructions files and continue.
 
 ### Stage 1: Context Loading
-- Load `.github/instructions/arc42-knowledge.instructions.md` and
+- Load `.github/instructions/arc42.instructions.md` and
   `.github/instructions/chapter-metadata.instructions.md` (task-scoped, not
   baseline context).
 - Load only the target chapter file(s) — not the whole `.arc42/` folder.
@@ -88,7 +88,7 @@ Invoke: orch-arc42-content
 ## Output Expectations
 
 - `.arc42/<nn>-<name>.md` updated following the standard chapter set and
-  template in `arc42-knowledge.instructions.md`.
+  template in `arc42.instructions.md`.
 - Every touched chapter/section carries a correct metadata block per
   `chapter-metadata.instructions.md`.
 - ADR/TDR content linked rather than duplicated.
@@ -96,6 +96,6 @@ Invoke: orch-arc42-content
 
 ## Reference
 
-- `.github/instructions/arc42-knowledge.instructions.md`
+- `.github/instructions/arc42.instructions.md`
 - `.github/instructions/chapter-metadata.instructions.md`
 - `.github/instructions/workflow-routing.instructions.md`

@@ -1,0 +1,5 @@
+# Derived index artifacts are written by generators that always emit LF.
+# Without this, git's autocrlf would rewrite the working copy to CRLF on
+# Windows and the generator's next run would show a spurious diff, breaking
+# the staleness check in .github/workflows/knowledge-meta.yml.
+**/_meta/*.json text eol=lf

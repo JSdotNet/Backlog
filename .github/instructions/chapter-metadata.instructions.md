@@ -1,11 +1,11 @@
 ---
-applyTo: ".domain/**,.arc42/**,.backlog/**"
-description: Common per-chapter and per-file metadata convention for .domain, .arc42, and .backlog, so a future visualization tool can parse status, dependencies, and cross-references.
+applyTo: ".domain/**,.arc42/**,.backlog/**,.tech/**"
+description: Common per-chapter and per-file metadata convention for .domain, .arc42, .backlog, and .tech, so a future visualization tool can parse status, dependencies, and cross-references.
 ---
 
 # Chapter and file metadata
 
-`.domain`, `.arc42`, and `.backlog` are intended to be read by a
+`.domain`, `.arc42`, `.backlog`, and `.tech` are intended to be read by a
 visualization tool (to be built later), not just by humans. To make that
 possible, every **chapter** in these folders carries a small, parseable
 metadata block directly under its heading, in a fenced `meta` (YAML) code
@@ -25,10 +25,12 @@ already treat as an addressable unit:
 - `.arc42/<nn>-<name>.md` — the file's top-level chapter, and any ## section
   inside it that is independently trackable.
 - `.backlog/<concern-type>-<concern-slug>.md` — each Item and Sub-item.
+- `.tech/<layer>.md` — each `## <Technology Name>` chapter (one graph node per
+  chapter).
 
-- `.domain` `context-map.md`, `model.md`, `flow.md`, and `dependencies.md` are
-  strategic/structural artifacts; their `##` sections do **not** carry
-  per-chapter metadata blocks.
+- `.domain` `context-map.md`, `model.md`, `flow.md`, and `dependencies.md` and
+  `.tech` `technology-graph.md` are strategic/structural artifacts; their `##`
+  sections do **not** carry per-chapter metadata blocks.
 
 ## Chapter metadata block format
 
@@ -51,8 +53,8 @@ collections and null values are omitted rather than written out.
 
 ## File-level metadata block
 
-In addition to per-chapter blocks, every file in `.domain`, `.arc42`, and
-`.backlog` carries one file-level metadata block describing the document as
+In addition to per-chapter blocks, every file in `.domain`, `.arc42`,
+`.backlog`, and `.tech` carries one file-level metadata block describing the document as
 a whole. This gives the visualization tool a status/relations rollup for the
 file itself, distinct from the status of any individual chapter inside it —
 useful for files such as `.domain` `context-map.md`, `model.md`, `flow.md`,
@@ -76,8 +78,8 @@ Prose or the first chapter starts here.
 
 The file-level block uses the same fields as a chapter block (`status`
 required; `related` and `issue` optional) and the same omit-when-empty rule.
-Folder-specific relation fields defined for chapters (`depends-on`,
-`implements`, `aliases`) are chapter-scoped and are not used at file level —
+Folder-specific fields defined for chapters (`depends-on`, `implements`,
+`aliases`, `kind`, `version`, `alternatives`) are chapter-scoped and are not used at file level —
 a file's overall relationships are expressed through `related` only.
 
 In `.arc42`, the file's top-level chapter heading (e.g. `# 01. Introduction
@@ -91,8 +93,11 @@ Some folders define additional relation fields beyond `related` (e.g.
 which extra fields apply and what they mean. Most such fields use the same
 reference format described below, but not every folder-specific field is a
 reference field: in `.domain`, `aliases` (defined in
-`.github/instructions/domain-knowledge.instructions.md`) is a list of
-plain-string surface names, not `<path>#<heading-slug>` references.
+`.github/instructions/domain.instructions.md`) is a list of
+plain-string surface names, not `<path>#<heading-slug>` references, and in
+`.tech`, `alternatives` (defined in
+`.github/instructions/tech.instructions.md`) is likewise a
+plain-string list.
 
 ### Chapter and file references
 
@@ -116,9 +121,10 @@ entries in `related` and in any folder-specific relation field (`depends-on`,
 
 - **status** (required) — lifecycle state of this chapter's or file's
   content. The allowed values are folder-specific; see the `status` section
-  in `.github/instructions/domain-knowledge.instructions.md`,
-  `.github/instructions/arc42-knowledge.instructions.md`, or
-  `.github/instructions/backlog-knowledge.instructions.md` for the value set
+  in `.github/instructions/domain.instructions.md`,
+  `.github/instructions/arc42.instructions.md`,
+  `.github/instructions/backlog.instructions.md`, or
+  `.github/instructions/tech.instructions.md` for the value set
   that applies to the folder you're editing. A file-level `status` reflects
   the document as a whole and is set independently of its chapters' own
   `status` values (e.g. a file can be `active` overall while one chapter
@@ -133,9 +139,13 @@ entries in `related` and in any folder-specific relation field (`depends-on`,
   shorthand) of the GitHub issue tracking this chapter or file, if one
   exists. Keep this in sync when using `create-github-issue` /
   `update-github-issue`. Omit the field entirely when no issue exists.
+- **order** (optional, **file-level blocks only**) — declares the reading
+  order of the directory this document sits in. See
+  "[Declaring reading order](#declaring-reading-order)" below.
 
-Folder-specific relation fields (e.g. `depends-on` on features/backlog
-chapters, `implements` on backlog chapters) are documented in that folder's
+Folder-specific fields (e.g. `depends-on` on features/backlog/tech chapters,
+`implements` on backlog chapters, `kind`/`version`/`alternatives` on tech
+chapters) are documented in that folder's
 own instructions file, not here — this file only defines the fields common
 to every folder.
 
@@ -157,3 +167,67 @@ to every folder.
   fields (`related: []`, `depends-on: []`) and null values (`issue: null`) are
   omitted rather than written out, so a chapter or file with no relations and
   no issue shows only `status`.
+
+## Declaring reading order
+
+Files in a knowledge folder have an intended reading order that alphabetical
+sorting does not capture — `.domain` reads `domain` → `features` → `model`
+before `naming`, not the other way round. That order is declared in Markdown
+so it stays canonical, and compiled into `_meta/index.json` for viewers.
+
+Per directory, exactly one file may be the **root document**: the one whose
+file-level block carries `order`. It always sorts first, and its `order` lists
+the remaining entries — plain names of sibling files (`shared.md`) or
+subdirectories (`inbox`), never paths:
+
+```markdown
+# Technology Graph
+
+\`\`\`meta
+status: candidate
+order: ["shared.md", "desktop.md", "ide.md", "mobile.md", "cloud.md", "tooling.md"]
+\`\`\`
+```
+
+Rules:
+
+- `order` is valid on a **file-level** block only. On a chapter block it is an
+  error — chapters are already ordered by their position in the document.
+- A directory with no root document falls back to filename sort. This is why
+  the numbered `.arc42` chapters (`01-…`, `02-…`) need no declaration.
+- An entry listed in `order` that does not exist is an error; a file or
+  subdirectory that exists but is unlisted is a warning and gets appended
+  alphabetically. Add it to `order` to pin its position.
+- Two documents in one directory both declaring `order` is an error.
+
+Update `order` whenever a file is added to or removed from a directory that
+has a root document, then regenerate.
+
+## Derived metadata index
+
+These metadata blocks are compiled into derived indexes by
+`.github/tools/knowledge-meta/build.mjs` — one pair per knowledge folder plus
+a repository-wide rollup, placed per
+`.github/instructions/derived-artifacts.instructions.md`:
+
+```text
+_meta/graph.json          # reference graph, all folders
+_meta/index.json          # reading outline, all folders
+.arc42/_meta/graph.json   # .arc42 only
+.arc42/_meta/index.json
+.domain/_meta/…
+.backlog/_meta/…
+.tech/_meta/…
+```
+
+Regenerate whenever a chapter or file is added, renamed, or re-linked:
+
+```bash
+node .github/tools/knowledge-meta/build.mjs
+```
+
+These are derived output — never edit them by hand. CI
+(`.github/workflows/knowledge-meta.yml`) fails when a reference does not
+resolve or when a committed index is stale. Open the **Knowledge graph**
+canvas (optionally scoped to one folder) to explore it visually. See
+`.github/tools/knowledge-meta/README.md` for the output shape.
