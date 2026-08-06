@@ -2,6 +2,12 @@
 @implements IDisposable
 @inject BacklogDesktopState State
 
+@*
+    One entry is one block of markdown. Not focused, it reads as a document;
+    focused, it is the raw text. Nothing in between, and no field-level form
+    control anywhere — see BacklogDesktopState and EntryTextParser.
+*@
+
 <div class="shell">
     <header class="app-header">
         <h1>Backlog</h1>
@@ -41,19 +47,24 @@
     }
     else
     {
-        <ul id="entry-list" data-testid="entry-list" class="entry-list">
+        <ul id="entry-list" data-testid="entry-list" class="entry-list @(State.DraggedRow is null ? string.Empty : "entry-list--dragging")">
             @foreach (var row in State.FilteredRows)
             {
-                <li class="entry-doc status-accent--@row.Status.ToString().ToLowerInvariant() @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)" @key="row.Key">
+                var editing = ReferenceEquals(State.EditingRow, row);
+
+                <li class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)"
+                    @key="row.Key">
+
+                    @RenderGrip(row, before: true)
+
                     <div class="entry-doc__meta">
-                        @if (row.Tags.Count > 0)
+                        <span class="badge badge--status badge--status-@row.PreviewStatus.ToString().ToLowerInvariant()" data-testid="status-badge">@Humanize(row.PreviewStatus.ToString())</span>
+                        <span class="badge badge--type" data-testid="type-badge">@Humanize(row.PreviewType.ToString())</span>
+                        <span class="badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">@Humanize(row.PreviewPriority.ToString())</span>
+
+                        @foreach (var tag in row.PreviewTags)
                         {
-                            <span class="entry-doc__tags" data-testid="entry-tags">
-                                @foreach (var tag in row.Tags)
-                                {
-                                    <span class="tag-chip">#@tag</span>
-                                }
-                            </span>
+                            <span class="tag-chip" data-testid="entry-tag">#@tag</span>
                         }
 
                         @if (row.SubItemCount > 0)
@@ -63,7 +74,7 @@
 
                         @if (!row.IsPersisted)
                         {
-                            <span class="badge badge--draft" data-testid="draft-hint">Not saved yet — add a title line to create it</span>
+                            <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
                         }
 
                         <button type="button"
@@ -71,21 +82,50 @@
                                 id="delete-entry-@row.Key"
                                 data-testid="delete-entry-button"
                                 aria-label="Delete entry"
+                                @onmousedown:preventDefault="true"
                                 @onclick="() => OnDeleteEntryAsync(row)">
                             ✕
                         </button>
                     </div>
 
-                    <div class="grow-wrap" data-replicated-value="@(row.RawText + "\n")">
-                        <textarea class="entry-doc__editor"
-                                  id="entry-raw-@row.Key"
-                                  data-testid="entry-raw-input"
-                                  aria-label="Entry markdown"
-                                  placeholder="@BacklogDesktopState.NewEntryPlaceholder"
-                                  autofocus="@(!row.IsPersisted)"
-                                  @oninput="e => State.OnRawTextInput(row, e.Value?.ToString() ?? string.Empty)"
-                                  @onblur="() => OnFlush(row)">@row.RawText</textarea>
-                    </div>
+                    @if (editing)
+                    {
+                        <div class="grow-wrap" data-replicated-value="@(row.RawText + "\n")">
+                            <textarea class="entry-doc__editor"
+                                      id="entry-raw-@row.Key"
+                                      data-testid="entry-raw-input"
+                                      aria-label="Entry markdown"
+                                      placeholder="@BacklogDesktopState.NewEntryPlaceholder"
+                                      @ref="_editor"
+                                      @oninput="e => State.OnRawTextInput(row, e.Value?.ToString() ?? string.Empty)"
+                                      @onkeydown="e => OnEditorKeyDownAsync(row, e)"
+                                      @onblur="() => OnEndEditAsync(row)">@row.RawText</textarea>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="entry-doc__read"
+                             data-testid="entry-read-view"
+                             role="button"
+                             tabindex="0"
+                             aria-label="Edit markdown for @(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)"
+                             @onclick="() => State.BeginEdit(row)"
+                             @onkeydown="e => OnReadViewKeyDown(row, e)">
+
+                            @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
+                            {
+                                <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
+                            }
+                            else
+                            {
+                                <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
+                            }
+
+                            <MarkdownView Blocks="row.PreviewBlocks" />
+                        </div>
+                    }
+
+                    @RenderGrip(row, before: false)
                 </li>
             }
         </ul>
@@ -93,24 +133,79 @@
 </div>
 
 @code {
+    private ElementReference _editor;
+
     protected override async Task OnInitializedAsync()
     {
         State.Changed += HandleStateChanged;
         await State.InitializeAsync();
     }
 
-    private void HandleStateChanged()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        InvokeAsync(StateHasChanged);
+        if (!State.FocusPending || State.EditingRow is null) return;
+
+        State.FocusPending = false;
+        try
+        {
+            await _editor.FocusAsync();
+        }
+        catch (Exception)
+        {
+            // The editor can be gone again by the time this runs (a fast click
+            // elsewhere); losing the caret is not worth tearing down the page.
+        }
     }
+
+    /// <summary>The grab areas at the top and bottom of every entry: drag
+    /// sources, drop targets, and — because a drag always needs a keyboard
+    /// equivalent — arrow-key reorder controls.</summary>
+    private RenderFragment RenderGrip(EntryRow row, bool before) =>
+        @<button type="button"
+                 class="entry-doc__grip @(before ? "entry-doc__grip--top" : "entry-doc__grip--bottom")"
+                 data-testid="@(before ? "entry-grip-top" : "entry-grip-bottom")"
+                 draggable="true"
+                 aria-label="Reorder entry — drag, or use the up and down arrow keys"
+                 @onmousedown:preventDefault="true"
+                 @ondragstart="() => State.BeginDrag(row)"
+                 @ondragend="() => State.EndDrag()"
+                 @ondragover:preventDefault="true"
+                 @ondrop="() => State.DropAsync(row, before)"
+                 @onkeydown="e => OnGripKeyDownAsync(row, e)">
+            <span class="entry-doc__grip-dots" aria-hidden="true"></span>
+        </button>;
+
+    private void HandleStateChanged() => InvokeAsync(StateHasChanged);
 
     private void OnNewEntry() => State.NewRow();
 
-    private async Task OnFlush(EntryRow row) => await State.FlushAsync(row);
+    private async Task OnEndEditAsync(EntryRow row) => await State.EndEditAsync(row);
 
     private async Task OnDeleteEntryAsync(EntryRow row) => await State.DeleteRowAsync(row);
 
     private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
+
+    private async Task OnEditorKeyDownAsync(EntryRow row, KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await State.EndEditAsync(row);
+    }
+
+    private void OnReadViewKeyDown(EntryRow row, KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ") State.BeginEdit(row);
+    }
+
+    private async Task OnGripKeyDownAsync(EntryRow row, KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowUp") await State.MoveAsync(row, -1);
+        else if (e.Key == "ArrowDown") await State.MoveAsync(row, 1);
+    }
+
+    private static string Humanize(string enumName)
+    {
+        var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
+        return text.ToLowerInvariant();
+    }
 
     public void Dispose()
     {

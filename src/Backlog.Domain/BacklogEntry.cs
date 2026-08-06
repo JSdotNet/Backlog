@@ -92,6 +92,10 @@ public sealed class BacklogEntry
 
     public DateTimeOffset CreatedAt { get; }
 
+    /// <summary>Manual rank within the backlog. Lower sorts first. Entries that
+    /// have never been ranked share the default 0 and fall back to recency.</summary>
+    public int Order { get; private set; }
+
     public IReadOnlyList<string> RepoIds => _repoIds;
 
     public IReadOnlyList<string> Tags => _tags;
@@ -116,6 +120,9 @@ public sealed class BacklogEntry
     public void ChangeType(EntryType type) => Type = type;
 
     public void ChangePriority(Priority priority) => Priority = priority;
+
+    /// <summary>Sets the manual rank used to order the backlog by hand.</summary>
+    public void SetOrder(int order) => Order = order;
 
     public void SetRepoIds(IEnumerable<string> repoIds)
     {

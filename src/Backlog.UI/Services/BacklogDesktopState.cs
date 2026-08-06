@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Backlog.Domain;
 using Backlog.Storage;
 
@@ -19,21 +18,18 @@ public enum AppSaveState
 }
 
 /// <summary>
-/// Drives the quick-edit backlog list. Every entry is a single block of plain
-/// markdown text — there is no separate title/type/priority/status/tags form
-/// control anywhere. The block looks like:
-/// <code>
-/// # Title
-/// `type` `priority` `status`
-///
-/// Free-form body, may include #tags and
-/// - [ ] sub-item checklist lines
-/// </code>
-/// A debounced background parser (<see cref="EntryTextParser"/>) reads that
-/// text and applies it to the domain entry, so typing plain markdown *is* the
-/// editing gesture — there is no Save or Apply button anywhere. Text saves on
-/// a debounce and flushes on blur, per
-/// <c>.design/interaction-guidelines.md#auto-save-no-save-buttons</c>.
+/// Drives the quick-edit backlog list. An entry is a single block of plain
+/// markdown text — there is no title/type/priority/status/tags form control
+/// anywhere. Focus one entry and you get the raw text; leave it and you get the
+/// rendered document, so the markdown is always right there but never in the
+/// way.
+/// <para>
+/// Text saves on a debounce while typing and flushes the moment focus leaves,
+/// per <c>.design/interaction-guidelines.md#auto-save-no-save-buttons</c>.
+/// Entries can be re-ranked by dragging either grip, or from the keyboard with
+/// the arrow keys while a grip is focused — every drag has a keyboard
+/// equivalent.
+/// </para>
 /// </summary>
 public sealed class BacklogDesktopState : IDisposable
 {
@@ -70,6 +66,17 @@ public sealed class BacklogDesktopState : IDisposable
 
     public AppSaveState SaveState { get; private set; } = AppSaveState.Saved;
 
+    /// <summary>The one row currently showing its raw markdown. Everything else
+    /// shows the rendered document.</summary>
+    public EntryRow? EditingRow { get; private set; }
+
+    /// <summary>The row being dragged, if any — drives the drop indicators.</summary>
+    public EntryRow? DraggedRow { get; private set; }
+
+    /// <summary>Set when a newly opened editor still needs the caret placed in
+    /// it; the component consumes this after its next render.</summary>
+    public bool FocusPending { get; set; }
+
     public string SaveStateLabel => SaveState switch
     {
         AppSaveState.Saving => "Saving…",
@@ -81,7 +88,7 @@ public sealed class BacklogDesktopState : IDisposable
     /// never as literal boilerplate to delete) teaching the plain-text format
     /// for a brand-new, empty entry.</summary>
     public const string NewEntryPlaceholder =
-        "# Title\n`task` `medium` `draft`\n\nWrite the details here… use #tags and\n- [ ] sub-items.";
+        "# Title\n`task` `medium` `draft`\n\nWrite the details here… use #tags,\n- [ ] a checklist,\n\n## or a heading for a sub-item.";
 
     public async Task InitializeAsync()
     {
@@ -94,13 +101,26 @@ public sealed class BacklogDesktopState : IDisposable
         ApplyFilter();
     }
 
-    /// <summary>Inserts a new, unsaved draft row at the top of the list. It is
-    /// only persisted once a title line is typed (the domain requires a
-    /// title), so free typing before that point is held locally.</summary>
+    /// <summary>Inserts a new, unsaved draft row at the top of the list and
+    /// opens it for editing. It is only persisted once a title line is typed
+    /// (the domain requires a title), so free typing before that is held
+    /// locally.</summary>
     public void NewRow()
     {
-        Rows.Insert(0, new EntryRow());
+        var row = new EntryRow();
+        Rows.Insert(0, row);
+        BeginEdit(row);
         ApplyFilter();
+    }
+
+    // --- Editing ---------------------------------------------------------
+
+    /// <summary>Swaps a row from its rendered form to raw markdown.</summary>
+    public void BeginEdit(EntryRow row)
+    {
+        if (ReferenceEquals(EditingRow, row)) return;
+        EditingRow = row;
+        FocusPending = true;
     }
 
     /// <summary>Called on every keystroke; schedules a debounced parse+save.</summary>
@@ -110,12 +130,30 @@ public sealed class BacklogDesktopState : IDisposable
         ScheduleDebouncedSave(row);
     }
 
-    /// <summary>Flushes any pending debounce immediately on blur, per the
-    /// idle/blur-flush rule.</summary>
-    public async Task FlushAsync(EntryRow row)
+    /// <summary>Leaves the editor: flushes any pending debounce immediately and
+    /// returns the row to its rendered form. This is what makes tabbing out of
+    /// an entry save it.</summary>
+    public async Task EndEditAsync(EntryRow row)
     {
         CancelDebounce(row);
-        await SaveRowAsync(row);
+
+        if (ReferenceEquals(EditingRow, row))
+        {
+            EditingRow = null;
+        }
+
+        // An entry someone opened and left untouched was never an entry. Drop
+        // it rather than leaving an "Untitled" husk in the list.
+        if (!row.IsPersisted && row.IsEmpty)
+        {
+            Rows.Remove(row);
+            ApplyFilter();
+            Changed?.Invoke();
+            return;
+        }
+
+        await SaveRowAsync(row, isFlush: true);
+        Changed?.Invoke();
     }
 
     /// <summary>Explicit, deliberate destructive action — distinct from the
@@ -123,6 +161,8 @@ public sealed class BacklogDesktopState : IDisposable
     public async Task DeleteRowAsync(EntryRow row)
     {
         CancelDebounce(row);
+
+        if (ReferenceEquals(EditingRow, row)) EditingRow = null;
 
         if (row.Id is { } id)
         {
@@ -141,7 +181,52 @@ public sealed class BacklogDesktopState : IDisposable
         }
 
         Rows.Remove(row);
+        await NormalizeOrderAsync();
         ApplyFilter();
+    }
+
+    // --- Reordering ------------------------------------------------------
+
+    public void BeginDrag(EntryRow row) => DraggedRow = row;
+
+    public void EndDrag() => DraggedRow = null;
+
+    /// <summary>Drops the dragged row immediately before or after
+    /// <paramref name="target"/>.</summary>
+    public async Task DropAsync(EntryRow target, bool before)
+    {
+        var dragged = DraggedRow;
+        DraggedRow = null;
+
+        if (dragged is null || ReferenceEquals(dragged, target)) return;
+
+        Rows.Remove(dragged);
+        var index = Rows.IndexOf(target);
+        if (index < 0) index = Rows.Count;
+        Rows.Insert(before ? index : index + 1, dragged);
+
+        await NormalizeOrderAsync();
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Keyboard equivalent of a drag: moves a row one slot up or down
+    /// among the rows currently visible under the active filter.</summary>
+    public async Task MoveAsync(EntryRow row, int delta)
+    {
+        var visible = FilteredRows;
+        var from = visible.IndexOf(row);
+        var to = from + delta;
+        if (from < 0 || to < 0 || to >= visible.Count) return;
+
+        var anchor = visible[to];
+        Rows.Remove(row);
+        var anchorIndex = Rows.IndexOf(anchor);
+        Rows.Insert(delta < 0 ? anchorIndex : anchorIndex + 1, row);
+
+        await NormalizeOrderAsync();
+        ApplyFilter();
+        Changed?.Invoke();
     }
 
     public void Dispose()
@@ -167,7 +252,7 @@ public sealed class BacklogDesktopState : IDisposable
     private async void OnDebounceElapsed(EntryRow row)
     {
         _debounceTimers.Remove(row.Key);
-        await SaveRowAsync(row);
+        await SaveRowAsync(row, isFlush: false);
         Changed?.Invoke();
     }
 
@@ -179,9 +264,42 @@ public sealed class BacklogDesktopState : IDisposable
         }
     }
 
-    private async Task SaveRowAsync(EntryRow row)
+    /// <summary>
+    /// Parses and persists a row. While typing (<paramref name="isFlush"/>
+    /// false) only the first entry's worth of text is applied and the raw text
+    /// is left exactly as typed. On flush, text that grew a second top-level
+    /// heading is split off into its own entries — doing that only on flush
+    /// keeps the list from rearranging itself under the caret mid-sentence.
+    /// </summary>
+    private async Task SaveRowAsync(EntryRow row, bool isFlush)
     {
-        var parsed = EntryTextParser.Parse(row.RawText);
+        var segments = EntryTextParser.SplitSegments(row.RawText);
+        List<string> overflow = segments.Count > 1 ? [.. segments.Skip(1)] : [];
+
+        if (isFlush && overflow.Count > 0)
+        {
+            row.RawText = segments[0];
+        }
+
+        await ApplySegmentAsync(row, segments.Count > 0 ? segments[0] : row.RawText, rewriteText: isFlush);
+
+        if (!isFlush || overflow.Count == 0) return;
+
+        var insertAt = Rows.IndexOf(row) + 1;
+        foreach (var segment in overflow)
+        {
+            var spawned = new EntryRow { RawText = segment };
+            Rows.Insert(insertAt++, spawned);
+            await ApplySegmentAsync(spawned, segment, rewriteText: true);
+        }
+
+        await NormalizeOrderAsync();
+        ApplyFilter();
+    }
+
+    private async Task ApplySegmentAsync(EntryRow row, string text, bool rewriteText)
+    {
+        var parsed = EntryTextParser.Parse(text);
 
         if (row.Id is not { } id)
         {
@@ -192,15 +310,16 @@ public sealed class BacklogDesktopState : IDisposable
                 return;
             }
 
-            // The domain always creates new entries at Draft — apply the
-            // typed status as an initial transition (ignored gracefully if
-            // it isn't a legal move straight out of Draft).
+            // The domain always creates new entries at Draft — apply the typed
+            // status as an initial transition (ignored gracefully if it isn't a
+            // legal move straight out of Draft).
             var entry = new BacklogEntry(parsed.Title, parsed.Body, parsed.Type ?? EntryType.Task, parsed.Priority ?? Priority.Medium, tags: parsed.Tags);
             if (parsed.Status is { } initialStatus && entry.CanChangeStatusTo(initialStatus))
             {
                 entry.ChangeStatus(initialStatus);
             }
 
+            entry.SetOrder(Math.Max(Rows.IndexOf(row), 0));
             EntryTextParser.SyncSubItems(entry, parsed.SubItems);
 
             SetSaveState(AppSaveState.Saving);
@@ -216,7 +335,7 @@ public sealed class BacklogDesktopState : IDisposable
 
             _entries[entry.Id] = entry;
             row.Id = entry.Id;
-            RefreshRowFromEntry(row, entry);
+            RefreshRowFromEntry(row, entry, rewriteText);
             SetSaveState(AppSaveState.Saved);
             FlashSaved(row);
             return;
@@ -244,15 +363,10 @@ public sealed class BacklogDesktopState : IDisposable
 
         EntryTextParser.SyncSubItems(existing, parsed.SubItems);
 
-        await PersistExistingAsync(row, existing, flash: true);
-    }
-
-    private async Task PersistExistingAsync(EntryRow row, BacklogEntry entry, bool flash = false)
-    {
         SetSaveState(AppSaveState.Saving);
         try
         {
-            await _repository.SaveAsync(entry);
+            await _repository.SaveAsync(existing);
         }
         catch
         {
@@ -260,9 +374,32 @@ public sealed class BacklogDesktopState : IDisposable
             return;
         }
 
-        RefreshRowFromEntry(row, entry);
+        RefreshRowFromEntry(row, existing, rewriteText);
         SetSaveState(AppSaveState.Saved);
-        if (flash) FlashSaved(row);
+        FlashSaved(row);
+    }
+
+    /// <summary>Writes each row's list position back as its rank, saving only
+    /// the entries whose rank actually moved.</summary>
+    private async Task NormalizeOrderAsync()
+    {
+        for (var index = 0; index < Rows.Count; index++)
+        {
+            if (Rows[index].Id is not { } id) continue;
+            if (!_entries.TryGetValue(id, out var entry)) continue;
+            if (entry.Order == index) continue;
+
+            entry.SetOrder(index);
+            try
+            {
+                await _repository.SaveAsync(entry);
+            }
+            catch
+            {
+                SetSaveState(AppSaveState.Error);
+                return;
+            }
+        }
     }
 
     private async void FlashSaved(EntryRow row)
@@ -279,7 +416,7 @@ public sealed class BacklogDesktopState : IDisposable
         SaveState = state;
     }
 
-    private static void RefreshRowFromEntry(EntryRow row, BacklogEntry entry)
+    private static void RefreshRowFromEntry(EntryRow row, BacklogEntry entry, bool rewriteText)
     {
         row.Type = entry.Type;
         row.Priority = entry.Priority;
@@ -287,10 +424,15 @@ public sealed class BacklogDesktopState : IDisposable
         row.Tags = entry.Tags;
         row.SubItemCount = entry.TotalSubItemCount;
         row.CompletedSubItemCount = entry.CompletedSubItemCount;
-        // Re-derive the canonical text from the just-saved entry so the
-        // editor reflects any graceful corrections (e.g. an unknown status
-        // token that was ignored) without disturbing an in-progress edit.
-        row.RawText = EntryTextParser.ToRawText(entry);
+
+        // Re-derive the canonical text from the just-saved entry so the editor
+        // reflects any graceful corrections (e.g. an unknown status token that
+        // was ignored). Only ever on flush — rewriting text under a live caret
+        // would fight the person typing.
+        if (rewriteText)
+        {
+            row.RawText = EntryTextParser.ToRawText(entry);
+        }
     }
 
     private async Task ReloadRowsAsync()
@@ -306,7 +448,7 @@ public sealed class BacklogDesktopState : IDisposable
             _entries[entry.Id] = entry;
 
             var row = new EntryRow { Id = entry.Id };
-            RefreshRowFromEntry(row, entry);
+            RefreshRowFromEntry(row, entry, rewriteText: true);
             rows.Add(row);
         }
 
@@ -339,12 +481,17 @@ public sealed class BacklogDesktopState : IDisposable
 public sealed record StatusFilterOption(string Label, string Wire);
 
 /// <summary>A row in the quick-edit list. <see cref="Key"/> is a stable
-/// client-side identity used for <c>@key</c> and debounce tracking,
-/// independent of <see cref="Id"/> which is null until the row is first
-/// saved. <see cref="RawText"/> is the single source of truth the user types
-/// into — there is no separate title/type/status/tags field anywhere.</summary>
+/// client-side identity used for <c>@key</c> and debounce tracking, independent
+/// of <see cref="Id"/> which is null until the row is first saved.
+/// <see cref="RawText"/> is the single source of truth the user types into —
+/// there is no separate title/type/status/tags field anywhere, and the rendered
+/// form shown when the row is not focused is derived from it.</summary>
 public sealed class EntryRow
 {
+    private string? _renderedFrom;
+    private IReadOnlyList<MdBlock> _blocks = [];
+    private EntryTextParser.ParsedEntry? _parsed;
+
     public Guid Key { get; } = Guid.NewGuid();
 
     public Guid? Id { get; set; }
@@ -369,190 +516,50 @@ public sealed class EntryRow
     /// saved-confirmation flash on the whole entry.</summary>
     public bool JustSaved { get; set; }
 
+    public bool IsEmpty => string.IsNullOrWhiteSpace(RawText);
+
     public string ProgressText => SubItemCount == 0 ? string.Empty : $"{CompletedSubItemCount}/{SubItemCount}";
-}
 
-/// <summary>
-/// Reads and writes the plain-markdown format the quick-edit list is built
-/// on. This is deliberately independent from <c>Backlog.Storage.EnumMap</c>
-/// (internal to that assembly) — the tokens here are the human-typed
-/// vocabulary shown in the UI (e.g. <c>follow-up</c>, <c>in-progress</c>),
-/// normalized the same way (case/space/hyphen/underscore-insensitive) so any
-/// spelling of a known value is recognized.
-/// </summary>
-internal static class EntryTextParser
-{
-    private static readonly Regex MetaLineRegex = new(@"^(\s*`[^`\n]+`\s*)+$", RegexOptions.Compiled);
-    private static readonly Regex TokenRegex = new(@"`([^`]+)`", RegexOptions.Compiled);
-    private static readonly Regex TagRegex = new(@"(?<!\S)#([A-Za-z][\w-]*)", RegexOptions.Compiled);
-    private static readonly Regex SubItemRegex = new(@"^[ \t]*-[ \t]+\[( |x|X)\][ \t]+(.+?)[ \t]*$", RegexOptions.Compiled | RegexOptions.Multiline);
-
-    private static readonly Dictionary<string, EntryType> TypeTokens = new()
+    /// <summary>The rendered body shown when this row is not being edited.</summary>
+    public IReadOnlyList<MdBlock> PreviewBlocks
     {
-        ["prompt"] = EntryType.Prompt,
-        ["task"] = EntryType.Task,
-        ["idea"] = EntryType.Idea,
-        ["followup"] = EntryType.FollowUp
-    };
-
-    private static readonly Dictionary<string, Priority> PriorityTokens = new()
-    {
-        ["low"] = Priority.Low,
-        ["medium"] = Priority.Medium,
-        ["high"] = Priority.High,
-        ["critical"] = Priority.Critical
-    };
-
-    private static readonly Dictionary<string, EntryStatus> StatusTokens = new()
-    {
-        ["draft"] = EntryStatus.Draft,
-        ["ready"] = EntryStatus.Ready,
-        ["inprogress"] = EntryStatus.InProgress,
-        ["done"] = EntryStatus.Done,
-        ["archived"] = EntryStatus.Archived
-    };
-
-    public sealed record ParsedEntry(
-        string Title,
-        EntryType? Type,
-        Priority? Priority,
-        EntryStatus? Status,
-        string Body,
-        IReadOnlyList<string> Tags,
-        IReadOnlyList<(string Title, bool Done)> SubItems);
-
-    /// <summary>Parses the whole raw text block. Tolerant by design: an
-    /// unrecognized or missing meta token simply leaves that field
-    /// unspecified (the caller keeps the previous value) rather than
-    /// blocking or corrupting the rest of the edit.</summary>
-    public static ParsedEntry Parse(string raw)
-    {
-        var lines = (raw ?? string.Empty).Replace("\r\n", "\n").Split('\n');
-        var i = 0;
-
-        while (i < lines.Length && string.IsNullOrWhiteSpace(lines[i])) i++;
-
-        var title = string.Empty;
-        if (i < lines.Length)
-        {
-            var line = lines[i].Trim();
-            title = line.StartsWith("# ", StringComparison.Ordinal) ? line[2..].Trim() : line;
-            i++;
-        }
-
-        while (i < lines.Length && string.IsNullOrWhiteSpace(lines[i])) i++;
-
-        EntryType? type = null;
-        Priority? priority = null;
-        EntryStatus? status = null;
-
-        if (i < lines.Length && MetaLineRegex.IsMatch(lines[i].Trim()))
-        {
-            foreach (Match match in TokenRegex.Matches(lines[i]))
-            {
-                var token = Normalize(match.Groups[1].Value);
-                if (TypeTokens.TryGetValue(token, out var t)) type = t;
-                else if (PriorityTokens.TryGetValue(token, out var p)) priority = p;
-                else if (StatusTokens.TryGetValue(token, out var s)) status = s;
-            }
-
-            i++;
-        }
-
-        while (i < lines.Length && string.IsNullOrWhiteSpace(lines[i])) i++;
-
-        var body = string.Join('\n', lines.Skip(i)).TrimEnd('\n');
-
-        var tags = TagRegex.Matches(body)
-            .Select(m => m.Groups[1].Value.ToLowerInvariant())
-            .Distinct()
-            .ToList();
-
-        var subItems = SubItemRegex.Matches(body)
-            .Select(m => (Title: m.Groups[2].Value.Trim(), Done: m.Groups[1].Value is "x" or "X"))
-            .Where(x => x.Title.Length > 0)
-            .ToList();
-
-        return new ParsedEntry(title, type, priority, status, body, tags, subItems);
+        get { Render(); return _blocks; }
     }
 
-    /// <summary>Syncs a parsed checklist onto the entry's structured
-    /// sub-items by position — the checklist text is the single source of
-    /// truth; nothing outside this entry references a sub-item's id, so
-    /// re-deriving identity from position on every save is safe.</summary>
-    public static void SyncSubItems(BacklogEntry entry, IReadOnlyList<(string Title, bool Done)> parsedItems)
+    public string PreviewTitle
     {
-        var existing = entry.SubItems.OrderBy(s => s.Order).ToList();
-
-        for (var idx = existing.Count - 1; idx >= parsedItems.Count; idx--)
-        {
-            entry.RemoveSubItem(existing[idx].Id);
-        }
-
-        existing = entry.SubItems.OrderBy(s => s.Order).ToList();
-
-        for (var idx = 0; idx < parsedItems.Count; idx++)
-        {
-            var (title, done) = parsedItems[idx];
-            var wantStatus = done ? SubItemStatus.Done : SubItemStatus.Pending;
-
-            if (idx < existing.Count)
-            {
-                var item = existing[idx];
-                if (!string.Equals(item.Title, title, StringComparison.Ordinal))
-                {
-                    entry.UpdateSubItem(item.Id, title, item.Notes);
-                }
-
-                if (item.Status != wantStatus)
-                {
-                    entry.SetSubItemStatus(item.Id, wantStatus);
-                }
-            }
-            else
-            {
-                var newItem = entry.AddSubItem(title);
-                if (done)
-                {
-                    entry.SetSubItemStatus(newItem.Id, SubItemStatus.Done);
-                }
-            }
-        }
+        get { Render(); return _parsed!.Title; }
     }
 
-    /// <summary>Builds the canonical raw-text form of an entry — the inverse
-    /// of <see cref="Parse"/> — so the editor always reflects exactly what
-    /// was saved.</summary>
-    public static string ToRawText(BacklogEntry entry)
+    // Badge values for the read view. These prefer what is currently typed over
+    // what was last saved, so the badges never lag behind the text.
+
+    public EntryType PreviewType
     {
-        var meta = $"`{TypeToken(entry.Type)}` `{PriorityToken(entry.Priority)}` `{StatusToken(entry.Status)}`";
-        var body = entry.ContentMd.TrimEnd('\n');
-        return body.Length == 0
-            ? $"# {entry.Title}\n{meta}\n"
-            : $"# {entry.Title}\n{meta}\n\n{body}\n";
+        get { Render(); return _parsed!.Type ?? Type; }
     }
 
-    private static string TypeToken(EntryType type) => type switch
+    public Priority PreviewPriority
     {
-        EntryType.Prompt => "prompt",
-        EntryType.Task => "task",
-        EntryType.Idea => "idea",
-        EntryType.FollowUp => "follow-up",
-        _ => type.ToString().ToLowerInvariant()
-    };
+        get { Render(); return _parsed!.Priority ?? Priority; }
+    }
 
-    private static string PriorityToken(Priority priority) => priority.ToString().ToLowerInvariant();
-
-    private static string StatusToken(EntryStatus status) => status switch
+    public EntryStatus PreviewStatus
     {
-        EntryStatus.Draft => "draft",
-        EntryStatus.Ready => "ready",
-        EntryStatus.InProgress => "in-progress",
-        EntryStatus.Done => "done",
-        EntryStatus.Archived => "archived",
-        _ => status.ToString().ToLowerInvariant()
-    };
+        get { Render(); return _parsed!.Status ?? Status; }
+    }
 
-    private static string Normalize(string value) =>
-        value.Trim().ToLowerInvariant().Replace("_", string.Empty).Replace("-", string.Empty).Replace(" ", string.Empty);
+    public IReadOnlyList<string> PreviewTags
+    {
+        get { Render(); return _parsed!.Tags.Count > 0 ? _parsed.Tags : Tags; }
+    }
+
+    private void Render()
+    {
+        if (_renderedFrom is not null && string.Equals(_renderedFrom, RawText, StringComparison.Ordinal)) return;
+
+        _renderedFrom = RawText;
+        _parsed = EntryTextParser.Parse(RawText);
+        _blocks = MarkdownPreview.Parse(_parsed.Body);
+    }
 }

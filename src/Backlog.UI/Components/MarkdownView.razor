@@ -1,0 +1,119 @@
+@*
+    The read view of an entry's body: what markdown looks like when you are not
+    editing it. Headings render at their level, `##` headings render as
+    sub-items with their state, #tags render as chips. Text is emitted through
+    Razor's normal escaping, so nothing typed into an entry can inject markup.
+*@
+
+@foreach (var block in Blocks)
+{
+    switch (block)
+    {
+        case MdHeading heading:
+            @if (heading.Level == 2)
+            {
+                <div class="md-subitem @(heading.Done == true ? "md-subitem--done" : string.Empty)">
+                    <span class="md-check" aria-hidden="true">@(heading.Done == true ? "✔" : "○")</span>
+                    <span class="md-subitem__title">@RenderInlines(heading.Content)</span>
+                </div>
+            }
+            else
+            {
+                <p class="md-heading md-heading--@heading.Level">@RenderInlines(heading.Content)</p>
+            }
+            break;
+
+        case MdParagraph paragraph:
+            <p class="md-p">@RenderInlines(paragraph.Content)</p>
+            break;
+
+        case MdList list:
+            @if (list.Ordered)
+            {
+                <ol class="md-list">
+                    @foreach (var item in list.Items)
+                    {
+                        <li>@RenderInlines(item.Content)</li>
+                    }
+                </ol>
+            }
+            else
+            {
+                <ul class="md-list @(list.Items.Any(i => i.Done is not null) ? "md-list--tasks" : string.Empty)">
+                    @foreach (var item in list.Items)
+                    {
+                        <li class="@(item.Done == true ? "md-item--done" : string.Empty)">
+                            @if (item.Done is not null)
+                            {
+                                <span class="md-check" aria-hidden="true">@(item.Done == true ? "✔" : "○")</span>
+                            }
+                            @RenderInlines(item.Content)
+                        </li>
+                    }
+                </ul>
+            }
+            break;
+
+        case MdQuote quote:
+            <blockquote class="md-quote">@RenderInlines(quote.Content)</blockquote>
+            break;
+
+        case MdCode codeBlock:
+            <pre class="md-code"><code>@codeBlock.Text</code></pre>
+            break;
+
+        case MdDivider:
+            <hr class="md-divider" />
+            break;
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<MdBlock> Blocks { get; set; } = [];
+
+    private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) => builder =>
+    {
+        var seq = 0;
+        foreach (var part in parts)
+        {
+            switch (part)
+            {
+                case MdText text:
+                    builder.AddContent(seq++, text.Text);
+                    break;
+                case MdStrong strong:
+                    builder.OpenElement(seq++, "strong");
+                    builder.AddContent(seq++, strong.Text);
+                    builder.CloseElement();
+                    break;
+                case MdEm em:
+                    builder.OpenElement(seq++, "em");
+                    builder.AddContent(seq++, em.Text);
+                    builder.CloseElement();
+                    break;
+                case MdCodeSpan codeSpan:
+                    builder.OpenElement(seq++, "code");
+                    builder.AddAttribute(seq++, "class", "md-inline-code");
+                    builder.AddContent(seq++, codeSpan.Text);
+                    builder.CloseElement();
+                    break;
+                case MdTag tag:
+                    builder.OpenElement(seq++, "span");
+                    builder.AddAttribute(seq++, "class", "tag-chip");
+                    builder.AddContent(seq++, $"#{tag.Tag}");
+                    builder.CloseElement();
+                    break;
+                case MdLink link:
+                    builder.OpenElement(seq++, "a");
+                    builder.AddAttribute(seq++, "class", "md-link");
+                    builder.AddAttribute(seq++, "href", link.Url);
+                    builder.AddAttribute(seq++, "target", "_blank");
+                    builder.AddAttribute(seq++, "rel", "noopener noreferrer");
+                    builder.AddContent(seq++, link.Text);
+                    builder.CloseElement();
+                    break;
+            }
+        }
+    };
+}
