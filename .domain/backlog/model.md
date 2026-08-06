@@ -23,6 +23,8 @@ classDiagram
         +EntryStatus status
         +Priority priority
         +List~String~ tags
+        +String area
+        +Integer order
         +String source_inbox_id
         +Timestamp created_at
     }
@@ -90,3 +92,7 @@ classDiagram
 - `repo_ids` is a plain list of repository identifiers, not object references —
   Backlog stays decoupled from Repository Management. Projection turns each
   `repo_id` into a `ProjectionRef` when the entry starts work.
+- `area` and `order` are plain scalars on the root, not separate value objects —
+  they place the entry in the person's own working set (self-chosen grouping,
+  manual rank) rather than describing the entry's business state, so they carry
+  no relationships to other types.

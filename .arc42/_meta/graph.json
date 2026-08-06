@@ -6,26 +6,36 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 65,
-    "edges": 103,
+    "nodes": 68,
+    "edges": 109,
     "nodesByFolder": {
-      "arc42": 54,
-      "domain": 11
+      "arc42": 56,
+      "domain": 11,
+      "none": 1
     },
     "nodesByType": {
-      "file": 13,
-      "chapter": 52
+      "file": 14,
+      "chapter": 53,
+      "external": 1
     },
     "nodesByStatus": {
-      "active": 47,
-      "draft": 18
+      "active": 48,
+      "draft": 18,
+      "accepted": 1,
+      "none": 1
     },
     "edgesByType": {
-      "contains": 42,
-      "related": 61
+      "contains": 43,
+      "related": 66
     }
   },
-  "problems": [],
+  "problems": [
+    {
+      "severity": "warning",
+      "path": ".arc42/05-building-block-view.md",
+      "message": ".arc42/05-building-block-view.md#desktop-app has `related` reference \"docs/adr/0001-desktop-stack-maui-blazor-hybrid.md\" pointing outside the knowledge folders; recorded as an external node."
+    }
+  ],
   "elements": {
     "nodes": [
       {
@@ -321,7 +331,8 @@
           "line": 157,
           "status": "active",
           "related": [
-            ".arc42/06-runtime-view.md#backlog-entry-to-github-issue"
+            ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+            "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md"
           ]
         }
       },
@@ -707,6 +718,22 @@
       },
       {
         "data": {
+          "id": ".arc42/09-architecture-decisions.md#local-adrs",
+          "label": "Local ADRs",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/09-architecture-decisions.md",
+          "slug": "local-adrs",
+          "level": 2,
+          "line": 59,
+          "status": "active",
+          "related": [
+            ".arc42/04-solution-strategy.md"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/10-quality-requirements.md",
           "label": "10. Quality Requirements",
           "type": "file",
@@ -831,6 +858,21 @@
       },
       {
         "data": {
+          "id": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "label": "ADR 0001: Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "status": "accepted",
+          "related": [
+            ".arc42/04-solution-strategy.md",
+            ".arc42/02-constraints.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/context-map.md",
           "label": "Context Map: Backlog",
           "type": "file",
@@ -872,6 +914,16 @@
             ".domain/capture/domain.md#aggregate-capture",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "label": "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "external",
+          "folder": null,
+          "path": "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "outOfScope": true
         }
       },
@@ -1315,6 +1367,14 @@
       },
       {
         "data": {
+          "id": "contains:.arc42/09-architecture-decisions.md->.arc42/09-architecture-decisions.md#local-adrs",
+          "source": ".arc42/09-architecture-decisions.md",
+          "target": ".arc42/09-architecture-decisions.md#local-adrs",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.arc42/10-quality-requirements.md->.arc42/10-quality-requirements.md#quality-scenarios",
           "source": ".arc42/10-quality-requirements.md",
           "target": ".arc42/10-quality-requirements.md#quality-scenarios",
@@ -1478,6 +1538,14 @@
           "id": "related:.arc42/05-building-block-view.md#desktop-app->.arc42/06-runtime-view.md#backlog-entry-to-github-issue",
           "source": ".arc42/05-building-block-view.md#desktop-app",
           "target": ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/05-building-block-view.md#desktop-app->docs/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".arc42/05-building-block-view.md#desktop-app",
+          "target": "docs/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "type": "related"
         }
       },
@@ -1803,6 +1871,14 @@
       },
       {
         "data": {
+          "id": "related:.arc42/09-architecture-decisions.md#local-adrs->.arc42/04-solution-strategy.md",
+          "source": ".arc42/09-architecture-decisions.md#local-adrs",
+          "target": ".arc42/04-solution-strategy.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/10-quality-requirements.md->.arc42/01-introduction-and-goals.md#quality-goals",
           "source": ".arc42/10-quality-requirements.md",
           "target": ".arc42/01-introduction-and-goals.md#quality-goals",
@@ -1846,6 +1922,30 @@
           "id": "related:.arc42/12-glossary.md#shared-data-types->.arc42/08-crosscutting-concepts.md#shared-data-types",
           "source": ".arc42/12-glossary.md#shared-data-types",
           "target": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md->.arc42/04-solution-strategy.md",
+          "source": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "target": ".arc42/04-solution-strategy.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md->.arc42/02-constraints.md",
+          "source": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "target": ".arc42/02-constraints.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "target": ".arc42/09-architecture-decisions.md",
           "type": "related"
         }
       }

@@ -90,6 +90,28 @@
       "path": ".arc42/12-glossary.md",
       "title": "12. Glossary",
       "status": "active"
+    },
+    {
+      "type": "directory",
+      "name": "adr",
+      "path": ".arc42/adr",
+      "title": "adr",
+      "children": [
+        {
+          "type": "file",
+          "name": "0001-desktop-stack-maui-blazor-hybrid.md",
+          "path": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "title": "ADR 0001: Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3",
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "type": "directory",
+      "name": "tdr",
+      "path": ".arc42/tdr",
+      "title": "tdr",
+      "children": []
     }
   ]
 }
