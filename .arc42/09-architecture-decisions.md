@@ -63,7 +63,7 @@ status: active
 related: [".arc42/04-solution-strategy.md"]
 ```
 
-- **[ADR 0001 — Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3](../docs/adr/0001-desktop-stack-maui-blazor-hybrid.md)**:
+- **[ADR 0001 — Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3](decisions/0001-desktop-stack-maui-blazor-hybrid.md)**:
   supersedes the original WinUI 3 desktop choice so the desktop client can be
   launched from an Aspire AppHost and tested end-to-end with Playwright, while
   preserving local-first storage and native background-worker constraints.
