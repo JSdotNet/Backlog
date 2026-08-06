@@ -38,6 +38,7 @@
     <ProjectReference Include="..\Backlog.Domain\Backlog.Domain.csproj" />
     <ProjectReference Include="..\Backlog.Storage\Backlog.Storage.csproj" />
     <ProjectReference Include="..\Backlog.ServiceDefaults\Backlog.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Backlog.UI\Backlog.UI.csproj" />
   </ItemGroup>
 
 </Project>

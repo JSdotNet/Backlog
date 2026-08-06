@@ -1,4 +1,4 @@
-using Backlog.Desktop.Services;
+using Backlog.UI.Services;
 using Backlog.Storage;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

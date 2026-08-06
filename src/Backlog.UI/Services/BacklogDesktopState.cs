@@ -1,7 +1,7 @@
 using Backlog.Domain;
 using Backlog.Storage;
 
-namespace Backlog.Desktop.Services;
+namespace Backlog.UI.Services;
 
 public sealed class BacklogDesktopState
 {
