@@ -73,6 +73,25 @@ Invoke: orch-fallback
 - A recommendation to create a dedicated `orch-*` skill in a new session if
   the task category recurs.
 
+## Canvas Interface
+
+This skill reports progress through the `orch-dashboard` canvas extension
+(`plugins/copilot-app/extensions/orch-dashboard/`). If the extension is not
+installed, skip the canvas calls below and continue through standard chat
+interaction.
+
+- Open canvas `orch-dashboard`, then call `start_run` with
+  `skillId: "orch-fallback"` and these stages: Routing Check, Plan, Execute,
+  Review & Recommend.
+- Before each stage, call `update_stage` with `status: "in_progress"`.
+- After each stage, call `update_stage` again with `status: "done"` (or
+  `"blocked"`/`"skipped"`) and an `output` summary.
+- Call `finish_run` with the final status and a summary once the task is
+  complete, including the recommendation from Stage 4 if applicable.
+
+See `plugins/copilot-app/extensions/orch-dashboard/README.md` for the full
+canvas action contract.
+
 ## Reference
 
 - `.github/instructions/workflow-routing.instructions.md`
