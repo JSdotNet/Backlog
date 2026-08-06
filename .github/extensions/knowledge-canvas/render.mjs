@@ -38,7 +38,7 @@ export function renderPage() {
 </head>
 <body>
 <div id="layout">
-  <div id="path-bar">No document open. Call <code>set_document</code> with a path under .domain/, .arc42/, or .backlog/.</div>
+  <div id="path-bar">No document open. Call <code>set_document</code> with a path under .domain/, .arc42/, .backlog/, or .design/.</div>
   <div id="body">
     <div id="doc"><div id="empty">Waiting for a document…</div></div>
     <div id="panel"><h3>Metadata</h3><div id="meta-list"></div><h3>Lint</h3><div id="issue-list" class="issues"></div></div>
@@ -66,7 +66,7 @@ function escapeHtml(s) {
 async function loadDocument() {
   const res = await fetch("/api/document");
   if (res.status === 404) {
-    document.getElementById("path-bar").textContent = "No document open. Call set_document with a path under .domain/, .arc42/, or .backlog/.";
+    document.getElementById("path-bar").textContent = "No document open. Call set_document with a path under .domain/, .arc42/, .backlog/, or .design/.";
     document.getElementById("doc").innerHTML = '<div id="empty">Waiting for a document…</div>';
     document.getElementById("meta-list").innerHTML = "";
     document.getElementById("issue-list").innerHTML = "";

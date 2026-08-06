@@ -1,11 +1,11 @@
 ---
-applyTo: ".domain/**,.arc42/**,.backlog/**"
-description: Common per-chapter and per-file metadata convention for .domain, .arc42, and .backlog, so a future visualization tool can parse status, dependencies, and cross-references.
+applyTo: ".domain/**,.arc42/**,.backlog/**,.design/**"
+description: Common per-chapter and per-file metadata convention for .domain, .arc42, .backlog, and .design, so a future visualization tool can parse status, dependencies, and cross-references.
 ---
 
 # Chapter and file metadata
 
-`.domain`, `.arc42`, and `.backlog` are intended to be read by a
+`.domain`, `.arc42`, `.backlog`, and `.design` are intended to be read by a
 visualization tool (to be built later), not just by humans. To make that
 possible, every **chapter** in these folders carries a small, parseable
 metadata block directly under its heading, in a fenced `meta` (YAML) code
@@ -25,6 +25,9 @@ already treat as an addressable unit:
 - `.arc42/<nn>-<name>.md` — the file's top-level chapter, and any ## section
   inside it that is independently trackable.
 - `.backlog/<concern-type>-<concern-slug>.md` — each Item and Sub-item.
+- `.design/<name>.md` — the file's top-level chapter, and every `##` chapter
+  inside it. `###` sub-headings are covered by their parent `##` chapter and
+  carry a block only if they need independent status or cross-references.
 
 - `.domain` `context-map.md`, `model.md`, `flow.md`, and `dependencies.md` are
   strategic/structural artifacts; their `##` sections do **not** carry
@@ -51,9 +54,10 @@ collections and null values are omitted rather than written out.
 
 ## File-level metadata block
 
-In addition to per-chapter blocks, every file in `.domain`, `.arc42`, and
-`.backlog` carries one file-level metadata block describing the document as
-a whole. This gives the visualization tool a status/relations rollup for the
+In addition to per-chapter blocks, every file in `.domain`, `.arc42`,
+`.backlog`, and `.design` carries one file-level metadata block describing the
+document as a whole. This gives the visualization tool a status/relations
+rollup for the
 file itself, distinct from the status of any individual chapter inside it —
 useful for files such as `.domain` `context-map.md`, `model.md`, `flow.md`,
 and `dependencies.md`, whose `##` sections don't carry their own per-chapter
@@ -117,8 +121,9 @@ entries in `related` and in any folder-specific relation field (`depends-on`,
 - **status** (required) — lifecycle state of this chapter's or file's
   content. The allowed values are folder-specific; see the `status` section
   in `.github/instructions/domain-knowledge.instructions.md`,
-  `.github/instructions/arc42-knowledge.instructions.md`, or
-  `.github/instructions/backlog-knowledge.instructions.md` for the value set
+  `.github/instructions/arc42-knowledge.instructions.md`,
+  `.github/instructions/backlog-knowledge.instructions.md`, or
+  `.github/instructions/design-knowledge.instructions.md` for the value set
   that applies to the folder you're editing. A file-level `status` reflects
   the document as a whole and is set independently of its chapters' own
   `status` values (e.g. a file can be `active` overall while one chapter

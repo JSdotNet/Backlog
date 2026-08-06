@@ -1,7 +1,7 @@
 // metadata.mjs — parsing and validation for the chapter/file `meta` YAML
 // blocks defined in .github/instructions/chapter-metadata.instructions.md.
 //
-// The schema used across .domain/.arc42/.backlog is intentionally small and
+// The schema used across .domain/.arc42/.backlog/.design is intentionally small and
 // flat (single-line scalars, null, or bracket lists), so we parse it with a
 // tiny hand-written reader instead of pulling in a YAML dependency.
 
@@ -9,6 +9,7 @@ const STATUS_BY_FOLDER = {
     domain: ["draft", "proposed", "active", "deprecated"],
     arc42: ["draft", "proposed", "active", "deprecated"],
     backlog: ["draft", "ready", "in-progress", "done", "blocked"],
+    design: ["draft", "active", "deprecated"],
 };
 
 // Fields every folder's chapter/file block may carry, plus folder-specific
@@ -18,6 +19,7 @@ const FOLDER_EXTRA_FIELDS = {
     domain: ["depends-on", "aliases"],
     arc42: [],
     backlog: ["depends-on", "implements"],
+    design: [],
 };
 
 /** Determine which knowledge folder a repo-relative path belongs to. */
@@ -26,6 +28,7 @@ export function folderKindForPath(relPath) {
     if (normalized.startsWith(".domain/")) return "domain";
     if (normalized.startsWith(".arc42/")) return "arc42";
     if (normalized.startsWith(".backlog/")) return "backlog";
+    if (normalized.startsWith(".design/")) return "design";
     return null;
 }
 
@@ -140,7 +143,7 @@ export function validateDocument(relPath, markdown) {
     if (!kind) {
         issues.push({
             severity: "info",
-            message: `${relPath} is not under .domain/, .arc42/, or .backlog/ — no metadata rules apply.`,
+            message: `${relPath} is not under .domain/, .arc42/, .backlog/, or .design/ — no metadata rules apply.`,
         });
         return issues;
     }

@@ -29,6 +29,9 @@ deployable unit.
   ubiquitous language). `.arc42` describes *how the system is built and runs*
   (containers, deployment, quality attributes, decisions).
 - `.backlog` tracks *what work is planned or in progress*.
+- `.design` describes *how the product looks and behaves for the user* (UX
+  principles, design tokens, interaction and accessibility rules). Channel and
+  stack facts stay in `.arc42`; `.design` links to them.
 - Architecture Decision Records referenced from arc42 sections should stay
   aligned with ADRs already tracked via `jsdotnet-project-guidelines`; do not
   duplicate ADR content here — link to it instead.

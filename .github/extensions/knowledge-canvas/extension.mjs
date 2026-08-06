@@ -1,7 +1,7 @@
 // Extension: knowledge-canvas
 //
 // Tailored canvas for this repository's checked-in knowledge folders
-// (.domain/, .arc42/, .backlog/). Renders the Markdown with its embedded
+// (.domain/, .arc42/, .backlog/, .design/). Renders the Markdown with its embedded
 // Mermaid diagrams, and parses each chapter/file's `meta` fenced-YAML block
 // (per .github/instructions/chapter-metadata.instructions.md) into a
 // structured side panel plus a lightweight metadata lint.
@@ -19,7 +19,7 @@ import { renderPage } from "./render.mjs";
 import { parseDocument, validateDocument, folderKindForPath } from "./metadata.mjs";
 
 // Repository root: the CLI launches project-scoped extensions with cwd set
-// to the git root, which is also where .domain/.arc42/.backlog live.
+// to the git root, which is also where .domain/.arc42/.backlog/.design live.
 const REPO_ROOT = process.cwd();
 
 // One local HTTP server + current document path per open canvas instance.
@@ -30,7 +30,7 @@ function resolveRelPath(relPath) {
     const kind = folderKindForPath(normalized);
     if (!kind) {
         throw new Error(
-            `"${relPath}" is not under .domain/, .arc42/, or .backlog/ — this canvas only serves those folders.`
+            `"${relPath}" is not under .domain/, .arc42/, .backlog/, or .design/ — this canvas only serves those folders.`
         );
     }
     const absolute = path.resolve(REPO_ROOT, normalized);
@@ -97,14 +97,14 @@ const session = await joinSession({
             id: "knowledge-canvas",
             displayName: "Knowledge canvas",
             description:
-                "View .domain/.arc42/.backlog Markdown with rendered Mermaid diagrams and a structured metadata/lint side panel, per chapter-metadata.instructions.md.",
+                "View .domain/.arc42/.backlog/.design Markdown with rendered Mermaid diagrams and a structured metadata/lint side panel, per chapter-metadata.instructions.md.",
             inputSchema: {
                 type: "object",
                 properties: {
                     path: {
                         type: "string",
                         description:
-                            "Repo-relative path to a Markdown file under .domain/, .arc42/, or .backlog/ to open immediately.",
+                            "Repo-relative path to a Markdown file under .domain/, .arc42/, .backlog/, or .design/ to open immediately.",
                     },
                 },
             },
@@ -112,7 +112,7 @@ const session = await joinSession({
                 {
                     name: "set_document",
                     description:
-                        "Switch the canvas to display a different Markdown file under .domain/, .arc42/, or .backlog/.",
+                        "Switch the canvas to display a different Markdown file under .domain/, .arc42/, .backlog/, or .design/.",
                     inputSchema: {
                         type: "object",
                         properties: {
