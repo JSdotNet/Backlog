@@ -1,10 +1,11 @@
 @*
     The read view of an entry's body: what markdown looks like when you are not
-    editing it. A `##` heading is a sub-item, so it renders as one — an indented
-    block with its own marker and its notes attached, not a heading with some
-    loose paragraphs beneath it. Other headings render at their level, and #tags
-    render as chips. Text is emitted through Razor's normal escaping, so nothing
-    typed into an entry can inject markup.
+    editing it. A `##` heading is a sub-item, so it renders as a full item in its
+    own right — a heading one level down from the entry's title, indented and
+    hung off a rule, with its notes attached. Checkboxes belong to `- [ ]` lines
+    and only to those. Other headings render at their level, and #tags render as
+    chips. Text is emitted through Razor's normal escaping, so nothing typed into
+    an entry can inject markup.
 *@
 
 @foreach (var block in Blocks)
@@ -12,18 +13,15 @@
     switch (block)
     {
         case MdSubItem subItem:
-            <div class="md-subitem @(subItem.Done ? "md-subitem--done" : string.Empty)" data-testid="entry-subitem">
-                <span class="md-subitem__mark" aria-hidden="true">@(subItem.Done ? "✔" : string.Empty)</span>
-                <div class="md-subitem__body">
-                    <p class="md-subitem__title">@RenderInlines(subItem.Title)</p>
-                    @if (subItem.Children.Count > 0)
-                    {
-                        <div class="md-subitem__notes">
-                            <MarkdownView Blocks="subItem.Children" />
-                        </div>
-                    }
-                </div>
-            </div>
+            <section class="md-subitem @(subItem.Done ? "md-subitem--done" : string.Empty)" data-testid="entry-subitem">
+                <h3 class="md-subitem__title">@RenderInlines(subItem.Title)</h3>
+                @if (subItem.Children.Count > 0)
+                {
+                    <div class="md-subitem__notes">
+                        <MarkdownView Blocks="subItem.Children" />
+                    </div>
+                }
+            </section>
             break;
 
         case MdHeading heading:
@@ -52,7 +50,10 @@
                         <li class="@(item.Done == true ? "md-item--done" : string.Empty)">
                             @if (item.Done is not null)
                             {
-                                <span class="md-check" aria-hidden="true">@(item.Done == true ? "✔" : "○")</span>
+                                <span class="md-check @(item.Done == true ? "md-check--done" : string.Empty)"
+                                      data-testid="entry-checkbox"
+                                      role="img"
+                                      aria-label="@(item.Done == true ? "Done" : "Not done")">@(item.Done == true ? "✔" : string.Empty)</span>
                             }
                             @RenderInlines(item.Content)
                         </li>

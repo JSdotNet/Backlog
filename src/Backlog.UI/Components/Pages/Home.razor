@@ -73,6 +73,28 @@
                     @RenderGrip(row, before: true, "top")
                     @RenderGrip(row, before: true, "left")
 
+                    @* A 12px rail is a fine thing to grab and a miserable thing
+                       to hit. While a drag is in flight the whole card becomes
+                       the target, split into a top half that drops above and a
+                       bottom half that drops below. *@
+                    @if (State.DraggedRow is not null && !ReferenceEquals(State.DraggedRow, row))
+                    {
+                        <div class="entry-doc__drops" aria-hidden="true">
+                            <div class="entry-doc__drop entry-doc__drop--before"
+                                 data-testid="entry-drop-before"
+                                 data-drop-zone="@row.Key"
+                                 @ondragenter:preventDefault="true"
+                                 @ondragover:preventDefault="true"
+                                 @ondrop="() => State.DropAsync(row, true)"></div>
+                            <div class="entry-doc__drop entry-doc__drop--after"
+                                 data-testid="entry-drop-after"
+                                 data-drop-zone="@row.Key"
+                                 @ondragenter:preventDefault="true"
+                                 @ondragover:preventDefault="true"
+                                 @ondrop="() => State.DropAsync(row, false)"></div>
+                        </div>
+                    }
+
                     <div class="entry-doc__body">
                         <div class="entry-doc__meta">
                             <span class="badge badge--type" data-testid="type-badge">@Humanize(row.PreviewType.ToString())</span>
@@ -126,6 +148,24 @@
                                           @oninput="e => State.OnRawTextInput(row, e.Value?.ToString() ?? string.Empty)"
                                           @onkeydown="e => OnEditorKeyDownAsync(row, e)"
                                           @onblur="() => OnEndEditAsync(row)">@row.RawText</textarea>
+
+                                @* Answers "which one is the status?" by simply
+                                   saying so, live, from the same parse the save
+                                   will use. *@
+                                <p class="entry-doc__reading" data-testid="entry-meta-reading">
+                                    <span class="entry-doc__reading-lead">reads as</span>
+                                    @foreach (var reading in row.MetaReadings)
+                                    {
+                                        <span class="entry-doc__reading-item @(reading.Explicit ? string.Empty : "entry-doc__reading-item--default") @(reading.Note is null ? string.Empty : "entry-doc__reading-item--refused")">
+                                            <span class="entry-doc__reading-kind">@reading.Kind</span>
+                                            <span class="entry-doc__reading-value">@reading.Value</span>
+                                            @if (reading.Note is not null)
+                                            {
+                                                <span class="entry-doc__reading-note">@reading.Note</span>
+                                            }
+                                        </span>
+                                    }
+                                </p>
                             </div>
                         }
                         else

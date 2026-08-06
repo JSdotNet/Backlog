@@ -104,7 +104,38 @@ public sealed class BacklogDesktopState : IDisposable
     /// never as literal boilerplate to delete) teaching the plain-text format
     /// for a brand-new, empty entry.</summary>
     public const string NewEntryPlaceholder =
-        "# Title\n`task` `medium` `draft`\n\nWrite the details here… use #tags,\n- [ ] a checklist,\n\n## or a heading for a sub-item.";
+        "Title\n`task` `*medium` `!draft`\n\nWrite the details here… use #tags,\n- [ ] a checklist,\n\n## or a heading for a sub-item.";
+
+    /// <summary>Ensures the first line of an entry is a top-level heading. The
+    /// first thing typed is always the title, so it is written as one rather
+    /// than leaving someone to remember the <c>#</c> — and doing it as text
+    /// keeps the markdown honest instead of hiding a title field behind it.
+    /// Text inside a leading fence is left alone.</summary>
+    public static string EnsureTitleHeading(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return raw;
+
+        var normalized = raw.Replace("\r\n", "\n").Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+
+        var first = -1;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].Trim().Length == 0) continue;
+            first = i;
+            break;
+        }
+
+        if (first < 0) return raw;
+
+        var line = lines[first];
+        var trimmed = line.TrimStart();
+
+        if (trimmed.StartsWith('#') || trimmed.StartsWith("```", StringComparison.Ordinal)) return raw;
+
+        lines[first] = "# " + trimmed;
+        return string.Join('\n', lines);
+    }
 
     public async Task InitializeAsync()
     {
@@ -134,7 +165,7 @@ public sealed class BacklogDesktopState : IDisposable
 
         if (SelectedArea.Length > 0 && SelectedArea != UnfiledArea)
         {
-            row.RawText = $"# \n`task` `medium` `draft` `@{SelectedArea}`\n";
+            row.RawText = $"# \n`task` `*medium` `!draft` `@{SelectedArea}`\n";
             row.SeedText = row.RawText;
         }
 
@@ -181,6 +212,11 @@ public sealed class BacklogDesktopState : IDisposable
             Changed?.Invoke();
             return;
         }
+
+        // Whatever went on line one is the title, so it is written as a heading
+        // now rather than silently treated as one. Done on flush, not on every
+        // keystroke, so the caret never jumps mid-word.
+        row.RawText = EnsureTitleHeading(row.RawText);
 
         await SaveRowAsync(row, isFlush: true);
 
@@ -582,6 +618,12 @@ public sealed record StatusFilterOption(string Label, string Wire);
 /// filter doubles as a sense of where the work actually is.</summary>
 public sealed record AreaFilterOption(string Label, string Value, int Count);
 
+/// <summary>One thing the app read out of an entry's meta line. <paramref
+/// name="Explicit"/> distinguishes what was actually typed from what is merely
+/// the current value, so the hint can show a default without claiming it was
+/// asked for.</summary>
+public sealed record MetaReading(string Kind, string Value, bool Explicit, string? Note = null);
+
 /// <summary>A row in the quick-edit list. <see cref="Key"/> is a stable
 /// client-side identity used for <c>@key</c> and debounce tracking, independent
 /// of <see cref="Id"/> which is null until the row is first saved.
@@ -661,7 +703,19 @@ public sealed class EntryRow
 
     public EntryStatus PreviewStatus
     {
-        get { Render(); return _parsed!.Status ?? Status; }
+        get { Render(); return _parsed!.Status is { } typed && BacklogEntry.IsTransitionAllowed(Status, typed) ? typed : Status; }
+    }
+
+    /// <summary>The status that was typed but which the lifecycle will not accept
+    /// from the entry's current one, or null when what was typed will stick.
+    /// Surfaced in the editor hint so a refused word is never silently dropped.</summary>
+    public EntryStatus? BlockedStatus
+    {
+        get
+        {
+            Render();
+            return _parsed!.Status is { } typed && !BacklogEntry.IsTransitionAllowed(Status, typed) ? typed : null;
+        }
     }
 
     public IReadOnlyList<string> PreviewTags
@@ -672,6 +726,49 @@ public sealed class EntryRow
     public string? PreviewArea
     {
         get { Render(); return _parsed!.Area ?? Area; }
+    }
+
+    /// <summary>What the app actually understood from the meta line, in plain
+    /// words. Shown live under the editor so nobody has to guess which token
+    /// became the status.</summary>
+    public IReadOnlyList<MetaReading> MetaReadings
+    {
+        get
+        {
+            Render();
+
+            var readings = new List<MetaReading>
+            {
+                new("type", EntryTextParser.TypeToken(PreviewType), _parsed!.Type is not null),
+                new("priority", EntryTextParser.PriorityToken(PreviewPriority), _parsed.Priority is not null)
+            };
+
+            if (BlockedStatus is { } blocked)
+            {
+                var next = string.Join(" or ", BacklogEntry.NextStatusesFrom(Status).Select(EntryTextParser.StatusToken));
+                readings.Add(new MetaReading(
+                    "status",
+                    EntryTextParser.StatusToken(Status),
+                    true,
+                    $"stays {EntryTextParser.StatusToken(Status)} — {EntryTextParser.StatusToken(blocked)} is not a legal next step; try {next}"));
+            }
+            else
+            {
+                readings.Add(new MetaReading("status", EntryTextParser.StatusToken(PreviewStatus), _parsed.Status is not null));
+            }
+
+            if (!string.IsNullOrEmpty(PreviewArea))
+            {
+                readings.Add(new MetaReading("area", PreviewArea!, _parsed.Area is not null));
+            }
+
+            foreach (var tag in PreviewTags)
+            {
+                readings.Add(new MetaReading("tag", tag, true));
+            }
+
+            return readings;
+        }
     }
 
     private void Render()

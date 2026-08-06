@@ -259,7 +259,101 @@ public class EntryTextParserTests
         Assert.Equal(2, segments.Count);
     }
 
+    [Fact]
+    public void A_tag_inside_a_code_fence_is_code_not_a_tag()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n\n#real\n\n```\n#notatag\n```\n\n#alsoreal");
+
+        Assert.Equal(["real", "alsoreal"], parsed.Tags);
+    }
+
+    [Fact]
+    public void An_unterminated_fence_swallows_the_tags_after_it()
+    {
+        // Everything after an unclosed fence is code as far as the writer is
+        // concerned; guessing otherwise would tag things they never tagged.
+        var parsed = EntryTextParser.Parse("# Title\n\n#real\n\n```\n#notatag");
+
+        Assert.Equal(["real"], parsed.Tags);
+    }
+
     // --- Round-tripping ---------------------------------------------------
+
+    [Fact]
+    public void Each_kind_of_metadata_has_its_own_sigil()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`idea` `*critical` `!archived` `@side-project`\n");
+
+        Assert.Equal(EntryType.Idea, parsed.Type);
+        Assert.Equal(Priority.Critical, parsed.Priority);
+        Assert.Equal(EntryStatus.Archived, parsed.Status);
+        Assert.Equal("side-project", parsed.Area);
+    }
+
+    [Fact]
+    public void A_sigil_settles_a_word_that_two_kinds_could_claim()
+    {
+        // "done" is a status. Sigilled as a priority it is simply not a
+        // priority, and must not fall through and be read as a status anyway.
+        var parsed = EntryTextParser.Parse("# Title\n`*done`\n");
+
+        Assert.Null(parsed.Priority);
+        Assert.Null(parsed.Status);
+    }
+
+    [Fact]
+    public void A_status_sigil_is_read_as_a_status_and_nothing_else()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`!task`\n");
+
+        Assert.Null(parsed.Type);
+        Assert.Null(parsed.Status);
+    }
+
+    [Theory]
+    [InlineData("`!in-progress`", EntryStatus.InProgress)]
+    [InlineData("`!In Progress`", EntryStatus.InProgress)]
+    [InlineData("`!in_progress`", EntryStatus.InProgress)]
+    [InlineData("`!DONE`", EntryStatus.Done)]
+    public void A_sigilled_status_is_as_forgiving_about_spelling_as_a_bare_one(string token, EntryStatus expected)
+    {
+        Assert.Equal(expected, EntryTextParser.Parse($"# Title\n{token}\n").Status);
+    }
+
+    [Fact]
+    public void Bare_words_written_before_the_sigils_existed_still_read()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`idea` `critical` `archived`\n");
+
+        Assert.Equal(EntryType.Idea, parsed.Type);
+        Assert.Equal(Priority.Critical, parsed.Priority);
+        Assert.Equal(EntryStatus.Archived, parsed.Status);
+    }
+
+    [Fact]
+    public void The_canonical_form_written_back_uses_sigils()
+    {
+        var entry = new BacklogEntry("Ship it", string.Empty, EntryType.Task, Priority.High);
+
+        var raw = EntryTextParser.ToRawText(entry);
+
+        Assert.Contains("`*high`", raw);
+        Assert.Contains("`!draft`", raw);
+        Assert.Contains("`task`", raw);
+    }
+
+    [Fact]
+    public void A_bare_meta_line_is_rewritten_with_sigils_and_still_means_the_same()
+    {
+        var before = EntryTextParser.Parse("# Ship it\n`idea` `critical` `draft`\n");
+
+        var entry = new BacklogEntry("Ship it", string.Empty, before.Type!.Value, before.Priority!.Value);
+        var after = EntryTextParser.Parse(EntryTextParser.ToRawText(entry));
+
+        Assert.Equal(before.Type, after.Type);
+        Assert.Equal(before.Priority, after.Priority);
+        Assert.Equal(before.Status, after.Status);
+    }
 
     [Fact]
     public void Raw_text_round_trips_through_an_entry()

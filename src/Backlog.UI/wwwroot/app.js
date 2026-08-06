@@ -26,12 +26,32 @@ document.addEventListener(
 );
 
 document.addEventListener(
+    'dragenter',
+    (event) => {
+        const zone = event.target instanceof Element
+            ? event.target.closest('[data-drag-grip], [data-drop-zone]')
+            : null;
+        if (!zone) return;
+
+        event.preventDefault();
+    },
+    true
+);
+
+document.addEventListener(
     'dragover',
     (event) => {
-        const grip = event.target instanceof Element ? event.target.closest('[data-drag-grip]') : null;
+        const grip = event.target instanceof Element
+            ? event.target.closest('[data-drag-grip], [data-drop-zone]')
+            : null;
         if (!grip || !event.dataTransfer) return;
 
         event.dataTransfer.dropEffect = 'move';
+
+        // A drop only fires where dragover was cancelled. Blazor's
+        // :preventDefault does this too, but the zones appear mid-drag and a
+        // frame where the attribute is not yet attached is a dropped drop.
+        event.preventDefault();
     },
     true
 );

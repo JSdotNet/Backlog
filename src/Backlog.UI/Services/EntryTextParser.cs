@@ -8,7 +8,7 @@ namespace Backlog.UI.Services;
 /// The shape of an entry is ordinary markdown a person would write anyway:
 /// <code>
 /// # Title
-/// `task` `high` `in-progress`
+/// `task` `*high` `!in-progress` `@repos`
 ///
 /// Free prose with #tags anywhere.
 ///
@@ -17,10 +17,17 @@ namespace Backlog.UI.Services;
 ///
 /// - [ ] A checklist sub-item
 /// </code>
+/// Each kind of metadata carries its own sigil so a glance is enough to tell
+/// them apart: <c>!</c> status, <c>*</c> priority, <c>@</c> area, <c>#</c> tag.
+/// Type is the one bare word, because it is the noun the entry already is.
+/// Bare words are still read for every kind, so entries written before the
+/// sigils existed keep working; the canonical form written back uses sigils.
+/// <para>
 /// Heading level carries structure: a second <c>#</c> heading starts a whole
 /// new entry (see <see cref="SplitSegments"/>), <c>##</c> headings and
 /// <c>- [ ]</c> checklist lines both become sub-items, and <c>###</c> and
 /// deeper are just prose.
+/// </para>
 /// <para>
 /// Deliberately independent from <c>Backlog.Storage.EnumMap</c> (internal to
 /// that assembly): the tokens here are the human-typed vocabulary shown in the
@@ -158,17 +165,42 @@ internal static class EntryTextParser
             foreach (Match match in TokenRegex.Matches(lines[i]))
             {
                 var token = match.Groups[1].Value.Trim();
+                if (token.Length == 0) continue;
 
-                // `@something` files the entry under an area. Free-form on
-                // purpose — the vocabulary is the person's, not ours — so it is
-                // only lower-cased and trimmed, never matched against a list.
-                if (token.StartsWith('@'))
+                // Each sigil names exactly one kind of metadata, so `!ready`
+                // cannot be mistaken for anything but a status. A sigilled token
+                // that isn't recognized is left unset rather than falling
+                // through to another kind — the sigil already said what was
+                // meant, and guessing past it would be worse than ignoring it.
+                switch (token[0])
                 {
-                    var value = token[1..].Trim();
-                    if (value.Length > 0) area = value.ToLowerInvariant();
-                    continue;
+                    // Free-form on purpose — the vocabulary of areas is the
+                    // person's, not ours — so it is only lower-cased and
+                    // trimmed, never matched against a list.
+                    case '@':
+                    {
+                        var value = token[1..].Trim();
+                        if (value.Length > 0) area = value.ToLowerInvariant();
+                        continue;
+                    }
+
+                    case '!':
+                        if (StatusTokens.TryGetValue(NormalizeToken(token[1..]), out var explicitStatus))
+                        {
+                            status = explicitStatus;
+                        }
+                        continue;
+
+                    case '*':
+                        if (PriorityTokens.TryGetValue(NormalizeToken(token[1..]), out var explicitPriority))
+                        {
+                            priority = explicitPriority;
+                        }
+                        continue;
                 }
 
+                // No sigil: an entry written before the sigils existed, or
+                // someone typing the plain word. Recognize it anyway.
                 var normalized = NormalizeToken(token);
                 if (TypeTokens.TryGetValue(normalized, out var t)) type = t;
                 else if (PriorityTokens.TryGetValue(normalized, out var p)) priority = p;
@@ -182,12 +214,37 @@ internal static class EntryTextParser
 
         var body = string.Join('\n', lines.Skip(i)).TrimEnd('\n');
 
-        var tags = TagRegex.Matches(body)
+        var tags = TagRegex.Matches(StripFencedCode(body))
             .Select(m => m.Groups[1].Value.ToLowerInvariant())
             .Distinct()
             .ToList();
 
         return new ParsedEntry(title, type, priority, status, area, body, tags, ExtractSubItems(body));
+    }
+
+    /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
+    /// already ignores fences; a <c>#tag</c> written inside a code sample is
+    /// text for the same reason a <c>#</c> heading there is.</summary>
+    private static string StripFencedCode(string body)
+    {
+        if (!body.Contains("```", StringComparison.Ordinal)) return body;
+
+        var lines = body.Split('\n');
+        var inFence = false;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                lines[i] = string.Empty;
+                continue;
+            }
+
+            if (inFence) lines[i] = string.Empty;
+        }
+
+        return string.Join('\n', lines);
     }
 
     /// <summary>Collects sub-items from a body, in document order. A <c>##</c>
@@ -322,7 +379,7 @@ internal static class EntryTextParser
     /// saved.</summary>
     public static string ToRawText(BacklogEntry entry)
     {
-        var meta = $"`{TypeToken(entry.Type)}` `{PriorityToken(entry.Priority)}` `{StatusToken(entry.Status)}`";
+        var meta = $"`{TypeToken(entry.Type)}` `*{PriorityToken(entry.Priority)}` `!{StatusToken(entry.Status)}`";
         if (!string.IsNullOrWhiteSpace(entry.Area)) meta += $" `@{entry.Area}`";
 
         var body = entry.ContentMd.TrimEnd('\n');

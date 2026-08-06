@@ -149,9 +149,19 @@ public sealed class BacklogEntry
 
     // --- Lifecycle ----------------------------------------------------------
 
+    /// <summary>Returns true if an entry at <paramref name="from"/> may move
+    /// directly to <paramref name="to"/>.</summary>
+    public static bool IsTransitionAllowed(EntryStatus from, EntryStatus to) =>
+        from == to || (AllowedTransitions.TryGetValue(from, out var allowed) && Array.IndexOf(allowed, to) >= 0);
+
+    /// <summary>The statuses this entry may move to right now, excluding its
+    /// current one. Callers use this to explain a refusal rather than just
+    /// swallow it.</summary>
+    public static IReadOnlyList<EntryStatus> NextStatusesFrom(EntryStatus from) =>
+        AllowedTransitions.TryGetValue(from, out var allowed) ? allowed : [];
+
     /// <summary>Returns true if the entry may currently transition to <paramref name="target"/>.</summary>
-    public bool CanChangeStatusTo(EntryStatus target) =>
-        AllowedTransitions.TryGetValue(Status, out var allowed) && Array.IndexOf(allowed, target) >= 0;
+    public bool CanChangeStatusTo(EntryStatus target) => IsTransitionAllowed(Status, target);
 
     /// <summary>Moves the entry to <paramref name="target"/> if the transition is
     /// permitted by the lifecycle; throws otherwise.</summary>

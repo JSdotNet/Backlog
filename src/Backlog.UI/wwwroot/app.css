@@ -362,6 +362,110 @@ h1, h2, h3 {
     }
 }
 
+/* --- Meta reading hint ---------------------------------------------------- */
+/*
+  What the app understood, in words, while you type. Muted enough to ignore once
+  the syntax is second nature; present enough to answer the question the first
+  time it comes up.
+*/
+
+.entry-doc__reading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: var(--spacing-xs) 0 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-disabled);
+}
+
+.entry-doc__reading-lead {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.entry-doc__reading-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35em;
+}
+
+.entry-doc__reading-item--default {
+    opacity: 0.5;
+}
+
+.entry-doc__reading-kind::after {
+    content: ":";
+}
+
+.entry-doc__reading-value {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+.entry-doc__reading-item--default .entry-doc__reading-value {
+    color: inherit;
+}
+
+/*
+  A status the lifecycle refuses. The hint is the only place that can say so —
+  the badge shows what the entry actually is, which is precisely the mismatch
+  worth explaining. Amber is the palette's attention accent; the warning token
+  is a dark surface fill and would be unreadable as text.
+*/
+.entry-doc__reading-item--refused {
+    opacity: 1;
+}
+
+.entry-doc__reading-item--refused .entry-doc__reading-value {
+    color: var(--color-primary);
+}
+
+.entry-doc__reading-note {
+    color: var(--color-primary-dark);
+    font-family: var(--font-family-base);
+    font-style: italic;
+}
+
+/* --- Drop zones ----------------------------------------------------------- */
+/*
+  Only present while a drag is in flight. Each covers half a card, so releasing
+  anywhere over an entry lands somewhere sensible instead of demanding a hit on
+  a thin rail. The active edge draws the line the entry will land on.
+*/
+
+.entry-doc__drops {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    border-radius: inherit;
+}
+
+.entry-doc__drop {
+    position: relative;
+}
+
+.entry-doc__drop::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 9999px;
+    background: var(--color-primary);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.entry-doc__drop--before::after { top: -2px; }
+.entry-doc__drop--after::after { bottom: -2px; }
+
+.entry-doc__drop:hover::after {
+    opacity: 1;
+}
+
 /* --- Grab rails ---------------------------------------------------------- */
 /*
   A thin rail on every side of an entry. Each one is a real <button>, so the
@@ -598,45 +702,30 @@ h1, h2, h3 {
     letter-spacing: 0.06em;
 }
 
-/* A level-2 heading is a sub-item, so it reads as one: an indented block,
-   hung off a rule, with its notes attached rather than floating below it. */
+/* A level-2 heading is a sub-item: a full item in its own right, one level down
+   from the entry title. It gets a heading, an indent and a rule — not a
+   checkbox. Checkboxes belong to `- [ ]` lines, and only to those. */
 .md-subitem {
-    display: grid;
-    grid-template-columns: 18px minmax(0, 1fr);
-    gap: var(--spacing-xs);
-    margin: var(--spacing-sm) 0;
-    padding-left: var(--spacing-sm);
+    margin: var(--spacing-md) 0;
+    padding-left: var(--spacing-md);
     border-left: var(--border-width-2) solid var(--color-border);
 }
 
-.md-subitem__mark {
-    width: 13px;
-    height: 13px;
-    margin-top: 0.25em;
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-sm);
-    font-size: 10px;
-    line-height: 11px;
-    text-align: center;
-    color: transparent;
-}
-
-.md-subitem__body {
-    min-width: 0;
-}
-
 .md-subitem__title {
-    margin: 0;
-    font-weight: 500;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    line-height: var(--line-height-tight);
+    letter-spacing: -0.01em;
     color: var(--color-text-primary);
+    margin: 0;
 }
 
 .md-subitem__notes {
     margin-top: var(--spacing-xs);
 }
 
-.md-subitem__notes .md-p:last-child,
-.md-subitem__notes .md-list:last-child {
+.md-subitem__notes > :last-child {
     margin-bottom: 0;
 }
 
@@ -644,24 +733,40 @@ h1, h2, h3 {
     border-left-color: var(--color-primary);
 }
 
-.md-subitem--done .md-subitem__mark {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: var(--color-text-inverse);
-}
-
 .md-subitem--done .md-subitem__title {
     color: var(--color-text-disabled);
     text-decoration: line-through;
 }
 
+/* A checkbox looks like a checkbox: a box, ticked or not. */
 .md-check {
-    color: var(--color-text-disabled);
-    font-size: var(--font-size-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    margin-top: 0.2em;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    font-size: 10px;
+    line-height: 1;
+    color: transparent;
 }
 
-.md-item--done .md-check {
-    color: var(--color-primary);
+.md-check--done {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.md-item--done {
+    color: var(--color-text-disabled);
+    text-decoration: line-through;
+}
+
+.md-item--done .md-check--done {
+    text-decoration: none;
 }
 
 .md-list {
@@ -677,13 +782,8 @@ h1, h2, h3 {
 
 .md-list--tasks li {
     display: flex;
-    align-items: baseline;
+    align-items: flex-start;
     gap: var(--spacing-sm);
-}
-
-.md-item--done {
-    color: var(--color-text-disabled);
-    text-decoration: line-through;
 }
 
 .md-quote {
