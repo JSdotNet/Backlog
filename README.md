@@ -73,7 +73,9 @@ See [domain/domain.md](domain/domain.md) for functional boundaries and [architec
 | `src/Backlog.UI` | Shared Razor components used by the desktop and web hosts |
 | `src/Backlog.Web` | Blazor Server host of the shared UI |
 | `src/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
-| `src/Backlog.Mobile` | Mobile channel — .NET MAUI Blazor Hybrid (Android), inbox capture and triage |
+| `src/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |
+| `src/Backlog.Mobile.Web` | Browser harness for the mobile UI — test it without an emulator |
+| `src/Backlog.Mobile` | Mobile channel — .NET MAUI Blazor Hybrid (Android) |
 | `src/Backlog.Ide.VsCode` | IDE channel — VS Code extension (TypeScript) |
 | `src/Backlog.Cloud` | Cloud channel — thin ASP.NET Core sync service (Azure) |
 | `src/Backlog.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
@@ -85,9 +87,23 @@ See [domain/domain.md](domain/domain.md) for functional boundaries and [architec
 dotnet run --project src/Backlog.AppHost
 ```
 
-The AppHost starts the cloud service and the web host. The desktop, mobile, and
-VS Code resources are registered with **explicit start** — they need a window, an
-emulator, or an extension host, so start them on demand from the Aspire dashboard.
+The AppHost starts the cloud service, the web host, and the mobile browser harness.
+The remaining resources need something Aspire cannot provide on its own — a desktop
+window, an Android emulator, or a VS Code extension host — so they are registered
+with **explicit start** and launched on demand from the dashboard:
+
+| Resource | Starts | Needs |
+|---|---|---|
+| `cloud`, `web`, `mobile-web` | automatically | — |
+| `desktop` | on demand | Windows desktop session |
+| `mobile-android` | on demand | running Android emulator or attached device |
+| `ide-vscode-build` | on demand | `npm install` in `src/Backlog.Ide.VsCode` |
+| `ide-vscode-host` | on demand | `code` on PATH |
+
+Each channel with a MAUI head also has a browser harness sharing the same Razor
+components, so the UI can be developed and tested without a device:
+`Backlog.UI` → `Backlog.Web` for desktop, and `Backlog.Mobile.UI` → `Backlog.Mobile.Web`
+(rendered at phone width) for mobile.
 
 All ports are dynamic (`port 0` in every `launchSettings.json`), so several git
 worktrees of this repository can run their own AppHost side by side. Read the

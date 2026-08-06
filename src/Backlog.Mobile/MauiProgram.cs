@@ -1,4 +1,4 @@
-﻿using Backlog.Mobile.Services;
+﻿using Backlog.Mobile.UI.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Backlog.Mobile;

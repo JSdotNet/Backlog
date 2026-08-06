@@ -1,6 +1,6 @@
 using System.Net.Http.Json;
 
-namespace Backlog.Mobile.Services;
+namespace Backlog.Mobile.UI.Services;
 
 /// <summary>Capture awaiting triage, as returned by the cloud sync layer.</summary>
 public sealed record InboxItem(Guid Id, string Title, string Source, DateTimeOffset CapturedAt);

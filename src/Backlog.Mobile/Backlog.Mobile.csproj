@@ -48,6 +48,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Backlog.ServiceDefaults\Backlog.ServiceDefaults.csproj" />
+        <ProjectReference Include="..\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
     </ItemGroup>
 
 </Project>

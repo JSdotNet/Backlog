@@ -1,0 +1,23 @@
+@using Backlog.Mobile.UI.Components
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backlog Mobile (browser harness)</title>
+    <base href="/" />
+    <link rel="stylesheet" href="_content/Backlog.Mobile.UI/app.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="icon" href="data:,">
+    <HeadOutlet />
+</head>
+
+<body>
+    <div class="phone-frame">
+        <Routes @rendermode="InteractiveServer" />
+    </div>
+
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>
