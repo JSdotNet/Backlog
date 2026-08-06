@@ -62,3 +62,16 @@ related: [.domain/backlog/domain.md#entry-status]
 ```
 
 Lifecycle state of an entry; see `flow.md` for the state transitions.
+
+## Term: Area
+
+```meta
+status: draft
+aliases: [area]
+related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+```
+
+A self-chosen grouping the person files an entry under — "repos", "projects",
+"inbox", or whatever vocabulary they actually use. Deliberately a free-form
+string rather than an enum: the taxonomy belongs to the person, not the
+product. An entry with no area is unfiled.

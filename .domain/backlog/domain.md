@@ -33,6 +33,15 @@ created on `Ready → In Progress` (`EntryProjected`, one per `repo_id`) and clo
 on completion (`EntryCompleted`). A manually created entry starts at `draft` with
 no `source_inbox_id`.
 
+The entry also carries two attributes that place it in the person's own working
+set rather than in any external system: `area`, a free-form string ("repos",
+"projects", "inbox", or whatever vocabulary the person actually uses) that files
+the entry into a self-chosen grouping — blank is normalized to unfiled, and the
+taxonomy is deliberately theirs, not a fixed enum; and `order`, a manual rank used
+to hand-sequence entries within the backlog (entries that have never been ranked
+share the default and fall back to recency). Both are freely re-settable and
+carry no lifecycle invariant of their own.
+
 ### Entities
 
 #### Sub-Item

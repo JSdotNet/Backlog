@@ -6,25 +6,27 @@
     ".design"
   ],
   "stats": {
-    "nodes": 73,
-    "edges": 131,
+    "nodes": 81,
+    "edges": 143,
     "nodesByFolder": {
-      "design": 68,
-      "arc42": 5
+      "design": 72,
+      "arc42": 5,
+      "domain": 4
     },
     "nodesByType": {
       "file": 9,
-      "chapter": 61,
-      "heading": 3
+      "chapter": 68,
+      "heading": 4
     },
     "nodesByStatus": {
-      "active": 69,
-      "none": 3,
-      "accepted": 1
+      "active": 72,
+      "none": 4,
+      "accepted": 1,
+      "draft": 4
     },
     "edgesByType": {
-      "contains": 60,
-      "related": 71
+      "contains": 64,
+      "related": 79
     }
   },
   "problems": [],
@@ -581,6 +583,58 @@
       },
       {
         "data": {
+          "id": ".design/content-editing.md#backlog-entry-structure",
+          "label": "Backlog Entry Structure",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "backlog-entry-structure",
+          "level": 2,
+          "line": 100,
+          "status": "active",
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/backlog/naming.md#term-sub-item",
+            ".design/interaction-guidelines.md#nesting--indent-rules-chapters"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#structured-metadata-sigils",
+          "label": "Structured Metadata Sigils",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "structured-metadata-sigils",
+          "level": 2,
+          "line": 124,
+          "status": "active",
+          "related": [
+            ".domain/backlog/naming.md#term-entry-status",
+            ".domain/backlog/naming.md#term-area",
+            ".design/typography-and-layout.md#font-families"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#live-parse-confirmation",
+          "label": "Live Parse Confirmation",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "live-parse-confirmation",
+          "level": 2,
+          "line": 151,
+          "status": "active",
+          "related": [
+            ".design/content-editing.md#editing-feedback-and-state"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/content-editing.md#paste-behavior",
           "label": "Paste Behavior",
           "type": "chapter",
@@ -588,7 +642,7 @@
           "path": ".design/content-editing.md",
           "slug": "paste-behavior",
           "level": 2,
-          "line": 100,
+          "line": 169,
           "status": "active"
         }
       },
@@ -601,7 +655,7 @@
           "path": ".design/content-editing.md",
           "slug": "slash-and-inline-commands",
           "level": 2,
-          "line": 122,
+          "line": 191,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#feedback-and-toasts",
@@ -618,7 +672,7 @@
           "path": ".design/content-editing.md",
           "slug": "unsupported-syntax-preservation",
           "level": 2,
-          "line": 138,
+          "line": 207,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#reorder--auto-save"
@@ -634,10 +688,11 @@
           "path": ".design/content-editing.md",
           "slug": "editing-feedback-and-state",
           "level": 2,
-          "line": 155,
+          "line": 224,
           "status": "active",
           "related": [
-            ".design/interaction-guidelines.md#save-state-indicator-vocabulary"
+            ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
+            ".design/content-editing.md#live-parse-confirmation"
           ]
         }
       },
@@ -823,7 +878,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "feedback-and-toasts",
           "level": 2,
-          "line": 171,
+          "line": 185,
           "status": "active"
         }
       },
@@ -836,7 +891,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "motion-and-reduced-motion",
           "level": 2,
-          "line": 186,
+          "line": 200,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#shadows-and-elevation",
@@ -853,7 +908,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "focus-and-selection",
           "level": 2,
-          "line": 226,
+          "line": 240,
           "status": "active",
           "related": [
             ".design/accessibility.md#focus-visibility"
@@ -869,7 +924,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "empty-loading-and-error-states",
           "level": 2,
-          "line": 241,
+          "line": 255,
           "status": "active"
         }
       },
@@ -1013,7 +1068,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "keyboard-accessible-reordering",
           "level": 3,
-          "line": 124
+          "line": 138
         }
       },
       {
@@ -1030,6 +1085,18 @@
       },
       {
         "data": {
+          "id": ".design/interaction-guidelines.md#nesting--indent-rules-chapters",
+          "label": "Nesting / Indent Rules (Chapters)",
+          "type": "heading",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "nesting--indent-rules-chapters",
+          "level": 3,
+          "line": 167
+        }
+      },
+      {
+        "data": {
           "id": ".design/interaction-guidelines.md#reorder--auto-save",
           "label": "Reorder × Auto-Save",
           "type": "heading",
@@ -1037,7 +1104,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "reorder--auto-save",
           "level": 3,
-          "line": 162
+          "line": 176
         }
       },
       {
@@ -1106,6 +1173,84 @@
             ".arc42/04-solution-strategy.md",
             ".arc42/02-constraints.md",
             ".arc42/09-architecture-decisions.md"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "label": "Aggregate: Backlog Entry",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "slug": "aggregate-backlog-entry",
+          "level": 2,
+          "line": 19,
+          "status": "draft",
+          "related": [
+            ".domain/inbox/domain.md#aggregate-inbox-item",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-sub-item",
+          "label": "Term: Sub-Item",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-sub-item",
+          "level": 2,
+          "line": 24,
+          "status": "draft",
+          "aliases": [
+            "SubItem"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#sub-item"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-entry-status",
+          "label": "Term: Entry Status",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-entry-status",
+          "level": 2,
+          "line": 56,
+          "status": "draft",
+          "aliases": [
+            "EntryStatus"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#entry-status"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-area",
+          "label": "Term: Area",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-area",
+          "level": 2,
+          "line": 66,
+          "status": "draft",
+          "aliases": [
+            "area"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
           ],
           "outOfScope": true
         }
@@ -1382,6 +1527,30 @@
           "id": "contains:.design/content-editing.md->.design/content-editing.md#supported-constructs",
           "source": ".design/content-editing.md",
           "target": ".design/content-editing.md#supported-constructs",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#backlog-entry-structure",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#backlog-entry-structure",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#structured-metadata-sigils",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#structured-metadata-sigils",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#live-parse-confirmation",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#live-parse-confirmation",
           "type": "contains"
         }
       },
@@ -1915,6 +2084,70 @@
       },
       {
         "data": {
+          "id": "related:.design/content-editing.md#backlog-entry-structure->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".design/content-editing.md#backlog-entry-structure",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#backlog-entry-structure->.domain/backlog/naming.md#term-sub-item",
+          "source": ".design/content-editing.md#backlog-entry-structure",
+          "target": ".domain/backlog/naming.md#term-sub-item",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md#drag-and-drop-reordering->.design/interaction-guidelines.md#nesting--indent-rules-chapters",
+          "source": ".design/interaction-guidelines.md#drag-and-drop-reordering",
+          "target": ".design/interaction-guidelines.md#nesting--indent-rules-chapters",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#backlog-entry-structure->.design/interaction-guidelines.md#nesting--indent-rules-chapters",
+          "source": ".design/content-editing.md#backlog-entry-structure",
+          "target": ".design/interaction-guidelines.md#nesting--indent-rules-chapters",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#structured-metadata-sigils->.domain/backlog/naming.md#term-entry-status",
+          "source": ".design/content-editing.md#structured-metadata-sigils",
+          "target": ".domain/backlog/naming.md#term-entry-status",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#structured-metadata-sigils->.domain/backlog/naming.md#term-area",
+          "source": ".design/content-editing.md#structured-metadata-sigils",
+          "target": ".domain/backlog/naming.md#term-area",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#structured-metadata-sigils->.design/typography-and-layout.md#font-families",
+          "source": ".design/content-editing.md#structured-metadata-sigils",
+          "target": ".design/typography-and-layout.md#font-families",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#live-parse-confirmation->.design/content-editing.md#editing-feedback-and-state",
+          "source": ".design/content-editing.md#live-parse-confirmation",
+          "target": ".design/content-editing.md#editing-feedback-and-state",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/content-editing.md#slash-and-inline-commands->.design/interaction-guidelines.md#feedback-and-toasts",
           "source": ".design/content-editing.md#slash-and-inline-commands",
           "target": ".design/interaction-guidelines.md#feedback-and-toasts",
@@ -1950,6 +2183,14 @@
           "id": "related:.design/content-editing.md#editing-feedback-and-state->.design/interaction-guidelines.md#save-state-indicator-vocabulary",
           "source": ".design/content-editing.md#editing-feedback-and-state",
           "target": ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#editing-feedback-and-state->.design/content-editing.md#live-parse-confirmation",
+          "source": ".design/content-editing.md#editing-feedback-and-state",
+          "target": ".design/content-editing.md#live-parse-confirmation",
           "type": "related"
         }
       },

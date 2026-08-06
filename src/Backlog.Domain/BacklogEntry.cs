@@ -92,6 +92,16 @@ public sealed class BacklogEntry
 
     public DateTimeOffset CreatedAt { get; }
 
+    /// <summary>Manual rank within the backlog. Lower sorts first. Entries that
+    /// have never been ranked share the default 0 and fall back to recency.</summary>
+    public int Order { get; private set; }
+
+    /// <summary>Free-form grouping the entry belongs to — "repos", "projects",
+    /// "inbox", or whatever vocabulary the person actually uses. Deliberately a
+    /// string rather than an enum: the taxonomy is theirs, not ours. Null means
+    /// unfiled.</summary>
+    public string? Area { get; private set; }
+
     public IReadOnlyList<string> RepoIds => _repoIds;
 
     public IReadOnlyList<string> Tags => _tags;
@@ -117,6 +127,14 @@ public sealed class BacklogEntry
 
     public void ChangePriority(Priority priority) => Priority = priority;
 
+    /// <summary>Sets the manual rank used to order the backlog by hand.</summary>
+    public void SetOrder(int order) => Order = order;
+
+    /// <summary>Files the entry under an area, or clears it. Blank is stored as
+    /// null so "unfiled" has exactly one representation.</summary>
+    public void SetArea(string? area) =>
+        Area = string.IsNullOrWhiteSpace(area) ? null : area.Trim();
+
     public void SetRepoIds(IEnumerable<string> repoIds)
     {
         _repoIds.Clear();
@@ -131,9 +149,19 @@ public sealed class BacklogEntry
 
     // --- Lifecycle ----------------------------------------------------------
 
+    /// <summary>Returns true if an entry at <paramref name="from"/> may move
+    /// directly to <paramref name="to"/>.</summary>
+    public static bool IsTransitionAllowed(EntryStatus from, EntryStatus to) =>
+        from == to || (AllowedTransitions.TryGetValue(from, out var allowed) && Array.IndexOf(allowed, to) >= 0);
+
+    /// <summary>The statuses this entry may move to right now, excluding its
+    /// current one. Callers use this to explain a refusal rather than just
+    /// swallow it.</summary>
+    public static IReadOnlyList<EntryStatus> NextStatusesFrom(EntryStatus from) =>
+        AllowedTransitions.TryGetValue(from, out var allowed) ? allowed : [];
+
     /// <summary>Returns true if the entry may currently transition to <paramref name="target"/>.</summary>
-    public bool CanChangeStatusTo(EntryStatus target) =>
-        AllowedTransitions.TryGetValue(Status, out var allowed) && Array.IndexOf(allowed, target) >= 0;
+    public bool CanChangeStatusTo(EntryStatus target) => IsTransitionAllowed(Status, target);
 
     /// <summary>Moves the entry to <paramref name="target"/> if the transition is
     /// permitted by the lifecycle; throws otherwise.</summary>

@@ -74,10 +74,10 @@ serialize them to canonical Markdown.
 
 | Construct | Notes |
 |---|---|
-| Headings `#`–`######` | Rendered per `typography-and-layout.md` heading defaults; heading level drives chapter reorder/nesting (`interaction-guidelines.md#nesting-indent-rules-chapters`). |
+| Headings `#`–`######` | Rendered per `typography-and-layout.md` heading defaults; heading level drives chapter reorder/nesting (`interaction-guidelines.md#nesting--indent-rules-chapters`). |
 | Paragraphs | Default body text. |
 | Unordered / ordered lists | Including nested lists; stable marker style on serialize. |
-| Task lists `- [ ] / - [x]` | Interactive checkboxes; toggling a checkbox is a discrete auto-saved change. |
+| Task lists `- [ ] / - [x]` | Interactive checkboxes; toggling a checkbox is a discrete auto-saved change. Distinct from `##` sub-item headings — see `#backlog-entry-structure`. |
 | Blockquotes `>` | Including nested. |
 | Code blocks (fenced) | `font-family-mono`, language hint preserved; not spell-checked; content never "smart-formatted". |
 | Tables (GFM) | Editable grid; serialize to pipe tables. |
@@ -96,6 +96,75 @@ serialize them to canonical Markdown.
 | Mentions / references | If supported, stored as their canonical Markdown/text form. |
 
 Anything not in these tables falls under `#unsupported-syntax-preservation`.
+
+## Backlog Entry Structure
+
+```meta
+status: active
+related: [".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/backlog/naming.md#term-sub-item", ".design/interaction-guidelines.md#nesting--indent-rules-chapters"]
+```
+
+> A Backlog Entry is edited as one Markdown document, with headings carrying
+> entry-specific meaning beyond the generic chapter nesting in
+> `interaction-guidelines.md#nesting--indent-rules-chapters`.
+
+| Construct | Renders as |
+|---|---|
+| First line | The entry title. Whatever is typed on the first line — with or without a leading `#` — becomes the `#` title on save; an entry is never left without one. |
+| `##` heading | A **Sub-Item**: a distinct unit rendered indented one level below the entry title, with its own heading and notes. It is a heading, not a checkbox. |
+| `- [ ]` / `- [x]` | A checklist step, rendered as a real checkbox affordance (`#supported-constructs`). Checkbox syntax is reserved exclusively for task-list lines. |
+| Metadata line | Backtick-quoted tokens carrying type/priority/status/area/tags — see `#structured-metadata-sigils`. |
+
+| Rule | Requirement |
+|---|---|
+| Title normalization on flush | The first-line-becomes-title rule applies on blur/auto-save flush, not per keystroke, so the caret never jumps mid-word while typing. |
+| Sub-item ≠ checkbox | A `##` sub-item and a `- [ ]` checklist item MUST remain visually and semantically distinct; neither rendering may substitute for the other. |
+| Sub-item done-state | A sub-item's own completion (if used) renders as strikethrough plus a `color-primary` accent rule on the sub-item itself, never as a checkbox glyph — the checkbox glyph is reserved for literal task-list syntax. |
+
+## Structured Metadata Sigils
+
+```meta
+status: active
+related: [".domain/backlog/naming.md#term-entry-status", ".domain/backlog/naming.md#term-area", ".design/typography-and-layout.md#font-families"]
+```
+
+> Backlog entries carry structured metadata (type, priority, status, area,
+> tags) inline as backtick-quoted tokens. Each kind but one is disambiguated by
+> a one-character sigil, so neither a human reader nor the parser has to guess
+> which bare word means what.
+
+| Sigil | Kind | Example |
+|---|---|---|
+| *(none)* | type | `` `task` ``, `` `idea` ``, `` `follow-up` `` |
+| `!` | status | `` `!draft` ``, `` `!ready` ``, `` `!in-progress` `` |
+| `*` | priority | `` `*high` `` |
+| `@` | area | `` `@repos` `` |
+| `#` | tag | written in the body, e.g. `#sync` |
+
+| Rule | Requirement |
+|---|---|
+| Type is the one bare word | The entry already is its type, so the type token needs no sigil; every other kind gets one because none of them is "the" word an entry is. |
+| Backward compatible | Metadata written before this convention existed (bare, un-sigilled tokens) MUST continue to parse; saving an entry rewrites its metadata line into canonical sigil form so entries self-heal. |
+| Sigil wins over guessing | A sigilled token that does not match a known value for its declared kind (e.g. a priority sigil on a status word) MUST NOT fall through and be reinterpreted as another kind — the sigil already declared intent, so it is simply unrecognized rather than misread. |
+| Monospace | Metadata tokens render in `font-family-mono`, matching inline code, so the syntax reads as structured rather than prose. |
+
+## Live Parse Confirmation
+
+```meta
+status: active
+related: [".design/content-editing.md#editing-feedback-and-state"]
+```
+
+> While an entry is focused, the editor shows a single-line "reads as" hint
+> beneath the raw Markdown, restating exactly what the current text will be
+> saved as — produced from the same parse the save uses, not a separate guess.
+
+| Rule | Requirement |
+|---|---|
+| Same-parse guarantee | The hint MUST be produced by the identical parse that persistence uses; it must never diverge from what actually gets saved. |
+| Explicit vs. default | A value the user actually typed renders at full emphasis; a value that is only the current default (nothing typed yet) renders at reduced emphasis, so a default is never mistaken for something the user asserted. |
+| Refused status is explained | If the typed status is not a legal next step in the entry's lifecycle (`.domain/backlog/flow.md#backlog-entry-lifecycle`), the hint MUST show the status that will actually be kept plus which statuses are legal next steps — the typed word is never silently dropped. |
+| Not an error state | A refused status is informational (`color-primary` accent), not an error toast or blocking validation; the entry still saves, just without the refused change. |
 
 ## Paste Behavior
 
@@ -156,7 +225,7 @@ The editor MUST **preserve, never destroy**, Markdown it cannot render richly.
 
 ```meta
 status: active
-related: [".design/interaction-guidelines.md#save-state-indicator-vocabulary"]
+related: [".design/interaction-guidelines.md#save-state-indicator-vocabulary", ".design/content-editing.md#live-parse-confirmation"]
 ```
 
 | Rule | Requirement |
@@ -165,3 +234,4 @@ related: [".design/interaction-guidelines.md#save-state-indicator-vocabulary"]
 | Undo/redo | Standard undo/redo applies to all editor changes and coalesces rapid keystrokes (see `interaction-guidelines.md#undo-and-history`). |
 | Conflicts | Concurrent edits resolve last-write-wins with passive `Conflict` surfacing (see `interaction-guidelines.md#conflict-handling`). |
 | Spellcheck scope | Spellcheck applies to prose, not to code blocks, inline code, or raw passthrough blocks. |
+| Domain-rule refusal | A parsed value the domain model refuses (e.g. an illegal status transition, see `#live-parse-confirmation`) is surfaced inline, next to the text that produced it, not through the save-state indicator — the save still succeeds; only that one value is refused. |

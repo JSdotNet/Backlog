@@ -69,9 +69,20 @@ status: draft
 related: [.domain/second-brain/features.md#feature-bi-directional-linking]
 ```
 
-Search across title, body, tags, and linked knowledge notes; filter by project,
-repo, type, status, priority, and recency; grouped views; and inline embedding of
-Second Brain content.
+Search across title, body, tags, and linked knowledge notes; filter by area
+(a self-chosen grouping such as "repos", "projects", or "inbox"), repo, type,
+status, priority, and recency; grouped views; and inline embedding of Second
+Brain content.
+
+### Sub-feature: Manual ordering
+
+```meta
+status: draft
+```
+
+Hand-sequence entries within the backlog by dragging them into a preferred
+order, independent of recency or priority. An entry that has never been
+manually ranked falls back to recency.
 
 ## Feature: Prompt features
 

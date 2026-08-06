@@ -1,0 +1,103 @@
+@page "/settings"
+@inject BacklogStore Store
+@inject NavigationManager Navigation
+
+@*
+    The one screen in this app with a form control, and it earns it: a folder
+    path is not something you can type inline into a backlog entry. It still
+    follows the house rule — no save button. Committing the field (blur or
+    Enter) moves the store.
+*@
+
+<div class="shell shell--narrow">
+    <header class="app-header">
+        <h1>Settings</h1>
+        <a class="icon-link" href="" data-testid="back-link" title="Back to the backlog" aria-label="Back to the backlog">←</a>
+    </header>
+
+    <section class="setting">
+        <h2 class="setting__title">Where the backlog is stored</h2>
+        <p class="setting__body">
+            Every entry is a markdown file with YAML frontmatter, readable and editable
+            without this app. Point this at a synced or version-controlled folder and the
+            backlog travels with it.
+        </p>
+
+        <label class="setting__label" for="storage-path">Folder</label>
+        <input class="setting__input @(_error is null ? string.Empty : "setting__input--error")"
+               id="storage-path"
+               data-testid="storage-path-input"
+               type="text"
+               spellcheck="false"
+               autocomplete="off"
+               aria-describedby="storage-path-status"
+               value="@_draftPath"
+               @oninput="e => _draftPath = e.Value?.ToString() ?? string.Empty"
+               @onchange="ApplyAsync"
+               @onkeydown="OnKeyDownAsync" />
+
+        <p class="setting__status" id="storage-path-status" data-testid="storage-path-status" role="status">
+            @if (_error is not null)
+            {
+                <span class="setting__status--error">@_error</span>
+            }
+            else if (_moved)
+            {
+                <span class="setting__status--ok">Moved. Entries now load from this folder.</span>
+            }
+            else
+            {
+                <span>Entries live in <code>@Store.EntriesDirectory</code>@(Store.IsDefaultRoot ? " — the default location." : ".")</span>
+            }
+        </p>
+
+        <div class="setting__actions">
+            <button type="button"
+                    class="btn"
+                    data-testid="reset-storage-path"
+                    disabled="@Store.IsDefaultRoot"
+                    @onclick="ResetAsync">
+                Use the default folder
+            </button>
+        </div>
+
+        <p class="setting__note">
+            Moving the store points the app somewhere new — it does not copy anything.
+            Entries already written stay in the old folder until you move the files
+            yourself.
+        </p>
+    </section>
+</div>
+
+@code {
+    private string _draftPath = string.Empty;
+    private string? _error;
+    private bool _moved;
+
+    protected override void OnInitialized()
+    {
+        _draftPath = Store.RootDirectory;
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ApplyAsync();
+        else if (e.Key == "Escape") _draftPath = Store.RootDirectory;
+    }
+
+    private Task ApplyAsync()
+    {
+        var previous = Store.RootDirectory;
+        _error = Store.TryUseRoot(_draftPath);
+        _moved = _error is null && !string.Equals(previous, Store.RootDirectory, StringComparison.OrdinalIgnoreCase);
+
+        if (_error is null) _draftPath = Store.RootDirectory;
+        return Task.CompletedTask;
+    }
+
+    private Task ResetAsync()
+    {
+        _draftPath = Store.DefaultRootDirectory;
+        return ApplyAsync();
+    }
+}

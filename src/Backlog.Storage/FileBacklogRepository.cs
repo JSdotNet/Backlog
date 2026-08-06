@@ -119,10 +119,16 @@ public sealed class FileBacklogRepository : IBacklogRepository
                 EnumMap.ToWire(entry.Priority),
                 entry.CompletedSubItemCount,
                 entry.TotalSubItemCount,
-                entry.CreatedAt));
+                entry.CreatedAt,
+                entry.Order,
+                entry.Area));
         }
 
-        summaries.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
+        // Hand-ranked order wins; entries that have never been ranked share the
+        // default rank and fall back to newest-first.
+        summaries.Sort((a, b) => a.Order != b.Order
+            ? a.Order.CompareTo(b.Order)
+            : b.CreatedAt.CompareTo(a.CreatedAt));
         var json = JsonSerializer.Serialize(summaries, JsonOptions);
         await File.WriteAllTextAsync(_indexPath, json, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
     }
@@ -142,6 +148,8 @@ public sealed class FileBacklogRepository : IBacklogRepository
             Tags = entry.Tags.ToList(),
             SourceInboxId = entry.SourceInboxId,
             CreatedAt = entry.CreatedAt,
+            Order = entry.Order,
+            Area = entry.Area,
             SubItems = entry.SubItems.Select(s => new SubItemDto
             {
                 Id = s.Id.ToString(),
@@ -191,6 +199,8 @@ public sealed class FileBacklogRepository : IBacklogRepository
             string.IsNullOrWhiteSpace(fm.SourceInboxId) ? null : fm.SourceInboxId,
             fm.CreatedAt);
 
+        entry.SetOrder(fm.Order);
+        entry.SetArea(fm.Area);
         foreach (var s in fm.SubItems.OrderBy(s => s.Order))
         {
             var subItem = entry.CreateSubItemForLoad(

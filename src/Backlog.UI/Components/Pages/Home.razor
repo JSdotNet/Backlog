@@ -1,173 +1,299 @@
 @page "/"
+@implements IDisposable
 @inject BacklogDesktopState State
 
+@*
+    One entry is one block of markdown. Not focused, it reads as a document;
+    focused, it is the raw text. Nothing in between, and no field-level form
+    control anywhere — see BacklogDesktopState and EntryTextParser.
+*@
+
 <div class="shell">
-    <section class="master-pane">
-        <div class="master-header">
-            <h1>Backlog</h1>
-            <button id="new-entry-button" data-testid="new-entry-button" @onclick="OnNewEntry">New</button>
-            <button id="delete-entry-button" data-testid="delete-entry-button" disabled="@(!State.HasSelection)" @onclick="OnDeleteEntryAsync">Delete</button>
+    <header class="app-header">
+        <h1>Backlog</h1>
+
+        <div class="save-indicator save-indicator--@State.SaveState.ToString().ToLowerInvariant()" id="save-state-indicator" data-testid="save-state-indicator" role="status">
+            <span class="save-indicator__dot" aria-hidden="true"></span>
+            @State.SaveStateLabel
         </div>
 
-        <label for="status-filter-select">Filter by status</label>
-        <select id="status-filter-select" data-testid="status-filter-select" value="@State.SelectedStatusFilterWire" @onchange="OnFilterChanged">
+        <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
+    </header>
+
+    @* Areas on the left, because that is what you pick first — which pile am I
+       in. Status narrows what is already in view, so it sits on the right. *@
+    <div class="filter-bar">
+        <div class="filter-group filter-group--areas" role="radiogroup" aria-label="Filter by area">
+            @foreach (var area in State.AreaFilters)
+            {
+                <button type="button"
+                        class="chip chip--filter @(State.SelectedArea == area.Value ? "chip--active" : string.Empty)"
+                        data-testid="area-filter-option"
+                        role="radio"
+                        aria-checked="@(State.SelectedArea == area.Value ? "true" : "false")"
+                        @onclick="() => State.SetAreaFilter(area.Value)">
+                    @area.Label<span class="chip__count">@area.Count</span>
+                </button>
+            }
+        </div>
+
+        <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
             @foreach (var filter in State.StatusFilters)
             {
-                <option value="@filter.Wire">@filter.Label</option>
+                <button type="button"
+                        class="chip chip--filter @(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : string.Empty)"
+                        id="status-filter-@(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)"
+                        data-testid="status-filter-option"
+                        role="radio"
+                        aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
+                        @onclick="() => OnFilterChanged(filter.Wire)">
+                    @filter.Label
+                </button>
             }
-        </select>
+        </div>
+    </div>
 
-        <ul id="entry-list" data-testid="entry-list" class="entry-list">
-            @foreach (var row in State.FilteredEntries)
+    @if (State.FilteredRows.Count == 0)
+    {
+        <div class="empty-state" data-testid="empty-state">
+            <p class="empty-state__title">Nothing here yet.</p>
+            <p class="empty-state__body">Write your first entry to start triaging the backlog.</p>
+        </div>
+    }
+    else
+    {
+        <ul id="entry-list" data-testid="entry-list" class="entry-list @(State.DraggedRow is null ? string.Empty : "entry-list--dragging")">
+            @foreach (var row in State.FilteredRows)
             {
-                <li>
-                    <button id="entry-@row.Id" data-testid="entry-item" class="entry-item @(State.IsSelected(row.Id) ? "selected" : string.Empty)" @onclick="() => OnSelectEntryAsync(row.Id)">
-                        <strong>@row.Title</strong>
-                        <span>@row.TypeLabel • @row.StatusLabel • @row.PriorityLabel • @row.ProgressText</span>
-                    </button>
+                var editing = ReferenceEquals(State.EditingRow, row);
+
+                <li class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)"
+                    @key="row.Key">
+
+                    @RenderGrip(row, before: true, "top")
+                    @RenderGrip(row, before: true, "left")
+
+                    @* A 12px rail is a fine thing to grab and a miserable thing
+                       to hit. While a drag is in flight the whole card becomes
+                       the target, split into a top half that drops above and a
+                       bottom half that drops below. *@
+                    @if (State.DraggedRow is not null && !ReferenceEquals(State.DraggedRow, row))
+                    {
+                        <div class="entry-doc__drops" aria-hidden="true">
+                            <div class="entry-doc__drop entry-doc__drop--before"
+                                 data-testid="entry-drop-before"
+                                 data-drop-zone="@row.Key"
+                                 @ondragenter:preventDefault="true"
+                                 @ondragover:preventDefault="true"
+                                 @ondrop="() => State.DropAsync(row, true)"></div>
+                            <div class="entry-doc__drop entry-doc__drop--after"
+                                 data-testid="entry-drop-after"
+                                 data-drop-zone="@row.Key"
+                                 @ondragenter:preventDefault="true"
+                                 @ondragover:preventDefault="true"
+                                 @ondrop="() => State.DropAsync(row, false)"></div>
+                        </div>
+                    }
+
+                    <div class="entry-doc__body">
+                        <div class="entry-doc__meta">
+                            <span class="badge badge--type" data-testid="type-badge">@Humanize(row.PreviewType.ToString())</span>
+                            <span class="badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">@Humanize(row.PreviewPriority.ToString())</span>
+
+                            @if (!string.IsNullOrEmpty(row.PreviewArea))
+                            {
+                                <span class="badge badge--area" data-testid="area-badge">@("@" + row.PreviewArea)</span>
+                            }
+
+                            @foreach (var tag in row.PreviewTags)
+                            {
+                                <span class="tag-chip" data-testid="entry-tag">#@tag</span>
+                            }
+
+                            @if (row.SubItemCount > 0)
+                            {
+                                <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
+                            }
+
+                            @if (!row.IsPersisted)
+                            {
+                                <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
+                            }
+
+                            @* Status leads the top-right corner: it is the one
+                               thing you scan a backlog for. Delete sits beyond
+                               it, revealed on hover. *@
+                            <span class="badge badge--status badge--status-@row.PreviewStatus.ToString().ToLowerInvariant()" data-testid="status-badge">@Humanize(row.PreviewStatus.ToString())</span>
+
+                            <button type="button"
+                                    class="entry-doc__delete"
+                                    id="delete-entry-@row.Key"
+                                    data-testid="delete-entry-button"
+                                    aria-label="Delete entry"
+                                    @onmousedown:preventDefault="true"
+                                    @onclick="() => OnDeleteEntryAsync(row)">
+                                ✕
+                            </button>
+                        </div>
+
+                        @if (editing)
+                        {
+                            <div class="grow-wrap" data-replicated-value="@(row.RawText + "\n")">
+                                <textarea class="entry-doc__editor"
+                                          id="entry-raw-@row.Key"
+                                          data-testid="entry-raw-input"
+                                          aria-label="Entry markdown"
+                                          placeholder="@BacklogDesktopState.NewEntryPlaceholder"
+                                          @ref="_editor"
+                                          @oninput="e => State.OnRawTextInput(row, e.Value?.ToString() ?? string.Empty)"
+                                          @onkeydown="e => OnEditorKeyDownAsync(row, e)"
+                                          @onblur="() => OnEndEditAsync(row)">@row.RawText</textarea>
+
+                                @* Answers "which one is the status?" by simply
+                                   saying so, live, from the same parse the save
+                                   will use. *@
+                                <p class="entry-doc__reading" data-testid="entry-meta-reading">
+                                    <span class="entry-doc__reading-lead">reads as</span>
+                                    @foreach (var reading in row.MetaReadings)
+                                    {
+                                        <span class="entry-doc__reading-item @(reading.Explicit ? string.Empty : "entry-doc__reading-item--default") @(reading.Note is null ? string.Empty : "entry-doc__reading-item--refused")">
+                                            <span class="entry-doc__reading-kind">@reading.Kind</span>
+                                            <span class="entry-doc__reading-value">@reading.Value</span>
+                                            @if (reading.Note is not null)
+                                            {
+                                                <span class="entry-doc__reading-note">@reading.Note</span>
+                                            }
+                                        </span>
+                                    }
+                                </p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="entry-doc__read"
+                                 data-testid="entry-read-view"
+                                 role="button"
+                                 tabindex="0"
+                                 aria-label="Edit markdown for @(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)"
+                                 @onclick="() => State.BeginEdit(row)"
+                                 @onkeydown="e => OnReadViewKeyDown(row, e)">
+
+                                @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
+                                {
+                                    <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
+                                }
+                                else
+                                {
+                                    <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
+                                }
+
+                                <MarkdownView Blocks="row.PreviewBlocks" />
+                            </div>
+                        }
+                    </div>
+
+                    @RenderGrip(row, before: false, "right")
+                    @RenderGrip(row, before: false, "bottom")
                 </li>
             }
         </ul>
-    </section>
+    }
 
-    <section class="detail-pane">
-        @if (!State.HasEditor)
-        {
-            <p>Select an entry or create a new one.</p>
-        }
-        else
-        {
-            <div class="editor-grid">
-                <label for="entry-title-input">Title</label>
-                <input id="entry-title-input" data-testid="entry-title-input" @bind="State.Title" />
-
-                <label for="entry-type-select">Type</label>
-                <select id="entry-type-select" data-testid="entry-type-select" @bind="State.SelectedType">
-                    @foreach (var type in State.Types)
-                    {
-                        <option value="@type">@State.FormatType(type)</option>
-                    }
-                </select>
-
-                <label for="priority-select">Priority</label>
-                <select id="priority-select" data-testid="priority-select" @bind="State.SelectedPriority">
-                    @foreach (var priority in State.Priorities)
-                    {
-                        <option value="@priority">@State.FormatPriority(priority)</option>
-                    }
-                </select>
-
-                <label for="entry-content-input">Content (markdown)</label>
-                <textarea id="entry-content-input" data-testid="entry-content-input" rows="6" @bind="State.ContentMd"></textarea>
-
-                <label for="entry-tags-input">Tags (comma separated)</label>
-                <input id="entry-tags-input" data-testid="entry-tags-input" @bind="State.TagsText" />
-
-                <button id="save-entry-button" data-testid="save-entry-button" @onclick="OnSaveAsync">Save</button>
-            </div>
-
-            @if (State.IsPersisted)
-            {
-                <div class="persisted-section">
-                    <div>
-                        <strong>Status:</strong>
-                        <span id="current-status-text" data-testid="current-status-text">@State.StatusText</span>
-                        <strong>Progress:</strong>
-                        <span id="progress-text" data-testid="progress-text">@State.ProgressText</span>
-                    </div>
-
-                    <label for="status-select">Move status to</label>
-                    <select id="status-select" data-testid="status-select" @bind="State.SelectedStatusTarget">
-                        <option value="">Select…</option>
-                        @foreach (var option in State.AvailableStatusTargets)
-                        {
-                            <option value="@option">@State.FormatStatus(option)</option>
-                        }
-                    </select>
-                    <button id="apply-status-button" data-testid="apply-status-button" @onclick="OnApplyStatusAsync">Apply</button>
-
-                    <h2>Sub-items</h2>
-
-                    <label for="new-subitem-input">Sub-item title</label>
-                    <input id="new-subitem-input" data-testid="new-subitem-input" @bind="State.NewSubItemTitle" placeholder="Sub-item title" />
-                    <button id="add-subitem-button" data-testid="add-subitem-button" @onclick="OnAddSubItemAsync">Add</button>
-
-                    <ul id="subitem-list" data-testid="subitem-list" class="subitem-list">
-                        @foreach (var item in State.SubItems)
-                        {
-                            <li class="subitem-row">
-                                <input id="subitem-toggle-@item.Id" data-testid="subitem-toggle" type="checkbox" checked="@item.IsDone" @onchange="() => OnToggleSubItemAsync(item.Id)" />
-                                <span>@item.Title</span>
-                                <button id="subitem-up-@item.Id" data-testid="subitem-up" @onclick="() => OnMoveSubItemUpAsync(item.Id)">↑</button>
-                                <button id="subitem-down-@item.Id" data-testid="subitem-down" @onclick="() => OnMoveSubItemDownAsync(item.Id)">↓</button>
-                                <button id="subitem-remove-@item.Id" data-testid="subitem-remove" @onclick="() => OnRemoveSubItemAsync(item.Id)">Remove</button>
-                            </li>
-                        }
-                    </ul>
-                </div>
-            }
-        }
-    </section>
+    @* Creating an entry is the same gesture as writing in one, so the control
+       sits where the next entry will actually appear rather than up in the
+       chrome. *@
+    <button type="button"
+            class="entry-add"
+            id="new-entry-button"
+            data-testid="new-entry-button"
+            @onclick="OnNewEntry">
+        <span class="entry-add__plus" aria-hidden="true">+</span>
+        New entry
+    </button>
 </div>
 
 @code {
+    private ElementReference _editor;
+
     protected override async Task OnInitializedAsync()
     {
+        State.Changed += HandleStateChanged;
         await State.InitializeAsync();
     }
 
-    private void OnNewEntry()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        State.NewEntry();
+        if (!State.FocusPending || State.EditingRow is null) return;
+
+        State.FocusPending = false;
+        try
+        {
+            await _editor.FocusAsync();
+        }
+        catch (Exception)
+        {
+            // The editor can be gone again by the time this runs (a fast click
+            // elsewhere); losing the caret is not worth tearing down the page.
+        }
     }
 
-    private async Task OnSelectEntryAsync(Guid id)
+    /// <summary>The grab areas around an entry — one on each side. All four are
+    /// drag sources and drop targets. Only the top rail takes tab focus (four
+    /// stops per entry would wreck keyboard travel through the list), and it
+    /// carries the arrow-key reorder that every drag needs an equivalent
+    /// for.</summary>
+    private RenderFragment RenderGrip(EntryRow row, bool before, string side) =>
+        @<button type="button"
+                 class="entry-doc__grip entry-doc__grip--@side"
+                 data-testid="entry-grip-@side"
+                 data-drag-grip="@row.Key"
+                 draggable="true"
+                 tabindex="@(side == "top" ? "0" : "-1")"
+                 aria-hidden="@(side == "top" ? "false" : "true")"
+                 aria-label="Reorder entry — drag, or use the up and down arrow keys"
+                 @ondragstart="() => State.BeginDrag(row)"
+                 @ondragend="() => State.EndDrag()"
+                 @ondragover:preventDefault="true"
+                 @ondragenter:preventDefault="true"
+                 @ondrop="() => State.DropAsync(row, before)"
+                 @onkeydown="e => OnGripKeyDownAsync(row, e)">
+            <span class="entry-doc__grip-dots" aria-hidden="true"></span>
+        </button>;
+
+    private void HandleStateChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnNewEntry() => State.NewRow();
+
+    private async Task OnEndEditAsync(EntryRow row) => await State.EndEditAsync(row);
+
+    private async Task OnDeleteEntryAsync(EntryRow row) => await State.DeleteRowAsync(row);
+
+    private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
+
+    private async Task OnEditorKeyDownAsync(EntryRow row, KeyboardEventArgs e)
     {
-        await State.SelectEntryAsync(id);
+        if (e.Key == "Escape") await State.EndEditAsync(row);
     }
 
-    private async Task OnDeleteEntryAsync()
+    private void OnReadViewKeyDown(EntryRow row, KeyboardEventArgs e)
     {
-        await State.DeleteSelectedAsync();
+        if (e.Key is "Enter" or " ") State.BeginEdit(row);
     }
 
-    private async Task OnSaveAsync()
+    private async Task OnGripKeyDownAsync(EntryRow row, KeyboardEventArgs e)
     {
-        await State.SaveAsync();
+        if (e.Key == "ArrowUp") await State.MoveAsync(row, -1);
+        else if (e.Key == "ArrowDown") await State.MoveAsync(row, 1);
     }
 
-    private async Task OnApplyStatusAsync()
+    private static string Humanize(string enumName)
     {
-        await State.ApplyStatusAsync();
+        var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
+        return text.ToLowerInvariant();
     }
 
-    private async Task OnAddSubItemAsync()
+    public void Dispose()
     {
-        await State.AddSubItemAsync();
-    }
-
-    private async Task OnToggleSubItemAsync(Guid subItemId)
-    {
-        await State.ToggleSubItemAsync(subItemId);
-    }
-
-    private async Task OnRemoveSubItemAsync(Guid subItemId)
-    {
-        await State.RemoveSubItemAsync(subItemId);
-    }
-
-    private async Task OnMoveSubItemUpAsync(Guid subItemId)
-    {
-        await State.MoveSubItemUpAsync(subItemId);
-    }
-
-    private async Task OnMoveSubItemDownAsync(Guid subItemId)
-    {
-        await State.MoveSubItemDownAsync(subItemId);
-    }
-
-    private void OnFilterChanged(ChangeEventArgs args)
-    {
-        State.SetStatusFilter(args.Value?.ToString());
+        State.Changed -= HandleStateChanged;
     }
 }

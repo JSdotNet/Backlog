@@ -121,6 +121,20 @@ affordance language and both with mandatory keyboard equivalents:
 | Valid vs invalid | Valid drop targets highlight; invalid targets MUST show a not-allowed cursor and MUST NOT show an insertion line. |
 | Nesting cue | For chapters, horizontal indentation of the insertion line MUST indicate the resulting heading depth (see nesting rules). |
 
+### Reliable Drop Targets (Items)
+
+> The drag handle and the drop target are not the same hit area. A handle
+> sized for a dense row (`#drag-affordances`) is reliably graspable but too
+> small to reliably *catch* a drop — the drop target must be sized for
+> releasing, not for picking up.
+
+| Rule | Requirement |
+|---|---|
+| Handle starts the drag only | The visible handle is the pointer-down / `dragstart` origin; it is not required to also be the drop target. |
+| Drop target covers the row | While a drag is in progress, each candidate row/card MUST expose a drop target spanning its own full width, split into a "before" and "after" half by height — releasing anywhere over the row commits to the nearer half, not just to the handle's footprint. |
+| Cancel both dragenter and dragover | A drop target MUST prevent default on both `dragenter` and `dragover`. A `drop` only fires where the immediately preceding `dragover` was cancelled, and a target that only appears once dragging has started needs its `dragenter` cancelled too, or the first `dragover` over it can be missed. |
+| Handle target size still applies | The ≥ 44 × 44 px minimum in `#drag-affordances` (see `accessibility.md#target-sizes-and-text`) governs the handle as an independent pointer/keyboard-focus target, regardless of how large the drop target is. |
+
 ### Keyboard-Accessible Reordering
 
 Drag-and-drop alone is **not accessible**. A keyboard path is **mandatory** for
