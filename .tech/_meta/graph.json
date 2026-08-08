@@ -6,26 +6,26 @@
     ".tech"
   ],
   "stats": {
-    "nodes": 58,
-    "edges": 125,
+    "nodes": 60,
+    "edges": 129,
     "nodesByFolder": {
-      "tech": 48,
-      "arc42": 10
+      "tech": 49,
+      "arc42": 11
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 48
+      "chapter": 50
     },
     "nodesByStatus": {
-      "candidate": 31,
-      "adopted": 17,
-      "active": 9,
+      "candidate": 30,
+      "adopted": 19,
+      "active": 10,
       "accepted": 1
     },
     "edgesByType": {
-      "contains": 41,
-      "related": 45,
-      "depends-on": 39
+      "contains": 42,
+      "related": 47,
+      "depends-on": 40
     }
   },
   "problems": [],
@@ -324,10 +324,33 @@
           "slug": "msix-packaging",
           "level": 2,
           "line": 108,
-          "status": "candidate",
+          "status": "adopted",
           "kind": "tool",
           "depends-on": [
             ".tech/desktop.md#windows-app-sdk"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#installation-and-updates"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#app-installer-appinstaller",
+          "label": "App Installer (`.appinstaller`)",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "app-installer-appinstaller",
+          "level": 2,
+          "line": 132,
+          "status": "adopted",
+          "kind": "format",
+          "depends-on": [
+            ".tech/desktop.md#msix-packaging"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#installation-and-updates"
           ]
         }
       },
@@ -935,7 +958,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 37,
+          "line": 75,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -1039,6 +1062,24 @@
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
             ".arc42/06-runtime-view.md#copilot-app-session-capture",
             ".domain/capture/domain.md#domain-service-source-adapter"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/07-deployment-view.md#installation-and-updates",
+          "label": "Installation and Updates",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "slug": "installation-and-updates",
+          "level": 3,
+          "line": 37,
+          "status": "active",
+          "related": [
+            ".tech/desktop.md#msix-packaging",
+            ".tech/desktop.md#app-installer-appinstaller"
           ],
           "outOfScope": true
         }
@@ -1188,6 +1229,14 @@
           "id": "contains:.tech/desktop.md->.tech/desktop.md#msix-packaging",
           "source": ".tech/desktop.md",
           "target": ".tech/desktop.md#msix-packaging",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#app-installer-appinstaller",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#app-installer-appinstaller",
           "type": "contains"
         }
       },
@@ -1653,6 +1702,30 @@
           "source": ".tech/desktop.md#msix-packaging",
           "target": ".tech/desktop.md#windows-app-sdk",
           "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#msix-packaging->.arc42/07-deployment-view.md#installation-and-updates",
+          "source": ".tech/desktop.md#msix-packaging",
+          "target": ".arc42/07-deployment-view.md#installation-and-updates",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#app-installer-appinstaller->.tech/desktop.md#msix-packaging",
+          "source": ".tech/desktop.md#app-installer-appinstaller",
+          "target": ".tech/desktop.md#msix-packaging",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#app-installer-appinstaller->.arc42/07-deployment-view.md#installation-and-updates",
+          "source": ".tech/desktop.md#app-installer-appinstaller",
+          "target": ".arc42/07-deployment-view.md#installation-and-updates",
+          "type": "related"
         }
       },
       {

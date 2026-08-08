@@ -1,0 +1,146 @@
+name: Release desktop
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version without the leading v (e.g. 1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, sign, and publish the MSIX
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install MAUI Windows workload
+        run: dotnet workload install maui-windows
+
+      - name: Derive version numbers
+        id: version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $raw = '${{ github.event.inputs.version }}'
+            $tag = "v$raw"
+          }
+          else {
+            $tag = '${{ github.ref_name }}'
+            $raw = $tag.TrimStart('v')
+          }
+          if ($raw -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Version must be MAJOR.MINOR.PATCH (got '$raw')."
+          }
+          $four = "$raw.0"
+          "tag=$tag"                >> $env:GITHUB_OUTPUT
+          "display=$raw"            >> $env:GITHUB_OUTPUT
+          "package=$four"           >> $env:GITHUB_OUTPUT
+          "msix=Backlog.Desktop_${four}_x64.msix" >> $env:GITHUB_OUTPUT
+          Write-Output "Tag=$tag Display=$raw Package=$four"
+
+      - name: Import code-signing certificate
+        id: cert
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64)) {
+            throw "Secret WINDOWS_CERTIFICATE_BASE64 is not set. Refusing to produce an unsigned package."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)) {
+            throw "Secret WINDOWS_CERTIFICATE_PASSWORD is not set."
+          }
+          $pfxPath = Join-Path $env:RUNNER_TEMP 'signing.pfx'
+          [System.IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64))
+          $securePassword = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
+          Remove-Item $pfxPath -Force
+          "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
+          Write-Output "Imported certificate with thumbprint $($cert.Thumbprint)."
+
+      - name: Publish packaged MSIX
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish src\Backlog.Desktop\Backlog.Desktop.csproj `
+            -f net10.0-windows10.0.26100.0 `
+            -c Release `
+            -p:RuntimeIdentifierOverride=win-x64 `
+            -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} `
+            -p:ApplicationVersion=0 `
+            -p:PackageCertificateThumbprint=${{ steps.cert.outputs.thumbprint }}
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
+
+      - name: Stage MSIX and generate App Installer
+        id: stage
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $outDir = Join-Path $env:RUNNER_TEMP 'release'
+          New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
+          $msix = Get-ChildItem -Path src\Backlog.Desktop -Recurse -Filter *.msix |
+            Where-Object { $_.FullName -match 'AppPackages' } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if (-not $msix) {
+            $msix = Get-ChildItem -Path src\Backlog.Desktop -Recurse -Filter *.msix |
+              Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          }
+          if (-not $msix) { throw "No .msix was produced by the publish step." }
+
+          $msixName = '${{ steps.version.outputs.msix }}'
+          $stagedMsix = Join-Path $outDir $msixName
+          Copy-Item $msix.FullName $stagedMsix -Force
+          Write-Output "Staged MSIX: $stagedMsix"
+
+          $appInstaller = Join-Path $outDir 'Backlog.Desktop.appinstaller'
+          ./build/New-AppInstaller.ps1 `
+            -Version '${{ steps.version.outputs.package }}' `
+            -Tag '${{ steps.version.outputs.tag }}' `
+            -MsixFileName $msixName `
+            -OutputPath $appInstaller
+
+          "dir=$outDir"                        >> $env:GITHUB_OUTPUT
+          "msix=$stagedMsix"                   >> $env:GITHUB_OUTPUT
+          "appinstaller=$appInstaller"         >> $env:GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = '${{ steps.version.outputs.tag }}'
+          $msix = '${{ steps.stage.outputs.msix }}'
+          $appInstaller = '${{ steps.stage.outputs.appinstaller }}'
+
+          $exists = gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title $tag --notes "Backlog desktop $tag" $msix $appInstaller
+          }
+          else {
+            gh release upload $tag $msix $appInstaller --clobber
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Publishing the release failed." }
