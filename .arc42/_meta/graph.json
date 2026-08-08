@@ -6,24 +6,26 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 67,
-    "edges": 109,
+    "nodes": 70,
+    "edges": 112,
     "nodesByFolder": {
-      "arc42": 56,
-      "domain": 11
+      "arc42": 57,
+      "domain": 11,
+      "tech": 2
     },
     "nodesByType": {
       "file": 14,
-      "chapter": 53
+      "chapter": 56
     },
     "nodesByStatus": {
-      "active": 48,
+      "active": 49,
       "draft": 18,
-      "accepted": 1
+      "accepted": 1,
+      "adopted": 2
     },
     "edgesByType": {
-      "contains": 43,
-      "related": 66
+      "contains": 44,
+      "related": 68
     }
   },
   "problems": [],
@@ -552,6 +554,23 @@
       },
       {
         "data": {
+          "id": ".arc42/07-deployment-view.md#installation-and-updates",
+          "label": "Installation and Updates",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "slug": "installation-and-updates",
+          "level": 3,
+          "line": 37,
+          "status": "active",
+          "related": [
+            ".tech/desktop.md#msix-packaging",
+            ".tech/desktop.md#app-installer-appinstaller"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/07-deployment-view.md#cloud-deployment-azure",
           "label": "Cloud Deployment (Azure)",
           "type": "chapter",
@@ -559,7 +578,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 37,
+          "line": 75,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -946,6 +965,48 @@
       },
       {
         "data": {
+          "id": ".tech/desktop.md#msix-packaging",
+          "label": "MSIX Packaging",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "msix-packaging",
+          "level": 2,
+          "line": 108,
+          "status": "adopted",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/desktop.md#windows-app-sdk"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#installation-and-updates"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#app-installer-appinstaller",
+          "label": "App Installer (`.appinstaller`)",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "app-installer-appinstaller",
+          "level": 2,
+          "line": 132,
+          "status": "adopted",
+          "kind": "format",
+          "depends-on": [
+            ".tech/desktop.md#msix-packaging"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#installation-and-updates"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/domain.md#aggregate-backlog-entry",
           "label": "Aggregate: Backlog Entry",
           "type": "chapter",
@@ -1279,6 +1340,14 @@
           "id": "contains:.arc42/07-deployment-view.md->.arc42/07-deployment-view.md#local-deployment-desktop",
           "source": ".arc42/07-deployment-view.md",
           "target": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/07-deployment-view.md#local-deployment-desktop->.arc42/07-deployment-view.md#installation-and-updates",
+          "source": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "target": ".arc42/07-deployment-view.md#installation-and-updates",
           "type": "contains"
         }
       },
@@ -1695,6 +1764,22 @@
           "id": "related:.arc42/07-deployment-view.md#local-deployment-desktop->.arc42/08-crosscutting-concepts.md#storage-and-sync",
           "source": ".arc42/07-deployment-view.md#local-deployment-desktop",
           "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#installation-and-updates->.tech/desktop.md#msix-packaging",
+          "source": ".arc42/07-deployment-view.md#installation-and-updates",
+          "target": ".tech/desktop.md#msix-packaging",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#installation-and-updates->.tech/desktop.md#app-installer-appinstaller",
+          "source": ".arc42/07-deployment-view.md#installation-and-updates",
+          "target": ".tech/desktop.md#app-installer-appinstaller",
           "type": "related"
         }
       },

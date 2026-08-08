@@ -34,6 +34,44 @@ The desktop app is installed on Windows machines and is the canonical deployment
   _meta/*.json                   # JSON indexes and metadata
 ```
 
+### Installation and Updates
+
+```meta
+status: active
+related: [".tech/desktop.md#msix-packaging", ".tech/desktop.md#app-installer-appinstaller"]
+```
+
+The desktop app is distributed as a **signed MSIX sideloaded from GitHub
+Releases**, with an App Installer manifest driving updates — there is no
+Microsoft Store listing and no custom update server.
+
+- **Package** — Release builds produce a single signed MSIX
+  (`WindowsPackageType=Package`, `AppxBundle=Never`, `SideloadOnly`). Debug stays
+  unpackaged so the Aspire desktop resource and WebView2 CDP attach keep working.
+- **App Installer** — `Backlog.Desktop.appinstaller` is published alongside the
+  MSIX. Its own `Uri` points at the stable `releases/latest/download/...`
+  location; its `MainPackage` points at the tagged release asset. Its
+  `Name`/`Publisher`/`ProcessorArchitecture` match the MSIX exactly, or Windows
+  refuses the update.
+- **Update checks** — `UpdateSettings` requests an `OnLaunch` check (every 8
+  hours, with a prompt) plus an `AutomaticBackgroundTask`. The Settings screen
+  also exposes an explicit "Check for updates" / "Install and restart" action,
+  backed by `PackageManager.CheckUpdateAvailabilityAsync` and
+  `AddPackageByAppInstallerFileAsync`.
+- **Trust** — the certificate is self-signed for personal-scope use, so it must
+  be trusted on the target machine before the first install.
+- **Release automation** — `.github/workflows/release-desktop.yml` builds, signs
+  (from repository secrets), generates the `.appinstaller`, and uploads both
+  artifacts to the GitHub Release on a `v*` tag.
+
+```mermaid
+flowchart LR
+    Dev["Tag v1.2.3"] --> CI["release-desktop workflow"]
+    CI -->|"signed MSIX + .appinstaller"| Release["GitHub Release"]
+    Release -->|"first install (sideload)"| Machine["Windows machine"]
+    Release -->|"OnLaunch / background / Settings check"| Machine
+```
+
 ## Cloud Deployment (Azure)
 
 ```meta

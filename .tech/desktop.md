@@ -108,12 +108,47 @@ The local integration path to GitHub from the desktop (`gh`).
 ## MSIX Packaging
 
 ```meta
-status: candidate
+status: adopted
 kind: tool
 depends-on: [".tech/desktop.md#windows-app-sdk"]
+related: [".arc42/07-deployment-view.md#installation-and-updates"]
 ```
 
 The packaging and update format for the Windows client.
 
-- **Used for** — installing and updating the desktop app on the user's machines.
+- **Used for** — building the desktop app as a signed, sideloadable MSIX and
+  installing/updating it on the user's machines.
 - **Why** — the standard distribution model for Windows App SDK applications.
+- **How** — Release + Windows builds switch to `WindowsPackageType=Package` and
+  emit a single signed MSIX (`AppxBundle=Never`, `SideloadOnly`). Debug stays
+  unpackaged (`WindowsPackageType=None`) so the Aspire desktop resource and the
+  WebView2 CDP attach used by Playwright keep working. The MSIX is published as a
+  GitHub Release asset and installed by sideloading rather than through the
+  Microsoft Store; its `Identity Name` (`JSdotNet.Backlog.Desktop`) and
+  `Publisher` (`CN=JSdotNet`) must match the App Installer's `MainPackage`
+  exactly or updates will not apply. Because it is self-signed, the signing
+  certificate has to be trusted on the target machine before the first install.
+
+## App Installer (`.appinstaller`)
+
+```meta
+status: adopted
+kind: format
+depends-on: [".tech/desktop.md#msix-packaging"]
+related: [".arc42/07-deployment-view.md#installation-and-updates"]
+```
+
+The XML manifest that turns a bare MSIX into an updatable install.
+
+- **Used for** — declaring the stable update source and the current package, so
+  the app can check for and pull newer versions from GitHub Releases.
+- **Why** — App Installer's `UpdateSettings` (`OnLaunch` +
+  `AutomaticBackgroundTask`) gives launch-time and background update checks
+  without any custom update server; the in-app "Check for updates" in Settings
+  drives the same mechanism via `PackageManager`.
+- **How** — generated from `build/Backlog.Desktop.appinstaller.template` by
+  `build/New-AppInstaller.ps1` during the release workflow. Its own `Uri` points
+  at the `latest` release download (stable), while `MainPackage/@Uri` points at
+  the tagged release asset; `Name`, `Publisher`, and `ProcessorArchitecture` are
+  kept identical to the signed MSIX.
+

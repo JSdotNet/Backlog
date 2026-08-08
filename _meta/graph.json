@@ -10,31 +10,31 @@
     ".design"
   ],
   "stats": {
-    "nodes": 397,
-    "edges": 697,
+    "nodes": 399,
+    "edges": 704,
     "nodesByFolder": {
-      "arc42": 56,
+      "arc42": 57,
       "domain": 221,
-      "tech": 48,
+      "tech": 49,
       "design": 72
     },
     "nodesByType": {
       "file": 76,
-      "chapter": 292,
+      "chapter": 294,
       "heading": 29
     },
     "nodesByStatus": {
-      "active": 116,
+      "active": 117,
       "draft": 203,
       "accepted": 1,
-      "candidate": 31,
-      "adopted": 17,
+      "candidate": 30,
+      "adopted": 19,
       "none": 29
     },
     "edgesByType": {
-      "contains": 321,
-      "related": 320,
-      "depends-on": 56
+      "contains": 323,
+      "related": 324,
+      "depends-on": 57
     }
   },
   "problems": [],
@@ -563,6 +563,23 @@
       },
       {
         "data": {
+          "id": ".arc42/07-deployment-view.md#installation-and-updates",
+          "label": "Installation and Updates",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "slug": "installation-and-updates",
+          "level": 3,
+          "line": 37,
+          "status": "active",
+          "related": [
+            ".tech/desktop.md#msix-packaging",
+            ".tech/desktop.md#app-installer-appinstaller"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/07-deployment-view.md#cloud-deployment-azure",
           "label": "Cloud Deployment (Azure)",
           "type": "chapter",
@@ -570,7 +587,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 37,
+          "line": 75,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -4072,10 +4089,33 @@
           "slug": "msix-packaging",
           "level": 2,
           "line": 108,
-          "status": "candidate",
+          "status": "adopted",
           "kind": "tool",
           "depends-on": [
             ".tech/desktop.md#windows-app-sdk"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#installation-and-updates"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#app-installer-appinstaller",
+          "label": "App Installer (`.appinstaller`)",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "app-installer-appinstaller",
+          "level": 2,
+          "line": 132,
+          "status": "adopted",
+          "kind": "format",
+          "depends-on": [
+            ".tech/desktop.md#msix-packaging"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#installation-and-updates"
           ]
         }
       },
@@ -6277,6 +6317,14 @@
       },
       {
         "data": {
+          "id": "contains:.arc42/07-deployment-view.md#local-deployment-desktop->.arc42/07-deployment-view.md#installation-and-updates",
+          "source": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "target": ".arc42/07-deployment-view.md#installation-and-updates",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.arc42/07-deployment-view.md->.arc42/07-deployment-view.md#cloud-deployment-azure",
           "source": ".arc42/07-deployment-view.md",
           "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -7685,6 +7733,14 @@
       },
       {
         "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#app-installer-appinstaller",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#app-installer-appinstaller",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.tech/ide.md->.tech/ide.md#vs-code-extension-api",
           "source": ".tech/ide.md",
           "target": ".tech/ide.md#vs-code-extension-api",
@@ -8680,6 +8736,22 @@
           "id": "related:.arc42/07-deployment-view.md#local-deployment-desktop->.arc42/08-crosscutting-concepts.md#storage-and-sync",
           "source": ".arc42/07-deployment-view.md#local-deployment-desktop",
           "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#installation-and-updates->.tech/desktop.md#msix-packaging",
+          "source": ".arc42/07-deployment-view.md#installation-and-updates",
+          "target": ".tech/desktop.md#msix-packaging",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#installation-and-updates->.tech/desktop.md#app-installer-appinstaller",
+          "source": ".arc42/07-deployment-view.md#installation-and-updates",
+          "target": ".tech/desktop.md#app-installer-appinstaller",
           "type": "related"
         }
       },
@@ -10529,6 +10601,30 @@
           "source": ".tech/desktop.md#msix-packaging",
           "target": ".tech/desktop.md#windows-app-sdk",
           "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#msix-packaging->.arc42/07-deployment-view.md#installation-and-updates",
+          "source": ".tech/desktop.md#msix-packaging",
+          "target": ".arc42/07-deployment-view.md#installation-and-updates",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#app-installer-appinstaller->.tech/desktop.md#msix-packaging",
+          "source": ".tech/desktop.md#app-installer-appinstaller",
+          "target": ".tech/desktop.md#msix-packaging",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#app-installer-appinstaller->.arc42/07-deployment-view.md#installation-and-updates",
+          "source": ".tech/desktop.md#app-installer-appinstaller",
+          "target": ".arc42/07-deployment-view.md#installation-and-updates",
+          "type": "related"
         }
       },
       {
