@@ -109,6 +109,12 @@ available specialist agent and note that orchestration routing was unavailable.
 
 ## Repository override for `orch-feature`
 
+> **Temporary bridge.** This override exists only until the upstream fix in
+> `JSdotNet/Copilot` (branch `orch-feature-scope-discovery`, commit `5d9c288`) ships,
+> which adds a Stage 0 "Scope Discovery" to `orch-feature` and `orch-bug` and amends
+> `orch-shared-phases.instructions.md`. Once the updated plugin is installed, delete this
+> section — keeping both is two sources of truth that will drift.
+
 The plugin-provided `orch-feature` skill states a precondition that the feature
 specification, acceptance criteria, and architecture are already approved. **That
 precondition does not apply in this repository.** Invoke `orch-feature` for ad-hoc
