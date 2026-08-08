@@ -1,4 +1,5 @@
 using Backlog.Domain;
+using Backlog.GitHub;
 using Backlog.Storage;
 
 namespace Backlog.UI.Services;
@@ -36,12 +37,14 @@ public sealed class BacklogDesktopState : IDisposable
     private const int DebounceMilliseconds = 750;
 
     private readonly BacklogStore _store;
+    private readonly GitHubIntegration _gitHub;
     private readonly Dictionary<Guid, BacklogEntry> _entries = new();
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
 
-    public BacklogDesktopState(BacklogStore store)
+    public BacklogDesktopState(BacklogStore store, GitHubIntegration gitHub)
     {
         _store = store;
+        _gitHub = gitHub;
         _store.RootChanged += OnRootChanged;
     }
 
@@ -311,6 +314,119 @@ public sealed class BacklogDesktopState : IDisposable
         _debounceTimers.Clear();
     }
 
+    // --- GitHub -----------------------------------------------------------
+
+    /// <summary>True once at least one repository is configured. Until then the
+    /// list shows nothing about GitHub at all.</summary>
+    public bool GitHubConfigured => _gitHub.IsConfigured;
+
+    /// <summary>The repository this row's area names, or null when the area is
+    /// just a pile. What makes an entry pushable is that its <c>`@area`</c>
+    /// matches a repository configured in Settings.</summary>
+    public GitHubRepositoryRef? RepositoryFor(EntryRow row) => _gitHub.ResolveRepository(row.PreviewArea);
+
+    /// <summary>True when the rows currently on screen include anything linked
+    /// to GitHub, which is what makes a whole-list sync worth offering.</summary>
+    public bool HasLinkedRows => Rows.Any(r => r.IssueLink is not null);
+
+    public bool GitHubSyncing { get; private set; }
+
+    /// <summary>Creates the GitHub issue for an entry and remembers the link on
+    /// the entry itself, so the association survives a restart and travels with
+    /// the markdown file.</summary>
+    public async Task PushToGitHubAsync(EntryRow row)
+    {
+        if (row.GitHubBusy) return;
+        if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry)) return;
+
+        var repository = RepositoryFor(row);
+        if (repository is null) return;
+
+        row.GitHubBusy = true;
+        row.GitHubError = null;
+        Changed?.Invoke();
+
+        try
+        {
+            row.IssueLink = await _gitHub.PushAsync(entry, repository);
+            await Repository.SaveAsync(entry);
+            SetSaveState(AppSaveState.Saved);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
+        {
+            row.GitHubError = ex.Message;
+        }
+        catch (Exception)
+        {
+            row.GitHubError = "Couldn't push to GitHub.";
+        }
+        finally
+        {
+            row.GitHubBusy = false;
+            Changed?.Invoke();
+        }
+
+        // The issue exists now; showing it open straight away saves a round of
+        // "did that work?".
+        if (row.IssueLink is not null && row.GitHubError is null)
+        {
+            await RefreshGitHubAsync(row);
+        }
+    }
+
+    /// <summary>Re-reads one entry's issue state and the pull requests that
+    /// reference it.</summary>
+    public async Task RefreshGitHubAsync(EntryRow row)
+    {
+        if (row.IssueLink is not { } link || row.GitHubBusy) return;
+
+        row.GitHubBusy = true;
+        row.GitHubError = null;
+        Changed?.Invoke();
+
+        try
+        {
+            row.Snapshot = await _gitHub.RefreshAsync(link);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
+        {
+            row.GitHubError = ex.Message;
+        }
+        catch (Exception)
+        {
+            row.GitHubError = "Couldn't read that issue from GitHub.";
+        }
+        finally
+        {
+            row.GitHubBusy = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>Refreshes every linked row. Explicit rather than automatic on
+    /// load: the backlog must open instantly and offline, so nothing about it
+    /// waits on the network until asked.</summary>
+    public async Task SyncGitHubAsync()
+    {
+        if (GitHubSyncing) return;
+
+        GitHubSyncing = true;
+        Changed?.Invoke();
+
+        try
+        {
+            foreach (var row in Rows.Where(r => r.IssueLink is not null).ToList())
+            {
+                await RefreshGitHubAsync(row);
+            }
+        }
+        finally
+        {
+            GitHubSyncing = false;
+            Changed?.Invoke();
+        }
+    }
+
     /// <summary>The backlog moved to a different folder, so everything held in
     /// memory is about the old one. Start over from the new store.</summary>
     private async void OnRootChanged()
@@ -511,6 +627,7 @@ public sealed class BacklogDesktopState : IDisposable
         row.Tags = entry.Tags;
         row.SubItemCount = entry.TotalSubItemCount;
         row.CompletedSubItemCount = entry.CompletedSubItemCount;
+        row.IssueLink = GitHubIntegration.FindLink(entry);
 
         // Re-derive the canonical text from the just-saved entry so the editor
         // reflects any graceful corrections (e.g. an unknown status token that
@@ -656,6 +773,23 @@ public sealed class EntryRow
     public int SubItemCount { get; set; }
 
     public int CompletedSubItemCount { get; set; }
+
+    /// <summary>The GitHub issue this entry was pushed to, or null. Persisted on
+    /// the entry as a <c>ProjectionRef</c>, so it survives a restart.</summary>
+    public GitHubIssueLink? IssueLink { get; set; }
+
+    /// <summary>Last known issue and pull-request state. Deliberately not
+    /// persisted: it is a view of something GitHub owns, and a stale copy in the
+    /// markdown file would be worse than an empty one.</summary>
+    public GitHubIssueSnapshot? Snapshot { get; set; }
+
+    /// <summary>Set while a push or refresh is in flight, so the control can say
+    /// so instead of looking dead.</summary>
+    public bool GitHubBusy { get; set; }
+
+    /// <summary>Why the last GitHub call failed, in words fit to read. Shown on
+    /// the entry rather than as a toast, because it is about this entry.</summary>
+    public string? GitHubError { get; set; }
 
     public bool IsPersisted => Id.HasValue;
 

@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Backlog.Domain\Backlog.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Backlog.GitHub\Backlog.GitHub.csproj" />
     <ProjectReference Include="..\..\src\Backlog.UI\Backlog.UI.csproj" />
   </ItemGroup>
 

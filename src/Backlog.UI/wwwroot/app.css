@@ -889,6 +889,70 @@ h1, h2, h3 {
     font-style: italic;
 }
 
+/* GitHub badges are links, so they are underline-free but clearly interactive,
+   and carry the same state colours the rest of the app already uses. */
+.badge--gh {
+    gap: var(--spacing-xs);
+    text-decoration: none;
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.badge--gh:hover { border-color: var(--color-border-strong); color: var(--color-text-primary); }
+
+.badge--gh:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+}
+
+.badge__state {
+    font-size: var(--font-size-xs);
+    opacity: 0.75;
+    text-transform: lowercase;
+}
+
+.badge--gh-open { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
+.badge--gh-draft { color: var(--color-text-disabled); }
+.badge--gh-merged { border-color: #8B6FC4; color: #C0A9E8; }
+.badge--gh-closed { color: var(--color-text-disabled); text-decoration: line-through; }
+.badge--gh-unknown { color: var(--color-text-disabled); border-style: dashed; }
+
+/* Pushing and re-checking are actions, not metadata, so they read as controls
+   sitting among the badges rather than as badges themselves. */
+.entry-doc__gh {
+    font-size: var(--font-size-xs);
+    line-height: 1.4;
+    padding: 1px var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+
+.entry-doc__gh:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.entry-doc__gh:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+}
+
+.entry-doc__gh:disabled { opacity: 0.5; cursor: default; }
+
+.entry-doc__gh--push { border-style: dashed; }
+
+.entry-doc__gh-error {
+    margin: var(--spacing-xs) 0 0;
+    font-size: var(--font-size-sm);
+    color: #E4626F;
+    overflow-wrap: anywhere;
+}
+
 .tag-chip {
     display: inline-flex;
     align-items: center;
@@ -1007,6 +1071,16 @@ h1, h2, h3 {
 
 .setting__input--error {
     border-color: #E4626F;
+}
+
+.setting__input--multiline {
+    resize: vertical;
+    min-height: 5.5rem;
+    line-height: 1.6;
+}
+
+.setting__actions .btn + .btn {
+    margin-left: var(--spacing-sm);
 }
 
 .setting__status {

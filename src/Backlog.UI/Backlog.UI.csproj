@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Backlog.Domain\Backlog.Domain.csproj" />
+    <ProjectReference Include="..\Backlog.GitHub\Backlog.GitHub.csproj" />
     <ProjectReference Include="..\Backlog.Storage\Backlog.Storage.csproj" />
   </ItemGroup>
 

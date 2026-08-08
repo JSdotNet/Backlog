@@ -17,6 +17,23 @@
             @State.SaveStateLabel
         </div>
 
+        @* Monitoring is a deliberate act, not a background poll: the backlog has
+           to open instantly and offline, so nothing here waits on GitHub until
+           somebody asks it to. *@
+        @if (State.GitHubConfigured && State.HasLinkedRows)
+        {
+            <button type="button"
+                    class="icon-link"
+                    id="github-sync-button"
+                    data-testid="github-sync-button"
+                    disabled="@State.GitHubSyncing"
+                    title="Check GitHub for issue and pull request updates"
+                    aria-label="Check GitHub for issue and pull request updates"
+                    @onclick="() => State.SyncGitHubAsync()">
+                @(State.GitHubSyncing ? "…" : "⟳")
+            </button>
+        }
+
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
@@ -115,6 +132,64 @@
                                 <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
                             }
 
+                            @* GitHub only ever appears on an entry whose area
+                               names a configured repository, or that has already
+                               been pushed — the integration stays invisible
+                               until it has been asked for. *@
+                            @if (State.GitHubConfigured)
+                            {
+                                var repository = State.RepositoryFor(row);
+
+                                @if (row.IssueLink is { } link)
+                                {
+                                    <a class="badge badge--gh badge--gh-@(GitHubStateClass(row.Snapshot?.Issue.State))"
+                                       data-testid="github-issue-badge"
+                                       href="@link.Url"
+                                       target="_blank"
+                                       rel="noopener"
+                                       title="@link.RepoFullName issue @link.Label">
+                                        @link.Label
+                                        <span class="badge__state">@GitHubStateLabel(row.Snapshot?.Issue.State)</span>
+                                    </a>
+
+                                    @if (row.Snapshot?.Headline is { } pull)
+                                    {
+                                        <a class="badge badge--gh badge--gh-@(GitHubStateClass(pull.State))"
+                                           data-testid="github-pr-badge"
+                                           href="@pull.Url"
+                                           target="_blank"
+                                           rel="noopener"
+                                           title="@pull.Title">
+                                            PR #@pull.Number
+                                            <span class="badge__state">@GitHubStateLabel(pull.State)</span>
+                                        </a>
+                                    }
+
+                                    <button type="button"
+                                            class="entry-doc__gh"
+                                            data-testid="github-refresh-button"
+                                            disabled="@row.GitHubBusy"
+                                            title="Check this issue on GitHub"
+                                            aria-label="Check this issue on GitHub"
+                                            @onmousedown:preventDefault="true"
+                                            @onclick="() => State.RefreshGitHubAsync(row)">
+                                        @(row.GitHubBusy ? "…" : "↻")
+                                    </button>
+                                }
+                                else if (repository is not null && row.IsPersisted)
+                                {
+                                    <button type="button"
+                                            class="entry-doc__gh entry-doc__gh--push"
+                                            data-testid="github-push-button"
+                                            disabled="@row.GitHubBusy"
+                                            title="Create an issue in @repository.FullName"
+                                            @onmousedown:preventDefault="true"
+                                            @onclick="() => State.PushToGitHubAsync(row)">
+                                        @(row.GitHubBusy ? "Pushing…" : "Push to GitHub")
+                                    </button>
+                                }
+                            }
+
                             @if (!row.IsPersisted)
                             {
                                 <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
@@ -135,6 +210,11 @@
                                 ✕
                             </button>
                         </div>
+
+                        @if (row.GitHubError is not null)
+                        {
+                            <p class="entry-doc__gh-error" data-testid="github-error" role="status">@row.GitHubError</p>
+                        }
 
                         @if (editing)
                         {
@@ -291,6 +371,20 @@
         var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
         return text.ToLowerInvariant();
     }
+
+    /// <summary>"never checked" is a real, distinct answer from "open" — the
+    /// badge says so rather than implying a state nobody has verified.</summary>
+    private static string GitHubStateLabel(GitHubItemState? state) => state switch
+    {
+        GitHubItemState.Open => "open",
+        GitHubItemState.Draft => "draft",
+        GitHubItemState.Merged => "merged",
+        GitHubItemState.Closed => "closed",
+        _ => "not checked"
+    };
+
+    private static string GitHubStateClass(GitHubItemState? state) =>
+        state?.ToString().ToLowerInvariant() ?? "unknown";
 
     public void Dispose()
     {
