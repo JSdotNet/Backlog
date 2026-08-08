@@ -1,11 +1,31 @@
 # Workflow routing
 
-Prefer the named orchestration skill for each task category. Fall back to the paired
-specialist agent only when the skill is unavailable.
+Route every task through the named orchestration skill for its category. Fall back to the
+paired specialist agent only when the skill is unavailable.
 
 For this repository, route through an orchestration skill by default. If a task does
 not have a dedicated orchestration skill, use the repo-native generic orchestration
 entrypoint `orch-fallback` before falling back to specialist agents directly.
+
+## The gate
+
+**Before the first `edit` or `create` to any file under `src/` or `tests/`, you MUST
+invoke the matching `orch-*` skill below.** Exploration first is expected and does not
+consume the gate; the trigger is the first write, not the first action.
+
+Apply the gate literally:
+
+- **Size is not a criterion.** A one-control UI tweak and a multi-service feature route
+  the same way. Do not reason about whether a request is "big enough" to orchestrate.
+- **A missing specification is not an exemption.** Ad-hoc requests with no story,
+  acceptance criteria, or approved design still route through `orch-feature` or
+  `orch-bug`; the skill derives the missing scope as its first stage.
+- **Unmet preconditions are not an exemption.** If the matched skill's stated
+  preconditions do not hold, invoke it anyway and say so — do not fall through to
+  direct implementation.
+- **No match means `orch-fallback`,** not direct implementation.
+
+## Routing table
 
 - Direct `.arc42/` chapter content edits (refreshing an existing chapter or
   diagram, not authoring a new ADR/TDR/blueprint): use `orch-arc42-content`.
@@ -13,10 +33,11 @@ entrypoint `orch-fallback` before falling back to specialist agents directly.
 - Architecture, ADRs, arc42 docs, or blueprint work: use `orch-architecture`, `orch-adr`,
   `orch-arc42`, or `orch-blueprint`. Fall back to `architecture:architect`.
 - Technical debt records: use `orch-tdr`. Fall back to `architecture:architect`.
-- Feature implementation spanning planning, coding, and validation: use `orch-feature`.
-  Fall back to `csharp-coding:coding`.
-- Bug fixes spanning triage, fix, and validation: use `orch-bug`. Fall back to
-  `csharp-coding:coding`.
+- Any change to product code under `src/` or `tests/` that adds or extends behavior —
+  including small UI tweaks and incremental extensions to an existing feature: use
+  `orch-feature`. Fall back to `csharp-coding:coding`.
+- Bug fixes — any change under `src/` or `tests/` that corrects existing behavior: use
+  `orch-bug`. Fall back to `csharp-coding:coding`.
 - New module scaffolding inside an existing project: use `orch-create-module`. Fall back
   to `csharp-coding:coding`.
 - New service scaffolding inside an existing project: use `orch-create-service`. Fall
@@ -85,6 +106,16 @@ entrypoint `orch-fallback` before falling back to specialist agents directly.
 
 If neither the preferred skill nor its fallback agent is installed, use the closest
 available specialist agent and note that orchestration routing was unavailable.
+
+## Repository override for `orch-feature`
+
+The plugin-provided `orch-feature` skill states a precondition that the feature
+specification, acceptance criteria, and architecture are already approved. **That
+precondition does not apply in this repository.** Invoke `orch-feature` for ad-hoc
+feature requests too, and treat scope discovery as part of its first stage: restate the
+requested behavior, derive at least one measurable acceptance criterion, confirm it with
+the user, then continue through the remaining stages. The same applies to `orch-bug`
+when no reproduction has been written up yet.
 
 When a recurring task category has no dedicated orchestration skill yet, recommend
 creating one in a separate session so repository routing can stay orchestration-first.

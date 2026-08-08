@@ -12,6 +12,18 @@ See `.github/instructions/mcp-usage.instructions.md` for MCP server usage and au
 
 See `.github/instructions/workflow-routing.instructions.md` for orchestration-skill and specialist-agent routing by task type.
 
+**Orchestration gate.** Before the first `edit` or `create` to any file under `src/` or
+`tests/`, you MUST invoke the matching `orch-*` skill from
+`.github/instructions/workflow-routing.instructions.md`. Reading, searching, and
+exploring are always allowed first — the gate is on the first write, not on the first
+action, so renaming the session and orienting yourself does not consume it.
+
+This gate holds regardless of how small the request looks and regardless of whether a
+specification, acceptance criteria, or story already exists. If a skill's stated
+preconditions are not met, invoke it anyway and derive the missing scope inside it. If
+no `orch-*` skill matches the task category at all, invoke `orch-fallback`. Never
+proceed straight from exploration to implementation.
+
 ## Naming
 
 See `.github/instructions/naming.instructions.md` for file and folder naming, including the leading `_` that marks tooling assets such as `_meta/`.
