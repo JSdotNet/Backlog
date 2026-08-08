@@ -299,6 +299,88 @@ public sealed class BacklogDesktopState : IDisposable
         Changed?.Invoke();
     }
 
+    // --- Sub-items -------------------------------------------------------
+
+    /// <summary>The entry whose sub-item is being dragged, if any. Sub-items only
+    /// ever re-rank within their own entry — a sub-item belongs to the thing it
+    /// is written under, so dropping one on a different entry would mean moving
+    /// text between two documents, which is a rewrite, not a re-rank.</summary>
+    public EntryRow? SubItemDragRow { get; private set; }
+
+    /// <summary>Index of the sub-item being dragged within
+    /// <see cref="SubItemDragRow"/>, or -1.</summary>
+    public int SubItemDragIndex { get; private set; } = -1;
+
+    public bool IsDraggingSubItem(EntryRow row, int index) =>
+        ReferenceEquals(SubItemDragRow, row) && SubItemDragIndex == index;
+
+    /// <summary>Folds an entry's sub-items away, or brings them back. The count
+    /// stays visible either way, so a folded entry never hides that it has
+    /// work under it.</summary>
+    public void ToggleSubItems(EntryRow row)
+    {
+        row.SubItemsCollapsed = !row.SubItemsCollapsed;
+        Changed?.Invoke();
+    }
+
+    public void BeginSubItemDrag(EntryRow row, int index)
+    {
+        SubItemDragRow = row;
+        SubItemDragIndex = index;
+    }
+
+    public void EndSubItemDrag()
+    {
+        SubItemDragRow = null;
+        SubItemDragIndex = -1;
+    }
+
+    /// <summary>Drops the dragged sub-item immediately before or after the
+    /// sub-item at <paramref name="targetIndex"/> in the same entry.</summary>
+    public async Task DropSubItemAsync(EntryRow row, int targetIndex, bool before)
+    {
+        var from = SubItemDragIndex;
+        var source = SubItemDragRow;
+        EndSubItemDrag();
+
+        if (source is null || !ReferenceEquals(source, row) || from < 0) return;
+
+        var to = before ? targetIndex : targetIndex + 1;
+        if (to > from) to--;
+
+        await ReorderSubItemAsync(row, from, to);
+    }
+
+    /// <summary>Keyboard equivalent of a sub-item drag. The moved card is
+    /// re-focused afterwards so a run of arrow presses keeps carrying the same
+    /// sub-item instead of grabbing whatever slid into the old slot.</summary>
+    public async Task MoveSubItemAsync(EntryRow row, int index, int delta) =>
+        await ReorderSubItemAsync(row, index, index + delta, focusAfter: true);
+
+    /// <summary>The sub-item grip waiting to be re-focused after a keyboard
+    /// move, or null. The component consumes it on its next render.</summary>
+    public (EntryRow Row, int Index)? SubItemFocus { get; private set; }
+
+    public void ConsumeSubItemFocus() => SubItemFocus = null;
+
+    private async Task ReorderSubItemAsync(EntryRow row, int from, int to, bool focusAfter = false)
+    {
+        if (from == to || from < 0 || to < 0 || to >= row.PreviewSubItems.Count) return;
+
+        var rewritten = EntryTextParser.MoveSubItem(row.RawText, from, to);
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+
+        CancelDebounce(row);
+        row.RawText = rewritten;
+        if (focusAfter) SubItemFocus = (row, to);
+
+        // A re-rank is a finished gesture, not a keystroke: save it now rather
+        // than on a debounce that a drag never generates.
+        await SaveRowAsync(row, isFlush: true);
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
     public void Dispose()
     {
         _store.RootChanged -= OnRootChanged;
@@ -317,6 +399,7 @@ public sealed class BacklogDesktopState : IDisposable
     {
         EditingRow = null;
         DraggedRow = null;
+        EndSubItemDrag();
         _entries.Clear();
 
         await ReloadRowsAsync();
@@ -634,6 +717,8 @@ public sealed class EntryRow
 {
     private string? _renderedFrom;
     private IReadOnlyList<MdBlock> _blocks = [];
+    private IReadOnlyList<MdBlock> _bodyBlocks = [];
+    private IReadOnlyList<MdSubItem> _subItems = [];
     private EntryTextParser.ParsedEntry? _parsed;
 
     public Guid Key { get; } = Guid.NewGuid();
@@ -677,11 +762,25 @@ public sealed class EntryRow
 
     public string ProgressText => SubItemCount == 0 ? string.Empty : $"{CompletedSubItemCount}/{SubItemCount}";
 
-    /// <summary>The rendered body shown when this row is not being edited.</summary>
+    /// <summary>The rendered body shown when this row is not being edited. Stops
+    /// at the first sub-item: sub-items are items in their own right and are laid
+    /// out below the entry rather than inside its body.</summary>
     public IReadOnlyList<MdBlock> PreviewBlocks
     {
-        get { Render(); return _blocks; }
+        get { Render(); return _bodyBlocks; }
     }
+
+    /// <summary>The entry's sub-items, in the order they are written. Each is
+    /// rendered as its own draggable card beneath the entry.</summary>
+    public IReadOnlyList<MdSubItem> PreviewSubItems
+    {
+        get { Render(); return _subItems; }
+    }
+
+    /// <summary>Whether the sub-item cards under this entry are folded away. Per
+    /// row and in memory only — a fold is a way of looking at the list right now,
+    /// not something worth writing into someone's markdown.</summary>
+    public bool SubItemsCollapsed { get; set; }
 
     public string PreviewTitle
     {
@@ -778,5 +877,7 @@ public sealed class EntryRow
         _renderedFrom = RawText;
         _parsed = EntryTextParser.Parse(RawText);
         _blocks = MarkdownPreview.Parse(_parsed.Body);
+        _bodyBlocks = [.. _blocks.TakeWhile(b => b is not MdSubItem)];
+        _subItems = [.. _blocks.OfType<MdSubItem>()];
     }
 }

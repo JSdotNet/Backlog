@@ -1,9 +1,9 @@
 @*
     The read view of an entry's body: what markdown looks like when you are not
-    editing it. A `##` heading is a sub-item, so it renders as a full item in its
-    own right — a heading one level down from the entry's title, indented and
-    hung off a rule, with its notes attached. Checkboxes belong to `- [ ]` lines
-    and only to those. Other headings render at their level, and #tags render as
+    editing it. Sub-items are not here — a `##` heading is an item in its own
+    right and is laid out as its own card below the entry (see Home.razor), so
+    this renders only the prose above them. Checkboxes belong to `- [ ]` lines
+    and only to those. Headings render at their level, and #tags render as
     chips. Text is emitted through Razor's normal escaping, so nothing typed into
     an entry can inject markup.
 *@
@@ -12,18 +12,6 @@
 {
     switch (block)
     {
-        case MdSubItem subItem:
-            <section class="md-subitem @(subItem.Done ? "md-subitem--done" : string.Empty)" data-testid="entry-subitem">
-                <h3 class="md-subitem__title">@RenderInlines(subItem.Title)</h3>
-                @if (subItem.Children.Count > 0)
-                {
-                    <div class="md-subitem__notes">
-                        <MarkdownView Blocks="subItem.Children" />
-                    </div>
-                }
-            </section>
-            break;
-
         case MdHeading heading:
             <p class="md-heading md-heading--@heading.Level">@RenderInlines(heading.Content)</p>
             break;
@@ -80,48 +68,5 @@
     [Parameter, EditorRequired]
     public IReadOnlyList<MdBlock> Blocks { get; set; } = [];
 
-    private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) => builder =>
-    {
-        var seq = 0;
-        foreach (var part in parts)
-        {
-            switch (part)
-            {
-                case MdText text:
-                    builder.AddContent(seq++, text.Text);
-                    break;
-                case MdStrong strong:
-                    builder.OpenElement(seq++, "strong");
-                    builder.AddContent(seq++, strong.Text);
-                    builder.CloseElement();
-                    break;
-                case MdEm em:
-                    builder.OpenElement(seq++, "em");
-                    builder.AddContent(seq++, em.Text);
-                    builder.CloseElement();
-                    break;
-                case MdCodeSpan codeSpan:
-                    builder.OpenElement(seq++, "code");
-                    builder.AddAttribute(seq++, "class", "md-inline-code");
-                    builder.AddContent(seq++, codeSpan.Text);
-                    builder.CloseElement();
-                    break;
-                case MdTag tag:
-                    builder.OpenElement(seq++, "span");
-                    builder.AddAttribute(seq++, "class", "tag-chip");
-                    builder.AddContent(seq++, $"#{tag.Tag}");
-                    builder.CloseElement();
-                    break;
-                case MdLink link:
-                    builder.OpenElement(seq++, "a");
-                    builder.AddAttribute(seq++, "class", "md-link");
-                    builder.AddAttribute(seq++, "href", link.Url);
-                    builder.AddAttribute(seq++, "target", "_blank");
-                    builder.AddAttribute(seq++, "rel", "noopener noreferrer");
-                    builder.AddContent(seq++, link.Text);
-                    builder.CloseElement();
-                    break;
-            }
-        }
-    };
+    private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) => MarkdownRender.Inlines(parts);
 }
