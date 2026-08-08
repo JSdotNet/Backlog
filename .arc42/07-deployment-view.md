@@ -46,7 +46,7 @@ Releases**, with an App Installer manifest driving updates — there is no
 Microsoft Store listing and no custom update server.
 
 - **Package** — Release builds produce a single signed MSIX
-  (`WindowsPackageType=Package`, `AppxBundle=Never`, `SideloadOnly`). Debug stays
+  (`WindowsPackageType=MSIX`, `AppxBundle=Never`, `SideloadOnly`). Debug stays
   unpackaged so the Aspire desktop resource and WebView2 CDP attach keep working.
 - **App Installer** — `Backlog.Desktop.appinstaller` is published alongside the
   MSIX. Its own `Uri` points at the stable `releases/latest/download/...`

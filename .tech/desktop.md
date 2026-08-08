@@ -119,7 +119,7 @@ The packaging and update format for the Windows client.
 - **Used for** — building the desktop app as a signed, sideloadable MSIX and
   installing/updating it on the user's machines.
 - **Why** — the standard distribution model for Windows App SDK applications.
-- **How** — Release + Windows builds switch to `WindowsPackageType=Package` and
+- **How** — Release + Windows builds switch to `WindowsPackageType=MSIX` and
   emit a single signed MSIX (`AppxBundle=Never`, `SideloadOnly`). Debug stays
   unpackaged (`WindowsPackageType=None`) so the Aspire desktop resource and the
   WebView2 CDP attach used by Playwright keep working. The MSIX is published as a

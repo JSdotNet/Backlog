@@ -21,14 +21,15 @@
 
   <!--
     Release + Windows switches to a packaged MSIX build for sideloading from
-    GitHub Releases, per the .NET 10 MAUI CLI publishing guidance. Debug stays
-    unpackaged (WindowsPackageType=None above) so the Aspire desktop resource and
-    the WebView2 CDP attach used by Playwright keep working. The signing
-    certificate thumbprint/password are supplied on the command line / by CI —
-    never hard-coded here.
+    GitHub Releases. WindowsAppSDK 1.7 accepts only None/MSIX/Sparse here — the
+    older docs' "Package" value is rejected. Debug stays unpackaged
+    (WindowsPackageType=None above) so the Aspire desktop resource and the
+    WebView2 CDP attach used by Playwright keep working. The signing certificate
+    thumbprint/password are supplied on the command line / by CI — never
+    hard-coded here.
   -->
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(Configuration)' == 'Release'">
-    <WindowsPackageType>Package</WindowsPackageType>
+    <WindowsPackageType>MSIX</WindowsPackageType>
     <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
     <AppxBundle>Never</AppxBundle>
     <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
