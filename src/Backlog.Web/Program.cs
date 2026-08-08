@@ -13,6 +13,10 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<BacklogStore>();
 builder.Services.AddScoped<BacklogDesktopState>();
 
+// The web host never distributes or updates the desktop app, so it always
+// reports updates as unsupported.
+builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

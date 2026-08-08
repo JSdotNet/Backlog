@@ -1,3 +1,4 @@
+using Backlog.Desktop.Services;
 using Backlog.UI.Services;
 using Backlog.Storage;
 using Microsoft.Extensions.Hosting;
@@ -23,6 +24,11 @@ public static class MauiProgram
         builder.AddServiceDefaults();
         builder.Services.AddSingleton<BacklogStore>();
         builder.Services.AddSingleton<BacklogDesktopState>();
+
+        // The MSIX head can manage its own updates when packaged; it degrades to
+        // an "unsupported" report when running unpackaged (e.g. Debug), so this is
+        // safe to register unconditionally.
+        builder.Services.AddSingleton<IAppUpdateService, MsixAppUpdateService>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
