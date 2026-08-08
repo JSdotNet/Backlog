@@ -10,13 +10,37 @@
     <Nullable>enable</Nullable>
     <EnableDefaultCssItems>false</EnableDefaultCssItems>
     <MauiXamlInflator>SourceGen</MauiXamlInflator>
-    <ApplicationTitle>Backlog.Desktop</ApplicationTitle>
+    <ApplicationTitle>Backlog</ApplicationTitle>
     <ApplicationId>com.jsdotnet.backlog.desktop</ApplicationId>
-    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">1.0.0</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
     <WindowsPackageType>None</WindowsPackageType>
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+  </PropertyGroup>
+
+  <!--
+    Release + Windows switches to a packaged MSIX build for sideloading from
+    GitHub Releases, per the .NET 10 MAUI CLI publishing guidance. Debug stays
+    unpackaged (WindowsPackageType=None above) so the Aspire desktop resource and
+    the WebView2 CDP attach used by Playwright keep working. The signing
+    certificate thumbprint/password are supplied on the command line / by CI —
+    never hard-coded here.
+  -->
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(Configuration)' == 'Release'">
+    <WindowsPackageType>Package</WindowsPackageType>
+    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
+    <AppxBundle>Never</AppxBundle>
+    <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
+    <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
+  </PropertyGroup>
+
+  <!--
+    Works around WindowsAppSDK issue #3337: the RID must be set through an
+    override property. .NET 10 requires portable RIDs (win-x64), NOT win10-x64.
+  -->
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(RuntimeIdentifierOverride)' != ''">
+    <RuntimeIdentifier>$(RuntimeIdentifierOverride)</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>

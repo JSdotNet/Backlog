@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppInstaller
+    xmlns="http://schemas.microsoft.com/appx/appinstaller/2018"
+    Uri="https://github.com/JSdotNet/Backlog/releases/latest/download/Backlog.Desktop.appinstaller"
+    Version="{VERSION}">
+
+  <MainPackage
+      Name="{NAME}"
+      Publisher="{PUBLISHER}"
+      Version="{VERSION}"
+      ProcessorArchitecture="{ARCH}"
+      Uri="https://github.com/JSdotNet/Backlog/releases/download/{TAG}/{MSIX_FILE_NAME}" />
+
+  <UpdateSettings>
+    <OnLaunch HoursBetweenUpdateChecks="8" ShowPrompt="true" />
+    <AutomaticBackgroundTask />
+  </UpdateSettings>
+
+</AppInstaller>
