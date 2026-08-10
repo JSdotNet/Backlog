@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject BacklogDesktopState State
 @inject IJSRuntime JS
+@inject ICopilotToolService CopilotTools
 
 @*
     One entry is one block of markdown. Not focused, it reads as a document;
@@ -70,6 +71,78 @@
             }
         </div>
     </div>
+    <section class="tools-panel" aria-labelledby="installed-tools-title">
+        <button type="button"
+                class="tools-panel__summary"
+                aria-expanded="@_toolsExpanded"
+                aria-controls="installed-tools-content"
+                @onclick="OnToolsToggleAsync">
+            <span class="tools-panel__chevron" aria-hidden="true">@(_toolsExpanded ? "▾" : "▸")</span>
+            <span>
+                <span id="installed-tools-title" class="tools-panel__title">Installed tools</span>
+                <span class="tools-panel__subtitle">Copilot plugins, repository tools, and MCP servers</span>
+            </span>
+            <span class="tools-panel__count">@(_tools.Count == 0 ? "Not checked" : $"{_tools.Count} tools")</span>
+        </button>
+
+        @if (_toolsExpanded)
+        {
+            <div class="tools-panel__content" id="installed-tools-content">
+                <div class="tools-panel__toolbar">
+                    <p class="tools-panel__message" role="status">@(_toolMessage ?? "Checking configured tools...")</p>
+                    <button type="button" class="btn btn--secondary" disabled="@_toolsLoading" @onclick="RefreshToolsAsync">
+                        @(_toolsLoading ? "Checking..." : "Check for updates")
+                    </button>
+                </div>
+
+                @if (_toolsLoading && _tools.Count == 0)
+                {
+                    <p class="tools-panel__empty">Loading installed tool versions.</p>
+                }
+                else if (_tools.Count == 0)
+                {
+                    <p class="tools-panel__empty">No configured tools were found.</p>
+                }
+                else
+                {
+                    <div class="tools-table" role="table" aria-label="Installed Copilot tools">
+                        <div class="tools-table__row tools-table__row--head" role="row">
+                            <span role="columnheader">Tool</span>
+                            <span role="columnheader">Installed</span>
+                            <span role="columnheader">Available</span>
+                            <span role="columnheader">Actions</span>
+                        </div>
+
+                        @foreach (var tool in _tools)
+                        {
+                            <div class="tools-table__row" role="row" @key="tool.Key">
+                                <div role="cell" class="tools-table__tool">
+                                    <strong>@tool.Name</strong>
+                                    <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
+                                </div>
+                                <span role="cell" class="tools-table__version">@tool.InstalledVersion</span>
+                                <span role="cell" class="tools-table__version @(tool.UpdateAvailable ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
+                                <div role="cell" class="tools-table__actions">
+                                    <button type="button"
+                                            class="btn btn--secondary"
+                                            disabled="@(_toolsLoading || _toolActionKey == tool.Key || !tool.ConfiguredEnabled)"
+                                            @onclick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
+                                        Update
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn--ghost"
+                                            disabled="@(_toolsLoading || _toolActionKey == tool.Key)"
+                                            @onclick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
+                                        @(tool.ConfiguredEnabled ? "Disable" : "Enable")
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </section>
 
     @if (State.FilteredRows.Count == 0)
     {
@@ -384,6 +457,11 @@
 
 @code {
     private ElementReference _editor;
+    private bool _toolsExpanded;
+    private bool _toolsLoading;
+    private string? _toolMessage;
+    private string? _toolActionKey;
+    private IReadOnlyList<CopilotToolInfo> _tools = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -445,6 +523,60 @@
             <span class="entry-doc__grip-dots" aria-hidden="true"></span>
         </button>;
 
+
+    private async Task OnToolsToggleAsync()
+    {
+        _toolsExpanded = !_toolsExpanded;
+        if (_toolsExpanded && _tools.Count == 0)
+        {
+            await RefreshToolsAsync();
+        }
+    }
+
+    private async Task RefreshToolsAsync()
+    {
+        _toolsLoading = true;
+        _toolMessage = null;
+        try
+        {
+            var catalog = await CopilotTools.ListAsync();
+            _tools = catalog.Tools;
+            _toolMessage = catalog.Message;
+        }
+        catch (Exception ex)
+        {
+            _toolMessage = $"Tools could not be checked: {ex.Message}";
+        }
+        finally
+        {
+            _toolsLoading = false;
+        }
+    }
+
+    private async Task ApplyToolActionAsync(CopilotToolInfo tool, CopilotToolAction action)
+    {
+        _toolActionKey = tool.Key;
+        try
+        {
+            var result = action switch
+            {
+                CopilotToolAction.Update => await CopilotTools.UpdateAsync(tool.Key),
+                CopilotToolAction.Enable => await CopilotTools.EnableAsync(tool.Key),
+                CopilotToolAction.Disable => await CopilotTools.DisableAsync(tool.Key),
+                _ => CopilotToolActionResult.Failed("Unknown tool action.")
+            };
+
+            _toolMessage = result.Message;
+            if (result.Succeeded)
+            {
+                await RefreshToolsAsync();
+            }
+        }
+        finally
+        {
+            _toolActionKey = null;
+        }
+    }
     private void HandleStateChanged() => InvokeAsync(StateHasChanged);
 
     private void OnNewEntry() => State.NewRow();
@@ -502,3 +634,4 @@
         State.Changed -= HandleStateChanged;
     }
 }
+

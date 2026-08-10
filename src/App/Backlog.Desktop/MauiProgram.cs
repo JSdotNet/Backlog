@@ -36,6 +36,7 @@ public static class MauiProgram
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is
         // safe to register unconditionally.
         builder.Services.AddSingleton<IAppUpdateService, MsixAppUpdateService>();
+        builder.Services.AddSingleton<ICopilotToolService, CopilotToolService>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
@@ -70,3 +71,4 @@ public static class MauiProgram
         }
     }
 }
+
