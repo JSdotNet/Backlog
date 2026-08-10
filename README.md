@@ -110,6 +110,24 @@ worktrees of this repository can run their own AppHost side by side. Read the
 actual dashboard and resource URLs from the `aspire start` output, or with
 `aspire describe`.
 
+## Installing the desktop app
+
+The Windows desktop app is distributed as a signed **MSIX** sideloaded from
+GitHub Releases, with an App Installer (`.appinstaller`) that keeps it updated —
+there is no Microsoft Store listing.
+
+1. Open the [latest release](https://github.com/JSdotNet/Backlog/releases/latest)
+   and download `Backlog.Desktop.appinstaller`.
+2. Because the package is **self-signed**, trust the signing certificate on the
+   machine first (import it into *Local Machine → Trusted People*), then open the
+   `.appinstaller` to install.
+3. Updates are checked automatically on launch (and in the background). You can
+   also check on demand from **Settings → About and updates**, which offers
+   "Check for updates" and "Install and restart".
+
+Debug builds run **unpackaged** (so Aspire and the WebView2 debugging attach keep
+working); the in-app updater reports "unsupported" there, which is expected.
+
 
 ## Language and conventions
 

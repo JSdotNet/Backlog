@@ -19,6 +19,10 @@ builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequir
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddScoped<BacklogDesktopState>();
 
+// The web host never distributes or updates the desktop app, so it always
+// reports updates as unsupported.
+builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

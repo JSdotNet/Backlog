@@ -61,3 +61,6 @@ nunit-*.xml
 
 # Cache written by the impeccable design hook.
 .impeccable/
+
+# Local QA validation evidence (screenshots, scenario results)
+.qa-evidence/
