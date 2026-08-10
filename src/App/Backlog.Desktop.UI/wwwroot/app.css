@@ -343,6 +343,14 @@ h1, h2, h3 {
     padding: var(--spacing-xs) 0;
 }
 
+.entry-doc--one-line .entry-doc__body {
+    display: grid;
+    grid-template-columns: minmax(10rem, max-content) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-xs) 0;
+}
+
 .entry-doc--dragged {
     opacity: 0.4;
 }
@@ -764,9 +772,43 @@ h1, h2, h3 {
     min-height: 24px;
 }
 
-/* Status leads the top-right corner — the one thing you scan a backlog for. */
-.entry-doc__meta .badge--status {
+.entry-doc__meta-start,
+.entry-doc__tags,
+.entry-doc__meta-end {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.entry-doc__tags {
+    min-width: 0;
+}
+
+.entry-doc__meta-end {
     margin-left: auto;
+}
+
+.entry-doc--one-line .entry-doc__meta {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.entry-doc--one-line .entry-doc__meta-start {
+    min-width: 0;
+}
+
+.entry-doc--one-line .entry-doc__tags {
+    justify-content: center;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.entry-doc--one-line .entry-doc__meta-end {
+    margin-left: 0;
+    justify-content: flex-end;
 }
 
 .entry-doc__delete {
@@ -805,6 +847,18 @@ h1, h2, h3 {
     cursor: text;
 }
 
+.entry-doc--one-line .entry-doc__read {
+    grid-column: 1;
+    grid-row: 1;
+    padding: 0;
+    min-width: 0;
+}
+
+.entry-doc--one-line .entry-doc__meta {
+    grid-column: 2;
+    grid-row: 1;
+}
+
 .entry-doc__read:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 4px;
@@ -816,6 +870,13 @@ h1, h2, h3 {
     font-size: var(--font-size-xl);
     line-height: var(--line-height-tight);
     margin: 0 0 var(--spacing-xs);
+}
+
+.entry-doc--one-line .entry-doc__title {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .entry-doc__title--empty {
@@ -910,17 +971,25 @@ h1, h2, h3 {
     height: 15px;
     flex: 0 0 auto;
     margin-top: 0.2em;
+    padding: 0;
+    background: transparent;
     border: var(--border-width) solid var(--color-border-strong);
     border-radius: var(--border-radius-sm);
     font-size: 10px;
     line-height: 1;
     color: transparent;
+    cursor: pointer;
 }
 
 .md-check--done {
     background: var(--color-primary);
     border-color: var(--color-primary);
     color: var(--color-text-inverse);
+}
+
+.md-check:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .md-item--done {

@@ -33,6 +33,7 @@ public static class MarkdownPreview
         var paragraph = new List<string>();
         var items = new List<MdListItem>();
         bool? ordered = null;
+        var taskIndex = 0;
 
         void FlushParagraph()
         {
@@ -123,7 +124,7 @@ public static class MarkdownPreview
                 FlushParagraph();
                 if (ordered is true) FlushList();
                 ordered = false;
-                items.Add(new MdListItem(task.Groups[1].Value is "x" or "X", ParseInlines(task.Groups[2].Value)));
+                items.Add(new MdListItem(task.Groups[1].Value is "x" or "X", ParseInlines(task.Groups[2].Value), taskIndex++));
                 continue;
             }
 
@@ -133,7 +134,7 @@ public static class MarkdownPreview
                 FlushParagraph();
                 if (ordered is true) FlushList();
                 ordered = false;
-                items.Add(new MdListItem(null, ParseInlines(bullet.Groups[1].Value)));
+                items.Add(new MdListItem(null, ParseInlines(bullet.Groups[1].Value), null));
                 continue;
             }
 
@@ -143,7 +144,7 @@ public static class MarkdownPreview
                 FlushParagraph();
                 if (ordered is false) FlushList();
                 ordered = true;
-                items.Add(new MdListItem(null, ParseInlines(numbered.Groups[1].Value)));
+                items.Add(new MdListItem(null, ParseInlines(numbered.Groups[1].Value), null));
                 continue;
             }
 
@@ -237,7 +238,7 @@ public sealed record MdList(bool Ordered, IReadOnlyList<MdListItem> Items) : MdB
 
 /// <summary><see cref="Done"/> is null for a plain bullet, non-null for a
 /// checklist item.</summary>
-public sealed record MdListItem(bool? Done, IReadOnlyList<MdInline> Content);
+public sealed record MdListItem(bool? Done, IReadOnlyList<MdInline> Content, int? TaskIndex);
 
 public sealed record MdQuote(IReadOnlyList<MdInline> Content) : MdBlock;
 

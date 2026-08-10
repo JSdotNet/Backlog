@@ -84,9 +84,10 @@
             @foreach (var row in State.FilteredRows)
             {
                 var editing = ReferenceEquals(State.EditingRow, row);
+                var oneLine = !editing && row.UsesOneLineLayout;
 
                 <li class="entry-group" @key="row.Key">
-                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
+                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
 
                     @RenderGrip(row, before: true, "top")
                     @RenderGrip(row, before: true, "left")
@@ -115,41 +116,52 @@
 
                     <div class="entry-doc__body">
                         <div class="entry-doc__meta">
-                            <span class="badge badge--type" data-testid="type-badge">@Humanize(row.PreviewType.ToString())</span>
-                            <span class="badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">@Humanize(row.PreviewPriority.ToString())</span>
+                            <span class="entry-doc__meta-start">
+                                <span class="badge badge--type" data-testid="type-badge">@Humanize(row.PreviewType.ToString())</span>
+                                <span class="badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">@Humanize(row.PreviewPriority.ToString())</span>
 
-                            @if (!string.IsNullOrEmpty(row.PreviewArea))
+                                @if (!string.IsNullOrEmpty(row.PreviewArea))
+                                {
+                                    <span class="badge badge--area" data-testid="area-badge">@("@" + row.PreviewArea)</span>
+                                }
+
+                                @if (row.SubItemCount > 0)
+                                {
+                                    <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
+                                }
+
+                                @if (row.HasExpandableContent && !editing)
+                                {
+                                    <button type="button"
+                                            class="entry-doc__fold"
+                                            id="fold-entry-@row.Key"
+                                            data-testid="entry-fold-button"
+                                            aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
+                                            aria-controls="entry-content-@row.Key"
+                                            aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
+                                            @onmousedown:preventDefault="true"
+                                            @onclick="() => State.ToggleEntry(row)">
+                                        <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
+                                        <span aria-hidden="true">@(row.EntryCollapsed ? "open" : "fold")</span>
+                                    </button>
+                                }
+                            </span>
+
+                            @if (row.PreviewTags.Count > 0)
                             {
-                                <span class="badge badge--area" data-testid="area-badge">@("@" + row.PreviewArea)</span>
+                                <span class="entry-doc__tags">
+                                    @foreach (var tag in row.PreviewTags)
+                                    {
+                                        <span class="tag-chip" data-testid="entry-tag">#@tag</span>
+                                    }
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="entry-doc__tags" aria-hidden="true"></span>
                             }
 
-                            @foreach (var tag in row.PreviewTags)
-                            {
-                                <span class="tag-chip" data-testid="entry-tag">#@tag</span>
-                            }
-
-                            @if (row.SubItemCount > 0)
-                            {
-                                <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
-                            }
-
-                            @* Folding is about the sub-item cards below, so the
-                               control sits on the entry that owns them and says
-                               how many it is hiding. *@
-                            @if (row.PreviewSubItems.Count > 0 && !editing)
-                            {
-                                <button type="button"
-                                        class="entry-doc__fold"
-                                        id="fold-subitems-@row.Key"
-                                        data-testid="subitem-fold-button"
-                                        aria-expanded="@(row.SubItemsCollapsed ? "false" : "true")"
-                                        aria-controls="subitems-@row.Key"
-                                        aria-label="@(row.SubItemsCollapsed ? $"Show {row.PreviewSubItems.Count} sub-items" : $"Hide {row.PreviewSubItems.Count} sub-items")"
-                                        @onclick="() => State.ToggleSubItems(row)">
-                                    <span class="entry-doc__fold-chevron @(row.SubItemsCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
-                                    <span aria-hidden="true">@row.PreviewSubItems.Count</span>
-                                </button>
-                            }
+                            <span class="entry-doc__meta-end">
 
                             @* GitHub only ever appears on an entry whose area
                                names a configured repository, or that has already
@@ -228,6 +240,7 @@
                                     @onclick="() => OnDeleteEntryAsync(row)">
                                 ✕
                             </button>
+                            </span>
                         </div>
 
                         @if (row.GitHubError is not null)
@@ -270,6 +283,7 @@
                         else
                         {
                             <div class="entry-doc__read"
+                                 id="entry-content-@row.Key"
                                  data-testid="entry-read-view"
                                  role="button"
                                  tabindex="0"
@@ -286,7 +300,10 @@
                                     <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
                                 }
 
-                                <MarkdownView Blocks="row.PreviewBlocks" />
+                                @if (!row.UsesOneLineLayout)
+                                {
+                                    <MarkdownView Blocks="row.PreviewBlocks" OnTaskItemToggled="index => State.ToggleTaskItemAsync(row, index)" />
+                                }
                             </div>
                         }
                     </div>
@@ -300,7 +317,7 @@
                    and re-ranked. Folded away, the count on the entry still says
                    they are there. While the raw text is open they belong to the
                    textarea, so the cards step aside. *@
-                @if (!editing && row.PreviewSubItems.Count > 0 && !row.SubItemsCollapsed)
+                @if (!editing && row.PreviewSubItems.Count > 0 && !row.EntryCollapsed)
                 {
                     <ul class="subitem-list @(ReferenceEquals(State.SubItemDragRow, row) ? "subitem-list--dragging" : string.Empty)"
                         id="subitems-@row.Key"

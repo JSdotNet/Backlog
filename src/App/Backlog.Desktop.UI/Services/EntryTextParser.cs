@@ -421,6 +421,43 @@ internal static class EntryTextParser
         return string.Join('\n', rebuilt) + "\n";
     }
 
+    /// <summary>Toggles the nth markdown checklist item in an entry, ignoring
+    /// fenced code blocks. The raw markdown remains the source of truth; the read
+    /// view only asks for this text rewrite.</summary>
+    public static string ToggleChecklistItem(string raw, int taskIndex)
+    {
+        if (taskIndex < 0) return raw;
+
+        var normalized = Normalize(raw);
+        var lines = normalized.Split('\n');
+        var inFence = false;
+        var seen = 0;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence) continue;
+
+            var checklist = ChecklistRegex.Match(lines[i]);
+            if (!checklist.Success) continue;
+
+            if (seen++ != taskIndex) continue;
+
+            var marker = checklist.Groups[1];
+            var replacement = marker.Value is "x" or "X" ? " " : "x";
+            lines[i] = lines[i][..marker.Index] + replacement + lines[i][(marker.Index + marker.Length)..];
+            return string.Join('\n', lines);
+        }
+
+        return raw;
+    }
+
     /// <summary>Syncs parsed sub-items onto the entry's structured sub-items by
     /// position — the typed text is the single source of truth; nothing outside
     /// this entry references a sub-item's id, so re-deriving identity from

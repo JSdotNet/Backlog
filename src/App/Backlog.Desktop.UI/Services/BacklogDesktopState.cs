@@ -318,12 +318,28 @@ public sealed class BacklogDesktopState : IDisposable
     public bool IsDraggingSubItem(EntryRow row, int index) =>
         ReferenceEquals(SubItemDragRow, row) && SubItemDragIndex == index;
 
-    /// <summary>Folds an entry's sub-items away, or brings them back. The count
-    /// stays visible either way, so a folded entry never hides that it has
-    /// work under it.</summary>
-    public void ToggleSubItems(EntryRow row)
+    /// <summary>Folds an entry's details away, or brings them back. Metadata and
+    /// title stay visible, so the compact view remains scannable.</summary>
+    public void ToggleEntry(EntryRow row)
     {
-        row.SubItemsCollapsed = !row.SubItemsCollapsed;
+        if (!row.HasExpandableContent) return;
+
+        row.EntryCollapsed = !row.EntryCollapsed;
+        Changed?.Invoke();
+    }
+
+    /// <summary>Toggles a rendered checklist item directly from read mode. This
+    /// is a discrete edit, so it persists immediately rather than waiting for the
+    /// text debounce.</summary>
+    public async Task ToggleTaskItemAsync(EntryRow row, int taskIndex)
+    {
+        var rewritten = EntryTextParser.ToggleChecklistItem(row.RawText, taskIndex);
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+
+        CancelDebounce(row);
+        row.RawText = rewritten;
+        await SaveRowAsync(row, isFlush: true);
+        ApplyFilter();
         Changed?.Invoke();
     }
 
@@ -912,10 +928,23 @@ public sealed class EntryRow
         get { Render(); return _subItems; }
     }
 
-    /// <summary>Whether the sub-item cards under this entry are folded away. Per
-    /// row and in memory only — a fold is a way of looking at the list right now,
-    /// not something worth writing into someone's markdown.</summary>
-    public bool SubItemsCollapsed { get; set; }
+    /// <summary>Whether the rendered body and sub-item cards under this entry are
+    /// folded away. Per row and in memory only — a fold is a way of looking at
+    /// the list right now, not something worth writing into someone's markdown.</summary>
+    public bool EntryCollapsed { get; set; }
+
+    public bool HasExpandableContent
+    {
+        get
+        {
+            Render();
+            return _bodyBlocks.Count > 0 || _subItems.Count > 0;
+        }
+    }
+
+    /// <summary>Title-only entries are naturally single-line. Any richer entry
+    /// can opt into that same layout by being folded.</summary>
+    public bool UsesOneLineLayout => !HasExpandableContent || EntryCollapsed;
 
     public string PreviewTitle
     {
