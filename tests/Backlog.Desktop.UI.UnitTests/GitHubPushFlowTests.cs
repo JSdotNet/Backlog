@@ -16,10 +16,6 @@ public sealed class GitHubPushFlowTests : IDisposable
 
     public void Dispose()
     {
-        // These tests point the real per-user store at a temp folder, so it is
-        // put back before leaving — the same courtesy BacklogStoreTests shows.
-        new BacklogStore().ResetToDefault();
-
         foreach (var dir in _tempDirs.Where(Directory.Exists))
         {
             try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
@@ -155,7 +151,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var root = Path.Combine(Path.GetTempPath(), "backlog-github-flow", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
 
-        var store = new BacklogStore();
+        var store = new BacklogStore(Path.Combine(root, "settings"));
         Assert.Null(store.TryUseRoot(root));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
