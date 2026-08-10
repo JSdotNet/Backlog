@@ -94,6 +94,21 @@ public class CopilotToolTests
         Assert.DoesNotContain("source", pcConfig, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Default_paths_prefer_local_repo_tools_catalog()
+    {
+        var root = CreateTempToolConfigRoot();
+        var catalogPath = Path.Combine(root, "tools", "copilot-tools.json");
+        await File.WriteAllTextAsync(catalogPath, """{ "plugins": [], "mcpServers": [] }""");
+        var nestedStartPath = Path.Combine(root, "src", "App", "Backlog.Desktop", "bin", "Debug");
+        Directory.CreateDirectory(nestedStartPath);
+
+        var paths = CopilotToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath);
+
+        Assert.Equal(catalogPath, paths.CatalogPath);
+        Assert.Equal(Path.Combine(root, "tools", "dev-pc", "copilot-tools.json"), paths.PcConfigPath);
+    }
+
     private static string CreateTempToolConfigRoot()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));

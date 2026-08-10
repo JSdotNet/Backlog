@@ -77,8 +77,15 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
     private const string ToolFolderName = "tools";
     private const string CatalogFileName = "copilot-tools.json";
 
-    public static CopilotToolConfigurationPaths CreateDefault(string? machineName = null) =>
-        FromRepositoryRoot(DefaultRepositoryRoot, machineName);
+    public static CopilotToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null)
+    {
+        var localRepositoryRoot = FindRepositoryRoot(startPath ?? AppContext.BaseDirectory)
+            ?? FindRepositoryRoot(Environment.CurrentDirectory);
+
+        return localRepositoryRoot is null
+            ? FromRepositoryRoot(DefaultRepositoryRoot, machineName)
+            : FromRepositoryRoot(localRepositoryRoot, machineName);
+    }
 
     public static CopilotToolConfigurationPaths FromRepositoryRoot(string repositoryRoot, string? machineName = null)
     {
@@ -99,6 +106,25 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
         return new CopilotToolConfigurationPaths(
             expandedCatalog,
             Path.Combine(toolRoot, pcName, CatalogFileName));
+    }
+
+    private static string? FindRepositoryRoot(string startPath)
+    {
+        var directory = Directory.Exists(startPath)
+            ? new DirectoryInfo(startPath)
+            : new FileInfo(startPath).Directory;
+
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, ToolFolderName, CatalogFileName)))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        return null;
     }
 
     private static string NormalizeMachineName(string machineName)
