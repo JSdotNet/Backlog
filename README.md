@@ -1,5 +1,8 @@
 # Backlog
 
+[![Release desktop](https://github.com/JSdotNet/Backlog/actions/workflows/release-desktop.yml/badge.svg)](https://github.com/JSdotNet/Backlog/actions/workflows/release-desktop.yml)
+[Latest release](https://github.com/JSdotNet/Backlog/releases/latest)
+
 A personal work management system built for AI-driven development. Capture work items, prompts, and knowledge across projects, organize them through an inbox-first workflow, and access them where the work happens: desktop, IDE, and phone.
 
 ## Current state
