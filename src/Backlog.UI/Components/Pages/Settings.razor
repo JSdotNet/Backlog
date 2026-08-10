@@ -1,5 +1,6 @@
 @page "/settings"
 @inject BacklogStore Store
+@inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 
 @*
@@ -67,6 +68,93 @@
             yourself.
         </p>
     </section>
+
+    @*
+        GitHub is a cross-cutting concern, so its configuration lives here rather
+        than on any one screen: which repositories may be written to, and how to
+        authenticate. Same house rule — no save button; committing a field
+        (blur or Enter) applies it.
+    *@
+    <section class="setting" data-testid="github-settings">
+        <h2 class="setting__title">Repositories on GitHub</h2>
+        <p class="setting__body">
+            An entry filed under an area whose name matches one of these can be pushed
+            to GitHub as an issue, and its issue and pull request state read back.
+            One per line, as <code>owner/repo</code> — or <code>name = owner/repo</code>
+            when the area you type is not the repository's own name.
+        </p>
+
+        <label class="setting__label" for="github-repos">Repositories</label>
+        <textarea class="setting__input setting__input--multiline @(_repoError is null ? string.Empty : "setting__input--error")"
+                  id="github-repos"
+                  data-testid="github-repos-input"
+                  rows="4"
+                  spellcheck="false"
+                  autocomplete="off"
+                  aria-describedby="github-repos-status"
+                  placeholder="@("JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs")"
+                  @oninput="e => _draftRepos = e.Value?.ToString() ?? string.Empty"
+                  @onchange="ApplyRepositories">@_draftRepos</textarea>
+
+        <p class="setting__status" id="github-repos-status" data-testid="github-repos-status" role="status">
+            @if (_repoError is not null)
+            {
+                <span class="setting__status--error">@_repoError</span>
+            }
+            else if (GitHub.Repositories.Count == 0)
+            {
+                <span>Nothing configured — entries show no GitHub controls at all until one is.</span>
+            }
+            else
+            {
+                <span>
+                    Type <code>@("@" + GitHub.Repositories[0].Alias)</code> on an entry to file it against
+                    <code>@GitHub.Repositories[0].FullName</code>@(GitHub.Repositories.Count > 1 ? $", and {GitHub.Repositories.Count - 1} more." : ".")
+                </span>
+            }
+        </p>
+
+        <p class="setting__status" data-testid="github-connection-status" role="status">
+            @(_connection?.Summary ?? "Checking how this machine can reach GitHub…")
+        </p>
+
+        <label class="setting__label" for="github-token">Personal access token — only used when the GitHub CLI isn't signed in</label>
+        <input class="setting__input"
+               id="github-token"
+               data-testid="github-token-input"
+               type="password"
+               spellcheck="false"
+               autocomplete="off"
+               placeholder="@(GitHub.Settings.Current.Token is null ? "ghp_…" : "•••••••• — stored")"
+               value="@_draftToken"
+               @oninput="e => _draftToken = e.Value?.ToString() ?? string.Empty"
+               @onchange="ApplyTokenAsync"
+               @onkeydown="OnTokenKeyDownAsync" />
+
+        <div class="setting__actions">
+            <button type="button"
+                    class="btn"
+                    data-testid="github-recheck-button"
+                    @onclick="CheckConnectionAsync">
+                Check the connection
+            </button>
+
+            <button type="button"
+                    class="btn"
+                    data-testid="github-clear-token-button"
+                    disabled="@(GitHub.Settings.Current.Token is null)"
+                    @onclick="ClearTokenAsync">
+                Forget the token
+            </button>
+        </div>
+
+        <p class="setting__note">
+            Signing in with <code>gh auth login</code> is preferred: the token then stays
+            with the GitHub CLI and this app never holds a credential. A token typed here
+            is kept in <code>@GitHub.Settings.SettingsPath</code> — deliberately outside the
+            backlog folder, so it is never synced or committed along with your entries.
+        </p>
+    </section>
 </div>
 
 @code {
@@ -74,9 +162,24 @@
     private string? _error;
     private bool _moved;
 
+    private string _draftRepos = string.Empty;
+    private string _draftToken = string.Empty;
+    private string? _repoError;
+    private GitHubConnection? _connection;
+
     protected override void OnInitialized()
     {
         _draftPath = Store.RootDirectory;
+        _draftRepos = GitHub.Settings.Current.ToText();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // Asking GitHub who we are is a network call, so it happens after the
+        // page is on screen rather than holding it up.
+        await CheckConnectionAsync();
     }
 
     private async Task OnKeyDownAsync(KeyboardEventArgs e)
@@ -99,5 +202,58 @@
     {
         _draftPath = Store.DefaultRootDirectory;
         return ApplyAsync();
+    }
+
+    /// <summary>Commits the repository list. Lines that aren't repositories are
+    /// reported and skipped rather than throwing away the ones around them —
+    /// a half-typed line is an ordinary thing to have in a text box.</summary>
+    private void ApplyRepositories()
+    {
+        var (repositories, errors) = GitHubSettings.ParseText(_draftRepos);
+
+        var saveError = GitHub.Settings.SetRepositories(repositories);
+        _repoError = errors.Count > 0 ? string.Join(" ", errors) : saveError;
+    }
+
+    private async Task OnTokenKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ApplyTokenAsync();
+        else if (e.Key == "Escape") _draftToken = string.Empty;
+    }
+
+    private async Task ApplyTokenAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_draftToken)) return;
+
+        GitHub.Settings.SetToken(_draftToken);
+
+        // The field is cleared straight after: the token is stored, and leaving
+        // it on screen only invites it into a screenshot.
+        _draftToken = string.Empty;
+        await CheckConnectionAsync();
+    }
+
+    private async Task ClearTokenAsync()
+    {
+        GitHub.Settings.SetToken(null);
+        _draftToken = string.Empty;
+        await CheckConnectionAsync();
+    }
+
+    private async Task CheckConnectionAsync()
+    {
+        _connection = null;
+        StateHasChanged();
+
+        try
+        {
+            _connection = await GitHub.DescribeConnectionAsync();
+        }
+        catch (Exception)
+        {
+            _connection = new GitHubConnection(false, "Couldn't work out how to reach GitHub from this machine.");
+        }
+
+        StateHasChanged();
     }
 }
