@@ -3,6 +3,8 @@
 @inject BacklogDesktopState State
 @inject IJSRuntime JS
 @inject ICopilotToolService CopilotTools
+@inject KnowledgeBacklog RepositoryBacklog
+@inject DomainKnowledgeStore RepositoryDomain
 
 @*
     One entry is one block of markdown. Not focused, it reads as a document;
@@ -10,7 +12,7 @@
     control anywhere — see BacklogDesktopState and EntryTextParser.
 *@
 
-<div class="shell shell--wide">
+<div class="shell">
     <header class="app-header">
         <h1>Backlog</h1>
 
@@ -49,8 +51,6 @@
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
-    <main class="knowledge-layout" data-testid="knowledge-layout">
-        <section class="backlog-workspace" aria-label="Backlog entries">
 
     <section class="tools-panel" aria-labelledby="installed-tools-title" data-testid="tools-panel">
         <button type="button"
@@ -124,6 +124,9 @@
             </div>
         }
     </section>
+
+    <main class="knowledge-layout" data-testid="knowledge-layout">
+        <section class="backlog-workspace" aria-label="Backlog entries">
 
     @* Areas on the left, because that is what you pick first — which pile am I
        in. Status narrows what is already in view, so it sits on the right. *@
@@ -403,7 +406,10 @@
     </button>
         </section>
 
-        <Arc42KnowledgePanel />
+        <aside class="knowledge-sidebar" aria-label="Repository knowledge">
+            @RenderDomainKnowledge()
+            @RenderBacklogKnowledge()
+        </aside>
     </main>
 </div>
 
@@ -414,11 +420,15 @@
     private string? _toolMessage;
     private string? _toolActionKey;
     private IReadOnlyList<CopilotToolInfo> _tools = [];
+    private BacklogKnowledgeView? _backlogKnowledge;
+    private DomainKnowledgeView? _domainKnowledge;
 
     protected override async Task OnInitializedAsync()
     {
         State.Changed += HandleStateChanged;
         await State.InitializeAsync();
+        _backlogKnowledge = await RepositoryBacklog.LoadAsync();
+        _domainKnowledge = await RepositoryDomain.LoadAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -452,6 +462,137 @@
         }
     }
 
+    private RenderFragment RenderDomainKnowledge() =>
+        @<section class="knowledge-pane knowledge-pane--domain" aria-label="Domain knowledge" data-testid="domain-knowledge-home-panel">
+            @if (_domainKnowledge is null)
+            {
+                <p class="knowledge-empty" role="status">Loading domain knowledge...</p>
+            }
+            else if (!_domainKnowledge.IsReady)
+            {
+                <div class="knowledge-empty">
+                    <h2>Domain knowledge</h2>
+                    <p>@_domainKnowledge.Error</p>
+                    <a class="md-link" href="knowledge/domain">Open domain page</a>
+                </div>
+            }
+            else
+            {
+                <div class="knowledge-pane__header">
+                    <div>
+                        <p class="knowledge-pane__eyebrow">Domain knowledge</p>
+                        <h2>@_domainKnowledge.ContextMap.Title</h2>
+                        <code>@_domainKnowledge.RootPath</code>
+                    </div>
+                    <a class="knowledge-pane__link" href="knowledge/domain">Open</a>
+                </div>
+
+                <DomainKnowledgePanel Compact="true" View="_domainKnowledge" />
+            }
+        </section>;
+
+    private RenderFragment RenderBacklogKnowledge() =>
+        @<aside class="knowledge-pane" data-testid="backlog-knowledge-pane" aria-labelledby="backlog-knowledge-title">
+            <div class="knowledge-pane__header">
+                <p class="knowledge-pane__eyebrow">Knowledge base</p>
+                <h2 id="backlog-knowledge-title">.backlog work items</h2>
+                <p class="knowledge-pane__subtitle">Repository-authored Items and Sub-items, shown beside the active backlog.</p>
+            </div>
+
+            @if (_backlogKnowledge is null)
+            {
+                <p class="knowledge-empty">Loading repository knowledge...</p>
+            }
+            else if (!_backlogKnowledge.IsReady)
+            {
+                <div class="knowledge-empty" role="status">
+                    <p>@_backlogKnowledge.Message</p>
+                    <a href="settings">Open repository settings</a>
+                </div>
+            }
+            else if (_backlogKnowledge.Concerns.Count == 0)
+            {
+                <div class="knowledge-empty" role="status">
+                    <p>No authored .backlog Markdown files were found.</p>
+                    <span>@_backlogKnowledge.Directory</span>
+                </div>
+            }
+            else
+            {
+                <div class="knowledge-pane__source">
+                    <span>@_backlogKnowledge.RepositoryFullName</span>
+                    <code>@_backlogKnowledge.Directory</code>
+                </div>
+
+                <div class="knowledge-concerns">
+                    @foreach (var concern in _backlogKnowledge.Concerns)
+                    {
+                        <article class="knowledge-concern" data-testid="backlog-knowledge-concern">
+                            <header class="knowledge-concern__header">
+                                <div>
+                                    <h3>@concern.Title</h3>
+                                    <code>@concern.RelativePath</code>
+                                </div>
+                                <span class="knowledge-count">@concern.Items.Count item@(concern.Items.Count == 1 ? string.Empty : "s")</span>
+                            </header>
+
+                            @RenderKnowledgeMetadata(concern.Metadata)
+
+                            <div class="knowledge-items">
+                                @foreach (var item in concern.Items)
+                                {
+                                    @RenderKnowledgeItem(item, isSubItem: false)
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </aside>;
+
+    private RenderFragment RenderKnowledgeItem(BacklogWorkItemKnowledge item, bool isSubItem) =>
+        @<article class="knowledge-item @(isSubItem ? "knowledge-item--sub" : string.Empty)" data-testid="backlog-knowledge-item">
+            <header class="knowledge-item__header">
+                <h4>@item.Title</h4>
+                @if (TryMetadata(item.Metadata, "status") is { Length: > 0 } status)
+                {
+                    <span class="badge badge--status status-accent--@status.ToLowerInvariant()">@status</span>
+                }
+            </header>
+
+            @RenderKnowledgeMetadata(item.Metadata)
+
+            @if (item.Description.Count > 0)
+            {
+                <div class="knowledge-item__body">
+                    <MarkdownView Blocks="@item.Description" />
+                </div>
+            }
+
+            @if (item.SubItems.Count > 0)
+            {
+                <div class="knowledge-subitems">
+                    @foreach (var subItem in item.SubItems)
+                    {
+                        @RenderKnowledgeItem(subItem, isSubItem: true)
+                    }
+                </div>
+            }
+        </article>;
+
+    private RenderFragment RenderKnowledgeMetadata(IReadOnlyDictionary<string, string> metadata) =>
+        @<div class="knowledge-meta" aria-label="Knowledge metadata">
+            @foreach (var pair in metadata)
+            {
+                <span class="knowledge-meta__chip">
+                    <strong>@pair.Key</strong>
+                    <span>@pair.Value</span>
+                </span>
+            }
+        </div>;
+
+    private static string? TryMetadata(IReadOnlyDictionary<string, string> metadata, string key) =>
+        metadata.TryGetValue(key, out var value) ? value : null;
     private RenderFragment RenderEntryMetadata(EntryRow row, bool oneLine) =>
         @<div class="entry-doc__meta" @onclick:stopPropagation="true">
             <span class="entry-doc__meta-start">
