@@ -73,7 +73,7 @@ public static class MarkdownPreview
                     i++;
                 }
 
-                blocks.Add(new MdCode(string.Join('\n', code), string.IsNullOrWhiteSpace(language) ? null : language));
+                blocks.Add(new MdCode(string.Join('\n', code), language));
                 continue;
             }
 
@@ -243,7 +243,7 @@ public sealed record MdListItem(bool? Done, IReadOnlyList<MdInline> Content, int
 
 public sealed record MdQuote(IReadOnlyList<MdInline> Content) : MdBlock;
 
-public sealed record MdCode(string Text, string? Language = null) : MdBlock;
+public sealed record MdCode(string Text, string Language = "") : MdBlock;
 
 public sealed record MdDivider : MdBlock;
 
