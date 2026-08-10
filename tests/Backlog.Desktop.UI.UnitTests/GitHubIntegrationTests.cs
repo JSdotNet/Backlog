@@ -80,14 +80,36 @@ public sealed class GitHubSettingsTests
     [Fact]
     public void An_area_finds_its_repository_however_it_was_typed()
     {
-        var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs");
         var settings = new GitHubSettings { Repositories = repositories };
 
         Assert.NotNull(settings.Find("backlog"));
         Assert.NotNull(settings.Find("Backlog"));
         Assert.NotNull(settings.Find("JSdotNet/Backlog"));
-        Assert.Null(settings.Find("something-else"));
-        Assert.Null(settings.Find(null));
+        Assert.Equal("JSdotNet/Backlog-docs", settings.Find("docs")!.FullName);
+    }
+
+    [Fact]
+    public void The_primary_repository_owns_unassigned_work()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");
+
+        try
+        {
+            var store = new GitHubSettingsStore(path);
+            var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs");
+            store.SetRepositories(repositories);
+            store.SetPrimaryRepository("docs");
+
+            Assert.Equal("JSdotNet/Backlog-docs", store.Current.Find(null)!.FullName);
+            Assert.Equal("JSdotNet/Backlog-docs", store.Current.Find("something-else")!.FullName);
+            Assert.Equal("JSdotNet/Backlog", store.Current.Find("backlog")!.FullName);
+        }
+        finally
+        {
+            var directory = Path.GetDirectoryName(path)!;
+            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+        }
     }
 
     [Fact]
@@ -105,6 +127,7 @@ public sealed class GitHubSettingsTests
             var reopened = new GitHubSettingsStore(path);
             Assert.Equal("ghp_example", reopened.Current.Token);
             Assert.Equal("backlog", Assert.Single(reopened.Current.Repositories).Alias);
+            Assert.True(reopened.Current.Repositories[0].IsPrimary);
 
             reopened.SetToken(null);
             Assert.Null(new GitHubSettingsStore(path).Current.Token);
@@ -113,6 +136,36 @@ public sealed class GitHubSettingsTests
         {
             var directory = Path.GetDirectoryName(path)!;
             try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
+    public void Repository_local_settings_survive_a_restart()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");
+
+        try
+        {
+            var store = new GitHubSettingsStore(path);
+            var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs");
+            store.SetRepositories(repositories);
+            store.SetPrimaryRepository("docs");
+            store.SetCloneDirectory("docs", @"D:\Repos\Backlog-docs");
+            store.SetKnowledgeFolder("docs", ".tech", enabled: false, path: null);
+            store.SetKnowledgeFolder("docs", ".domain", enabled: true, path: @"knowledge\domain");
+
+            var reopened = new GitHubSettingsStore(path);
+            var docs = reopened.Current.Find("docs")!;
+
+            Assert.True(docs.IsPrimary);
+            Assert.Equal(@"D:\Repos\Backlog-docs", docs.CloneDirectory);
+            Assert.False(docs.KnowledgeFolders.Single(f => f.Key == ".tech").Enabled);
+            Assert.Equal(@"knowledge\domain", docs.KnowledgeFolders.Single(f => f.Key == ".domain").Path);
+            Assert.Equal(".arc42", docs.KnowledgeFolders.Single(f => f.Key == ".arc42").EffectivePath);
+        }
+        finally
+        {
+            try { Directory.Delete(Path.GetDirectoryName(path)!, recursive: true); } catch (IOException) { }
         }
     }
 

@@ -13,21 +13,24 @@ namespace Backlog.Infrastructure.GitHub;
 /// </summary>
 public sealed class GitHubSettings
 {
-    /// <summary>Repositories in the order they were configured. The first is the
-    /// default when an entry names no area.</summary>
+    /// <summary>Repositories in the order they were configured.</summary>
     public List<GitHubRepositoryRef> Repositories { get; init; } = [];
 
     /// <summary>Personal access token, used only when the GitHub CLI is not
     /// signed in. Null means "rely on <c>gh</c>".</summary>
     public string? Token { get; init; }
 
+    public GitHubRepositoryRef? PrimaryRepository =>
+        Repositories.FirstOrDefault(r => r.IsPrimary) ?? Repositories.FirstOrDefault();
+
     public GitHubRepositoryRef? Find(string? alias)
     {
-        if (string.IsNullOrWhiteSpace(alias)) return null;
+        if (string.IsNullOrWhiteSpace(alias)) return PrimaryRepository;
 
         var normalized = GitHubRepositoryRef.NormalizeAlias(alias);
         return Repositories.FirstOrDefault(r => string.Equals(r.Alias, normalized, StringComparison.Ordinal))
-            ?? Repositories.FirstOrDefault(r => string.Equals(r.FullName, alias.Trim(), StringComparison.OrdinalIgnoreCase));
+            ?? Repositories.FirstOrDefault(r => string.Equals(r.FullName, alias.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? PrimaryRepository;
     }
 
     /// <summary>The multi-line text shown in Settings, one repository per line.</summary>
@@ -110,7 +113,7 @@ public sealed class GitHubSettingsStore
     public string? SetRepositories(IEnumerable<GitHubRepositoryRef> repositories) =>
         Save(new GitHubSettings
         {
-            Repositories = [.. repositories],
+            Repositories = EnsureOnePrimary([.. repositories.Select(PreserveExistingRepositorySettings)]),
             Token = Current.Token
         });
 
@@ -121,20 +124,102 @@ public sealed class GitHubSettingsStore
             Token = string.IsNullOrWhiteSpace(token) ? null : token.Trim()
         });
 
+    public string? SetPrimaryRepository(string alias)
+    {
+        var normalized = GitHubRepositoryRef.NormalizeAlias(alias);
+        if (!Current.Repositories.Any(r => string.Equals(r.Alias, normalized, StringComparison.Ordinal)))
+        {
+            return "That repository is no longer configured.";
+        }
+
+        return Save(new GitHubSettings
+        {
+            Repositories = [.. Current.Repositories.Select(r => r with { IsPrimary = string.Equals(r.Alias, normalized, StringComparison.Ordinal) })],
+            Token = Current.Token
+        });
+    }
+
+    public string? SetCloneDirectory(string alias, string? cloneDirectory)
+    {
+        var normalized = GitHubRepositoryRef.NormalizeAlias(alias);
+        if (!Current.Repositories.Any(r => string.Equals(r.Alias, normalized, StringComparison.Ordinal)))
+        {
+            return "That repository is no longer configured.";
+        }
+
+        return Save(new GitHubSettings
+        {
+            Repositories =
+            [
+                .. Current.Repositories.Select(r =>
+                    string.Equals(r.Alias, normalized, StringComparison.Ordinal)
+                        ? r with { CloneDirectory = CleanPath(cloneDirectory) }
+                        : r)
+            ],
+            Token = Current.Token
+        });
+    }
+
+    public string? SetKnowledgeFolder(string alias, string key, bool enabled, string? path)
+    {
+        var normalized = GitHubRepositoryRef.NormalizeAlias(alias);
+        if (!Current.Repositories.Any(r => string.Equals(r.Alias, normalized, StringComparison.Ordinal)))
+        {
+            return "That repository is no longer configured.";
+        }
+
+        return Save(new GitHubSettings
+        {
+            Repositories =
+            [
+                .. Current.Repositories.Select(r =>
+                    string.Equals(r.Alias, normalized, StringComparison.Ordinal)
+                        ? r with
+                        {
+                            KnowledgeFolders =
+                            [
+                                .. KnowledgeFolderSetting.Normalize(r.KnowledgeFolders)
+                                    .Select(folder => string.Equals(folder.Key, key, StringComparison.OrdinalIgnoreCase)
+                                        ? folder with { Enabled = enabled, Path = CleanPath(path) }
+                                        : folder)
+                            ]
+                        }
+                        : r)
+            ],
+            Token = Current.Token
+        });
+    }
+
     private string? Save(GitHubSettings settings)
     {
-        Current = settings;
+        var normalized = new GitHubSettings
+        {
+            Repositories = EnsureOnePrimary(settings.Repositories),
+            Token = settings.Token
+        };
+        Current = normalized;
 
         string? error = null;
         try
         {
             var dto = new SettingsDto
             {
-                Repositories = [.. settings.Repositories.Select(r => new RepositoryDto
+                Repositories = [.. normalized.Repositories.Select(r => new RepositoryDto
                 {
                     Alias = r.Alias,
                     Owner = r.Owner,
-                    Name = r.Name
+                    Name = r.Name,
+                    CloneDirectory = r.CloneDirectory,
+                    IsPrimary = r.IsPrimary,
+                    KnowledgeFolders =
+                    [
+                        .. KnowledgeFolderSetting.Normalize(r.KnowledgeFolders).Select(f => new KnowledgeFolderDto
+                        {
+                            Key = f.Key,
+                            Enabled = f.Enabled,
+                            Path = f.Path
+                        })
+                    ]
                 })],
                 Token = settings.Token
             };
@@ -161,15 +246,28 @@ public sealed class GitHubSettingsStore
 
             return new GitHubSettings
             {
-                Repositories =
+                Repositories = EnsureOnePrimary(
                 [
                     .. dto.Repositories
                         .Where(r => !string.IsNullOrWhiteSpace(r.Owner) && !string.IsNullOrWhiteSpace(r.Name))
                         .Select(r => new GitHubRepositoryRef(
                             GitHubRepositoryRef.NormalizeAlias(string.IsNullOrWhiteSpace(r.Alias) ? r.Name! : r.Alias!),
                             r.Owner!,
-                            r.Name!))
-                ],
+                            r.Name!)
+                        {
+                            CloneDirectory = CleanPath(r.CloneDirectory),
+                            IsPrimary = r.IsPrimary,
+                            KnowledgeFolders = KnowledgeFolderSetting.Normalize(
+                                r.KnowledgeFolders.Select(f => new KnowledgeFolderSetting(
+                                    string.IsNullOrWhiteSpace(f.Key) ? string.Empty : f.Key!,
+                                    string.Empty,
+                                    string.Empty)
+                                {
+                                    Enabled = f.Enabled,
+                                    Path = f.Path
+                                }))
+                        })
+                ]),
                 Token = string.IsNullOrWhiteSpace(dto.Token) ? null : dto.Token
             };
         }
@@ -179,6 +277,43 @@ public sealed class GitHubSettingsStore
             return new GitHubSettings();
         }
     }
+
+    private GitHubRepositoryRef PreserveExistingRepositorySettings(GitHubRepositoryRef repository)
+    {
+        var existing = Current.Repositories.FirstOrDefault(r => string.Equals(r.Alias, repository.Alias, StringComparison.Ordinal))
+            ?? Current.Repositories.FirstOrDefault(r => string.Equals(r.FullName, repository.FullName, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is null)
+        {
+            return repository with { KnowledgeFolders = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders) };
+        }
+
+        return repository with
+        {
+            CloneDirectory = string.IsNullOrWhiteSpace(repository.CloneDirectory) ? existing.CloneDirectory : repository.CloneDirectory,
+            IsPrimary = repository.IsPrimary || existing.IsPrimary,
+            KnowledgeFolders = KnowledgeFolderSetting.Normalize(existing.KnowledgeFolders)
+        };
+    }
+
+    private static List<GitHubRepositoryRef> EnsureOnePrimary(IReadOnlyList<GitHubRepositoryRef> repositories)
+    {
+        if (repositories.Count == 0) return [];
+
+        var primary = repositories.FirstOrDefault(r => r.IsPrimary) ?? repositories[0];
+
+        return
+        [
+            .. repositories.Select(r => r with
+            {
+                IsPrimary = ReferenceEquals(r, primary) || string.Equals(r.Alias, primary.Alias, StringComparison.Ordinal),
+                CloneDirectory = CleanPath(r.CloneDirectory),
+                KnowledgeFolders = KnowledgeFolderSetting.Normalize(r.KnowledgeFolders)
+            })
+        ];
+    }
+
+    private static string? CleanPath(string? path) => string.IsNullOrWhiteSpace(path) ? null : path.Trim();
 
     private sealed class SettingsDto
     {
@@ -191,5 +326,15 @@ public sealed class GitHubSettingsStore
         public string? Alias { get; set; }
         public string? Owner { get; set; }
         public string? Name { get; set; }
+        public string? CloneDirectory { get; set; }
+        public bool IsPrimary { get; set; }
+        public List<KnowledgeFolderDto> KnowledgeFolders { get; set; } = [];
+    }
+
+    private sealed class KnowledgeFolderDto
+    {
+        public string? Key { get; set; }
+        public bool Enabled { get; set; } = true;
+        public string? Path { get; set; }
     }
 }
