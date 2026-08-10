@@ -79,3 +79,23 @@ The QA validation phase has nothing to validate: no runnable application, no aut
 and no runtime telemetry. Skip it cleanly rather than searching for an AppHost or attempting
 end-to-end validation. Verification for changes in this repository is documentation review —
 Markdown structure, metadata blocks, frontmatter validity, and cross-reference integrity.
+
+## Repo-Native Orchestration Skills
+
+These live under `.github/skills/` and **take precedence** over the plugin-provided `orch-*`
+skills for the task categories they cover.
+
+- `orch-arc42-content` — direct content edits to `.arc42/` chapters (refreshing an existing
+  chapter, section, or diagram, not authoring a new ADR, TDR, or blueprint).
+- `orch-domain` — changes to `.domain/`: bounded-context domain model, features, model
+  diagrams, flows, dependencies, and naming.
+- `orch-backlog` — changes to `.backlog/`: durable work-item artifacts grouped by concern,
+  their Items and Sub-items, including publishing to GitHub Issues.
+- `orch-tech` — changes to `.tech/`: the technology graph of platforms, runtimes, frameworks,
+  libraries, packages, services, and tools.
+- `orch-design` — changes to `.design/`: UX principles, dark-mode color tokens,
+  typography/layout, interaction guidelines, content editing, accessibility, and component
+  libraries.
+- `orch-fallback` — generic entrypoint for any task category with no dedicated `orch-*` skill,
+  repo-native or plugin-provided.
+
