@@ -1,5 +1,5 @@
 {
   "appHost": {
-    "path": "src/Backlog.AppHost/Backlog.AppHost.csproj"
+    "path": "src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj"
   }
 }

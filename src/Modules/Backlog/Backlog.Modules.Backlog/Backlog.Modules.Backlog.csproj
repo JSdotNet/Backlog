@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Backlog module — the Backlog Management bounded context (.domain/backlog).
+    Clean architecture, inside out:
+      DomainModels/  aggregates, value objects, enums, domain exceptions
+      Features/      one vertical slice per use case (command/query + handler)
+      Services/      domain services shared by more than one slice
+      Extensions/    AddBacklogModule() composition root for hosts
+    Ports such as IBacklogRepository live here; adapters live in src/Infrastructure.
+    This project may reference the shared kernel and nothing else in the solution.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Backlog.Modules.Backlog</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

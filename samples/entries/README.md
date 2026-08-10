@@ -1,7 +1,7 @@
 # Entry samples
 
 These are real backlog entries in the format the app reads and writes. They are
-not illustrations that drift out of date — `Backlog.UI.Tests` parses every file
+not illustrations that drift out of date — `Backlog.Desktop.UI.UnitTests` parses every file
 in this folder and asserts what each one should produce, so a sample that stops
 matching the parser fails the build.
 

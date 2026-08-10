@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shared kernel: the small set of types every module is allowed to depend on.
+    Keep this deliberately thin — it is a contract surface, not a utility dump.
+    Nothing here may reference a module, an infrastructure adapter, or a host.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Backlog.SharedKernel</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

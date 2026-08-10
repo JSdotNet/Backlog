@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Everything under harness/ is development-time only. These projects host the
+    shared Razor components so the Aspire AppHost can start them and Playwright
+    can drive them; the MAUI heads cannot be automated that way.
+
+    They are never deployed, never packaged, and never referenced by anything in
+    src/. That rule is enforced by Backlog.ArchitectureTests, not just by these
+    properties — but these properties make an accidental `dotnet publish` fail
+    loudly instead of quietly producing a shippable artifact.
+  -->
+  <PropertyGroup>
+    <IsTestHarness>true</IsTestHarness>
+    <IsShippingAssembly>false</IsShippingAssembly>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+
+</Project>
