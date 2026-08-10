@@ -68,7 +68,38 @@ jobs:
           "msix=Backlog.Desktop_${four}_x64.msix" >> $env:GITHUB_OUTPUT
           Write-Output "Tag=$tag Display=$raw Package=$four"
 
+      - name: Check signing configuration
+        id: signing
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $hasCertificate = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64)
+          $hasPassword = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)
+
+          if ($hasCertificate -and $hasPassword) {
+            "configured=true" >> $env:GITHUB_OUTPUT
+            Write-Output "Signing certificate secrets are configured."
+            return
+          }
+
+          "configured=false" >> $env:GITHUB_OUTPUT
+          if ('${{ github.event_name }}' -eq 'push' -and '${{ github.ref_type }}' -eq 'branch') {
+            "### Desktop release skipped" >> $env:GITHUB_STEP_SUMMARY
+            "Signing secrets are not configured, so the main-branch release package was not produced." >> $env:GITHUB_STEP_SUMMARY
+            Write-Output "Signing certificate secrets are not configured. Skipping main-branch release packaging."
+            return
+          }
+
+          if (-not $hasCertificate) {
+            throw "Secret WINDOWS_CERTIFICATE_BASE64 is not set. Refusing to produce an unsigned package."
+          }
+          throw "Secret WINDOWS_CERTIFICATE_PASSWORD is not set."
+
       - name: Import code-signing certificate
+        if: steps.signing.outputs.configured == 'true'
         id: cert
         shell: pwsh
         env:
@@ -91,6 +122,7 @@ jobs:
           Write-Output "Imported certificate with thumbprint $($cert.Thumbprint)."
 
       - name: Publish packaged MSIX
+        if: steps.signing.outputs.configured == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -104,6 +136,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 
       - name: Stage MSIX and generate App Installer
+        if: steps.signing.outputs.configured == 'true'
         id: stage
         shell: pwsh
         run: |
@@ -138,6 +171,7 @@ jobs:
           "appinstaller=$appInstaller"         >> $env:GITHUB_OUTPUT
 
       - name: Publish GitHub Release
+        if: steps.signing.outputs.configured == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
