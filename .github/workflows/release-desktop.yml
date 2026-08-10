@@ -83,7 +83,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          dotnet publish src\Backlog.Desktop\Backlog.Desktop.csproj `
+          dotnet publish src\App\Backlog.Desktop\Backlog.Desktop.csproj `
             -f net10.0-windows10.0.26100.0 `
             -c Release `
             -p:RuntimeIdentifierOverride=win-x64 `
@@ -100,12 +100,12 @@ jobs:
           $outDir = Join-Path $env:RUNNER_TEMP 'release'
           New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
-          $msix = Get-ChildItem -Path src\Backlog.Desktop -Recurse -Filter *.msix |
+          $msix = Get-ChildItem -Path src\App\Backlog.Desktop -Recurse -Filter *.msix |
             Where-Object { $_.FullName -match 'AppPackages' } |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
           if (-not $msix) {
-            $msix = Get-ChildItem -Path src\Backlog.Desktop -Recurse -Filter *.msix |
+            $msix = Get-ChildItem -Path src\App\Backlog.Desktop -Recurse -Filter *.msix |
               Sort-Object LastWriteTime -Descending | Select-Object -First 1
           }
           if (-not $msix) { throw "No .msix was produced by the publish step." }

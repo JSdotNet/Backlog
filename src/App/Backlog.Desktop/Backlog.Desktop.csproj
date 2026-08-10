@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>Backlog.Desktop</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCssItems>false</EnableDefaultCssItems>
+    <MauiXamlInflator>SourceGen</MauiXamlInflator>
+    <ApplicationTitle>Backlog</ApplicationTitle>
+    <ApplicationId>com.jsdotnet.backlog.desktop</ApplicationId>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">1.0.0</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
+    <WindowsPackageType>None</WindowsPackageType>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+  </PropertyGroup>
+
+  <!--
+    Release + Windows switches to a packaged MSIX build for sideloading from
+    GitHub Releases. WindowsAppSDK 1.7 accepts only None/MSIX/Sparse here — the
+    older docs' "Package" value is rejected. Debug stays unpackaged
+    (WindowsPackageType=None above) so the Aspire desktop resource and the
+    WebView2 CDP attach used by Playwright keep working. The signing certificate
+    thumbprint/password are supplied on the command line / by CI — never
+    hard-coded here.
+  -->
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(Configuration)' == 'Release'">
+    <WindowsPackageType>MSIX</WindowsPackageType>
+    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
+    <AppxBundle>Never</AppxBundle>
+    <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
+    <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
+  </PropertyGroup>
+
+  <!--
+    Works around WindowsAppSDK issue #3337: the RID must be set through an
+    override property. .NET 10 requires portable RIDs (win-x64), NOT win10-x64.
+  -->
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(RuntimeIdentifierOverride)' != ''">
+    <RuntimeIdentifier>$(RuntimeIdentifierOverride)</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+    <MauiImage Include="Resources\Images\*" />
+    <MauiImage Update="Resources\Images\dotnet_bot.svg" BaseSize="168,208" />
+    <MauiFont Include="Resources\Fonts\*" />
+    <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Entries\Backlog.Entries\Backlog.Entries.csproj" />
+    <ProjectReference Include="..\..\Entries\Backlog.Entries.Data.FileSystem\Backlog.Entries.Data.FileSystem.csproj" />
+    <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
+  </ItemGroup>
+
+</Project>

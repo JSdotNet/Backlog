@@ -66,43 +66,55 @@ See [domain/domain.md](domain/domain.md) for functional boundaries and [architec
 
 ## Solution structure
 
+The solution follows the modular-monolith layout: `src/Aspire/` for orchestration,
+one folder per bounded context (`src/Entries/`), `src/App/` for the channel front
+ends, `src/Cloud/` for the sync service, and `src/Harness/` for hosts that only
+exist to run the UI under Aspire. Automated test projects live in `tests/`.
+
 | Project | Channel / role |
 |---|---|
-| `src/Backlog.Domain` | Domain model (backlog entries, sub-items, lifecycle rules) |
-| `src/Backlog.Storage` | Markdown + JSON file storage — canonical local data |
-| `src/Backlog.UI` | Shared Razor components used by the desktop and web hosts |
-| `src/Backlog.Web` | Blazor Server host of the shared UI |
-| `src/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
-| `src/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |
-| `src/Backlog.Mobile.Web` | Browser harness for the mobile UI — test it without an emulator |
-| `src/Backlog.Mobile` | Mobile channel — .NET MAUI Blazor Hybrid (Android) |
-| `src/Backlog.Ide.VsCode` | IDE channel — VS Code extension (TypeScript) |
-| `src/Backlog.Cloud` | Cloud channel — thin ASP.NET Core sync service (Azure) |
-| `src/Backlog.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
-| `src/Backlog.AppHost` | .NET Aspire app model that composes all channels |
+| `src/Aspire/Backlog.Aspire.AppHost` | .NET Aspire app model that composes all channels |
+| `src/Aspire/Backlog.Aspire.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
+| `src/Entries/Backlog.Entries` | Backlog module — domain model (entries, sub-items, lifecycle rules) |
+| `src/Entries/Backlog.Entries.Data.FileSystem` | Backlog module — Markdown + JSON file storage adapter (canonical local data) |
+| `src/Entries/Backlog.Entries.Integrations.GitHub` | Backlog module — GitHub issue projection adapter |
+| `src/App/Backlog.Desktop.UI` | Shared Razor components for the desktop channel |
+| `src/App/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
+| `src/App/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |
+| `src/App/Backlog.Mobile` | Mobile channel — .NET MAUI Blazor Hybrid (Android) |
+| `src/App/Backlog.Ide.VsCode` | IDE channel — VS Code extension (TypeScript) |
+| `src/Cloud/Backlog.Cloud` | Cloud channel — thin ASP.NET Core sync service (Azure) |
+| `src/Harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
+| `src/Harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
+| `tests/Backlog.Entries.UnitTests` | Unit tests for the Backlog module (domain + storage) |
+| `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services and GitHub integration |
+
+Everything under `src/Harness/` is a development-time host. It ships nothing to a
+user; it exists so the shared Razor components can be started by the Aspire
+AppHost and driven by Playwright, which the MAUI heads cannot be.
 
 ## Running locally
 
 ```powershell
-dotnet run --project src/Backlog.AppHost
+dotnet run --project src/Aspire/Backlog.Aspire.AppHost
 ```
 
-The AppHost starts the cloud service, the web host, and the mobile browser harness.
-The remaining resources need something Aspire cannot provide on its own — a desktop
+The AppHost starts the cloud service and the two web test harnesses. The remaining
+resources need something Aspire cannot provide on its own — a desktop
 window, an Android emulator, or a VS Code extension host — so they are registered
 with **explicit start** and launched on demand from the dashboard:
 
 | Resource | Starts | Needs |
 |---|---|---|
-| `cloud`, `web`, `mobile-web` | automatically | — |
+| `cloud`, `desktop-web-harness`, `mobile-web-harness` | automatically | — |
 | `desktop` | on demand | Windows desktop session |
 | `mobile-android` | on demand | running Android emulator or attached device |
-| `ide-vscode-build` | on demand | `npm install` in `src/Backlog.Ide.VsCode` |
+| `ide-vscode-build` | on demand | `npm install` in `src/App/Backlog.Ide.VsCode` |
 | `ide-vscode-host` | on demand | `code` on PATH |
 
 Each channel with a MAUI head also has a browser harness sharing the same Razor
 components, so the UI can be developed and tested without a device:
-`Backlog.UI` → `Backlog.Web` for desktop, and `Backlog.Mobile.UI` → `Backlog.Mobile.Web`
+`Backlog.Desktop.UI` → `Backlog.Desktop.WebHarness` for desktop, and `Backlog.Mobile.UI` → `Backlog.Mobile.WebHarness`
 (rendered at phone width) for mobile.
 
 All ports are dynamic (`port 0` in every `launchSettings.json`), so several git

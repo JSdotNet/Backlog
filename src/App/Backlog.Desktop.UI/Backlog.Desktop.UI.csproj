@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Backlog.Desktop.UI</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The text parser is the contract between what a person types and what
+         gets stored, so it is worth testing directly rather than only through
+         the component that happens to call it. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Entries\Backlog.Entries\Backlog.Entries.csproj" />
+    <ProjectReference Include="..\..\Entries\Backlog.Entries.Integrations.GitHub\Backlog.Entries.Integrations.GitHub.csproj" />
+    <ProjectReference Include="..\..\Entries\Backlog.Entries.Data.FileSystem\Backlog.Entries.Data.FileSystem.csproj" />
+  </ItemGroup>
+
+</Project>

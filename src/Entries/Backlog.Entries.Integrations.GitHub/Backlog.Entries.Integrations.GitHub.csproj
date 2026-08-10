@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Backlog.Entries.Integrations.GitHub</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The line format people type into Settings and the JSON shapes GitHub
+         answers with are both worth testing directly. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+</Project>
