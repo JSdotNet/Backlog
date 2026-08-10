@@ -14,6 +14,7 @@ public sealed class EntryRowLayoutTests
 
         Assert.False(row.HasExpandableContent);
         Assert.True(row.UsesOneLineLayout);
+        Assert.Contains("sync", row.PreviewTags);
     }
 
     [Fact]

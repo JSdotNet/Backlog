@@ -160,6 +160,7 @@ internal static class EntryTextParser
         Priority? priority = null;
         EntryStatus? status = null;
         string? area = null;
+        var metadataTags = new List<string>();
 
         if (i < lines.Length && MetaLineRegex.IsMatch(lines[i].Trim()))
         {
@@ -200,6 +201,16 @@ internal static class EntryTextParser
                         continue;
                 }
 
+                if (token[0] == '#')
+                {
+                    var value = token[1..].Trim();
+                    if (value.Length > 0)
+                    {
+                        metadataTags.Add(value.ToLowerInvariant());
+                    }
+                    continue;
+                }
+
                 // No sigil: an entry written before the sigils existed, or
                 // someone typing the plain word. Recognize it anyway.
                 var normalized = NormalizeToken(token);
@@ -215,10 +226,11 @@ internal static class EntryTextParser
 
         var body = string.Join('\n', lines.Skip(i)).TrimEnd('\n');
 
-        var tags = TagRegex.Matches(StripFencedCode(body))
+        var bodyTags = TagRegex.Matches(StripFencedCode(body))
             .Select(m => m.Groups[1].Value.ToLowerInvariant())
-            .Distinct()
             .ToList();
+
+        var tags = metadataTags.Concat(bodyTags).Distinct().ToList();
 
         return new ParsedEntry(title, type, priority, status, area, body, tags, ExtractSubItems(body));
     }
