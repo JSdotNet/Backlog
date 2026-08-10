@@ -17,6 +17,9 @@ builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredS
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<GitHubIntegration>();
+builder.Services.AddSingleton<KnowledgeFolderSource>();
+builder.Services.AddSingleton<KnowledgeBacklog>();
+builder.Services.AddSingleton<TechnologyKnowledgeService>();
 builder.Services.AddScoped<BacklogDesktopState>();
 
 // The web host never distributes or updates the desktop app, so it always
