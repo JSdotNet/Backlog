@@ -155,7 +155,7 @@ public class MarkdownPreviewTests
 
 
     [Fact]
-    public void Fenced_code_keeps_its_language()
+    public void Fenced_code_keeps_indented_diagram_body()
     {
         var blocks = MarkdownPreview.Parse("```mermaid\ngraph TD\n    A[One] --> B[Two]\n```");
 
@@ -219,3 +219,4 @@ public class MarkdownPreviewTests
         Assert.IsType<MdDivider>(blocks[1]);
     }
 }
+
