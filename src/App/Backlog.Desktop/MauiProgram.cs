@@ -32,6 +32,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<DesignKnowledgeProvider>();
+        builder.Services.AddSingleton<KnowledgeFolderSource>();
+        builder.Services.AddSingleton<KnowledgeBacklog>();
+        builder.Services.AddSingleton<TechnologyKnowledgeService>();
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
         builder.Services.AddSingleton<CopilotCliIntegration>();
         builder.Services.AddSingleton<BacklogDesktopState>();

@@ -18,7 +18,9 @@ builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredServic
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<DesignKnowledgeProvider>();
-builder.Services.AddScoped<KnowledgeBacklog>();
+builder.Services.AddSingleton<KnowledgeFolderSource>();
+builder.Services.AddSingleton<KnowledgeBacklog>();
+builder.Services.AddSingleton<TechnologyKnowledgeService>();
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddScoped<DomainKnowledgeStore>();
 

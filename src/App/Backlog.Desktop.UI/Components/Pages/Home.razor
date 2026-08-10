@@ -4,7 +4,6 @@
 @inject IJSRuntime JS
 @inject ICopilotToolService CopilotTools
 @inject KnowledgeBacklog RepositoryBacklog
-@inject DomainKnowledgeStore RepositoryDomain
 
 @*
     One entry is one block of markdown. Not focused, it reads as a document;
@@ -406,10 +405,10 @@
     </button>
         </section>
 
-        <aside class="knowledge-sidebar" aria-label="Repository knowledge">
-            @RenderDomainKnowledge()
+        <div class="knowledge-stack">
             @RenderBacklogKnowledge()
-        </aside>
+            <TechnologyKnowledgePanel />
+        </div>
     </main>
 </div>
 
@@ -421,14 +420,12 @@
     private string? _toolActionKey;
     private IReadOnlyList<CopilotToolInfo> _tools = [];
     private BacklogKnowledgeView? _backlogKnowledge;
-    private DomainKnowledgeView? _domainKnowledge;
 
     protected override async Task OnInitializedAsync()
     {
         State.Changed += HandleStateChanged;
         await State.InitializeAsync();
         _backlogKnowledge = await RepositoryBacklog.LoadAsync();
-        _domainKnowledge = await RepositoryDomain.LoadAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -461,35 +458,6 @@
             // elsewhere); losing the caret is not worth tearing down the page.
         }
     }
-
-    private RenderFragment RenderDomainKnowledge() =>
-        @<section class="knowledge-pane knowledge-pane--domain" aria-label="Domain knowledge" data-testid="domain-knowledge-home-panel">
-            @if (_domainKnowledge is null)
-            {
-                <p class="knowledge-empty" role="status">Loading domain knowledge...</p>
-            }
-            else if (!_domainKnowledge.IsReady)
-            {
-                <div class="knowledge-empty">
-                    <h2>Domain knowledge</h2>
-                    <p>@_domainKnowledge.Error</p>
-                    <a class="md-link" href="knowledge/domain">Open domain page</a>
-                </div>
-            }
-            else
-            {
-                <div class="knowledge-pane__header">
-                    <div>
-                        <p class="knowledge-pane__eyebrow">Domain knowledge</p>
-                        <h2>@_domainKnowledge.ContextMap.Title</h2>
-                        <code>@_domainKnowledge.RootPath</code>
-                    </div>
-                    <a class="knowledge-pane__link" href="knowledge/domain">Open</a>
-                </div>
-
-                <DomainKnowledgePanel Compact="true" View="_domainKnowledge" />
-            }
-        </section>;
 
     private RenderFragment RenderBacklogKnowledge() =>
         @<aside class="knowledge-pane" data-testid="backlog-knowledge-pane" aria-labelledby="backlog-knowledge-title">
