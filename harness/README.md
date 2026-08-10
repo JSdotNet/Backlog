@@ -1,0 +1,32 @@
+# Harness
+
+**Nothing in this folder is deployed.**
+
+These are Blazor Server hosts that exist for one reason: the shipped UI lives in
+.NET MAUI Blazor Hybrid heads (`src/App/Backlog.Desktop`, `src/App/Backlog.Mobile`),
+and a MAUI head cannot be started as an Aspire project resource on CI or driven by
+Playwright. Each harness hosts the *same* Razor component library the real head
+renders, so the UI can be run, inspected, and tested without a desktop session or
+an Android emulator.
+
+| Harness | Hosts | Aspire resource |
+|---|---|---|
+| `Backlog.Desktop.WebHarness` | `src/App/Backlog.Desktop.UI` | `desktop-web-harness` |
+| `Backlog.Mobile.WebHarness` | `src/App/Backlog.Mobile.UI` (phone width) | `mobile-web-harness` |
+
+## Rules
+
+- A harness may reference anything in `src/`. **Nothing in `src/` may reference a
+  harness.** `tests/Backlog.ArchitectureTests` fails the build if that is violated.
+- No feature may live here. A harness contains only hosting glue: `Program.cs`,
+  a root `App.razor`, and configuration. If behaviour is worth testing, it belongs
+  in the component library or the module.
+- `Directory.Build.props` in this folder marks every project `IsPublishable=false`,
+  `IsPackable=false`, and `IsShippingAssembly=false`, so publishing one fails.
+- The release workflow only publishes from `src/App/`.
+
+## Why it is not under `tests/`
+
+`tests/` holds projects that a test runner executes. A harness is a long-running
+host that other tools point a browser at, so it sits alongside `src/` and `tests/`
+rather than inside either.

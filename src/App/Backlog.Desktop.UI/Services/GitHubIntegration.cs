@@ -1,5 +1,6 @@
-using Backlog.Entries;
-using Backlog.Entries.Integrations.GitHub;
+using Backlog.Modules.Backlog;
+using Backlog.Modules.Backlog.DomainModels;
+using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Desktop.UI.Services;
 

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
-using Backlog.Entries;
+using Backlog.Modules.Backlog;
+using Backlog.Modules.Backlog.DomainModels;
 
 namespace Backlog.Desktop.UI.Services;
 
@@ -29,7 +30,7 @@ namespace Backlog.Desktop.UI.Services;
 /// deeper are just prose.
 /// </para>
 /// <para>
-/// Deliberately independent from <c>Backlog.Entries.Data.FileSystem.EnumMap</c> (internal to
+/// Deliberately independent from <c>Backlog.Infrastructure.FileSystem.EnumMap</c> (internal to
 /// that assembly): the tokens here are the human-typed vocabulary shown in the
 /// UI (e.g. <c>follow-up</c>, <c>in-progress</c>), normalized the same way
 /// (case/space/hyphen/underscore-insensitive) so any spelling is recognized.

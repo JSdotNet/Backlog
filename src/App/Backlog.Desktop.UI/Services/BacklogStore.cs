@@ -1,5 +1,7 @@
 using System.Text.Json;
-using Backlog.Entries.Data.FileSystem;
+using Backlog.Modules.Backlog;
+using Backlog.Infrastructure.FileSystem;
+using Backlog.Modules.Backlog;
 
 namespace Backlog.Desktop.UI.Services;
 

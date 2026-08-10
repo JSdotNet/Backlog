@@ -18,10 +18,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
-    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
-    <ProjectReference Include="..\..\src\App\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
-  </ItemGroup>
+  <!-- No project references on purpose: these tests read the repository layout
+       itself, so adding a reference would defeat what they are checking. -->
 
 </Project>

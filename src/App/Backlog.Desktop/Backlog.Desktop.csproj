@@ -60,8 +60,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Entries\Backlog.Entries\Backlog.Entries.csproj" />
-    <ProjectReference Include="..\..\Entries\Backlog.Entries.Data.FileSystem\Backlog.Entries.Data.FileSystem.csproj" />
+    <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
     <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
   </ItemGroup>

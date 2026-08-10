@@ -66,32 +66,43 @@ See [domain/domain.md](domain/domain.md) for functional boundaries and [architec
 
 ## Solution structure
 
-The solution follows the modular-monolith layout: `src/Aspire/` for orchestration,
-one folder per bounded context (`src/Entries/`), `src/App/` for the channel front
-ends, `src/Cloud/` for the sync service, and `src/Harness/` for hosts that only
-exist to run the UI under Aspire. Automated test projects live in `tests/`.
+`src/` holds shipping code only. It is laid out as a modular monolith:
+`src/Shared/` for the shared kernel, `src/Modules/<Context>/` for one vertically
+sliced module per bounded context, `src/Infrastructure/` for cross-cutting
+adapters that no single module owns, `src/App/` for the channel front ends,
+`src/Cloud/` for the sync service, and `src/Aspire/` for orchestration.
+
+Development-time hosts live in a top-level `harness/` folder — deliberately
+*outside* `src/` — and automated test projects live in `tests/`.
 
 | Project | Channel / role |
 |---|---|
 | `src/Aspire/Backlog.Aspire.AppHost` | .NET Aspire app model that composes all channels |
 | `src/Aspire/Backlog.Aspire.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
-| `src/Entries/Backlog.Entries` | Backlog module — domain model (entries, sub-items, lifecycle rules) |
-| `src/Entries/Backlog.Entries.Data.FileSystem` | Backlog module — Markdown + JSON file storage adapter (canonical local data) |
-| `src/Entries/Backlog.Entries.Integrations.GitHub` | Backlog module — GitHub issue projection adapter |
+| `src/Shared/Backlog.SharedKernel` | Shared kernel — `Result`, `Result<T>`, and `Error` primitives used by every module |
+| `src/Modules/Backlog/Backlog.Modules.Backlog` | Backlog module — domain model (entries, sub-items, lifecycle rules), ports, and vertical-slice features |
+| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — Markdown + JSON file storage (canonical local data) |
+| `src/Infrastructure/Backlog.Infrastructure.GitHub` | Cross-cutting adapter — GitHub issue projection |
 | `src/App/Backlog.Desktop.UI` | Shared Razor components for the desktop channel |
 | `src/App/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
 | `src/App/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |
 | `src/App/Backlog.Mobile` | Mobile channel — .NET MAUI Blazor Hybrid (Android) |
 | `src/App/Backlog.Ide.VsCode` | IDE channel — VS Code extension (TypeScript) |
 | `src/Cloud/Backlog.Cloud` | Cloud channel — thin ASP.NET Core sync service (Azure) |
-| `src/Harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
-| `src/Harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
-| `tests/Backlog.Entries.UnitTests` | Unit tests for the Backlog module (domain + storage) |
+| `harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
+| `harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
+| `tests/Backlog.Modules.Backlog.UnitTests` | Unit tests for the Backlog module domain |
+| `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the file storage adapter |
 | `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services and GitHub integration |
+| `tests/Backlog.ArchitectureTests` | Executable structure rules — module boundaries and "harness is never shipped" |
 
-Everything under `src/Harness/` is a development-time host. It ships nothing to a
+Everything under `harness/` is a development-time host. It ships nothing to a
 user; it exists so the shared Razor components can be started by the Aspire
-AppHost and driven by Playwright, which the MAUI heads cannot be.
+AppHost and driven by Playwright, which the MAUI heads cannot be. That intent is
+enforced rather than documented: `harness/Directory.Build.props` marks every
+harness project non-packable and non-publishable, and
+`tests/Backlog.ArchitectureTests` fails the build if a `src/` project ever
+references one. See [`harness/README.md`](harness/README.md).
 
 ## Running locally
 

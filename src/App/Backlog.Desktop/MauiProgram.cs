@@ -1,7 +1,7 @@
 using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.Services;
-using Backlog.Entries.Data.FileSystem;
-using Backlog.Entries.Integrations.GitHub;
+using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.GitHub;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
