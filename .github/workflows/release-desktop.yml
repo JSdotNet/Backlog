@@ -7,8 +7,15 @@ on:
     branches:
       - main
     paths:
+      - 'Backlog.sln'
       - 'src/App/Backlog.Desktop/**'
       - 'src/App/Backlog.Desktop.UI/**'
+      - 'src/Aspire/Backlog.Aspire.ServiceDefaults/**'
+      - 'src/Infrastructure/Backlog.Infrastructure.Copilot/**'
+      - 'src/Infrastructure/Backlog.Infrastructure.FileSystem/**'
+      - 'src/Infrastructure/Backlog.Infrastructure.GitHub/**'
+      - 'src/Modules/Backlog/Backlog.Modules.Backlog/**'
+      - 'src/Shared/Backlog.SharedKernel/**'
       - 'build/Backlog.Desktop.appinstaller.template'
       - 'build/New-AppInstaller.ps1'
       - '.github/workflows/release-desktop.yml'
