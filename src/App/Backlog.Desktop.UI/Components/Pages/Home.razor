@@ -169,9 +169,10 @@
             @foreach (var row in State.FilteredRows)
             {
                 var editing = ReferenceEquals(State.EditingRow, row);
+                var oneLine = !editing && row.UsesOneLineLayout;
 
                 <li class="entry-group" @key="row.Key">
-                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
+                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
 
                     @RenderGrip(row, before: true, "top")
                     @RenderGrip(row, before: true, "left")
@@ -199,133 +200,10 @@
                     }
 
                     <div class="entry-doc__body">
-                        <div class="entry-doc__meta">
-                            <span class="badge badge--type" data-testid="type-badge">@Humanize(row.PreviewType.ToString())</span>
-                            <span class="badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">@Humanize(row.PreviewPriority.ToString())</span>
-
-                            @if (!string.IsNullOrEmpty(row.PreviewArea))
-                            {
-                                <span class="badge badge--area" data-testid="area-badge">@("@" + row.PreviewArea)</span>
-                            }
-
-                            @foreach (var tag in row.PreviewTags)
-                            {
-                                <span class="tag-chip" data-testid="entry-tag">#@tag</span>
-                            }
-
-                            @if (row.SubItemCount > 0)
-                            {
-                                <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
-                            }
-
-                            @* Folding is about the sub-item cards below, so the
-                               control sits on the entry that owns them and says
-                               how many it is hiding. *@
-                            @if (row.PreviewSubItems.Count > 0 && !editing)
-                            {
-                                <button type="button"
-                                        class="entry-doc__fold"
-                                        id="fold-subitems-@row.Key"
-                                        data-testid="subitem-fold-button"
-                                        aria-expanded="@(row.SubItemsCollapsed ? "false" : "true")"
-                                        aria-controls="subitems-@row.Key"
-                                        aria-label="@(row.SubItemsCollapsed ? $"Show {row.PreviewSubItems.Count} sub-items" : $"Hide {row.PreviewSubItems.Count} sub-items")"
-                                        @onclick="() => State.ToggleSubItems(row)">
-                                    <span class="entry-doc__fold-chevron @(row.SubItemsCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
-                                    <span aria-hidden="true">@row.PreviewSubItems.Count</span>
-                                </button>
-                            }
-
-                            @* GitHub only ever appears on an entry whose area
-                               names a configured repository, or that has already
-                               been pushed — the integration stays invisible
-                               until it has been asked for. *@
-                            @if (State.GitHubConfigured)
-                            {
-                                var repository = State.RepositoryFor(row);
-
-                                @if (row.IssueLink is { } link)
-                                {
-                                    <a class="badge badge--gh badge--gh-@(GitHubStateClass(row.Snapshot?.Issue.State))"
-                                       data-testid="github-issue-badge"
-                                       href="@link.Url"
-                                       target="_blank"
-                                       rel="noopener"
-                                       title="@link.RepoFullName issue @link.Label">
-                                        @link.Label
-                                        <span class="badge__state">@GitHubStateLabel(row.Snapshot?.Issue.State)</span>
-                                    </a>
-
-                                    @if (row.Snapshot?.Headline is { } pull)
-                                    {
-                                        <a class="badge badge--gh badge--gh-@(GitHubStateClass(pull.State))"
-                                           data-testid="github-pr-badge"
-                                           href="@pull.Url"
-                                           target="_blank"
-                                           rel="noopener"
-                                           title="@pull.Title">
-                                            PR #@pull.Number
-                                            <span class="badge__state">@GitHubStateLabel(pull.State)</span>
-                                        </a>
-                                    }
-
-                                    <button type="button"
-                                            class="entry-doc__gh"
-                                            data-testid="github-refresh-button"
-                                            disabled="@row.GitHubBusy"
-                                            title="Check this issue on GitHub"
-                                            aria-label="Check this issue on GitHub"
-                                            @onmousedown:preventDefault="true"
-                                            @onclick="() => State.RefreshGitHubAsync(row)">
-                                        @(row.GitHubBusy ? "…" : "↻")
-                                    </button>
-                                }
-                                else if (repository is not null && row.IsPersisted)
-                                {
-                                    <button type="button"
-                                            class="entry-doc__gh entry-doc__gh--push"
-                                            data-testid="github-push-button"
-                                            disabled="@row.GitHubBusy"
-                                            title="Create an issue in @repository.FullName"
-                                            @onmousedown:preventDefault="true"
-                                            @onclick="() => State.PushToGitHubAsync(row)">
-                                        @(row.GitHubBusy ? "Pushing…" : "Push to GitHub")
-                                    </button>
-                                }
-                            }
-
-                            @if (row.IsPersisted)
-                            {
-                                <button type="button"
-                                        class="entry-doc__gh entry-doc__copilot"
-                                        data-testid="copilot-cli-button"
-                                        disabled="@row.CopilotBusy"
-                                        title="Start GitHub Copilot CLI for this entry"
-                                        @onmousedown:preventDefault="true"
-                                        @onclick="() => State.StartCopilotCliAsync(row)">
-                                    @(row.CopilotBusy ? "Starting..." : "Ask Copilot")
-                                </button>
-                            }
-                            @if (!row.IsPersisted)
-                            {
-                                <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
-                            }
-
-                            @* Status leads the top-right corner: it is the one
-                               thing you scan a backlog for. Delete sits beyond
-                               it, revealed on hover. *@
-                            <span class="badge badge--status badge--status-@row.PreviewStatus.ToString().ToLowerInvariant()" data-testid="status-badge">@Humanize(row.PreviewStatus.ToString())</span>
-
-                            <button type="button"
-                                    class="entry-doc__delete"
-                                    id="delete-entry-@row.Key"
-                                    data-testid="delete-entry-button"
-                                    aria-label="Delete entry"
-                                    @onmousedown:preventDefault="true"
-                                    @onclick="() => OnDeleteEntryAsync(row)">
-                                ✕
-                            </button>
-                        </div>
+                        @if (editing || oneLine)
+                        {
+                            @RenderEntryMetadata(row, oneLine)
+                        }
 
                         @if (row.GitHubError is not null)
                         {
@@ -371,6 +249,7 @@
                         else
                         {
                             <div class="entry-doc__read"
+                                 id="entry-content-@row.Key"
                                  data-testid="entry-read-view"
                                  role="button"
                                  tabindex="0"
@@ -378,16 +257,42 @@
                                  @onclick="() => State.BeginEdit(row)"
                                  @onkeydown="e => OnReadViewKeyDown(row, e)">
 
-                                @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
-                                {
-                                    <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
-                                }
-                                else
-                                {
-                                    <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
-                                }
+                                <div class="entry-doc__title-line">
+                                    @if (row.HasExpandableContent)
+                                    {
+                                        <button type="button"
+                                                class="entry-doc__fold"
+                                                id="fold-entry-@row.Key"
+                                                data-testid="entry-fold-button"
+                                                aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
+                                                aria-controls="entry-content-@row.Key"
+                                                aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
+                                                @onmousedown:preventDefault="true"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => State.ToggleEntry(row)">
+                                            <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
+                                        </button>
+                                    }
 
-                                <MarkdownView Blocks="row.PreviewBlocks" />
+                                    @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
+                                    {
+                                        <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
+                                    }
+                                    else
+                                    {
+                                        <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
+                                    }
+
+                                    @if (!oneLine)
+                                    {
+                                        @RenderEntryMetadata(row, oneLine)
+                                    }
+                                </div>
+
+                                @if (!row.UsesOneLineLayout)
+                                {
+                                    <MarkdownView Blocks="row.PreviewBlocks" OnTaskItemToggled="index => State.ToggleTaskItemAsync(row, index)" />
+                                }
                             </div>
                         }
                     </div>
@@ -401,7 +306,7 @@
                    and re-ranked. Folded away, the count on the entry still says
                    they are there. While the raw text is open they belong to the
                    textarea, so the cards step aside. *@
-                @if (!editing && row.PreviewSubItems.Count > 0 && !row.SubItemsCollapsed)
+                @if (!editing && row.PreviewSubItems.Count > 0 && !row.EntryCollapsed)
                 {
                     <ul class="subitem-list @(ReferenceEquals(State.SubItemDragRow, row) ? "subitem-list--dragging" : string.Empty)"
                         id="subitems-@row.Key"
@@ -432,11 +337,24 @@
                                 </button>
 
                                 <div class="subitem-card__body">
-                                    <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
+                                    <div class="subitem-card__title-row">
+                                        @if (subItem.HasCheckbox)
+                                        {
+                                            <button type="button"
+                                                    class="md-check subitem-card__check @(subItem.Done ? "md-check--done" : string.Empty)"
+                                                    data-testid="subitem-checkbox"
+                                                    aria-pressed="@(subItem.Done ? "true" : "false")"
+                                                    aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                                    @onmousedown:preventDefault="true"
+                                                    @onclick:stopPropagation="true"
+                                                    @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "✔" : string.Empty)</button>
+                                        }
+                                        <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
+                                    </div>
                                     @if (subItem.Children.Count > 0)
                                     {
                                         <div class="subitem-card__notes">
-                                            <MarkdownView Blocks="subItem.Children" />
+                                            <MarkdownView Blocks="subItem.Children" OnTaskItemToggled="index => State.ToggleTaskItemAsync(row, index)" />
                                         </div>
                                     }
                                 </div>
@@ -527,6 +445,137 @@
             // elsewhere); losing the caret is not worth tearing down the page.
         }
     }
+
+    private RenderFragment RenderEntryMetadata(EntryRow row, bool oneLine) =>
+        @<div class="entry-doc__meta" @onclick:stopPropagation="true">
+            <span class="entry-doc__meta-start">
+                <span class="badge badge--type" data-testid="type-badge">@Humanize(row.PreviewType.ToString())</span>
+                <span class="badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">@Humanize(row.PreviewPriority.ToString())</span>
+
+                @if (!string.IsNullOrEmpty(row.PreviewArea))
+                {
+                    <span class="badge badge--area" data-testid="area-badge">@("@" + row.PreviewArea)</span>
+                }
+
+                @if (row.SubItemCount > 0)
+                {
+                    <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
+                }
+            </span>
+
+            @if (oneLine)
+            {
+                @if (row.PreviewTags.Count > 0)
+                {
+                    <span class="entry-doc__tags">
+                        @foreach (var tag in row.PreviewTags)
+                        {
+                            <span class="tag-chip" data-testid="entry-tag">#@tag</span>
+                        }
+                    </span>
+                }
+                else
+                {
+                    <span class="entry-doc__tags" aria-hidden="true"></span>
+                }
+            }
+
+            <span class="entry-doc__meta-end">
+                @if (!oneLine && row.PreviewTags.Count > 0)
+                {
+                    <span class="entry-doc__tags entry-doc__tags--end">
+                        @foreach (var tag in row.PreviewTags)
+                        {
+                            <span class="tag-chip" data-testid="entry-tag">#@tag</span>
+                        }
+                    </span>
+                }
+
+                @if (State.GitHubConfigured)
+                {
+                    var repository = State.RepositoryFor(row);
+
+                    @if (row.IssueLink is { } link)
+                    {
+                        <a class="badge badge--gh badge--gh-@(GitHubStateClass(row.Snapshot?.Issue.State))"
+                           data-testid="github-issue-badge"
+                           href="@link.Url"
+                           target="_blank"
+                           rel="noopener"
+                           title="@link.RepoFullName issue @link.Label">
+                            @link.Label
+                            <span class="badge__state">@GitHubStateLabel(row.Snapshot?.Issue.State)</span>
+                        </a>
+
+                        @if (row.Snapshot?.Headline is { } pull)
+                        {
+                            <a class="badge badge--gh badge--gh-@(GitHubStateClass(pull.State))"
+                               data-testid="github-pr-badge"
+                               href="@pull.Url"
+                               target="_blank"
+                               rel="noopener"
+                               title="@pull.Title">
+                                PR #@pull.Number
+                                <span class="badge__state">@GitHubStateLabel(pull.State)</span>
+                            </a>
+                        }
+
+                        <button type="button"
+                                class="entry-doc__gh"
+                                data-testid="github-refresh-button"
+                                disabled="@row.GitHubBusy"
+                                title="Check this issue on GitHub"
+                                aria-label="Check this issue on GitHub"
+                                @onmousedown:preventDefault="true"
+                                @onclick="() => State.RefreshGitHubAsync(row)">
+                            @(row.GitHubBusy ? "…" : "↻")
+                        </button>
+                    }
+                    else if (repository is not null && row.IsPersisted)
+                    {
+                        <button type="button"
+                                class="entry-doc__gh entry-doc__gh--push"
+                                data-testid="github-push-button"
+                                disabled="@row.GitHubBusy"
+                                title="Create an issue in @repository.FullName"
+                                @onmousedown:preventDefault="true"
+                                @onclick="() => State.PushToGitHubAsync(row)">
+                            @(row.GitHubBusy ? "Pushing…" : "Push to GitHub")
+                        </button>
+                    }
+                }
+
+                @if (row.IsPersisted)
+                {
+                    <button type="button"
+                            class="entry-doc__gh entry-doc__copilot"
+                            data-testid="copilot-cli-button"
+                            disabled="@row.CopilotBusy"
+                            title="Start GitHub Copilot CLI for this entry"
+                            @onmousedown:preventDefault="true"
+                            @onclick="() => State.StartCopilotCliAsync(row)">
+                        @(row.CopilotBusy ? "Starting..." : "Ask Copilot")
+                    </button>
+                }
+
+                @if (!row.IsPersisted)
+                {
+                    <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
+                }
+
+                <span class="badge badge--status badge--status-@row.PreviewStatus.ToString().ToLowerInvariant()" data-testid="status-badge">@Humanize(row.PreviewStatus.ToString())</span>
+
+                <button type="button"
+                        class="entry-doc__delete"
+                        id="delete-entry-@row.Key"
+                        data-testid="delete-entry-button"
+                        aria-label="Delete entry"
+                        @onmousedown:preventDefault="true"
+                        @onclick="() => OnDeleteEntryAsync(row)">
+                    ✕
+                </button>
+            </span>
+        </div>;
 
     /// <summary>The grab areas around an entry — one on each side. All four are
     /// drag sources and drop targets. Only the top rail takes tab focus (four
@@ -662,4 +711,3 @@
         State.Changed -= HandleStateChanged;
     }
 }
-

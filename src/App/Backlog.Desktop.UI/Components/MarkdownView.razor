@@ -38,10 +38,14 @@
                         <li class="@(item.Done == true ? "md-item--done" : string.Empty)">
                             @if (item.Done is not null)
                             {
-                                <span class="md-check @(item.Done == true ? "md-check--done" : string.Empty)"
-                                      data-testid="entry-checkbox"
-                                      role="img"
-                                      aria-label="@(item.Done == true ? "Done" : "Not done")">@(item.Done == true ? "✔" : string.Empty)</span>
+                                <button type="button"
+                                        class="md-check @(item.Done == true ? "md-check--done" : string.Empty)"
+                                        data-testid="entry-checkbox"
+                                        aria-pressed="@(item.Done == true ? "true" : "false")"
+                                        aria-label="@(item.Done == true ? "Mark not done" : "Mark done")"
+                                        @onmousedown:preventDefault="true"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="() => ToggleTaskItemAsync(item.TaskIndex!.Value)">@(item.Done == true ? "✔" : string.Empty)</button>
                             }
                             @RenderInlines(item.Content)
                         </li>
@@ -68,5 +72,16 @@
     [Parameter, EditorRequired]
     public IReadOnlyList<MdBlock> Blocks { get; set; } = [];
 
+    [Parameter]
+    public EventCallback<int> OnTaskItemToggled { get; set; }
+
     private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) => MarkdownRender.Inlines(parts);
+
+    private async Task ToggleTaskItemAsync(int taskIndex)
+    {
+        if (OnTaskItemToggled.HasDelegate)
+        {
+            await OnTaskItemToggled.InvokeAsync(taskIndex);
+        }
+    }
 }

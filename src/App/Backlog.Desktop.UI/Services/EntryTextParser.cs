@@ -43,6 +43,7 @@ internal static class EntryTextParser
     private static readonly Regex TagRegex = new(@"(?<!\S)#([A-Za-z][\w-]*)", RegexOptions.Compiled);
     private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.*)$", RegexOptions.Compiled);
     private static readonly Regex CheckboxPrefixRegex = new(@"^\[( |x|X)\][ \t]+", RegexOptions.Compiled);
+    private static readonly Regex HeadingCheckboxMarkerRegex = new(@"^(?<prefix>[ \t]*##[ \t]+)\[(?<marker> |x|X)\](?<suffix>[ \t]+.*)$", RegexOptions.Compiled);
     private static readonly Regex ChecklistRegex = new(@"^[ \t]*[-*][ \t]+\[( |x|X)\][ \t]+(.+?)[ \t]*$", RegexOptions.Compiled);
 
     private static readonly Dictionary<string, EntryType> TypeTokens = new()
@@ -160,6 +161,7 @@ internal static class EntryTextParser
         Priority? priority = null;
         EntryStatus? status = null;
         string? area = null;
+        var metadataTags = new List<string>();
 
         if (i < lines.Length && MetaLineRegex.IsMatch(lines[i].Trim()))
         {
@@ -200,6 +202,16 @@ internal static class EntryTextParser
                         continue;
                 }
 
+                if (token[0] == '#')
+                {
+                    var value = token[1..].Trim();
+                    if (value.Length > 0)
+                    {
+                        metadataTags.Add(value.ToLowerInvariant());
+                    }
+                    continue;
+                }
+
                 // No sigil: an entry written before the sigils existed, or
                 // someone typing the plain word. Recognize it anyway.
                 var normalized = NormalizeToken(token);
@@ -215,10 +227,11 @@ internal static class EntryTextParser
 
         var body = string.Join('\n', lines.Skip(i)).TrimEnd('\n');
 
-        var tags = TagRegex.Matches(StripFencedCode(body))
+        var bodyTags = TagRegex.Matches(StripFencedCode(body))
             .Select(m => m.Groups[1].Value.ToLowerInvariant())
-            .Distinct()
             .ToList();
+
+        var tags = metadataTags.Concat(bodyTags).Distinct().ToList();
 
         return new ParsedEntry(title, type, priority, status, area, body, tags, ExtractSubItems(body));
     }
@@ -421,6 +434,83 @@ internal static class EntryTextParser
         return string.Join('\n', rebuilt) + "\n";
     }
 
+    /// <summary>Toggles the nth markdown checklist item in an entry, ignoring
+    /// fenced code blocks. The raw markdown remains the source of truth; the read
+    /// view only asks for this text rewrite.</summary>
+    public static string ToggleChecklistItem(string raw, int taskIndex)
+    {
+        if (taskIndex < 0) return raw;
+
+        var normalized = Normalize(raw);
+        var lines = normalized.Split('\n');
+        var inFence = false;
+        var seen = 0;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence) continue;
+
+            var checklist = ChecklistRegex.Match(lines[i]);
+            if (!checklist.Success) continue;
+
+            if (seen++ != taskIndex) continue;
+
+            var marker = checklist.Groups[1];
+            var replacement = marker.Value is "x" or "X" ? " " : "x";
+            lines[i] = lines[i][..marker.Index] + replacement + lines[i][(marker.Index + marker.Length)..];
+            return string.Join('\n', lines);
+        }
+
+        return raw;
+    }
+
+    /// <summary>Toggles the checkbox on the nth rendered level-2 sub-item heading,
+    /// ignoring fenced code blocks. Sub-items without a checkbox marker are left
+    /// untouched rather than inventing state the markdown did not carry.</summary>
+    public static string ToggleSubItem(string raw, int subItemIndex)
+    {
+        if (subItemIndex < 0) return raw;
+
+        var normalized = Normalize(raw);
+        var lines = normalized.Split('\n');
+        var inFence = false;
+        var seen = 0;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence) continue;
+
+            var heading = HeadingRegex.Match(trimmed);
+            if (!heading.Success || heading.Groups[1].Value.Length != 2) continue;
+
+            if (seen++ != subItemIndex) continue;
+
+            var checkbox = HeadingCheckboxMarkerRegex.Match(lines[i]);
+            if (!checkbox.Success) return raw;
+
+            var marker = checkbox.Groups["marker"];
+            var replacement = marker.Value is "x" or "X" ? " " : "x";
+            lines[i] = lines[i][..marker.Index] + replacement + lines[i][(marker.Index + marker.Length)..];
+            return string.Join('\n', lines);
+        }
+
+        return raw;
+    }
+
     /// <summary>Syncs parsed sub-items onto the entry's structured sub-items by
     /// position — the typed text is the single source of truth; nothing outside
     /// this entry references a sub-item's id, so re-deriving identity from
@@ -473,6 +563,10 @@ internal static class EntryTextParser
     {
         var meta = $"`{TypeToken(entry.Type)}` `*{PriorityToken(entry.Priority)}` `!{StatusToken(entry.Status)}`";
         if (!string.IsNullOrWhiteSpace(entry.Area)) meta += $" `@{entry.Area}`";
+        foreach (var tag in entry.Tags.Select(tag => tag.Trim().TrimStart('#')).Where(tag => tag.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            meta += $" `#{tag.ToLowerInvariant()}`";
+        }
 
         var body = entry.ContentMd.TrimEnd('\n');
         return body.Length == 0

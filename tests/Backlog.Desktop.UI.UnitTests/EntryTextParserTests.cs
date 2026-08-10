@@ -361,6 +361,7 @@ public class EntryTextParserTests
     {
         var entry = new BacklogEntry("Ship it", "Body with #alpha\n\n## A sub-item\nnotes", EntryType.Idea, Priority.High);
         entry.SetArea("repos");
+        entry.SetTags(["beta"]);
 
         var raw = EntryTextParser.ToRawText(entry);
         var parsed = EntryTextParser.Parse(raw);
@@ -370,7 +371,7 @@ public class EntryTextParserTests
         Assert.Equal(Priority.High, parsed.Priority);
         Assert.Equal(EntryStatus.Draft, parsed.Status);
         Assert.Equal("repos", parsed.Area);
-        Assert.Equal(["alpha"], parsed.Tags);
+        Assert.Equal(["beta", "alpha"], parsed.Tags);
         Assert.Equal("A sub-item", Assert.Single(parsed.SubItems).Title);
     }
 
