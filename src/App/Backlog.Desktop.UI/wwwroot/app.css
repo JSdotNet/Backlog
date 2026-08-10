@@ -101,9 +101,15 @@ h1, h2, h3 {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
-    padding: var(--spacing-lg);
+    width: 100%;
     max-width: 1280px;
     margin: 0 auto;
+    padding: var(--spacing-lg);
+}
+
+.shell--wide {
+    max-width: none;
+    margin: 0;
 }
 
 .app-header {
@@ -1817,9 +1823,18 @@ h1, h2, h3 {
 
 .knowledge-layout {
     display: grid;
-    grid-template-columns: minmax(34rem, 0.95fr) minmax(28rem, 1.05fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-xl);
     align-items: start;
+    width: 100%;
+}
+
+.knowledge-layout--knowledge-open {
+    grid-template-columns: minmax(0, 1fr) minmax(28rem, min(44vw, 44rem));
+}
+
+.knowledge-layout--knowledge-closed .backlog-workspace {
+    width: 100%;
 }
 
 .backlog-workspace,
@@ -2020,7 +2035,8 @@ h1, h2, h3 {
 }
 
 @media (max-width: 72rem) {
-    .knowledge-layout {
+    .knowledge-layout,
+    .knowledge-layout--knowledge-open {
         grid-template-columns: 1fr;
     }
 

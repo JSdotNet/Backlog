@@ -12,7 +12,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton<BacklogStore>();
-builder.Services.AddSingleton<GitHubSettingsStore>();
+builder.Services.AddSingleton(_ => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
@@ -45,4 +45,61 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(Routes).Assembly);
 
 app.Run();
+
+static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_GITHUB_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "github.settings.json");
+    }
+
+    var settings = new GitHubSettingsStore(settingsPath);
+    var repositoryRoot = ResolveRepositoryRoot(contentRootPath);
+    if (repositoryRoot is null)
+    {
+        return settings;
+    }
+
+    const string alias = "backlog";
+    settings.SetRepositories(
+    [
+        new GitHubRepositoryRef(alias, "JSdotNet", "Backlog")
+        {
+            CloneDirectory = repositoryRoot,
+            IsPrimary = true,
+            KnowledgeFolders = KnowledgeFolderSetting.Defaults()
+        }
+    ]);
+
+    foreach (var folder in KnowledgeFolderSetting.Defaults())
+    {
+        settings.SetKnowledgeFolder(alias, folder.Key, enabled: true, path: null);
+    }
+
+    return settings;
+}
+
+static string? ResolveRepositoryRoot(string contentRootPath)
+{
+    var configured = Environment.GetEnvironmentVariable("BACKLOG_REPOSITORY_ROOT");
+    if (!string.IsNullOrWhiteSpace(configured) && Directory.Exists(configured))
+    {
+        return Path.GetFullPath(configured);
+    }
+
+    var current = new DirectoryInfo(contentRootPath);
+    while (current is not null)
+    {
+        if (Directory.Exists(Path.Combine(current.FullName, ".github")) &&
+            (Directory.Exists(Path.Combine(current.FullName, ".git")) || File.Exists(Path.Combine(current.FullName, ".git"))))
+        {
+            return current.FullName;
+        }
+
+        current = current.Parent;
+    }
+
+    return null;
+}
 

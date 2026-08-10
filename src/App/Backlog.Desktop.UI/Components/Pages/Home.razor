@@ -39,6 +39,15 @@
 
         <button type="button"
                 class="header-tool-toggle"
+                id="knowledge-toggle-button"
+                data-testid="knowledge-toggle-button"
+                aria-controls="repository-knowledge-pane"
+                aria-expanded="@(_knowledgeExpanded ? "true" : "false")"
+                @onclick="ToggleKnowledgePane">
+            @(_knowledgeExpanded ? "Hide knowledge" : "Show knowledge")
+        </button>
+        <button type="button"
+                class="header-tool-toggle"
                 id="tools-toggle-button"
                 data-testid="tools-toggle-button"
                 aria-controls="installed-tools-content"
@@ -124,7 +133,7 @@
         }
     </section>
 
-    <main class="knowledge-layout" data-testid="knowledge-layout">
+    <main class="knowledge-layout @(_knowledgeExpanded ? "knowledge-layout--knowledge-open" : "knowledge-layout--knowledge-closed")" data-testid="knowledge-layout">
         <section class="backlog-workspace" aria-label="Backlog entries">
 
     @* Areas on the left, because that is what you pick first — which pile am I
@@ -405,31 +414,35 @@
     </button>
         </section>
 
-        <aside class="knowledge-stack" aria-label="Repository knowledge base">
-            <header class="knowledge-stack__header">
-                <p class="knowledge-pane__eyebrow">Repository knowledge</p>
-                <h2>Knowledge base</h2>
-                <p class="knowledge-pane__subtitle">Backlog, product, architecture, domain, and technology knowledge from the configured repository.</p>
-            </header>
-            <nav class="knowledge-stack__nav" aria-label="Knowledge sections">
-                <a href="#knowledge-backlog">Backlog</a>
-                <a href="#knowledge-design">Design</a>
-                <a href="#knowledge-arc42">Architecture</a>
-                <a href="#knowledge-domain">Domain</a>
-                <a href="#knowledge-tech">Technology</a>
-            </nav>
-            <div class="knowledge-stack__section" id="knowledge-backlog">@RenderBacklogKnowledge()</div>
-            <div class="knowledge-stack__section" id="knowledge-design"><DesignKnowledgeView /></div>
-            <div class="knowledge-stack__section" id="knowledge-arc42"><Arc42KnowledgePanel /></div>
-            <div class="knowledge-stack__section" id="knowledge-domain"><DomainKnowledgePanel Compact="true" /></div>
-            <div class="knowledge-stack__section" id="knowledge-tech"><TechnologyKnowledgePanel /></div>
-        </aside>
+        @if (_knowledgeExpanded)
+        {
+            <aside class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
+                <header class="knowledge-stack__header">
+                    <p class="knowledge-pane__eyebrow">Repository knowledge</p>
+                    <h2>Knowledge base</h2>
+                    <p class="knowledge-pane__subtitle">Backlog, product, architecture, domain, and technology knowledge from the configured repository.</p>
+                </header>
+                <nav class="knowledge-stack__nav" aria-label="Knowledge sections">
+                    <a href="#knowledge-backlog">Backlog</a>
+                    <a href="#knowledge-design">Design</a>
+                    <a href="#knowledge-arc42">Architecture</a>
+                    <a href="#knowledge-domain">Domain</a>
+                    <a href="#knowledge-tech">Technology</a>
+                </nav>
+                <div class="knowledge-stack__section" id="knowledge-backlog">@RenderBacklogKnowledge()</div>
+                <div class="knowledge-stack__section" id="knowledge-design"><DesignKnowledgeView /></div>
+                <div class="knowledge-stack__section" id="knowledge-arc42"><Arc42KnowledgePanel /></div>
+                <div class="knowledge-stack__section" id="knowledge-domain"><DomainKnowledgePanel Compact="true" /></div>
+                <div class="knowledge-stack__section" id="knowledge-tech"><TechnologyKnowledgePanel /></div>
+            </aside>
+        }
     </main>
 </div>
 
 @code {
     private ElementReference _editor;
     private bool _toolsExpanded;
+    private bool _knowledgeExpanded;
     private bool _toolsLoading;
     private string? _toolMessage;
     private string? _toolActionKey;
@@ -785,6 +798,8 @@
         }
     }
     private void HandleStateChanged() => InvokeAsync(StateHasChanged);
+
+    private void ToggleKnowledgePane() => _knowledgeExpanded = !_knowledgeExpanded;
 
     private void OnNewEntry() => State.NewRow();
 
