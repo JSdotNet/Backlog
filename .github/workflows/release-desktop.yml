@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version:
@@ -48,9 +50,16 @@ jobs:
           else {
             $tag = '${{ github.ref_name }}'
             $raw = $tag.TrimStart('v')
+            if ('${{ github.ref_type }}' -eq 'branch') {
+              if ('${{ github.ref_name }}' -ne 'main') {
+                throw "Unsupported release branch '${{ github.ref_name }}'."
+              }
+              $raw = '0.1.${{ github.run_number }}'
+              $tag = "v$raw"
+            }
           }
           if ($raw -notmatch '^\d+\.\d+\.\d+$') {
-            throw "Version must be MAJOR.MINOR.PATCH (got '$raw')."
+            throw "Version must be MAJOR.MINOR.PATCH or a v-prefixed tag (got '$raw')."
           }
           $four = "$raw.0"
           "tag=$tag"                >> $env:GITHUB_OUTPUT
