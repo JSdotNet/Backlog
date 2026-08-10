@@ -799,32 +799,42 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+.entry-doc__meta-start {
+    margin-left: auto;
+    justify-content: flex-end;
+}
+
 .entry-doc__tags--end {
     justify-content: flex-end;
 }
 
 .entry-doc__meta-end {
-    margin-left: auto;
+    margin-left: 0;
+    justify-content: flex-end;
 }
 
 .entry-doc--one-line .entry-doc__meta {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: var(--spacing-sm);
     min-width: 0;
 }
 
 .entry-doc--one-line .entry-doc__meta-start {
+    grid-column: 2;
     min-width: 0;
+    margin-left: 0;
 }
 
 .entry-doc--one-line .entry-doc__tags {
+    grid-column: 1;
     justify-content: center;
     overflow: hidden;
     white-space: nowrap;
 }
 
 .entry-doc--one-line .entry-doc__meta-end {
+    grid-column: 3;
     margin-left: 0;
     justify-content: flex-end;
 }
