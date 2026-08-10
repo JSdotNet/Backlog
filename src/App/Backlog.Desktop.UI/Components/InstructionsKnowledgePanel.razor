@@ -19,21 +19,6 @@
     }
     else
     {
-        <div class="repo-subpages instructions-repositories" role="tablist" aria-label="Instruction repositories">
-            @foreach (var repositoryView in _repositories)
-            {
-                <button type="button"
-                        class="@RepositoryTabClass(repositoryView)"
-                        data-testid="instructions-repository-tab"
-                        role="tab"
-                        aria-selected="@RepositoryTabSelected(repositoryView)"
-                        @onclick="() => SelectRepository(repositoryView.Repository.Alias)">
-                    <span>@repositoryView.Repository.FullName</span>
-                    <span class="repo-card__badge">@repositoryView.Documents.Count</span>
-                </button>
-            }
-        </div>
-
         @if (ActiveRepository is { } activeRepository)
         {
             <section data-testid="instructions-repository" aria-label="@($"{activeRepository.Repository.FullName} instructions")">
@@ -95,36 +80,28 @@
 
 @code {
     private IReadOnlyList<InstructionRepositoryView> _repositories = [];
-    private string? _selectedRepositoryAlias;
+    private string? _loadedRepositoryAlias;
     private string? _selectedDocumentPath;
 
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
     private InstructionRepositoryView? ActiveRepository =>
-        _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, _selectedRepositoryAlias, StringComparison.Ordinal))
+        _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal))
         ?? _repositories.FirstOrDefault();
 
     private InstructionDocument? SelectedDocument =>
         ActiveRepository?.Documents.FirstOrDefault(d => string.Equals(d.RelativePath, _selectedDocumentPath, StringComparison.OrdinalIgnoreCase))
         ?? ActiveRepository?.Documents.FirstOrDefault();
 
-    protected override void OnInitialized()
+    protected override void OnParametersSet()
     {
-        _repositories = InstructionSources.Discover(GitHub.Repositories);
-        _selectedRepositoryAlias = _repositories.FirstOrDefault()?.Repository.Alias;
-        _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
-    }
-
-    private string RepositoryTabClass(InstructionRepositoryView repositoryView) =>
-        string.Equals(repositoryView.Repository.Alias, ActiveRepository?.Repository.Alias, StringComparison.Ordinal)
-            ? "repo-subpage repo-subpage--active"
-            : "repo-subpage";
-
-    private string RepositoryTabSelected(InstructionRepositoryView repositoryView) =>
-        string.Equals(repositoryView.Repository.Alias, ActiveRepository?.Repository.Alias, StringComparison.Ordinal) ? "true" : "false";
-
-    private void SelectRepository(string alias)
-    {
-        _selectedRepositoryAlias = alias;
-        _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
+        if (_repositories.Count == 0 || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
+        {
+            _repositories = InstructionSources.Discover(GitHub.Repositories);
+            _loadedRepositoryAlias = RepositoryAlias;
+            _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
+        }
     }
 
     private string DocumentButtonClass(InstructionDocument document) =>

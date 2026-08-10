@@ -89,10 +89,17 @@
 
 @code {
     private DesignKnowledgeModel? _model;
+    private string? _loadedRepositoryAlias;
 
-    protected override async Task OnInitializedAsync()
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    protected override async Task OnParametersSetAsync()
     {
-        _model = await DesignKnowledge.LoadAsync();
+        if (_model is not null && string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal)) return;
+
+        _model = await DesignKnowledge.LoadAsync(RepositoryAlias);
+        _loadedRepositoryAlias = RepositoryAlias;
     }
 
     private static string FileAnchor(DesignKnowledgeFile file) =>
@@ -113,4 +120,3 @@
         return index >= 0 && index < row.Count ? row[index] : null;
     }
 }
-

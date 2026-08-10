@@ -10,11 +10,11 @@ public sealed class TechnologyKnowledgeService(KnowledgeFolderSource source)
         remove => source.Changed -= value;
     }
 
-    public Task<TechnologyKnowledgeView> ReadAsync(CancellationToken cancellationToken = default)
+    public Task<TechnologyKnowledgeView> ReadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var location = source.Resolve(".tech");
+        var location = source.Resolve(".tech", repositoryAlias);
         if (!location.Available || location.FullPath is null)
         {
             return Task.FromResult(TechnologyKnowledgeView.Unavailable(location));

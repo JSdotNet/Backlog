@@ -4,11 +4,11 @@ namespace Backlog.Desktop.UI.Services;
 
 public sealed class KnowledgeBacklog(KnowledgeFolderSource source)
 {
-    public Task<BacklogKnowledgeView> LoadAsync(CancellationToken cancellationToken = default)
+    public Task<BacklogKnowledgeView> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var location = source.Resolve(".backlog");
+        var location = source.Resolve(".backlog", repositoryAlias);
         if (!location.Available || location.FullPath is null)
         {
             return Task.FromResult(BacklogKnowledgeView.NotConfigured(location.Message ?? "Repository .backlog knowledge is unavailable."));

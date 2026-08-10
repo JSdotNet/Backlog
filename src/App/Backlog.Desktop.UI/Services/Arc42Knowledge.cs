@@ -3,16 +3,24 @@ using System.Text.RegularExpressions;
 
 namespace Backlog.Desktop.UI.Services;
 
-public sealed class Arc42KnowledgeStore
+public sealed class Arc42KnowledgeStore(KnowledgeFolderSource source)
 {
-    private readonly BacklogStore _store;
-
-    public Arc42KnowledgeStore(BacklogStore store)
+    public event Action? Changed
     {
-        _store = store;
+        add => source.Changed += value;
+        remove => source.Changed -= value;
     }
 
-    public Task<Arc42KnowledgeCatalog> LoadAsync() => Arc42KnowledgeReader.LoadAsync(_store.RootDirectory);
+    public Task<Arc42KnowledgeCatalog> LoadAsync(string? repositoryAlias = null)
+    {
+        var location = source.Resolve(".arc42", repositoryAlias);
+        if (!location.Available || location.Repository?.CloneDirectory is null)
+        {
+            return Task.FromResult(Arc42KnowledgeCatalog.Missing(location.Repository?.CloneDirectory ?? location.FullPath ?? string.Empty));
+        }
+
+        return Arc42KnowledgeReader.LoadAsync(location.Repository.CloneDirectory);
+    }
 }
 
 public static class Arc42KnowledgeReader

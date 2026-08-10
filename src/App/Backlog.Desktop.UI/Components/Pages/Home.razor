@@ -4,6 +4,7 @@
 @inject IJSRuntime JS
 @inject ICopilotToolService CopilotTools
 @inject KnowledgeBacklog RepositoryBacklog
+@inject GitHubIntegration GitHub
 
 @*
     One entry is one block of markdown. Not focused, it reads as a document;
@@ -417,25 +418,38 @@
         @if (_knowledgeExpanded)
         {
             <aside class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
-                <header class="knowledge-stack__header">
-                    <p class="knowledge-pane__eyebrow">Repository knowledge</p>
-                    <h2>Knowledge base</h2>
-                    <p class="knowledge-pane__subtitle">Backlog, product, architecture, domain, technology, and instruction knowledge from the configured repository.</p>
-                </header>
-                <nav class="knowledge-stack__nav" aria-label="Knowledge sections">
-                    <a href="#knowledge-backlog">Backlog</a>
-                    <a href="#knowledge-design">Design</a>
-                    <a href="#knowledge-arc42">Architecture</a>
-                    <a href="#knowledge-domain">Domain</a>
-                    <a href="#knowledge-tech">Technology</a>
-                    <a href="#knowledge-instructions">Instructions</a>
+                @if (GitHub.Repositories.Count > 1)
+                {
+                    <nav class="knowledge-stack__repositories" aria-label="Knowledge repository">
+                        @foreach (var repository in GitHub.Repositories)
+                        {
+                            <button type="button"
+                                    class="knowledge-stack__repo @(IsKnowledgeRepositoryActive(repository.Alias) ? "knowledge-stack__repo--active" : string.Empty)"
+                                    aria-pressed="@IsKnowledgeRepositoryActive(repository.Alias)"
+                                    @onclick="() => SelectKnowledgeRepositoryAsync(repository.Alias)">
+                                @repository.FullName
+                            </button>
+                        }
+                    </nav>
+                }
+
+                <nav class="knowledge-stack__nav" aria-label="Knowledge sections" role="tablist">
+                    @foreach (var area in KnowledgeAreas)
+                    {
+                        <button type="button"
+                                class="knowledge-stack__nav-item @(IsKnowledgeSectionActive(area.Key) ? "knowledge-stack__nav-item--active" : string.Empty)"
+                                role="tab"
+                                aria-selected="@IsKnowledgeSectionActive(area.Key)"
+                                aria-controls="knowledge-active-section"
+                                @onclick="() => SelectKnowledgeSection(area.Key)">
+                            @area.Label
+                        </button>
+                    }
                 </nav>
-                <div class="knowledge-stack__section" id="knowledge-backlog">@RenderBacklogKnowledge()</div>
-                <div class="knowledge-stack__section" id="knowledge-design"><DesignKnowledgeView /></div>
-                <div class="knowledge-stack__section" id="knowledge-arc42"><Arc42KnowledgePanel /></div>
-                <div class="knowledge-stack__section" id="knowledge-domain"><DomainKnowledgePanel Compact="true" /></div>
-                <div class="knowledge-stack__section" id="knowledge-tech"><TechnologyKnowledgePanel /></div>
-                <div class="knowledge-stack__section" id="knowledge-instructions"><InstructionsKnowledgePanel /></div>
+
+                <div class="knowledge-stack__section" id="knowledge-active-section" role="tabpanel">
+                    @RenderActiveKnowledge()
+                </div>
             </aside>
         }
     </main>
@@ -450,12 +464,14 @@
     private string? _toolActionKey;
     private IReadOnlyList<CopilotToolInfo> _tools = [];
     private BacklogKnowledgeView? _backlogKnowledge;
+    private string _selectedKnowledgeSection = "backlog";
+    private string? _selectedKnowledgeRepositoryAlias;
 
     protected override async Task OnInitializedAsync()
     {
         State.Changed += HandleStateChanged;
         await State.InitializeAsync();
-        _backlogKnowledge = await RepositoryBacklog.LoadAsync();
+        await LoadBacklogKnowledgeAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -489,6 +505,54 @@
         }
     }
 
+    private static readonly KnowledgeArea[] KnowledgeAreas =
+    [
+        new("backlog", "Backlog"),
+        new("design", "Design"),
+        new("arc42", "Architecture"),
+        new("domain", "Domain"),
+        new("tech", "Technology"),
+        new("instructions", "Instructions")
+    ];
+
+    private string? ActiveKnowledgeRepositoryAlias =>
+        _selectedKnowledgeRepositoryAlias ?? GitHub.Settings.Current.PrimaryRepository?.Alias;
+
+    private bool IsKnowledgeSectionActive(string key) =>
+        string.Equals(_selectedKnowledgeSection, key, StringComparison.Ordinal);
+
+    private bool IsKnowledgeRepositoryActive(string alias) =>
+        string.Equals(ActiveKnowledgeRepositoryAlias, alias, StringComparison.Ordinal);
+
+    private void SelectKnowledgeSection(string key)
+    {
+        _selectedKnowledgeSection = key;
+    }
+
+    private async Task SelectKnowledgeRepositoryAsync(string alias)
+    {
+        if (string.Equals(_selectedKnowledgeRepositoryAlias, alias, StringComparison.Ordinal)) return;
+
+        _selectedKnowledgeRepositoryAlias = alias;
+        await LoadBacklogKnowledgeAsync();
+    }
+
+    private async Task LoadBacklogKnowledgeAsync()
+    {
+        _backlogKnowledge = await RepositoryBacklog.LoadAsync(ActiveKnowledgeRepositoryAlias);
+    }
+
+    private RenderFragment RenderActiveKnowledge() => _selectedKnowledgeSection switch
+    {
+        "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
+        "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
+        "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
+        "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
+        "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
+        _ => RenderBacklogKnowledge()
+    };
+
+    private sealed record KnowledgeArea(string Key, string Label);
     private RenderFragment RenderBacklogKnowledge() =>
         @<aside class="knowledge-pane" data-testid="backlog-knowledge-pane" aria-labelledby="backlog-knowledge-title">
             <div class="knowledge-pane__header">

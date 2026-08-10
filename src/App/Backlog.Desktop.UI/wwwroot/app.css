@@ -1080,6 +1080,7 @@ h1, h2, h3 {
 
 .md-item--done .md-check--done {
     text-decoration: none;
+    cursor: pointer;
 }
 
 .md-list {
@@ -2202,6 +2203,7 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
     padding: 0.125rem var(--spacing-sm);
     text-decoration: none;
+    cursor: pointer;
 }
 
 .relation-chip--muted {
@@ -2249,6 +2251,7 @@ h1, h2, h3 {
 }
 
 .knowledge-stack__nav,
+.knowledge-stack__repositories,
 .design-knowledge__nav,
 .domain-knowledge__contexts,
 .knowledge-chapters {
@@ -2258,6 +2261,8 @@ h1, h2, h3 {
 }
 
 .knowledge-stack__nav a,
+.knowledge-stack__nav-item,
+.knowledge-stack__repo,
 .design-knowledge__nav-link,
 .domain-context-tab,
 .knowledge-chapter {
@@ -2273,10 +2278,17 @@ h1, h2, h3 {
     font: inherit;
     font-size: var(--font-size-sm);
     text-decoration: none;
+    cursor: pointer;
 }
 
 .knowledge-stack__nav a:hover,
 .knowledge-stack__nav a:focus-visible,
+.knowledge-stack__nav-item:hover,
+.knowledge-stack__nav-item:focus-visible,
+.knowledge-stack__nav-item--active,
+.knowledge-stack__repo:hover,
+.knowledge-stack__repo:focus-visible,
+.knowledge-stack__repo--active,
 .design-knowledge__nav-link:hover,
 .design-knowledge__nav-link:focus-visible,
 .domain-context-tab:hover,

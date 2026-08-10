@@ -10,9 +10,9 @@ namespace Backlog.Desktop.UI.Services;
 /// </summary>
 public sealed class DesignKnowledgeProvider(GitHubIntegration gitHub)
 {
-    public Task<DesignKnowledgeModel> LoadAsync(CancellationToken cancellationToken = default)
+    public Task<DesignKnowledgeModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
-        var repository = gitHub.Settings.Current.PrimaryRepository;
+        var repository = gitHub.Settings.Current.Find(repositoryAlias);
         if (repository is null)
         {
             return Task.FromResult(DesignKnowledgeModel.Unavailable(
