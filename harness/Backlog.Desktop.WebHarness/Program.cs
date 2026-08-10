@@ -23,6 +23,7 @@ builder.Services.AddScoped<BacklogDesktopState>();
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
+builder.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
 
 var app = builder.Build();
 
