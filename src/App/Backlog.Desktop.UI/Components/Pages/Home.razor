@@ -209,6 +209,18 @@
                                 }
                             }
 
+                            @if (row.IsPersisted)
+                            {
+                                <button type="button"
+                                        class="entry-doc__gh entry-doc__copilot"
+                                        data-testid="copilot-cli-button"
+                                        disabled="@row.CopilotBusy"
+                                        title="Start GitHub Copilot CLI for this entry"
+                                        @onmousedown:preventDefault="true"
+                                        @onclick="() => State.StartCopilotCliAsync(row)">
+                                    @(row.CopilotBusy ? "Starting..." : "Ask Copilot")
+                                </button>
+                            }
                             @if (!row.IsPersisted)
                             {
                                 <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
@@ -235,6 +247,10 @@
                             <p class="entry-doc__gh-error" data-testid="github-error" role="status">@row.GitHubError</p>
                         }
 
+                        @if (row.CopilotError is not null)
+                        {
+                            <p class="entry-doc__gh-error" data-testid="copilot-cli-error" role="status">@row.CopilotError</p>
+                        }
                         @if (editing)
                         {
                             <div class="grow-wrap" data-replicated-value="@(row.RawText + "\n")">

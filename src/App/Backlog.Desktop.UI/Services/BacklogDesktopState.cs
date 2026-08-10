@@ -39,13 +39,15 @@ public sealed class BacklogDesktopState : IDisposable
 
     private readonly BacklogStore _store;
     private readonly GitHubIntegration _gitHub;
+    private readonly CopilotCliIntegration _copilot;
     private readonly Dictionary<Guid, BacklogEntry> _entries = new();
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
 
-    public BacklogDesktopState(BacklogStore store, GitHubIntegration gitHub)
+    public BacklogDesktopState(BacklogStore store, GitHubIntegration gitHub, CopilotCliIntegration? copilot = null)
     {
         _store = store;
         _gitHub = gitHub;
+        _copilot = copilot ?? CopilotCliIntegration.Unavailable;
         _store.RootChanged += OnRootChanged;
     }
 
@@ -510,6 +512,39 @@ public sealed class BacklogDesktopState : IDisposable
         }
     }
 
+    // --- GitHub Copilot CLI -----------------------------------------------
+
+    /// <summary>Starts the GitHub Copilot CLI with this entry as the task brief.</summary>
+    public async Task StartCopilotCliAsync(EntryRow row)
+    {
+        if (row.CopilotBusy) return;
+        if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry)) return;
+
+        row.CopilotBusy = true;
+        row.CopilotError = null;
+        Changed?.Invoke();
+
+        try
+        {
+            await _copilot.StartFromEntryAsync(entry, _store.RootDirectory);
+            await Repository.SaveAsync(entry);
+            SetSaveState(AppSaveState.Saved);
+        }
+        catch (CopilotCliException ex)
+        {
+            row.CopilotError = ex.Message;
+        }
+        catch (Exception)
+        {
+            row.CopilotError = "Couldn't start GitHub Copilot CLI.";
+        }
+        finally
+        {
+            row.CopilotBusy = false;
+            Changed?.Invoke();
+        }
+    }
+
     /// <summary>The backlog moved to a different folder, so everything held in
     /// memory is about the old one. Start over from the new store.</summary>
     private async void OnRootChanged()
@@ -876,6 +911,12 @@ public sealed class EntryRow
     /// <summary>Why the last GitHub call failed, in words fit to read. Shown on
     /// the entry rather than as a toast, because it is about this entry.</summary>
     public string? GitHubError { get; set; }
+
+    /// <summary>Set while the Copilot CLI process is being started for this entry.</summary>
+    public bool CopilotBusy { get; set; }
+
+    /// <summary>Why the last Copilot CLI launch failed, in words fit to read.</summary>
+    public string? CopilotError { get; set; }
 
     public bool IsPersisted => Id.HasValue;
 

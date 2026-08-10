@@ -1109,6 +1109,8 @@ h1, h2, h3 {
 
 .entry-doc__gh--push { border-style: dashed; }
 
+.entry-doc__copilot { border-color: var(--color-primary-dark); }
+
 .entry-doc__gh-error {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);
