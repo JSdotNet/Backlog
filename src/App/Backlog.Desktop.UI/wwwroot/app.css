@@ -1694,6 +1694,13 @@ h1, h2, h3 {
     margin-bottom: var(--spacing-sm);
 }
 
+.tools-pane__toolbar {
+    display: flex;
+    gap: var(--spacing-xs);
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
 .tools-pane__title {
     margin: 0;
     color: var(--color-primary);
@@ -1788,6 +1795,7 @@ h1, h2, h3 {
 
 @media (max-width: 720px) {
     .tools-pane__header,
+    .tools-pane__toolbar,
     .tools-list__actions {
         align-items: stretch;
         flex-direction: column;

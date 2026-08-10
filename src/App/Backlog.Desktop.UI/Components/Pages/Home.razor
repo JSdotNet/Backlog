@@ -337,9 +337,17 @@
                         <h2 id="installed-tools-title" class="tools-pane__title">Tools</h2>
                         <p class="tools-pane__subtitle">PC-specific Copilot tools</p>
                     </div>
-                    <button type="button" class="btn btn--secondary" disabled="@_toolsLoading" @onclick="RefreshToolsAsync">
-                        @(_toolsLoading ? "Checking..." : "Check")
-                    </button>
+                    <div class="tools-pane__toolbar">
+                        <button type="button"
+                                class="btn btn--secondary"
+                                disabled="@(_toolsLoading || _toolActionKey is not null || !_tools.Any(tool => tool.ConfiguredEnabled && tool.UpdateAvailable))"
+                                @onclick="UpdateAllToolsAsync">
+                            Update all
+                        </button>
+                        <button type="button" class="btn btn--secondary" disabled="@_toolsLoading" @onclick="RefreshToolsAsync">
+                            @(_toolsLoading ? "Checking..." : "Check")
+                        </button>
+                    </div>
                 </div>
 
                 <p class="tools-pane__message" role="status">@(_toolMessage ?? "Checking configured tools...")</p>
@@ -373,12 +381,15 @@
                                     </div>
                                 </dl>
                                 <div class="tools-list__actions">
-                                    <button type="button"
-                                            class="btn btn--secondary"
-                                            disabled="@(_toolsLoading || _toolActionKey == tool.Key || !tool.ConfiguredEnabled)"
-                                            @onclick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
-                                        Update
-                                    </button>
+                                    @if (tool.ConfiguredEnabled && tool.UpdateAvailable)
+                                    {
+                                        <button type="button"
+                                                class="btn btn--secondary"
+                                                disabled="@(_toolsLoading || _toolActionKey == tool.Key)"
+                                                @onclick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
+                                            Update
+                                        </button>
+                                    }
                                     <button type="button"
                                             class="btn btn--ghost"
                                             disabled="@(_toolsLoading || _toolActionKey == tool.Key)"
@@ -620,6 +631,49 @@
         }
         finally
         {
+            _toolsLoading = false;
+        }
+    }
+
+    private async Task UpdateAllToolsAsync()
+    {
+        var toolsToUpdate = _tools.Where(tool => tool.ConfiguredEnabled && tool.UpdateAvailable).ToArray();
+        if (toolsToUpdate.Length == 0)
+        {
+            _toolMessage = "No enabled tools have updates available.";
+            return;
+        }
+
+        _toolsLoading = true;
+        _toolActionKey = "all";
+        var succeeded = 0;
+        var failed = 0;
+
+        try
+        {
+            foreach (var tool in toolsToUpdate)
+            {
+                _toolActionKey = tool.Key;
+                var result = await CopilotTools.UpdateAsync(tool.Key);
+                if (result.Succeeded)
+                {
+                    succeeded++;
+                }
+                else
+                {
+                    failed++;
+                }
+            }
+
+            var message = failed == 0
+                ? $"Updated {succeeded} enabled tool{(succeeded == 1 ? string.Empty : "s")}."
+                : $"Updated {succeeded} enabled tool{(succeeded == 1 ? string.Empty : "s")}; {failed} failed.";
+            await RefreshToolsAsync();
+            _toolMessage = message;
+        }
+        finally
+        {
+            _toolActionKey = null;
             _toolsLoading = false;
         }
     }
