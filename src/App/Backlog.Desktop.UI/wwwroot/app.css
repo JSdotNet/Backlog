@@ -1196,6 +1196,46 @@ h1, h2, h3 {
     padding: var(--spacing-lg);
 }
 
+
+.settings-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.settings-tab {
+    flex: 1 1 9rem;
+    font: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.settings-tab:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+}
+
+.settings-tab:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.settings-tab--active {
+    color: var(--color-text-inverse);
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
 .setting__title {
     font-family: var(--font-family-heading);
     font-size: var(--font-size-lg);
