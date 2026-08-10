@@ -59,7 +59,14 @@
             break;
 
         case MdCode codeBlock:
-            <pre class="md-code"><code>@codeBlock.Text</code></pre>
+            @if (DiagramView.IsDiagram(codeBlock.Language))
+            {
+                <DiagramView Source="@codeBlock.Text" Language="@codeBlock.Language" />
+            }
+            else
+            {
+                <pre class="md-code"><code>@codeBlock.Text</code></pre>
+            }
             break;
 
         case MdDivider:

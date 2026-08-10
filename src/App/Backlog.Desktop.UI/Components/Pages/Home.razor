@@ -10,7 +10,7 @@
     control anywhere — see BacklogDesktopState and EntryTextParser.
 *@
 
-<div class="shell">
+<div class="shell shell--wide">
     <header class="app-header">
         <h1>Backlog</h1>
 
@@ -49,6 +49,8 @@
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
+    <main class="knowledge-layout" data-testid="knowledge-layout">
+        <section class="backlog-workspace" aria-label="Backlog entries">
 
     <section class="tools-panel" aria-labelledby="installed-tools-title" data-testid="tools-panel">
         <button type="button"
@@ -399,6 +401,10 @@
         <span class="entry-add__plus" aria-hidden="true">+</span>
         New entry
     </button>
+        </section>
+
+        <Arc42KnowledgePanel />
+    </main>
 </div>
 
 @code {
