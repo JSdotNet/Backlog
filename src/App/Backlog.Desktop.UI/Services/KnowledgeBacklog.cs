@@ -1,46 +1,30 @@
 using System.Text.RegularExpressions;
-using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Desktop.UI.Services;
 
-public sealed class KnowledgeBacklog(GitHubIntegration gitHub)
+public sealed class KnowledgeBacklog(KnowledgeFolderSource source)
 {
     public Task<BacklogKnowledgeView> LoadAsync(CancellationToken cancellationToken = default)
     {
-        var repository = gitHub.Settings.Current.PrimaryRepository;
-        if (repository is null)
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var location = source.Resolve(".backlog");
+        if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(BacklogKnowledgeView.NotConfigured("Configure a repository in Settings to show its .backlog knowledge."));
+            return Task.FromResult(BacklogKnowledgeView.NotConfigured(location.Message ?? "Repository .backlog knowledge is unavailable."));
         }
 
-        var folder = repository.KnowledgeFolders.FirstOrDefault(f => string.Equals(f.Key, ".backlog", StringComparison.OrdinalIgnoreCase));
-        if (folder is { Enabled: false })
-        {
-            return Task.FromResult(BacklogKnowledgeView.NotConfigured(".backlog knowledge is turned off for the primary repository."));
-        }
-
-        if (string.IsNullOrWhiteSpace(repository.CloneDirectory))
-        {
-            return Task.FromResult(BacklogKnowledgeView.NotConfigured($"Set the local clone directory for {repository.FullName} in Settings."));
-        }
-
-        var effectiveFolder = folder?.EffectivePath ?? ".backlog";
-        var directory = Path.IsPathFullyQualified(effectiveFolder)
-            ? effectiveFolder
-            : Path.Combine(repository.CloneDirectory, effectiveFolder);
-
-        if (!Directory.Exists(directory))
-        {
-            return Task.FromResult(BacklogKnowledgeView.Missing(repository.FullName, directory));
-        }
-
-        var files = Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly)
+        var repositoryRoot = location.Repository?.CloneDirectory ?? location.FullPath;
+        var files = Directory.EnumerateFiles(location.FullPath, "*.md", SearchOption.TopDirectoryOnly)
             .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
-            .Select(file => BacklogKnowledgeParser.ParseFile(file, repository.CloneDirectory))
+            .Select(file => BacklogKnowledgeParser.ParseFile(file, repositoryRoot))
             .Where(file => file.Items.Count > 0 || file.Metadata.Count > 0)
             .ToList();
 
-        return Task.FromResult(BacklogKnowledgeView.Ready(repository.FullName, directory, files));
+        return Task.FromResult(BacklogKnowledgeView.Ready(
+            location.Repository?.FullName ?? "Configured repository",
+            location.FullPath,
+            files));
     }
 }
 
