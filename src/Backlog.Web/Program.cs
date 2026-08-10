@@ -1,6 +1,7 @@
 using Backlog.Storage;
 using Backlog.UI.Components;
 using Backlog.UI.Services;
+using Backlog.GitHub;
 using Backlog.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +12,11 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton<BacklogStore>();
+builder.Services.AddSingleton<GitHubSettingsStore>();
+builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
+builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
+builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddScoped<BacklogDesktopState>();
 
 // The web host never distributes or updates the desktop app, so it always

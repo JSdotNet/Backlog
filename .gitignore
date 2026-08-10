@@ -56,5 +56,11 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 
+# Scratch space for work in progress: QA evidence, notes, throwaway artifacts.
+.wip/
+
+# Cache written by the impeccable design hook.
+.impeccable/
+
 # Local QA validation evidence (screenshots, scenario results)
 .qa-evidence/

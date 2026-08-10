@@ -1,4 +1,5 @@
 using Backlog.Domain;
+using Backlog.GitHub;
 using Backlog.Storage;
 
 namespace Backlog.UI.Services;
@@ -36,12 +37,14 @@ public sealed class BacklogDesktopState : IDisposable
     private const int DebounceMilliseconds = 750;
 
     private readonly BacklogStore _store;
+    private readonly GitHubIntegration _gitHub;
     private readonly Dictionary<Guid, BacklogEntry> _entries = new();
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
 
-    public BacklogDesktopState(BacklogStore store)
+    public BacklogDesktopState(BacklogStore store, GitHubIntegration gitHub)
     {
         _store = store;
+        _gitHub = gitHub;
         _store.RootChanged += OnRootChanged;
     }
 
@@ -299,6 +302,88 @@ public sealed class BacklogDesktopState : IDisposable
         Changed?.Invoke();
     }
 
+    // --- Sub-items -------------------------------------------------------
+
+    /// <summary>The entry whose sub-item is being dragged, if any. Sub-items only
+    /// ever re-rank within their own entry — a sub-item belongs to the thing it
+    /// is written under, so dropping one on a different entry would mean moving
+    /// text between two documents, which is a rewrite, not a re-rank.</summary>
+    public EntryRow? SubItemDragRow { get; private set; }
+
+    /// <summary>Index of the sub-item being dragged within
+    /// <see cref="SubItemDragRow"/>, or -1.</summary>
+    public int SubItemDragIndex { get; private set; } = -1;
+
+    public bool IsDraggingSubItem(EntryRow row, int index) =>
+        ReferenceEquals(SubItemDragRow, row) && SubItemDragIndex == index;
+
+    /// <summary>Folds an entry's sub-items away, or brings them back. The count
+    /// stays visible either way, so a folded entry never hides that it has
+    /// work under it.</summary>
+    public void ToggleSubItems(EntryRow row)
+    {
+        row.SubItemsCollapsed = !row.SubItemsCollapsed;
+        Changed?.Invoke();
+    }
+
+    public void BeginSubItemDrag(EntryRow row, int index)
+    {
+        SubItemDragRow = row;
+        SubItemDragIndex = index;
+    }
+
+    public void EndSubItemDrag()
+    {
+        SubItemDragRow = null;
+        SubItemDragIndex = -1;
+    }
+
+    /// <summary>Drops the dragged sub-item immediately before or after the
+    /// sub-item at <paramref name="targetIndex"/> in the same entry.</summary>
+    public async Task DropSubItemAsync(EntryRow row, int targetIndex, bool before)
+    {
+        var from = SubItemDragIndex;
+        var source = SubItemDragRow;
+        EndSubItemDrag();
+
+        if (source is null || !ReferenceEquals(source, row) || from < 0) return;
+
+        var to = before ? targetIndex : targetIndex + 1;
+        if (to > from) to--;
+
+        await ReorderSubItemAsync(row, from, to);
+    }
+
+    /// <summary>Keyboard equivalent of a sub-item drag. The moved card is
+    /// re-focused afterwards so a run of arrow presses keeps carrying the same
+    /// sub-item instead of grabbing whatever slid into the old slot.</summary>
+    public async Task MoveSubItemAsync(EntryRow row, int index, int delta) =>
+        await ReorderSubItemAsync(row, index, index + delta, focusAfter: true);
+
+    /// <summary>The sub-item grip waiting to be re-focused after a keyboard
+    /// move, or null. The component consumes it on its next render.</summary>
+    public (EntryRow Row, int Index)? SubItemFocus { get; private set; }
+
+    public void ConsumeSubItemFocus() => SubItemFocus = null;
+
+    private async Task ReorderSubItemAsync(EntryRow row, int from, int to, bool focusAfter = false)
+    {
+        if (from == to || from < 0 || to < 0 || to >= row.PreviewSubItems.Count) return;
+
+        var rewritten = EntryTextParser.MoveSubItem(row.RawText, from, to);
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+
+        CancelDebounce(row);
+        row.RawText = rewritten;
+        if (focusAfter) SubItemFocus = (row, to);
+
+        // A re-rank is a finished gesture, not a keystroke: save it now rather
+        // than on a debounce that a drag never generates.
+        await SaveRowAsync(row, isFlush: true);
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
     public void Dispose()
     {
         _store.RootChanged -= OnRootChanged;
@@ -311,12 +396,126 @@ public sealed class BacklogDesktopState : IDisposable
         _debounceTimers.Clear();
     }
 
+    // --- GitHub -----------------------------------------------------------
+
+    /// <summary>True once at least one repository is configured. Until then the
+    /// list shows nothing about GitHub at all.</summary>
+    public bool GitHubConfigured => _gitHub.IsConfigured;
+
+    /// <summary>The repository this row's area names, or null when the area is
+    /// just a pile. What makes an entry pushable is that its <c>`@area`</c>
+    /// matches a repository configured in Settings.</summary>
+    public GitHubRepositoryRef? RepositoryFor(EntryRow row) => _gitHub.ResolveRepository(row.PreviewArea);
+
+    /// <summary>True when the rows currently on screen include anything linked
+    /// to GitHub, which is what makes a whole-list sync worth offering.</summary>
+    public bool HasLinkedRows => Rows.Any(r => r.IssueLink is not null);
+
+    public bool GitHubSyncing { get; private set; }
+
+    /// <summary>Creates the GitHub issue for an entry and remembers the link on
+    /// the entry itself, so the association survives a restart and travels with
+    /// the markdown file.</summary>
+    public async Task PushToGitHubAsync(EntryRow row)
+    {
+        if (row.GitHubBusy) return;
+        if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry)) return;
+
+        var repository = RepositoryFor(row);
+        if (repository is null) return;
+
+        row.GitHubBusy = true;
+        row.GitHubError = null;
+        Changed?.Invoke();
+
+        try
+        {
+            row.IssueLink = await _gitHub.PushAsync(entry, repository);
+            await Repository.SaveAsync(entry);
+            SetSaveState(AppSaveState.Saved);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
+        {
+            row.GitHubError = ex.Message;
+        }
+        catch (Exception)
+        {
+            row.GitHubError = "Couldn't push to GitHub.";
+        }
+        finally
+        {
+            row.GitHubBusy = false;
+            Changed?.Invoke();
+        }
+
+        // The issue exists now; showing it open straight away saves a round of
+        // "did that work?".
+        if (row.IssueLink is not null && row.GitHubError is null)
+        {
+            await RefreshGitHubAsync(row);
+        }
+    }
+
+    /// <summary>Re-reads one entry's issue state and the pull requests that
+    /// reference it.</summary>
+    public async Task RefreshGitHubAsync(EntryRow row)
+    {
+        if (row.IssueLink is not { } link || row.GitHubBusy) return;
+
+        row.GitHubBusy = true;
+        row.GitHubError = null;
+        Changed?.Invoke();
+
+        try
+        {
+            row.Snapshot = await _gitHub.RefreshAsync(link);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
+        {
+            row.GitHubError = ex.Message;
+        }
+        catch (Exception)
+        {
+            row.GitHubError = "Couldn't read that issue from GitHub.";
+        }
+        finally
+        {
+            row.GitHubBusy = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>Refreshes every linked row. Explicit rather than automatic on
+    /// load: the backlog must open instantly and offline, so nothing about it
+    /// waits on the network until asked.</summary>
+    public async Task SyncGitHubAsync()
+    {
+        if (GitHubSyncing) return;
+
+        GitHubSyncing = true;
+        Changed?.Invoke();
+
+        try
+        {
+            foreach (var row in Rows.Where(r => r.IssueLink is not null).ToList())
+            {
+                await RefreshGitHubAsync(row);
+            }
+        }
+        finally
+        {
+            GitHubSyncing = false;
+            Changed?.Invoke();
+        }
+    }
+
     /// <summary>The backlog moved to a different folder, so everything held in
     /// memory is about the old one. Start over from the new store.</summary>
     private async void OnRootChanged()
     {
         EditingRow = null;
         DraggedRow = null;
+        EndSubItemDrag();
         _entries.Clear();
 
         await ReloadRowsAsync();
@@ -511,6 +710,7 @@ public sealed class BacklogDesktopState : IDisposable
         row.Tags = entry.Tags;
         row.SubItemCount = entry.TotalSubItemCount;
         row.CompletedSubItemCount = entry.CompletedSubItemCount;
+        row.IssueLink = GitHubIntegration.FindLink(entry);
 
         // Re-derive the canonical text from the just-saved entry so the editor
         // reflects any graceful corrections (e.g. an unknown status token that
@@ -634,6 +834,8 @@ public sealed class EntryRow
 {
     private string? _renderedFrom;
     private IReadOnlyList<MdBlock> _blocks = [];
+    private IReadOnlyList<MdBlock> _bodyBlocks = [];
+    private IReadOnlyList<MdSubItem> _subItems = [];
     private EntryTextParser.ParsedEntry? _parsed;
 
     public Guid Key { get; } = Guid.NewGuid();
@@ -657,6 +859,23 @@ public sealed class EntryRow
 
     public int CompletedSubItemCount { get; set; }
 
+    /// <summary>The GitHub issue this entry was pushed to, or null. Persisted on
+    /// the entry as a <c>ProjectionRef</c>, so it survives a restart.</summary>
+    public GitHubIssueLink? IssueLink { get; set; }
+
+    /// <summary>Last known issue and pull-request state. Deliberately not
+    /// persisted: it is a view of something GitHub owns, and a stale copy in the
+    /// markdown file would be worse than an empty one.</summary>
+    public GitHubIssueSnapshot? Snapshot { get; set; }
+
+    /// <summary>Set while a push or refresh is in flight, so the control can say
+    /// so instead of looking dead.</summary>
+    public bool GitHubBusy { get; set; }
+
+    /// <summary>Why the last GitHub call failed, in words fit to read. Shown on
+    /// the entry rather than as a toast, because it is about this entry.</summary>
+    public string? GitHubError { get; set; }
+
     public bool IsPersisted => Id.HasValue;
 
     /// <summary>True briefly after a successful save, driving the inline
@@ -677,11 +896,25 @@ public sealed class EntryRow
 
     public string ProgressText => SubItemCount == 0 ? string.Empty : $"{CompletedSubItemCount}/{SubItemCount}";
 
-    /// <summary>The rendered body shown when this row is not being edited.</summary>
+    /// <summary>The rendered body shown when this row is not being edited. Stops
+    /// at the first sub-item: sub-items are items in their own right and are laid
+    /// out below the entry rather than inside its body.</summary>
     public IReadOnlyList<MdBlock> PreviewBlocks
     {
-        get { Render(); return _blocks; }
+        get { Render(); return _bodyBlocks; }
     }
+
+    /// <summary>The entry's sub-items, in the order they are written. Each is
+    /// rendered as its own draggable card beneath the entry.</summary>
+    public IReadOnlyList<MdSubItem> PreviewSubItems
+    {
+        get { Render(); return _subItems; }
+    }
+
+    /// <summary>Whether the sub-item cards under this entry are folded away. Per
+    /// row and in memory only — a fold is a way of looking at the list right now,
+    /// not something worth writing into someone's markdown.</summary>
+    public bool SubItemsCollapsed { get; set; }
 
     public string PreviewTitle
     {
@@ -778,5 +1011,7 @@ public sealed class EntryRow
         _renderedFrom = RawText;
         _parsed = EntryTextParser.Parse(RawText);
         _blocks = MarkdownPreview.Parse(_parsed.Body);
+        _bodyBlocks = [.. _blocks.TakeWhile(b => b is not MdSubItem)];
+        _subItems = [.. _blocks.OfType<MdSubItem>()];
     }
 }

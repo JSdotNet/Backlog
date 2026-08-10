@@ -1,6 +1,8 @@
 using Backlog.Desktop.Services;
 using Backlog.UI.Services;
 using Backlog.Storage;
+using Backlog.GitHub;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -23,6 +25,11 @@ public static class MauiProgram
         builder.Services.AddMauiBlazorWebView();
         builder.AddServiceDefaults();
         builder.Services.AddSingleton<BacklogStore>();
+        builder.Services.AddSingleton<GitHubSettingsStore>();
+        builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
+        builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
+        builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+        builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<BacklogDesktopState>();
 
         // The MSIX head can manage its own updates when packaged; it degrades to
