@@ -1,5 +1,6 @@
 using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.Services;
+using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,12 +31,15 @@ public static class MauiProgram
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
         builder.Services.AddSingleton<GitHubIntegration>();
+        builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
+        builder.Services.AddSingleton<CopilotCliIntegration>();
         builder.Services.AddSingleton<BacklogDesktopState>();
 
         // The MSIX head can manage its own updates when packaged; it degrades to
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is
         // safe to register unconditionally.
         builder.Services.AddSingleton<IAppUpdateService, MsixAppUpdateService>();
+        builder.Services.AddSingleton<ICopilotToolService, CopilotToolService>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
@@ -70,3 +74,4 @@ public static class MauiProgram
         }
     }
 }
+
