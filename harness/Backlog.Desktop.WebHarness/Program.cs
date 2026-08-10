@@ -17,9 +17,9 @@ builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredS
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<GitHubIntegration>();
-builder.Services.AddScoped<KnowledgeBacklog>();
+builder.Services.AddSingleton<KnowledgeBacklog>();
 builder.Services.AddScoped<BacklogDesktopState>();
-builder.Services.AddScoped<DomainKnowledgeStore>();
+builder.Services.AddSingleton<DomainKnowledgeStore>();
 
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.
