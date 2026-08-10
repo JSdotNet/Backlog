@@ -29,9 +29,8 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
 
     public IReadOnlyList<GitHubRepositoryRef> Repositories => settings.Current.Repositories;
 
-    /// <summary>The repository an entry's area names, or null when the area
-    /// matches nothing configured (which is the ordinary case — most areas are
-    /// just piles).</summary>
+    /// <summary>The repository an entry's area names, or the primary repository
+    /// when the entry is not assigned to a configured repository.</summary>
     public GitHubRepositoryRef? ResolveRepository(string? area) => settings.Current.Find(area);
 
     /// <summary>Re-checks how the app can reach GitHub.</summary>

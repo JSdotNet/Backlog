@@ -16,6 +16,16 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
 
     public string Url => $"https://github.com/{Owner}/{Name}";
 
+    /// <summary>Local clone root for this repository. Null means it has not been
+    /// cloned or the app has not been told where it lives yet.</summary>
+    public string? CloneDirectory { get; init; }
+
+    /// <summary>The repository that owns entries and knowledge not assigned to a
+    /// more specific repository.</summary>
+    public bool IsPrimary { get; init; }
+
+    public List<KnowledgeFolderSetting> KnowledgeFolders { get; init; } = KnowledgeFolderSetting.Defaults();
+
     /// <summary>
     /// Reads one configured line. Accepted forms:
     /// <code>
@@ -82,5 +92,42 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
         else if (text.StartsWith(http, StringComparison.OrdinalIgnoreCase)) text = text[http.Length..];
 
         return text.EndsWith(".git", StringComparison.OrdinalIgnoreCase) ? text[..^4] : text;
+    }
+}
+
+public sealed record KnowledgeFolderSetting(string Key, string DisplayName, string DefaultRelativePath)
+{
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>Optional repository-relative or absolute override. Null means the
+    /// conventional folder at the repository root is used.</summary>
+    public string? Path { get; init; }
+
+    public string EffectivePath => string.IsNullOrWhiteSpace(Path) ? DefaultRelativePath : Path.Trim();
+
+    public static List<KnowledgeFolderSetting> Defaults() =>
+    [
+        new(".backlog", "Backlog", ".backlog"),
+        new(".tech", "Technology", ".tech"),
+        new(".arc42", "arc42 architecture", ".arc42"),
+        new(".domain", "Domain", ".domain"),
+        new(".design", "Design", ".design")
+    ];
+
+    public static List<KnowledgeFolderSetting> Normalize(IEnumerable<KnowledgeFolderSetting>? configured)
+    {
+        var byKey = (configured ?? []).ToDictionary(f => f.Key, StringComparer.OrdinalIgnoreCase);
+
+        return
+        [
+            .. Defaults().Select(folder =>
+                byKey.TryGetValue(folder.Key, out var existing)
+                    ? folder with
+                    {
+                        Enabled = existing.Enabled,
+                        Path = string.IsNullOrWhiteSpace(existing.Path) ? null : existing.Path.Trim()
+                    }
+                    : folder)
+        ];
     }
 }

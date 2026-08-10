@@ -134,12 +134,12 @@
         (blur or Enter) applies it.
     *@
     <section class="setting" data-testid="github-settings">
-        <h2 class="setting__title">Repositories on GitHub</h2>
+        <h2 class="setting__title">Repositories</h2>
         <p class="setting__body">
-            An entry filed under an area whose name matches one of these can be pushed
-            to GitHub as an issue, and its issue and pull request state read back.
-            One per line, as <code>owner/repo</code> — or <code>name = owner/repo</code>
-            when the area you type is not the repository's own name.
+            Add every repository Backlog can work with. One repository is primary:
+            it owns entries and knowledge that are not assigned to a more specific
+            repository. GitHub needs an <code>owner/repo</code> connection; local
+            features also need the clone directory on this machine.
         </p>
 
         <label class="setting__label" for="github-repos">Repositories</label>
@@ -161,16 +161,125 @@
             }
             else if (GitHub.Repositories.Count == 0)
             {
-                <span>Nothing configured — entries show no GitHub controls at all until one is.</span>
+                <span>Nothing configured — entries show no repository controls until one is.</span>
             }
             else
             {
                 <span>
-                    Type <code>@("@" + GitHub.Repositories[0].Alias)</code> on an entry to file it against
+                    <code>@GitHub.Settings.Current.PrimaryRepository?.FullName</code> is primary. Type
+                    <code>@("@" + GitHub.Repositories[0].Alias)</code> on an entry to assign it to
                     <code>@GitHub.Repositories[0].FullName</code>@(GitHub.Repositories.Count > 1 ? $", and {GitHub.Repositories.Count - 1} more." : ".")
                 </span>
             }
         </p>
+
+        @if (GitHub.Repositories.Count > 0)
+        {
+            <div class="repo-settings-list" data-testid="repo-settings-list">
+                @foreach (var repo in GitHub.Repositories)
+                {
+                    <article class="repo-card @(repo.IsPrimary ? "repo-card--primary" : string.Empty)" data-testid="github-repo-card">
+                        <header class="repo-card__header">
+                            <div>
+                                <h3 class="repo-card__title">@repo.FullName</h3>
+                                <p class="repo-card__meta">
+                                    Area <code>@("@" + repo.Alias)</code>
+                                    @if (repo.IsPrimary)
+                                    {
+                                        <span class="repo-card__badge">Primary</span>
+                                    }
+                                </p>
+                            </div>
+
+                            <label class="repo-card__primary">
+                                <input type="radio"
+                                       name="primary-repository"
+                                       checked="@repo.IsPrimary"
+                                       @onchange="() => SetPrimaryRepository(repo.Alias)" />
+                                Primary fallback
+                            </label>
+                        </header>
+
+                        <label class="setting__label" for="clone-@repo.Alias">Local clone directory</label>
+                        <input class="setting__input"
+                               id="clone-@repo.Alias"
+                               data-testid="repo-clone-directory-input"
+                               type="text"
+                               spellcheck="false"
+                               autocomplete="off"
+                               placeholder="@($"C:\\Repos\\{repo.Name}")"
+                               value="@CloneDirectoryDraft(repo)"
+                               @oninput="e => _draftCloneDirectories[repo.Alias] = e.Value?.ToString() ?? string.Empty"
+                               @onchange="() => ApplyCloneDirectory(repo.Alias)"
+                               @onkeydown="e => OnClonePathKeyDown(e, repo)" />
+
+                        <p class="setting__status" role="status">
+                            @if (string.IsNullOrWhiteSpace(repo.CloneDirectory))
+                            {
+                                <span>No local clone directory configured yet.</span>
+                            }
+                            else
+                            {
+                                <span>Local clone: <code>@repo.CloneDirectory</code></span>
+                            }
+                        </p>
+
+                        <div class="knowledge-folders" data-testid="knowledge-folder-settings">
+                            <h4 class="knowledge-folders__title">Knowledge-base folders</h4>
+                            <p class="setting__note">
+                                Each folder defaults to its conventional path in the repository root.
+                                Clear an override to return to the default, or turn a folder off for this repository.
+                            </p>
+
+                            @foreach (var folder in repo.KnowledgeFolders)
+                            {
+                                var knowledgeInputId = $"knowledge-{repo.Alias}-{folder.Key.TrimStart('.')}";
+
+                                <div class="knowledge-folder" data-testid="knowledge-folder-row">
+                                    <label class="knowledge-folder__toggle">
+                                        <input type="checkbox"
+                                               data-testid="knowledge-folder-enabled"
+                                               checked="@folder.Enabled"
+                                               @onchange="e => SetKnowledgeFolderEnabled(repo, folder, e)" />
+                                        <span>@folder.DisplayName</span>
+                                        <code>@folder.Key</code>
+                                    </label>
+
+                                    <input class="setting__input"
+                                           id="@knowledgeInputId"
+                                           data-testid="knowledge-folder-path-input"
+                                           type="text"
+                                           spellcheck="false"
+                                           autocomplete="off"
+                                           disabled="@(!folder.Enabled)"
+                                           placeholder="@folder.DefaultRelativePath"
+                                           aria-label="@($"{repo.FullName} {folder.DisplayName} folder path")"
+                                           value="@KnowledgePathDraft(repo, folder)"
+                                           @oninput="e => _draftKnowledgePaths[KnowledgeDraftKey(repo.Alias, folder.Key)] = e.Value?.ToString() ?? string.Empty"
+                                           @onchange="() => ApplyKnowledgeFolderPath(repo, folder)"
+                                           @onkeydown="e => OnKnowledgePathKeyDown(e, repo, folder)" />
+
+                                    <p class="knowledge-folder__status">
+                                        @if (!folder.Enabled)
+                                        {
+                                            <span>Off for this repository.</span>
+                                        }
+                                        else if (string.IsNullOrWhiteSpace(folder.Path))
+                                        {
+                                            <span>Uses <code>@folder.DefaultRelativePath</code> at the repository root.</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Uses <code>@folder.EffectivePath</code>.</span>
+                                        }
+                                    </p>
+                                </div>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        }
 
         <p class="setting__status" data-testid="github-connection-status" role="status">
             @(_connection?.Summary ?? "Checking how this machine can reach GitHub…")
@@ -233,11 +342,14 @@
     private string _draftToken = string.Empty;
     private string? _repoError;
     private GitHubConnection? _connection;
+    private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftKnowledgePaths = new(StringComparer.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
         _draftPath = Store.RootDirectory;
         _draftRepos = GitHub.Settings.Current.ToText();
+        SyncRepositoryDrafts();
 
         // Surface the host's own explanation when updates aren't self-managed, so
         // the message stays accurate per channel without hard-coding it here.
@@ -346,7 +458,91 @@
 
         var saveError = GitHub.Settings.SetRepositories(repositories);
         _repoError = errors.Count > 0 ? string.Join(" ", errors) : saveError;
+        SyncRepositoryDrafts();
     }
+
+    private string CloneDirectoryDraft(GitHubRepositoryRef repo)
+    {
+        if (!_draftCloneDirectories.TryGetValue(repo.Alias, out var draft))
+        {
+            draft = repo.CloneDirectory ?? string.Empty;
+            _draftCloneDirectories[repo.Alias] = draft;
+        }
+
+        return draft;
+    }
+
+    private string KnowledgePathDraft(GitHubRepositoryRef repo, KnowledgeFolderSetting folder)
+    {
+        var key = KnowledgeDraftKey(repo.Alias, folder.Key);
+        if (!_draftKnowledgePaths.TryGetValue(key, out var draft))
+        {
+            draft = folder.Path ?? string.Empty;
+            _draftKnowledgePaths[key] = draft;
+        }
+
+        return draft;
+    }
+
+    private void SetPrimaryRepository(string alias)
+    {
+        _repoError = GitHub.Settings.SetPrimaryRepository(alias);
+        SyncRepositoryDrafts();
+    }
+
+    private void ApplyCloneDirectory(string alias)
+    {
+        _draftCloneDirectories.TryGetValue(alias, out var value);
+        _repoError = GitHub.Settings.SetCloneDirectory(alias, value);
+        SyncRepositoryDrafts();
+    }
+
+    private void SetKnowledgeFolderEnabled(GitHubRepositoryRef repo, KnowledgeFolderSetting folder, ChangeEventArgs e)
+    {
+        _repoError = GitHub.Settings.SetKnowledgeFolder(
+            repo.Alias,
+            folder.Key,
+            e.Value is bool enabled && enabled,
+            KnowledgePathDraft(repo, folder));
+        SyncRepositoryDrafts();
+    }
+
+    private void ApplyKnowledgeFolderPath(GitHubRepositoryRef repo, KnowledgeFolderSetting folder)
+    {
+        _repoError = GitHub.Settings.SetKnowledgeFolder(
+            repo.Alias,
+            folder.Key,
+            folder.Enabled,
+            KnowledgePathDraft(repo, folder));
+        SyncRepositoryDrafts();
+    }
+
+    private void OnClonePathKeyDown(KeyboardEventArgs e, GitHubRepositoryRef repo)
+    {
+        if (e.Key == "Enter") ApplyCloneDirectory(repo.Alias);
+        else if (e.Key == "Escape") _draftCloneDirectories[repo.Alias] = repo.CloneDirectory ?? string.Empty;
+    }
+
+    private void OnKnowledgePathKeyDown(KeyboardEventArgs e, GitHubRepositoryRef repo, KnowledgeFolderSetting folder)
+    {
+        if (e.Key == "Enter") ApplyKnowledgeFolderPath(repo, folder);
+        else if (e.Key == "Escape") _draftKnowledgePaths[KnowledgeDraftKey(repo.Alias, folder.Key)] = folder.Path ?? string.Empty;
+    }
+
+    private void SyncRepositoryDrafts()
+    {
+        foreach (var repo in GitHub.Repositories)
+        {
+            _draftCloneDirectories[repo.Alias] = repo.CloneDirectory ?? string.Empty;
+
+            foreach (var folder in repo.KnowledgeFolders)
+            {
+                _draftKnowledgePaths[KnowledgeDraftKey(repo.Alias, folder.Key)] = folder.Path ?? string.Empty;
+            }
+        }
+    }
+
+    private static string KnowledgeDraftKey(string alias, string folderKey) => $"{alias}|{folderKey}";
 
     private async Task OnTokenKeyDownAsync(KeyboardEventArgs e)
     {
