@@ -10,7 +10,7 @@
     control anywhere — see BacklogDesktopState and EntryTextParser.
 *@
 
-<div class="shell">
+<div class="shell shell--wide">
     <header class="app-header">
         <h1>Backlog</h1>
 
@@ -122,6 +122,9 @@
             </div>
         }
     </section>
+
+    <div class="knowledge-workspace">
+        <section class="knowledge-workspace__backlog" aria-label="Backlog">
 
     @* Areas on the left, because that is what you pick first — which pile am I
        in. Status narrows what is already in view, so it sits on the right. *@
@@ -399,6 +402,12 @@
         <span class="entry-add__plus" aria-hidden="true">+</span>
         New entry
     </button>
+        </section>
+
+        <aside class="knowledge-workspace__knowledge" aria-label="Repository knowledge">
+            <DesignKnowledgeView />
+        </aside>
+    </div>
 </div>
 
 @code {
