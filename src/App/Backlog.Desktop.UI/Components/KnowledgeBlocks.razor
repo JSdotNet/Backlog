@@ -56,8 +56,8 @@
                 </table>
             </div>
             break;
-        case KnowledgeCode code:
-            <pre class="knowledge-code"><code>@code.Text</code></pre>
+        case KnowledgeCode codeBlock:
+            <pre class="knowledge-code"><code>@codeBlock.Text</code></pre>
             break;
         case KnowledgeDiagram diagram:
             <DiagramView Title="@DiagramTitle" Language="@diagram.Language" Source="@diagram.Source" />

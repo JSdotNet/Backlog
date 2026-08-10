@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Backlog.Modules.Backlog;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Modules.Backlog;
 
 namespace Backlog.Desktop.UI.Services;
 
@@ -26,13 +25,22 @@ public sealed class BacklogStore
     private readonly string _settingsPath;
 
     public BacklogStore()
-    {
-        var appData = Path.Combine(
+        : this(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog");
+            "Backlog"))
+    {
+    }
+
+    private BacklogStore(string appData)
+        : this(appData, Path.Combine(appData, "settings.json"))
+    {
+    }
+
+    internal BacklogStore(string appData, string settingsPath)
+    {
         Directory.CreateDirectory(appData);
 
-        _settingsPath = Path.Combine(appData, "settings.json");
+        _settingsPath = settingsPath;
         DefaultRootDirectory = appData;
 
         RootDirectory = ReadSavedRoot() ?? DefaultRootDirectory;
