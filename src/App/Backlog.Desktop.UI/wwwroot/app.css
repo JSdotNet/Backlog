@@ -1321,11 +1321,44 @@ h1, h2, h3 {
     color: var(--color-text-disabled);
 }
 
-.repo-settings-list {
+.repo-subpages {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--spacing-xs);
+    margin: var(--spacing-md) 0;
+}
+
+.repo-subpage {
+    font: inherit;
+    font-size: var(--font-size-sm);
     display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-    margin-top: var(--spacing-md);
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    background: var(--color-background);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.repo-subpage:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+}
+
+.repo-subpage:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.repo-subpage--active {
+    color: var(--color-text-primary);
+    border-color: var(--color-primary);
+    background: rgba(242, 193, 78, 0.1);
 }
 
 .repo-card {
@@ -1419,6 +1452,7 @@ h1, h2, h3 {
 }
 
 @media (max-width: 720px) {
+    .repo-subpages,
     .repo-card__header,
     .knowledge-folder {
         display: flex;

@@ -199,110 +199,126 @@
 
             @if (GitHub.Repositories.Count > 0)
             {
-                <div class="repo-settings-list" data-testid="repo-settings-list">
-                    @foreach (var repo in GitHub.Repositories)
+                <div class="repo-subpages" data-testid="repo-subpages" role="tablist" aria-label="Repository pages">
+                    @foreach (var repository in GitHub.Repositories)
                     {
-                        <article class="repo-card @(repo.IsPrimary ? "repo-card--primary" : string.Empty)" data-testid="github-repo-card">
-                            <header class="repo-card__header">
-                                <div>
-                                    <h3 class="repo-card__title">@repo.FullName</h3>
-                                    <p class="repo-card__meta">
-                                        Area <code>@("@" + repo.Alias)</code>
-                                        @if (repo.IsPrimary)
+                        <button type="button"
+                                class="@RepositoryPageClass(repository)"
+                                data-testid="repo-subpage-tab"
+                                role="tab"
+                                aria-selected="@RepositoryPageSelected(repository)"
+                                @onclick="() => ShowRepositoryPage(repository.Alias)">
+                            <span>@repository.FullName</span>
+                            @if (repository.IsPrimary)
+                            {
+                                <span class="repo-card__badge">Primary</span>
+                            }
+                        </button>
+                    }
+                </div>
+
+                @if (ActiveRepository is { } activeRepo)
+                {
+                    <article class="repo-card @(activeRepo.IsPrimary ? "repo-card--primary" : string.Empty)" data-testid="github-repo-card" role="tabpanel" aria-label="@($"{activeRepo.FullName} repository settings")">
+                        <header class="repo-card__header">
+                            <div>
+                                <h3 class="repo-card__title">@activeRepo.FullName</h3>
+                                <p class="repo-card__meta">
+                                    Area <code>@("@" + activeRepo.Alias)</code>
+                                    @if (activeRepo.IsPrimary)
+                                    {
+                                        <span class="repo-card__badge">Primary</span>
+                                    }
+                                </p>
+                            </div>
+
+                            <label class="repo-card__primary">
+                                <input type="radio"
+                                       name="primary-repository"
+                                       checked="@activeRepo.IsPrimary"
+                                       @onchange="() => SetPrimaryRepository(activeRepo.Alias)" />
+                                Primary fallback
+                            </label>
+                        </header>
+
+                        <label class="setting__label" for="clone-@activeRepo.Alias">Local clone directory</label>
+                        <input class="setting__input"
+                               id="clone-@activeRepo.Alias"
+                               data-testid="repo-clone-directory-input"
+                               type="text"
+                               spellcheck="false"
+                               autocomplete="off"
+                               placeholder="@($"C:\\Repos\\{activeRepo.Name}")"
+                               value="@CloneDirectoryDraft(activeRepo)"
+                               @oninput="e => _draftCloneDirectories[activeRepo.Alias] = e.Value?.ToString() ?? string.Empty"
+                               @onchange="() => ApplyCloneDirectory(activeRepo.Alias)"
+                               @onkeydown="e => OnClonePathKeyDown(e, activeRepo)" />
+
+                        <p class="setting__status" role="status">
+                            @if (string.IsNullOrWhiteSpace(activeRepo.CloneDirectory))
+                            {
+                                <span>No local clone directory configured yet.</span>
+                            }
+                            else
+                            {
+                                <span>Local clone: <code>@activeRepo.CloneDirectory</code></span>
+                            }
+                        </p>
+
+                        <div class="knowledge-folders" data-testid="knowledge-folder-settings">
+                            <h4 class="knowledge-folders__title">Knowledge-base folders</h4>
+                            <p class="setting__note">
+                                Each folder defaults to its conventional path in the repository root.
+                                Clear an override to return to the default, or turn a folder off for this repository.
+                            </p>
+
+                            @foreach (var folder in activeRepo.KnowledgeFolders)
+                            {
+                                var knowledgeInputId = $"knowledge-{activeRepo.Alias}-{folder.Key.TrimStart('.')}";
+
+                                <div class="knowledge-folder" data-testid="knowledge-folder-row">
+                                    <label class="knowledge-folder__toggle">
+                                        <input type="checkbox"
+                                               data-testid="knowledge-folder-enabled"
+                                               checked="@folder.Enabled"
+                                               @onchange="e => SetKnowledgeFolderEnabled(activeRepo, folder, e)" />
+                                        <span>@folder.DisplayName</span>
+                                        <code>@folder.Key</code>
+                                    </label>
+
+                                    <input class="setting__input"
+                                           id="@knowledgeInputId"
+                                           data-testid="knowledge-folder-path-input"
+                                           type="text"
+                                           spellcheck="false"
+                                           autocomplete="off"
+                                           disabled="@(!folder.Enabled)"
+                                           placeholder="@folder.DefaultRelativePath"
+                                           aria-label="@($"{activeRepo.FullName} {folder.DisplayName} folder path")"
+                                           value="@KnowledgePathDraft(activeRepo, folder)"
+                                           @oninput="e => _draftKnowledgePaths[KnowledgeDraftKey(activeRepo.Alias, folder.Key)] = e.Value?.ToString() ?? string.Empty"
+                                           @onchange="() => ApplyKnowledgeFolderPath(activeRepo, folder)"
+                                           @onkeydown="e => OnKnowledgePathKeyDown(e, activeRepo, folder)" />
+
+                                    <p class="knowledge-folder__status">
+                                        @if (!folder.Enabled)
                                         {
-                                            <span class="repo-card__badge">Primary</span>
+                                            <span>Off for this repository.</span>
+                                        }
+                                        else if (string.IsNullOrWhiteSpace(folder.Path))
+                                        {
+                                            <span>Uses <code>@folder.DefaultRelativePath</code> at the repository root.</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Uses <code>@folder.EffectivePath</code>.</span>
                                         }
                                     </p>
                                 </div>
-
-                                <label class="repo-card__primary">
-                                    <input type="radio"
-                                           name="primary-repository"
-                                           checked="@repo.IsPrimary"
-                                           @onchange="() => SetPrimaryRepository(repo.Alias)" />
-                                    Primary fallback
-                                </label>
-                            </header>
-
-                            <label class="setting__label" for="clone-@repo.Alias">Local clone directory</label>
-                            <input class="setting__input"
-                                   id="clone-@repo.Alias"
-                                   data-testid="repo-clone-directory-input"
-                                   type="text"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   placeholder="@($"C:\\Repos\\{repo.Name}")"
-                                   value="@CloneDirectoryDraft(repo)"
-                                   @oninput="e => _draftCloneDirectories[repo.Alias] = e.Value?.ToString() ?? string.Empty"
-                                   @onchange="() => ApplyCloneDirectory(repo.Alias)"
-                                   @onkeydown="e => OnClonePathKeyDown(e, repo)" />
-
-                            <p class="setting__status" role="status">
-                                @if (string.IsNullOrWhiteSpace(repo.CloneDirectory))
-                                {
-                                    <span>No local clone directory configured yet.</span>
-                                }
-                                else
-                                {
-                                    <span>Local clone: <code>@repo.CloneDirectory</code></span>
-                                }
-                            </p>
-
-                            <div class="knowledge-folders" data-testid="knowledge-folder-settings">
-                                <h4 class="knowledge-folders__title">Knowledge-base folders</h4>
-                                <p class="setting__note">
-                                    Each folder defaults to its conventional path in the repository root.
-                                    Clear an override to return to the default, or turn a folder off for this repository.
-                                </p>
-
-                                @foreach (var folder in repo.KnowledgeFolders)
-                                {
-                                    var knowledgeInputId = $"knowledge-{repo.Alias}-{folder.Key.TrimStart('.')}";
-
-                                    <div class="knowledge-folder" data-testid="knowledge-folder-row">
-                                        <label class="knowledge-folder__toggle">
-                                            <input type="checkbox"
-                                                   data-testid="knowledge-folder-enabled"
-                                                   checked="@folder.Enabled"
-                                                   @onchange="e => SetKnowledgeFolderEnabled(repo, folder, e)" />
-                                            <span>@folder.DisplayName</span>
-                                            <code>@folder.Key</code>
-                                        </label>
-
-                                        <input class="setting__input"
-                                               id="@knowledgeInputId"
-                                               data-testid="knowledge-folder-path-input"
-                                               type="text"
-                                               spellcheck="false"
-                                               autocomplete="off"
-                                               disabled="@(!folder.Enabled)"
-                                               placeholder="@folder.DefaultRelativePath"
-                                               aria-label="@($"{repo.FullName} {folder.DisplayName} folder path")"
-                                               value="@KnowledgePathDraft(repo, folder)"
-                                               @oninput="e => _draftKnowledgePaths[KnowledgeDraftKey(repo.Alias, folder.Key)] = e.Value?.ToString() ?? string.Empty"
-                                               @onchange="() => ApplyKnowledgeFolderPath(repo, folder)"
-                                               @onkeydown="e => OnKnowledgePathKeyDown(e, repo, folder)" />
-
-                                        <p class="knowledge-folder__status">
-                                            @if (!folder.Enabled)
-                                            {
-                                                <span>Off for this repository.</span>
-                                            }
-                                            else if (string.IsNullOrWhiteSpace(folder.Path))
-                                            {
-                                                <span>Uses <code>@folder.DefaultRelativePath</code> at the repository root.</span>
-                                            }
-                                            else
-                                            {
-                                                <span>Uses <code>@folder.EffectivePath</code>.</span>
-                                            }
-                                        </p>
-                                    </div>
-                                }
-                            </div>
-                        </article>
-                    }
-                </div>
+                            }
+                        </div>
+                    </article>
+                }
             }
         </section>
     }
@@ -377,6 +393,7 @@
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftKnowledgePaths = new(StringComparer.OrdinalIgnoreCase);
     private SettingsPage _activePage = SettingsPage.Repositories;
+    private string? _activeRepositoryAlias;
 
     private enum SettingsPage
     {
@@ -391,7 +408,16 @@
 
     private string SettingsTabSelected(SettingsPage page) => _activePage == page ? "true" : "false";
 
+    private GitHubRepositoryRef? ActiveRepository => FindActiveRepository();
+
+    private string RepositoryPageClass(GitHubRepositoryRef repo) =>
+        IsActiveRepository(repo) ? "repo-subpage repo-subpage--active" : "repo-subpage";
+
+    private string RepositoryPageSelected(GitHubRepositoryRef repo) => IsActiveRepository(repo) ? "true" : "false";
+
     private void ShowSettingsPage(SettingsPage page) => _activePage = page;
+
+    private void ShowRepositoryPage(string alias) => _activeRepositoryAlias = GitHubRepositoryRef.NormalizeAlias(alias);
 
     protected override async Task OnInitializedAsync()
     {
@@ -588,6 +614,35 @@
                 _draftKnowledgePaths[KnowledgeDraftKey(repo.Alias, folder.Key)] = folder.Path ?? string.Empty;
             }
         }
+
+        EnsureActiveRepositoryPage();
+    }
+
+    private GitHubRepositoryRef? FindActiveRepository()
+    {
+        if (GitHub.Repositories.Count == 0) return null;
+
+        if (!string.IsNullOrWhiteSpace(_activeRepositoryAlias))
+        {
+            var selected = GitHub.Repositories.FirstOrDefault(repo => string.Equals(repo.Alias, _activeRepositoryAlias, StringComparison.Ordinal));
+            if (selected is not null) return selected;
+        }
+
+        return GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories[0];
+    }
+
+    private bool IsActiveRepository(GitHubRepositoryRef repo) =>
+        string.Equals(FindActiveRepository()?.Alias, repo.Alias, StringComparison.Ordinal);
+
+    private void EnsureActiveRepositoryPage()
+    {
+        if (GitHub.Repositories.Count == 0)
+        {
+            _activeRepositoryAlias = null;
+            return;
+        }
+
+        _activeRepositoryAlias = FindActiveRepository()?.Alias;
     }
 
     private static string KnowledgeDraftKey(string alias, string folderKey) => $"{alias}|{folderKey}";
