@@ -1,22 +1,70 @@
-<figure class="diagram-view" data-testid="diagram-view">
-    <figcaption class="diagram-view__header">
-        <span class="diagram-view__title">@Title</span>
-        <span class="diagram-view__language">@Language</span>
+@namespace Backlog.Desktop.UI.Components
+
+<figure class="diagram-view" data-testid="diagram-view" aria-label="@AriaLabel">
+    <figcaption class="diagram-view__caption">
+        <span>@DiagramName</span>
+        @if (!string.IsNullOrWhiteSpace(Language))
+        {
+            <code>@Language</code>
+        }
     </figcaption>
+
     <div class="diagram-view__canvas" role="img" aria-label="@AriaLabel">
+        <div class="diagram-view__nodes" aria-hidden="true">
+            @foreach (var node in PreviewNodes)
+            {
+                <span class="diagram-view__node">@node</span>
+            }
+        </div>
         <pre class="diagram-view__source"><code>@Source</code></pre>
     </div>
 </figure>
 
 @code {
-    [Parameter]
-    public string Title { get; set; } = "Diagram";
+    [Parameter, EditorRequired]
+    public string Source { get; set; } = string.Empty;
 
     [Parameter]
     public string Language { get; set; } = "mermaid";
 
-    [Parameter, EditorRequired]
-    public string Source { get; set; } = string.Empty;
+    [Parameter]
+    public string? Title { get; set; }
 
-    private string AriaLabel => $"{Title} diagram source rendered in a reusable visualization panel";
+    private string DiagramName => !string.IsNullOrWhiteSpace(Title)
+        ? Title
+        : IsDiagram(Language) ? "Diagram" : "Code diagram";
+
+    private string AriaLabel => string.IsNullOrWhiteSpace(Language)
+        ? "Diagram source visualization"
+        : $"{Language} diagram source visualization";
+
+    private IReadOnlyList<string> PreviewNodes => ExtractPreviewNodes(Source);
+
+    public static bool IsDiagram(string? language) =>
+        language?.Trim().ToLowerInvariant() is "mermaid" or "mmd" or "plantuml" or "puml" or "graphviz" or "dot";
+
+    private static IReadOnlyList<string> ExtractPreviewNodes(string source)
+    {
+        var nodes = new List<string>();
+        foreach (var rawLine in source.Replace("\r\n", "\n").Split('\n'))
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith("%%", StringComparison.Ordinal) || line.StartsWith("'", StringComparison.Ordinal)) continue;
+
+            var labelStart = line.IndexOf('[', StringComparison.Ordinal);
+            var labelEnd = line.IndexOf(']', StringComparison.Ordinal);
+            if (labelStart >= 0 && labelEnd > labelStart)
+            {
+                nodes.Add(line[(labelStart + 1)..labelEnd].Trim('"', ' '));
+            }
+            else if (!line.Contains("--", StringComparison.Ordinal) && !line.Contains("->", StringComparison.Ordinal))
+            {
+                nodes.Add(line.Trim(';'));
+            }
+
+            if (nodes.Count == 4) break;
+        }
+
+        return nodes.Count == 0 ? ["Diagram source"] : nodes;
+    }
 }

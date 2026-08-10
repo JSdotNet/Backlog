@@ -143,6 +143,16 @@ public class MarkdownPreviewTests
         Assert.Equal("graph TD\n    A --> B", code.Text);
     }
 
+
+    [Fact]
+    public void Fenced_code_keeps_its_language()
+    {
+        var blocks = MarkdownPreview.Parse("```mermaid\ngraph TD\n    A[One] --> B[Two]\n```");
+
+        var code = Assert.IsType<MdCode>(Assert.Single(blocks));
+        Assert.Equal("mermaid", code.Language);
+        Assert.Contains("A[One]", code.Text);
+    }
     [Fact]
     public void Recognises_inline_emphasis_code_tags_and_links()
     {
