@@ -1,6 +1,7 @@
 @page "/"
 @implements IDisposable
 @inject BacklogDesktopState State
+@inject IJSRuntime JS
 
 @*
     One entry is one block of markdown. Not focused, it reads as a document;
@@ -16,6 +17,23 @@
             <span class="save-indicator__dot" aria-hidden="true"></span>
             @State.SaveStateLabel
         </div>
+
+        @* Monitoring is a deliberate act, not a background poll: the backlog has
+           to open instantly and offline, so nothing here waits on GitHub until
+           somebody asks it to. *@
+        @if (State.GitHubConfigured && State.HasLinkedRows)
+        {
+            <button type="button"
+                    class="icon-link"
+                    id="github-sync-button"
+                    data-testid="github-sync-button"
+                    disabled="@State.GitHubSyncing"
+                    title="Check GitHub for issue and pull request updates"
+                    aria-label="Check GitHub for issue and pull request updates"
+                    @onclick="() => State.SyncGitHubAsync()">
+                @(State.GitHubSyncing ? "…" : "⟳")
+            </button>
+        }
 
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
@@ -67,8 +85,8 @@
             {
                 var editing = ReferenceEquals(State.EditingRow, row);
 
-                <li class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)"
-                    @key="row.Key">
+                <li class="entry-group" @key="row.Key">
+                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
 
                     @RenderGrip(row, before: true, "top")
                     @RenderGrip(row, before: true, "left")
@@ -115,6 +133,82 @@
                                 <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
                             }
 
+                            @* Folding is about the sub-item cards below, so the
+                               control sits on the entry that owns them and says
+                               how many it is hiding. *@
+                            @if (row.PreviewSubItems.Count > 0 && !editing)
+                            {
+                                <button type="button"
+                                        class="entry-doc__fold"
+                                        id="fold-subitems-@row.Key"
+                                        data-testid="subitem-fold-button"
+                                        aria-expanded="@(row.SubItemsCollapsed ? "false" : "true")"
+                                        aria-controls="subitems-@row.Key"
+                                        aria-label="@(row.SubItemsCollapsed ? $"Show {row.PreviewSubItems.Count} sub-items" : $"Hide {row.PreviewSubItems.Count} sub-items")"
+                                        @onclick="() => State.ToggleSubItems(row)">
+                                    <span class="entry-doc__fold-chevron @(row.SubItemsCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
+                                    <span aria-hidden="true">@row.PreviewSubItems.Count</span>
+                                </button>
+                            }
+
+                            @* GitHub only ever appears on an entry whose area
+                               names a configured repository, or that has already
+                               been pushed — the integration stays invisible
+                               until it has been asked for. *@
+                            @if (State.GitHubConfigured)
+                            {
+                                var repository = State.RepositoryFor(row);
+
+                                @if (row.IssueLink is { } link)
+                                {
+                                    <a class="badge badge--gh badge--gh-@(GitHubStateClass(row.Snapshot?.Issue.State))"
+                                       data-testid="github-issue-badge"
+                                       href="@link.Url"
+                                       target="_blank"
+                                       rel="noopener"
+                                       title="@link.RepoFullName issue @link.Label">
+                                        @link.Label
+                                        <span class="badge__state">@GitHubStateLabel(row.Snapshot?.Issue.State)</span>
+                                    </a>
+
+                                    @if (row.Snapshot?.Headline is { } pull)
+                                    {
+                                        <a class="badge badge--gh badge--gh-@(GitHubStateClass(pull.State))"
+                                           data-testid="github-pr-badge"
+                                           href="@pull.Url"
+                                           target="_blank"
+                                           rel="noopener"
+                                           title="@pull.Title">
+                                            PR #@pull.Number
+                                            <span class="badge__state">@GitHubStateLabel(pull.State)</span>
+                                        </a>
+                                    }
+
+                                    <button type="button"
+                                            class="entry-doc__gh"
+                                            data-testid="github-refresh-button"
+                                            disabled="@row.GitHubBusy"
+                                            title="Check this issue on GitHub"
+                                            aria-label="Check this issue on GitHub"
+                                            @onmousedown:preventDefault="true"
+                                            @onclick="() => State.RefreshGitHubAsync(row)">
+                                        @(row.GitHubBusy ? "…" : "↻")
+                                    </button>
+                                }
+                                else if (repository is not null && row.IsPersisted)
+                                {
+                                    <button type="button"
+                                            class="entry-doc__gh entry-doc__gh--push"
+                                            data-testid="github-push-button"
+                                            disabled="@row.GitHubBusy"
+                                            title="Create an issue in @repository.FullName"
+                                            @onmousedown:preventDefault="true"
+                                            @onclick="() => State.PushToGitHubAsync(row)">
+                                        @(row.GitHubBusy ? "Pushing…" : "Push to GitHub")
+                                    </button>
+                                }
+                            }
+
                             @if (!row.IsPersisted)
                             {
                                 <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
@@ -135,6 +229,11 @@
                                 ✕
                             </button>
                         </div>
+
+                        @if (row.GitHubError is not null)
+                        {
+                            <p class="entry-doc__gh-error" data-testid="github-error" role="status">@row.GitHubError</p>
+                        }
 
                         @if (editing)
                         {
@@ -194,6 +293,77 @@
 
                     @RenderGrip(row, before: false, "right")
                     @RenderGrip(row, before: false, "bottom")
+                </div>
+
+                @* Sub-items are items, not paragraphs: they sit below the entry,
+                   indented under it, each one its own card that can be grabbed
+                   and re-ranked. Folded away, the count on the entry still says
+                   they are there. While the raw text is open they belong to the
+                   textarea, so the cards step aside. *@
+                @if (!editing && row.PreviewSubItems.Count > 0 && !row.SubItemsCollapsed)
+                {
+                    <ul class="subitem-list @(ReferenceEquals(State.SubItemDragRow, row) ? "subitem-list--dragging" : string.Empty)"
+                        id="subitems-@row.Key"
+                        data-testid="subitem-list">
+                        @for (var index = 0; index < row.PreviewSubItems.Count; index++)
+                        {
+                            var position = index;
+                            var subItem = row.PreviewSubItems[position];
+
+                            <li class="subitem-card @(subItem.Done ? "subitem-card--done" : string.Empty) @(State.IsDraggingSubItem(row, position) ? "subitem-card--dragged" : string.Empty)"
+                                @key="position"
+                                data-testid="entry-subitem">
+
+                                <button type="button"
+                                        class="subitem-card__grip"
+                                        id="subitem-grip-@row.Key-@position"
+                                        data-testid="subitem-grip"
+                                        data-drag-grip="@row.Key-@position"
+                                        draggable="true"
+                                        aria-label="Reorder sub-item — drag, or use the up and down arrow keys"
+                                        @ondragstart="() => State.BeginSubItemDrag(row, position)"
+                                        @ondragend="() => State.EndSubItemDrag()"
+                                        @ondragenter:preventDefault="true"
+                                        @ondragover:preventDefault="true"
+                                        @ondrop="() => State.DropSubItemAsync(row, position, true)"
+                                        @onkeydown="e => OnSubItemGripKeyDownAsync(row, position, e)">
+                                    <span class="subitem-card__grip-dots" aria-hidden="true"></span>
+                                </button>
+
+                                <div class="subitem-card__body">
+                                    <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
+                                    @if (subItem.Children.Count > 0)
+                                    {
+                                        <div class="subitem-card__notes">
+                                            <MarkdownView Blocks="subItem.Children" />
+                                        </div>
+                                    }
+                                </div>
+
+                                @* Same bargain as the entries: mid-drag the whole
+                                   card is the target, top half drops above and
+                                   bottom half below. *@
+                                @if (ReferenceEquals(State.SubItemDragRow, row) && State.SubItemDragIndex != position)
+                                {
+                                    <div class="subitem-card__drops" aria-hidden="true">
+                                        <div class="subitem-card__drop subitem-card__drop--before"
+                                             data-testid="subitem-drop-before"
+                                             data-drop-zone="@row.Key-@position"
+                                             @ondragenter:preventDefault="true"
+                                             @ondragover:preventDefault="true"
+                                             @ondrop="() => State.DropSubItemAsync(row, position, true)"></div>
+                                        <div class="subitem-card__drop subitem-card__drop--after"
+                                             data-testid="subitem-drop-after"
+                                             data-drop-zone="@row.Key-@position"
+                                             @ondragenter:preventDefault="true"
+                                             @ondragover:preventDefault="true"
+                                             @ondrop="() => State.DropSubItemAsync(row, position, false)"></div>
+                                    </div>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
                 </li>
             }
         </ul>
@@ -223,6 +393,21 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // A sub-item that was just moved with the keyboard has to take the caret
+        // with it, or the next press moves whatever slid into the old slot.
+        if (State.SubItemFocus is { } focus)
+        {
+            State.ConsumeSubItemFocus();
+            try
+            {
+                await JS.InvokeVoidAsync("backlogFocus", $"subitem-grip-{focus.Row.Key}-{focus.Index}");
+            }
+            catch (Exception)
+            {
+                // Losing the focus ring is not worth tearing down the page.
+            }
+        }
+
         if (!State.FocusPending || State.EditingRow is null) return;
 
         State.FocusPending = false;
@@ -286,11 +471,31 @@
         else if (e.Key == "ArrowDown") await State.MoveAsync(row, 1);
     }
 
+    private async Task OnSubItemGripKeyDownAsync(EntryRow row, int index, KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowUp") await State.MoveSubItemAsync(row, index, -1);
+        else if (e.Key == "ArrowDown") await State.MoveSubItemAsync(row, index, 1);
+    }
+
     private static string Humanize(string enumName)
     {
         var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
         return text.ToLowerInvariant();
     }
+
+    /// <summary>"never checked" is a real, distinct answer from "open" — the
+    /// badge says so rather than implying a state nobody has verified.</summary>
+    private static string GitHubStateLabel(GitHubItemState? state) => state switch
+    {
+        GitHubItemState.Open => "open",
+        GitHubItemState.Draft => "draft",
+        GitHubItemState.Merged => "merged",
+        GitHubItemState.Closed => "closed",
+        _ => "not checked"
+    };
+
+    private static string GitHubStateClass(GitHubItemState? state) =>
+        state?.ToString().ToLowerInvariant() ?? "unknown";
 
     public void Dispose()
     {

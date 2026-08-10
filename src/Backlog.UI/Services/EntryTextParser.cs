@@ -329,6 +329,97 @@ internal static class EntryTextParser
         return items;
     }
 
+    /// <summary>The lines one sub-item occupies in an entry's raw text —
+    /// <paramref name="End"/> is exclusive.</summary>
+    public sealed record SubItemSpan(int Start, int End);
+
+    /// <summary>
+    /// Finds the line range of every <c>##</c> sub-item in a block of raw entry
+    /// text. A sub-item owns everything written after its heading up to the next
+    /// heading of the same level or higher, which is exactly what the read view
+    /// hangs beneath it — so moving a span moves the sub-item together with its
+    /// notes. Headings inside fenced code are text, not structure.
+    /// </summary>
+    public static IReadOnlyList<SubItemSpan> LocateSubItems(string raw)
+    {
+        var lines = Normalize(raw).Split('\n');
+        var starts = new List<int>();
+        var ends = new List<int>();
+        var inFence = false;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence) continue;
+
+            var heading = HeadingRegex.Match(trimmed);
+            if (!heading.Success) continue;
+
+            var level = heading.Groups[1].Value.Length;
+            if (level > 2) continue;
+
+            // A heading at level 1 or 2 closes whatever sub-item was open; only
+            // a level-2 one opens a new sub-item.
+            if (starts.Count > ends.Count) ends.Add(i);
+            if (level == 2) starts.Add(i);
+        }
+
+        if (starts.Count > ends.Count) ends.Add(lines.Length);
+
+        var spans = new List<SubItemSpan>(starts.Count);
+        for (var i = 0; i < starts.Count; i++)
+        {
+            // Trailing blank lines are separators between sub-items, not part of
+            // one; leaving them in would multiply on every move.
+            var end = ends[i];
+            while (end > starts[i] + 1 && string.IsNullOrWhiteSpace(lines[end - 1])) end--;
+            spans.Add(new SubItemSpan(starts[i], end));
+        }
+
+        return spans;
+    }
+
+    /// <summary>
+    /// Rewrites raw entry text with the sub-item at <paramref name="from"/> moved
+    /// to index <paramref name="to"/>. Reordering is done on the text itself
+    /// rather than on the structured sub-items, because the text is the source of
+    /// truth — anything else would be undone by the next save.
+    /// </summary>
+    public static string MoveSubItem(string raw, int from, int to)
+    {
+        var normalized = Normalize(raw);
+        var spans = LocateSubItems(normalized);
+
+        if (from == to || from < 0 || to < 0 || from >= spans.Count || to >= spans.Count) return raw;
+
+        var lines = normalized.Split('\n');
+        var blocks = spans.Select(span => lines[span.Start..span.End]).ToList();
+        var moved = blocks[from];
+        blocks.RemoveAt(from);
+        blocks.Insert(to, moved);
+
+        var rebuilt = new List<string>(lines[..spans[0].Start]);
+        while (rebuilt.Count > 0 && string.IsNullOrWhiteSpace(rebuilt[^1]))
+        {
+            rebuilt.RemoveAt(rebuilt.Count - 1);
+        }
+
+        foreach (var block in blocks)
+        {
+            if (rebuilt.Count > 0) rebuilt.Add(string.Empty);
+            rebuilt.AddRange(block);
+        }
+
+        return string.Join('\n', rebuilt) + "\n";
+    }
+
     /// <summary>Syncs parsed sub-items onto the entry's structured sub-items by
     /// position — the typed text is the single source of truth; nothing outside
     /// this entry references a sub-item's id, so re-deriving identity from

@@ -16,7 +16,7 @@ document.addEventListener(
         event.dataTransfer.setData('text/plain', grip.getAttribute('data-drag-grip') ?? 'entry');
 
         // Drag the whole card, not the sliver of rail that was grabbed.
-        const card = grip.closest('.entry-doc');
+        const card = grip.closest('.subitem-card, .entry-doc');
         if (card && event.dataTransfer.setDragImage) {
             const bounds = card.getBoundingClientRect();
             event.dataTransfer.setDragImage(card, event.clientX - bounds.left, event.clientY - bounds.top);
@@ -55,3 +55,11 @@ document.addEventListener(
     },
     true
 );
+
+// Keyboard reordering has to carry the focus ring with the thing it moved;
+// after the list re-renders the element is a different node, so the caller
+// names it by id.
+window.backlogFocus = (id) => {
+    const element = document.getElementById(id);
+    if (element) element.focus();
+};
