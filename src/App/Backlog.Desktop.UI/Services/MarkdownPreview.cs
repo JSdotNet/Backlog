@@ -185,7 +185,7 @@ public static class MarkdownPreview
                 children.Add(blocks[index++]);
             }
 
-            grouped.Add(new MdSubItem(heading.Content, heading.Done ?? false, children));
+            grouped.Add(new MdSubItem(heading.Content, heading.Done ?? false, heading.Done is not null, children));
         }
 
         return grouped;
@@ -230,7 +230,7 @@ public sealed record MdHeading(int Level, IReadOnlyList<MdInline> Content, bool?
 
 /// <summary>A level-2 heading and everything written beneath it — the read
 /// view's rendering of a sub-item.</summary>
-public sealed record MdSubItem(IReadOnlyList<MdInline> Title, bool Done, IReadOnlyList<MdBlock> Children) : MdBlock;
+public sealed record MdSubItem(IReadOnlyList<MdInline> Title, bool Done, bool HasCheckbox, IReadOnlyList<MdBlock> Children) : MdBlock;
 
 public sealed record MdParagraph(IReadOnlyList<MdInline> Content) : MdBlock;
 

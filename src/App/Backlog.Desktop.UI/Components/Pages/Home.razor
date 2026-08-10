@@ -130,38 +130,35 @@
                                     <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
                                 }
 
-                                @if (row.HasExpandableContent && !editing)
-                                {
-                                    <button type="button"
-                                            class="entry-doc__fold"
-                                            id="fold-entry-@row.Key"
-                                            data-testid="entry-fold-button"
-                                            aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
-                                            aria-controls="entry-content-@row.Key"
-                                            aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
-                                            @onmousedown:preventDefault="true"
-                                            @onclick="() => State.ToggleEntry(row)">
-                                        <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
-                                        <span aria-hidden="true">@(row.EntryCollapsed ? "open" : "fold")</span>
-                                    </button>
-                                }
                             </span>
 
-                            @if (row.PreviewTags.Count > 0)
+                            @if (oneLine)
                             {
-                                <span class="entry-doc__tags">
-                                    @foreach (var tag in row.PreviewTags)
-                                    {
-                                        <span class="tag-chip" data-testid="entry-tag">#@tag</span>
-                                    }
-                                </span>
-                            }
-                            else
-                            {
-                                <span class="entry-doc__tags" aria-hidden="true"></span>
+                                @if (row.PreviewTags.Count > 0)
+                                {
+                                    <span class="entry-doc__tags">
+                                        @foreach (var tag in row.PreviewTags)
+                                        {
+                                            <span class="tag-chip" data-testid="entry-tag">#@tag</span>
+                                        }
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="entry-doc__tags" aria-hidden="true"></span>
+                                }
                             }
 
                             <span class="entry-doc__meta-end">
+                                @if (!oneLine && row.PreviewTags.Count > 0)
+                                {
+                                    <span class="entry-doc__tags entry-doc__tags--end">
+                                        @foreach (var tag in row.PreviewTags)
+                                        {
+                                            <span class="tag-chip" data-testid="entry-tag">#@tag</span>
+                                        }
+                                    </span>
+                                }
 
                             @* GitHub only ever appears on an entry whose area
                                names a configured repository, or that has already
@@ -291,14 +288,32 @@
                                  @onclick="() => State.BeginEdit(row)"
                                  @onkeydown="e => OnReadViewKeyDown(row, e)">
 
-                                @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
-                                {
-                                    <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
-                                }
-                                else
-                                {
-                                    <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
-                                }
+                                <div class="entry-doc__title-line">
+                                    @if (row.HasExpandableContent)
+                                    {
+                                        <button type="button"
+                                                class="entry-doc__fold"
+                                                id="fold-entry-@row.Key"
+                                                data-testid="entry-fold-button"
+                                                aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
+                                                aria-controls="entry-content-@row.Key"
+                                                aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
+                                                @onmousedown:preventDefault="true"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => State.ToggleEntry(row)">
+                                            <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
+                                        </button>
+                                    }
+
+                                    @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
+                                    {
+                                        <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
+                                    }
+                                    else
+                                    {
+                                        <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
+                                    }
+                                </div>
 
                                 @if (!row.UsesOneLineLayout)
                                 {
@@ -348,11 +363,24 @@
                                 </button>
 
                                 <div class="subitem-card__body">
-                                    <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
+                                    <div class="subitem-card__title-row">
+                                        @if (subItem.HasCheckbox)
+                                        {
+                                            <button type="button"
+                                                    class="md-check subitem-card__check @(subItem.Done ? "md-check--done" : string.Empty)"
+                                                    data-testid="subitem-checkbox"
+                                                    aria-pressed="@(subItem.Done ? "true" : "false")"
+                                                    aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                                    @onmousedown:preventDefault="true"
+                                                    @onclick:stopPropagation="true"
+                                                    @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "✔" : string.Empty)</button>
+                                        }
+                                        <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
+                                    </div>
                                     @if (subItem.Children.Count > 0)
                                     {
                                         <div class="subitem-card__notes">
-                                            <MarkdownView Blocks="subItem.Children" />
+                                            <MarkdownView Blocks="subItem.Children" OnTaskItemToggled="index => State.ToggleTaskItemAsync(row, index)" />
                                         </div>
                                     }
                                 </div>

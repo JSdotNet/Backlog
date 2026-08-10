@@ -343,6 +343,18 @@ public sealed class BacklogDesktopState : IDisposable
         Changed?.Invoke();
     }
 
+    public async Task ToggleSubItemAsync(EntryRow row, int subItemIndex)
+    {
+        var rewritten = EntryTextParser.ToggleSubItem(row.RawText, subItemIndex);
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+
+        CancelDebounce(row);
+        row.RawText = rewritten;
+        await SaveRowAsync(row, isFlush: true);
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
     public void BeginSubItemDrag(EntryRow row, int index)
     {
         SubItemDragRow = row;

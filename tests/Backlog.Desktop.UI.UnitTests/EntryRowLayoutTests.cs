@@ -63,4 +63,46 @@ public sealed class EntryRowLayoutTests
         Assert.Contains("- [ ] not a task", toggled);
         Assert.Contains("- [x] Real task", toggled);
     }
+
+    [Fact]
+    public void Sub_item_heading_checkboxes_toggle_in_the_raw_markdown()
+    {
+        const string raw =
+            "# Prepare review\n\n" +
+            "## [x] First sub-item\n\n" +
+            "## [ ] Second sub-item\n";
+
+        var toggled = EntryTextParser.ToggleSubItem(raw, 1);
+
+        Assert.Contains("## [x] First sub-item", toggled);
+        Assert.Contains("## [x] Second sub-item", toggled);
+    }
+
+    [Fact]
+    public void Plain_sub_item_headings_are_not_given_a_checkbox_when_toggled()
+    {
+        const string raw =
+            "# Prepare review\n\n" +
+            "## Plain sub-item\n";
+
+        var toggled = EntryTextParser.ToggleSubItem(raw, 0);
+
+        Assert.Equal(raw, toggled);
+    }
+
+    [Fact]
+    public void Rendered_sub_items_remember_whether_their_heading_had_a_checkbox()
+    {
+        var row = new EntryRow
+        {
+            RawText =
+                "# Prepare review\n\n" +
+                "## [ ] Checkbox sub-item\n\n" +
+                "## Plain sub-item\n"
+        };
+
+        Assert.True(row.PreviewSubItems[0].HasCheckbox);
+        Assert.False(row.PreviewSubItems[0].Done);
+        Assert.False(row.PreviewSubItems[1].HasCheckbox);
+    }
 }
