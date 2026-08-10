@@ -101,9 +101,8 @@ Description of the sub-item.
   `status` field uses `draft`, `ready`, `in-progress`, `done`, or `blocked` —
   it tracks task progress, since backlog items describe work to be executed.
 - For end-to-end work spanning planning through implementation, route
-  through `orch-feature` / `orch-bug` per
-  `.github/instructions/workflow-routing.instructions.md` rather than working
-  ad hoc from these files alone.
+  through `orch-feature` / `orch-bug` rather than working ad hoc from these
+  files alone.
 - Every Item and Sub-item must carry the metadata block described in
   `.github/instructions/chapter-metadata.instructions.md` (status,
   cross-folder tags, GitHub issue link) — required for the planned

@@ -10,7 +10,12 @@ See `.github/instructions/mcp-usage.instructions.md` for MCP server usage and au
 
 ## Agent usage
 
-See `.github/instructions/workflow-routing.instructions.md` for orchestration-skill and specialist-agent routing by task type.
+Orchestration routing (which `orch-*` skill or specialist agent handles which task type) is delivered globally by the `copilot-app` plugin; it is not restated in this repository. See `.github/instructions/context-loading.instructions.md` for the Backlog-specific policy on which knowledge folders a workflow may load, plus the repo-native `orch-*` entrypoints.
+
+## Orchestration configuration
+
+- `.github/copilot-model-selection.md` — per-category model overrides for orchestration runs.
+- `.github/copilot-orch-context.md` — repo startup and QA context. This repository has no runnable application, so QA validation is skipped.
 
 ## Naming
 

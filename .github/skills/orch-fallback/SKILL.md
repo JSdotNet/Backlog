@@ -1,12 +1,12 @@
 ---
 name: orch-fallback
-description: 'Generic orchestration entrypoint for this repository, used when a task has no dedicated orch-* skill. Routes the task to the closest specialist agent per workflow-routing.instructions.md, runs a minimal plan-execute-review workflow, and recommends creating a dedicated orch-* skill for the task category if it recurs.'
+description: 'Generic orchestration entrypoint for this repository, used when a task has no dedicated orch-* skill. Routes the task to the closest specialist agent per the plugin-provided orchestration routing, runs a minimal plan-execute-review workflow, and recommends creating a dedicated orch-* skill for the task category if it recurs.'
 ---
 
 # Orchestrate Fallback
 
-Use this skill whenever `.github/instructions/workflow-routing.instructions.md`
-has no dedicated orchestration skill for the requested task category. It keeps
+Use this skill whenever no dedicated orchestration skill — repo-native or
+`copilot-app` plugin-provided — covers the requested task category. It keeps
 the repository's orchestration-first policy intact by providing a minimal,
 generic workflow instead of delegating directly to a specialist agent.
 
@@ -16,7 +16,7 @@ generic workflow instead of delegating directly to a specialist agent.
 - Task category (e.g. testing, tooling, CI, misc script) so the closest
   specialist agent can be selected.
 - Confirmation that no existing `orch-*` skill (repo or plugin) already
-  covers this category — check `workflow-routing.instructions.md` first.
+  covers this category.
 
 ## Workflow Stages
 
@@ -26,7 +26,7 @@ generic workflow instead of delegating directly to a specialist agent.
 
 ### Stage 1: Routing Check
 - Confirm no dedicated `orch-*` skill (repo-native or plugin) matches the
-  task category in `workflow-routing.instructions.md`.
+  task category.
 - Pick the closest specialist agent for the task category (e.g.
   `csharp-coding:coding` for implementation, `architecture:architect` for
   architecture-adjacent work, `documentation:documentation` for docs).
@@ -94,4 +94,4 @@ canvas action contract.
 
 ## Reference
 
-- `.github/instructions/workflow-routing.instructions.md`
+- `.github/instructions/context-loading.instructions.md`

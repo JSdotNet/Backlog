@@ -117,4 +117,4 @@ canvas action contract.
 
 - `.github/instructions/tech.instructions.md`
 - `.github/instructions/chapter-metadata.instructions.md`
-- `.github/instructions/workflow-routing.instructions.md`
+- `.github/instructions/context-loading.instructions.md`

@@ -122,4 +122,4 @@ canvas action contract.
 
 - `.github/instructions/arc42.instructions.md`
 - `.github/instructions/chapter-metadata.instructions.md`
-- `.github/instructions/workflow-routing.instructions.md`
+- `.github/instructions/context-loading.instructions.md`
