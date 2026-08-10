@@ -38,7 +38,7 @@ public sealed record TechnologyKnowledgeView(
     string Summary,
     IReadOnlyList<TechnologyLayer> Layers,
     IReadOnlyList<TechnologyRelationship> Relationships,
-    IReadOnlyList<KnowledgeDiagram> Diagrams,
+    IReadOnlyList<TechnologyKnowledgeDiagram> Diagrams,
     TechnologyGraphStats Stats)
 {
     public bool Available => Location.Available;
@@ -80,7 +80,7 @@ public sealed record TechnologyNode(
 
 public sealed record TechnologyRelationship(string FromId, string FromLabel, string ToId, string ToLabel);
 
-public sealed record KnowledgeDiagram(string Title, string Language, string Source);
+public sealed record TechnologyKnowledgeDiagram(string Title, string Language, string Source);
 
 public sealed record TechnologyGraphStats(int Nodes, int Edges, IReadOnlyDictionary<string, int> NodesByStatus)
 {
@@ -114,9 +114,9 @@ internal static class TechnologyKnowledgeReader
             });
         }
 
-        var root = KnowledgeMarkdownParser.Parse(rootPath, File.ReadAllText(rootPath));
+        var root = TechnologyMarkdownParser.Parse(rootPath, File.ReadAllText(rootPath));
         var files = OrderedLayerFiles(folderPath, root.Metadata.Order);
-        var documents = files.Select(path => KnowledgeMarkdownParser.Parse(path, File.ReadAllText(path))).ToList();
+        var documents = files.Select(path => TechnologyMarkdownParser.Parse(path, File.ReadAllText(path))).ToList();
 
         var layers = documents.Select(document => ToLayer(document)).ToList();
         var nodes = layers.SelectMany(layer => layer.Nodes).ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase);
@@ -155,7 +155,7 @@ internal static class TechnologyKnowledgeReader
             .ToList();
     }
 
-    private static TechnologyLayer ToLayer(KnowledgeMarkdownDocument document)
+    private static TechnologyLayer ToLayer(TechnologyMarkdownDocument document)
     {
         var fileName = Path.GetFileName(document.Path);
         var title = document.Title.Length == 0 ? Path.GetFileNameWithoutExtension(fileName) : document.Title;
@@ -167,7 +167,7 @@ internal static class TechnologyKnowledgeReader
             [.. document.Chapters.Select(chapter => ToNode(fileName, title, chapter))]);
     }
 
-    private static TechnologyNode ToNode(string fileName, string layerTitle, KnowledgeMarkdownChapter chapter)
+    private static TechnologyNode ToNode(string fileName, string layerTitle, TechnologyMarkdownChapter chapter)
     {
         var id = $".tech/{fileName}#{Slug(chapter.Title)}";
 
@@ -228,26 +228,26 @@ internal static class TechnologyKnowledgeReader
     }
 }
 
-internal sealed record KnowledgeMarkdownDocument(
+internal sealed record TechnologyMarkdownDocument(
     string Path,
     string Title,
     KnowledgeMetadata Metadata,
     string Summary,
-    IReadOnlyList<KnowledgeMarkdownChapter> Chapters,
-    IReadOnlyList<KnowledgeDiagram> Diagrams);
+    IReadOnlyList<TechnologyMarkdownChapter> Chapters,
+    IReadOnlyList<TechnologyKnowledgeDiagram> Diagrams);
 
-internal sealed record KnowledgeMarkdownChapter(string Title, KnowledgeMetadata Metadata, string Summary);
+internal sealed record TechnologyMarkdownChapter(string Title, KnowledgeMetadata Metadata, string Summary);
 
-internal static class KnowledgeMarkdownParser
+internal static class TechnologyMarkdownParser
 {
-    public static KnowledgeMarkdownDocument Parse(string path, string markdown)
+    public static TechnologyMarkdownDocument Parse(string path, string markdown)
     {
         var lines = markdown.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
         var title = string.Empty;
         var metadata = KnowledgeMetadata.Empty;
         var summary = new List<string>();
-        var chapters = new List<KnowledgeMarkdownChapter>();
-        var diagrams = new List<KnowledgeDiagram>();
+        var chapters = new List<TechnologyMarkdownChapter>();
+        var diagrams = new List<TechnologyKnowledgeDiagram>();
 
         for (var index = 0; index < lines.Length; index++)
         {
@@ -282,7 +282,7 @@ internal static class KnowledgeMarkdownParser
                 var (block, next) = ReadFence(lines, index);
                 if (language.Length > 0)
                 {
-                    diagrams.Add(new KnowledgeDiagram(title.Length == 0 ? Path.GetFileName(path) : title, language, block));
+                    diagrams.Add(new TechnologyKnowledgeDiagram(title.Length == 0 ? Path.GetFileName(path) : title, language, block));
                 }
 
                 index = next;
@@ -295,7 +295,7 @@ internal static class KnowledgeMarkdownParser
             }
         }
 
-        return new KnowledgeMarkdownDocument(
+        return new TechnologyMarkdownDocument(
             path,
             title,
             metadata,
@@ -304,7 +304,7 @@ internal static class KnowledgeMarkdownParser
             diagrams);
     }
 
-    private static (KnowledgeMarkdownChapter Chapter, int Next) ReadChapter(string[] lines, int start)
+    private static (TechnologyMarkdownChapter Chapter, int Next) ReadChapter(string[] lines, int start)
     {
         var title = lines[start].TrimStart()[3..].Trim();
         var metadata = KnowledgeMetadata.Empty;
@@ -336,7 +336,7 @@ internal static class KnowledgeMarkdownParser
             index++;
         }
 
-        return (new KnowledgeMarkdownChapter(title, metadata, CleanSummary(body)), index);
+        return (new TechnologyMarkdownChapter(title, metadata, CleanSummary(body)), index);
     }
 
     private static (string Block, int ClosingLine) ReadFence(string[] lines, int start)
@@ -414,3 +414,4 @@ internal static class KnowledgeMarkdownParser
         return selected.Count == 0 ? string.Empty : string.Join(" ", selected);
     }
 }
+

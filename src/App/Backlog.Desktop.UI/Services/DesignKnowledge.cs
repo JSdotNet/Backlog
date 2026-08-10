@@ -151,16 +151,16 @@ public static class DesignKnowledgeParser
             sections);
     }
 
-    private static IReadOnlyList<KnowledgeBlock> ParseBlocks(string[] lines)
+    private static IReadOnlyList<DesignKnowledgeBlock> ParseBlocks(string[] lines)
     {
-        var blocks = new List<KnowledgeBlock>();
+        var blocks = new List<DesignKnowledgeBlock>();
         var paragraph = new List<string>();
         var index = 0;
 
         void FlushParagraph()
         {
             if (paragraph.Count == 0) return;
-            blocks.Add(new KnowledgeParagraph(MarkdownPreview.ParseInlines(string.Join(" ", paragraph))));
+            blocks.Add(new DesignKnowledgeParagraph(MarkdownPreview.ParseInlines(string.Join(" ", paragraph))));
             paragraph.Clear();
         }
 
@@ -194,8 +194,8 @@ public static class DesignKnowledgeParser
 
                 var source = string.Join('\n', code).TrimEnd();
                 blocks.Add(IsDiagramLanguage(language)
-                    ? new KnowledgeDiagram(language, source)
-                    : new KnowledgeCode(language, source));
+                    ? new DesignKnowledgeDiagram(language, source)
+                    : new DesignKnowledgeCode(language, source));
                 continue;
             }
 
@@ -216,7 +216,7 @@ public static class DesignKnowledgeParser
             if (TryParseHeading(line, out var heading) && heading.Level >= 3)
             {
                 FlushParagraph();
-                blocks.Add(new KnowledgeSubheading(heading.Level, heading.Text));
+                blocks.Add(new DesignKnowledgeSubheading(heading.Level, heading.Text));
                 index++;
                 continue;
             }
@@ -224,7 +224,7 @@ public static class DesignKnowledgeParser
             if (trimmed.StartsWith("> ", StringComparison.Ordinal))
             {
                 FlushParagraph();
-                blocks.Add(new KnowledgeQuote(MarkdownPreview.ParseInlines(trimmed[2..])));
+                blocks.Add(new DesignKnowledgeQuote(MarkdownPreview.ParseInlines(trimmed[2..])));
                 index++;
                 continue;
             }
@@ -232,7 +232,7 @@ public static class DesignKnowledgeParser
             if (trimmed is "---" or "***" or "___")
             {
                 FlushParagraph();
-                blocks.Add(new KnowledgeDivider());
+                blocks.Add(new DesignKnowledgeDivider());
                 index++;
                 continue;
             }
@@ -252,9 +252,9 @@ public static class DesignKnowledgeParser
         return blocks;
     }
 
-    private static bool TryParseList(string[] lines, ref int index, out KnowledgeList list)
+    private static bool TryParseList(string[] lines, ref int index, out DesignKnowledgeList list)
     {
-        list = new KnowledgeList(false, []);
+        list = new DesignKnowledgeList(false, []);
         var ordered = OrderedListRegex.Match(lines[index]).Success;
         var unordered = UnorderedListRegex.Match(lines[index]).Success;
         if (!ordered && !unordered) return false;
@@ -269,16 +269,16 @@ public static class DesignKnowledgeParser
             index++;
         }
 
-        list = new KnowledgeList(ordered, items);
+        list = new DesignKnowledgeList(ordered, items);
         return true;
     }
 
-    private static KnowledgeTable ParseTable(List<string> tableLines)
+    private static DesignKnowledgeTable ParseTable(List<string> tableLines)
     {
         var headers = SplitTableRow(tableLines[0]);
         var rows = tableLines.Skip(2).Select(SplitTableRow).Where(row => row.Count > 0).ToList();
         var isTokenTable = headers.Any(h => string.Equals(h, "Token", StringComparison.OrdinalIgnoreCase));
-        return new KnowledgeTable(headers, rows, isTokenTable);
+        return new DesignKnowledgeTable(headers, rows, isTokenTable);
     }
 
     private static List<string> SplitTableRow(string line)
@@ -305,11 +305,11 @@ public static class DesignKnowledgeParser
         return index;
     }
 
-    private static KnowledgeMeta TryParseMeta(string[] lines, ref int index)
+    private static DesignKnowledgeMeta TryParseMeta(string[] lines, ref int index)
     {
         if (index >= lines.Length || !lines[index].Trim().Equals("```meta", StringComparison.OrdinalIgnoreCase))
         {
-            return KnowledgeMeta.Empty;
+            return DesignKnowledgeMeta.Empty;
         }
 
         index++;
@@ -327,7 +327,7 @@ public static class DesignKnowledgeParser
         }
 
         if (index < lines.Length) index++;
-        return new KnowledgeMeta(fields);
+        return new DesignKnowledgeMeta(fields);
     }
 
     private static bool TryParseHeading(string line, out ParsedHeading heading)
@@ -371,22 +371,22 @@ public sealed record DesignKnowledgeFile(
     string FileName,
     string Title,
     string Summary,
-    KnowledgeMeta Meta,
+    DesignKnowledgeMeta Meta,
     IReadOnlyList<DesignKnowledgeSection> Sections)
 {
-    public IEnumerable<KnowledgeTable> TokenTables =>
-        Sections.SelectMany(section => section.Blocks.OfType<KnowledgeTable>()).Where(table => table.IsTokenTable);
+    public IEnumerable<DesignKnowledgeTable> TokenTables =>
+        Sections.SelectMany(section => section.Blocks.OfType<DesignKnowledgeTable>()).Where(table => table.IsTokenTable);
 }
 
 public sealed record DesignKnowledgeSection(
     string Heading,
     string Anchor,
-    KnowledgeMeta Meta,
-    IReadOnlyList<KnowledgeBlock> Blocks);
+    DesignKnowledgeMeta Meta,
+    IReadOnlyList<DesignKnowledgeBlock> Blocks);
 
-public sealed record KnowledgeMeta(IReadOnlyDictionary<string, string> Fields)
+public sealed record DesignKnowledgeMeta(IReadOnlyDictionary<string, string> Fields)
 {
-    public static KnowledgeMeta Empty { get; } = new(new Dictionary<string, string>());
+    public static DesignKnowledgeMeta Empty { get; } = new(new Dictionary<string, string>());
 
     public string Status => Fields.TryGetValue("status", out var status) ? status : "unknown";
 
@@ -409,20 +409,21 @@ public sealed record KnowledgeMeta(IReadOnlyDictionary<string, string> Fields)
     }
 }
 
-public abstract record KnowledgeBlock;
+public abstract record DesignKnowledgeBlock;
 
-public sealed record KnowledgeSubheading(int Level, string Text) : KnowledgeBlock;
+public sealed record DesignKnowledgeSubheading(int Level, string Text) : DesignKnowledgeBlock;
 
-public sealed record KnowledgeParagraph(IReadOnlyList<MdInline> Content) : KnowledgeBlock;
+public sealed record DesignKnowledgeParagraph(IReadOnlyList<MdInline> Content) : DesignKnowledgeBlock;
 
-public sealed record KnowledgeList(bool Ordered, IReadOnlyList<IReadOnlyList<MdInline>> Items) : KnowledgeBlock;
+public sealed record DesignKnowledgeList(bool Ordered, IReadOnlyList<IReadOnlyList<MdInline>> Items) : DesignKnowledgeBlock;
 
-public sealed record KnowledgeTable(IReadOnlyList<string> Headers, IReadOnlyList<IReadOnlyList<string>> Rows, bool IsTokenTable) : KnowledgeBlock;
+public sealed record DesignKnowledgeTable(IReadOnlyList<string> Headers, IReadOnlyList<IReadOnlyList<string>> Rows, bool IsTokenTable) : DesignKnowledgeBlock;
 
-public sealed record KnowledgeQuote(IReadOnlyList<MdInline> Content) : KnowledgeBlock;
+public sealed record DesignKnowledgeQuote(IReadOnlyList<MdInline> Content) : DesignKnowledgeBlock;
 
-public sealed record KnowledgeCode(string Language, string Text) : KnowledgeBlock;
+public sealed record DesignKnowledgeCode(string Language, string Text) : DesignKnowledgeBlock;
 
-public sealed record KnowledgeDiagram(string Language, string Source) : KnowledgeBlock;
+public sealed record DesignKnowledgeDiagram(string Language, string Source) : DesignKnowledgeBlock;
 
-public sealed record KnowledgeDivider : KnowledgeBlock;
+public sealed record DesignKnowledgeDivider : DesignKnowledgeBlock;
+

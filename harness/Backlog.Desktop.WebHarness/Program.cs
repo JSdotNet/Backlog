@@ -21,12 +21,14 @@ builder.Services.AddSingleton<DesignKnowledgeProvider>();
 builder.Services.AddSingleton<KnowledgeFolderSource>();
 builder.Services.AddSingleton<KnowledgeBacklog>();
 builder.Services.AddSingleton<TechnologyKnowledgeService>();
+builder.Services.AddSingleton<Arc42KnowledgeStore>();
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddScoped<DomainKnowledgeStore>();
 
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
+builder.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
 
 var app = builder.Build();
 
@@ -43,3 +45,4 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(Routes).Assembly);
 
 app.Run();
+

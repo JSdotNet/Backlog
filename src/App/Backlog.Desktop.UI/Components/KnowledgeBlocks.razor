@@ -2,13 +2,13 @@
 {
     switch (block)
     {
-        case KnowledgeSubheading heading:
+        case DesignKnowledgeSubheading heading:
             <h5 class="knowledge-subheading">@heading.Text</h5>
             break;
-        case KnowledgeParagraph paragraph:
+        case DesignKnowledgeParagraph paragraph:
             <p class="knowledge-p">@MarkdownRender.Inlines(paragraph.Content)</p>
             break;
-        case KnowledgeList list:
+        case DesignKnowledgeList list:
             if (list.Ordered)
             {
                 <ol class="knowledge-list">
@@ -28,10 +28,10 @@
                 </ul>
             }
             break;
-        case KnowledgeQuote quote:
+        case DesignKnowledgeQuote quote:
             <blockquote class="knowledge-quote">@MarkdownRender.Inlines(quote.Content)</blockquote>
             break;
-        case KnowledgeTable table:
+        case DesignKnowledgeTable table:
             <div class="knowledge-table-wrap @(table.IsTokenTable ? "knowledge-table-wrap--tokens" : string.Empty)">
                 <table class="knowledge-table">
                     <thead>
@@ -56,13 +56,13 @@
                 </table>
             </div>
             break;
-        case KnowledgeCode code:
-            <pre class="knowledge-code"><code>@code.Text</code></pre>
+        case DesignKnowledgeCode codeBlock:
+            <pre class="knowledge-code"><code>@codeBlock.Text</code></pre>
             break;
-        case KnowledgeDiagram diagram:
-            <DiagramView Title="@DiagramTitle" Language="@diagram.Language" Source="@diagram.Source" />
+        case DesignKnowledgeDiagram diagram:
+            <DiagramView Language="@diagram.Language" Source="@diagram.Source" />
             break;
-        case KnowledgeDivider:
+        case DesignKnowledgeDivider:
             <hr class="knowledge-divider" />
             break;
     }
@@ -70,8 +70,10 @@
 
 @code {
     [Parameter, EditorRequired]
-    public IReadOnlyList<KnowledgeBlock> Blocks { get; set; } = [];
+    public IReadOnlyList<DesignKnowledgeBlock> Blocks { get; set; } = [];
 
     [Parameter]
     public string DiagramTitle { get; set; } = "Diagram";
 }
+
+
