@@ -420,7 +420,7 @@
                 <header class="knowledge-stack__header">
                     <p class="knowledge-pane__eyebrow">Repository knowledge</p>
                     <h2>Knowledge base</h2>
-                    <p class="knowledge-pane__subtitle">Backlog, product, architecture, domain, and technology knowledge from the configured repository.</p>
+                    <p class="knowledge-pane__subtitle">Backlog, product, architecture, domain, technology, and instruction knowledge from the configured repository.</p>
                 </header>
                 <nav class="knowledge-stack__nav" aria-label="Knowledge sections">
                     <a href="#knowledge-backlog">Backlog</a>
@@ -428,12 +428,14 @@
                     <a href="#knowledge-arc42">Architecture</a>
                     <a href="#knowledge-domain">Domain</a>
                     <a href="#knowledge-tech">Technology</a>
+                    <a href="#knowledge-instructions">Instructions</a>
                 </nav>
                 <div class="knowledge-stack__section" id="knowledge-backlog">@RenderBacklogKnowledge()</div>
                 <div class="knowledge-stack__section" id="knowledge-design"><DesignKnowledgeView /></div>
                 <div class="knowledge-stack__section" id="knowledge-arc42"><Arc42KnowledgePanel /></div>
                 <div class="knowledge-stack__section" id="knowledge-domain"><DomainKnowledgePanel Compact="true" /></div>
                 <div class="knowledge-stack__section" id="knowledge-tech"><TechnologyKnowledgePanel /></div>
+                <div class="knowledge-stack__section" id="knowledge-instructions"><InstructionsKnowledgePanel /></div>
             </aside>
         }
     </main>
