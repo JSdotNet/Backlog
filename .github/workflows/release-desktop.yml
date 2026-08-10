@@ -6,6 +6,12 @@ on:
       - 'v*'
     branches:
       - main
+    paths:
+      - 'src/App/Backlog.Desktop/**'
+      - 'src/App/Backlog.Desktop.UI/**'
+      - 'build/Backlog.Desktop.appinstaller.template'
+      - 'build/New-AppInstaller.ps1'
+      - '.github/workflows/release-desktop.yml'
   workflow_dispatch:
     inputs:
       version:
