@@ -64,6 +64,7 @@ public static class MarkdownPreview
             if (trimmed.StartsWith("```", StringComparison.Ordinal))
             {
                 FlushAll();
+                var language = trimmed[3..].Trim();
                 var code = new List<string>();
                 i++;
                 while (i < lines.Length && !lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal))
@@ -72,7 +73,7 @@ public static class MarkdownPreview
                     i++;
                 }
 
-                blocks.Add(new MdCode(string.Join('\n', code)));
+                blocks.Add(new MdCode(string.Join('\n', code), string.IsNullOrWhiteSpace(language) ? null : language));
                 continue;
             }
 
@@ -242,7 +243,7 @@ public sealed record MdListItem(bool? Done, IReadOnlyList<MdInline> Content, int
 
 public sealed record MdQuote(IReadOnlyList<MdInline> Content) : MdBlock;
 
-public sealed record MdCode(string Text) : MdBlock;
+public sealed record MdCode(string Text, string? Language = null) : MdBlock;
 
 public sealed record MdDivider : MdBlock;
 
