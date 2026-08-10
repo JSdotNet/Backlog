@@ -36,42 +36,21 @@
             </button>
         }
 
+        <button type="button"
+                class="header-tool-toggle"
+                id="tools-toggle-button"
+                data-testid="tools-toggle-button"
+                aria-controls="installed-tools-content"
+                aria-expanded="@_toolsExpanded"
+                @onclick="OnToolsToggleAsync">
+            Tools
+        </button>
+
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
-    @* Areas on the left, because that is what you pick first — which pile am I
-       in. Status narrows what is already in view, so it sits on the right. *@
-    <div class="filter-bar">
-        <div class="filter-group filter-group--areas" role="radiogroup" aria-label="Filter by area">
-            @foreach (var area in State.AreaFilters)
-            {
-                <button type="button"
-                        class="chip chip--filter @(State.SelectedArea == area.Value ? "chip--active" : string.Empty)"
-                        data-testid="area-filter-option"
-                        role="radio"
-                        aria-checked="@(State.SelectedArea == area.Value ? "true" : "false")"
-                        @onclick="() => State.SetAreaFilter(area.Value)">
-                    @area.Label<span class="chip__count">@area.Count</span>
-                </button>
-            }
-        </div>
 
-        <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
-            @foreach (var filter in State.StatusFilters)
-            {
-                <button type="button"
-                        class="chip chip--filter @(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : string.Empty)"
-                        id="status-filter-@(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)"
-                        data-testid="status-filter-option"
-                        role="radio"
-                        aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
-                        @onclick="() => OnFilterChanged(filter.Wire)">
-                    @filter.Label
-                </button>
-            }
-        </div>
-    </div>
-    <section class="tools-panel" aria-labelledby="installed-tools-title">
+    <section class="tools-panel" aria-labelledby="installed-tools-title" data-testid="tools-panel">
         <button type="button"
                 class="tools-panel__summary"
                 aria-expanded="@_toolsExpanded"
@@ -79,10 +58,10 @@
                 @onclick="OnToolsToggleAsync">
             <span class="tools-panel__chevron" aria-hidden="true">@(_toolsExpanded ? "▾" : "▸")</span>
             <span>
-                <span id="installed-tools-title" class="tools-panel__title">Installed tools</span>
-                <span class="tools-panel__subtitle">Copilot plugins, repository tools, and MCP servers</span>
+                <span id="installed-tools-title" class="tools-panel__title">System tools</span>
+                <span class="tools-panel__subtitle">Manage Copilot plugins, repository tools, and MCP servers</span>
             </span>
-            <span class="tools-panel__count">@(_tools.Count == 0 ? "Not checked" : $"{_tools.Count} tools")</span>
+            <span class="tools-panel__count">@(_tools.Count == 0 ? "Check tools" : $"{_tools.Count} configured")</span>
         </button>
 
         @if (_toolsExpanded)
@@ -143,6 +122,39 @@
             </div>
         }
     </section>
+
+    @* Areas on the left, because that is what you pick first — which pile am I
+       in. Status narrows what is already in view, so it sits on the right. *@
+    <div class="filter-bar">
+        <div class="filter-group filter-group--areas" role="radiogroup" aria-label="Filter by area">
+            @foreach (var area in State.AreaFilters)
+            {
+                <button type="button"
+                        class="chip chip--filter @(State.SelectedArea == area.Value ? "chip--active" : string.Empty)"
+                        data-testid="area-filter-option"
+                        role="radio"
+                        aria-checked="@(State.SelectedArea == area.Value ? "true" : "false")"
+                        @onclick="() => State.SetAreaFilter(area.Value)">
+                    @area.Label<span class="chip__count">@area.Count</span>
+                </button>
+            }
+        </div>
+
+        <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
+            @foreach (var filter in State.StatusFilters)
+            {
+                <button type="button"
+                        class="chip chip--filter @(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : string.Empty)"
+                        id="status-filter-@(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)"
+                        data-testid="status-filter-option"
+                        role="radio"
+                        aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
+                        @onclick="() => OnFilterChanged(filter.Wire)">
+                    @filter.Label
+                </button>
+            }
+        </div>
+    </div>
 
     @if (State.FilteredRows.Count == 0)
     {
