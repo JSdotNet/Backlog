@@ -10,6 +10,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// exactly as the screen does — with GitHub itself stubbed out, so the test is
 /// about the wiring rather than the network.
 /// </summary>
+[Collection(BacklogStoreCollection.Name)]
 public sealed class GitHubPushFlowTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];
