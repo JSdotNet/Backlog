@@ -1,5 +1,6 @@
 using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.Services;
+using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
 using Microsoft.Extensions.DependencyInjection;

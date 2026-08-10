@@ -1,4 +1,5 @@
 using Backlog.Desktop.UI.Services;
+using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Backlog.DomainModels;
 

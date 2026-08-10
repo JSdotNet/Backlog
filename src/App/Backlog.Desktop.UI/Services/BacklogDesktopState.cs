@@ -1,5 +1,6 @@
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.DomainModels;
+using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.FileSystem;
 
