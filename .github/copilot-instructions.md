@@ -17,9 +17,15 @@ Orchestration routing (which `orch-*` skill or specialist agent handles which ta
 - `.github/copilot-model-selection.md` — per-category model overrides for orchestration runs.
 - `.github/copilot-orch-context.md` — repo startup and QA context. This repository has no runnable application, so QA validation is skipped.
 
+## Knowledge folders
+
+The `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/` convention — chapter structure, `meta` blocks, derived `_meta/` indexes, the knowledge graph canvas, and the `orch-arc42-content` / `orch-domain` / `orch-backlog` / `orch-tech` / `orch-design` orchestrations — is provided by the `knowledge-base` plugin (`JSdotNet/Copilot:plugins/knowledge-base`). Do not restate those authoring rules in this repository. Repository-specific policy that the plugin deliberately does not ship lives in `.github/instructions/context-loading.instructions.md`.
+
+The generator at `.github/tools/knowledge-meta/` and the `knowledge-meta` workflow are installed copies of the plugin's tooling; re-sync them from the plugin rather than editing them locally.
+
 ## Naming
 
-See `.github/instructions/naming.instructions.md` for file and folder naming, including the leading `_` that marks tooling assets such as `_meta/`.
+See `.github/instructions/naming.instructions.md` for repository-wide file and folder naming. Naming inside the knowledge folders is governed by the plugin's `knowledge-naming.instructions.md`.
 
 ## Guardrails
 

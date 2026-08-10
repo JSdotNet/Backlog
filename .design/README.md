@@ -106,6 +106,6 @@ status: active
 Files and chapters in `.design` use `status: draft | active | deprecated`
 (`draft` = proposed/unverified, `active` = current binding guidance,
 `deprecated` = superseded). Metadata blocks follow
-`.github/instructions/chapter-metadata.instructions.md` and
-`.github/instructions/design.instructions.md`: only `status` is
-required; `related` and `issue` are optional and omitted when empty.
+`knowledge-chapter-metadata.instructions.md` and
+`knowledge-design.instructions.md` from the `knowledge-base` plugin: only
+`status` is required; `related` and `issue` are optional and omitted when empty.

@@ -1,19 +1,19 @@
 # Knowledge metadata tooling
 
 Derives machine-readable indexes from the `meta` blocks embedded in
-`.arc42/`, `.domain/`, `.backlog/`, and `.tech/`:
+`.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/`:
 
 - **`graph.json`** — the reference graph between chapters and files.
 - **`index.json`** — the ordered reading outline of each area.
 
 Markdown stays canonical; these indexes are **derived output** — never edit
 them by hand. Placement and naming follow
-`.github/instructions/derived-artifacts.instructions.md`.
+the `knowledge-derived-artifacts` instructions.
 
 ## Usage
 
 ```bash
-# Regenerate every scope
+# Regenerate every adopted scope
 node .github/tools/knowledge-meta/build.mjs
 
 # One scope only
@@ -21,7 +21,15 @@ node .github/tools/knowledge-meta/build.mjs --scope .tech
 
 # Validate references without writing (exit 1 on a broken reference)
 node .github/tools/knowledge-meta/build.mjs --check
+
+# Point at a repository other than the working directory
+node .github/tools/knowledge-meta/build.mjs --root ../other-repo
 ```
+
+The repository root defaults to the working directory. Only knowledge folders
+that actually exist produce a scope, so a repository that adopts just `.domain`
+and `.arc42` never grows `_meta/` folders for the rest. The generator exits `2`
+when no knowledge folder is present at all.
 
 Run the generator whenever you add, rename, or re-link a chapter or file in a
 knowledge folder. `.github/workflows/knowledge-meta.yml` enforces both that
@@ -29,15 +37,16 @@ every reference resolves and that the committed indexes are current.
 
 ## Outputs
 
-Two artifacts per scope, each co-located with what it describes:
+Two artifacts per adopted scope, each co-located with what it describes:
 
 | Path | Scope |
 |---|---|
-| `_meta/graph.json`, `_meta/index.json` | repository-wide rollup across all knowledge folders |
+| `_meta/graph.json`, `_meta/index.json` | repository-wide rollup across all adopted knowledge folders |
 | `.arc42/_meta/*.json` | `.arc42` only |
 | `.domain/_meta/*.json` | `.domain` only |
 | `.backlog/_meta/*.json` | `.backlog` only |
 | `.tech/_meta/*.json` | `.tech` only |
+| `.design/_meta/*.json` | `.design` only |
 
 A scoped graph contains every node in its folder, plus any node **outside** it
 that an in-scope node references. Those boundary nodes are flagged
@@ -49,14 +58,13 @@ followed, so a scoped graph stays about its own folder.
 
 | File | Role |
 |---|---|
-| `graph.mjs` | Graph construction and scope projection. Imported by the CLI *and* by the `knowledge-graph` canvas, so the written indexes and the live view can never disagree. |
+| `metadata.mjs` | Parses the `meta` blocks — the single implementation of the schema defined by the `knowledge-chapter-metadata` instructions. Shared with the `knowledge-graph` canvas. |
+| `graph.mjs` | Graph construction, scope discovery, and scope projection. Imported by the CLI *and* by the `knowledge-graph` canvas, so the written indexes and the live view can never disagree. |
 | `outline.mjs` | Reading-order resolution from the `order` field on each directory's root document. |
 | `build.mjs` | CLI wrapper: writes both artifacts per scope, prints stats, exits non-zero on errors. |
 
-Metadata parsing itself lives in
-`.github/extensions/knowledge-canvas/metadata.mjs`, which is the single
-implementation of the schema defined in
-`.github/instructions/chapter-metadata.instructions.md`.
+This folder is self-contained — copy it into a repository as
+`.github/tools/knowledge-meta/` and it runs with no other files installed.
 
 ## Output shape: `graph.json`
 
@@ -139,14 +147,14 @@ sorting filenames.
   "problems": [],
   "entries": [
     { "type": "file", "name": "context-map.md", "path": ".domain/context-map.md",
-      "title": "Context Map: Backlog", "status": "draft", "root": true },
-    { "type": "directory", "name": "inbox", "path": ".domain/inbox",
-      "title": "Domain: Inbox",
+      "title": "Context Map", "status": "draft", "root": true },
+    { "type": "directory", "name": "ordering", "path": ".domain/ordering",
+      "title": "Domain: Ordering",
       "children": [
-        { "type": "file", "name": "domain.md", "path": ".domain/inbox/domain.md",
-          "title": "Domain: Inbox", "status": "draft", "root": true },
-        { "type": "file", "name": "features.md", "path": ".domain/inbox/features.md",
-          "title": "Features: Inbox", "status": "draft" }
+        { "type": "file", "name": "domain.md", "path": ".domain/ordering/domain.md",
+          "title": "Domain: Ordering", "status": "draft", "root": true },
+        { "type": "file", "name": "features.md", "path": ".domain/ordering/features.md",
+          "title": "Features: Ordering", "status": "draft" }
       ] }
   ]
 }
@@ -160,7 +168,7 @@ directory's **root document**, which always sorts first. A directory with no
 root document falls back to filename sort — which is why the numbered `.arc42`
 chapters need no declaration. Entries listed but missing are errors; entries
 present but unlisted are warnings and get appended alphabetically. See
-`.github/instructions/chapter-metadata.instructions.md`.
+the `knowledge-chapter-metadata` instructions.
 
 `_`-prefixed folders (such as `_meta/` itself) are tooling, not content, and
 are excluded from the outline.

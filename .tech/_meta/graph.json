@@ -6,26 +6,26 @@
     ".tech"
   ],
   "stats": {
-    "nodes": 60,
-    "edges": 129,
+    "nodes": 61,
+    "edges": 134,
     "nodesByFolder": {
-      "tech": 49,
+      "tech": 50,
       "arc42": 11
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 50
+      "chapter": 51
     },
     "nodesByStatus": {
       "candidate": 30,
-      "adopted": 19,
+      "adopted": 20,
       "active": 10,
       "accepted": 1
     },
     "edgesByType": {
-      "contains": 42,
-      "related": 47,
-      "depends-on": 40
+      "contains": 43,
+      "related": 49,
+      "depends-on": 42
     }
   },
   "problems": [],
@@ -915,6 +915,27 @@
       },
       {
         "data": {
+          "id": ".tech/tooling.md#knowledge-base-plugin",
+          "label": "Knowledge Base Plugin",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "knowledge-base-plugin",
+          "level": 2,
+          "line": 140,
+          "status": "adopted",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/tooling.md#github-copilot-cli",
+            ".tech/shared.md#nodejs"
+          ],
+          "related": [
+            ".tech/tooling.md#knowledge-canvas-extension"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/tooling.md#knowledge-canvas-extension",
           "label": "Knowledge Canvas Extension",
           "type": "chapter",
@@ -922,13 +943,16 @@
           "path": ".tech/tooling.md",
           "slug": "knowledge-canvas-extension",
           "level": 2,
-          "line": 140,
+          "line": 160,
           "status": "adopted",
           "kind": "tool",
           "depends-on": [
             ".tech/tooling.md#github-copilot-cli",
             ".tech/shared.md#nodejs",
             ".tech/shared.md#mermaid"
+          ],
+          "related": [
+            ".tech/tooling.md#knowledge-base-plugin"
           ]
         }
       },
@@ -941,7 +965,7 @@
           "path": ".tech/tooling.md",
           "slug": "aspire-cli",
           "level": 2,
-          "line": 155,
+          "line": 178,
           "status": "candidate",
           "kind": "tool",
           "depends-on": [
@@ -1445,6 +1469,14 @@
           "id": "contains:.tech/tooling.md->.tech/tooling.md#model-context-protocol-servers",
           "source": ".tech/tooling.md",
           "target": ".tech/tooling.md#model-context-protocol-servers",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#knowledge-base-plugin",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#knowledge-base-plugin",
           "type": "contains"
         }
       },
@@ -2130,6 +2162,30 @@
       },
       {
         "data": {
+          "id": "depends-on:.tech/tooling.md#knowledge-base-plugin->.tech/tooling.md#github-copilot-cli",
+          "source": ".tech/tooling.md#knowledge-base-plugin",
+          "target": ".tech/tooling.md#github-copilot-cli",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#knowledge-base-plugin->.tech/shared.md#nodejs",
+          "source": ".tech/tooling.md#knowledge-base-plugin",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#knowledge-base-plugin->.tech/tooling.md#knowledge-canvas-extension",
+          "source": ".tech/tooling.md#knowledge-base-plugin",
+          "target": ".tech/tooling.md#knowledge-canvas-extension",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.tech/tooling.md#knowledge-canvas-extension->.tech/tooling.md#github-copilot-cli",
           "source": ".tech/tooling.md#knowledge-canvas-extension",
           "target": ".tech/tooling.md#github-copilot-cli",
@@ -2150,6 +2206,14 @@
           "source": ".tech/tooling.md#knowledge-canvas-extension",
           "target": ".tech/shared.md#mermaid",
           "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#knowledge-canvas-extension->.tech/tooling.md#knowledge-base-plugin",
+          "source": ".tech/tooling.md#knowledge-canvas-extension",
+          "target": ".tech/tooling.md#knowledge-base-plugin",
+          "type": "related"
         }
       },
       {

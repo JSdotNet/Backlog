@@ -65,11 +65,12 @@ There is no startup to observe, so there are no logs, traces, or health endpoint
 
 A run is "healthy" here when the repository-level checks pass instead:
 
-- Governed Markdown keeps the metadata blocks required by
-  `.github/instructions/chapter-metadata.instructions.md`.
+- Governed Markdown keeps the `meta` blocks required by the `knowledge-base` plugin's
+  `knowledge-chapter-metadata.instructions.md`.
 - Instruction files keep valid `applyTo` and `description` frontmatter.
-- Derived `_meta/` artifacts are regenerated rather than hand-edited, per
-  `.github/instructions/derived-artifacts.instructions.md`.
+- Derived `_meta/` artifacts are regenerated rather than hand-edited, and
+  `node .github/tools/knowledge-meta/build.mjs --check` passes with a clean
+  `git diff` over `*_meta/*.json`.
 
 ## QA Depth
 
@@ -82,20 +83,13 @@ Markdown structure, metadata blocks, frontmatter validity, and cross-reference i
 
 ## Repo-Native Orchestration Skills
 
-These live under `.github/skills/` and **take precedence** over the plugin-provided `orch-*`
-skills for the task categories they cover.
+The knowledge-folder orchestrations (`orch-arc42-content`, `orch-domain`, `orch-backlog`,
+`orch-tech`, `orch-design`) are provided by the `knowledge-base` plugin, not by this
+repository. Only one skill under `.github/skills/` remains repo-native:
 
-- `orch-arc42-content` — direct content edits to `.arc42/` chapters (refreshing an existing
-  chapter, section, or diagram, not authoring a new ADR, TDR, or blueprint).
-- `orch-domain` — changes to `.domain/`: bounded-context domain model, features, model
-  diagrams, flows, dependencies, and naming.
-- `orch-backlog` — changes to `.backlog/`: durable work-item artifacts grouped by concern,
-  their Items and Sub-items, including publishing to GitHub Issues.
-- `orch-tech` — changes to `.tech/`: the technology graph of platforms, runtimes, frameworks,
-  libraries, packages, services, and tools.
-- `orch-design` — changes to `.design/`: UX principles, dark-mode color tokens,
-  typography/layout, interaction guidelines, content editing, accessibility, and component
-  libraries.
 - `orch-fallback` — generic entrypoint for any task category with no dedicated `orch-*` skill,
   repo-native or plugin-provided.
+
+`pr-jsdotnet` also lives under `.github/skills/`, but it is a pull-request workflow rather
+than an orchestration; see `.github/copilot-instructions.md`.
 

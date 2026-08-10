@@ -126,8 +126,8 @@ related: [".tech/ide.md#vs-code-extension-api"]
 
 The implementation language for the VS Code channel and repository tooling.
 
-- **Used for** — the VS Code extension and its webview UI, plus the local
-  knowledge-canvas Copilot extension in `.github/extensions/`.
+- **Used for** — the VS Code extension and its webview UI, plus the
+  `knowledge-meta` generator in `.github/tools/`.
 - **Why** — the only first-class option for VS Code extensibility.
 
 ## .NET MAUI

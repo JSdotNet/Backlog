@@ -37,9 +37,9 @@ not baseline context, per `.github/instructions/mcp-usage.instructions.md`.
 
 ## Repository-native orchestration entrypoints
 
-Backlog provides its own knowledge-folder `orch-*` skills, which take precedence over the
-plugin-provided ones for the categories they cover. They are listed under
-`## Repo-Native Orchestration Skills` in `.github/copilot-orch-context.md`.
+The knowledge-folder orchestrations are provided by the `knowledge-base` plugin. The only
+repo-native orchestration entrypoint left is `orch-fallback`, for task categories with no
+dedicated `orch-*` skill from either source. See `.github/copilot-orch-context.md`.
 
 ## Runtime and QA context
 
