@@ -916,6 +916,22 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line {
+    align-items: center;
+}
+
+.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    margin-left: var(--spacing-md);
+    min-width: 18rem;
+}
+
+.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,
+.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end {
+    flex-wrap: nowrap;
+}
+
 .entry-doc__title {
     font-family: var(--font-family-heading);
     font-size: var(--font-size-xl);
