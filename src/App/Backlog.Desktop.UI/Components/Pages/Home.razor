@@ -49,6 +49,8 @@
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
+    <main class="knowledge-layout" data-testid="knowledge-layout">
+        <section class="backlog-workspace" aria-label="Backlog entries">
 
     <section class="tools-panel" aria-labelledby="installed-tools-title" data-testid="tools-panel">
         <button type="button"
@@ -122,9 +124,6 @@
             </div>
         }
     </section>
-
-    <div class="knowledge-workspace">
-        <section class="knowledge-workspace__backlog" aria-label="Backlog">
 
     @* Areas on the left, because that is what you pick first — which pile am I
        in. Status narrows what is already in view, so it sits on the right. *@
@@ -404,10 +403,8 @@
     </button>
         </section>
 
-        <aside class="knowledge-workspace__knowledge" aria-label="Repository knowledge">
-            <DesignKnowledgeView />
-        </aside>
-    </div>
+        <Arc42KnowledgePanel />
+    </main>
 </div>
 
 @code {
