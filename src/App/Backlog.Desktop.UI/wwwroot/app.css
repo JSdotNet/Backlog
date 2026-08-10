@@ -345,7 +345,7 @@ h1, h2, h3 {
 
 .entry-doc--one-line .entry-doc__body {
     display: grid;
-    grid-template-columns: minmax(10rem, max-content) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) max-content;
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-xs) 0;
@@ -917,14 +917,16 @@ h1, h2, h3 {
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line {
-    align-items: center;
+    align-items: flex-start;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta {
-    flex: 1 1 auto;
+    flex: 1 1 22rem;
+    flex-wrap: nowrap;
     justify-content: flex-end;
     margin-left: var(--spacing-md);
-    min-width: 18rem;
+    min-width: 0;
+    padding-top: 1px;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,
@@ -938,6 +940,11 @@ h1, h2, h3 {
     line-height: var(--line-height-tight);
     margin: 0 0 var(--spacing-xs);
     min-width: 0;
+}
+
+.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__title {
+    flex: 1 1 auto;
+    margin-bottom: 0;
 }
 
 .entry-doc--one-line .entry-doc__title {
@@ -1143,7 +1150,9 @@ h1, h2, h3 {
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--color-text-primary);
-    margin-left: var(--spacing-sm);
+    justify-content: center;
+    margin-left: var(--spacing-md);
+    min-width: 4.25rem;
 }
 
 .badge--status-draft { background: var(--color-background-raised); color: var(--color-text-secondary); }
@@ -1165,6 +1174,8 @@ h1, h2, h3 {
     background: transparent;
     border: var(--border-width) solid var(--color-border);
     color: var(--color-text-secondary);
+    justify-content: center;
+    min-width: 3.875rem;
 }
 
 .badge--priority-high { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
@@ -1172,7 +1183,9 @@ h1, h2, h3 {
 .badge--priority-low { color: var(--color-text-disabled); }
 
 .badge--progress {
+    justify-content: center;
     font-variant-numeric: tabular-nums;
+    min-width: 2.25rem;
 }
 
 /* The area an entry is filed under — a quiet counterpart to the tag chips. */
