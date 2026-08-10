@@ -28,8 +28,8 @@ public class CopilotToolTests
     public async Task Pc_config_overrides_matching_catalog_tools_only()
     {
         var root = CreateTempToolConfigRoot();
-        var catalogPath = Path.Combine(root, "copilot-tools.json");
-        var pcConfigPath = Path.Combine(root, "copilot-tools", "dev-pc", "copilot-tools.json");
+        var catalogPath = Path.Combine(root, "tools", "copilot-tools.json");
+        var pcConfigPath = Path.Combine(root, "tools", "dev-pc", "copilot-tools.json");
         Directory.CreateDirectory(Path.GetDirectoryName(pcConfigPath)!);
         await File.WriteAllTextAsync(catalogPath, """
             {
@@ -67,7 +67,7 @@ public class CopilotToolTests
     public async Task Enabled_override_writes_minimal_pc_config()
     {
         var root = CreateTempToolConfigRoot();
-        var catalogPath = Path.Combine(root, "copilot-tools.json");
+        var catalogPath = Path.Combine(root, "tools", "copilot-tools.json");
         await File.WriteAllTextAsync(catalogPath, """
             {
               "plugins": [
@@ -97,7 +97,7 @@ public class CopilotToolTests
     private static string CreateTempToolConfigRoot()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
+        Directory.CreateDirectory(Path.Combine(path, "tools"));
         return path;
     }
 }

@@ -74,8 +74,8 @@ public sealed record CopilotToolActionResult(bool Succeeded, string Message)
 public sealed record CopilotToolConfigurationPaths(string CatalogPath, string PcConfigPath)
 {
     private const string DefaultRepositoryRoot = "%USERPROFILE%\\.copilot\\repos\\Backlog";
+    private const string ToolFolderName = "tools";
     private const string CatalogFileName = "copilot-tools.json";
-    private const string PcConfigFolderName = "copilot-tools";
 
     public static CopilotToolConfigurationPaths CreateDefault(string? machineName = null) =>
         FromRepositoryRoot(DefaultRepositoryRoot, machineName);
@@ -86,17 +86,19 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
         var pcName = NormalizeMachineName(machineName ?? Environment.MachineName);
 
         return new CopilotToolConfigurationPaths(
-            Path.Combine(expandedRoot, CatalogFileName),
-            Path.Combine(expandedRoot, PcConfigFolderName, pcName, CatalogFileName));
+            Path.Combine(expandedRoot, ToolFolderName, CatalogFileName),
+            Path.Combine(expandedRoot, ToolFolderName, pcName, CatalogFileName));
     }
 
     public static CopilotToolConfigurationPaths FromCatalogPath(string catalogPath, string? machineName = null)
     {
         var expandedCatalog = Environment.ExpandEnvironmentVariables(catalogPath);
-        return FromRepositoryRoot(Path.GetDirectoryName(expandedCatalog) ?? Environment.CurrentDirectory, machineName) with
-        {
-            CatalogPath = expandedCatalog
-        };
+        var toolRoot = Path.GetDirectoryName(expandedCatalog) ?? Environment.CurrentDirectory;
+        var pcName = NormalizeMachineName(machineName ?? Environment.MachineName);
+
+        return new CopilotToolConfigurationPaths(
+            expandedCatalog,
+            Path.Combine(toolRoot, pcName, CatalogFileName));
     }
 
     private static string NormalizeMachineName(string machineName)
