@@ -35,6 +35,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
         builder.Services.AddSingleton<CopilotCliIntegration>();
         builder.Services.AddSingleton<BacklogDesktopState>();
+        builder.Services.AddSingleton<DomainKnowledgeStore>();
 
         // The MSIX head can manage its own updates when packaged; it degrades to
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is
@@ -75,4 +76,3 @@ public static class MauiProgram
         }
     }
 }
-
