@@ -15,9 +15,6 @@ public sealed class AppFeatureSettingsStore
     public const string RepositoryKnowledge = "repository-knowledge";
     public const string KnowledgeSections = "knowledge-sections";
     public const string SystemTools = "system-tools";
-    public const string Instructions = "instructions";
-    public const string Updates = "updates";
-    public const string Repositories = "repositories";
     public const string GitHubIntegration = "github-integration";
     public const string CopilotCli = "copilot-cli";
 
@@ -58,13 +55,10 @@ public sealed class AppFeatureSettingsStore
     [
         new(Backlog, "Backlog", "Create, edit, filter, reorder, and store backlog entries.", AlwaysEnabled: true),
         new(RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
-        new(KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane."),
+        new(KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
         new(SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers."),
-        new(Instructions, "Instructions", "Open the repository instruction browser."),
-        new(Updates, "Updates", "Check for app updates and install them when the host supports it."),
-        new(Repositories, "Repositories", "Configure repositories, clone directories, and knowledge-base folder locations."),
         new(GitHubIntegration, "GitHub integration", "Configure GitHub access, push entries to issues, and refresh issue or pull request state."),
-        new(CopilotCli, "Ask Copilot", "Start GitHub Copilot CLI from a persisted backlog entry.")
+        new(CopilotCli, "Copilot CLI", "Start GitHub Copilot CLI from a persisted backlog entry.")
     ];
 
     public bool IsEnabled(string key)

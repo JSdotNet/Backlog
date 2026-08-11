@@ -479,8 +479,7 @@
     private bool IsSettingsPageAvailable(SettingsPage page) => page switch
     {
         SettingsPage.Features or SettingsPage.Storage => true,
-        SettingsPage.Updates => Features.IsEnabled(AppFeatureSettingsStore.Updates),
-        SettingsPage.Repositories => Features.IsEnabled(AppFeatureSettingsStore.Repositories),
+        SettingsPage.Updates or SettingsPage.Repositories => true,
         SettingsPage.GitHubAccess => Features.IsEnabled(AppFeatureSettingsStore.GitHubIntegration),
         _ => false
     };

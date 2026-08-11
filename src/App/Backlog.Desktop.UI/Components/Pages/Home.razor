@@ -64,7 +64,7 @@
             </button>
         }
 
-        @if (IsFeatureEnabled(AppFeatureSettingsStore.Instructions))
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.KnowledgeSections))
         {
             <a class="header-link" href="instructions" data-testid="instructions-link">Instructions</a>
         }
@@ -792,7 +792,7 @@
                             title="Start GitHub Copilot CLI for this entry"
                             @onmousedown:preventDefault="true"
                             @onclick="() => State.StartCopilotCliAsync(row)">
-                        @(row.CopilotBusy ? "Starting..." : "Ask Copilot")
+                        @(row.CopilotBusy ? "Starting..." : "Copilot CLI")
                     </button>
                 }
 

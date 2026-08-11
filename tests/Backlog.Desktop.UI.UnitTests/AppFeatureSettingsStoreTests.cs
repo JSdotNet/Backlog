@@ -62,16 +62,17 @@ public sealed class AppFeatureSettingsStoreTests
                 disabledFeatures = new[]
                 {
                     AppFeatureSettingsStore.Backlog,
+                    AppFeatureSettingsStore.GitHubIntegration,
                     "retired-feature",
-                    AppFeatureSettingsStore.Updates
+                    "updates",
+                    "repositories"
                 }
             }));
 
             var store = new AppFeatureSettingsStore(path);
 
             Assert.True(store.IsEnabled(AppFeatureSettingsStore.Backlog));
-            Assert.False(store.IsEnabled(AppFeatureSettingsStore.Updates));
-            Assert.Equal([AppFeatureSettingsStore.Updates], store.Current.DisabledFeatures);
+            Assert.Equal([AppFeatureSettingsStore.GitHubIntegration], store.Current.DisabledFeatures);
         }
         finally
         {
