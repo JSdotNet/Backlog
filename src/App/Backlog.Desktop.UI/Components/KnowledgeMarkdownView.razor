@@ -1,0 +1,9 @@
+<KnowledgeBlocks Blocks="@Blocks" DiagramTitle="@DiagramTitle" />
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<KnowledgeBlock> Blocks { get; set; } = [];
+
+    [Parameter]
+    public string DiagramTitle { get; set; } = "Architecture diagram";
+}

@@ -12,8 +12,6 @@ public sealed class CopilotCliIntegrationTests : IDisposable
 
     public void Dispose()
     {
-        new BacklogStore().ResetToDefault();
-
         foreach (var dir in _tempDirs.Where(Directory.Exists))
         {
             try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
@@ -79,7 +77,7 @@ public sealed class CopilotCliIntegrationTests : IDisposable
         var root = Path.Combine(Path.GetTempPath(), "backlog-copilot-flow", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
 
-        var store = new BacklogStore();
+        var store = new BacklogStore(Path.Combine(root, "settings"));
         Assert.Null(store.TryUseRoot(root));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));

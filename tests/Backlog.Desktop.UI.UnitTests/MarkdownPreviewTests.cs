@@ -130,11 +130,32 @@ public class MarkdownPreviewTests
 
         var code = Assert.IsType<MdCode>(Assert.Single(blocks));
         Assert.Equal("# not a heading\n- not a list", code.Text);
+        Assert.Equal(string.Empty, code.Language);
     }
 
 
     [Fact]
     public void Fenced_code_keeps_its_language()
+    {
+        var blocks = MarkdownPreview.Parse("```mermaid\ngraph TD\n```");
+
+        var code = Assert.IsType<MdCode>(Assert.Single(blocks));
+        Assert.Equal("mermaid", code.Language);
+        Assert.Equal("graph TD", code.Text);
+    }
+    [Fact]
+    public void Preserves_fenced_code_language()
+    {
+        var blocks = MarkdownPreview.Parse("```mermaid\ngraph TD\n    A --> B\n```");
+
+        var code = Assert.IsType<MdCode>(Assert.Single(blocks));
+        Assert.Equal("mermaid", code.Language);
+        Assert.Equal("graph TD\n    A --> B", code.Text);
+    }
+
+
+    [Fact]
+    public void Fenced_diagram_code_keeps_its_language_and_source()
     {
         var blocks = MarkdownPreview.Parse("```mermaid\ngraph TD\n    A[One] --> B[Two]\n```");
 
