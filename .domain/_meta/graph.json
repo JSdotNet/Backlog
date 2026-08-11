@@ -6,25 +6,26 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 280,
-    "edges": 392,
+    "nodes": 283,
+    "edges": 397,
     "nodesByFolder": {
-      "domain": 272,
+      "domain": 275,
       "arc42": 8
     },
     "nodesByType": {
       "file": 60,
-      "chapter": 188,
-      "heading": 32
+      "chapter": 190,
+      "heading": 33
     },
     "nodesByStatus": {
-      "draft": 240,
-      "none": 32,
+      "draft": 241,
+      "idea": 1,
+      "none": 33,
       "active": 8
     },
     "edgesByType": {
-      "contains": 212,
-      "related": 162,
+      "contains": 215,
+      "related": 164,
       "depends-on": 18
     }
   },
@@ -2546,6 +2547,38 @@
       },
       {
         "data": {
+          "id": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "label": "Sub-feature: AI vendor usage import",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/features.md",
+          "slug": "sub-feature-ai-vendor-usage-import",
+          "level": 3,
+          "line": 49,
+          "status": "draft",
+          "related": [
+            ".domain/productivity/dependencies.md#outbound-dependencies"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/features.md#sub-feature-local-usage-accumulation",
+          "label": "Sub-feature: Local usage accumulation",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/features.md",
+          "slug": "sub-feature-local-usage-accumulation",
+          "level": 3,
+          "line": 63,
+          "status": "idea",
+          "related": [
+            ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/productivity/features.md#feature-personal-productivity-dashboard",
           "label": "Feature: Personal productivity dashboard",
           "type": "chapter",
@@ -2553,7 +2586,7 @@
           "path": ".domain/productivity/features.md",
           "slug": "feature-personal-productivity-dashboard",
           "level": 2,
-          "line": 49,
+          "line": 87,
           "status": "draft",
           "related": [
             ".domain/monitoring/features.md#feature-multi-layer-dashboards"
@@ -3814,6 +3847,18 @@
           "slug": "signal-payload",
           "level": 4,
           "line": 41
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/dependencies.md#outbound-dependencies",
+          "label": "Outbound dependencies",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/productivity/dependencies.md",
+          "slug": "outbound-dependencies",
+          "level": 2,
+          "line": 11
         }
       },
       {
@@ -5177,6 +5222,22 @@
           "id": "contains:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/productivity/features.md#sub-feature-time-saved-estimates",
           "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
           "target": ".domain/productivity/features.md#sub-feature-time-saved-estimates",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "target": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/productivity/features.md#sub-feature-local-usage-accumulation",
+          "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "target": ".domain/productivity/features.md#sub-feature-local-usage-accumulation",
           "type": "contains"
         }
       },
@@ -6729,6 +6790,30 @@
           "id": "related:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/backlog/domain.md#domain-event-aiworklogged",
           "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
           "target": ".domain/backlog/domain.md#domain-event-aiworklogged",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/dependencies.md->.domain/productivity/dependencies.md#outbound-dependencies",
+          "source": ".domain/productivity/dependencies.md",
+          "target": ".domain/productivity/dependencies.md#outbound-dependencies",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/features.md#sub-feature-ai-vendor-usage-import->.domain/productivity/dependencies.md#outbound-dependencies",
+          "source": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "target": ".domain/productivity/dependencies.md#outbound-dependencies",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/features.md#sub-feature-local-usage-accumulation->.domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "source": ".domain/productivity/features.md#sub-feature-local-usage-accumulation",
+          "target": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
           "type": "related"
         }
       },

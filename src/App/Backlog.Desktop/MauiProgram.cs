@@ -1,6 +1,7 @@
 using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.Services;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
@@ -34,6 +35,16 @@ public static class MauiProgram
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
         builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+        builder.Services.AddSingleton<ICopilotUsageClient>(sp => new CopilotUsageClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+
+        // Claude usage reporting is registered unconditionally; it reports
+        // itself unavailable until an Admin API key is configured, and the
+        // "usage-metrics" feature decides whether anything asks it.
+        builder.Services.AddSingleton<ClaudeSettingsStore>();
+        builder.Services.AddHttpClient<IClaudeTransport, ClaudeAdminTransport>();
+        builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
+            sp.GetRequiredService<IClaudeTransport>(),
+            sp.GetRequiredService<ClaudeSettingsStore>()));
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<DesignKnowledgeProvider>();
         builder.Services.AddSingleton<KnowledgeFolderSource>();

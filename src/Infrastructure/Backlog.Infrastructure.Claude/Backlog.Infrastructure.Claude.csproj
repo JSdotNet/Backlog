@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Cross-cutting Anthropic Claude adapter. Reads organization usage and cost
+    reports from the Claude Admin API so productivity features never deal with
+    admin keys, paging cursors, or report JSON themselves.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Backlog.Infrastructure.Claude</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The settings people type and the JSON Anthropic answers with are both
+         worth testing directly. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Claude.UnitTests" />
+  </ItemGroup>
+
+</Project>
