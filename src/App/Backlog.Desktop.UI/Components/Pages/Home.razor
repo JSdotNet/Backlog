@@ -300,7 +300,7 @@
                         }
                         @if (editing)
                         {
-                            <div class="grow-wrap" data-replicated-value="@(row.RawText + "\n")">
+                            <div class="grow-wrap" data-replicated-value="@(State.EntryEditText(row) + "\n")">
                                 <textarea class="entry-doc__editor"
                                           id="entry-raw-@row.Key"
                                           data-testid="entry-raw-input"
@@ -310,7 +310,7 @@
                                           @oninput="e => State.OnRawTextInput(row, e.Value?.ToString() ?? string.Empty)"
                                           @onkeydown="e => OnEditorKeyDownAsync(row, e)"
                                           @onfocus="() => FocusTextEntry(row)"
-                                          @onblur="() => OnEditorBlurAsync(row)">@row.RawText</textarea>
+                                          @onblur="() => OnEditorBlurAsync(row)">@State.EntryEditText(row)</textarea>
 
                                 @* Answers "which one is the status?" by simply
                                    saying so, live, from the same parse the save
@@ -389,9 +389,9 @@
                 @* Sub-items are items, not paragraphs: they sit below the entry,
                    indented under it, each one its own card that can be grabbed
                    and re-ranked. Folded away, the count on the entry still says
-                   they are there. While the raw text is open they belong to the
-                   textarea, so the cards step aside. *@
-                @if (!editing && row.PreviewSubItems.Count > 0 && !row.EntryCollapsed)
+                   they are there. Parent editing is scoped to the parent chapter,
+                   so sub-item cards remain visible below it. *@
+                @if (row.PreviewSubItems.Count > 0 && !row.EntryCollapsed)
                 {
                     <ul class="subitem-list @(ReferenceEquals(State.SubItemDragRow, row) ? "subitem-list--dragging" : string.Empty)"
                         id="subitems-@row.Key"
@@ -402,7 +402,7 @@
                             var subItem = row.PreviewSubItems[position];
                             var editingSubItem = State.IsEditingSubItem(row, position);
 
-                            <li class="subitem-card @(subItem.Done ? "subitem-card--done" : string.Empty) @(editingSubItem ? "subitem-card--editing" : string.Empty) @(State.IsDraggingSubItem(row, position) ? "subitem-card--dragged" : string.Empty)"
+                            <li class="subitem-card subitem-card--level-@subItem.Level @(subItem.Done ? "subitem-card--done" : string.Empty) @(editingSubItem ? "subitem-card--editing" : string.Empty) @(State.IsDraggingSubItem(row, position) ? "subitem-card--dragged" : string.Empty)"
                                 @key="position"
                                 data-testid="entry-subitem">
 

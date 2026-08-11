@@ -194,10 +194,15 @@ public sealed class BacklogDesktopState : IDisposable
         FocusPending = true;
     }
 
+    public string EntryEditText(EntryRow row) =>
+        ReferenceEquals(EditingRow, row) ? EntryTextParser.GetParentText(row.RawText) : row.RawText;
+
     /// <summary>Called on every keystroke; schedules a debounced parse+save.</summary>
     public void OnRawTextInput(EntryRow row, string value)
     {
-        row.RawText = value;
+        row.RawText = ReferenceEquals(EditingRow, row)
+            ? EntryTextParser.ReplaceParentText(row.RawText, value)
+            : value;
         ScheduleDebouncedSave(row);
     }
 

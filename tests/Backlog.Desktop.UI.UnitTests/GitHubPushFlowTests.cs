@@ -159,6 +159,32 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task Editing_parent_entry_updates_only_the_parent_chapter()
+    {
+        var harness = Build("JSdotNet/Backlog");
+        var row = await WriteEntryAsync(harness.State,
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@backlog`\n\n" +
+            "Old parent notes.\n\n" +
+            "## Child\n" +
+            "Keep child.\n\n" +
+            "### Nested\n" +
+            "Keep nested.\n");
+
+        harness.State.BeginEdit(row);
+        Assert.DoesNotContain("## Child", harness.State.EntryEditText(row));
+
+        harness.State.OnRawTextInput(row,
+            "# Parent\n`task` `*medium` `!ready` `@backlog`\n\nNew parent notes.");
+        await harness.State.EndEditAsync(row);
+
+        Assert.Contains("New parent notes.", row.RawText);
+        Assert.DoesNotContain("Old parent notes.", row.RawText);
+        Assert.Contains("## Child\nKeep child.", row.RawText);
+        Assert.Contains("### Nested\nKeep nested.", row.RawText);
+    }
+
+    [Fact]
     public async Task A_sub_item_push_uses_the_parent_repository()
     {
         var harness = Build("backlog = JSdotNet/Backlog", "other = someone/else");

@@ -257,6 +257,7 @@ internal static class EntryTextParser
 
         return new Metadata(type, priority, status, area, metadataTags.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
     }
+
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
     /// already ignores fences; a <c>#tag</c> written inside a code sample is
     /// text for the same reason a <c>#</c> heading there is.</summary>
@@ -395,6 +396,7 @@ internal static class EntryTextParser
         CloseOpen();
         return items;
     }
+
     /// <summary>The lines one sub-item occupies in an entry's raw text —
     /// <paramref name="End"/> is exclusive.</summary>
     public sealed record SubItemSpan(int Start, int End);
@@ -450,6 +452,31 @@ internal static class EntryTextParser
         return spans;
     }
 
+    public static string GetParentText(string raw)
+    {
+        var lines = Normalize(raw).Split('\n');
+        var firstSubItem = LocateSubItems(raw).FirstOrDefault();
+        if (firstSubItem is null) return raw ?? string.Empty;
+
+        var end = firstSubItem.Start;
+        while (end > 0 && string.IsNullOrWhiteSpace(lines[end - 1])) end--;
+        return string.Join('\n', lines[..end]);
+    }
+
+    public static string ReplaceParentText(string raw, string value)
+    {
+        var normalizedRaw = Normalize(raw);
+        var lines = normalizedRaw.Split('\n');
+        var firstSubItem = LocateSubItems(normalizedRaw).FirstOrDefault();
+        if (firstSubItem is null) return value ?? string.Empty;
+
+        var parent = Normalize(value).TrimEnd('\n');
+        var children = string.Join('\n', lines[firstSubItem.Start..]).TrimStart('\n');
+        if (parent.Length == 0) return children;
+        if (children.Length == 0) return parent;
+
+        return parent + "\n\n" + children;
+    }
     /// <summary>
     /// Rewrites raw entry text with the sub-item at <paramref name="from"/> moved
     /// to index <paramref name="to"/>. Reordering is done on the text itself

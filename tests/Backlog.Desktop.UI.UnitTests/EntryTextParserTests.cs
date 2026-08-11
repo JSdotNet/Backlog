@@ -201,6 +201,46 @@ public class EntryTextParserTests
     }
 
     [Fact]
+    public void Parent_text_stops_before_heading_sub_items()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@repo`\n\n" +
+            "Intro text.\n\n" +
+            "## Level two\n" +
+            "Child notes.\n\n" +
+            "### Level three\n" +
+            "Nested notes.\n";
+
+        var parent = EntryTextParser.GetParentText(raw);
+
+        Assert.Contains("Intro text.", parent);
+        Assert.DoesNotContain("## Level two", parent);
+        Assert.DoesNotContain("### Level three", parent);
+    }
+
+    [Fact]
+    public void Replacing_parent_text_preserves_child_chapters()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@repo`\n\n" +
+            "Old intro.\n\n" +
+            "## Level two\n" +
+            "Child notes.\n\n" +
+            "### Level three\n" +
+            "Nested notes.\n";
+
+        var rewritten = EntryTextParser.ReplaceParentText(raw,
+            "# Parent\n`task` `*medium` `!ready` `@repo`\n\nNew intro.");
+
+        Assert.Contains("New intro.", rewritten);
+        Assert.DoesNotContain("Old intro.", rewritten);
+        Assert.Contains("## Level two\nChild notes.", rewritten);
+        Assert.Contains("### Level three\nNested notes.", rewritten);
+    }
+
+    [Fact]
     public void Replacing_sub_item_text_changes_only_that_chapter()
     {
         const string raw =

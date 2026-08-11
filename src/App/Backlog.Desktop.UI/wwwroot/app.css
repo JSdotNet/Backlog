@@ -638,7 +638,7 @@ h1, h2, h3 {
 
 .subitem-list {
     list-style: none;
-    margin: var(--spacing-xs) 0 0 0;
+    margin: var(--spacing-xs) 0 0 clamp(1rem, 4vw, 2rem);
     padding: 0;
     display: flex;
     flex-direction: column;
@@ -655,6 +655,10 @@ h1, h2, h3 {
     border-left: var(--border-width-2) solid var(--color-border-strong);
     border-radius: var(--border-radius-sm);
     transition: border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.subitem-card--level-3 {
+    margin-left: clamp(0.75rem, 3vw, 1.5rem);
 }
 
 .subitem-card--dragged {
