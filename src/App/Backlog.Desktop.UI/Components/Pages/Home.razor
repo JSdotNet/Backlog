@@ -428,10 +428,10 @@
         @if (KnowledgeVisible)
         {
             <aside class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
-                @if (GitHub.Repositories.Count > 1)
+                @if (KnowledgeRepositories.Count > 1)
                 {
                     <nav class="knowledge-stack__repositories" aria-label="Knowledge repository">
-                        @foreach (var repository in GitHub.Repositories)
+                        @foreach (var repository in KnowledgeRepositories)
                         {
                             <button type="button"
                                     class="knowledge-stack__repo @(IsKnowledgeRepositoryActive(repository.Alias) ? "knowledge-stack__repo--active" : string.Empty)"
@@ -520,12 +520,34 @@
 
     private bool KnowledgeVisible => IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge) && _knowledgeExpanded;
 
+    private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(AppFeatureSettingsStore.AdditionalRepositories);
+
+    private IReadOnlyList<GitHubRepositoryRef> KnowledgeRepositories
+    {
+        get
+        {
+            if (AdditionalRepositoriesEnabled) return GitHub.Repositories;
+
+            var primary = GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
+            return primary is null ? [] : [primary];
+        }
+    }
+
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
 
-    private IReadOnlyList<KnowledgeArea> VisibleKnowledgeAreas =>
-        IsFeatureEnabled(AppFeatureSettingsStore.KnowledgeSections)
-            ? KnowledgeAreas
-            : KnowledgeAreas[..1];
+    private IReadOnlyList<KnowledgeArea> VisibleKnowledgeAreas
+    {
+        get
+        {
+            var areas = IsFeatureEnabled(AppFeatureSettingsStore.KnowledgeSections)
+                ? KnowledgeAreas
+                : KnowledgeAreas[..1];
+
+            return ActiveRepositoryInstructionsEnabled
+                ? areas
+                : [.. areas.Where(area => !string.Equals(area.Key, "instructions", StringComparison.Ordinal))];
+        }
+    }
 
     private static readonly KnowledgeArea[] KnowledgeAreas =
     [
@@ -537,8 +559,25 @@
         new("instructions", "Instructions")
     ];
 
-    private string? ActiveKnowledgeRepositoryAlias =>
-        _selectedKnowledgeRepositoryAlias ?? GitHub.Settings.Current.PrimaryRepository?.Alias;
+    private GitHubRepositoryRef? ActiveKnowledgeRepository =>
+        KnowledgeRepositories.FirstOrDefault(repo => string.Equals(repo.Alias, _selectedKnowledgeRepositoryAlias, StringComparison.Ordinal))
+        ?? GitHub.Settings.Current.PrimaryRepository
+        ?? KnowledgeRepositories.FirstOrDefault();
+
+    private string? ActiveKnowledgeRepositoryAlias => ActiveKnowledgeRepository?.Alias;
+
+    private bool ActiveRepositoryInstructionsEnabled
+    {
+        get
+        {
+            var repository = ActiveKnowledgeRepository;
+            if (repository is null) return true;
+
+            var instructions = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
+                .FirstOrDefault(folder => string.Equals(folder.Key, "instructions", StringComparison.OrdinalIgnoreCase));
+            return instructions?.Enabled != false;
+        }
+    }
 
     private bool IsKnowledgeSectionActive(string key) =>
         string.Equals(_selectedKnowledgeSection, key, StringComparison.Ordinal);
@@ -550,6 +589,9 @@
     {
         _selectedKnowledgeSection = key;
     }
+
+    private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
+        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Settings.Current.PrimaryRepository;
 
     private async Task SelectKnowledgeRepositoryAsync(string alias)
     {
@@ -727,7 +769,7 @@
 
                 @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured)
                 {
-                    var repository = State.RepositoryFor(row);
+                    var repository = RepositoryFor(row);
 
                     @if (row.IssueLink is { } link)
                     {

@@ -95,7 +95,7 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     }
 }
 
-public sealed record KnowledgeFolderSetting(string Key, string DisplayName, string DefaultRelativePath)
+public sealed record KnowledgeFolderSetting(string Key, string DisplayName, string DefaultRelativePath, bool SupportsPathOverride = true)
 {
     public bool Enabled { get; init; } = true;
 
@@ -111,7 +111,8 @@ public sealed record KnowledgeFolderSetting(string Key, string DisplayName, stri
         new(".tech", "Technology", ".tech"),
         new(".arc42", "arc42 architecture", ".arc42"),
         new(".domain", "Domain", ".domain"),
-        new(".design", "Design", ".design")
+        new(".design", "Design", ".design"),
+        new("instructions", "Instructions", string.Empty, SupportsPathOverride: false)
     ];
 
     public static List<KnowledgeFolderSetting> Normalize(IEnumerable<KnowledgeFolderSetting>? configured)
@@ -125,7 +126,7 @@ public sealed record KnowledgeFolderSetting(string Key, string DisplayName, stri
                     ? folder with
                     {
                         Enabled = existing.Enabled,
-                        Path = string.IsNullOrWhiteSpace(existing.Path) ? null : existing.Path.Trim()
+                        Path = folder.SupportsPathOverride && !string.IsNullOrWhiteSpace(existing.Path) ? existing.Path.Trim() : null
                     }
                     : folder)
         ];

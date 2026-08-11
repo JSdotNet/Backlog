@@ -211,21 +211,21 @@
         <section class="setting" data-testid="github-settings" role="tabpanel" aria-label="Repository settings">
             <h2 class="setting__title">Repositories</h2>
             <p class="setting__body">
-                Add every repository Backlog can work with. One repository is primary:
-                it owns entries and knowledge that are not assigned to a more specific
-                repository. GitHub needs an <code>owner/repo</code> connection; local
-                features also need the clone directory on this machine.
+                Configure the primary repository Backlog always needs. Extra repositories
+                are available only when the Additional repositories feature is enabled.
+                GitHub needs an <code>owner/repo</code> connection; local features also
+                need the clone directory on this machine.
             </p>
 
-            <label class="setting__label" for="github-repos">Repositories</label>
+            <label class="setting__label" for="github-repos">@RepositoryInputLabel</label>
             <textarea class="setting__input setting__input--multiline @(_repoError is null ? string.Empty : "setting__input--error")"
                       id="github-repos"
                       data-testid="github-repos-input"
-                      rows="4"
+                      rows="@RepositoryInputRows"
                       spellcheck="false"
                       autocomplete="off"
                       aria-describedby="github-repos-status"
-                      placeholder="@("JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs")"
+                      placeholder="@RepositoryInputPlaceholder"
                       @oninput="e => _draftRepos = e.Value?.ToString() ?? string.Empty"
                       @onchange="ApplyRepositories">@_draftRepos</textarea>
 
@@ -234,24 +234,32 @@
                 {
                     <span class="setting__status--error">@_repoError</span>
                 }
-                else if (GitHub.Repositories.Count == 0)
+                else if (!VisibleRepositories.Any())
                 {
                     <span>Nothing configured - entries show no repository controls until one is.</span>
                 }
                 else
                 {
+                    var primaryRepository = GitHub.Settings.Current.PrimaryRepository ?? VisibleRepositories.First();
+
                     <span>
-                        <code>@GitHub.Settings.Current.PrimaryRepository?.FullName</code> is primary. Type
-                        <code>@("@" + GitHub.Repositories[0].Alias)</code> on an entry to assign it to
-                        <code>@GitHub.Repositories[0].FullName</code>@(GitHub.Repositories.Count > 1 ? $", and {GitHub.Repositories.Count - 1} more." : ".")
+                        <code>@primaryRepository.FullName</code> is primary.
+                        @if (AdditionalRepositoriesEnabled)
+                        {
+                            <span>Type <code>@("@" + VisibleRepositories.First().Alias)</code> on an entry to assign it to <code>@VisibleRepositories.First().FullName</code>@(VisibleRepositories.Count > 1 ? $", and {VisibleRepositories.Count - 1} more." : ".")</span>
+                        }
+                        else
+                        {
+                            <span>Enable Additional repositories to configure repository-specific areas beyond the primary repository.</span>
+                        }
                     </span>
                 }
             </p>
 
-            @if (GitHub.Repositories.Count > 0)
+            @if (VisibleRepositories.Any())
             {
                 <div class="repo-subpages" data-testid="repo-subpages" role="tablist" aria-label="Repository pages">
-                    @foreach (var repository in GitHub.Repositories)
+                    @foreach (var repository in VisibleRepositories)
                     {
                         <button type="button"
                                 class="@RepositoryPageClass(repository)"
@@ -283,13 +291,16 @@
                                 </p>
                             </div>
 
-                            <label class="repo-card__primary">
-                                <input type="radio"
-                                       name="primary-repository"
-                                       checked="@activeRepo.IsPrimary"
-                                       @onchange="() => SetPrimaryRepository(activeRepo.Alias)" />
-                                Primary fallback
-                            </label>
+                            @if (AdditionalRepositoriesEnabled)
+                            {
+                                <label class="repo-card__primary">
+                                    <input type="radio"
+                                           name="primary-repository"
+                                           checked="@activeRepo.IsPrimary"
+                                           @onchange="() => SetPrimaryRepository(activeRepo.Alias)" />
+                                    Primary fallback
+                                </label>
+                            }
                         </header>
 
                         <label class="setting__label" for="clone-@activeRepo.Alias">Local clone directory</label>
@@ -317,10 +328,11 @@
                         </p>
 
                         <div class="knowledge-folders" data-testid="knowledge-folder-settings">
-                            <h4 class="knowledge-folders__title">Knowledge-base folders</h4>
+                            <h4 class="knowledge-folders__title">Knowledge-base sections</h4>
                             <p class="setting__note">
-                                Each folder defaults to its conventional path in the repository root.
-                                Clear an override to return to the default, or turn a folder off for this repository.
+                                Repository knowledge folders default to their conventional paths.
+                                Clear an override to return to the default, or turn a section off for this repository.
+                                Instructions are on/off only and use Backlog's standard repository discovery.
                             </p>
 
                             @foreach (var folder in activeRepo.KnowledgeFolders)
@@ -337,24 +349,31 @@
                                         <code>@folder.Key</code>
                                     </label>
 
-                                    <input class="setting__input"
-                                           id="@knowledgeInputId"
-                                           data-testid="knowledge-folder-path-input"
-                                           type="text"
-                                           spellcheck="false"
-                                           autocomplete="off"
-                                           disabled="@(!folder.Enabled)"
-                                           placeholder="@folder.DefaultRelativePath"
-                                           aria-label="@($"{activeRepo.FullName} {folder.DisplayName} folder path")"
-                                           value="@KnowledgePathDraft(activeRepo, folder)"
-                                           @oninput="e => _draftKnowledgePaths[KnowledgeDraftKey(activeRepo.Alias, folder.Key)] = e.Value?.ToString() ?? string.Empty"
-                                           @onchange="() => ApplyKnowledgeFolderPath(activeRepo, folder)"
-                                           @onkeydown="e => OnKnowledgePathKeyDown(e, activeRepo, folder)" />
+                                    @if (folder.SupportsPathOverride)
+                                    {
+                                        <input class="setting__input"
+                                               id="@knowledgeInputId"
+                                               data-testid="knowledge-folder-path-input"
+                                               type="text"
+                                               spellcheck="false"
+                                               autocomplete="off"
+                                               disabled="@(!folder.Enabled)"
+                                               placeholder="@folder.DefaultRelativePath"
+                                               aria-label="@($"{activeRepo.FullName} {folder.DisplayName} folder path")"
+                                               value="@KnowledgePathDraft(activeRepo, folder)"
+                                               @oninput="e => _draftKnowledgePaths[KnowledgeDraftKey(activeRepo.Alias, folder.Key)] = e.Value?.ToString() ?? string.Empty"
+                                               @onchange="() => ApplyKnowledgeFolderPath(activeRepo, folder)"
+                                               @onkeydown="e => OnKnowledgePathKeyDown(e, activeRepo, folder)" />
+                                    }
 
                                     <p class="knowledge-folder__status">
                                         @if (!folder.Enabled)
                                         {
                                             <span>Off for this repository.</span>
+                                        }
+                                        else if (!folder.SupportsPathOverride)
+                                        {
+                                            <span>Uses standard repository instruction discovery.</span>
                                         }
                                         else if (string.IsNullOrWhiteSpace(folder.Path))
                                         {
@@ -463,6 +482,27 @@
 
     private GitHubRepositoryRef? ActiveRepository => FindActiveRepository();
 
+    private bool AdditionalRepositoriesEnabled => Features.IsEnabled(AppFeatureSettingsStore.AdditionalRepositories);
+
+    private string RepositoryInputLabel => AdditionalRepositoriesEnabled ? "Repositories" : "Primary repository";
+
+    private int RepositoryInputRows => AdditionalRepositoriesEnabled ? 4 : 2;
+
+    private string RepositoryInputPlaceholder => AdditionalRepositoriesEnabled
+        ? "JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs"
+        : "JSdotNet/Backlog";
+
+    private IReadOnlyList<GitHubRepositoryRef> VisibleRepositories
+    {
+        get
+        {
+            if (AdditionalRepositoriesEnabled) return GitHub.Repositories;
+
+            var primary = GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
+            return primary is null ? [] : [primary];
+        }
+    }
+
     private string RepositoryPageClass(GitHubRepositoryRef repo) =>
         IsActiveRepository(repo) ? "repo-subpage repo-subpage--active" : "repo-subpage";
 
@@ -495,6 +535,8 @@
             ? $"{feature.Name} is always available."
             : $"{feature.Name} is now {(enabled ? "enabled" : "disabled")}.");
         EnsureActiveSettingsPage();
+        _draftRepos = RepositorySettingsText();
+        EnsureActiveRepositoryPage();
     }
 
     private void EnsureActiveSettingsPage()
@@ -510,7 +552,7 @@
     protected override async Task OnInitializedAsync()
     {
         _draftPath = Store.RootDirectory;
-        _draftRepos = GitHub.Settings.Current.ToText();
+        _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
 
         // Surface the host's own explanation when updates aren't self-managed, so
@@ -620,9 +662,18 @@
     private void ApplyRepositories()
     {
         var (repositories, errors) = GitHubSettings.ParseText(_draftRepos);
+        var messages = new List<string>(errors);
+
+        if (!AdditionalRepositoriesEnabled && repositories.Count > 1)
+        {
+            repositories = [repositories[0]];
+            messages.Add("Enable Additional repositories before adding more than the primary repository.");
+        }
 
         var saveError = GitHub.Settings.SetRepositories(repositories);
-        _repoError = errors.Count > 0 ? string.Join(" ", errors) : saveError;
+        if (saveError is not null) messages.Add(saveError);
+        _repoError = messages.Count > 0 ? string.Join(" ", messages) : null;
+        _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
     }
 
@@ -711,15 +762,15 @@
 
     private GitHubRepositoryRef? FindActiveRepository()
     {
-        if (GitHub.Repositories.Count == 0) return null;
+        if (!VisibleRepositories.Any()) return null;
 
         if (!string.IsNullOrWhiteSpace(_activeRepositoryAlias))
         {
-            var selected = GitHub.Repositories.FirstOrDefault(repo => string.Equals(repo.Alias, _activeRepositoryAlias, StringComparison.Ordinal));
+            var selected = VisibleRepositories.FirstOrDefault(repo => string.Equals(repo.Alias, _activeRepositoryAlias, StringComparison.Ordinal));
             if (selected is not null) return selected;
         }
 
-        return GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories[0];
+        return GitHub.Settings.Current.PrimaryRepository ?? VisibleRepositories[0];
     }
 
     private bool IsActiveRepository(GitHubRepositoryRef repo) =>
@@ -727,13 +778,21 @@
 
     private void EnsureActiveRepositoryPage()
     {
-        if (GitHub.Repositories.Count == 0)
+        if (!VisibleRepositories.Any())
         {
             _activeRepositoryAlias = null;
             return;
         }
 
         _activeRepositoryAlias = FindActiveRepository()?.Alias;
+    }
+
+    private string RepositorySettingsText()
+    {
+        if (AdditionalRepositoriesEnabled) return GitHub.Settings.Current.ToText();
+
+        var primary = GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
+        return primary?.ToLine() ?? string.Empty;
     }
 
     private static string KnowledgeDraftKey(string alias, string folderKey) => $"{alias}|{folderKey}";
@@ -780,4 +839,3 @@
         StateHasChanged();
     }
 }
-

@@ -20,6 +20,17 @@ public sealed class InstructionSourceDiscovery
 
     private static InstructionRepositoryView DiscoverRepository(GitHubRepositoryRef repository)
     {
+        var instructions = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
+            .FirstOrDefault(folder => string.Equals(folder.Key, "instructions", StringComparison.OrdinalIgnoreCase));
+        if (instructions is { Enabled: false })
+        {
+            return new InstructionRepositoryView(
+                repository,
+                null,
+                [],
+                "Instructions are turned off for this repository.");
+        }
+
         if (string.IsNullOrWhiteSpace(repository.CloneDirectory))
         {
             return new InstructionRepositoryView(

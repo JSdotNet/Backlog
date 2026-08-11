@@ -36,11 +36,13 @@ public sealed class AppFeatureSettingsStoreTests
             var store = new AppFeatureSettingsStore(path);
             store.SetEnabled(AppFeatureSettingsStore.GitHubIntegration, enabled: false);
             store.SetEnabled(AppFeatureSettingsStore.CopilotCli, enabled: false);
+            store.SetEnabled(AppFeatureSettingsStore.AdditionalRepositories, enabled: false);
 
             var restarted = new AppFeatureSettingsStore(path);
 
             Assert.False(restarted.IsEnabled(AppFeatureSettingsStore.GitHubIntegration));
             Assert.False(restarted.IsEnabled(AppFeatureSettingsStore.CopilotCli));
+            Assert.False(restarted.IsEnabled(AppFeatureSettingsStore.AdditionalRepositories));
             Assert.True(restarted.IsEnabled(AppFeatureSettingsStore.Backlog));
         }
         finally

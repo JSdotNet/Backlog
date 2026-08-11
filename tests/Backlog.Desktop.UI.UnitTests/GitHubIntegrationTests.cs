@@ -153,6 +153,7 @@ public sealed class GitHubSettingsTests
             store.SetCloneDirectory("docs", @"D:\Repos\Backlog-docs");
             store.SetKnowledgeFolder("docs", ".tech", enabled: false, path: null);
             store.SetKnowledgeFolder("docs", ".domain", enabled: true, path: @"knowledge\domain");
+            store.SetKnowledgeFolder("docs", "instructions", enabled: false, path: @"custom\instructions");
 
             var reopened = new GitHubSettingsStore(path);
             var docs = reopened.Current.Find("docs")!;
@@ -162,6 +163,9 @@ public sealed class GitHubSettingsTests
             Assert.False(docs.KnowledgeFolders.Single(f => f.Key == ".tech").Enabled);
             Assert.Equal(@"knowledge\domain", docs.KnowledgeFolders.Single(f => f.Key == ".domain").Path);
             Assert.Equal(".arc42", docs.KnowledgeFolders.Single(f => f.Key == ".arc42").EffectivePath);
+            var instructions = docs.KnowledgeFolders.Single(f => f.Key == "instructions");
+            Assert.False(instructions.Enabled);
+            Assert.Null(instructions.Path);
         }
         finally
         {

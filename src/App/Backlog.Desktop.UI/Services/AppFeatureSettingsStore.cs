@@ -15,6 +15,7 @@ public sealed class AppFeatureSettingsStore
     public const string RepositoryKnowledge = "repository-knowledge";
     public const string KnowledgeSections = "knowledge-sections";
     public const string SystemTools = "system-tools";
+    public const string AdditionalRepositories = "additional-repositories";
     public const string GitHubIntegration = "github-integration";
     public const string CopilotCli = "copilot-cli";
 
@@ -57,6 +58,7 @@ public sealed class AppFeatureSettingsStore
         new(RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
         new(KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
         new(SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers."),
+        new(AdditionalRepositories, "Additional repositories", "Configure repositories beyond the primary repository and switch repository-specific knowledge."),
         new(GitHubIntegration, "GitHub integration", "Configure GitHub access, push entries to issues, and refresh issue or pull request state."),
         new(CopilotCli, "Copilot CLI", "Start GitHub Copilot CLI from a persisted backlog entry.")
     ];
@@ -153,4 +155,3 @@ public sealed class AppFeatureSettingsStore
         public string[] DisabledFeatures { get; init; } = [];
     }
 }
-
