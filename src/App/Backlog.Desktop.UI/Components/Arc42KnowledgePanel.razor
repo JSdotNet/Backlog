@@ -40,25 +40,28 @@
         </div>
 
         <div class="arc42-knowledge-layout">
-            <nav class="knowledge-chapters" aria-label="arc42 chapters">
-                @foreach (var chapter in _catalog.Documents)
-                {
-                    <button type="button"
-                            class="knowledge-chapter @(ReferenceEquals(chapter, _selected) ? "knowledge-chapter--active" : string.Empty)"
-                            data-testid="arc42-chapter-option"
-                            aria-current="@(ReferenceEquals(chapter, _selected) ? "page" : null)"
-                            @onclick="() => Select(chapter)">
-                        <span class="knowledge-chapter__title">@chapter.Title</span>
-                        <span class="knowledge-chapter__meta">
-                            <span class="knowledge-status knowledge-status--@chapter.Status">@chapter.Status</span>
-                            @if (chapter.DiagramCount > 0)
-                            {
-                                <span>@chapter.DiagramCount diagram@(chapter.DiagramCount == 1 ? string.Empty : "s")</span>
-                            }
-                        </span>
-                    </button>
-                }
-            </nav>
+            @if (string.IsNullOrWhiteSpace(SelectedPath))
+            {
+                <nav class="knowledge-chapters" aria-label="arc42 chapters">
+                    @foreach (var chapter in _catalog.Documents)
+                    {
+                        <button type="button"
+                                class="knowledge-chapter @(ReferenceEquals(chapter, _selected) ? "knowledge-chapter--active" : string.Empty)"
+                                data-testid="arc42-chapter-option"
+                                aria-current="@(ReferenceEquals(chapter, _selected) ? "page" : null)"
+                                @onclick="() => Select(chapter)">
+                            <span class="knowledge-chapter__title">@chapter.Title</span>
+                            <span class="knowledge-chapter__meta">
+                                <span class="knowledge-status knowledge-status--@chapter.Status">@chapter.Status</span>
+                                @if (chapter.DiagramCount > 0)
+                                {
+                                    <span>@chapter.DiagramCount diagram@(chapter.DiagramCount == 1 ? string.Empty : "s")</span>
+                                }
+                            </span>
+                        </button>
+                    }
+                </nav>
+            }
 
             <article class="knowledge-document" data-testid="arc42-document" aria-label="@_selected.Title">
                 <header class="knowledge-document__header">
@@ -98,6 +101,9 @@
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
     protected override void OnInitialized()
     {
         Knowledge.Changed += OnKnowledgeChanged;
@@ -109,6 +115,8 @@
         {
             await ReloadAsync();
         }
+
+        SelectRequestedDocument();
     }
 
     private async void OnKnowledgeChanged()
@@ -123,10 +131,29 @@
         _catalog = await Knowledge.LoadAsync(RepositoryAlias);
         _loadedRepositoryAlias = RepositoryAlias;
         _selected = _catalog.Documents.FirstOrDefault(document => document.DiagramCount > 0) ?? _catalog.Documents.FirstOrDefault();
+        SelectRequestedDocument();
         _loading = false;
     }
 
+    private void SelectRequestedDocument()
+    {
+        if (_catalog is null || string.IsNullOrWhiteSpace(SelectedPath)) return;
+
+        _selected = _catalog.Documents.FirstOrDefault(document => PathMatches(document.Path, SelectedPath)) ?? _selected;
+    }
+
     private void Select(KnowledgeDocument document) => _selected = document;
+
+    private static bool PathMatches(string candidate, string selectedPath)
+    {
+        var candidatePath = NormalizePath(candidate);
+        var selected = NormalizePath(selectedPath);
+        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
+            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Path.GetFileName(candidatePath), Path.GetFileName(selected), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
 
     public void Dispose()
     {

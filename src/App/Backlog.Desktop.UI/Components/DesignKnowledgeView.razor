@@ -25,18 +25,21 @@
             </p>
         </header>
 
-        <nav class="design-knowledge__nav" aria-label="Design knowledge documents">
-            @foreach (var file in _model.Files)
-            {
-                <a href="#@FileAnchor(file)" class="design-knowledge__nav-link">
-                    <span>@file.Title</span>
-                    <span class="knowledge-status knowledge-status--@file.Meta.Status">@file.Meta.Status</span>
-                </a>
-            }
-        </nav>
+        @if (string.IsNullOrWhiteSpace(SelectedPath))
+        {
+            <nav class="design-knowledge__nav" aria-label="Design knowledge documents">
+                @foreach (var file in _model.Files)
+                {
+                    <a href="#@FileAnchor(file)" class="design-knowledge__nav-link">
+                        <span>@file.Title</span>
+                        <span class="knowledge-status knowledge-status--@file.Meta.Status">@file.Meta.Status</span>
+                    </a>
+                }
+            </nav>
+        }
 
         <div class="design-knowledge__documents">
-            @foreach (var file in _model.Files)
+            @foreach (var file in VisibleFiles())
             {
                 <article class="design-document" id="@FileAnchor(file)">
                     <header class="design-document__header">
@@ -94,6 +97,9 @@
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
     protected override async Task OnParametersSetAsync()
     {
         if (_model is not null && string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal)) return;
@@ -102,8 +108,27 @@
         _loadedRepositoryAlias = RepositoryAlias;
     }
 
+    private IReadOnlyList<DesignKnowledgeFile> VisibleFiles()
+    {
+        if (_model is null || string.IsNullOrWhiteSpace(SelectedPath)) return _model?.Files ?? [];
+
+        var selected = _model.Files.Where(file => PathMatches(file.FileName, SelectedPath)).ToArray();
+        return selected.Length == 0 ? _model.Files.Take(1).ToArray() : selected;
+    }
+
     private static string FileAnchor(DesignKnowledgeFile file) =>
         $"design-file-{Path.GetFileNameWithoutExtension(file.FileName).ToLowerInvariant()}";
+
+    private static bool PathMatches(string candidate, string selectedPath)
+    {
+        var candidatePath = NormalizePath(candidate);
+        var selected = NormalizePath(selectedPath);
+        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
+            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Path.GetFileName(candidatePath), Path.GetFileName(selected), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
 
     private static string TokenName(DesignKnowledgeTable table, IReadOnlyList<string> row) =>
         Cell(table, row, "Token") ?? row.FirstOrDefault() ?? string.Empty;

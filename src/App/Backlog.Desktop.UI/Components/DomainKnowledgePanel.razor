@@ -29,15 +29,22 @@
             }
         </header>
 
-        <nav class="domain-knowledge__contexts" aria-label="Bounded contexts">
-            <button type="button" class="domain-context-tab @ContextTabClass(null)" aria-pressed="@ContextTabSelected(null)" @onclick="() => SelectContext(null)">Context map</button>
-            @foreach (var context in _view.Contexts)
-            {
-                <button type="button" class="domain-context-tab @ContextTabClass(context)" aria-pressed="@ContextTabSelected(context)" @onclick="() => SelectContext(context)">@context.DisplayName</button>
-            }
-        </nav>
+        @if (string.IsNullOrWhiteSpace(SelectedPath))
+        {
+            <nav class="domain-knowledge__contexts" aria-label="Bounded contexts">
+                <button type="button" class="domain-context-tab @ContextTabClass(null)" aria-pressed="@ContextTabSelected(null)" @onclick="() => SelectContext(null)">Context map</button>
+                @foreach (var context in _view.Contexts)
+                {
+                    <button type="button" class="domain-context-tab @ContextTabClass(context)" aria-pressed="@ContextTabSelected(context)" @onclick="() => SelectContext(context)">@context.DisplayName</button>
+                }
+            </nav>
+        }
 
-        @if (SelectedContext is null)
+        @if (SelectedDocument is { } selectedDocument)
+        {
+            @RenderDocument(selectedDocument, DocumentClass(selectedDocument))
+        }
+        else if (SelectedContext is null)
         {
             @RenderDocument(_view.ContextMap, "domain-document--context-map")
         }
@@ -77,7 +84,16 @@
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
     private DomainKnowledgeContext? SelectedContext => _view?.Contexts.FirstOrDefault(c => c.Slug == _selectedContextSlug);
+
+    private DomainKnowledgeDocument? SelectedDocument => string.IsNullOrWhiteSpace(SelectedPath) || _view is null
+        ? null
+        : new[] { _view.ContextMap }
+            .Concat(_view.Contexts.SelectMany(context => context.Documents))
+            .FirstOrDefault(document => PathMatches(document.Path, SelectedPath));
 
     protected override async Task OnParametersSetAsync()
     {
@@ -97,6 +113,17 @@
     }
 
     private void SelectContext(DomainKnowledgeContext? context) => _selectedContextSlug = context?.Slug;
+
+    private static bool PathMatches(string candidate, string selectedPath)
+    {
+        var candidatePath = NormalizePath(candidate);
+        var selected = NormalizePath(selectedPath);
+        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
+            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Path.GetFileName(candidatePath), Path.GetFileName(selected), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
     private string ContextTabClass(DomainKnowledgeContext? context) => string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal) ? "domain-context-tab--active" : string.Empty;
     private string ContextTabSelected(DomainKnowledgeContext? context) => string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal) ? "true" : "false";
 
@@ -178,3 +205,4 @@
         </div>
     </article>;
 }
+
