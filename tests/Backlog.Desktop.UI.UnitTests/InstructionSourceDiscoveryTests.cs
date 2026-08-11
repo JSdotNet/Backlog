@@ -67,6 +67,28 @@ public sealed class InstructionSourceDiscoveryTests : IDisposable
         Assert.Contains("local clone directory", result.Message);
     }
 
+
+    [Fact]
+    public void Skips_instruction_discovery_when_repository_instructions_are_disabled()
+    {
+        Write(".github/copilot-instructions.md", "# Copilot");
+        var repository = new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")
+        {
+            CloneDirectory = _root,
+            KnowledgeFolders =
+            [
+                .. KnowledgeFolderSetting.Defaults().Select(folder => folder.Key == "instructions"
+                    ? folder with { Enabled = false }
+                    : folder)
+            ]
+        };
+
+        var result = Assert.Single(new InstructionSourceDiscovery().Discover([repository]));
+
+        Assert.Empty(result.Documents);
+        Assert.Contains("turned off", result.Message);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))

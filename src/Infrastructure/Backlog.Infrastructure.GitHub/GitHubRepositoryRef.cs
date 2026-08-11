@@ -20,6 +20,10 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// cloned or the app has not been told where it lives yet.</summary>
     public string? CloneDirectory { get; init; }
 
+    /// <summary>Personal access token for this repository, used only when the
+    /// GitHub CLI is not signed in. Null means "rely on <c>gh</c>".</summary>
+    public string? Token { get; init; }
+
     /// <summary>The repository that owns entries and knowledge not assigned to a
     /// more specific repository.</summary>
     public bool IsPrimary { get; init; }
@@ -95,7 +99,7 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     }
 }
 
-public sealed record KnowledgeFolderSetting(string Key, string DisplayName, string DefaultRelativePath)
+public sealed record KnowledgeFolderSetting(string Key, string DisplayName, string DefaultRelativePath, bool SupportsPathOverride = true)
 {
     public bool Enabled { get; init; } = true;
 
@@ -107,10 +111,11 @@ public sealed record KnowledgeFolderSetting(string Key, string DisplayName, stri
 
     public static List<KnowledgeFolderSetting> Defaults() =>
     [
+        new("instructions", "Instructions", string.Empty, SupportsPathOverride: false),
         new(".backlog", "Backlog", ".backlog"),
-        new(".tech", "Technology", ".tech"),
-        new(".arc42", "arc42 architecture", ".arc42"),
         new(".domain", "Domain", ".domain"),
+        new(".arc42", "arc42 architecture", ".arc42"),
+        new(".tech", "Technology", ".tech"),
         new(".design", "Design", ".design")
     ];
 
@@ -125,7 +130,7 @@ public sealed record KnowledgeFolderSetting(string Key, string DisplayName, stri
                     ? folder with
                     {
                         Enabled = existing.Enabled,
-                        Path = string.IsNullOrWhiteSpace(existing.Path) ? null : existing.Path.Trim()
+                        Path = folder.SupportsPathOverride && !string.IsNullOrWhiteSpace(existing.Path) ? existing.Path.Trim() : null
                     }
                     : folder)
         ];
