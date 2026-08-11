@@ -1,0 +1,122 @@
+@inject DesignKnowledgeProvider DesignKnowledge
+
+<section class="design-knowledge" aria-labelledby="design-knowledge-title" data-testid="design-knowledge-view">
+    @if (_model is null)
+    {
+        <p class="design-knowledge__message" role="status">Loading design knowledge...</p>
+    }
+    else if (!_model.IsAvailable)
+    {
+        <header class="design-knowledge__header">
+            <p class="design-knowledge__eyebrow">Knowledge base</p>
+            <h2 id="design-knowledge-title">Design knowledge</h2>
+        </header>
+        <p class="design-knowledge__message" role="status">@_model.Message</p>
+        <a class="design-knowledge__settings" href="settings">Open repository settings</a>
+    }
+    else
+    {
+        <header class="design-knowledge__header">
+            <p class="design-knowledge__eyebrow">Knowledge base</p>
+            <h2 id="design-knowledge-title">Design knowledge</h2>
+            <p class="design-knowledge__source">
+                <span>@_model.RepositoryName</span>
+                <code>@_model.FolderPath</code>
+            </p>
+        </header>
+
+        <nav class="design-knowledge__nav" aria-label="Design knowledge documents">
+            @foreach (var file in _model.Files)
+            {
+                <a href="#@FileAnchor(file)" class="design-knowledge__nav-link">
+                    <span>@file.Title</span>
+                    <span class="knowledge-status knowledge-status--@file.Meta.Status">@file.Meta.Status</span>
+                </a>
+            }
+        </nav>
+
+        <div class="design-knowledge__documents">
+            @foreach (var file in _model.Files)
+            {
+                <article class="design-document" id="@FileAnchor(file)">
+                    <header class="design-document__header">
+                        <div>
+                            <p class="design-document__file">@file.FileName</p>
+                            <h3>@file.Title</h3>
+                        </div>
+                        <span class="knowledge-status knowledge-status--@file.Meta.Status">@file.Meta.Status</span>
+                    </header>
+
+                    @if (!string.IsNullOrWhiteSpace(file.Summary))
+                    {
+                        <p class="design-document__summary">@file.Summary</p>
+                    }
+
+                    <KnowledgeMetadata Meta="file.Meta" />
+
+                    @if (file.TokenTables.Any())
+                    {
+                        <section class="design-token-strip" aria-label="Design token highlights">
+                            @foreach (var table in file.TokenTables.Take(2))
+                            {
+                                @foreach (var row in table.Rows.Take(8))
+                                {
+                                    <div class="design-token" title="@TokenUsage(table, row)">
+                                        <span class="design-token__name">@TokenName(table, row)</span>
+                                        <span class="design-token__value">@TokenValue(table, row)</span>
+                                    </div>
+                                }
+                            }
+                        </section>
+                    }
+
+                    @foreach (var section in file.Sections)
+                    {
+                        <section class="design-section" id="@section.Anchor">
+                            <header class="design-section__header">
+                                <h4>@section.Heading</h4>
+                                <span class="knowledge-status knowledge-status--@section.Meta.Status">@section.Meta.Status</span>
+                            </header>
+                            <KnowledgeMetadata Meta="section.Meta" />
+                            <KnowledgeBlocks Blocks="section.Blocks" DiagramTitle="@section.Heading" />
+                        </section>
+                    }
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private DesignKnowledgeModel? _model;
+    private string? _loadedRepositoryAlias;
+
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_model is not null && string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal)) return;
+
+        _model = await DesignKnowledge.LoadAsync(RepositoryAlias);
+        _loadedRepositoryAlias = RepositoryAlias;
+    }
+
+    private static string FileAnchor(DesignKnowledgeFile file) =>
+        $"design-file-{Path.GetFileNameWithoutExtension(file.FileName).ToLowerInvariant()}";
+
+    private static string TokenName(DesignKnowledgeTable table, IReadOnlyList<string> row) =>
+        Cell(table, row, "Token") ?? row.FirstOrDefault() ?? string.Empty;
+
+    private static string TokenValue(DesignKnowledgeTable table, IReadOnlyList<string> row) =>
+        Cell(table, row, "Value") ?? Cell(table, row, "Value (dark)") ?? string.Empty;
+
+    private static string TokenUsage(DesignKnowledgeTable table, IReadOnlyList<string> row) =>
+        Cell(table, row, "Usage") ?? string.Empty;
+
+    private static string? Cell(DesignKnowledgeTable table, IReadOnlyList<string> row, string header)
+    {
+        var index = table.Headers.ToList().FindIndex(h => string.Equals(h, header, StringComparison.OrdinalIgnoreCase));
+        return index >= 0 && index < row.Count ? row[index] : null;
+    }
+}

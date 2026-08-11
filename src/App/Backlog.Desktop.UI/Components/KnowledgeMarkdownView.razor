@@ -1,0 +1,90 @@
+@foreach (var block in Blocks)
+{
+    switch (block)
+    {
+        case KnowledgeHeadingBlock heading:
+            <section class="knowledge-heading knowledge-heading--@heading.Level">
+                @RenderHeading(heading)
+                @if (heading.Metadata.Status != "draft" || heading.Metadata.Related.Count > 0)
+                {
+                    <p class="knowledge-meta-line">
+                        <span class="knowledge-status knowledge-status--@heading.Metadata.Status">@heading.Metadata.Status</span>
+                        @foreach (var related in heading.Metadata.Related)
+                        {
+                            <a class="knowledge-relation" href="@KnowledgeHref(related)">@related</a>
+                        }
+                    </p>
+                }
+            </section>
+            break;
+
+        case KnowledgeParagraphBlock paragraph:
+            <p class="knowledge-p">@MarkdownRender.Inlines(paragraph.Content)</p>
+            break;
+
+        case KnowledgeListBlock list:
+            @if (list.Ordered)
+            {
+                <ol class="knowledge-list">
+                    @foreach (var item in list.Items)
+                    {
+                        <li>@MarkdownRender.Inlines(item)</li>
+                    }
+                </ol>
+            }
+            else
+            {
+                <ul class="knowledge-list">
+                    @foreach (var item in list.Items)
+                    {
+                        <li>@MarkdownRender.Inlines(item)</li>
+                    }
+                </ul>
+            }
+            break;
+
+        case KnowledgeQuoteBlock quote:
+            <blockquote class="knowledge-quote">@MarkdownRender.Inlines(quote.Content)</blockquote>
+            break;
+
+        case KnowledgeCodeBlock codeBlock:
+            <pre class="knowledge-code"><code>@codeBlock.Text</code></pre>
+            break;
+
+        case KnowledgeDiagramBlock diagram:
+            <DiagramView Language="@diagram.Language" Source="@diagram.Text" />
+            break;
+
+        case KnowledgeTableBlock table:
+            <div class="knowledge-table" role="table">
+                @for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+                {
+                    var row = table.Rows[rowIndex];
+                    <div class="knowledge-table__row @(rowIndex == 0 ? "knowledge-table__row--head" : string.Empty)" role="row">
+                        <span role="@(rowIndex == 0 ? "columnheader" : "cell")">@MarkdownRender.Inlines(row)</span>
+                    </div>
+                }
+            </div>
+            break;
+
+        case KnowledgeDividerBlock:
+            <hr class="knowledge-divider" />
+            break;
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<KnowledgeBlock> Blocks { get; set; } = [];
+
+    private RenderFragment RenderHeading(KnowledgeHeadingBlock heading) => builder =>
+    {
+        var element = heading.Level switch { 1 => "h2", 2 => "h3", 3 => "h4", _ => "h5" };
+        builder.OpenElement(0, element);
+        builder.AddAttribute(1, "class", "knowledge-title knowledge-title--" + heading.Level);
+        builder.AddContent(2, heading.Text);
+        builder.CloseElement();
+    };
+
+    private static string KnowledgeHref(string target) => target.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? target : "#";
+}

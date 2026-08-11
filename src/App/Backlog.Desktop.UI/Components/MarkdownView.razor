@@ -57,11 +57,10 @@
         case MdQuote quote:
             <blockquote class="md-quote">@RenderInlines(quote.Content)</blockquote>
             break;
-
         case MdCode codeBlock:
             @if (DiagramView.IsDiagram(codeBlock.Language))
             {
-                <DiagramView Source="@codeBlock.Text" Language="@codeBlock.Language" />
+                <DiagramView Title="Backlog diagram" Source="@codeBlock.Text" Language="@codeBlock.Language" />
             }
             else
             {
@@ -83,7 +82,6 @@
     public EventCallback<int> OnTaskItemToggled { get; set; }
 
     private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) => MarkdownRender.Inlines(parts);
-
     private async Task ToggleTaskItemAsync(int taskIndex)
     {
         if (OnTaskItemToggled.HasDelegate)

@@ -1,21 +1,12 @@
-@namespace Backlog.Desktop.UI.Components
-
 <figure class="diagram-view" data-testid="diagram-view" aria-label="@AriaLabel">
-    <figcaption class="diagram-view__caption">
-        <span>@DiagramName</span>
+    <figcaption class="diagram-view__header">
+        <span class="diagram-view__title">@DiagramName</span>
         @if (!string.IsNullOrWhiteSpace(Language))
         {
-            <code>@Language</code>
+            <span class="diagram-view__language">@Language</span>
         }
     </figcaption>
-
     <div class="diagram-view__canvas" role="img" aria-label="@AriaLabel">
-        <div class="diagram-view__nodes" aria-hidden="true">
-            @foreach (var node in PreviewNodes)
-            {
-                <span class="diagram-view__node">@node</span>
-            }
-        </div>
         <pre class="diagram-view__source"><code>@Source</code></pre>
     </div>
 </figure>
@@ -33,34 +24,6 @@
         ? "Diagram source visualization"
         : $"{Language} diagram source visualization";
 
-    private IReadOnlyList<string> PreviewNodes => ExtractPreviewNodes(Source);
-
     public static bool IsDiagram(string? language) =>
         language?.Trim().ToLowerInvariant() is "mermaid" or "mmd" or "plantuml" or "puml" or "graphviz" or "dot";
-
-    private static IReadOnlyList<string> ExtractPreviewNodes(string source)
-    {
-        var nodes = new List<string>();
-        foreach (var rawLine in source.Replace("\r\n", "\n").Split('\n'))
-        {
-            var line = rawLine.Trim();
-            if (line.Length == 0 || line.StartsWith("%%", StringComparison.Ordinal) || line.StartsWith("'", StringComparison.Ordinal)) continue;
-
-            var labelStart = line.IndexOf('[', StringComparison.Ordinal);
-            var labelEnd = line.IndexOf(']', StringComparison.Ordinal);
-            if (labelStart >= 0 && labelEnd > labelStart)
-            {
-                nodes.Add(line[(labelStart + 1)..labelEnd].Trim('"', ' '));
-            }
-            else if (!line.Contains("--", StringComparison.Ordinal) && !line.Contains("->", StringComparison.Ordinal))
-            {
-                nodes.Add(line.Trim(';'));
-            }
-
-            if (nodes.Count == 4) break;
-        }
-
-        return nodes.Count == 0 ? ["Diagram source"] : nodes;
-
-    }
 }
