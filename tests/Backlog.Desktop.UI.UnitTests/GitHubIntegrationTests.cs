@@ -13,6 +13,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class GitHubSettingsTests
 {
+    [Fact]
+    public void Knowledge_folder_defaults_place_instructions_first()
+    {
+        Assert.Equal("instructions", KnowledgeFolderSetting.Defaults().First().Key);
+    }
     [Theory]
     [InlineData("JSdotNet/Backlog", "backlog", "JSdotNet", "Backlog")]
     [InlineData("  JSdotNet/Backlog  ", "backlog", "JSdotNet", "Backlog")]
@@ -113,7 +118,7 @@ public sealed class GitHubSettingsTests
     }
 
     [Fact]
-    public void A_token_survives_a_restart_and_can_be_forgotten()
+    public void A_repository_token_survives_a_restart_and_can_be_forgotten()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");
 
@@ -125,12 +130,14 @@ public sealed class GitHubSettingsTests
             store.SetToken("ghp_example");
 
             var reopened = new GitHubSettingsStore(path);
-            Assert.Equal("ghp_example", reopened.Current.Token);
-            Assert.Equal("backlog", Assert.Single(reopened.Current.Repositories).Alias);
-            Assert.True(reopened.Current.Repositories[0].IsPrimary);
+            var repository = Assert.Single(reopened.Current.Repositories);
+            Assert.Equal("backlog", repository.Alias);
+            Assert.Equal("ghp_example", repository.Token);
+            Assert.Equal("ghp_example", reopened.Current.TokenForPath("repos/JSdotNet/Backlog/issues"));
+            Assert.True(repository.IsPrimary);
 
-            reopened.SetToken(null);
-            Assert.Null(new GitHubSettingsStore(path).Current.Token);
+            reopened.SetRepositoryToken("backlog", null);
+            Assert.Null(new GitHubSettingsStore(path).Current.Repositories[0].Token);
         }
         finally
         {
@@ -153,6 +160,7 @@ public sealed class GitHubSettingsTests
             store.SetCloneDirectory("docs", @"D:\Repos\Backlog-docs");
             store.SetKnowledgeFolder("docs", ".tech", enabled: false, path: null);
             store.SetKnowledgeFolder("docs", ".domain", enabled: true, path: @"knowledge\domain");
+            store.SetKnowledgeFolder("docs", "instructions", enabled: false, path: @"custom\instructions");
 
             var reopened = new GitHubSettingsStore(path);
             var docs = reopened.Current.Find("docs")!;
@@ -162,6 +170,9 @@ public sealed class GitHubSettingsTests
             Assert.False(docs.KnowledgeFolders.Single(f => f.Key == ".tech").Enabled);
             Assert.Equal(@"knowledge\domain", docs.KnowledgeFolders.Single(f => f.Key == ".domain").Path);
             Assert.Equal(".arc42", docs.KnowledgeFolders.Single(f => f.Key == ".arc42").EffectivePath);
+            var instructions = docs.KnowledgeFolders.Single(f => f.Key == "instructions");
+            Assert.False(instructions.Enabled);
+            Assert.Null(instructions.Path);
         }
         finally
         {
@@ -181,6 +192,7 @@ public sealed class GitHubSettingsTests
             var store = new GitHubSettingsStore(path);
             Assert.Empty(store.Current.Repositories);
             Assert.Null(store.Current.Token);
+            Assert.False(store.Current.HasRepositoryToken);
         }
         finally
         {

@@ -5,6 +5,8 @@
 @inject ICopilotToolService CopilotTools
 @inject KnowledgeBacklog RepositoryBacklog
 @inject GitHubIntegration GitHub
+@inject AppFeatureSettingsStore Features
+@inject IAppUpdateService Updates
 
 @*
     One entry is one block of markdown. Not focused, it reads as a document;
@@ -16,6 +18,33 @@
     <header class="app-header">
         <h1>Backlog</h1>
 
+        <div class="app-header__version" data-testid="app-version">
+            Version <code>@Updates.CurrentVersion</code>
+            @if (Updates.IsSupported)
+            {
+                <button type="button"
+                        class="header-tool-toggle"
+                        data-testid="check-for-updates"
+                        disabled="@_updateBusy"
+                        @onclick="CheckForUpdatesAsync">
+                    @(_checkingForAppUpdate ? "Checking..." : "Check for updates")
+                </button>
+                @if (_appUpdateReady)
+                {
+                    <button type="button"
+                            class="header-tool-toggle"
+                            data-testid="install-update"
+                            disabled="@_updateBusy"
+                            @onclick="InstallUpdateAsync">
+                        @(_installingAppUpdate ? "Installing..." : "Install update")
+                    </button>
+                }
+            }
+            @if (_appUpdateMessage is not null)
+            {
+                <span class="@_appUpdateStatusClass" role="status">@_appUpdateMessage</span>
+            }
+        </div>
         <div class="save-indicator save-indicator--@State.SaveState.ToString().ToLowerInvariant()" id="save-state-indicator" data-testid="save-state-indicator" role="status">
             <span class="save-indicator__dot" aria-hidden="true"></span>
             @State.SaveStateLabel
@@ -24,7 +53,7 @@
         @* Monitoring is a deliberate act, not a background poll: the backlog has
            to open instantly and offline, so nothing here waits on GitHub until
            somebody asks it to. *@
-        @if (State.GitHubConfigured && State.HasLinkedRows)
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
         {
             <button type="button"
                     class="icon-link"
@@ -38,104 +67,112 @@
             </button>
         }
 
-        <button type="button"
-                class="header-tool-toggle"
-                id="knowledge-toggle-button"
-                data-testid="knowledge-toggle-button"
-                aria-controls="repository-knowledge-pane"
-                aria-expanded="@(_knowledgeExpanded ? "true" : "false")"
-                @onclick="ToggleKnowledgePane">
-            @(_knowledgeExpanded ? "Hide knowledge" : "Show knowledge")
-        </button>
-        <button type="button"
-                class="header-tool-toggle"
-                id="tools-toggle-button"
-                data-testid="tools-toggle-button"
-                aria-controls="installed-tools-content"
-                aria-expanded="@_toolsExpanded"
-                @onclick="OnToolsToggleAsync">
-            Tools
-        </button>
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge))
+        {
+            <button type="button"
+                    class="header-tool-toggle"
+                    id="knowledge-toggle-button"
+                    data-testid="knowledge-toggle-button"
+                    aria-controls="repository-knowledge-pane"
+                    aria-expanded="@(_knowledgeExpanded ? "true" : "false")"
+                    @onclick="ToggleKnowledgePane">
+                @(_knowledgeExpanded ? "Hide knowledge" : "Show knowledge")
+            </button>
+        }
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.SystemTools))
+        {
+            <button type="button"
+                    class="header-tool-toggle"
+                    id="tools-toggle-button"
+                    data-testid="tools-toggle-button"
+                    aria-controls="installed-tools-content"
+                    aria-expanded="@_toolsExpanded"
+                    @onclick="OnToolsToggleAsync">
+                Tools
+            </button>
+        }
 
-        <a class="header-link" href="instructions" data-testid="instructions-link">Instructions</a>
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
 
-    <section class="tools-panel" aria-labelledby="installed-tools-title" data-testid="tools-panel">
-        <button type="button"
-                class="tools-panel__summary"
-                aria-expanded="@_toolsExpanded"
-                aria-controls="installed-tools-content"
-                @onclick="OnToolsToggleAsync">
-            <span class="tools-panel__chevron" aria-hidden="true">@(_toolsExpanded ? "▾" : "▸")</span>
-            <span>
-                <span id="installed-tools-title" class="tools-panel__title">System tools</span>
-                <span class="tools-panel__subtitle">Manage Copilot plugins, repository tools, and MCP servers</span>
-            </span>
-            <span class="tools-panel__count">@(_tools.Count == 0 ? "Check tools" : $"{_tools.Count} configured")</span>
-        </button>
+    @if (IsFeatureEnabled(AppFeatureSettingsStore.SystemTools))
+    {
+        <section class="tools-panel" aria-labelledby="installed-tools-title" data-testid="tools-panel">
+            <button type="button"
+                    class="tools-panel__summary"
+                    aria-expanded="@_toolsExpanded"
+                    aria-controls="installed-tools-content"
+                    @onclick="OnToolsToggleAsync">
+                <span class="tools-panel__chevron" aria-hidden="true">@(_toolsExpanded ? "▾" : "▸")</span>
+                <span>
+                    <span id="installed-tools-title" class="tools-panel__title">System tools</span>
+                    <span class="tools-panel__subtitle">Manage Copilot plugins, repository tools, and MCP servers</span>
+                </span>
+                <span class="tools-panel__count">@(_tools.Count == 0 ? "Check tools" : $"{_tools.Count} configured")</span>
+            </button>
 
-        @if (_toolsExpanded)
-        {
-            <div class="tools-panel__content" id="installed-tools-content">
-                <div class="tools-panel__toolbar">
-                    <p class="tools-panel__message" role="status">@(_toolMessage ?? "Checking configured tools...")</p>
-                    <button type="button" class="btn btn--secondary" disabled="@_toolsLoading" @onclick="RefreshToolsAsync">
-                        @(_toolsLoading ? "Checking..." : "Check for updates")
-                    </button>
-                </div>
-
-                @if (_toolsLoading && _tools.Count == 0)
-                {
-                    <p class="tools-panel__empty">Loading installed tool versions.</p>
-                }
-                else if (_tools.Count == 0)
-                {
-                    <p class="tools-panel__empty">No configured tools were found.</p>
-                }
-                else
-                {
-                    <div class="tools-table" role="table" aria-label="Installed Copilot tools">
-                        <div class="tools-table__row tools-table__row--head" role="row">
-                            <span role="columnheader">Tool</span>
-                            <span role="columnheader">Installed</span>
-                            <span role="columnheader">Available</span>
-                            <span role="columnheader">Actions</span>
-                        </div>
-
-                        @foreach (var tool in _tools)
-                        {
-                            <div class="tools-table__row" role="row" @key="tool.Key">
-                                <div role="cell" class="tools-table__tool">
-                                    <strong>@tool.Name</strong>
-                                    <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
-                                </div>
-                                <span role="cell" class="tools-table__version">@tool.InstalledVersion</span>
-                                <span role="cell" class="tools-table__version @(tool.UpdateAvailable ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
-                                <div role="cell" class="tools-table__actions">
-                                    <button type="button"
-                                            class="btn btn--secondary"
-                                            disabled="@(_toolsLoading || _toolActionKey == tool.Key || !tool.ConfiguredEnabled)"
-                                            @onclick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
-                                        Update
-                                    </button>
-                                    <button type="button"
-                                            class="btn btn--ghost"
-                                            disabled="@(_toolsLoading || _toolActionKey == tool.Key)"
-                                            @onclick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
-                                        @(tool.ConfiguredEnabled ? "Disable" : "Enable")
-                                    </button>
-                                </div>
-                            </div>
-                        }
+            @if (_toolsExpanded)
+            {
+                <div class="tools-panel__content" id="installed-tools-content">
+                    <div class="tools-panel__toolbar">
+                        <p class="tools-panel__message" role="status">@(_toolMessage ?? "Checking configured tools...")</p>
+                        <button type="button" class="btn btn--secondary" disabled="@_toolsLoading" @onclick="RefreshToolsAsync">
+                            @(_toolsLoading ? "Checking..." : "Check for updates")
+                        </button>
                     </div>
-                }
-            </div>
-        }
-    </section>
 
-    <main class="knowledge-layout @(_knowledgeExpanded ? "knowledge-layout--knowledge-open" : "knowledge-layout--knowledge-closed")" data-testid="knowledge-layout">
+                    @if (_toolsLoading && _tools.Count == 0)
+                    {
+                        <p class="tools-panel__empty">Loading installed tool versions.</p>
+                    }
+                    else if (_tools.Count == 0)
+                    {
+                        <p class="tools-panel__empty">No configured tools were found.</p>
+                    }
+                    else
+                    {
+                        <div class="tools-table" role="table" aria-label="Installed Copilot tools">
+                            <div class="tools-table__row tools-table__row--head" role="row">
+                                <span role="columnheader">Tool</span>
+                                <span role="columnheader">Installed</span>
+                                <span role="columnheader">Available</span>
+                                <span role="columnheader">Actions</span>
+                            </div>
+
+                            @foreach (var tool in _tools)
+                            {
+                                <div class="tools-table__row" role="row" @key="tool.Key">
+                                    <div role="cell" class="tools-table__tool">
+                                        <strong>@tool.Name</strong>
+                                        <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
+                                    </div>
+                                    <span role="cell" class="tools-table__version">@tool.InstalledVersion</span>
+                                    <span role="cell" class="tools-table__version @(tool.UpdateAvailable ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
+                                    <div role="cell" class="tools-table__actions">
+                                        <button type="button"
+                                                class="btn btn--secondary"
+                                                disabled="@(_toolsLoading || _toolActionKey == tool.Key || !tool.ConfiguredEnabled)"
+                                                @onclick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
+                                            Update
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn--ghost"
+                                                disabled="@(_toolsLoading || _toolActionKey == tool.Key)"
+                                                @onclick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
+                                            @(tool.ConfiguredEnabled ? "Disable" : "Enable")
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+
+    <main class="knowledge-layout @(KnowledgeVisible ? "knowledge-layout--knowledge-open" : "knowledge-layout--knowledge-closed")" data-testid="knowledge-layout">
         <section class="backlog-workspace" aria-label="Backlog entries">
 
     @* Areas on the left, because that is what you pick first — which pile am I
@@ -220,12 +257,12 @@
                             @RenderEntryMetadata(row, oneLine)
                         }
 
-                        @if (row.GitHubError is not null)
+                        @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && row.GitHubError is not null)
                         {
                             <p class="entry-doc__gh-error" data-testid="github-error" role="status">@row.GitHubError</p>
                         }
 
-                        @if (row.CopilotError is not null)
+                        @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli) && row.CopilotError is not null)
                         {
                             <p class="entry-doc__gh-error" data-testid="copilot-cli-error" role="status">@row.CopilotError</p>
                         }
@@ -416,13 +453,13 @@
     </button>
         </section>
 
-        @if (_knowledgeExpanded)
+        @if (KnowledgeVisible)
         {
             <aside class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
-                @if (GitHub.Repositories.Count > 1)
+                @if (KnowledgeRepositories.Count > 1)
                 {
                     <nav class="knowledge-stack__repositories" aria-label="Knowledge repository">
-                        @foreach (var repository in GitHub.Repositories)
+                        @foreach (var repository in KnowledgeRepositories)
                         {
                             <button type="button"
                                     class="knowledge-stack__repo @(IsKnowledgeRepositoryActive(repository.Alias) ? "knowledge-stack__repo--active" : string.Empty)"
@@ -435,7 +472,7 @@
                 }
 
                 <nav class="knowledge-stack__nav" aria-label="Knowledge sections" role="tablist">
-                    @foreach (var area in KnowledgeAreas)
+                    @foreach (var area in VisibleKnowledgeAreas)
                     {
                         <button type="button"
                                 class="knowledge-stack__nav-item @(IsKnowledgeSectionActive(area.Key) ? "knowledge-stack__nav-item--active" : string.Empty)"
@@ -467,12 +504,22 @@
     private BacklogKnowledgeView? _backlogKnowledge;
     private string _selectedKnowledgeSection = "backlog";
     private string? _selectedKnowledgeRepositoryAlias;
+    private string? _appUpdateMessage;
+    private string _appUpdateStatusClass = string.Empty;
+    private bool _checkingForAppUpdate;
+    private bool _installingAppUpdate;
+    private bool _appUpdateReady;
+
+    private bool _updateBusy => _checkingForAppUpdate || _installingAppUpdate;
 
     protected override async Task OnInitializedAsync()
     {
         State.Changed += HandleStateChanged;
         await State.InitializeAsync();
-        await LoadBacklogKnowledgeAsync();
+        if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge))
+        {
+            await LoadBacklogKnowledgeAsync();
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -506,18 +553,66 @@
         }
     }
 
+    private bool KnowledgeVisible => IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge) && _knowledgeExpanded;
+
+    private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(AppFeatureSettingsStore.AdditionalRepositories);
+
+    private IReadOnlyList<GitHubRepositoryRef> KnowledgeRepositories
+    {
+        get
+        {
+            if (AdditionalRepositoriesEnabled) return GitHub.Repositories;
+
+            var primary = GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
+            return primary is null ? [] : [primary];
+        }
+    }
+
+    private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
+
+    private IReadOnlyList<KnowledgeArea> VisibleKnowledgeAreas
+    {
+        get
+        {
+            var areas = IsFeatureEnabled(AppFeatureSettingsStore.KnowledgeSections)
+                ? KnowledgeAreas
+                : KnowledgeAreas[..1];
+
+            return ActiveRepositoryInstructionsEnabled
+                ? areas
+                : [.. areas.Where(area => !string.Equals(area.Key, "instructions", StringComparison.Ordinal))];
+        }
+    }
+
     private static readonly KnowledgeArea[] KnowledgeAreas =
     [
         new("backlog", "Backlog"),
-        new("design", "Design"),
-        new("arc42", "Architecture"),
+        new("instructions", "Instructions"),
         new("domain", "Domain"),
+        new("arc42", "Architecture"),
         new("tech", "Technology"),
-        new("instructions", "Instructions")
+        new("design", "Design")
     ];
 
-    private string? ActiveKnowledgeRepositoryAlias =>
-        _selectedKnowledgeRepositoryAlias ?? GitHub.Settings.Current.PrimaryRepository?.Alias;
+    private GitHubRepositoryRef? ActiveKnowledgeRepository =>
+        KnowledgeRepositories.FirstOrDefault(repo => string.Equals(repo.Alias, _selectedKnowledgeRepositoryAlias, StringComparison.Ordinal))
+        ?? GitHub.Settings.Current.PrimaryRepository
+        ?? KnowledgeRepositories.FirstOrDefault();
+
+    private string? ActiveKnowledgeRepositoryAlias => ActiveKnowledgeRepository?.Alias;
+
+    private bool ActiveRepositoryInstructionsEnabled
+    {
+        get
+        {
+            var repository = ActiveKnowledgeRepository;
+            if (repository is null) return true;
+
+            var instructions = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
+                .FirstOrDefault(folder => string.Equals(folder.Key, "instructions", StringComparison.OrdinalIgnoreCase));
+            return instructions?.Enabled != false;
+        }
+    }
 
     private bool IsKnowledgeSectionActive(string key) =>
         string.Equals(_selectedKnowledgeSection, key, StringComparison.Ordinal);
@@ -530,12 +625,18 @@
         _selectedKnowledgeSection = key;
     }
 
+    private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
+        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Settings.Current.PrimaryRepository;
+
     private async Task SelectKnowledgeRepositoryAsync(string alias)
     {
         if (string.Equals(_selectedKnowledgeRepositoryAlias, alias, StringComparison.Ordinal)) return;
 
         _selectedKnowledgeRepositoryAlias = alias;
-        await LoadBacklogKnowledgeAsync();
+        if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge))
+        {
+            await LoadBacklogKnowledgeAsync();
+        }
     }
 
     private async Task LoadBacklogKnowledgeAsync()
@@ -701,9 +802,9 @@
                     </span>
                 }
 
-                @if (State.GitHubConfigured)
+                @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured)
                 {
-                    var repository = State.RepositoryFor(row);
+                    var repository = RepositoryFor(row);
 
                     @if (row.IssueLink is { } link)
                     {
@@ -755,7 +856,7 @@
                     }
                 }
 
-                @if (row.IsPersisted)
+                @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli) && row.IsPersisted)
                 {
                     <button type="button"
                             class="entry-doc__gh entry-doc__copilot"
@@ -764,7 +865,7 @@
                             title="Start GitHub Copilot CLI for this entry"
                             @onmousedown:preventDefault="true"
                             @onclick="() => State.StartCopilotCliAsync(row)">
-                        @(row.CopilotBusy ? "Starting..." : "Ask Copilot")
+                        @(row.CopilotBusy ? "Starting..." : "Copilot CLI")
                     </button>
                 }
 
@@ -866,6 +967,62 @@
     }
     private void HandleStateChanged() => InvokeAsync(StateHasChanged);
 
+
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_updateBusy) return;
+
+        _checkingForAppUpdate = true;
+        _appUpdateMessage = null;
+        _appUpdateReady = false;
+
+        try
+        {
+            var result = await Updates.CheckForUpdateAsync();
+            _appUpdateReady = result.UpdateReady;
+            _appUpdateMessage = result.Message;
+            _appUpdateStatusClass = result.Availability switch
+            {
+                AppUpdateAvailability.UpToDate => "setting__status--ok",
+                AppUpdateAvailability.Failed => "setting__status--error",
+                _ => string.Empty
+            };
+        }
+        catch
+        {
+            _appUpdateReady = false;
+            _appUpdateMessage = "The update check could not be completed.";
+            _appUpdateStatusClass = "setting__status--error";
+        }
+        finally
+        {
+            _checkingForAppUpdate = false;
+        }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_updateBusy) return;
+
+        _installingAppUpdate = true;
+
+        try
+        {
+            var result = await Updates.StartUpdateAsync();
+            _appUpdateMessage = result.Message;
+            _appUpdateStatusClass = result.Started ? "setting__status--ok" : "setting__status--error";
+            if (!result.Started) _appUpdateReady = false;
+        }
+        catch
+        {
+            _appUpdateMessage = "The update could not be installed.";
+            _appUpdateStatusClass = "setting__status--error";
+        }
+        finally
+        {
+            _installingAppUpdate = false;
+        }
+    }
     private void ToggleKnowledgePane() => _knowledgeExpanded = !_knowledgeExpanded;
 
     private void OnNewEntry() => State.NewRow();
@@ -923,3 +1080,4 @@
         State.Changed -= HandleStateChanged;
     }
 }
+

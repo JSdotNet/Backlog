@@ -1594,6 +1594,55 @@ h1, h2, h3 {
     color: var(--color-text-disabled);
 }
 
+
+.feature-flags {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
+.feature-flag {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    color: var(--color-text-primary);
+    background: var(--color-background);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+}
+
+.feature-flag--locked {
+    color: var(--color-text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.feature-flag__content {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.feature-flag__title {
+    font-weight: 700;
+}
+
+.feature-flag__description,
+.feature-flag__status {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.feature-flag input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    accent-color: var(--color-primary);
+}
+
+.feature-flag input[type="checkbox"]:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
 .repo-subpages {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));

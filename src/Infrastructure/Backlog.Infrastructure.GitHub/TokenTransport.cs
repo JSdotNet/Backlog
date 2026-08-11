@@ -14,9 +14,9 @@ public sealed class TokenTransport : IGitHubTransport
     private const string ApiRoot = "https://api.github.com/";
 
     private readonly HttpClient _http;
-    private readonly Func<string?> _token;
+    private readonly Func<string?, string?> _token;
 
-    public TokenTransport(Func<string?> token, HttpClient? http = null)
+    public TokenTransport(Func<string?, string?> token, HttpClient? http = null)
     {
         _token = token;
         _http = http ?? new HttpClient();
@@ -30,7 +30,7 @@ public sealed class TokenTransport : IGitHubTransport
     public string Description => "personal access token";
 
     public Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(!string.IsNullOrWhiteSpace(_token()));
+        Task.FromResult(!string.IsNullOrWhiteSpace(_token(null)));
 
     public async Task<JsonElement> SendAsync(
         HttpMethod method,
@@ -38,7 +38,7 @@ public sealed class TokenTransport : IGitHubTransport
         object? body = null,
         CancellationToken cancellationToken = default)
     {
-        var token = _token();
+        var token = _token(path);
         if (string.IsNullOrWhiteSpace(token))
         {
             throw new GitHubNotConfiguredException("No GitHub token is configured.");
