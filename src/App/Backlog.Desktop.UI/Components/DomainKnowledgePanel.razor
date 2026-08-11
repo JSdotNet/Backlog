@@ -1,5 +1,8 @@
 @using Backlog.Desktop.UI.Services
+@using Backlog.Infrastructure.Copilot
 @inject DomainKnowledgeStore DomainKnowledge
+@inject CopilotCliIntegration CopilotCli
+@inject AppFeatureSettingsStore Features
 
 <section class="domain-knowledge @(Compact ? "domain-knowledge--compact" : string.Empty)" data-testid="domain-knowledge-panel" aria-labelledby="domain-knowledge-title">
     @if (_view is null)
@@ -118,7 +121,7 @@
                 <h3>@document.Title</h3>
                 <p class="domain-document__path"><code>@document.Path</code></p>
             </div>
-            <span class="badge badge--domain-status badge--domain-status-@document.Status">@document.Status</span>
+            @RenderKnowledgeActions(new KnowledgeActionItem(document.Title, document.KindLabel, document.Path, document.Metadata, document.Summary))
         </header>
 
         @if (!string.IsNullOrWhiteSpace(document.Summary))
@@ -151,10 +154,7 @@
                 <section class="domain-section">
                     <header class="domain-section__header">
                         <h4>@section.Title</h4>
-                        @if (!string.IsNullOrWhiteSpace(section.Status))
-                        {
-                            <span class="badge badge--domain-status badge--domain-status-@section.Status">@section.Status</span>
-                        }
+                        @RenderKnowledgeActions(new KnowledgeActionItem(section.Title, $"{document.KindLabel} section", section.Anchor, section.Metadata, section.Excerpt))
                     </header>
                     @if (section.Metadata.Count > 0)
                     {
@@ -177,4 +177,72 @@
             }
         </div>
     </article>;
+    private readonly HashSet<string> _copilotBusy = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _copilotErrors = new(StringComparer.OrdinalIgnoreCase);
+
+    private RenderFragment RenderKnowledgeActions(KnowledgeActionItem item) => @<div class="domain-knowledge__actions" aria-label="Knowledge item actions">
+        @{ var status = KnowledgeActionMetadata.Status(item.Metadata); }
+        <span class="badge badge--domain-status badge--domain-status-@status" data-testid="knowledge-state-badge">@status</span>
+
+        @if (KnowledgeActionMetadata.Issue(item.Metadata, _view?.RepositoryLabel) is { } issue)
+        {
+            <a class="badge badge--gh badge--gh-open"
+               data-testid="knowledge-issue-badge"
+               href="@issue.Url"
+               target="_blank"
+               rel="noopener"
+               title="Knowledge Issue @issue.Label in @issue.RepoFullName">
+                Knowledge Issue @issue.Label
+                <span class="badge__state">linked</span>
+            </a>
+        }
+
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli))
+        {
+            <button type="button"
+                    class="entry-doc__icon-action entry-doc__icon-action--copilot"
+                    data-testid="knowledge-copilot-cli-button"
+                    disabled="@IsCopilotBusy(item)"
+                    title="Start GitHub Copilot CLI for this knowledge item"
+                    aria-label="Start GitHub Copilot CLI for @item.Title"
+                    @onclick="() => StartKnowledgeCopilotAsync(item)">
+                @if (IsCopilotBusy(item))
+                {
+                    <span aria-hidden="true">...</span>
+                }
+                else
+                {
+                    <span class="entry-doc__cli-mark" aria-hidden="true">gh</span>
+                }
+            </button>
+        }
+
+        @if (_copilotErrors.TryGetValue(item.Path, out var error))
+        {
+            <span class="domain-knowledge__action-error" role="status">@error</span>
+        }
+    </div>;
+
+    private bool IsCopilotBusy(KnowledgeActionItem item) => _copilotBusy.Contains(item.Path);
+
+    private async Task StartKnowledgeCopilotAsync(KnowledgeActionItem item)
+    {
+        if (_view is null || !_copilotBusy.Add(item.Path)) return;
+
+        _copilotErrors.Remove(item.Path);
+        try
+        {
+            await CopilotCli.StartFromKnowledgeAsync(item, _view.RepositoryRoot);
+        }
+        catch (CopilotCliException ex)
+        {
+            _copilotErrors[item.Path] = ex.Message;
+        }
+        finally
+        {
+            _copilotBusy.Remove(item.Path);
+        }
+    }
+
+    private bool IsFeatureEnabled(string key) => Features.IsEnabled(key);
 }

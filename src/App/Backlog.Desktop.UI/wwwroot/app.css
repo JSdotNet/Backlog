@@ -3004,6 +3004,7 @@ h1, h2, h3 {
 .domain-knowledge__header,
 .domain-context__header,
 .domain-document__header,
+.domain-section__header,
 .knowledge-document__header,
 .tech-layer__header,
 .tech-node__header,
@@ -3020,8 +3021,21 @@ h1, h2, h3 {
 .domain-knowledge__header h2,
 .domain-context__header h3,
 .domain-document__header h3,
+.domain-section__header h4,
 .knowledge-document__header h2 {
     margin: 0;
+}
+.domain-knowledge__actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
+.domain-knowledge__action-error {
+    color: var(--color-danger);
+    font-size: var(--font-size-xs);
 }
 
 .design-knowledge__eyebrow,

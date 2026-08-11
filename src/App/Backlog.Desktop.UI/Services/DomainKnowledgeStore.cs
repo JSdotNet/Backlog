@@ -29,7 +29,7 @@ public sealed class DomainKnowledgeStore(GitHubSettingsStore settings)
 
         var contextMap = ReadDocument(contextMapPath, root, DomainKnowledgeDocumentKind.ContextMap);
         var contexts = ReadContexts(root, ReadOrder(contextMap.Metadata).ToList());
-        return Task.FromResult(new DomainKnowledgeView(repo.FullName, root, null, contextMap, contexts));
+        return Task.FromResult(new DomainKnowledgeView(repo.FullName, repo.CloneDirectory, root, null, contextMap, contexts));
     }
 
     private static IReadOnlyList<DomainKnowledgeContext> ReadContexts(string root, IReadOnlyList<string> orderedSlugs)
@@ -119,17 +119,34 @@ public sealed class DomainKnowledgeStore(GitHubSettingsStore settings)
         if (index >= lines.Length || !string.Equals(lines[index].Trim(), "```meta", StringComparison.OrdinalIgnoreCase)) return [];
         index++;
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string? currentKey = null;
         while (index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal))
         {
-            var line = lines[index].Trim();
+            var rawLine = lines[index];
+            var line = rawLine.Trim();
             var sep = line.IndexOf(':');
-            if (sep > 0) result[line[..sep].Trim()] = line[(sep + 1)..].Trim();
+            if (sep > 0 && !line.StartsWith("-", StringComparison.Ordinal))
+            {
+                currentKey = line[..sep].Trim();
+                result[currentKey] = line[(sep + 1)..].Trim();
+            }
+            else if (currentKey is not null && line.StartsWith("- ", StringComparison.Ordinal))
+            {
+                result[currentKey] = AppendMetadataValue(result[currentKey], line[2..].Trim());
+            }
+            else if (currentKey is not null && char.IsWhiteSpace(rawLine.FirstOrDefault()) && line.Length > 0)
+            {
+                result[currentKey] = AppendMetadataValue(result[currentKey], line);
+            }
             index++;
         }
         if (index < lines.Length) index++;
         while (index < lines.Length && string.IsNullOrWhiteSpace(lines[index])) index++;
         return result;
     }
+
+    private static string AppendMetadataValue(string existing, string next) =>
+        string.IsNullOrWhiteSpace(existing) ? next : $"{existing}, {next}";
 
     private static void CollectDiagrams(IReadOnlyList<string> lines, string title, ICollection<DomainKnowledgeDiagram> diagrams)
     {
@@ -196,10 +213,10 @@ public sealed class DomainKnowledgeStore(GitHubSettingsStore settings)
     private static string Slug(string heading) => Regex.Replace(new string(heading.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()), "-+", "-").Trim('-');
 }
 
-public sealed record DomainKnowledgeView(string RepositoryLabel, string RootPath, string? Error, DomainKnowledgeDocument ContextMap, IReadOnlyList<DomainKnowledgeContext> Contexts)
+public sealed record DomainKnowledgeView(string RepositoryLabel, string RepositoryRoot, string RootPath, string? Error, DomainKnowledgeDocument ContextMap, IReadOnlyList<DomainKnowledgeContext> Contexts)
 {
     public bool IsReady => Error is null;
-    public static DomainKnowledgeView Unavailable(string error) => new(string.Empty, string.Empty, error, DomainKnowledgeDocument.Empty, []);
+    public static DomainKnowledgeView Unavailable(string error) => new(string.Empty, string.Empty, string.Empty, error, DomainKnowledgeDocument.Empty, []);
 }
 
 public sealed record DomainKnowledgeContext(string Slug, string DisplayName, string Status, IReadOnlyList<DomainKnowledgeDocument> Documents);

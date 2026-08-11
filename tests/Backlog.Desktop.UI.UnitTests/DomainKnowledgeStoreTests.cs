@@ -31,9 +31,11 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
 
         Assert.Null(view.Error);
         Assert.Equal("JSdotNet/Backlog", view.RepositoryLabel);
+        Assert.Equal(repo, view.RepositoryRoot);
         Assert.Equal("Context Map: Test", view.ContextMap.Title);
         Assert.Equal("draft", view.ContextMap.Status);
         Assert.Equal("context map", Assert.Single(view.ContextMap.Diagrams).Kind);
+        Assert.Equal(".domain/inbox/domain.md, .domain/inbox/features.md", view.ContextMap.Metadata["related"]);
 
         var context = Assert.Single(view.Contexts);
         Assert.Equal("Inbox", context.DisplayName);
@@ -46,6 +48,13 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
 
         var model = context.Documents.Single(d => d.Kind == DomainKnowledgeDocumentKind.Model);
         Assert.Equal("domain model", Assert.Single(model.Diagrams).Kind);
+
+        var features = context.Documents.Single(d => d.Kind == DomainKnowledgeDocumentKind.Features);
+        Assert.Equal("planned", KnowledgeActionMetadata.Status(features.Metadata));
+        var issue = KnowledgeActionMetadata.Issue(features.Metadata, view.RepositoryLabel);
+        Assert.NotNull(issue);
+        Assert.Equal("#77", issue.Label);
+        Assert.Equal("https://github.com/JSdotNet/Backlog/issues/77", issue.Url);
     }
 
     [Fact]
@@ -98,6 +107,9 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
 ```meta
 status: draft
 order: ["inbox"]
+related:
+  - .domain/inbox/domain.md
+  - .domain/inbox/features.md
 ```
 
 > Test context map.
@@ -125,6 +137,24 @@ related: [.domain/context-map.md]
 ```
 
 Owns the triage item.
+""");
+
+        File.WriteAllText(Path.Combine(domainRoot, "inbox", "features.md"), """
+# Features: Inbox
+
+```meta
+status: planned
+knowledge-issue: 77
+```
+
+## Feature: Inbox capture
+
+```meta
+status: active
+knowledge-issue: owner/repo#99
+```
+
+Captures new items.
 """);
 
         File.WriteAllText(Path.Combine(domainRoot, "inbox", "model.md"), """

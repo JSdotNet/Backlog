@@ -28,6 +28,7 @@ builder.Services.AddSingleton<KnowledgeBacklog>();
 builder.Services.AddSingleton<TechnologyKnowledgeService>();
 builder.Services.AddSingleton<InstructionSourceDiscovery>();
 builder.Services.AddSingleton<Arc42KnowledgeStore>();
+builder.Services.AddSingleton(_ => CopilotCliIntegration.Unavailable);
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddScoped<DomainKnowledgeStore>();
 
