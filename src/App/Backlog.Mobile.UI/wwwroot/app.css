@@ -1,3 +1,13 @@
+:root {
+    --color-background: #020617;
+    --color-background-alt: #0F172A;
+    --color-border: #64748B;
+    --color-text-primary: #F8F9FA;
+    --color-text-secondary: #CED4DA;
+    --color-text-link: #F2C14E;
+    --color-border-focus: #F2C14E;
+}
+
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
@@ -90,7 +100,7 @@ h1:focus {
         position: sticky;
         top: 0;
         height: env(safe-area-inset-top);
-        background-color: #f7f7f7;
+        background-color: var(--color-background);
         width: 100%;
         z-index: 1;
     }
@@ -101,11 +111,11 @@ h1:focus {
 }
 
 /* Dark mode only, per .design/color-scheme.md. */
-html, body { background-color: #16161a; color: #e6e6e6; }
+html, body { background-color: var(--color-background); color: var(--color-text-primary); }
 .capture { display: flex; gap: .5rem; margin-bottom: 1rem; }
-.capture input { flex: 1; background: #202027; color: #e6e6e6; border: 1px solid #3a3a44; border-radius: .25rem; padding: .5rem; }
+.capture input { flex: 1; background: var(--color-background-alt); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: .25rem; padding: .5rem; }
 ul.inbox { list-style: none; padding: 0; }
-ul.inbox li { display: flex; align-items: center; gap: .5rem; padding: .5rem 0; border-bottom: 1px solid #2a2a32; }
+ul.inbox li { display: flex; align-items: center; gap: .5rem; padding: .5rem 0; border-bottom: 1px solid var(--color-border); }
 ul.inbox .title { flex: 1; }
-ul.inbox .source { color: #9a9aa5; font-size: .8rem; }
+ul.inbox .source { color: var(--color-text-secondary); font-size: .8rem; }
 .error { color: #ff8080; }

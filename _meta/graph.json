@@ -10,31 +10,33 @@
     ".design"
   ],
   "stats": {
-    "nodes": 400,
-    "edges": 709,
+    "nodes": 456,
+    "edges": 791,
     "nodesByFolder": {
       "arc42": 57,
-      "domain": 221,
+      "domain": 272,
+      "backlog": 4,
       "tech": 50,
-      "design": 72
+      "design": 73
     },
     "nodesByType": {
-      "file": 76,
-      "chapter": 295,
-      "heading": 29
+      "file": 89,
+      "chapter": 331,
+      "heading": 36
     },
     "nodesByStatus": {
-      "active": 117,
-      "draft": 203,
+      "active": 118,
+      "draft": 251,
       "accepted": 1,
       "candidate": 30,
       "adopted": 20,
-      "none": 29
+      "none": 36
     },
     "edgesByType": {
-      "contains": 324,
-      "related": 326,
-      "depends-on": 59
+      "contains": 367,
+      "related": 362,
+      "depends-on": 60,
+      "implements": 2
     }
   },
   "problems": [],
@@ -936,7 +938,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-service-projection",
           "level": 2,
-          "line": 85,
+          "line": 78,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#aggregate-progress-signal",
@@ -953,7 +955,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-statuschanged",
           "level": 2,
-          "line": 98,
+          "line": 91,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -970,7 +972,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entryprojected",
           "level": 2,
-          "line": 124,
+          "line": 117,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -988,7 +990,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entrycompleted",
           "level": 2,
-          "line": 151,
+          "line": 144,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -999,15 +1001,19 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/domain.md#shared-enums",
-          "label": "Shared Enums",
+          "id": ".domain/backlog/domain.md#domain-event-aiworklogged",
+          "label": "Domain Event: AIWorkLogged",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/domain.md",
-          "slug": "shared-enums",
+          "slug": "domain-event-aiworklogged",
           "level": 2,
-          "line": 176,
-          "status": "draft"
+          "line": 169,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/productivity/domain.md#aggregate-productivity-ledger"
+          ]
         }
       },
       {
@@ -1160,6 +1166,38 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/features.md#feature-roadmap-planning",
+          "label": "Feature: Roadmap planning",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "feature-roadmap-planning",
+          "level": 2,
+          "line": 105,
+          "status": "draft",
+          "depends-on": [
+            ".domain/backlog/features.md#feature-refinement-and-prioritization"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#sub-feature-roadmap-views",
+          "label": "Sub-feature: Roadmap views",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "sub-feature-roadmap-views",
+          "level": 3,
+          "line": 118,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/flow.md",
           "label": "Flow: Backlog Management",
           "type": "file",
@@ -1301,6 +1339,46 @@
           ],
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-ai-work-log",
+          "label": "Term: AI Work Log",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-ai-work-log",
+          "level": 2,
+          "line": 79,
+          "status": "draft",
+          "aliases": [
+            "AIWorkLog",
+            "AIWorkLogged"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#domain-event-aiworklogged"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-roadmap",
+          "label": "Term: Roadmap",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-roadmap",
+          "level": 2,
+          "line": 91,
+          "status": "draft",
+          "aliases": [
+            "Roadmap planning",
+            "Roadmap view"
+          ],
+          "related": [
+            ".domain/backlog/features.md#feature-roadmap-planning"
           ]
         }
       },
@@ -2122,6 +2200,300 @@
       },
       {
         "data": {
+          "id": ".domain/environment/dependencies.md",
+          "label": "Dependencies: Environment",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/environment/dependencies.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/domain.md",
+          "label": "Domain: Environment",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/environment/domain.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "label": "Aggregate: Environment Catalog",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/domain.md",
+          "slug": "aggregate-environment-catalog",
+          "level": 2,
+          "line": 16,
+          "status": "draft",
+          "related": [
+            ".domain/repository-management/domain.md#aggregate-repository-registry",
+            ".domain/monitoring/domain.md#aggregate-progress-signal"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/domain.md#domain-service-environment-shortcut-resolution",
+          "label": "Domain Service: Environment Shortcut Resolution",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/domain.md",
+          "slug": "domain-service-environment-shortcut-resolution",
+          "level": 2,
+          "line": 62,
+          "status": "draft",
+          "related": [
+            ".domain/environment/domain.md#aggregate-environment-catalog",
+            ".domain/repository-management/domain.md#aggregate-repository-registry",
+            ".domain/monitoring/domain.md#aggregate-progress-signal"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/domain.md#domain-event-environmentshortcutused",
+          "label": "Domain Event: EnvironmentShortcutUsed",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/domain.md",
+          "slug": "domain-event-environmentshortcutused",
+          "level": 2,
+          "line": 76,
+          "status": "draft",
+          "related": [
+            ".domain/environment/domain.md#aggregate-environment-catalog",
+            ".domain/productivity/domain.md#aggregate-productivity-ledger"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/domain.md#shared-enums",
+          "label": "Shared Enums",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/domain.md",
+          "slug": "shared-enums",
+          "level": 2,
+          "line": 102,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/features.md",
+          "label": "Features: Environment",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/environment/features.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/features.md#feature-environment-quick-access",
+          "label": "Feature: Environment quick access",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/features.md",
+          "slug": "feature-environment-quick-access",
+          "level": 2,
+          "line": 10,
+          "status": "draft",
+          "related": [
+            ".domain/environment/domain.md#aggregate-environment-catalog"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/features.md#sub-feature-pinned-environments",
+          "label": "Sub-feature: Pinned environments",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/features.md",
+          "slug": "sub-feature-pinned-environments",
+          "level": 3,
+          "line": 20,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/features.md#sub-feature-grouped-shortcuts",
+          "label": "Sub-feature: Grouped shortcuts",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/features.md",
+          "slug": "sub-feature-grouped-shortcuts",
+          "level": 3,
+          "line": 28,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/features.md#sub-feature-safe-access-hints",
+          "label": "Sub-feature: Safe access hints",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/features.md",
+          "slug": "sub-feature-safe-access-hints",
+          "level": 3,
+          "line": 37,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/features.md#feature-environment-aware-work-context",
+          "label": "Feature: Environment-aware work context",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/features.md",
+          "slug": "feature-environment-aware-work-context",
+          "level": 2,
+          "line": 46,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/features.md#feature-roadmap-planning"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/flow.md",
+          "label": "Flow: Environment",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/environment/flow.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/model.md",
+          "label": "Domain Model: Environment",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/environment/model.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/naming.md",
+          "label": "Naming: Environment",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/environment/naming.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/naming.md#term-environment-catalog",
+          "label": "Term: Environment Catalog",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/naming.md",
+          "slug": "term-environment-catalog",
+          "level": 2,
+          "line": 12,
+          "status": "draft",
+          "aliases": [
+            "EnvironmentCatalog"
+          ],
+          "related": [
+            ".domain/environment/domain.md#aggregate-environment-catalog"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/naming.md#term-environment",
+          "label": "Term: Environment",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/naming.md",
+          "slug": "term-environment",
+          "level": 2,
+          "line": 22,
+          "status": "draft",
+          "aliases": [
+            "Environment",
+            "environment_id"
+          ],
+          "related": [
+            ".domain/environment/domain.md#environment"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/naming.md#term-environment-shortcut",
+          "label": "Term: Environment Shortcut",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/naming.md",
+          "slug": "term-environment-shortcut",
+          "level": 2,
+          "line": 32,
+          "status": "draft",
+          "aliases": [
+            "EnvironmentShortcut",
+            "shortcut_id"
+          ],
+          "related": [
+            ".domain/environment/domain.md#environment-shortcut"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/naming.md#term-launch-target",
+          "label": "Term: Launch Target",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/naming.md",
+          "slug": "term-launch-target",
+          "level": 2,
+          "line": 42,
+          "status": "draft",
+          "aliases": [
+            "LaunchTarget",
+            "target_ref"
+          ],
+          "related": [
+            ".domain/environment/domain.md#launch-target"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/naming.md#term-access-hint",
+          "label": "Term: Access Hint",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/environment/naming.md",
+          "slug": "term-access-hint",
+          "level": 2,
+          "line": 53,
+          "status": "draft",
+          "aliases": [
+            "AccessHint"
+          ],
+          "related": [
+            ".domain/environment/domain.md#access-hint"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/inbox/dependencies.md",
           "label": "Dependencies: Inbox",
           "type": "file",
@@ -2881,6 +3253,299 @@
           ],
           "related": [
             ".domain/monitoring/domain.md#domain-service-dashboard"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/dependencies.md",
+          "label": "Dependencies: Productivity",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/productivity/dependencies.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/domain.md",
+          "label": "Domain: Productivity",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/productivity/domain.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "label": "Aggregate: Productivity Ledger",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/domain.md",
+          "slug": "aggregate-productivity-ledger",
+          "level": 2,
+          "line": 16,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/domain.md#domain-event-aiworklogged",
+            ".domain/monitoring/domain.md#aggregate-progress-signal"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/domain.md#domain-service-productivity-analysis",
+          "label": "Domain Service: Productivity Analysis",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/domain.md",
+          "slug": "domain-service-productivity-analysis",
+          "level": 2,
+          "line": 66,
+          "status": "draft",
+          "related": [
+            ".domain/productivity/domain.md#aggregate-productivity-ledger"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/domain.md#domain-event-productivityrecorded",
+          "label": "Domain Event: ProductivityRecorded",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/domain.md",
+          "slug": "domain-event-productivityrecorded",
+          "level": 2,
+          "line": 81,
+          "status": "draft",
+          "related": [
+            ".domain/productivity/domain.md#aggregate-productivity-ledger",
+            ".domain/monitoring/domain.md#aggregate-progress-signal"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/domain.md#shared-enums",
+          "label": "Shared Enums",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/domain.md",
+          "slug": "shared-enums",
+          "level": 2,
+          "line": 112,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/features.md",
+          "label": "Features: Productivity",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/productivity/features.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "label": "Feature: AI productivity tracking",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/features.md",
+          "slug": "feature-ai-productivity-tracking",
+          "level": 2,
+          "line": 10,
+          "status": "draft",
+          "related": [
+            ".domain/productivity/domain.md#aggregate-productivity-ledger",
+            ".domain/backlog/domain.md#domain-event-aiworklogged"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/features.md#sub-feature-ai-activity-capture",
+          "label": "Sub-feature: AI activity capture",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/features.md",
+          "slug": "sub-feature-ai-activity-capture",
+          "level": 3,
+          "line": 21,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/features.md#sub-feature-productivity-summaries",
+          "label": "Sub-feature: Productivity summaries",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/features.md",
+          "slug": "sub-feature-productivity-summaries",
+          "level": 3,
+          "line": 31,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/features.md#sub-feature-time-saved-estimates",
+          "label": "Sub-feature: Time-saved estimates",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/features.md",
+          "slug": "sub-feature-time-saved-estimates",
+          "level": 3,
+          "line": 40,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/features.md#feature-personal-productivity-dashboard",
+          "label": "Feature: Personal productivity dashboard",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/features.md",
+          "slug": "feature-personal-productivity-dashboard",
+          "level": 2,
+          "line": 49,
+          "status": "draft",
+          "related": [
+            ".domain/monitoring/features.md#feature-multi-layer-dashboards"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/flow.md",
+          "label": "Flow: Productivity",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/productivity/flow.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/model.md",
+          "label": "Domain Model: Productivity",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/productivity/model.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/naming.md",
+          "label": "Naming: Productivity",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/productivity/naming.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/naming.md#term-productivity-ledger",
+          "label": "Term: Productivity Ledger",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/naming.md",
+          "slug": "term-productivity-ledger",
+          "level": 2,
+          "line": 12,
+          "status": "draft",
+          "aliases": [
+            "ProductivityLedger"
+          ],
+          "related": [
+            ".domain/productivity/domain.md#aggregate-productivity-ledger"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/naming.md#term-productivity-entry",
+          "label": "Term: Productivity Entry",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/naming.md",
+          "slug": "term-productivity-entry",
+          "level": 2,
+          "line": 22,
+          "status": "draft",
+          "aliases": [
+            "ProductivityEntry",
+            "productivity_entry_id"
+          ],
+          "related": [
+            ".domain/productivity/domain.md#productivity-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/naming.md#term-ai-productivity-tracking",
+          "label": "Term: AI Productivity Tracking",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/naming.md",
+          "slug": "term-ai-productivity-tracking",
+          "level": 2,
+          "line": 32,
+          "status": "draft",
+          "aliases": [
+            "AI productivity",
+            "AI-assisted productivity"
+          ],
+          "related": [
+            ".domain/productivity/features.md#feature-ai-productivity-tracking"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/naming.md#term-activity-kind",
+          "label": "Term: Activity Kind",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/naming.md",
+          "slug": "term-activity-kind",
+          "level": 2,
+          "line": 43,
+          "status": "draft",
+          "aliases": [
+            "ActivityKind"
+          ],
+          "related": [
+            ".domain/productivity/domain.md#activity-kind"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/naming.md#term-work-subject-ref",
+          "label": "Term: Work Subject Ref",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/naming.md",
+          "slug": "term-work-subject-ref",
+          "level": 2,
+          "line": 53,
+          "status": "draft",
+          "aliases": [
+            "WorkSubjectRef",
+            "subject_ref"
+          ],
+          "related": [
+            ".domain/productivity/domain.md#work-subject-ref"
           ]
         }
       },
@@ -3794,6 +4459,64 @@
           "related": [
             ".domain/technology-stack/domain.md#deprecation-notice"
           ]
+        }
+      },
+      {
+        "data": {
+          "id": ".backlog/domain-backlog.md",
+          "label": "Backlog Management Work",
+          "type": "file",
+          "folder": "backlog",
+          "path": ".backlog/domain-backlog.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
+          "label": "Add roadmap planning to the backlog",
+          "type": "chapter",
+          "folder": "backlog",
+          "path": ".backlog/domain-backlog.md",
+          "slug": "add-roadmap-planning-to-the-backlog",
+          "level": 2,
+          "line": 7,
+          "status": "draft",
+          "related": [
+            ".domain/environment/features.md#feature-environment-aware-work-context"
+          ],
+          "implements": [
+            ".domain/backlog/features.md#feature-roadmap-planning"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".backlog/domain-backlog.md#acceptance-criteria",
+          "label": "Acceptance criteria",
+          "type": "chapter",
+          "folder": "backlog",
+          "path": ".backlog/domain-backlog.md",
+          "slug": "acceptance-criteria",
+          "level": 3,
+          "line": 26,
+          "status": "draft",
+          "implements": [
+            ".domain/backlog/features.md#feature-roadmap-planning"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".backlog/domain-backlog.md#test-instructions",
+          "label": "Test instructions",
+          "type": "chapter",
+          "folder": "backlog",
+          "path": ".backlog/domain-backlog.md",
+          "slug": "test-instructions",
+          "level": 3,
+          "line": 42,
+          "status": "draft"
         }
       },
       {
@@ -5134,7 +5857,7 @@
           "path": ".design/component-libraries.md",
           "slug": "key-finding-tokens-are-the-shared-layer",
           "level": 2,
-          "line": 35,
+          "line": 36,
           "status": "active",
           "related": [
             ".design/color-scheme.md#per-stack-token-mapping"
@@ -5150,7 +5873,7 @@
           "path": ".design/component-libraries.md",
           "slug": "per-channel-recommendations",
           "level": 2,
-          "line": 58,
+          "line": 59,
           "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md#technology-choices",
@@ -5167,7 +5890,7 @@
           "path": ".design/component-libraries.md",
           "slug": "desktop--net-maui-blazor-hybrid-razor-in-webview2",
           "level": 3,
-          "line": 65,
+          "line": 66,
           "status": "active",
           "related": [
             ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
@@ -5183,7 +5906,7 @@
           "path": ".design/component-libraries.md",
           "slug": "candidate-comparison",
           "level": 2,
-          "line": 120,
+          "line": 121,
           "status": "active"
         }
       },
@@ -5196,8 +5919,26 @@
           "path": ".design/component-libraries.md",
           "slug": "recommendation-summary",
           "level": 2,
-          "line": 144,
+          "line": 150,
           "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "label": "Diagram and Graph Strategy",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "diagram-and-graph-strategy",
+          "level": 2,
+          "line": 171,
+          "status": "active",
+          "related": [
+            ".tech/technology-graph.md",
+            ".design/content-editing.md",
+            ".design/accessibility.md"
+          ]
         }
       },
       {
@@ -5209,7 +5950,7 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 160,
+          "line": 190,
           "status": "active"
         }
       },
@@ -5774,7 +6515,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "sub-item",
           "level": 4,
-          "line": 47
+          "line": 43
         }
       },
       {
@@ -5786,7 +6527,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-type",
           "level": 4,
-          "line": 69
+          "line": 62
         }
       },
       {
@@ -5798,7 +6539,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-status",
           "level": 4,
-          "line": 73
+          "line": 66
         }
       },
       {
@@ -5875,6 +6616,54 @@
       },
       {
         "data": {
+          "id": ".domain/environment/domain.md#environment",
+          "label": "Environment",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/environment/domain.md",
+          "slug": "environment",
+          "level": 4,
+          "line": 30
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/domain.md#environment-shortcut",
+          "label": "Environment Shortcut",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/environment/domain.md",
+          "slug": "environment-shortcut",
+          "level": 4,
+          "line": 36
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/domain.md#launch-target",
+          "label": "Launch Target",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/environment/domain.md",
+          "slug": "launch-target",
+          "level": 4,
+          "line": 43
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/environment/domain.md#access-hint",
+          "label": "Access Hint",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/environment/domain.md",
+          "slug": "access-hint",
+          "level": 4,
+          "line": 49
+        }
+      },
+      {
+        "data": {
           "id": ".domain/inbox/domain.md#capture-source",
           "label": "Capture Source",
           "type": "heading",
@@ -5931,6 +6720,42 @@
           "slug": "signal-payload",
           "level": 4,
           "line": 41
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/domain.md#productivity-entry",
+          "label": "Productivity Entry",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/productivity/domain.md",
+          "slug": "productivity-entry",
+          "level": 4,
+          "line": 32
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/domain.md#activity-kind",
+          "label": "Activity Kind",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/productivity/domain.md",
+          "slug": "activity-kind",
+          "level": 4,
+          "line": 54
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/domain.md#work-subject-ref",
+          "label": "Work Subject Ref",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/productivity/domain.md",
+          "slug": "work-subject-ref",
+          "level": 4,
+          "line": 40
         }
       },
       {
@@ -6509,9 +7334,9 @@
       },
       {
         "data": {
-          "id": "contains:.domain/backlog/domain.md->.domain/backlog/domain.md#shared-enums",
+          "id": "contains:.domain/backlog/domain.md->.domain/backlog/domain.md#domain-event-aiworklogged",
           "source": ".domain/backlog/domain.md",
-          "target": ".domain/backlog/domain.md#shared-enums",
+          "target": ".domain/backlog/domain.md#domain-event-aiworklogged",
           "type": "contains"
         }
       },
@@ -6589,6 +7414,22 @@
       },
       {
         "data": {
+          "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#feature-roadmap-planning",
+          "source": ".domain/backlog/features.md",
+          "target": ".domain/backlog/features.md#feature-roadmap-planning",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md#feature-roadmap-planning->.domain/backlog/features.md#sub-feature-roadmap-views",
+          "source": ".domain/backlog/features.md#feature-roadmap-planning",
+          "target": ".domain/backlog/features.md#sub-feature-roadmap-views",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-backlog-entry",
           "source": ".domain/backlog/naming.md",
           "target": ".domain/backlog/naming.md#term-backlog-entry",
@@ -6632,6 +7473,22 @@
           "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-area",
           "source": ".domain/backlog/naming.md",
           "target": ".domain/backlog/naming.md#term-area",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-ai-work-log",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-ai-work-log",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-roadmap",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-roadmap",
           "type": "contains"
         }
       },
@@ -6989,6 +7846,118 @@
       },
       {
         "data": {
+          "id": "contains:.domain/environment/domain.md->.domain/environment/domain.md#aggregate-environment-catalog",
+          "source": ".domain/environment/domain.md",
+          "target": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/domain.md->.domain/environment/domain.md#domain-service-environment-shortcut-resolution",
+          "source": ".domain/environment/domain.md",
+          "target": ".domain/environment/domain.md#domain-service-environment-shortcut-resolution",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/domain.md->.domain/environment/domain.md#domain-event-environmentshortcutused",
+          "source": ".domain/environment/domain.md",
+          "target": ".domain/environment/domain.md#domain-event-environmentshortcutused",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/domain.md->.domain/environment/domain.md#shared-enums",
+          "source": ".domain/environment/domain.md",
+          "target": ".domain/environment/domain.md#shared-enums",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/features.md->.domain/environment/features.md#feature-environment-quick-access",
+          "source": ".domain/environment/features.md",
+          "target": ".domain/environment/features.md#feature-environment-quick-access",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/features.md#feature-environment-quick-access->.domain/environment/features.md#sub-feature-pinned-environments",
+          "source": ".domain/environment/features.md#feature-environment-quick-access",
+          "target": ".domain/environment/features.md#sub-feature-pinned-environments",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/features.md#feature-environment-quick-access->.domain/environment/features.md#sub-feature-grouped-shortcuts",
+          "source": ".domain/environment/features.md#feature-environment-quick-access",
+          "target": ".domain/environment/features.md#sub-feature-grouped-shortcuts",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/features.md#feature-environment-quick-access->.domain/environment/features.md#sub-feature-safe-access-hints",
+          "source": ".domain/environment/features.md#feature-environment-quick-access",
+          "target": ".domain/environment/features.md#sub-feature-safe-access-hints",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/features.md->.domain/environment/features.md#feature-environment-aware-work-context",
+          "source": ".domain/environment/features.md",
+          "target": ".domain/environment/features.md#feature-environment-aware-work-context",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/naming.md->.domain/environment/naming.md#term-environment-catalog",
+          "source": ".domain/environment/naming.md",
+          "target": ".domain/environment/naming.md#term-environment-catalog",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/naming.md->.domain/environment/naming.md#term-environment",
+          "source": ".domain/environment/naming.md",
+          "target": ".domain/environment/naming.md#term-environment",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/naming.md->.domain/environment/naming.md#term-environment-shortcut",
+          "source": ".domain/environment/naming.md",
+          "target": ".domain/environment/naming.md#term-environment-shortcut",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/naming.md->.domain/environment/naming.md#term-launch-target",
+          "source": ".domain/environment/naming.md",
+          "target": ".domain/environment/naming.md#term-launch-target",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/naming.md->.domain/environment/naming.md#term-access-hint",
+          "source": ".domain/environment/naming.md",
+          "target": ".domain/environment/naming.md#term-access-hint",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/inbox/domain.md->.domain/inbox/domain.md#aggregate-inbox-item",
           "source": ".domain/inbox/domain.md",
           "target": ".domain/inbox/domain.md#aggregate-inbox-item",
@@ -7304,6 +8273,118 @@
           "id": "contains:.domain/monitoring/naming.md->.domain/monitoring/naming.md#term-dashboard",
           "source": ".domain/monitoring/naming.md",
           "target": ".domain/monitoring/naming.md#term-dashboard",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/domain.md->.domain/productivity/domain.md#aggregate-productivity-ledger",
+          "source": ".domain/productivity/domain.md",
+          "target": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/domain.md->.domain/productivity/domain.md#domain-service-productivity-analysis",
+          "source": ".domain/productivity/domain.md",
+          "target": ".domain/productivity/domain.md#domain-service-productivity-analysis",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/domain.md->.domain/productivity/domain.md#domain-event-productivityrecorded",
+          "source": ".domain/productivity/domain.md",
+          "target": ".domain/productivity/domain.md#domain-event-productivityrecorded",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/domain.md->.domain/productivity/domain.md#shared-enums",
+          "source": ".domain/productivity/domain.md",
+          "target": ".domain/productivity/domain.md#shared-enums",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/features.md->.domain/productivity/features.md#feature-ai-productivity-tracking",
+          "source": ".domain/productivity/features.md",
+          "target": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/productivity/features.md#sub-feature-ai-activity-capture",
+          "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "target": ".domain/productivity/features.md#sub-feature-ai-activity-capture",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/productivity/features.md#sub-feature-productivity-summaries",
+          "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "target": ".domain/productivity/features.md#sub-feature-productivity-summaries",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/productivity/features.md#sub-feature-time-saved-estimates",
+          "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "target": ".domain/productivity/features.md#sub-feature-time-saved-estimates",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/features.md->.domain/productivity/features.md#feature-personal-productivity-dashboard",
+          "source": ".domain/productivity/features.md",
+          "target": ".domain/productivity/features.md#feature-personal-productivity-dashboard",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/naming.md->.domain/productivity/naming.md#term-productivity-ledger",
+          "source": ".domain/productivity/naming.md",
+          "target": ".domain/productivity/naming.md#term-productivity-ledger",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/naming.md->.domain/productivity/naming.md#term-productivity-entry",
+          "source": ".domain/productivity/naming.md",
+          "target": ".domain/productivity/naming.md#term-productivity-entry",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/naming.md->.domain/productivity/naming.md#term-ai-productivity-tracking",
+          "source": ".domain/productivity/naming.md",
+          "target": ".domain/productivity/naming.md#term-ai-productivity-tracking",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/naming.md->.domain/productivity/naming.md#term-activity-kind",
+          "source": ".domain/productivity/naming.md",
+          "target": ".domain/productivity/naming.md#term-activity-kind",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/naming.md->.domain/productivity/naming.md#term-work-subject-ref",
+          "source": ".domain/productivity/naming.md",
+          "target": ".domain/productivity/naming.md#term-work-subject-ref",
           "type": "contains"
         }
       },
@@ -7648,6 +8729,30 @@
           "id": "contains:.domain/technology-stack/naming.md->.domain/technology-stack/naming.md#term-deprecation-notice",
           "source": ".domain/technology-stack/naming.md",
           "target": ".domain/technology-stack/naming.md#term-deprecation-notice",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.backlog/domain-backlog.md->.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
+          "source": ".backlog/domain-backlog.md",
+          "target": ".backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.backlog/domain-backlog.md#acceptance-criteria",
+          "source": ".backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
+          "target": ".backlog/domain-backlog.md#acceptance-criteria",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.backlog/domain-backlog.md#test-instructions",
+          "source": ".backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
+          "target": ".backlog/domain-backlog.md#test-instructions",
           "type": "contains"
         }
       },
@@ -8208,6 +9313,14 @@
           "id": "contains:.design/component-libraries.md->.design/component-libraries.md#recommendation-summary",
           "source": ".design/component-libraries.md",
           "target": ".design/component-libraries.md#recommendation-summary",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md->.design/component-libraries.md#diagram-and-graph-strategy",
+          "source": ".design/component-libraries.md",
+          "target": ".design/component-libraries.md#diagram-and-graph-strategy",
           "type": "contains"
         }
       },
@@ -9117,6 +10230,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/backlog/domain.md#domain-event-aiworklogged->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/domain.md#domain-event-aiworklogged",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/domain.md#domain-event-aiworklogged->.domain/productivity/domain.md#aggregate-productivity-ledger",
+          "source": ".domain/backlog/domain.md#domain-event-aiworklogged",
+          "target": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/backlog/features.md#feature-backlog-entry-creation->.domain/inbox/features.md#feature-routing",
           "source": ".domain/backlog/features.md#feature-backlog-entry-creation",
           "target": ".domain/inbox/features.md#feature-routing",
@@ -9168,6 +10297,22 @@
           "id": "related:.domain/backlog/features.md#feature-search-filter-and-organize->.domain/second-brain/features.md#feature-bi-directional-linking",
           "source": ".domain/backlog/features.md#feature-search-filter-and-organize",
           "target": ".domain/second-brain/features.md#feature-bi-directional-linking",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/backlog/features.md#feature-roadmap-planning->.domain/backlog/features.md#feature-refinement-and-prioritization",
+          "source": ".domain/backlog/features.md#feature-roadmap-planning",
+          "target": ".domain/backlog/features.md#feature-refinement-and-prioritization",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#feature-roadmap-planning->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/features.md#feature-roadmap-planning",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
           "type": "related"
         }
       },
@@ -9240,6 +10385,22 @@
           "id": "related:.domain/backlog/naming.md#term-area->.domain/backlog/domain.md#aggregate-backlog-entry",
           "source": ".domain/backlog/naming.md#term-area",
           "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-ai-work-log->.domain/backlog/domain.md#domain-event-aiworklogged",
+          "source": ".domain/backlog/naming.md#term-ai-work-log",
+          "target": ".domain/backlog/domain.md#domain-event-aiworklogged",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-roadmap->.domain/backlog/features.md#feature-roadmap-planning",
+          "source": ".domain/backlog/naming.md#term-roadmap",
+          "target": ".domain/backlog/features.md#feature-roadmap-planning",
           "type": "related"
         }
       },
@@ -9597,6 +10758,150 @@
       },
       {
         "data": {
+          "id": "related:.domain/environment/domain.md#aggregate-environment-catalog->.domain/repository-management/domain.md#aggregate-repository-registry",
+          "source": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "target": ".domain/repository-management/domain.md#aggregate-repository-registry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/domain.md#aggregate-environment-catalog->.domain/monitoring/domain.md#aggregate-progress-signal",
+          "source": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "target": ".domain/monitoring/domain.md#aggregate-progress-signal",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/domain.md#domain-service-environment-shortcut-resolution->.domain/environment/domain.md#aggregate-environment-catalog",
+          "source": ".domain/environment/domain.md#domain-service-environment-shortcut-resolution",
+          "target": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/domain.md#domain-service-environment-shortcut-resolution->.domain/repository-management/domain.md#aggregate-repository-registry",
+          "source": ".domain/environment/domain.md#domain-service-environment-shortcut-resolution",
+          "target": ".domain/repository-management/domain.md#aggregate-repository-registry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/domain.md#domain-service-environment-shortcut-resolution->.domain/monitoring/domain.md#aggregate-progress-signal",
+          "source": ".domain/environment/domain.md#domain-service-environment-shortcut-resolution",
+          "target": ".domain/monitoring/domain.md#aggregate-progress-signal",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/domain.md#domain-event-environmentshortcutused->.domain/environment/domain.md#aggregate-environment-catalog",
+          "source": ".domain/environment/domain.md#domain-event-environmentshortcutused",
+          "target": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/domain.md#domain-event-environmentshortcutused->.domain/productivity/domain.md#aggregate-productivity-ledger",
+          "source": ".domain/environment/domain.md#domain-event-environmentshortcutused",
+          "target": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/features.md#feature-environment-quick-access->.domain/environment/domain.md#aggregate-environment-catalog",
+          "source": ".domain/environment/features.md#feature-environment-quick-access",
+          "target": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/features.md#feature-environment-aware-work-context->.domain/backlog/features.md#feature-roadmap-planning",
+          "source": ".domain/environment/features.md#feature-environment-aware-work-context",
+          "target": ".domain/backlog/features.md#feature-roadmap-planning",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/naming.md#term-environment-catalog->.domain/environment/domain.md#aggregate-environment-catalog",
+          "source": ".domain/environment/naming.md#term-environment-catalog",
+          "target": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/domain.md#aggregate-environment-catalog->.domain/environment/domain.md#environment",
+          "source": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "target": ".domain/environment/domain.md#environment",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/naming.md#term-environment->.domain/environment/domain.md#environment",
+          "source": ".domain/environment/naming.md#term-environment",
+          "target": ".domain/environment/domain.md#environment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/domain.md#aggregate-environment-catalog->.domain/environment/domain.md#environment-shortcut",
+          "source": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "target": ".domain/environment/domain.md#environment-shortcut",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/naming.md#term-environment-shortcut->.domain/environment/domain.md#environment-shortcut",
+          "source": ".domain/environment/naming.md#term-environment-shortcut",
+          "target": ".domain/environment/domain.md#environment-shortcut",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/domain.md#aggregate-environment-catalog->.domain/environment/domain.md#launch-target",
+          "source": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "target": ".domain/environment/domain.md#launch-target",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/naming.md#term-launch-target->.domain/environment/domain.md#launch-target",
+          "source": ".domain/environment/naming.md#term-launch-target",
+          "target": ".domain/environment/domain.md#launch-target",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/environment/domain.md#aggregate-environment-catalog->.domain/environment/domain.md#access-hint",
+          "source": ".domain/environment/domain.md#aggregate-environment-catalog",
+          "target": ".domain/environment/domain.md#access-hint",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/environment/naming.md#term-access-hint->.domain/environment/domain.md#access-hint",
+          "source": ".domain/environment/naming.md#term-access-hint",
+          "target": ".domain/environment/domain.md#access-hint",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/inbox/domain.md#aggregate-inbox-item->.domain/capture/domain.md#aggregate-capture",
           "source": ".domain/inbox/domain.md#aggregate-inbox-item",
           "target": ".domain/capture/domain.md#aggregate-capture",
@@ -9928,6 +11233,134 @@
           "id": "related:.domain/monitoring/naming.md#term-dashboard->.domain/monitoring/domain.md#domain-service-dashboard",
           "source": ".domain/monitoring/naming.md#term-dashboard",
           "target": ".domain/monitoring/domain.md#domain-service-dashboard",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/domain.md#aggregate-productivity-ledger->.domain/backlog/domain.md#domain-event-aiworklogged",
+          "source": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "target": ".domain/backlog/domain.md#domain-event-aiworklogged",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/domain.md#aggregate-productivity-ledger->.domain/monitoring/domain.md#aggregate-progress-signal",
+          "source": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "target": ".domain/monitoring/domain.md#aggregate-progress-signal",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/domain.md#domain-service-productivity-analysis->.domain/productivity/domain.md#aggregate-productivity-ledger",
+          "source": ".domain/productivity/domain.md#domain-service-productivity-analysis",
+          "target": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/domain.md#domain-event-productivityrecorded->.domain/productivity/domain.md#aggregate-productivity-ledger",
+          "source": ".domain/productivity/domain.md#domain-event-productivityrecorded",
+          "target": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/domain.md#domain-event-productivityrecorded->.domain/monitoring/domain.md#aggregate-progress-signal",
+          "source": ".domain/productivity/domain.md#domain-event-productivityrecorded",
+          "target": ".domain/monitoring/domain.md#aggregate-progress-signal",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/productivity/domain.md#aggregate-productivity-ledger",
+          "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "target": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/backlog/domain.md#domain-event-aiworklogged",
+          "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "target": ".domain/backlog/domain.md#domain-event-aiworklogged",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/features.md#feature-personal-productivity-dashboard->.domain/monitoring/features.md#feature-multi-layer-dashboards",
+          "source": ".domain/productivity/features.md#feature-personal-productivity-dashboard",
+          "target": ".domain/monitoring/features.md#feature-multi-layer-dashboards",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/naming.md#term-productivity-ledger->.domain/productivity/domain.md#aggregate-productivity-ledger",
+          "source": ".domain/productivity/naming.md#term-productivity-ledger",
+          "target": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/domain.md#aggregate-productivity-ledger->.domain/productivity/domain.md#productivity-entry",
+          "source": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "target": ".domain/productivity/domain.md#productivity-entry",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/naming.md#term-productivity-entry->.domain/productivity/domain.md#productivity-entry",
+          "source": ".domain/productivity/naming.md#term-productivity-entry",
+          "target": ".domain/productivity/domain.md#productivity-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/naming.md#term-ai-productivity-tracking->.domain/productivity/features.md#feature-ai-productivity-tracking",
+          "source": ".domain/productivity/naming.md#term-ai-productivity-tracking",
+          "target": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/domain.md#aggregate-productivity-ledger->.domain/productivity/domain.md#activity-kind",
+          "source": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "target": ".domain/productivity/domain.md#activity-kind",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/naming.md#term-activity-kind->.domain/productivity/domain.md#activity-kind",
+          "source": ".domain/productivity/naming.md#term-activity-kind",
+          "target": ".domain/productivity/domain.md#activity-kind",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/domain.md#aggregate-productivity-ledger->.domain/productivity/domain.md#work-subject-ref",
+          "source": ".domain/productivity/domain.md#aggregate-productivity-ledger",
+          "target": ".domain/productivity/domain.md#work-subject-ref",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/naming.md#term-work-subject-ref->.domain/productivity/domain.md#work-subject-ref",
+          "source": ".domain/productivity/naming.md#term-work-subject-ref",
+          "target": ".domain/productivity/domain.md#work-subject-ref",
           "type": "related"
         }
       },
@@ -10393,6 +11826,30 @@
           "source": ".domain/technology-stack/naming.md#term-deprecation-notice",
           "target": ".domain/technology-stack/domain.md#deprecation-notice",
           "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.domain/environment/features.md#feature-environment-aware-work-context",
+          "source": ".backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
+          "target": ".domain/environment/features.md#feature-environment-aware-work-context",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "implements:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.domain/backlog/features.md#feature-roadmap-planning",
+          "source": ".backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
+          "target": ".domain/backlog/features.md#feature-roadmap-planning",
+          "type": "implements"
+        }
+      },
+      {
+        "data": {
+          "id": "implements:.backlog/domain-backlog.md#acceptance-criteria->.domain/backlog/features.md#feature-roadmap-planning",
+          "source": ".backlog/domain-backlog.md#acceptance-criteria",
+          "target": ".domain/backlog/features.md#feature-roadmap-planning",
+          "type": "implements"
         }
       },
       {
@@ -11400,6 +12857,30 @@
           "id": "related:.design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "source": ".design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2",
           "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.tech/technology-graph.md",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/content-editing.md",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".design/content-editing.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/accessibility.md",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".design/accessibility.md",
           "type": "related"
         }
       },

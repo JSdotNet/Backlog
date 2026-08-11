@@ -27,11 +27,7 @@ A refined, actionable item in the personal backlog and the consistency boundary
 for all of its sub-items, projections, and usage history. It is the single source
 of truth: one logical item with one priority and one status even when it targets
 multiple repositories. Invariants: status only moves through the defined
-lifecycle; all mutations to sub-items, projection references, and usage events go
-through the root; parent progress reflects sub-item completion; projections are
-created on `Ready → In Progress` (`EntryProjected`, one per `repo_id`) and closed
-on completion (`EntryCompleted`). A manually created entry starts at `draft` with
-no `source_inbox_id`.
+lifecycle; all mutations to sub-items, projection references, AI work log events, and usage events go through the root; parent progress reflects sub-item completion; projections are created on `Ready → In Progress` (`EntryProjected`, one per `repo_id`) and closed on completion (`EntryCompleted`). A manually created entry starts at `draft` with no `source_inbox_id`.
 
 The entry also carries two attributes that place it in the person's own working
 set rather than in any external system: `area`, a free-form string ("repos",
@@ -59,10 +55,7 @@ An immutable link to a downstream external artifact created from the entry:
 `repo_id`, `external_id`, and `target_type` (e.g. github-issue, cli-task).
 Equality is by value.
 
-#### Usage Event
-
-An immutable audit record of a prompt copy/use: `timestamp` and `action`.
-Equality is by value.
+#### Usage Event`r`n`r`nAn immutable audit record of a prompt copy/use: `timestamp` and `action`.`r`nEquality is by value.`r`n`r`n#### AI Work Log`r`n`r`nAn immutable record that an AI-assisted action contributed to the entry: `timestamp`, `ai_tool`, `activity_kind`, optional `session_id`, and optional `outcome_ref`. Equality is by value.
 
 ### Enums
 
@@ -173,7 +166,39 @@ Published when a completed `Backlog Entry` closes its downstream projections.
 - Completion is owned by Backlog Management; external systems consume the closing
   signal but do not redefine what completion means.
 
-## Shared Enums
+## Domain Event: AIWorkLogged
+
+```meta
+status: draft
+related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/productivity/domain.md#aggregate-productivity-ledger]
+```
+
+Published when a Backlog Entry records that an AI-assisted action contributed to
+the work item.
+
+### Payload
+
+- `backlog_item_id` - entry identifier.
+- `ai_tool` - tool or channel used, such as Copilot CLI, GitHub Copilot App, IDE
+  chat, or another AI assistant.
+- `activity_kind` - planning, coding, review, summarization, research, or other
+  user-facing category.
+- `session_id` - optional source session identifier when one exists.
+- `outcome_ref` - optional reference to a pull request, commit, issue, note, or
+  generated artifact.
+- `logged_at` - time the activity was recorded.
+
+### Consumers
+
+- Productivity, which turns AI-assisted activity into personal productivity
+  metrics and trends.
+
+### Published language rules
+
+- The event records contribution evidence only; it does not claim productivity
+  value by itself.
+- Consumers conform to the published fields and do not inspect Backlog Entry
+  internals to infer additional activity.`r`n`r`n## Shared Enums
 
 ```meta
 status: draft

@@ -39,6 +39,7 @@ public sealed record TechnologyKnowledgeView(
     IReadOnlyList<TechnologyLayer> Layers,
     IReadOnlyList<TechnologyRelationship> Relationships,
     IReadOnlyList<TechnologyKnowledgeDiagram> Diagrams,
+    TechnologyGraphData Graph,
     TechnologyGraphStats Stats)
 {
     public bool Available => Location.Available;
@@ -50,6 +51,7 @@ public sealed record TechnologyKnowledgeView(
         [],
         [],
         [],
+        TechnologyGraphData.Empty,
         TechnologyGraphStats.Empty);
 }
 
@@ -79,6 +81,21 @@ public sealed record TechnologyNode(
 }
 
 public sealed record TechnologyRelationship(string FromId, string FromLabel, string ToId, string ToLabel);
+
+public sealed record TechnologyGraphData(IReadOnlyList<TechnologyGraphNode> Nodes, IReadOnlyList<TechnologyGraphEdge> Edges)
+{
+    public static TechnologyGraphData Empty { get; } = new([], []);
+}
+
+public sealed record TechnologyGraphNode(
+    string Id,
+    string Label,
+    string Layer,
+    string Kind,
+    string Status,
+    string Description);
+
+public sealed record TechnologyGraphEdge(string Id, string Source, string Target, string Label);
 
 public sealed record TechnologyKnowledgeDiagram(string Title, string Language, string Source);
 
@@ -136,6 +153,7 @@ internal static class TechnologyKnowledgeReader
             layers,
             relationships,
             diagrams,
+            ToGraph(layers, relationships),
             ReadStats(Path.Combine(folderPath, "_meta", "graph.json")));
     }
 
@@ -195,6 +213,42 @@ internal static class TechnologyKnowledgeReader
         return new TechnologyRelationship(source.Id, source.Label, target, label);
     }
 
+    private static TechnologyGraphData ToGraph(IReadOnlyList<TechnologyLayer> layers, IReadOnlyList<TechnologyRelationship> relationships)
+    {
+        var graphNodes = layers
+            .SelectMany(layer => layer.Nodes.Select(node => new TechnologyGraphNode(
+                node.Id,
+                node.Label,
+                layer.Title,
+                node.Kind,
+                node.Status,
+                node.Description)))
+            .ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var relationship in relationships)
+        {
+            if (!graphNodes.ContainsKey(relationship.ToId))
+            {
+                graphNodes[relationship.ToId] = new TechnologyGraphNode(
+                    relationship.ToId,
+                    relationship.ToLabel,
+                    "External reference",
+                    "external",
+                    "unknown",
+                    string.Empty);
+            }
+        }
+
+        var edges = relationships
+            .Select((relationship, index) => new TechnologyGraphEdge(
+                $"edge-{index + 1}",
+                relationship.FromId,
+                relationship.ToId,
+                "depends on"))
+            .ToList();
+
+        return new TechnologyGraphData(graphNodes.Values.OrderBy(node => node.Layer).ThenBy(node => node.Label).ToList(), edges);
+    }
     private static TechnologyGraphStats ReadStats(string path)
     {
         if (!File.Exists(path)) return TechnologyGraphStats.Empty;

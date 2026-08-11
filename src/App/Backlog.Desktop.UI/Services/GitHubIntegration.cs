@@ -16,6 +16,9 @@ namespace Backlog.Desktop.UI.Services;
 /// </summary>
 public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClient client, IGitHubConnectionProbe probe)
 {
+    private const string FeedbackOwner = "JSdotNet";
+    private const string FeedbackRepository = "Backlog";
+
     /// <summary>The <c>target_type</c> recorded on the projection an entry keeps
     /// after it has been pushed.</summary>
     public const string IssueTargetType = "issue";
@@ -85,6 +88,69 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
             IssueTargetType));
 
         return new GitHubIssueLink(repository.FullName, issue.Number);
+    }
+
+    /// <summary>Creates an issue in this repository from an in-app feedback report.</summary>
+    public async Task<GitHubIssueLink> ReportFeedbackAsync(
+        string title,
+        string? details,
+        string? screenArea,
+        GitHubFeedbackScreenshot? screenshot,
+        string? screenshotError = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new GitHubException("A feedback report needs a short title.");
+        }
+
+        var repository = FeedbackRepositoryRef();
+        var issue = await client.CreateIssueAsync(
+            repository,
+            BuildFeedbackTitle(title),
+            BuildFeedbackBody(details, screenArea, screenshot, screenshotError),
+            cancellationToken: cancellationToken);
+
+        return new GitHubIssueLink(repository.FullName, issue.Number);
+    }
+
+    internal static string BuildFeedbackTitle(string title) => $"[Feedback][Desktop app] {title.Trim()}";
+
+    private GitHubRepositoryRef FeedbackRepositoryRef() =>
+        settings.Current.Repositories.FirstOrDefault(r =>
+            string.Equals(r.Owner, FeedbackOwner, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(r.Name, FeedbackRepository, StringComparison.OrdinalIgnoreCase))
+        ?? new GitHubRepositoryRef("backlog", FeedbackOwner, FeedbackRepository);
+
+    internal static string BuildFeedbackBody(string? details, string? screenArea, GitHubFeedbackScreenshot? screenshot, string? screenshotError) =>
+        $"""
+        ## Desktop app screen area
+
+        {(string.IsNullOrWhiteSpace(screenArea) ? "Unspecified" : screenArea.Trim())}
+
+        ## Report
+
+        {(string.IsNullOrWhiteSpace(details) ? "_No details provided._" : details.Trim())}
+
+        ## Screenshot
+
+        {BuildScreenshotSection(screenshot, screenshotError)}
+        """;
+
+    private static string BuildScreenshotSection(GitHubFeedbackScreenshot? screenshot, string? screenshotError)
+    {
+        if (screenshot is null)
+        {
+            return string.IsNullOrWhiteSpace(screenshotError)
+                ? "No screenshot was captured."
+                : $"Screenshot capture failed: {screenshotError.Trim()}";
+        }
+
+        return $"""
+        Captured from the app as {screenshot.MediaType}, {screenshot.Width} x {screenshot.Height}, {screenshot.SizeBytes} bytes.
+
+        ![Screenshot]({screenshot.DataUrl})
+        """;
     }
 
     /// <summary>Reads the current state of a pushed entry's issue and the pull
