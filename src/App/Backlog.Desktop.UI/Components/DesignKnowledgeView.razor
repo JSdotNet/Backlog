@@ -89,25 +89,32 @@
 
 @code {
     private DesignKnowledgeModel? _model;
+    private string? _loadedRepositoryAlias;
 
-    protected override async Task OnInitializedAsync()
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    protected override async Task OnParametersSetAsync()
     {
-        _model = await DesignKnowledge.LoadAsync();
+        if (_model is not null && string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal)) return;
+
+        _model = await DesignKnowledge.LoadAsync(RepositoryAlias);
+        _loadedRepositoryAlias = RepositoryAlias;
     }
 
     private static string FileAnchor(DesignKnowledgeFile file) =>
         $"design-file-{Path.GetFileNameWithoutExtension(file.FileName).ToLowerInvariant()}";
 
-    private static string TokenName(KnowledgeTable table, IReadOnlyList<string> row) =>
+    private static string TokenName(DesignKnowledgeTable table, IReadOnlyList<string> row) =>
         Cell(table, row, "Token") ?? row.FirstOrDefault() ?? string.Empty;
 
-    private static string TokenValue(KnowledgeTable table, IReadOnlyList<string> row) =>
+    private static string TokenValue(DesignKnowledgeTable table, IReadOnlyList<string> row) =>
         Cell(table, row, "Value") ?? Cell(table, row, "Value (dark)") ?? string.Empty;
 
-    private static string TokenUsage(KnowledgeTable table, IReadOnlyList<string> row) =>
+    private static string TokenUsage(DesignKnowledgeTable table, IReadOnlyList<string> row) =>
         Cell(table, row, "Usage") ?? string.Empty;
 
-    private static string? Cell(KnowledgeTable table, IReadOnlyList<string> row, string header)
+    private static string? Cell(DesignKnowledgeTable table, IReadOnlyList<string> row, string header)
     {
         var index = table.Headers.ToList().FindIndex(h => string.Equals(h, header, StringComparison.OrdinalIgnoreCase));
         return index >= 0 && index < row.Count ? row[index] : null;

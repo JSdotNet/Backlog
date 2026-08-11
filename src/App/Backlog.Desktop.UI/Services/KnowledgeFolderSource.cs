@@ -15,11 +15,11 @@ public sealed class KnowledgeFolderSource(GitHubSettingsStore settings)
         remove => settings.Changed -= value;
     }
 
-    public KnowledgeFolderLocation Resolve(string key)
+    public KnowledgeFolderLocation Resolve(string key, string? repositoryAlias = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        var repository = settings.Current.PrimaryRepository;
+        var repository = settings.Current.Find(repositoryAlias);
         if (repository is null)
         {
             return KnowledgeFolderLocation.Unavailable(

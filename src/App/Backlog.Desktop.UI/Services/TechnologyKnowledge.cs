@@ -10,11 +10,11 @@ public sealed class TechnologyKnowledgeService(KnowledgeFolderSource source)
         remove => source.Changed -= value;
     }
 
-    public Task<TechnologyKnowledgeView> ReadAsync(CancellationToken cancellationToken = default)
+    public Task<TechnologyKnowledgeView> ReadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var location = source.Resolve(".tech");
+        var location = source.Resolve(".tech", repositoryAlias);
         if (!location.Available || location.FullPath is null)
         {
             return Task.FromResult(TechnologyKnowledgeView.Unavailable(location));
@@ -38,7 +38,7 @@ public sealed record TechnologyKnowledgeView(
     string Summary,
     IReadOnlyList<TechnologyLayer> Layers,
     IReadOnlyList<TechnologyRelationship> Relationships,
-    IReadOnlyList<TechnologyDiagram> Diagrams,
+    IReadOnlyList<TechnologyKnowledgeDiagram> Diagrams,
     TechnologyGraphStats Stats)
 {
     public bool Available => Location.Available;
@@ -80,7 +80,7 @@ public sealed record TechnologyNode(
 
 public sealed record TechnologyRelationship(string FromId, string FromLabel, string ToId, string ToLabel);
 
-public sealed record TechnologyDiagram(string Title, string Language, string Source);
+public sealed record TechnologyKnowledgeDiagram(string Title, string Language, string Source);
 
 public sealed record TechnologyGraphStats(int Nodes, int Edges, IReadOnlyDictionary<string, int> NodesByStatus)
 {
@@ -234,7 +234,7 @@ internal sealed record TechnologyMarkdownDocument(
     KnowledgeMetadata Metadata,
     string Summary,
     IReadOnlyList<TechnologyMarkdownChapter> Chapters,
-    IReadOnlyList<TechnologyDiagram> Diagrams);
+    IReadOnlyList<TechnologyKnowledgeDiagram> Diagrams);
 
 internal sealed record TechnologyMarkdownChapter(string Title, KnowledgeMetadata Metadata, string Summary);
 
@@ -247,7 +247,7 @@ internal static class TechnologyMarkdownParser
         var metadata = KnowledgeMetadata.Empty;
         var summary = new List<string>();
         var chapters = new List<TechnologyMarkdownChapter>();
-        var diagrams = new List<TechnologyDiagram>();
+        var diagrams = new List<TechnologyKnowledgeDiagram>();
 
         for (var index = 0; index < lines.Length; index++)
         {
@@ -282,7 +282,7 @@ internal static class TechnologyMarkdownParser
                 var (block, next) = ReadFence(lines, index);
                 if (language.Length > 0)
                 {
-                    diagrams.Add(new TechnologyDiagram(title.Length == 0 ? Path.GetFileName(path) : title, language, block));
+                    diagrams.Add(new TechnologyKnowledgeDiagram(title.Length == 0 ? Path.GetFileName(path) : title, language, block));
                 }
 
                 index = next;
@@ -414,3 +414,4 @@ internal static class TechnologyMarkdownParser
         return selected.Count == 0 ? string.Empty : string.Join(" ", selected);
     }
 }
+

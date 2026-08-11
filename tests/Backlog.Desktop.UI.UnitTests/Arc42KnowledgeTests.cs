@@ -22,7 +22,7 @@ public class Arc42KnowledgeTests
         var document = KnowledgeMarkdownParser.Parse(".arc42/05-building-block-view.md", "# Building Block View\n\n## Level 1\n\nDetails");
 
         Assert.Equal("Building Block View", document.Title);
-        Assert.Contains(document.Blocks, block => block is KnowledgeSubheading { Level: 2, Text: "Level 1" });
+        Assert.Contains(document.Blocks, block => block is KnowledgeHeadingBlock { Level: 2, Text: "Level 1" });
         Assert.DoesNotContain(document.Blocks, block => block.GetType().Name.Contains("SubItem", StringComparison.Ordinal));
     }
 
@@ -44,9 +44,9 @@ public class Arc42KnowledgeTests
             ".arc42/05-building-block-view.md",
             "# Building Block View\n\n```mermaid\nC4Context\ntitle System Context\n```\n\nAfter");
 
-        var diagram = Assert.IsType<KnowledgeDiagram>(document.Blocks.Single(block => block is KnowledgeDiagram));
+        var diagram = Assert.IsType<KnowledgeDiagramBlock>(document.Blocks.Single(block => block is KnowledgeDiagramBlock));
         Assert.Equal("mermaid", diagram.Language);
-        Assert.Contains("title System Context", diagram.Source);
+        Assert.Equal("System Context", diagram.Title);
         Assert.Equal(1, document.DiagramCount);
     }
 
@@ -84,9 +84,10 @@ public class Arc42KnowledgeTests
     {
         var document = KnowledgeMarkdownParser.Parse(".arc42/08-crosscutting-concepts.md", "# Concepts\n\nA **safe** [link](https://example.com).\n\n- one\n- two");
 
-        var paragraph = Assert.IsType<KnowledgeParagraph>(document.Blocks[1]);
+        var paragraph = Assert.IsType<KnowledgeParagraphBlock>(document.Blocks[1]);
         Assert.Equal("A safe link.", PlainText(paragraph.Content));
-        var list = Assert.IsType<KnowledgeList>(document.Blocks[2]);
+        var list = Assert.IsType<KnowledgeListBlock>(document.Blocks[2]);
         Assert.Equal(["one", "two"], list.Items.Select(PlainText));
     }
 }
+

@@ -66,6 +66,7 @@
 @code {
     private DomainKnowledgeView? _view;
     private string? _selectedContextSlug;
+    private string? _loadedRepositoryAlias;
 
     [Parameter]
     public bool Compact { get; set; }
@@ -73,11 +74,22 @@
     [Parameter]
     public DomainKnowledgeView? View { get; set; }
 
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
     private DomainKnowledgeContext? SelectedContext => _view?.Contexts.FirstOrDefault(c => c.Slug == _selectedContextSlug);
 
     protected override async Task OnParametersSetAsync()
     {
-        _view = View ?? await DomainKnowledge.LoadAsync();
+        if (View is not null)
+        {
+            _view = View;
+        }
+        else if (_view is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
+        {
+            _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
+            _loadedRepositoryAlias = RepositoryAlias;
+        }
         if (_selectedContextSlug is null || !_view.Contexts.Any(c => c.Slug == _selectedContextSlug))
         {
             _selectedContextSlug = Compact ? _view.Contexts.FirstOrDefault()?.Slug : null;

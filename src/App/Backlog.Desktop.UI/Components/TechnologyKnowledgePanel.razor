@@ -133,6 +133,10 @@
 @code {
     private TechnologyKnowledgeView? _view;
     private string? _activeLayerFile;
+    private string? _loadedRepositoryAlias;
+
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
 
     private TechnologyLayer? ActiveLayer => _view?.Layers.FirstOrDefault(layer => layer.FileName == _activeLayerFile) ?? _view?.Layers.FirstOrDefault();
 
@@ -140,16 +144,27 @@
 
     private int RelationshipCount => _view?.Relationships.Count ?? 0;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         TechnologyKnowledge.Changed += OnKnowledgeChanged;
-        await LoadAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_view is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
+        {
+            await LoadAsync();
+        }
     }
 
     private async Task LoadAsync()
     {
-        _view = await TechnologyKnowledge.ReadAsync();
-        _activeLayerFile ??= _view.Layers.FirstOrDefault()?.FileName;
+        _view = await TechnologyKnowledge.ReadAsync(RepositoryAlias);
+        _loadedRepositoryAlias = RepositoryAlias;
+        if (_view.Layers.All(layer => layer.FileName != _activeLayerFile))
+        {
+            _activeLayerFile = _view.Layers.FirstOrDefault()?.FileName;
+        }
     }
 
     private async void OnKnowledgeChanged()

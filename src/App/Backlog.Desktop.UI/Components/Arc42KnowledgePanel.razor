@@ -1,6 +1,5 @@
 @implements IDisposable
 @inject Arc42KnowledgeStore Knowledge
-@inject BacklogStore Store
 
 <aside class="knowledge-pane knowledge-pane--arc42" data-testid="arc42-knowledge-panel" aria-labelledby="arc42-knowledge-title">
     <header class="knowledge-pane__header">
@@ -94,14 +93,25 @@
     private Arc42KnowledgeCatalog? _catalog;
     private KnowledgeDocument? _selected;
     private bool _loading = true;
+    private string? _loadedRepositoryAlias;
 
-    protected override async Task OnInitializedAsync()
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    protected override void OnInitialized()
     {
-        Store.RootChanged += OnRootChanged;
-        await ReloadAsync();
+        Knowledge.Changed += OnKnowledgeChanged;
     }
 
-    private async void OnRootChanged()
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_catalog is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    private async void OnKnowledgeChanged()
     {
         await ReloadAsync();
         await InvokeAsync(StateHasChanged);
@@ -110,7 +120,8 @@
     private async Task ReloadAsync()
     {
         _loading = true;
-        _catalog = await Knowledge.LoadAsync();
+        _catalog = await Knowledge.LoadAsync(RepositoryAlias);
+        _loadedRepositoryAlias = RepositoryAlias;
         _selected = _catalog.Documents.FirstOrDefault(document => document.DiagramCount > 0) ?? _catalog.Documents.FirstOrDefault();
         _loading = false;
     }
@@ -119,6 +130,6 @@
 
     public void Dispose()
     {
-        Store.RootChanged -= OnRootChanged;
+        Knowledge.Changed -= OnKnowledgeChanged;
     }
 }

@@ -10,10 +10,10 @@ public sealed class DomainKnowledgeStore(GitHubSettingsStore settings)
     private static readonly Regex KnowledgeLink = new("\\.(?:domain|arc42|backlog|tech|design)/[^\\s)`>,]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly string[] ContextFiles = ["domain.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
 
-    public Task<DomainKnowledgeView> LoadAsync(CancellationToken cancellationToken = default)
+    public Task<DomainKnowledgeView> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var repo = settings.Current.PrimaryRepository;
+        var repo = settings.Current.Find(repositoryAlias);
         if (repo is null) return Task.FromResult(DomainKnowledgeView.Unavailable("Configure a repository before opening domain knowledge."));
         if (string.IsNullOrWhiteSpace(repo.CloneDirectory)) return Task.FromResult(DomainKnowledgeView.Unavailable($"Set a local clone directory for {repo.FullName} before opening domain knowledge."));
 

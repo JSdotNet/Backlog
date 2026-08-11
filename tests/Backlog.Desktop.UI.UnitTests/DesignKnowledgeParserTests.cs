@@ -42,8 +42,8 @@ graph TD
         var section = Assert.Single(file.Sections);
         Assert.Equal("Semantic colors", section.Heading);
         Assert.Equal("active", section.Meta.Status);
-        Assert.Contains(section.Blocks, block => block is KnowledgeTable { IsTokenTable: true });
-        Assert.Contains(section.Blocks, block => block is KnowledgeDiagram { Language: "mermaid" });
+        Assert.Contains(section.Blocks, block => block is DesignKnowledgeTable { IsTokenTable: true });
+        Assert.Contains(section.Blocks, block => block is DesignKnowledgeDiagram { Language: "mermaid" });
     }
 
     [Fact]
@@ -66,8 +66,8 @@ Markdown remains canonical behind the rich text editor.
         var file = DesignKnowledgeParser.ParseFile(folder.Path, path);
 
         Assert.Equal(["Canonical Markdown", "Keyboard equivalents"], file.Sections.Select(section => section.Heading));
-        Assert.IsType<KnowledgeParagraph>(Assert.Single(file.Sections[0].Blocks));
-        Assert.IsType<KnowledgeList>(Assert.Single(file.Sections[1].Blocks));
+        Assert.IsType<DesignKnowledgeParagraph>(Assert.Single(file.Sections[0].Blocks));
+        Assert.IsType<DesignKnowledgeList>(Assert.Single(file.Sections[1].Blocks));
     }
 
     private sealed class TemporaryFolder : IDisposable
@@ -88,3 +88,4 @@ Markdown remains canonical behind the rich text editor.
         }
     }
 }
+
