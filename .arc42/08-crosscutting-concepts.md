@@ -50,8 +50,8 @@ related: [".arc42/04-solution-strategy.md", ".domain/second-brain/features.md#fe
 - **The switch is local to the installation**, kept with the other machine-local
   settings rather than inside the backlog folder, so it never travels with synced
   content.
-- **Unreadable or unknown settings fall back to "nothing enabled beyond the core"**
-  rather than failing startup.
+- **Unreadable or unknown settings fall back to "everything disabled"** rather than
+  failing startup, leaving only the always-available core.
 
 > Not yet implemented: the current build defaults every optional capability to
 > enabled and stores only the disabled ones. This section records the intended
