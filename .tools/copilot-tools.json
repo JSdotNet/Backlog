@@ -4,8 +4,8 @@
       "name": "copilot-app",
       "source": "JSdotNet/Copilot:plugins/copilot-app",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "copilot-app-canvases",
@@ -14,136 +14,136 @@
       "repoPath": "%USERPROFILE%\\.copilot\\repos\\copilot-plugin-source",
       "extensionsPath": "plugins\\copilot-app\\extensions",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "architecture",
       "source": "JSdotNet/Copilot:plugins/architecture",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "domain-design",
       "source": "JSdotNet/Copilot:plugins/domain-design",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "copilot-plugin-manager",
       "source": "JSdotNet/Copilot:plugins/copilot-plugin-manager",
       "enabled": false,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "copilot-spec-builder",
       "source": "JSdotNet/Copilot:plugins/copilot-spec-builder",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "development",
       "source": "JSdotNet/Copilot:plugins/development",
       "enabled": false,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "documentation",
       "source": "JSdotNet/Copilot:plugins/documentation",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "product-owner",
       "source": "JSdotNet/Copilot:plugins/product-owner",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "qa",
       "source": "JSdotNet/Copilot:plugins/qa",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "review",
       "source": "JSdotNet/Copilot:plugins/review",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "wip-convention",
       "source": "JSdotNet/Copilot:plugins/wip-convention",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "aikido",
       "source": "JSdotNet/Copilot:plugins/aikido",
       "enabled": false,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "fincent",
       "source": "JSdotNet/Copilot:plugins/fincent",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "github",
       "source": "JSdotNet/Copilot:plugins/github",
       "enabled": false,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "jira",
       "source": "JSdotNet/Copilot:plugins/jira",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "ux-design",
       "source": "JSdotNet/Copilot:plugins/ux-design",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "worktree-parallel",
       "source": "JSdotNet/Copilot:plugins/worktree-parallel",
       "enabled": false,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "csharp-coding",
       "source": "JSdotNet/Copilot:plugins/csharp-coding",
       "kind": "repository",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "automations",
       "source": "JSdotNet/Copilot:plugins/automations",
       "kind": "repository",
       "enabled": false,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "jsdotnet-project-guidelines",
@@ -152,8 +152,8 @@
       "repoPath": "%USERPROFILE%\\.copilot\\repos\\project-guidelines-mcp",
       "skillsPath": "plugins\\guidelines\\skills",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "jsdotnet-project-design",
@@ -162,8 +162,8 @@
       "repoPath": "%USERPROFILE%\\.copilot\\repos\\project-guidelines-mcp",
       "skillsPath": "plugins\\design\\skills",
       "enabled": true,
-      "installedVersion": "local",
-      "availableVersion": "catalog"
+      "installedVersion": "1.0.0",
+      "availableVersion": "1.1.0"
     }
   ],
   "mcpServers": [
@@ -171,15 +171,15 @@
       "name": "jsdotnet-project-guidelines",
       "packageId": "JSdotNet.MCP.Guidelines",
       "enabled": true,
-      "installedVersion": "not installed",
-      "availableVersion": "catalog"
+      "installedVersion": "0.9.0",
+      "availableVersion": "1.1.0"
     },
     {
       "name": "jsdotnet-project-design",
       "packageId": "JSdotNet.MCP.Design",
       "enabled": true,
-      "installedVersion": "not installed",
-      "availableVersion": "catalog"
+      "installedVersion": "0.9.0",
+      "availableVersion": "1.1.0"
     }
   ]
 }

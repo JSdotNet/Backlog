@@ -79,6 +79,17 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
     public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>
         Task.FromResult(CopilotToolActionResult.Failed("Tool updates are only available in the desktop app."));
 
+    public async Task<CopilotToolActionResult> UpdateAllAsync(CancellationToken ct = default)
+    {
+        var catalog = await ListAsync(ct).ConfigureAwait(false);
+        if (!catalog.Tools.Any(tool => tool.CanUpdate))
+        {
+            return CopilotToolActionResult.Ok("No enabled tools have updates available.");
+        }
+
+        return CopilotToolActionResult.Failed("Tool updates are only available in the desktop app.");
+    }
+
     public Task<CopilotToolActionResult> EnableAsync(string key, CancellationToken ct = default) =>
         SetEnabledAsync(key, enabled: true, ct);
 

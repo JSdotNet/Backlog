@@ -1930,6 +1930,12 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+.tools-panel__toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
 .tools-table {
     display: grid;
     min-width: 0;
@@ -1940,7 +1946,7 @@ h1, h2, h3 {
 
 .tools-table__row {
     display: grid;
-    grid-template-columns: minmax(9rem, 1.2fr) minmax(5.5rem, 0.7fr) minmax(5.5rem, 0.7fr);
+    grid-template-columns: minmax(10rem, 1.3fr) minmax(5.5rem, 0.65fr) minmax(5.5rem, 0.65fr) minmax(8rem, 0.8fr);
     gap: var(--spacing-sm);
     align-items: center;
     padding: var(--spacing-sm);
@@ -1961,9 +1967,8 @@ h1, h2, h3 {
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
-
-.tools-table__row > :last-child {
-    grid-column: 1 / -1;
+.tools-table__row--disabled {
+    opacity: 0.66;
 }
 
 .tools-table__tool,
@@ -1990,6 +1995,12 @@ h1, h2, h3 {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
+}
+
+.tools-table__action-note {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.4;
 }
 
 .knowledge-layout {

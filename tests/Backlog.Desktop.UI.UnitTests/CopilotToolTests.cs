@@ -24,7 +24,24 @@ public class CopilotToolTests
 
         Assert.Equal(expected, tool.UpdateAvailable);
     }
+
     [Fact]
+    public void Disabled_tools_are_not_updateable()
+    {
+        var tool = new CopilotToolInfo(
+            "plugin:test",
+            CopilotToolKind.Plugin,
+            "test",
+            "https://github.com/example/test",
+            ConfiguredEnabled: false,
+            Installed: true,
+            "1.0.0",
+            "1.1.0",
+            "Disabled plugin");
+
+        Assert.True(tool.UpdateAvailable);
+        Assert.False(tool.CanUpdate);
+    }    [Fact]
     public async Task Pc_config_overrides_matching_catalog_tools_only()
     {
         var root = CreateTempToolConfigRoot();
