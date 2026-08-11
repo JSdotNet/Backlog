@@ -10,12 +10,23 @@ See `.github/instructions/mcp-usage.instructions.md` for MCP server usage and au
 
 ## Agent usage
 
-Orchestration routing (which `orch-*` skill or specialist agent handles which task type) is delivered globally by the `copilot-app` plugin; it is not restated in this repository. See `.github/instructions/context-loading.instructions.md` for the Backlog-specific policy on which knowledge folders a workflow may load, plus the repo-native `orch-*` entrypoints.
+Orchestration routing (which `orch-*` skill or specialist agent handles which task type) is delivered globally by the `copilot-app` plugin; it is not restated in this repository. See `.github/instructions/context-loading.instructions.md` for the Backlog-specific orchestration gate on code changes and the policy on which knowledge folders a workflow may load, plus the repo-native `orch-*` entrypoints.
+
+**Orchestration gate.** Before the first `edit` or `create` to any file under `src/` or
+`tests/`, you MUST invoke the matching `orch-*` skill. Reading, searching, and
+exploring are always allowed first — the gate is on the first write, not on the first
+action, so renaming the session and orienting yourself does not consume it.
+
+This gate holds regardless of how small the request looks and regardless of whether a
+specification, acceptance criteria, or story already exists. If a skill's stated
+preconditions are not met, invoke it anyway and derive the missing scope inside it. If
+no `orch-*` skill matches the task category at all, invoke `orch-fallback`. Never
+proceed straight from exploration to implementation.
 
 ## Orchestration configuration
 
 - `.github/copilot-model-selection.md` — per-category model overrides for orchestration runs.
-- `.github/copilot-orch-context.md` — repo startup and QA context. This repository has no runnable application, so QA validation is skipped.
+- `.github/copilot-orch-context.md` — repo startup and QA context: how to run the Aspire AppHost, which harness resources to target for UI validation, and the default QA depth.
 
 ## Knowledge folders
 

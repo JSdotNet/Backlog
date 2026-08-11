@@ -8,7 +8,7 @@
     Its MainPackage Name, Publisher and ProcessorArchitecture MUST match exactly
     what the signed MSIX declares (from Package.appxmanifest / the signing cert),
     or Windows will refuse to apply updates. The defaults here mirror
-    src/Backlog.Desktop/Platforms/Windows/Package.appxmanifest:
+    src/App/Backlog.Desktop/Platforms/Windows/Package.appxmanifest:
         Identity Name -> JSdotNet.Backlog.Desktop
         Publisher     -> CN=JSdotNet
 

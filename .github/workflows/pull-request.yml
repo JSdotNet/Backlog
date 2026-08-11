@@ -1,0 +1,100 @@
+name: Pull request
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pull-request-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet:
+    name: Build and test .NET
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore .NET workloads
+        run: dotnet workload restore Backlog.sln
+
+      - name: Restore dependencies
+        run: >
+          dotnet restore Backlog.sln
+          -p:RuntimeIdentifierOverride=win-x64
+          -p:WindowsPackageType=None
+          -p:AppxPackageSigningEnabled=false
+          -p:GenerateAppxPackageOnBuild=false
+
+      - name: Restore desktop runtime dependencies
+        run: >
+          dotnet restore src\App\Backlog.Desktop\Backlog.Desktop.csproj
+          -r win-x64
+          -p:WindowsPackageType=None
+          -p:AppxPackageSigningEnabled=false
+          -p:GenerateAppxPackageOnBuild=false
+
+      - name: Build
+        run: >
+          dotnet build Backlog.sln
+          --no-restore
+          --configuration Release
+          -p:RuntimeIdentifierOverride=win-x64
+          -p:WindowsPackageType=None
+          -p:AppxPackageSigningEnabled=false
+          -p:GenerateAppxPackageOnBuild=false
+
+      - name: Run tests
+        run: >
+          dotnet test Backlog.sln
+          --no-build
+          --configuration Release
+          --settings .github\_ci.runsettings
+          --logger trx
+          --results-directory ./TestResults
+          -m:1
+          -p:RuntimeIdentifierOverride=win-x64
+          -p:WindowsPackageType=None
+          -p:AppxPackageSigningEnabled=false
+          -p:GenerateAppxPackageOnBuild=false
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dotnet-test-results
+          path: TestResults
+          if-no-files-found: ignore
+
+  vscode-extension:
+    name: Compile VS Code extension
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.x'
+          cache: npm
+          cache-dependency-path: src/App/Backlog.Ide.VsCode/package-lock.json
+
+      - name: Restore dependencies
+        working-directory: src/App/Backlog.Ide.VsCode
+        run: npm ci
+
+      - name: Compile
+        working-directory: src/App/Backlog.Ide.VsCode
+        run: npm run compile

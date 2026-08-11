@@ -1,0 +1,118 @@
+@inject GitHubIntegration GitHub
+@inject InstructionSourceDiscovery InstructionSources
+
+<aside class="knowledge-pane instructions-knowledge" data-testid="instructions-knowledge-panel" aria-labelledby="instructions-knowledge-title">
+    <header class="knowledge-pane__header">
+        <p class="knowledge-pane__eyebrow">Knowledge base</p>
+        <h2 id="instructions-knowledge-title">Instructions</h2>
+        <p class="knowledge-pane__subtitle">
+            Agent guidance from GitHub Copilot, Claude Code, and shared <code>AGENTS.md</code> files in the configured repository.
+        </p>
+    </header>
+
+    @if (!_repositories.Any())
+    {
+        <div class="knowledge-empty" data-testid="instructions-empty-state" role="status">
+            <p>No repositories are configured.</p>
+            <a href="settings">Open repository settings</a>
+        </div>
+    }
+    else
+    {
+        @if (ActiveRepository is { } activeRepository)
+        {
+            <section data-testid="instructions-repository" aria-label="@($"{activeRepository.Repository.FullName} instructions")">
+                <div class="knowledge-pane__source">
+                    <span>@activeRepository.Repository.FullName</span>
+                    @if (activeRepository.LocalRoot is null)
+                    {
+                        <span>No local clone directory configured.</span>
+                    }
+                    else
+                    {
+                        <code>@activeRepository.LocalRoot</code>
+                    }
+                </div>
+
+                @if (activeRepository.Message is not null)
+                {
+                    <div class="knowledge-empty" data-testid="instructions-repository-empty" role="status">
+                        <p>No instruction content to show.</p>
+                        <p>@activeRepository.Message</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="instructions-layout">
+                        <nav class="instructions-list" aria-label="Instruction documents">
+                            @foreach (var document in activeRepository.Documents)
+                            {
+                                <button type="button"
+                                        class="@DocumentButtonClass(document)"
+                                        data-testid="instructions-document-button"
+                                        aria-pressed="@DocumentSelected(document)"
+                                        @onclick="() => SelectDocument(document.RelativePath)">
+                                    <span class="instructions-list__title">@document.RelativePath</span>
+                                    <span class="instructions-list__meta">@document.Agent - @document.Scope</span>
+                                </button>
+                            }
+                        </nav>
+
+                        @if (SelectedDocument is { } selectedDocument)
+                        {
+                            <section class="instruction-doc" data-testid="instructions-document" aria-labelledby="instruction-doc-title">
+                                <header class="instruction-doc__header">
+                                    <div>
+                                        <h3 id="instruction-doc-title" class="instruction-doc__title">@selectedDocument.Title</h3>
+                                        <p class="instruction-doc__meta">@selectedDocument.Agent - @selectedDocument.Scope - @FormatSize(selectedDocument.SizeBytes)</p>
+                                    </div>
+                                    <code>@selectedDocument.RelativePath</code>
+                                </header>
+                                <pre class="instruction-doc__content">@selectedDocument.Content</pre>
+                            </section>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    }
+</aside>
+
+@code {
+    private IReadOnlyList<InstructionRepositoryView> _repositories = [];
+    private string? _loadedRepositoryAlias;
+    private string? _selectedDocumentPath;
+
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    private InstructionRepositoryView? ActiveRepository =>
+        _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal))
+        ?? _repositories.FirstOrDefault();
+
+    private InstructionDocument? SelectedDocument =>
+        ActiveRepository?.Documents.FirstOrDefault(d => string.Equals(d.RelativePath, _selectedDocumentPath, StringComparison.OrdinalIgnoreCase))
+        ?? ActiveRepository?.Documents.FirstOrDefault();
+
+    protected override void OnParametersSet()
+    {
+        if (_repositories.Count == 0 || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
+        {
+            _repositories = InstructionSources.Discover(GitHub.Repositories);
+            _loadedRepositoryAlias = RepositoryAlias;
+            _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
+        }
+    }
+
+    private string DocumentButtonClass(InstructionDocument document) =>
+        string.Equals(document.RelativePath, SelectedDocument?.RelativePath, StringComparison.OrdinalIgnoreCase)
+            ? "instructions-list__item instructions-list__item--active"
+            : "instructions-list__item";
+
+    private string DocumentSelected(InstructionDocument document) =>
+        string.Equals(document.RelativePath, SelectedDocument?.RelativePath, StringComparison.OrdinalIgnoreCase) ? "true" : "false";
+
+    private void SelectDocument(string relativePath) => _selectedDocumentPath = relativePath;
+
+    private static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024d:0.#} KB";
+}

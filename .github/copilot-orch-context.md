@@ -6,38 +6,66 @@ only supplies what is specific to this repository.
 
 ## Application
 
-**Runnable application:** none
+**Runnable application:** Backlog — a local-first work management product composed of
+desktop, mobile, and IDE channels plus a thin cloud sync service.
 
-Backlog is currently a documentation, backlog, and architecture-knowledge repository. It
-contains checked-in knowledge folders (`.arc42/`, `.domain/`, `.backlog/`, `.tech/`,
-`.design/`), repository governance assets under `.github/`, and Node-based generator tooling
-under `.github/tools/knowledge-meta/`. There is **no application runtime, no AppHost, no
-service, no build, and no test suite**.
+**AppHost project:** `src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj`
+(also declared in `aspire.config.json`).
 
-Do not search for an AppHost, a solution file, or a dev server — none exist. When the product
-implementation is scaffolded, replace this section and the ones below with the real values.
+Solution: `Backlog.sln`. Product code lives under `src/`, automated tests under `tests/`,
+and development-time hosts under `harness/`.
+
+The two `harness/` projects are **test harnesses, not shipped channels**. They are Blazor
+Server hosts of the shared Razor components, and they exist specifically so the UI can be
+started by Aspire and driven by Playwright — the MAUI heads cannot be automated that way.
+Target them for UI validation.
+
+This repository also carries the checked-in knowledge folders (`.arc42/`, `.domain/`,
+`.backlog/`, `.tech/`, `.design/`) and generator tooling under `.github/tools/knowledge-meta/`.
+Changes confined to those folders are documentation work — see `## QA Depth`.
 
 ## How to Run
 
-Not applicable — there is nothing to start.
-
-The only executable asset is the knowledge-metadata generator, run from the repository root:
+From the repository root:
 
 ```powershell
-node .github/tools/knowledge-meta/build.mjs
+aspire run
 ```
 
-It regenerates derived artifacts under `_meta/` folders. It is not an application, and it is
-run by CI (`.github/workflows/knowledge-meta.yml`) rather than as part of an orchestration
-startup. Never hand-edit its output.
+Or without the Aspire CLI:
+
+```powershell
+dotnet run --project src/Aspire/Backlog.Aspire.AppHost
+```
+
+Build and test:
+
+```powershell
+dotnet build Backlog.sln
+dotnet test Backlog.sln
+```
+
+Only `cloud`, `desktop-web-harness`, and `mobile-web-harness` start automatically. The
+`desktop`, `mobile-android`, `ide-vscode-build`, and `ide-vscode-host` resources are
+registered with `WithExplicitStart()` and must be started deliberately from the dashboard —
+do not treat them as failed startups when they sit idle.
 
 ## Base URLs
 
-None. This repository exposes no HTTP endpoints, dashboards, or UI entry points.
+**Ports are dynamic.** Every host is configured with `http://localhost:0`, so the OS assigns
+a free port per run. Never hard-code a port or assume one from a previous session — read the
+actual URLs from the Aspire dashboard or the AppHost startup output, then use those.
+
+| Resource | What it is |
+| --- | --- |
+| Aspire dashboard | Entry point; lists every resource with its resolved URL |
+| `desktop-web-harness` | Desktop UI components in the browser — primary Playwright target |
+| `mobile-web-harness` | Same components at phone width — mobile Playwright target |
+| `cloud` | Thin sync service the harnesses reference |
 
 ## Test Credentials
 
-None required, because nothing runs and no authenticated surface exists.
+None required. Backlog is local-first and the harnesses expose no authenticated surface.
 
 If credentials become necessary later, record only a **pointer** here (for example the name
 of the secret store, vault, or user-secrets entry). Never place actual secrets, tokens, or
@@ -61,9 +89,15 @@ and state that authoritative guidance could not be verified.
 
 ## Healthy Startup
 
-There is no startup to observe, so there are no logs, traces, or health endpoints to check.
+Startup is healthy when the Aspire dashboard is reachable and `cloud`,
+`desktop-web-harness`, and `mobile-web-harness` all reach **Running**. The four
+`WithExplicitStart()` resources staying `NotStarted` is expected, not a failure.
 
-A run is "healthy" here when the repository-level checks pass instead:
+`mobile-web-harness` has a `WaitFor(cloud)` dependency, so it starts after `cloud` becomes
+healthy — a brief wait there is normal.
+
+For changes confined to the knowledge folders, "healthy" instead means the repository-level
+checks pass:
 
 - Governed Markdown keeps the `meta` blocks required by the `knowledge-base` plugin's
   `knowledge-chapter-metadata.instructions.md`.
@@ -74,12 +108,20 @@ A run is "healthy" here when the repository-level checks pass instead:
 
 ## QA Depth
 
-skipped
+playwright-qa
 
-The QA validation phase has nothing to validate: no runnable application, no automated tests,
-and no runtime telemetry. Skip it cleanly rather than searching for an AppHost or attempting
-end-to-end validation. Verification for changes in this repository is documentation review —
-Markdown structure, metadata blocks, frontmatter validity, and cross-reference integrity.
+Validate UI behavior against `desktop-web-harness` (and `mobile-web-harness` for
+phone-width behavior), discovering their URLs at run time rather than assuming ports.
+
+Two standing exceptions:
+
+- **Documentation-only changes** — edits confined to `.arc42/`, `.domain/`, `.backlog/`,
+  `.tech/`, `.design/`, `.github/`, or `README.md` have no runtime surface. Verification is
+  documentation review plus `build.mjs --check`; skip startup and Playwright.
+- **Non-UI code changes** — work confined to `tests/`, `src/Shared/`, or
+  `src/Infrastructure/` with no user-visible behavior change is adequately covered by
+  `dotnet test`; `targeted` depth is sufficient.
+
 
 ## Repo-Native Orchestration Skills
 

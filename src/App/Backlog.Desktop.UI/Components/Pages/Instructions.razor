@@ -1,0 +1,153 @@
+@page "/instructions"
+@inject GitHubIntegration GitHub
+@inject InstructionSourceDiscovery InstructionSources
+
+<div class="shell shell--wide">
+    <header class="app-header">
+        <h1>Instructions</h1>
+        <a class="header-link" href="settings">Repository settings</a>
+        <a class="icon-link" href="" data-testid="back-link" title="Back to the backlog" aria-label="Back to the backlog">Back</a>
+    </header>
+
+    <section class="setting" aria-labelledby="instructions-summary-title">
+        <h2 class="setting__title" id="instructions-summary-title">Agent instruction sources</h2>
+        <p class="setting__body">
+            GitHub Copilot uses <code>.github\copilot-instructions.md</code>, <code>.github\instructions\*.instructions.md</code>, and agent files such as <code>AGENTS.md</code>.
+            Claude Code uses <code>CLAUDE.md</code>, <code>.claude\CLAUDE.md</code>, and rules under <code>.claude\rules\</code>.
+            There is no single folder documented as universal for both tools, so this page shows each native source plus <code>AGENTS.md</code> when a repository has one.
+        </p>
+    </section>
+
+    @if (!GitHub.Repositories.Any())
+    {
+        <div class="empty-state" data-testid="instructions-empty-state">
+            <p class="empty-state__title">No repositories configured.</p>
+            <p class="empty-state__body">Add a repository and local clone directory in Settings to read its instruction files.</p>
+        </div>
+    }
+    else
+    {
+        <div class="repo-subpages" role="tablist" aria-label="Instruction repositories">
+            @foreach (var repositoryView in _repositories)
+            {
+                <button type="button"
+                        class="@RepositoryTabClass(repositoryView)"
+                        data-testid="instructions-repository-tab"
+                        role="tab"
+                        aria-selected="@RepositoryTabSelected(repositoryView)"
+                        @onclick="() => SelectRepository(repositoryView.Repository.Alias)">
+                    <span>@repositoryView.Repository.FullName</span>
+                    <span class="repo-card__badge">@repositoryView.Documents.Count</span>
+                </button>
+            }
+        </div>
+
+        @if (ActiveRepository is { } activeRepository)
+        {
+            <article class="setting" data-testid="instructions-repository" aria-label="@($"{activeRepository.Repository.FullName} instructions")">
+                <header class="instructions-repository__header">
+                    <div>
+                        <h2 class="setting__title">@activeRepository.Repository.FullName</h2>
+                        <p class="setting__status">
+                            @if (activeRepository.LocalRoot is null)
+                            {
+                                <span>No local clone directory configured.</span>
+                            }
+                            else
+                            {
+                                <span>Reading from <code>@activeRepository.LocalRoot</code>.</span>
+                            }
+                        </p>
+                    </div>
+                </header>
+
+                @if (activeRepository.Message is not null)
+                {
+                    <div class="empty-state" data-testid="instructions-repository-empty">
+                        <p class="empty-state__title">No instruction content to show.</p>
+                        <p class="empty-state__body">@activeRepository.Message</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="instructions-layout">
+                        <nav class="instructions-list" aria-label="Instruction documents">
+                            @foreach (var document in activeRepository.Documents)
+                            {
+                                <button type="button"
+                                        class="@DocumentButtonClass(document)"
+                                        data-testid="instructions-document-button"
+                                        aria-pressed="@DocumentSelected(document)"
+                                        @onclick="() => SelectDocument(document.RelativePath)">
+                                    <span class="instructions-list__title">@document.RelativePath</span>
+                                    <span class="instructions-list__meta">@document.Agent - @document.Scope</span>
+                                </button>
+                            }
+                        </nav>
+
+                        @if (SelectedDocument is { } selectedDocument)
+                        {
+                            <section class="instruction-doc" data-testid="instructions-document" aria-labelledby="instruction-doc-title">
+                                <header class="instruction-doc__header">
+                                    <div>
+                                        <h3 id="instruction-doc-title" class="instruction-doc__title">@selectedDocument.Title</h3>
+                                        <p class="instruction-doc__meta">@selectedDocument.Agent - @selectedDocument.Scope - @FormatSize(selectedDocument.SizeBytes)</p>
+                                    </div>
+                                    <code>@selectedDocument.RelativePath</code>
+                                </header>
+                                <pre class="instruction-doc__content">@selectedDocument.Content</pre>
+                            </section>
+                        }
+                    </div>
+                }
+            </article>
+        }
+    }
+</div>
+
+@code {
+    private IReadOnlyList<InstructionRepositoryView> _repositories = [];
+    private string? _selectedRepositoryAlias;
+    private string? _selectedDocumentPath;
+
+    private InstructionRepositoryView? ActiveRepository =>
+        _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, _selectedRepositoryAlias, StringComparison.Ordinal))
+        ?? _repositories.FirstOrDefault();
+
+    private InstructionDocument? SelectedDocument =>
+        ActiveRepository?.Documents.FirstOrDefault(d => string.Equals(d.RelativePath, _selectedDocumentPath, StringComparison.OrdinalIgnoreCase))
+        ?? ActiveRepository?.Documents.FirstOrDefault();
+
+    protected override void OnInitialized()
+    {
+        _repositories = InstructionSources.Discover(GitHub.Repositories);
+        _selectedRepositoryAlias = _repositories.FirstOrDefault()?.Repository.Alias;
+        _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
+    }
+
+    private string RepositoryTabClass(InstructionRepositoryView repositoryView) =>
+        string.Equals(repositoryView.Repository.Alias, ActiveRepository?.Repository.Alias, StringComparison.Ordinal)
+            ? "repo-subpage repo-subpage--active"
+            : "repo-subpage";
+
+    private string RepositoryTabSelected(InstructionRepositoryView repositoryView) =>
+        string.Equals(repositoryView.Repository.Alias, ActiveRepository?.Repository.Alias, StringComparison.Ordinal) ? "true" : "false";
+
+    private void SelectRepository(string alias)
+    {
+        _selectedRepositoryAlias = alias;
+        _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
+    }
+
+    private string DocumentButtonClass(InstructionDocument document) =>
+        string.Equals(document.RelativePath, SelectedDocument?.RelativePath, StringComparison.OrdinalIgnoreCase)
+            ? "instructions-list__item instructions-list__item--active"
+            : "instructions-list__item";
+
+    private string DocumentSelected(InstructionDocument document) =>
+        string.Equals(document.RelativePath, SelectedDocument?.RelativePath, StringComparison.OrdinalIgnoreCase) ? "true" : "false";
+
+    private void SelectDocument(string relativePath) => _selectedDocumentPath = relativePath;
+
+    private static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024d:0.#} KB";
+}

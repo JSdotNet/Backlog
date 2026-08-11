@@ -1,17 +1,52 @@
 ---
 applyTo: "**"
-description: Repository-specific policy for when the checked-in knowledge folders (.arc42, .domain, .backlog, .tech, .design) may be loaded as working context, and when they must not be.
+description: Repository-specific orchestration policy - the gate on code changes under src/ and tests/, and when the checked-in knowledge folders (.arc42, .domain, .backlog, .tech, .design) may be loaded as working context.
 ---
 
-# Knowledge context loading
+# Repository orchestration and context policy
 
 General orchestration routing — which `orch-*` skill or specialist agent handles which task
 category, and its fallbacks — is delivered globally by the `copilot-app` plugin and is no
 longer restated in this repository.
 
-This file covers only what is specific to Backlog: **which checked-in knowledge folders a
-given workflow may read, and how much of them.** Treat these folders as task-scoped context,
-not baseline context, per `.github/instructions/mcp-usage.instructions.md`.
+This file covers only what is specific to Backlog: **the gate that forces code changes
+through an orchestration skill**, and **which checked-in knowledge folders a given workflow
+may read, and how much of them.** Treat those folders as task-scoped context, not baseline
+context, per `.github/instructions/mcp-usage.instructions.md`.
+
+## The gate
+
+**Before the first `edit` or `create` to any file under `src/` or `tests/`, you MUST
+invoke the matching `orch-*` skill.** Exploration first is expected and does not
+consume the gate; the trigger is the first write, not the first action.
+
+Apply the gate literally:
+
+- **Size is not a criterion.** A one-control UI tweak and a multi-service feature route
+  the same way. Do not reason about whether a request is "big enough" to orchestrate.
+- **A missing specification is not an exemption.** Ad-hoc requests with no story,
+  acceptance criteria, or approved design still route through `orch-feature` or
+  `orch-bug`; the skill derives the missing scope as its first stage.
+- **Unmet preconditions are not an exemption.** If the matched skill's stated
+  preconditions do not hold, invoke it anyway and say so — do not fall through to
+  direct implementation.
+- **No match means `orch-fallback`,** not direct implementation.
+
+## Repository override for `orch-feature`
+
+> **Temporary bridge.** This override exists only until the upstream fix in
+> `JSdotNet/Copilot` (branch `orch-feature-scope-discovery`, commit `5d9c288`) ships,
+> which adds a Stage 0 "Scope Discovery" to `orch-feature` and `orch-bug` and amends
+> `orch-shared-phases.instructions.md`. Once the updated plugin is installed, delete this
+> section — keeping both is two sources of truth that will drift.
+
+The plugin-provided `orch-feature` skill states a precondition that the feature
+specification, acceptance criteria, and architecture are already approved. **That
+precondition does not apply in this repository.** Invoke `orch-feature` for ad-hoc
+feature requests too, and treat scope discovery as part of its first stage: restate the
+requested behavior, derive at least one measurable acceptance criterion, confirm it with
+the user, then continue through the remaining stages. The same applies to `orch-bug`
+when no reproduction has been written up yet.
 
 ## Context loading by orchestration and agent
 
@@ -43,6 +78,5 @@ dedicated `orch-*` skill from either source. See `.github/copilot-orch-context.m
 
 ## Runtime and QA context
 
-This repository has no runnable application. Startup and QA expectations live in
-`.github/copilot-orch-context.md`; per-category model overrides live in
-`.github/copilot-model-selection.md`.
+Startup and QA expectations live in `.github/copilot-orch-context.md`; per-category model
+overrides live in `.github/copilot-model-selection.md`.

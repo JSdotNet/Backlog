@@ -1,0 +1,180 @@
+@using Backlog.Desktop.UI.Services
+@inject DomainKnowledgeStore DomainKnowledge
+
+<section class="domain-knowledge @(Compact ? "domain-knowledge--compact" : string.Empty)" data-testid="domain-knowledge-panel" aria-labelledby="domain-knowledge-title">
+    @if (_view is null)
+    {
+        <p class="domain-knowledge__state" role="status">Loading domain knowledge...</p>
+    }
+    else if (_view.Error is not null)
+    {
+        <div class="domain-knowledge__empty" role="status">
+            <h2 id="domain-knowledge-title">Domain knowledge</h2>
+            <p>@_view.Error</p>
+            <a class="md-link" href="settings">Configure repository knowledge folders</a>
+        </div>
+    }
+    else
+    {
+        <header class="domain-knowledge__header">
+            <div>
+                <p class="domain-knowledge__eyebrow">Knowledge base</p>
+                <h2 id="domain-knowledge-title">Domain model</h2>
+                <p class="domain-knowledge__source">@_view.RepositoryLabel - <code>@_view.RootPath</code></p>
+            </div>
+
+            @if (Compact)
+            {
+                <a class="domain-knowledge__open" href="knowledge/domain">Open</a>
+            }
+        </header>
+
+        <nav class="domain-knowledge__contexts" aria-label="Bounded contexts">
+            <button type="button" class="domain-context-tab @ContextTabClass(null)" aria-pressed="@ContextTabSelected(null)" @onclick="() => SelectContext(null)">Context map</button>
+            @foreach (var context in _view.Contexts)
+            {
+                <button type="button" class="domain-context-tab @ContextTabClass(context)" aria-pressed="@ContextTabSelected(context)" @onclick="() => SelectContext(context)">@context.DisplayName</button>
+            }
+        </nav>
+
+        @if (SelectedContext is null)
+        {
+            @RenderDocument(_view.ContextMap, "domain-document--context-map")
+        }
+        else
+        {
+            <article class="domain-context" data-testid="domain-context">
+                <header class="domain-context__header">
+                    <div>
+                        <p class="domain-knowledge__eyebrow">Bounded context</p>
+                        <h3>@SelectedContext.DisplayName</h3>
+                    </div>
+                    <span class="badge badge--domain-status badge--domain-status-@SelectedContext.Status">@SelectedContext.Status</span>
+                </header>
+
+                <div class="domain-context__documents">
+                    @foreach (var document in SelectedContext.Documents)
+                    {
+                        @RenderDocument(document, DocumentClass(document))
+                    }
+                </div>
+            </article>
+        }
+    }
+</section>
+
+@code {
+    private DomainKnowledgeView? _view;
+    private string? _selectedContextSlug;
+    private string? _loadedRepositoryAlias;
+
+    [Parameter]
+    public bool Compact { get; set; }
+
+    [Parameter]
+    public DomainKnowledgeView? View { get; set; }
+
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    private DomainKnowledgeContext? SelectedContext => _view?.Contexts.FirstOrDefault(c => c.Slug == _selectedContextSlug);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (View is not null)
+        {
+            _view = View;
+        }
+        else if (_view is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
+        {
+            _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
+            _loadedRepositoryAlias = RepositoryAlias;
+        }
+        if (_selectedContextSlug is null || !_view.Contexts.Any(c => c.Slug == _selectedContextSlug))
+        {
+            _selectedContextSlug = Compact ? _view.Contexts.FirstOrDefault()?.Slug : null;
+        }
+    }
+
+    private void SelectContext(DomainKnowledgeContext? context) => _selectedContextSlug = context?.Slug;
+    private string ContextTabClass(DomainKnowledgeContext? context) => string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal) ? "domain-context-tab--active" : string.Empty;
+    private string ContextTabSelected(DomainKnowledgeContext? context) => string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal) ? "true" : "false";
+
+    private static string DocumentClass(DomainKnowledgeDocument document) => document.Kind switch
+    {
+        DomainKnowledgeDocumentKind.Domain => "domain-document--domain",
+        DomainKnowledgeDocumentKind.Features => "domain-document--features",
+        DomainKnowledgeDocumentKind.Model => "domain-document--model",
+        DomainKnowledgeDocumentKind.Flow => "domain-document--flow",
+        DomainKnowledgeDocumentKind.Dependencies => "domain-document--dependencies",
+        DomainKnowledgeDocumentKind.Naming => "domain-document--naming",
+        _ => string.Empty
+    };
+
+    private RenderFragment RenderDocument(DomainKnowledgeDocument document, string cssClass) => @<article class="domain-document @cssClass" data-testid="domain-document">
+        <header class="domain-document__header">
+            <div>
+                <p class="domain-document__kind">@document.KindLabel</p>
+                <h3>@document.Title</h3>
+                <p class="domain-document__path"><code>@document.Path</code></p>
+            </div>
+            <span class="badge badge--domain-status badge--domain-status-@document.Status">@document.Status</span>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(document.Summary))
+        {
+            <p class="domain-document__summary">@document.Summary</p>
+        }
+
+        @if (document.Metadata.Count > 0 || document.Links.Count > 0)
+        {
+            <div class="domain-metadata" aria-label="Document metadata">
+                @foreach (var item in document.Metadata)
+                {
+                    <span class="domain-metadata__item"><strong>@item.Key</strong> @item.Value</span>
+                }
+                @foreach (var link in document.Links.Take(4))
+                {
+                    <span class="domain-metadata__item domain-metadata__item--link"><strong>link</strong> @link</span>
+                }
+            </div>
+        }
+
+        @foreach (var diagram in document.Diagrams)
+        {
+            <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
+        }
+
+        <div class="domain-sections">
+            @foreach (var section in document.Sections.Take(Compact ? 4 : 12))
+            {
+                <section class="domain-section">
+                    <header class="domain-section__header">
+                        <h4>@section.Title</h4>
+                        @if (!string.IsNullOrWhiteSpace(section.Status))
+                        {
+                            <span class="badge badge--domain-status badge--domain-status-@section.Status">@section.Status</span>
+                        }
+                    </header>
+                    @if (section.Metadata.Count > 0)
+                    {
+                        <div class="domain-metadata domain-metadata--section">
+                            @foreach (var item in section.Metadata)
+                            {
+                                <span class="domain-metadata__item"><strong>@item.Key</strong> @item.Value</span>
+                            }
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(section.Excerpt))
+                    {
+                        <p class="domain-section__excerpt">@section.Excerpt</p>
+                    }
+                    @foreach (var diagram in section.Diagrams)
+                    {
+                        <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
+                    }
+                </section>
+            }
+        </div>
+    </article>;
+}
