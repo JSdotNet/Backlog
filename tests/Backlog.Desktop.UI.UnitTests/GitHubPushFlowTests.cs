@@ -155,7 +155,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var root = Path.Combine(Path.GetTempPath(), "backlog-github-flow", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
 
-        var store = new BacklogStore();
+        var store = new BacklogStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(root));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));

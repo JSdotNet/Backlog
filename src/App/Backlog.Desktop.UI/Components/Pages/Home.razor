@@ -11,7 +11,7 @@
     control anywhere — see BacklogDesktopState and EntryTextParser.
 *@
 
-<div class="shell">
+<div class="shell shell--wide">
     <header class="app-header">
         <h1>Backlog</h1>
 
@@ -332,7 +332,10 @@
     </button>
                 </section>
 
-                @RenderBacklogKnowledge()
+                <div class="knowledge-stack" aria-label="Repository knowledge">
+                    @RenderBacklogKnowledge()
+                    <DesignKnowledgeView />
+                </div>
             </section>
         </main>
 
