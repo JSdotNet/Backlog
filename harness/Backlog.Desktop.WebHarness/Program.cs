@@ -103,4 +103,3 @@ static string? ResolveRepositoryRoot(string contentRootPath)
 
     return null;
 }
-
