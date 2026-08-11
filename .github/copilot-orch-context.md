@@ -12,10 +12,10 @@ desktop, mobile, and IDE channels plus a thin cloud sync service.
 **AppHost project:** `src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj`
 (also declared in `aspire.config.json`).
 
-Solution: `Backlog.sln`. Product code lives under `src/`, automated tests under `tests/`,
-and development-time hosts under `harness/`.
+Solution: `Backlog.sln`. Product code lives under `src/`, including development-time hosts under `src/harness/`,
+and automated tests live under `tests/`.
 
-The two `harness/` projects are **test harnesses, not shipped channels**. They are Blazor
+The two `src/harness/` projects are **test harnesses, not shipped channels**. They are Blazor
 Server hosts of the shared Razor components, and they exist specifically so the UI can be
 started by Aspire and driven by Playwright — the MAUI heads cannot be automated that way.
 Target them for UI validation.

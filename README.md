@@ -75,8 +75,8 @@ sliced module per bounded context, `src/Infrastructure/` for cross-cutting
 adapters that no single module owns, `src/App/` for the channel front ends,
 `src/Cloud/` for the sync service, and `src/Aspire/` for orchestration.
 
-Development-time hosts live in a top-level `harness/` folder — deliberately
-*outside* `src/` — and automated test projects live in `tests/`.
+Development-time hosts live under `src/harness/` so runnable project hosts stay below
+`src/`, and automated test projects live in `tests/`.
 
 | Project | Channel / role |
 |---|---|
@@ -92,20 +92,20 @@ Development-time hosts live in a top-level `harness/` folder — deliberately
 | `src/App/Backlog.Mobile` | Mobile channel — .NET MAUI Blazor Hybrid (Android) |
 | `src/App/Backlog.Ide.VsCode` | IDE channel — VS Code extension (TypeScript) |
 | `src/Cloud/Backlog.Cloud` | Cloud channel — thin ASP.NET Core sync service (Azure) |
-| `harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
-| `harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
+| `src/harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
+| `src/harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
 | `tests/Backlog.Modules.Backlog.UnitTests` | Unit tests for the Backlog module domain |
 | `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the file storage adapter |
 | `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services and GitHub integration |
 | `tests/Backlog.ArchitectureTests` | Executable structure rules — module boundaries and "harness is never shipped" |
 
-Everything under `harness/` is a development-time host. It ships nothing to a
+Everything under `src/harness/` is a development-time host. It ships nothing to a
 user; it exists so the shared Razor components can be started by the Aspire
 AppHost and driven by Playwright, which the MAUI heads cannot be. That intent is
-enforced rather than documented: `harness/Directory.Build.props` marks every
+enforced rather than documented: `src/harness/Directory.Build.props` marks every
 harness project non-packable and non-publishable, and
-`tests/Backlog.ArchitectureTests` fails the build if a `src/` project ever
-references one. See [`harness/README.md`](harness/README.md).
+`tests/Backlog.ArchitectureTests` fails the build if a shipping `src/` project ever
+references one. See [`src/harness/README.md`](src/harness/README.md).
 
 ## Running locally
 
