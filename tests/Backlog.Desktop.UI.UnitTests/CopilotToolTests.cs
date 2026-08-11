@@ -24,12 +24,29 @@ public class CopilotToolTests
 
         Assert.Equal(expected, tool.UpdateAvailable);
     }
+
     [Fact]
+    public void Disabled_tools_are_not_updateable()
+    {
+        var tool = new CopilotToolInfo(
+            "plugin:test",
+            CopilotToolKind.Plugin,
+            "test",
+            "https://github.com/example/test",
+            ConfiguredEnabled: false,
+            Installed: true,
+            "1.0.0",
+            "1.1.0",
+            "Disabled plugin");
+
+        Assert.True(tool.UpdateAvailable);
+        Assert.False(tool.CanUpdate);
+    }    [Fact]
     public async Task Pc_config_overrides_matching_catalog_tools_only()
     {
         var root = CreateTempToolConfigRoot();
-        var catalogPath = Path.Combine(root, "tools", "copilot-tools.json");
-        var pcConfigPath = Path.Combine(root, "tools", "dev-pc", "copilot-tools.json");
+        var catalogPath = Path.Combine(root, ".tools", "copilot-tools.json");
+        var pcConfigPath = Path.Combine(root, ".tools", "dev-pc", "copilot-tools.json");
         Directory.CreateDirectory(Path.GetDirectoryName(pcConfigPath)!);
         await File.WriteAllTextAsync(catalogPath, """
             {
@@ -67,7 +84,7 @@ public class CopilotToolTests
     public async Task Enabled_override_writes_minimal_pc_config()
     {
         var root = CreateTempToolConfigRoot();
-        var catalogPath = Path.Combine(root, "tools", "copilot-tools.json");
+        var catalogPath = Path.Combine(root, ".tools", "copilot-tools.json");
         await File.WriteAllTextAsync(catalogPath, """
             {
               "plugins": [
@@ -98,7 +115,7 @@ public class CopilotToolTests
     public async Task Default_paths_prefer_local_repo_tools_catalog()
     {
         var root = CreateTempToolConfigRoot();
-        var catalogPath = Path.Combine(root, "tools", "copilot-tools.json");
+        var catalogPath = Path.Combine(root, ".tools", "copilot-tools.json");
         await File.WriteAllTextAsync(catalogPath, """{ "plugins": [], "mcpServers": [] }""");
         var nestedStartPath = Path.Combine(root, "src", "App", "Backlog.Desktop", "bin", "Debug");
         Directory.CreateDirectory(nestedStartPath);
@@ -106,13 +123,13 @@ public class CopilotToolTests
         var paths = CopilotToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath);
 
         Assert.Equal(catalogPath, paths.CatalogPath);
-        Assert.Equal(Path.Combine(root, "tools", "dev-pc", "copilot-tools.json"), paths.PcConfigPath);
+        Assert.Equal(Path.Combine(root, ".tools", "dev-pc", "copilot-tools.json"), paths.PcConfigPath);
     }
 
     private static string CreateTempToolConfigRoot()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(Path.Combine(path, "tools"));
+        Directory.CreateDirectory(Path.Combine(path, ".tools"));
         return path;
     }
 }

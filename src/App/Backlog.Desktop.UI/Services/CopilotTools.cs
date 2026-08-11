@@ -33,6 +33,8 @@ public sealed record CopilotToolInfo(
 {
     public bool UpdateAvailable => VersionDiffers(InstalledVersion, AvailableVersion);
 
+    public bool CanUpdate => ConfiguredEnabled && Installed && UpdateAvailable;
+
     public static bool VersionDiffers(string installedVersion, string availableVersion)
     {
         var installed = NormalizeVersion(installedVersion);
@@ -74,7 +76,7 @@ public sealed record CopilotToolActionResult(bool Succeeded, string Message)
 public sealed record CopilotToolConfigurationPaths(string CatalogPath, string PcConfigPath)
 {
     private const string DefaultRepositoryRoot = "%USERPROFILE%\\.copilot\\repos\\Backlog";
-    private const string ToolFolderName = "tools";
+    private const string ToolFolderName = ".tools";
     private const string CatalogFileName = "copilot-tools.json";
 
     public static CopilotToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null)
@@ -266,6 +268,8 @@ public interface ICopilotToolService
 
     Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default);
 
+    Task<CopilotToolActionResult> UpdateAllAsync(CancellationToken ct = default);
+
     Task<CopilotToolActionResult> EnableAsync(string key, CancellationToken ct = default);
 
     Task<CopilotToolActionResult> DisableAsync(string key, CancellationToken ct = default);
@@ -279,6 +283,9 @@ public sealed class UnsupportedCopilotToolService : ICopilotToolService
         Task.FromResult(new CopilotToolCatalog([], Message));
 
     public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>
+        Task.FromResult(CopilotToolActionResult.Failed(Message));
+
+    public Task<CopilotToolActionResult> UpdateAllAsync(CancellationToken ct = default) =>
         Task.FromResult(CopilotToolActionResult.Failed(Message));
 
     public Task<CopilotToolActionResult> EnableAsync(string key, CancellationToken ct = default) =>
