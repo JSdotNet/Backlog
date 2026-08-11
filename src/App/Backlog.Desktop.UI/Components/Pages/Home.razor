@@ -172,7 +172,7 @@
         </section>
     }
 
-    <main class="knowledge-layout @(KnowledgeVisible ? "knowledge-layout--knowledge-open" : "knowledge-layout--knowledge-closed")" data-testid="knowledge-layout">
+    <main class="knowledge-layout @(KnowledgeVisible ? "knowledge-layout--knowledge-open" : "knowledge-layout--knowledge-closed")" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
         <section class="backlog-workspace" aria-label="Backlog entries">
 
     @* Areas on the left, because that is what you pick first — which pile am I
@@ -304,7 +304,7 @@
                             <div class="entry-doc__read"
                                  id="entry-content-@row.Key"
                                  data-testid="entry-read-view"
-                                 role="button"
+                                 role="group"
                                  tabindex="0"
                                  aria-label="Edit markdown for @(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)"
                                  @onclick="() => State.BeginEdit(row)"
@@ -321,6 +321,21 @@
                                         <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
                                     }
 
+                                    @if (row.HasExpandableContent)
+                                    {
+                                        <button type="button"
+                                                class="entry-doc__fold"
+                                                id="fold-entry-@row.Key"
+                                                data-testid="entry-fold-button"
+                                                aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
+                                                aria-controls="entry-content-@row.Key"
+                                                aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
+                                                @onmousedown:preventDefault="true"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => State.ToggleEntry(row)">
+                                            <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
+                                        </button>
+                                    }
                                     @if (!oneLine)
                                     {
                                         @RenderEntryMetadata(row, oneLine)
@@ -374,7 +389,12 @@
                                     <span class="subitem-card__grip-dots" aria-hidden="true"></span>
                                 </button>
 
-                                <div class="subitem-card__body">
+                                <div class="subitem-card__body"
+                                     role="group"
+                                     tabindex="0"
+                                     aria-label="Edit sub-item"
+                                     @onclick="() => State.BeginEdit(row)"
+                                     @onkeydown="e => OnReadViewKeyDown(row, e)">
                                     <div class="subitem-card__title-row">
                                         @if (subItem.HasCheckbox)
                                         {
@@ -389,6 +409,26 @@
                                         }
                                         <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
                                     </div>
+                                    <div class="subitem-card__meta" aria-label="Sub-item metadata and actions">
+                                        <span class="subitem-card__state">@(subItem.HasCheckbox ? (subItem.Done ? "Done" : "Open") : "Note")</span>
+                                        <span class="subitem-card__actions">
+                                            @if (subItem.HasCheckbox)
+                                            {
+                                                <button type="button"
+                                                        class="subitem-card__action"
+                                                        aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                                        @onmousedown:preventDefault="true"
+                                                        @onclick:stopPropagation="true"
+                                                        @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "Open" : "Done")</button>
+                                            }
+                                            <button type="button"
+                                                    class="subitem-card__action"
+                                                    aria-label="Edit sub-item"
+                                                    @onmousedown:preventDefault="true"
+                                                    @onclick:stopPropagation="true"
+                                                    @onclick="() => State.BeginEdit(row)">Edit</button>
+                                        </span>
+                                    </div>
                                     @if (subItem.Children.Count > 0)
                                     {
                                         <div class="subitem-card__notes">
@@ -396,7 +436,6 @@
                                         </div>
                                     }
                                 </div>
-
                                 @* Same bargain as the entries: mid-drag the whole
                                    card is the target, top half drops above and
                                    bottom half below. *@
@@ -442,6 +481,10 @@
         @if (KnowledgeVisible)
         {
             <aside class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
+                <label class="knowledge-stack__resizer">
+                    <span>Knowledge width</span>
+                    <input type="range" min="24" max="54" step="1" value="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnKnowledgeWidthChanged" />
+                </label>
                 @if (KnowledgeRepositories.Count > 1)
                 {
                     <nav class="knowledge-stack__repositories" aria-label="Knowledge repository">
@@ -483,6 +526,7 @@
     private ElementReference _editor;
     private bool _toolsExpanded;
     private bool _knowledgeExpanded;
+    private double _knowledgePanelWidthRem = 36;
     private bool _toolsLoading;
     private string? _toolMessage;
     private string? _toolActionKey;
@@ -794,20 +838,10 @@
                 }
             </span>
 
-            @if (oneLine)
-            {
-                <span class="entry-doc__tags">
+            <span class="entry-doc__meta-end">
+                <span class="entry-doc__tags entry-doc__tags--end">
                     @RenderTagEditor(row)
                 </span>
-            }
-
-            <span class="entry-doc__meta-end">
-                @if (!oneLine)
-                {
-                    <span class="entry-doc__tags entry-doc__tags--end">
-                        @RenderTagEditor(row)
-                    </span>
-                }
 
                 @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured)
                 {
@@ -861,22 +895,6 @@
                 </label>
 
                 <span class="entry-doc__actions" aria-label="Entry actions">
-                    @if (row.HasExpandableContent && !ReferenceEquals(State.EditingRow, row))
-                    {
-                        <button type="button"
-                                class="entry-doc__fold"
-                                id="fold-entry-@row.Key"
-                                data-testid="entry-fold-button"
-                                aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
-                                aria-controls="entry-content-@row.Key"
-                                aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
-                                @onmousedown:preventDefault="true"
-                                @onclick:stopPropagation="true"
-                                @onclick="() => State.ToggleEntry(row)">
-                            <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
-                        </button>
-                    }
-
                     @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured)
                     {
                         var repository = RepositoryFor(row);
@@ -966,21 +984,21 @@
     private RenderFragment RenderTagEditor(EntryRow row) =>
         @<label class="entry-doc__tag-picker">
             <span class="sr-only">Edit tags</span>
-            <span class="entry-doc__tag-summary" aria-hidden="true">@TagSummary(row)</span>
-            <select class="entry-doc__tag-select"
-                    data-testid="entry-tags-input"
-                    aria-label="Edit tags"
-                    title="Edit tags"
-                    multiple
-                    size="1"
-                    @onchange="e => OnTagsChangedAsync(row, e)">
+            <input class="entry-doc__tag-input"
+                   data-testid="entry-tags-input"
+                   aria-label="Edit tags"
+                   title="Edit tags"
+                   list="entry-tags-options-@row.Key"
+                   placeholder="Tags"
+                   value="@TagsInputValue(row)"
+                   @onchange="e => OnTagsChangedAsync(row, e)" />
+            <datalist id="entry-tags-options-@row.Key">
                 @foreach (var tag in TagOptions(row))
                 {
-                    <option value="@tag" selected="@row.PreviewMetadataTags.Contains(tag, StringComparer.OrdinalIgnoreCase)">#@tag</option>
+                    <option value="#@tag"></option>
                 }
-            </select>
+            </datalist>
         </label>;
-
     /// <summary>The grab areas around an entry — one on each side. All four are
     /// drag sources and drop targets. Only the top rail takes tab focus (four
     /// stops per entry would wreck keyboard travel through the list), and it
@@ -1158,7 +1176,7 @@
     }
 
     private async Task OnTagsChangedAsync(EntryRow row, ChangeEventArgs e) =>
-        await State.ChangeTagsAsync(row, SelectedTags(e));
+        await State.ChangeTagsAsync(row, e.Value?.ToString() ?? string.Empty);
 
     private static IReadOnlyList<EntryType> TypeOptions() => Enum.GetValues<EntryType>();
 
@@ -1188,18 +1206,15 @@
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    private static string TagsInputValue(EntryRow row) => string.Join(" ", row.PreviewMetadataTags.Select(tag => "#" + tag));
 
-    private static string TagSummary(EntryRow row) => row.PreviewMetadataTags.Count == 0
-        ? "Tags"
-        : string.Join(" ", row.PreviewMetadataTags.Select(tag => "#" + tag));
-
-    private static IReadOnlyList<string> SelectedTags(ChangeEventArgs e) => e.Value switch
+    private void OnKnowledgeWidthChanged(ChangeEventArgs e)
     {
-        string[] values => values,
-        IEnumerable<string> values => values.ToList(),
-        string value when value.Length > 0 => [value],
-        _ => []
-    };
+        if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var width))
+        {
+            _knowledgePanelWidthRem = Math.Clamp(width, 24, 54);
+        }
+    }
 
     private async Task OnEditorKeyDownAsync(EntryRow row, KeyboardEventArgs e)
     {
