@@ -27,6 +27,7 @@ builder.Services.AddSingleton<KnowledgeFolderSource>();
 builder.Services.AddSingleton<KnowledgeBacklog>();
 builder.Services.AddSingleton<TechnologyKnowledgeService>();
 builder.Services.AddSingleton<InstructionSourceDiscovery>();
+builder.Services.AddSingleton<KnowledgeMenu>();
 builder.Services.AddSingleton<Arc42KnowledgeStore>();
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddScoped<DomainKnowledgeStore>();
