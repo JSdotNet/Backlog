@@ -25,14 +25,20 @@ public sealed class BacklogStore
     private readonly string _settingsPath;
 
     public BacklogStore()
-        : this(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog"))
+        : this(null)
     {
     }
 
-    private BacklogStore(string appData)
-        : this(appData, Path.Combine(appData, "settings.json"))
+    public BacklogStore(string? appDataDirectory)
+        : this(
+            string.IsNullOrWhiteSpace(appDataDirectory)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Backlog")
+                : appDataDirectory,
+            Path.Combine(
+                string.IsNullOrWhiteSpace(appDataDirectory)
+                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Backlog")
+                    : appDataDirectory,
+                "settings.json"))
     {
     }
 

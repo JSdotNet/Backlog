@@ -16,10 +16,6 @@ public sealed class GitHubPushFlowTests : IDisposable
 
     public void Dispose()
     {
-        // These tests point the real per-user store at a temp folder, so it is
-        // put back before leaving — the same courtesy BacklogStoreTests shows.
-        new BacklogStore().ResetToDefault();
-
         foreach (var dir in _tempDirs.Where(Directory.Exists))
         {
             try { Directory.Delete(dir, recursive: true); } catch (IOException) { }

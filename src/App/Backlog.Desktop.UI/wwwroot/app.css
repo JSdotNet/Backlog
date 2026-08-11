@@ -2230,3 +2230,183 @@ h1, h2, h3 {
         max-height: none;
     }
 }
+
+/* --- arc42 architecture knowledge ----------------------------------------- */
+
+.knowledge-pane--arc42 {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.knowledge-pane__count,
+.knowledge-pane__summary,
+.knowledge-chapter__meta,
+.knowledge-document__meta,
+.knowledge-meta-line,
+.knowledge-outline {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.knowledge-pane__summary,
+.knowledge-document__meta,
+.knowledge-meta-line,
+.knowledge-chapter__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.knowledge-pane__summary {
+    padding: var(--spacing-sm);
+    background: rgba(15, 23, 42, 0.72);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.arc42-knowledge-layout {
+    display: grid;
+    grid-template-columns: minmax(160px, 0.42fr) minmax(0, 1fr);
+    gap: var(--spacing-md);
+    min-height: 0;
+}
+
+.knowledge-chapters {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-height: 0;
+    overflow: auto;
+    padding-right: var(--spacing-xs);
+}
+
+.knowledge-chapter {
+    width: 100%;
+    padding: var(--spacing-sm);
+    text-align: left;
+    font: inherit;
+    color: var(--color-text-secondary);
+    background: rgba(15, 23, 42, 0.48);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+}
+
+.knowledge-chapter:hover,
+.knowledge-chapter--active {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+    background: rgba(51, 65, 85, 0.72);
+}
+
+.knowledge-chapter:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.knowledge-chapter__title {
+    display: block;
+    font-weight: 600;
+}
+
+.knowledge-document {
+    min-height: 0;
+    overflow: auto;
+    padding-right: var(--spacing-xs);
+}
+
+.knowledge-document__header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.knowledge-document__header h2,
+.knowledge-title {
+    overflow-wrap: anywhere;
+}
+
+.knowledge-document__path {
+    margin: 0 0 var(--spacing-xs);
+    color: var(--color-text-disabled);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.knowledge-outline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+.knowledge-outline__item {
+    padding: 0.15rem var(--spacing-xs);
+    background: rgba(51, 65, 85, 0.58);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: 9999px;
+}
+
+.knowledge-outline__item--3,
+.knowledge-outline__item--4,
+.knowledge-outline__item--5,
+.knowledge-outline__item--6 {
+    opacity: 0.78;
+}
+
+.knowledge-heading:not(:first-child) {
+    margin-top: var(--spacing-lg);
+}
+
+.knowledge-title {
+    margin: 0 0 var(--spacing-xs);
+}
+
+.knowledge-title--1 { font-size: var(--font-size-xl); }
+.knowledge-title--2 { font-size: var(--font-size-lg); }
+.knowledge-title--3,
+.knowledge-title--4,
+.knowledge-title--5,
+.knowledge-title--6 { font-size: var(--font-size-base); }
+
+.knowledge-table__row {
+    padding: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.knowledge-table__row:first-child {
+    border-top: 0;
+}
+
+.knowledge-table__row--head {
+    color: var(--color-text-primary);
+    background: rgba(51, 65, 85, 0.72);
+    font-weight: 600;
+}
+
+.knowledge-relation {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.5rem;
+    padding: 0 var(--spacing-xs);
+    border-radius: 9999px;
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-text-link);
+    font-size: var(--font-size-xs);
+    text-decoration: none;
+}
+
+.knowledge-status--draft { border-color: rgba(242, 193, 78, 0.75); }
+.knowledge-status--deprecated { border-color: rgba(228, 98, 111, 0.75); }
+
+@media (max-width: 1180px) {
+    .arc42-knowledge-layout {
+        grid-template-columns: 1fr;
+    }
+}
