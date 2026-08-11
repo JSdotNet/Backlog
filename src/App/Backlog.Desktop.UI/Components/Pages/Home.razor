@@ -224,9 +224,7 @@
                 var oneLine = !editing && row.UsesOneLineLayout;
 
                 <li class="entry-group" @key="row.Key">
-                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)"
-                     @onfocusin="() => FocusEntry(row)"
-                     @onfocusout="() => BlurEntry(row)">
+                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
 
                     @RenderGrip(row, before: true, "top")
                     @RenderGrip(row, before: true, "left")
@@ -279,7 +277,8 @@
                                           @ref="_editor"
                                           @oninput="e => State.OnRawTextInput(row, e.Value?.ToString() ?? string.Empty)"
                                           @onkeydown="e => OnEditorKeyDownAsync(row, e)"
-                                          @onblur="() => OnEndEditAsync(row)">@row.RawText</textarea>
+                                          @onfocus="() => FocusTextEntry(row)"
+                                          @onblur="() => OnEditorBlurAsync(row)">@row.RawText</textarea>
 
                                 @* Answers "which one is the status?" by simply
                                    saying so, live, from the same parse the save
@@ -312,21 +311,6 @@
                                  @onkeydown="e => OnReadViewKeyDown(row, e)">
 
                                 <div class="entry-doc__title-line">
-                                    @if (row.HasExpandableContent)
-                                    {
-                                        <button type="button"
-                                                class="entry-doc__fold"
-                                                id="fold-entry-@row.Key"
-                                                data-testid="entry-fold-button"
-                                                aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
-                                                aria-controls="entry-content-@row.Key"
-                                                aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
-                                                @onmousedown:preventDefault="true"
-                                                @onclick:stopPropagation="true"
-                                                @onclick="() => State.ToggleEntry(row)">
-                                            <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
-                                        </button>
-                                    }
 
                                     @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
                                     {
@@ -511,7 +495,7 @@
     private bool _checkingForAppUpdate;
     private bool _installingAppUpdate;
     private bool _appUpdateReady;
-    private Guid? _focusedEntryKey;
+    private Guid? _textFocusedEntryKey;
 
     private bool _updateBusy => _checkingForAppUpdate || _installingAppUpdate;
 
@@ -877,6 +861,22 @@
                 </label>
 
                 <span class="entry-doc__actions" aria-label="Entry actions">
+                    @if (row.HasExpandableContent && !ReferenceEquals(State.EditingRow, row))
+                    {
+                        <button type="button"
+                                class="entry-doc__fold"
+                                id="fold-entry-@row.Key"
+                                data-testid="entry-fold-button"
+                                aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
+                                aria-controls="entry-content-@row.Key"
+                                aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
+                                @onmousedown:preventDefault="true"
+                                @onclick:stopPropagation="true"
+                                @onclick="() => State.ToggleEntry(row)">
+                            <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
+                        </button>
+                    }
+
                     @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured)
                     {
                         var repository = RepositoryFor(row);
@@ -948,7 +948,7 @@
                         </button>
                     }
 
-                    @if (IsEntryFocused(row))
+                    @if (ReferenceEquals(State.EditingRow, row) && IsTextEntryFocused(row))
                     {
                         <button type="button"
                                 class="entry-doc__delete"
@@ -1120,7 +1120,11 @@
 
     private void OnNewEntry() => State.NewRow();
 
-    private async Task OnEndEditAsync(EntryRow row) => await State.EndEditAsync(row);
+    private async Task OnEditorBlurAsync(EntryRow row)
+    {
+        BlurTextEntry(row);
+        await State.EndEditAsync(row);
+    }
 
     private async Task OnDeleteEntryAsync(EntryRow row) => await State.DeleteRowAsync(row);
 
@@ -1162,20 +1166,20 @@
 
     private static IReadOnlyList<EntryStatus> StatusOptions() => Enum.GetValues<EntryStatus>();
 
-    private void FocusEntry(EntryRow row)
+    private void FocusTextEntry(EntryRow row)
     {
-        _focusedEntryKey = row.Key;
+        _textFocusedEntryKey = row.Key;
     }
 
-    private void BlurEntry(EntryRow row)
+    private void BlurTextEntry(EntryRow row)
     {
-        if (_focusedEntryKey == row.Key)
+        if (_textFocusedEntryKey == row.Key)
         {
-            _focusedEntryKey = null;
+            _textFocusedEntryKey = null;
         }
     }
 
-    private bool IsEntryFocused(EntryRow row) => _focusedEntryKey == row.Key;
+    private bool IsTextEntryFocused(EntryRow row) => _textFocusedEntryKey == row.Key;
 
     private IReadOnlyList<string> TagOptions(EntryRow row) =>
         State.Rows
