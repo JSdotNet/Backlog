@@ -138,6 +138,39 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.False(Build().State.GitHubConfigured);
     }
 
+
+    [Fact]
+    public async Task Feedback_reports_create_an_issue_in_the_backlog_repository_with_the_screenshot()
+    {
+        var harness = Build("someone/else");
+        var screenshot = new GitHubFeedbackScreenshot(
+            "data:image/jpeg;base64,abc123",
+            "image/jpeg",
+            800,
+            600,
+            42);
+
+        var link = await harness.Integration.ReportFeedbackAsync("Broken view", "The pane is blank.", screenshot);
+
+        Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
+        Assert.Equal("[Feedback] Broken view", harness.Client.CreatedTitle);
+        Assert.Contains("The pane is blank.", harness.Client.CreatedBody);
+        Assert.Contains("![Screenshot](data:image/jpeg;base64,abc123)", harness.Client.CreatedBody);
+        Assert.Equal("JSdotNet/Backlog", link.RepoFullName);
+    }
+
+    [Fact]
+    public async Task Feedback_reports_include_the_screenshot_failure_when_capture_fails()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        await harness.Integration.ReportFeedbackAsync("Cannot capture", null, null, "Permission denied.");
+
+        Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
+        Assert.Contains("_No details provided._", harness.Client.CreatedBody);
+        Assert.Contains("Screenshot capture failed: Permission denied.", harness.Client.CreatedBody);
+    }
+
     private async Task<EntryRow> WriteEntryAsync(BacklogDesktopState state, string text)
     {
         state.NewRow();
@@ -174,6 +207,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     private sealed class FakeGitHubClient : IGitHubClient
     {
         public int CreateCount { get; set; }
+        public string? CreatedRepository { get; private set; }
         public string? CreatedTitle { get; private set; }
         public string? CreatedBody { get; private set; }
         public Exception? Failure { get; set; }
@@ -193,6 +227,7 @@ public sealed class GitHubPushFlowTests : IDisposable
             if (Failure is not null) throw Failure;
 
             CreateCount++;
+            CreatedRepository = repository.FullName;
             CreatedTitle = title;
             CreatedBody = body ?? string.Empty;
 
