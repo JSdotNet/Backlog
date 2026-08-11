@@ -24,12 +24,12 @@
     --color-text-link: #F2C14E;
 
     --color-background: #020617;
-    --color-background-alt: #171717;
-    --color-background-raised: #262626;
+    --color-background-alt: #0F172A;
+    --color-background-raised: #1E293B;
     --color-background-overlay: rgba(0, 0, 0, 0.60);
 
-    --color-border: #737373;
-    --color-border-strong: #A3A3A3;
+    --color-border: #64748B;
+    --color-border-strong: #94A3B8;
     --color-border-focus: #F2C14E;
 
     /* Typography */
