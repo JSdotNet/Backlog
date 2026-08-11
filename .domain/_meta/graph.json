@@ -4183,7 +4183,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 92,
+          "line": 98,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -4294,7 +4294,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 81,
+          "line": 87,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"

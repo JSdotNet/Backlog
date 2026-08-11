@@ -25,7 +25,8 @@
       "heading": 36
     },
     "nodesByStatus": {
-      "active": 119,
+      "active": 118,
+      "proposed": 1,
       "draft": 263,
       "accepted": 1,
       "candidate": 30,
@@ -636,7 +637,7 @@
           "slug": "feature-enablement",
           "level": 2,
           "line": 34,
-          "status": "active",
+          "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
             ".domain/second-brain/features.md#feature-repository-knowledge-areas",
@@ -653,7 +654,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 55,
+          "line": 61,
           "status": "active"
         }
       },
@@ -666,7 +667,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 66,
+          "line": 72,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -682,7 +683,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 81,
+          "line": 87,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -698,7 +699,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 92,
+          "line": 98,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
