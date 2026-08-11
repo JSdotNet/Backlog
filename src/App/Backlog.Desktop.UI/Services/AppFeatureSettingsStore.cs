@@ -55,12 +55,12 @@ public sealed class AppFeatureSettingsStore
     public static IReadOnlyList<AppFeatureDefinition> Features { get; } =
     [
         new(Backlog, "Backlog", "Create, edit, filter, reorder, and store backlog entries.", AlwaysEnabled: true),
-        new(RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
         new(KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
-        new(SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers."),
+        new(RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
         new(AdditionalRepositories, "Additional repositories", "Configure repositories beyond the primary repository and switch repository-specific knowledge."),
+        new(SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers."),
         new(GitHubIntegration, "GitHub integration", "Configure GitHub access, push entries to issues, and refresh issue or pull request state."),
-        new(CopilotCli, "Copilot CLI", "Start GitHub Copilot CLI from a persisted backlog entry.")
+        new(CopilotCli, "Copilot CLI", "Start GitHub Copilot CLI from Backlog workflows.")
     ];
 
     public bool IsEnabled(string key)

@@ -306,49 +306,6 @@
                                 </p>
                             </div>
                         }
-
-                        @if (Features.IsEnabled(AppFeatureSettingsStore.GitHubIntegration))
-                        {
-                            <div class="repo-card__section" data-testid="repo-github-access">
-                                <h4 class="knowledge-folders__title">GitHub access</h4>
-                                <p class="setting__note">
-                                    Signing in with the GitHub CLI is preferred. This repository token is only used as a fallback for <code>@activeRepo.FullName</code> when <code>gh</code> is not signed in.
-                                </p>
-                                <p class="setting__status" data-testid="github-connection-status" role="status">
-                                    @(_connection?.Summary ?? "Checking how this machine can reach GitHub...")
-                                </p>
-                                <label class="setting__label" for="github-token-@activeRepo.Alias">Personal access token</label>
-                                <input class="setting__input"
-                                       id="github-token-@activeRepo.Alias"
-                                       data-testid="github-token-input"
-                                       type="password"
-                                       spellcheck="false"
-                                       autocomplete="off"
-                                       placeholder="@(activeRepo.Token is null ? "ghp_..." : "stored - hidden")"
-                                       value="@RepositoryTokenDraft(activeRepo)"
-                                       @oninput="e => _draftTokens[activeRepo.Alias] = e.Value?.ToString() ?? string.Empty"
-                                       @onchange="() => ApplyRepositoryTokenAsync(activeRepo)"
-                                       @onkeydown="e => OnRepositoryTokenKeyDownAsync(e, activeRepo)" />
-                                <div class="setting__actions">
-                                    <button type="button"
-                                            class="btn"
-                                            data-testid="github-recheck-button"
-                                            @onclick="CheckConnectionAsync">
-                                        Check the connection
-                                    </button>
-                                    <button type="button"
-                                            class="btn"
-                                            data-testid="github-clear-token-button"
-                                            disabled="@(activeRepo.Token is null)"
-                                            @onclick="() => ClearRepositoryTokenAsync(activeRepo)">
-                                        Forget this repository token
-                                    </button>
-                                </div>
-                                <p class="setting__note">
-                                    Tokens are kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately outside the backlog folder, so they are never synced or committed with entries.
-                                </p>
-                            </div>
-                        }
                         <div class="knowledge-folders" data-testid="knowledge-folder-settings">
                             <h4 class="knowledge-folders__title">Knowledge-base sections</h4>
                             <p class="setting__note">

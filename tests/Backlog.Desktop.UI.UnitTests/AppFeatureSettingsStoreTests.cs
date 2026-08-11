@@ -52,6 +52,22 @@ public sealed class AppFeatureSettingsStoreTests
     }
 
     [Fact]
+    public void Features_are_listed_in_settings_order()
+    {
+        Assert.Equal(
+            [
+                AppFeatureSettingsStore.Backlog,
+                AppFeatureSettingsStore.KnowledgeSections,
+                AppFeatureSettingsStore.RepositoryKnowledge,
+                AppFeatureSettingsStore.AdditionalRepositories,
+                AppFeatureSettingsStore.SystemTools,
+                AppFeatureSettingsStore.GitHubIntegration,
+                AppFeatureSettingsStore.CopilotCli
+            ],
+            AppFeatureSettingsStore.Features.Select(feature => feature.Key));
+    }
+
+    [Fact]
     public void Unknown_and_always_enabled_keys_are_ignored_when_loaded()
     {
         var path = NewSettingsPath();
