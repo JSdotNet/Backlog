@@ -90,6 +90,33 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
         return new GitHubIssueLink(repository.FullName, issue.Number);
     }
 
+    internal async Task<GitHubIssueLink> PushSubItemAsync(
+        BacklogEntry parent,
+        EntryTextParser.ParsedSubItem subItem,
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(parent);
+        ArgumentNullException.ThrowIfNull(subItem);
+        ArgumentNullException.ThrowIfNull(repository);
+
+        var issue = await client.CreateIssueAsync(
+            repository,
+            subItem.Title,
+            BuildSubItemBody(parent, subItem),
+            subItem.MetadataTags,
+            cancellationToken);
+
+        return new GitHubIssueLink(repository.FullName, issue.Number);
+    }
+
+    private static string BuildSubItemBody(BacklogEntry parent, EntryTextParser.ParsedSubItem subItem) =>
+        $"""
+        From backlog entry: {parent.Title}
+
+        {subItem.Notes}
+        """.Trim();
+
     /// <summary>Creates an issue in this repository from an in-app feedback report.</summary>
     public async Task<GitHubIssueLink> ReportFeedbackAsync(
         string title,

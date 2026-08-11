@@ -400,8 +400,9 @@
                         {
                             var position = index;
                             var subItem = row.PreviewSubItems[position];
+                            var editingSubItem = State.IsEditingSubItem(row, position);
 
-                            <li class="subitem-card @(subItem.Done ? "subitem-card--done" : string.Empty) @(State.IsDraggingSubItem(row, position) ? "subitem-card--dragged" : string.Empty)"
+                            <li class="subitem-card @(subItem.Done ? "subitem-card--done" : string.Empty) @(editingSubItem ? "subitem-card--editing" : string.Empty) @(State.IsDraggingSubItem(row, position) ? "subitem-card--dragged" : string.Empty)"
                                 @key="position"
                                 data-testid="entry-subitem">
 
@@ -421,34 +422,50 @@
                                     <span class="subitem-card__grip-dots" aria-hidden="true"></span>
                                 </button>
 
-                                <div class="subitem-card__body"
-                                     role="group"
-                                     tabindex="0"
-                                     aria-label="Edit sub-item"
-                                     @onclick="() => State.BeginEdit(row)"
-                                     @onkeydown="e => OnReadViewKeyDown(row, e)">
-                                    <div class="subitem-card__title-row">
-                                        @if (subItem.HasCheckbox)
-                                        {
-                                            <button type="button"
-                                                    class="md-check subitem-card__check @(subItem.Done ? "md-check--done" : string.Empty)"
-                                                    data-testid="subitem-checkbox"
-                                                    aria-pressed="@(subItem.Done ? "true" : "false")"
-                                                    aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
-                                                    @onmousedown:preventDefault="true"
-                                                    @onclick:stopPropagation="true"
-                                                    @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "✔" : string.Empty)</button>
-                                        }
-                                        <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
-                                    </div>
-                                    @RenderSubItemMetadata(row, subItem, position)
-                                    @if (subItem.Children.Count > 0)
-                                    {
-                                        <div class="subitem-card__notes">
-                                            <MarkdownView Blocks="subItem.Children" OnTaskItemToggled="index => State.ToggleTaskItemAsync(row, index)" />
+                                @if (editingSubItem)
+                                {
+                                    <div class="subitem-card__body subitem-card__body--editing">
+                                        <div class="grow-wrap" data-replicated-value="@(State.SubItemEditText(row, position) + "\n")">
+                                            <textarea class="entry-doc__editor subitem-card__editor"
+                                                      data-testid="subitem-raw-input"
+                                                      aria-label="Sub-item markdown"
+                                                      @ref="_editor"
+                                                      @oninput="e => State.OnSubItemRawTextInput(row, position, e.Value?.ToString() ?? string.Empty)"
+                                                      @onblur="() => OnSubItemEditorBlurAsync(row, position)">@State.SubItemEditText(row, position)</textarea>
                                         </div>
-                                    }
-                                </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="subitem-card__body"
+                                         role="group"
+                                         tabindex="0"
+                                         aria-label="Edit sub-item"
+                                         @onclick="() => State.BeginSubItemEdit(row, position)"
+                                         @onkeydown="e => OnSubItemReadViewKeyDown(row, position, e)">
+                                        <div class="subitem-card__title-row">
+                                            @if (subItem.HasCheckbox)
+                                            {
+                                                <button type="button"
+                                                        class="md-check subitem-card__check @(subItem.Done ? "md-check--done" : string.Empty)"
+                                                        data-testid="subitem-checkbox"
+                                                        aria-pressed="@(subItem.Done ? "true" : "false")"
+                                                        aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                                        @onmousedown:preventDefault="true"
+                                                        @onclick:stopPropagation="true"
+                                                        @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "✔" : string.Empty)</button>
+                                            }
+                                            <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
+                                        </div>
+                                        @RenderSubItemMetadata(row, subItem, position)
+                                        @if (subItem.Children.Count > 0)
+                                        {
+                                            <div class="subitem-card__notes">
+                                                <MarkdownView Blocks="subItem.Children" OnTaskItemToggled="index => State.ToggleTaskItemAsync(row, index)" />
+                                            </div>
+                                        }
+                                    </div>
+                                }
                                 @* Same bargain as the entries: mid-drag the whole
                                    card is the target, top half drops above and
                                    bottom half below. *@
@@ -1329,20 +1346,28 @@
                 </label>
 
                 <span class="entry-doc__actions" aria-label="Sub-item actions">
-                    @if (subItem.HasCheckbox)
+                    @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured && row.IsPersisted && RepositoryFor(row) is { } subItemRepository)
                     {
                         <button type="button"
-                                class="subitem-card__action"
-                                aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                class="entry-doc__icon-action entry-doc__icon-action--push"
+                                data-testid="subitem-github-push-button"
+                                disabled="@row.GitHubBusy"
+                                title="Create an issue in @subItemRepository.FullName"
+                                aria-label="Create an issue in @subItemRepository.FullName"
                                 @onmousedown:preventDefault="true"
-                                @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "Open" : "Done")</button>
+                                @onclick="() => State.PushSubItemToGitHubAsync(row, position)">
+                            @if (row.GitHubBusy)
+                            {
+                                <span aria-hidden="true">…</span>
+                            }
+                            else
+                            {
+                                <svg class="entry-doc__button-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                                    <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
+                                </svg>
+                            }
+                        </button>
                     }
-
-                    <button type="button"
-                            class="subitem-card__action"
-                            aria-label="Edit sub-item"
-                            @onmousedown:preventDefault="true"
-                            @onclick="() => State.BeginEdit(row)">Edit</button>
 
                     @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli) && row.IsPersisted)
                     {
@@ -1561,6 +1586,9 @@
         await State.EndEditAsync(row);
     }
 
+    private async Task OnSubItemEditorBlurAsync(EntryRow row, int position) =>
+        await State.EndSubItemEditAsync(row, position);
+
     private async Task OnDeleteEntryAsync(EntryRow row) => await State.DeleteRowAsync(row);
 
     private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
@@ -1642,6 +1670,14 @@
     }
 
     private bool IsTextEntryFocused(EntryRow row) => _textFocusedEntryKey == row.Key;
+
+    private void OnSubItemReadViewKeyDown(EntryRow row, int position, KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            State.BeginSubItemEdit(row, position);
+        }
+    }
 
     private IReadOnlyList<string> TagOptions(EntryRow row) =>
         State.Rows

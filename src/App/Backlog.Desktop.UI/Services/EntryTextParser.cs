@@ -648,6 +648,34 @@ internal static class EntryTextParser
     public static string WithSubItemTags(string raw, int subItemIndex, string tags) =>
         RewriteSubItemMetaLines(raw, subItemIndex, tags: ParseTagsInput(tags));
 
+    public static string GetSubItemText(string raw, int subItemIndex)
+    {
+        if (subItemIndex < 0) return string.Empty;
+
+        var normalized = Normalize(raw);
+        var lines = normalized.Split('\n');
+        var spans = LocateSubItems(normalized);
+        if (subItemIndex >= spans.Count) return string.Empty;
+
+        var span = spans[subItemIndex];
+        return string.Join('\n', lines.Skip(span.Start).Take(span.End - span.Start));
+    }
+
+    public static string ReplaceSubItemText(string raw, int subItemIndex, string replacement)
+    {
+        if (subItemIndex < 0) return raw;
+
+        var normalized = Normalize(raw);
+        var lines = normalized.Split('\n').ToList();
+        var spans = LocateSubItems(normalized);
+        if (subItemIndex >= spans.Count) return raw;
+
+        var span = spans[subItemIndex];
+        var replacementLines = Normalize(replacement).Split('\n').ToList();
+        lines.RemoveRange(span.Start, span.End - span.Start);
+        lines.InsertRange(span.Start, replacementLines);
+        return string.Join('\n', lines);
+    }
     public static string WithArea(string raw, string? area) =>
         RewriteMetaLine(raw, area: area, updateArea: true);
 

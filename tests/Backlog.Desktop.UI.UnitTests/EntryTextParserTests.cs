@@ -172,6 +172,56 @@ public class EntryTextParserTests
         Assert.Equal(EntryStatus.Ready, parsed.SubItems[1].Status);
     }
 
+
+    [Fact]
+    public void Sub_item_text_returns_only_the_clicked_chapter()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@repo`\n\n" +
+            "Intro text.\n\n" +
+            "## Level two\n" +
+            "`task` `*high` `!ready`\n" +
+            "Only level two notes.\n\n" +
+            "### Level three\n" +
+            "`idea` `*low` `!draft`\n" +
+            "Only level three notes.\n\n" +
+            "## Sibling\n" +
+            "Sibling notes.\n";
+
+        var levelTwo = EntryTextParser.GetSubItemText(raw, 0);
+        var levelThree = EntryTextParser.GetSubItemText(raw, 1);
+
+        Assert.StartsWith("## Level two", levelTwo);
+        Assert.Contains("Only level two notes.", levelTwo);
+        Assert.DoesNotContain("### Level three", levelTwo);
+        Assert.StartsWith("### Level three", levelThree);
+        Assert.Contains("Only level three notes.", levelThree);
+        Assert.DoesNotContain("## Sibling", levelThree);
+    }
+
+    [Fact]
+    public void Replacing_sub_item_text_changes_only_that_chapter()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@repo`\n\n" +
+            "## First\n" +
+            "Keep this.\n\n" +
+            "### Target\n" +
+            "Old target notes.\n\n" +
+            "## Last\n" +
+            "Keep last.\n";
+
+        var rewritten = EntryTextParser.ReplaceSubItemText(raw, 1, "### Updated target\nNew target notes.");
+
+        Assert.Contains("## First\nKeep this.", rewritten);
+        Assert.Contains("### Updated target\nNew target notes.", rewritten);
+        Assert.DoesNotContain("Old target notes.", rewritten);
+        Assert.Contains("## Last\nKeep last.", rewritten);
+        Assert.StartsWith("# Parent", rewritten);
+    }
+
     [Fact]
     public void A_heading_written_without_a_space_is_not_a_sub_item()
     {
