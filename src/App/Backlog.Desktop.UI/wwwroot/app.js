@@ -280,3 +280,67 @@ window.backlogDiagrams = {
         backlogDiagramInstances.delete(id);
     }
 };
+
+window.backlogCaptureScreenshot = async () => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+        throw new Error('Screenshot capture is not available in this WebView.');
+    }
+
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    const video = document.createElement('video');
+
+    try {
+        video.srcObject = stream;
+        video.muted = true;
+        await video.play();
+
+        await new Promise((resolve) => {
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+                resolve();
+                return;
+            }
+
+            video.onloadedmetadata = resolve;
+        });
+
+        const maxSide = 900;
+        const scale = Math.min(1, maxSide / Math.max(video.videoWidth, video.videoHeight));
+        let width = Math.max(1, Math.round(video.videoWidth * scale));
+        let height = Math.max(1, Math.round(video.videoHeight * scale));
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        const mediaType = 'image/jpeg';
+        let quality = 0.72;
+        let dataUrl;
+
+        do {
+            canvas.width = width;
+            canvas.height = height;
+            context.drawImage(video, 0, 0, width, height);
+            dataUrl = canvas.toDataURL(mediaType, quality);
+
+            if (dataUrl.length <= 56000) break;
+            if (quality > 0.35) {
+                quality -= 0.1;
+            } else {
+                width = Math.max(320, Math.round(width * 0.8));
+                height = Math.max(240, Math.round(height * 0.8));
+            }
+        } while (dataUrl.length > 56000 && (width > 320 || height > 240));
+
+        const base64Length = dataUrl.slice(dataUrl.indexOf(',') + 1).length;
+
+        return {
+            dataUrl,
+            mediaType,
+            width,
+            height,
+            sizeBytes: Math.ceil(base64Length * 3 / 4)
+        };
+    } finally {
+        for (const track of stream.getTracks()) {
+            track.stop();
+        }
+        video.srcObject = null;
+    }
+};
