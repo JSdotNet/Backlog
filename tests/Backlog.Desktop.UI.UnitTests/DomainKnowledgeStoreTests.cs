@@ -75,6 +75,39 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         Assert.EndsWith(Path.Combine("knowledge", ".domain"), view.RootPath);
     }
 
+
+    [Fact]
+    public async Task Updates_document_status_metadata()
+    {
+        var repo = TempDir();
+        WriteDomain(repo);
+        var settings = ConfiguredSettings(repo);
+        var store = new DomainKnowledgeStore(settings);
+
+        await store.UpdateStatusAsync("backlog", ".domain/inbox/features.md", "accepted");
+        var view = await store.LoadAsync("backlog");
+
+        var features = Assert.Single(Assert.Single(view.Contexts).Documents, d => d.Kind == DomainKnowledgeDocumentKind.Features);
+        Assert.Equal("accepted", features.Status);
+        Assert.Contains("status: accepted", File.ReadAllText(Path.Combine(repo, ".domain", "inbox", "features.md")));
+    }
+
+    [Fact]
+    public async Task Updates_section_status_metadata()
+    {
+        var repo = TempDir();
+        WriteDomain(repo);
+        var settings = ConfiguredSettings(repo);
+        var store = new DomainKnowledgeStore(settings);
+
+        await store.UpdateStatusAsync("backlog", ".domain/inbox/features.md#feature-inbox-capture", "adopted");
+        var view = await store.LoadAsync("backlog");
+
+        var section = Assert.Single(Assert.Single(view.Contexts).Documents.Single(d => d.Kind == DomainKnowledgeDocumentKind.Features).Sections);
+        Assert.Equal("adopted", section.Status);
+        Assert.Contains("status: adopted", File.ReadAllText(Path.Combine(repo, ".domain", "inbox", "features.md")));
+    }
+
     public void Dispose()
     {
         foreach (var dir in _tempDirs.Where(Directory.Exists))
@@ -83,6 +116,16 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         }
     }
 
+
+    private GitHubSettingsStore ConfiguredSettings(string repo)
+    {
+        var settings = NewSettingsStore();
+        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        Assert.Empty(errors);
+        settings.SetRepositories(repositories);
+        settings.SetCloneDirectory("backlog", repo);
+        return settings;
+    }
     private GitHubSettingsStore NewSettingsStore()
     {
         var path = Path.Combine(TempDir(), "github.json");

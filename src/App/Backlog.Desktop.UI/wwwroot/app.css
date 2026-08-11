@@ -3033,6 +3033,30 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
+
+.domain-knowledge__state-select {
+    border: 1px solid var(--color-border-strong);
+    cursor: pointer;
+    font: inherit;
+    text-transform: lowercase;
+}
+
+.domain-metadata__link {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--color-primary-light);
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
+.domain-metadata__link:hover,
+.domain-metadata__link:focus-visible {
+    color: var(--color-primary);
+}
 .domain-knowledge__action-error {
     color: var(--color-danger);
     font-size: var(--font-size-xs);

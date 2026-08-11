@@ -32,6 +32,25 @@ public sealed class DomainKnowledgeStore(GitHubSettingsStore settings)
         return Task.FromResult(new DomainKnowledgeView(repo.FullName, repo.CloneDirectory, root, null, contextMap, contexts));
     }
 
+
+    public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
+        if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
+
+        var repo = settings.Current.Find(repositoryAlias);
+        if (repo is null) throw new InvalidOperationException("Configure a repository before updating domain knowledge.");
+        if (string.IsNullOrWhiteSpace(repo.CloneDirectory)) throw new InvalidOperationException($"Set a local clone directory for {repo.FullName} before updating domain knowledge.");
+
+        var folder = repo.KnowledgeFolders.FirstOrDefault(f => string.Equals(f.Key, ".domain", StringComparison.OrdinalIgnoreCase))
+            ?? KnowledgeFolderSetting.Defaults().First(f => f.Key == ".domain");
+        if (!folder.Enabled) throw new InvalidOperationException($"Domain knowledge is turned off for {repo.FullName}.");
+
+        var root = Path.IsPathRooted(folder.EffectivePath) ? Path.GetFullPath(folder.EffectivePath) : Path.GetFullPath(Path.Combine(repo.CloneDirectory, folder.EffectivePath));
+        UpdateStatus(root, itemPath, status.Trim().ToLowerInvariant());
+        return Task.CompletedTask;
+    }
     private static IReadOnlyList<DomainKnowledgeContext> ReadContexts(string root, IReadOnlyList<string> orderedSlugs)
     {
         var dirs = Directory.EnumerateDirectories(root)
@@ -113,6 +132,75 @@ public sealed class DomainKnowledgeStore(GitHubSettingsStore settings)
         return new DomainKnowledgeSection(title, level, Status(metadata), metadata, Excerpt(readable), diagrams, [.. links], $"{documentPath}#{Slug(title)}");
     }
 
+
+    private static void UpdateStatus(string root, string itemPath, string status)
+    {
+        var (relativePath, anchor) = SplitItemPath(itemPath);
+        if (!relativePath.StartsWith(".domain/", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"Knowledge item path must be inside .domain: {itemPath}");
+
+        var filePath = Path.GetFullPath(Path.Combine(root, relativePath[".domain/".Length..].Replace('/', Path.DirectorySeparatorChar)));
+        var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!filePath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"Knowledge item path escapes the domain root: {itemPath}");
+        if (!File.Exists(filePath)) throw new FileNotFoundException($"Knowledge item file was not found: {relativePath}", filePath);
+
+        var text = File.ReadAllText(filePath);
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').ToList();
+        var headingIndex = FindHeading(lines, anchor);
+        if (headingIndex < 0) throw new InvalidOperationException($"Knowledge item heading was not found: {itemPath}");
+
+        UpsertStatus(lines, headingIndex, status);
+        File.WriteAllText(filePath, string.Join(newline, lines));
+    }
+
+    private static (string RelativePath, string? Anchor) SplitItemPath(string itemPath)
+    {
+        var parts = itemPath.Split('#', 2, StringSplitOptions.TrimEntries);
+        return (parts[0], parts.Length == 2 && !string.IsNullOrWhiteSpace(parts[1]) ? parts[1] : null);
+    }
+
+    private static int FindHeading(IReadOnlyList<string> lines, string? anchor)
+    {
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var match = Heading.Match(lines[i]);
+            if (!match.Success) continue;
+            if (anchor is null && match.Groups[1].Value.Length == 1) return i;
+            if (anchor is not null && string.Equals(Slug(match.Groups[2].Value.Trim()), anchor, StringComparison.OrdinalIgnoreCase)) return i;
+        }
+
+        return -1;
+    }
+
+    private static void UpsertStatus(List<string> lines, int headingIndex, string status)
+    {
+        var index = headingIndex + 1;
+        while (index < lines.Count && string.IsNullOrWhiteSpace(lines[index])) index++;
+
+        if (index < lines.Count && string.Equals(lines[index].Trim(), "```meta", StringComparison.OrdinalIgnoreCase))
+        {
+            var close = index + 1;
+            var statusLine = -1;
+            while (close < lines.Count && !lines[close].TrimStart().StartsWith("```", StringComparison.Ordinal))
+            {
+                if (lines[close].TrimStart().StartsWith("status:", StringComparison.OrdinalIgnoreCase)) statusLine = close;
+                close++;
+            }
+
+            if (statusLine >= 0)
+            {
+                var indent = lines[statusLine][..(lines[statusLine].Length - lines[statusLine].TrimStart().Length)];
+                lines[statusLine] = $"{indent}status: {status}";
+            }
+            else
+            {
+                lines.Insert(index + 1, $"status: {status}");
+            }
+            return;
+        }
+
+        lines.InsertRange(headingIndex + 1, [string.Empty, "```meta", $"status: {status}", "```"]);
+    }
     private static Dictionary<string, string> ReadMeta(string[] lines, ref int index)
     {
         while (index < lines.Length && string.IsNullOrWhiteSpace(lines[index])) index++;
