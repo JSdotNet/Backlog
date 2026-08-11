@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Components;
 using Backlog.Desktop.UI.Services;
 using Backlog.Infrastructure.GitHub;
 
@@ -130,6 +131,28 @@ public sealed class TechnologyKnowledgeReaderTests
         Assert.Equal([".tech/desktop.md#blazor"], dotnet.DependsOn);
         Assert.Equal([".arc42/04-solution-strategy.md"], dotnet.Related);
         Assert.Equal(["node-js"], dotnet.Alternatives);
+        Assert.Equal(2, view.Graph.Nodes.Count);
+        Assert.Single(view.Graph.Edges);
+        Assert.Contains(view.Graph.Nodes, node => node.Id == ".tech/shared.md#net" && node.Kind == "runtime" && node.Layer == "Shared Technologies");
+        Assert.Contains(view.Graph.Edges, edge => edge.Source == ".tech/shared.md#net" && edge.Target == ".tech/desktop.md#blazor" && edge.Label == "depends on");
+    }
+
+    [Theory]
+    [InlineData("mermaid")]
+    [InlineData("mmd")]
+    public void Diagram_view_identifies_renderable_mermaid_languages(string language)
+    {
+        Assert.True(DiagramView.IsDiagram(language));
+        Assert.True(DiagramView.CanRender(language));
+    }
+
+    [Theory]
+    [InlineData("plantuml")]
+    [InlineData("dot")]
+    public void Diagram_view_keeps_non_mermaid_diagrams_as_source_fallback(string language)
+    {
+        Assert.True(DiagramView.IsDiagram(language));
+        Assert.False(DiagramView.CanRender(language));
     }
 }
 
@@ -166,3 +189,4 @@ file sealed class TestWorkspace : IDisposable
         try { Directory.Delete(Root, recursive: true); } catch (IOException) { }
     }
 }
+

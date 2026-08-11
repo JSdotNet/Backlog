@@ -48,9 +48,14 @@
             </div>
         </section>
 
+        @if (_view.Graph.Nodes.Count > 0)
+        {
+            <TechnologyGraphView Graph="@_view.Graph" />
+        }
+
         @if (_view.Diagrams.Count > 0)
         {
-            <DiagramView Language="@_view.Diagrams[0].Language" Source="@_view.Diagrams[0].Source" />
+            <DiagramView Title="@_view.Diagrams[0].Title" Language="@_view.Diagrams[0].Language" Source="@_view.Diagrams[0].Source" />
         }
 
         <section class="tech-layer-tabs" aria-label="Technology layers">

@@ -1,3 +1,6 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
 <figure class="diagram-view" data-testid="diagram-view" aria-label="@AriaLabel">
     <figcaption class="diagram-view__header">
         <span class="diagram-view__title">@DiagramName</span>
@@ -7,23 +10,91 @@
         }
     </figcaption>
     <div class="diagram-view__canvas" role="img" aria-label="@AriaLabel">
-        <pre class="diagram-view__source"><code>@Source</code></pre>
+        @if (CanRender(Language))
+        {
+            <div @ref="_canvas" class="diagram-view__rendered" data-diagram-id="@_diagramId">
+                @if (_renderError is { } error)
+                {
+                    <p class="diagram-view__fallback" role="note">@error Source is available below.</p>
+                }
+                else
+                {
+                    <p class="diagram-view__status" role="status">Rendering @Language diagram...</p>
+                }
+            </div>
+        }
+        else
+        {
+            <pre class="diagram-view__source"><code>@Source</code></pre>
+        }
     </div>
+    @if (CanRender(Language))
+    {
+        <details class="diagram-view__details">
+            <summary>Diagram source</summary>
+            <pre class="diagram-view__source"><code>@Source</code></pre>
+        </details>
+    }
 </figure>
 
 @code {
+    private readonly string _diagramId = "diagram-" + Guid.NewGuid().ToString("N");
+    private ElementReference _canvas;
+    private string? _renderedSource;
+    private string? _renderedLanguage;
+    private string? _renderError;
+
     [Parameter, EditorRequired]
     public string Source { get; set; } = string.Empty;
 
     [Parameter]
     public string? Language { get; set; }
 
-    private string DiagramName => IsDiagram(Language) ? "Diagram" : "Code diagram";
+    [Parameter]
+    public string Title { get; set; } = "Diagram";
+
+    private string DiagramName => IsDiagram(Language) ? Title : "Code diagram";
 
     private string AriaLabel => string.IsNullOrWhiteSpace(Language)
         ? "Diagram source visualization"
         : $"{Language} diagram source visualization";
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!CanRender(Language)) return;
+        if (string.Equals(_renderedSource, Source, StringComparison.Ordinal)
+            && string.Equals(_renderedLanguage, Language, StringComparison.OrdinalIgnoreCase)) return;
+
+        _renderedSource = Source;
+        _renderedLanguage = Language;
+        _renderError = null;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDiagrams.render", _canvas, _diagramId, Language, Source);
+        }
+        catch (JSException ex)
+        {
+            _renderedSource = null;
+            _renderError = $"The diagram renderer could not start: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDiagrams.dispose", _diagramId);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
     public static bool IsDiagram(string? language) =>
         language?.Trim().ToLowerInvariant() is "mermaid" or "mmd" or "plantuml" or "puml" or "graphviz" or "dot";
+
+    public static bool CanRender(string? language) =>
+        language?.Trim().ToLowerInvariant() is "mermaid" or "mmd";
 }

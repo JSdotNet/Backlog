@@ -2772,3 +2772,116 @@ h1, h2, h3 {
         flex-direction: column;
     }
 }
+
+.diagram-view__rendered,
+.tech-graph__canvas {
+    min-height: 18rem;
+    overflow: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: color-mix(in srgb, var(--color-background) 88%, #020617);
+}
+
+.diagram-view__rendered {
+    display: grid;
+    place-items: center;
+    padding: var(--spacing-md);
+}
+
+.diagram-view__rendered svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.diagram-view__status,
+.diagram-view__fallback,
+.tech-graph__status {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.diagram-view__fallback {
+    padding: var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+}
+
+.diagram-view__details {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.diagram-view__details summary {
+    cursor: pointer;
+}
+
+.tech-graph {
+    display: grid;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
+}
+
+.tech-graph__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.tech-graph__header h3,
+.tech-graph__header p {
+    margin: 0;
+}
+
+.tech-graph__header p {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tech-graph__canvas {
+    min-height: 26rem;
+}
+
+.tech-graph__fallback-svg {
+    display: block;
+    width: 100%;
+    min-width: 45rem;
+    height: auto;
+}
+
+.tech-graph__edge {
+    stroke: #64748b;
+    stroke-width: 2;
+    opacity: 0.75;
+}
+
+.tech-graph__node circle {
+    stroke: #e2e8f0;
+    stroke-width: 2;
+    filter: drop-shadow(0 0.35rem 0.65rem rgba(0, 0, 0, 0.35));
+}
+
+.tech-graph__node text {
+    fill: #f8fafc;
+    font-family: var(--font-family-sans);
+    font-size: 0.78rem;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+.tech-graph__node-layer {
+    fill: #e2e8f0;
+    font-size: 0.62rem;
+    font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tech-graph__canvas canvas,
+    .tech-graph__fallback-svg {
+        scroll-behavior: auto;
+    }
+}

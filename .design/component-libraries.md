@@ -31,6 +31,7 @@ status: active
 | C4 | Accessible drag-and-drop reorder (list + tree) | Reorder of items and chapters with keyboard parity (see `interaction-guidelines.md#drag-and-drop-reordering`). |
 | C5 | Accessibility (WCAG AA) | Platform a11y semantics must be first-class (see `accessibility.md`). |
 | C6 | Maintenance / license / longevity | Prefer actively maintained, permissively licensed, first-party-aligned options. |
+| C7 | Diagrams, knowledge graphs, and charts | Flow, C4, domain, technology graph, and dashboard visualizations are core knowledge-base surfaces. |
 
 ## Key Finding: Tokens Are the Shared Layer
 
@@ -140,6 +141,11 @@ Rating: ✔ strong · ◑ partial/with work · ✘ weak/absent · — n/a.
 | **Monaco** | Raw-MD hatch | ✔ | ◑ (editor themes) | ◑ (source, not WYSIWYG) | — | ◑ | ✔ MIT |
 | **dnd-kit (+ sortable/tree)** | Reorder (web) | — | — | — | ✔ (keyboard + live regions) | ✔ | ✔ MIT |
 | **SortableJS** | Reorder (web) | — | — | — | ◑ (weak built-in keyboard a11y) | ◑ | ✔ MIT |
+| **Mermaid** | Knowledge Markdown diagrams | ✔ | ◑ (theme variables and CSS) | — | — | ◑ (SVG semantics need labels) | ✔ MIT / active |
+| **AntV G6** | Technology / knowledge graphs | ✔ | ✔ (CSS/container styling + node palettes) | — | ◑ (canvas interactions; keyboard companion list required) | ◑ | ✔ MIT / active |
+| **AntV X6** | Future editable flow editor | ✔ | ✔ | — | ◑ | ◑ | ✔ MIT / active |
+| **Apache ECharts** | Charts and dashboards | ✔ | ✔ | — | — | ◑ | ✔ Apache-2.0 / active |
+| **diagrams.net / draw.io** | Optional full GUI diagram editor | ✔ | ◑ | — | ◑ | ◑ | ✔ Apache-2.0 / active |
 
 ## Recommendation Summary
 
@@ -156,6 +162,30 @@ status: active
 | Visual Studio | **WPF + shared tokens**, editor via WebView2. | Reuses the shared web editor; avoids a second editor. |
 | Markdown WYSIWYG editor (shared) | **TipTap or Milkdown** (WYSIWYG) + **Monaco** for the raw hatch, hosted in the desktop's and VS's WebView2, in VS Code's webview, and in mobile MAUI's `BlazorWebView`. | The single highest-value reuse; Markdown-canonical, round-trip-friendly, one implementation. |
 | Drag-and-drop reorder (web surfaces) | **dnd-kit** (`sortable` + tree). | Best accessible DnD: built-in keyboard support and live-region announcements — satisfies C4/`interaction-guidelines`. Native channels add explicit keyboard Move commands. |
+| Knowledge Markdown diagrams | **Mermaid** for rendered Flow, C4, sequence, state, class/domain-model style diagrams from fenced Markdown. | Text-as-code keeps Markdown canonical and supports the checked-in knowledge folders without a binary diagram format. |
+| Technology and knowledge graphs | **AntV G6** for interactive `.tech` and repository knowledge graph visualizations. | Graph navigation, force layouts, zoom/pan, and animated exploration fit technology maps better than component-suite diagrams. |
+| Future editable diagramming | **AntV X6** for node/edge flow editors; **diagrams.net/draw.io** only if a full general-purpose GUI editor is needed. | Keeps read-only knowledge rendering simple now while leaving a professional editing path for later. |
+| Charts and dashboards | **Apache ECharts**. | Broad chart coverage, active maintenance, permissive license, dark theme support, and strong dashboard fit. |
+
+
+## Diagram and Graph Strategy
+
+```meta
+status: active
+related: [".tech/technology-graph.md", ".design/content-editing.md", ".design/accessibility.md"]
+```
+
+Backlog should solve diagrams in layers instead of relying on one component suite:
+
+| Need | Choice | Guidance |
+|---|---|---|
+| Flow, C4, sequence, state, class/domain-model diagrams in knowledge Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside knowledge-base Markdown. Keep Markdown as the canonical source and show the source fallback when rendering fails or assets are unavailable. |
+| Technology graph / knowledge graph exploration | **AntV G6** | Use G6 for interactive node-link graphs with zoom, pan, drag, force/layout animations, and status/layer coloring. Keep list/card views as keyboard-accessible alternatives. |
+| Editable workflow/flowchart designer | **AntV X6** (future) | Add when users need to create or edit node-edge diagrams visually. It is better suited to diagram editing than G6. |
+| Charts and operational dashboards | **Apache ECharts** (future) | Preferred for metrics, trend charts, dependency health, and monitoring dashboards. |
+| Full general-purpose diagram editor | **diagrams.net / draw.io** (optional future) | Consider only when a broad GUI editor is more valuable than Markdown-first diagrams. Bundle assets locally if embedded. |
+
+All diagram libraries must follow the product defaults: dark mode only, local/offline asset bundling for production, no save buttons, Markdown remains canonical for knowledge documents, and every pointer interaction needs a keyboard-accessible companion surface with announced state changes.
 
 ## Risks and Gaps
 
@@ -169,6 +199,8 @@ status: active
 | Token pipeline not yet decided | Drift between XAML and CSS token values | Adopt a build-time token source (e.g. Style Dictionary → XAML + CSS). `[TODO: clarify]` if in scope for v1 (also flagged in `color-scheme.md#per-stack-token-mapping`). |
 | Native controls lack accessible keyboard reorder out of the box | C4 gap on mobile MAUI/WPF (desktop's web-rendered surface reuses the webview reorder story) | Implement explicit Move up/down/top/bottom commands + live announcements per `interaction-guidelines.md#keyboard-accessible-reordering`. |
 | Web editor hosted in WebView2/BlazorWebView | Startup cost, bridge complexity, offline asset bundling | Bundle editor assets locally (local-first); measure cold-start; keep a native raw-text fallback. |
+| Diagram libraries can become remote-CDN dependencies | Local-first UX breaks offline and can leak usage metadata | Prefer vendored/local static assets for Mermaid, G6, X6, and ECharts in production; remote loading is acceptable only as a development fallback with source-visible fallback rendering. |
+| Canvas graph libraries have weaker native keyboard semantics | Users may be unable to inspect graph-only relationships by keyboard or screen reader | Preserve the layer cards, relationship chips, and source Markdown as keyboard/screen-reader alternatives; announce graph selection state before adding editable graph interactions. |
 | Round-trip Markdown fidelity | Editor could rewrite/lose untouched content | Enforce `content-editing.md#round-trip-fidelity`; prefer Markdown-native editors (Milkdown/ProseMirror with a strict serializer); add round-trip tests. |
 | TipTap "Pro" modules / SortableJS keyboard a11y | Cost or accessibility shortfall | Prefer TipTap/ProseMirror OSS core or Milkdown; prefer dnd-kit over SortableJS for accessible reorder. |
 | Fluent/Mud default palettes are light-oriented | Fighting built-in light themes (C1) | Override with product dark tokens; verify no light defaults leak; test high-contrast. |
@@ -176,3 +208,4 @@ status: active
 
 `[TODO: clarify]` final selection between **TipTap** vs **Milkdown** for the
 shared editor, and whether the token pipeline is delivered in the first release.
+
