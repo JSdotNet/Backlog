@@ -5,6 +5,7 @@ using Backlog.Modules.Backlog.DomainModels;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
+[Collection(BacklogStoreCollection.Name)]
 public sealed class CopilotCliIntegrationTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];

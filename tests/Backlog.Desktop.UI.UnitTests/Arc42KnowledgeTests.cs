@@ -90,4 +90,3 @@ public class Arc42KnowledgeTests
         Assert.Equal(["one", "two"], list.Items.Select(PlainText));
     }
 }
-

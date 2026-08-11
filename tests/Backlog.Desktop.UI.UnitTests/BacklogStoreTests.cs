@@ -6,6 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The store decides where a person's backlog lives. Getting it wrong loses
 /// their work, so the failure paths matter more than the happy one.
 /// </summary>
+[Collection(BacklogStoreCollection.Name)]
 public sealed class BacklogStoreTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];

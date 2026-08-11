@@ -377,5 +377,3 @@ public static class KnowledgeMarkdownParser
         ["status"] = "draft"
     });
 }
-
-

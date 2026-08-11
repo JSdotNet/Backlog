@@ -36,6 +36,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
         builder.Services.AddSingleton<CopilotCliIntegration>();
         builder.Services.AddSingleton<BacklogDesktopState>();
+        builder.Services.AddSingleton<DomainKnowledgeStore>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();
 
         // The MSIX head can manage its own updates when packaged; it degrades to

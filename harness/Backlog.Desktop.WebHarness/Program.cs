@@ -20,6 +20,7 @@ builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<DesignKnowledgeProvider>();
 builder.Services.AddSingleton<KnowledgeBacklog>();
 builder.Services.AddScoped<BacklogDesktopState>();
+builder.Services.AddSingleton<DomainKnowledgeStore>();
 builder.Services.AddSingleton<Arc42KnowledgeStore>();
 
 // The web host never distributes or updates the desktop app, so it always
