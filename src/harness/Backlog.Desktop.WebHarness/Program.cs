@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Desktop.UI.Components;
 using Backlog.Desktop.UI.Services;
@@ -16,6 +17,8 @@ builder.Services.AddSingleton(_ => CreateLocalDevelopmentGitHubSettingsStore(bui
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
+builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
+builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<DesignKnowledgeProvider>();
@@ -82,6 +85,17 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
     return settings;
 }
 
+static AzureFoundrySettingsStore CreateLocalDevelopmentAzureFoundrySettingsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_AZURE_FOUNDRY_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "azure-foundry.settings.json");
+    }
+
+    return new AzureFoundrySettingsStore(settingsPath);
+}
+
 static AppFeatureSettingsStore CreateLocalDevelopmentFeatureSettingsStore(string contentRootPath)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_FEATURE_SETTINGS_PATH");
@@ -114,4 +128,3 @@ static string? ResolveRepositoryRoot(string contentRootPath)
 
     return null;
 }
-
