@@ -74,16 +74,16 @@ standalone UI colors, and do not invent a second, stronger semantic palette.
 | Token | Value (dark) | Usage |
 |---|---|---|
 | `color-background` | `#020617` | Primary page / panel background (base surface) |
-| `color-background-alt` | `#0F172A` | Sidebar, card surface, alternating rows (surface +1) |
-| `color-background-raised` | `#1E293B` | Elevated surfaces: dialog, popover, dropdown (surface +2) |
+| `color-background-alt` | `#171717` | Sidebar, card surface, alternating rows (surface +1) |
+| `color-background-raised` | `#262626` | Elevated surfaces: dialog, popover, dropdown (surface +2) |
 | `color-background-overlay` | `rgba(0,0,0,0.60)` | Modal backdrop / scrim |
 
 ### Border
 
 | Token | Value (dark) | Usage |
 |---|---|---|
-| `color-border` | `#64748B` | Default dividers, input outlines, card edges |
-| `color-border-strong` | `#94A3B8` | Emphasized borders, fallback focus ring |
+| `color-border` | `#737373` | Default dividers, input outlines, card edges |
+| `color-border-strong` | `#A3A3A3` | Emphasized borders, fallback focus ring |
 | `color-border-focus` | `#F2C14E` | Keyboard focus ring (same value as `color-primary`) |
 
 ## Full Token Reference
@@ -110,11 +110,11 @@ Copy-paste reference of every color token and its single dark value.
 | `color-text-inverse` | `#212529` |
 | `color-text-link` | `#F2C14E` |
 | `color-background` | `#020617` |
-| `color-background-alt` | `#0F172A` |
-| `color-background-raised` | `#1E293B` |
+| `color-background-alt` | `#171717` |
+| `color-background-raised` | `#262626` |
 | `color-background-overlay` | `rgba(0,0,0,0.60)` |
-| `color-border` | `#64748B` |
-| `color-border-strong` | `#94A3B8` |
+| `color-border` | `#737373` |
+| `color-border-strong` | `#A3A3A3` |
 | `color-border-focus` | `#F2C14E` |
 
 ## Contrast Rules (WCAG AA minimum)
