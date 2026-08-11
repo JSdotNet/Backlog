@@ -172,6 +172,14 @@ jobs:
           Copy-Item $msix.FullName $stagedMsix -Force
           Write-Output "Staged MSIX: $stagedMsix"
 
+          $publicCertificate = Join-Path $outDir 'Backlog.Desktop.cer'
+          $certificate = Get-ChildItem -LiteralPath "Cert:\CurrentUser\My\${{ steps.cert.outputs.thumbprint }}"
+          if (-not $certificate) {
+            throw "Imported signing certificate was not found in the current user certificate store."
+          }
+          Export-Certificate -Cert $certificate -FilePath $publicCertificate -Type CERT | Out-Null
+          Write-Output "Staged public signing certificate: $publicCertificate"
+
           $appInstaller = Join-Path $outDir 'Backlog.Desktop.appinstaller'
           ./build/New-AppInstaller.ps1 `
             -Version '${{ steps.version.outputs.package }}' `
@@ -181,6 +189,7 @@ jobs:
 
           "dir=$outDir"                        >> $env:GITHUB_OUTPUT
           "msix=$stagedMsix"                   >> $env:GITHUB_OUTPUT
+          "certificate=$publicCertificate"      >> $env:GITHUB_OUTPUT
           "appinstaller=$appInstaller"         >> $env:GITHUB_OUTPUT
 
       - name: Publish GitHub Release
@@ -193,13 +202,14 @@ jobs:
           $tag = '${{ steps.version.outputs.tag }}'
           $msix = '${{ steps.stage.outputs.msix }}'
           $appInstaller = '${{ steps.stage.outputs.appinstaller }}'
+          $certificate = '${{ steps.stage.outputs.certificate }}'
 
           $exists = gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --target $env:GITHUB_SHA --title $tag --notes "Backlog desktop $tag" --latest $msix $appInstaller
+            gh release create $tag --target $env:GITHUB_SHA --title $tag --notes "Backlog desktop $tag" --latest $msix $appInstaller $certificate
           }
           else {
-            gh release upload $tag $msix $appInstaller --clobber
+            gh release upload $tag $msix $appInstaller $certificate --clobber
             gh release edit $tag --title $tag --notes "Backlog desktop $tag" --latest
           }
           if ($LASTEXITCODE -ne 0) { throw "Publishing the release failed." }
