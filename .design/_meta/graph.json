@@ -6,27 +6,29 @@
     ".design"
   ],
   "stats": {
-    "nodes": 81,
-    "edges": 143,
+    "nodes": 83,
+    "edges": 147,
     "nodesByFolder": {
-      "design": 72,
+      "design": 73,
       "arc42": 5,
+      "tech": 1,
       "domain": 4
     },
     "nodesByType": {
-      "file": 9,
-      "chapter": 68,
+      "file": 10,
+      "chapter": 69,
       "heading": 4
     },
     "nodesByStatus": {
-      "active": 72,
+      "active": 73,
       "none": 4,
       "accepted": 1,
+      "candidate": 1,
       "draft": 4
     },
     "edgesByType": {
-      "contains": 64,
-      "related": 79
+      "contains": 65,
+      "related": 82
     }
   },
   "problems": [],
@@ -428,7 +430,7 @@
           "path": ".design/component-libraries.md",
           "slug": "key-finding-tokens-are-the-shared-layer",
           "level": 2,
-          "line": 35,
+          "line": 36,
           "status": "active",
           "related": [
             ".design/color-scheme.md#per-stack-token-mapping"
@@ -444,7 +446,7 @@
           "path": ".design/component-libraries.md",
           "slug": "per-channel-recommendations",
           "level": 2,
-          "line": 58,
+          "line": 59,
           "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md#technology-choices",
@@ -461,7 +463,7 @@
           "path": ".design/component-libraries.md",
           "slug": "desktop--net-maui-blazor-hybrid-razor-in-webview2",
           "level": 3,
-          "line": 65,
+          "line": 66,
           "status": "active",
           "related": [
             ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
@@ -477,7 +479,7 @@
           "path": ".design/component-libraries.md",
           "slug": "candidate-comparison",
           "level": 2,
-          "line": 120,
+          "line": 121,
           "status": "active"
         }
       },
@@ -490,8 +492,26 @@
           "path": ".design/component-libraries.md",
           "slug": "recommendation-summary",
           "level": 2,
-          "line": 144,
+          "line": 150,
           "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "label": "Diagram and Graph Strategy",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "diagram-and-graph-strategy",
+          "level": 2,
+          "line": 171,
+          "status": "active",
+          "related": [
+            ".tech/technology-graph.md",
+            ".design/content-editing.md",
+            ".design/accessibility.md"
+          ]
         }
       },
       {
@@ -503,7 +523,7 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 160,
+          "line": 190,
           "status": "active"
         }
       },
@@ -1179,6 +1199,22 @@
       },
       {
         "data": {
+          "id": ".tech/technology-graph.md",
+          "label": "Technology Graph",
+          "type": "file",
+          "folder": "tech",
+          "path": ".tech/technology-graph.md",
+          "status": "candidate",
+          "related": [
+            ".arc42/04-solution-strategy.md#technology-choices",
+            ".arc42/07-deployment-view.md",
+            ".arc42/09-architecture-decisions.md"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/domain.md#aggregate-backlog-entry",
           "label": "Aggregate: Backlog Entry",
           "type": "chapter",
@@ -1487,6 +1523,14 @@
           "id": "contains:.design/component-libraries.md->.design/component-libraries.md#recommendation-summary",
           "source": ".design/component-libraries.md",
           "target": ".design/component-libraries.md#recommendation-summary",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md->.design/component-libraries.md#diagram-and-graph-strategy",
+          "source": ".design/component-libraries.md",
+          "target": ".design/component-libraries.md#diagram-and-graph-strategy",
           "type": "contains"
         }
       },
@@ -2031,6 +2075,30 @@
           "id": "related:.design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "source": ".design/component-libraries.md#desktop--net-maui-blazor-hybrid-razor-in-webview2",
           "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.tech/technology-graph.md",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/content-editing.md",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".design/content-editing.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/accessibility.md",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".design/accessibility.md",
           "type": "related"
         }
       },

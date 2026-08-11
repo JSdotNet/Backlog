@@ -1,0 +1,51 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+<section class="tech-graph" aria-labelledby="technology-graph-title">
+    <header class="tech-graph__header">
+        <div>
+            <h3 id="technology-graph-title">Technology graph</h3>
+            <p>@Graph.Nodes.Count technologies and @Graph.Edges.Count dependencies rendered from .tech metadata.</p>
+        </div>
+        <span class="badge">AntV G6</span>
+    </header>
+    <div @ref="_container" class="tech-graph__canvas" role="img" aria-label="Technology dependency graph">
+        <p class="tech-graph__status" role="status">Rendering technology graph...</p>
+    </div>
+</section>
+
+@code {
+    private readonly string _graphId = "tech-graph-" + Guid.NewGuid().ToString("N");
+    private ElementReference _container;
+    private TechnologyGraphData? _renderedGraph;
+
+    [Parameter, EditorRequired]
+    public TechnologyGraphData Graph { get; set; } = TechnologyGraphData.Empty;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (ReferenceEquals(_renderedGraph, Graph)) return;
+
+        _renderedGraph = Graph;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDiagrams.renderTechnologyGraph", _container, _graphId, Graph);
+        }
+        catch (JSException)
+        {
+            _renderedGraph = null;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDiagrams.dispose", _graphId);
+        }
+        catch (JSException)
+        {
+        }
+    }
+}

@@ -1,5 +1,6 @@
 using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.Services;
+using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
@@ -30,6 +31,8 @@ public static class MauiProgram
         builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         builder.Services.AddSingleton<AppFeatureSettingsStore>();
+        builder.Services.AddSingleton<AzureFoundrySettingsStore>();
+        builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
         builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<DesignKnowledgeProvider>();
