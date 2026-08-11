@@ -94,7 +94,7 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
     public async Task<GitHubIssueLink> ReportFeedbackAsync(
         string title,
         string? details,
-        string? area,
+        string? screenArea,
         GitHubFeedbackScreenshot? screenshot,
         string? screenshotError = null,
         CancellationToken cancellationToken = default)
@@ -107,17 +107,14 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
         var repository = FeedbackRepositoryRef();
         var issue = await client.CreateIssueAsync(
             repository,
-            BuildFeedbackTitle(title, area),
-            BuildFeedbackBody(details, area, screenshot, screenshotError),
+            BuildFeedbackTitle(title),
+            BuildFeedbackBody(details, screenArea, screenshot, screenshotError),
             cancellationToken: cancellationToken);
 
         return new GitHubIssueLink(repository.FullName, issue.Number);
     }
 
-    internal static string BuildFeedbackTitle(string title, string? area) =>
-        string.IsNullOrWhiteSpace(area)
-            ? $"[Feedback] {title.Trim()}"
-            : $"[Feedback][{area.Trim()}] {title.Trim()}";
+    internal static string BuildFeedbackTitle(string title) => $"[Feedback][Desktop app] {title.Trim()}";
 
     private GitHubRepositoryRef FeedbackRepositoryRef() =>
         settings.Current.Repositories.FirstOrDefault(r =>
@@ -125,11 +122,11 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
             && string.Equals(r.Name, FeedbackRepository, StringComparison.OrdinalIgnoreCase))
         ?? new GitHubRepositoryRef("backlog", FeedbackOwner, FeedbackRepository);
 
-    internal static string BuildFeedbackBody(string? details, string? area, GitHubFeedbackScreenshot? screenshot, string? screenshotError) =>
+    internal static string BuildFeedbackBody(string? details, string? screenArea, GitHubFeedbackScreenshot? screenshot, string? screenshotError) =>
         $"""
-        ## Area
+        ## Desktop app screen area
 
-        {(string.IsNullOrWhiteSpace(area) ? "Unspecified" : area.Trim())}
+        {(string.IsNullOrWhiteSpace(screenArea) ? "Unspecified" : screenArea.Trim())}
 
         ## Report
 
