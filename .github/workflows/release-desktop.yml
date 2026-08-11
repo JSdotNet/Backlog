@@ -185,6 +185,7 @@ jobs:
             -Version '${{ steps.version.outputs.package }}' `
             -Tag '${{ steps.version.outputs.tag }}' `
             -MsixFileName $msixName `
+            -MsixPath $stagedMsix `
             -OutputPath $appInstaller
 
           "dir=$outDir"                        >> $env:GITHUB_OUTPUT
