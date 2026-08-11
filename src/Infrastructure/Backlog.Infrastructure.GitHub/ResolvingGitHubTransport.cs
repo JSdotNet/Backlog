@@ -33,7 +33,7 @@ public sealed class ResolvingGitHubTransport(
     TokenTransport? token = null) : IGitHubTransport, IGitHubConnectionProbe
 {
     private readonly GhCliTransport _cli = cli ?? new GhCliTransport();
-    private readonly TokenTransport _token = token ?? new TokenTransport(() => settings.Current.Token);
+    private readonly TokenTransport _token = token ?? new TokenTransport(settings.Current.TokenForPath);
 
     public string Description => "GitHub CLI, or a personal access token";
 
@@ -59,12 +59,12 @@ public sealed class ResolvingGitHubTransport(
 
         if (await _token.IsAvailableAsync(cancellationToken))
         {
-            return new GitHubConnection(true, "Connected with the personal access token below.");
+            return new GitHubConnection(true, "Connected with a repository personal access token.");
         }
 
         return new GitHubConnection(
             false,
-            "Not connected. Sign in with `gh auth login`, or paste a personal access token below.");
+            "Not connected. Sign in with `gh auth login`, or paste a personal access token in repository settings.");
     }
 
     public async Task<JsonElement> SendAsync(
@@ -75,7 +75,7 @@ public sealed class ResolvingGitHubTransport(
     {
         var transport = await ResolveAsync(cancellationToken)
             ?? throw new GitHubNotConfiguredException(
-                "No way to reach GitHub. Sign in with `gh auth login`, or add a personal access token in Settings.");
+                "No way to reach GitHub. Sign in with `gh auth login`, or add a personal access token in repository settings.");
 
         return await transport.SendAsync(method, path, body, cancellationToken);
     }

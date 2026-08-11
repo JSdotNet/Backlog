@@ -113,7 +113,7 @@ public sealed class GitHubSettingsTests
     }
 
     [Fact]
-    public void A_token_survives_a_restart_and_can_be_forgotten()
+    public void A_repository_token_survives_a_restart_and_can_be_forgotten()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");
 
@@ -125,12 +125,14 @@ public sealed class GitHubSettingsTests
             store.SetToken("ghp_example");
 
             var reopened = new GitHubSettingsStore(path);
-            Assert.Equal("ghp_example", reopened.Current.Token);
-            Assert.Equal("backlog", Assert.Single(reopened.Current.Repositories).Alias);
-            Assert.True(reopened.Current.Repositories[0].IsPrimary);
+            var repository = Assert.Single(reopened.Current.Repositories);
+            Assert.Equal("backlog", repository.Alias);
+            Assert.Equal("ghp_example", repository.Token);
+            Assert.Equal("ghp_example", reopened.Current.TokenForPath("repos/JSdotNet/Backlog/issues"));
+            Assert.True(repository.IsPrimary);
 
-            reopened.SetToken(null);
-            Assert.Null(new GitHubSettingsStore(path).Current.Token);
+            reopened.SetRepositoryToken("backlog", null);
+            Assert.Null(new GitHubSettingsStore(path).Current.Repositories[0].Token);
         }
         finally
         {
@@ -185,6 +187,7 @@ public sealed class GitHubSettingsTests
             var store = new GitHubSettingsStore(path);
             Assert.Empty(store.Current.Repositories);
             Assert.Null(store.Current.Token);
+            Assert.False(store.Current.HasRepositoryToken);
         }
         finally
         {

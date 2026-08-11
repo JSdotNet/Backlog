@@ -1,6 +1,5 @@
 @page "/settings"
 @inject BacklogStore Store
-@inject IAppUpdateService Updates
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject AppFeatureSettingsStore Features
@@ -33,16 +32,6 @@
                 @onclick="() => ShowSettingsPage(SettingsPage.Storage)">
             Storage
         </button>
-        @if (IsSettingsPageAvailable(SettingsPage.Updates))
-        {
-            <button type="button"
-                    class="@SettingsTabClass(SettingsPage.Updates)"
-                    role="tab"
-                    aria-selected="@SettingsTabSelected(SettingsPage.Updates)"
-                    @onclick="() => ShowSettingsPage(SettingsPage.Updates)">
-                Updates
-            </button>
-        }
         @if (IsSettingsPageAvailable(SettingsPage.Repositories))
         {
             <button type="button"
@@ -51,16 +40,6 @@
                     aria-selected="@SettingsTabSelected(SettingsPage.Repositories)"
                     @onclick="() => ShowSettingsPage(SettingsPage.Repositories)">
                 Repositories
-            </button>
-        }
-        @if (IsSettingsPageAvailable(SettingsPage.GitHubAccess))
-        {
-            <button type="button"
-                    class="@SettingsTabClass(SettingsPage.GitHubAccess)"
-                    role="tab"
-                    aria-selected="@SettingsTabSelected(SettingsPage.GitHubAccess)"
-                    @onclick="() => ShowSettingsPage(SettingsPage.GitHubAccess)">
-                GitHub access
             </button>
         }
     </nav>
@@ -154,58 +133,6 @@
             </p>
         </section>
     }
-    else if (_activePage == SettingsPage.Updates)
-    {
-        <section class="setting" role="tabpanel" aria-label="Update settings">
-            <h2 class="setting__title">About and updates</h2>
-            <p class="setting__body">
-                Version <code data-testid="app-version">@Updates.CurrentVersion</code>.
-                @if (Updates.IsSupported)
-                {
-                    <text>Updates are checked when the app launches; you can also check now.</text>
-                }
-            </p>
-
-            <p class="setting__status" data-testid="update-status" role="status">
-                @if (_updateMessage is not null)
-                {
-                    <span class="@_updateStatusClass">@_updateMessage</span>
-                }
-                else if (!Updates.IsSupported)
-                {
-                    <span>@_unsupportedMessage</span>
-                }
-                else
-                {
-                    <span>Check for updates to see if a newer version is available.</span>
-                }
-            </p>
-
-            @if (Updates.IsSupported)
-            {
-                <div class="setting__actions">
-                    <button type="button"
-                            class="btn"
-                            data-testid="check-for-updates"
-                            disabled="@_busy"
-                            @onclick="CheckForUpdatesAsync">
-                        @(_checking ? "Checking..." : "Check for updates")
-                    </button>
-
-                    @if (_updateReady)
-                    {
-                        <button type="button"
-                                class="btn"
-                                data-testid="install-update"
-                                disabled="@_busy"
-                                @onclick="InstallUpdateAsync">
-                            @(_installing ? "Installing..." : "Install and restart")
-                        </button>
-                    }
-                </div>
-            }
-        </section>
-    }
     else if (_activePage == SettingsPage.Repositories)
     {
         <section class="setting" data-testid="github-settings" role="tabpanel" aria-label="Repository settings">
@@ -256,6 +183,15 @@
                 }
             </p>
 
+            <div class="setting__actions">
+                <button type="button"
+                        class="btn"
+                        data-testid="add-repository-button"
+                        disabled="@(!AdditionalRepositoriesEnabled)"
+                        @onclick="AddRepositoryDraft">
+                    Add repository
+                </button>
+            </div>
             @if (VisibleRepositories.Any())
             {
                 <div class="repo-subpages" data-testid="repo-subpages" role="tablist" aria-label="Repository pages">
@@ -327,6 +263,92 @@
                             }
                         </p>
 
+
+                        @if (Features.IsEnabled(AppFeatureSettingsStore.GitHubIntegration))
+                        {
+                            <div class="repo-card__section" data-testid="repo-github-access">
+                                <h4 class="knowledge-folders__title">GitHub access</h4>
+                                <p class="setting__note">
+                                    Signing in with the GitHub CLI is preferred. This repository token is only used as a fallback for <code>@activeRepo.FullName</code> when <code>gh</code> is not signed in.
+                                </p>
+                                <p class="setting__status" data-testid="github-connection-status" role="status">
+                                    @(_connection?.Summary ?? "Checking how this machine can reach GitHub...")
+                                </p>
+                                <label class="setting__label" for="github-token-@activeRepo.Alias">Personal access token</label>
+                                <input class="setting__input"
+                                       id="github-token-@activeRepo.Alias"
+                                       data-testid="github-token-input"
+                                       type="password"
+                                       spellcheck="false"
+                                       autocomplete="off"
+                                       placeholder="@(activeRepo.Token is null ? "ghp_..." : "stored - hidden")"
+                                       value="@RepositoryTokenDraft(activeRepo)"
+                                       @oninput="e => _draftTokens[activeRepo.Alias] = e.Value?.ToString() ?? string.Empty"
+                                       @onchange="() => ApplyRepositoryTokenAsync(activeRepo)"
+                                       @onkeydown="e => OnRepositoryTokenKeyDownAsync(e, activeRepo)" />
+                                <div class="setting__actions">
+                                    <button type="button"
+                                            class="btn"
+                                            data-testid="github-recheck-button"
+                                            @onclick="CheckConnectionAsync">
+                                        Check the connection
+                                    </button>
+                                    <button type="button"
+                                            class="btn"
+                                            data-testid="github-clear-token-button"
+                                            disabled="@(activeRepo.Token is null)"
+                                            @onclick="() => ClearRepositoryTokenAsync(activeRepo)">
+                                        Forget this repository token
+                                    </button>
+                                </div>
+                                <p class="setting__note">
+                                    Tokens are kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately outside the backlog folder, so they are never synced or committed with entries.
+                                </p>
+                            </div>
+                        }
+
+                        @if (Features.IsEnabled(AppFeatureSettingsStore.GitHubIntegration))
+                        {
+                            <div class="repo-card__section" data-testid="repo-github-access">
+                                <h4 class="knowledge-folders__title">GitHub access</h4>
+                                <p class="setting__note">
+                                    Signing in with the GitHub CLI is preferred. This repository token is only used as a fallback for <code>@activeRepo.FullName</code> when <code>gh</code> is not signed in.
+                                </p>
+                                <p class="setting__status" data-testid="github-connection-status" role="status">
+                                    @(_connection?.Summary ?? "Checking how this machine can reach GitHub...")
+                                </p>
+                                <label class="setting__label" for="github-token-@activeRepo.Alias">Personal access token</label>
+                                <input class="setting__input"
+                                       id="github-token-@activeRepo.Alias"
+                                       data-testid="github-token-input"
+                                       type="password"
+                                       spellcheck="false"
+                                       autocomplete="off"
+                                       placeholder="@(activeRepo.Token is null ? "ghp_..." : "stored - hidden")"
+                                       value="@RepositoryTokenDraft(activeRepo)"
+                                       @oninput="e => _draftTokens[activeRepo.Alias] = e.Value?.ToString() ?? string.Empty"
+                                       @onchange="() => ApplyRepositoryTokenAsync(activeRepo)"
+                                       @onkeydown="e => OnRepositoryTokenKeyDownAsync(e, activeRepo)" />
+                                <div class="setting__actions">
+                                    <button type="button"
+                                            class="btn"
+                                            data-testid="github-recheck-button"
+                                            @onclick="CheckConnectionAsync">
+                                        Check the connection
+                                    </button>
+                                    <button type="button"
+                                            class="btn"
+                                            data-testid="github-clear-token-button"
+                                            disabled="@(activeRepo.Token is null)"
+                                            @onclick="() => ClearRepositoryTokenAsync(activeRepo)">
+                                        Forget this repository token
+                                    </button>
+                                </div>
+                                <p class="setting__note">
+                                    Tokens are kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately outside the backlog folder, so they are never synced or committed with entries.
+                                </p>
+                            </div>
+                        }
                         <div class="knowledge-folders" data-testid="knowledge-folder-settings">
                             <h4 class="knowledge-folders__title">Knowledge-base sections</h4>
                             <p class="setting__note">
@@ -392,77 +414,19 @@
             }
         </section>
     }
-    else if (_activePage == SettingsPage.GitHubAccess)
-    {
-        <section class="setting" role="tabpanel" aria-label="GitHub access settings">
-            <h2 class="setting__title">GitHub access</h2>
-            <p class="setting__body">
-                Backlog uses GitHub for issue publishing. Signing in with the GitHub CLI is preferred;
-                a personal access token is only a fallback for machines where <code>gh</code> is not signed in.
-            </p>
-
-            <p class="setting__status" data-testid="github-connection-status" role="status">
-                @(_connection?.Summary ?? "Checking how this machine can reach GitHub...")
-            </p>
-
-            <label class="setting__label" for="github-token">Personal access token - only used when the GitHub CLI isn't signed in</label>
-            <input class="setting__input"
-                   id="github-token"
-                   data-testid="github-token-input"
-                   type="password"
-                   spellcheck="false"
-                   autocomplete="off"
-                   placeholder="@(GitHub.Settings.Current.Token is null ? "ghp_..." : "stored - hidden")"
-                   value="@_draftToken"
-                   @oninput="e => _draftToken = e.Value?.ToString() ?? string.Empty"
-                   @onchange="ApplyTokenAsync"
-                   @onkeydown="OnTokenKeyDownAsync" />
-
-            <div class="setting__actions">
-                <button type="button"
-                        class="btn"
-                        data-testid="github-recheck-button"
-                        @onclick="CheckConnectionAsync">
-                    Check the connection
-                </button>
-
-                <button type="button"
-                        class="btn"
-                        data-testid="github-clear-token-button"
-                        disabled="@(GitHub.Settings.Current.Token is null)"
-                        @onclick="ClearTokenAsync">
-                    Forget the token
-                </button>
-            </div>
-
-            <p class="setting__note">
-                A token typed here is kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately outside the
-                backlog folder, so it is never synced or committed along with your entries.
-            </p>
-        </section>
-    }
 </div>
 @code {
     private string _draftPath = string.Empty;
     private string? _error;
     private bool _moved;
 
-    private string? _updateMessage;
-    private string _updateStatusClass = string.Empty;
-    private string _unsupportedMessage = "Updates are managed by however you started this build.";
-    private bool _checking;
-    private bool _installing;
-    private bool _updateReady;
-
-    private bool _busy => _checking || _installing;
-
     private string _draftRepos = string.Empty;
-    private string _draftToken = string.Empty;
     private string? _repoError;
     private GitHubConnection? _connection;
     private string? _featureMessage;
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftKnowledgePaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _draftTokens = new(StringComparer.Ordinal);
     private SettingsPage _activePage = SettingsPage.Features;
     private string? _activeRepositoryAlias;
 
@@ -470,9 +434,7 @@
     {
         Features,
         Storage,
-        Updates,
         Repositories,
-        GitHubAccess
     }
 
     private string SettingsTabClass(SettingsPage page) =>
@@ -518,9 +480,7 @@
 
     private bool IsSettingsPageAvailable(SettingsPage page) => page switch
     {
-        SettingsPage.Features or SettingsPage.Storage => true,
-        SettingsPage.Updates or SettingsPage.Repositories => true,
-        SettingsPage.GitHubAccess => Features.IsEnabled(AppFeatureSettingsStore.GitHubIntegration),
+        SettingsPage.Features or SettingsPage.Storage or SettingsPage.Repositories => true,
         _ => false
     };
 
@@ -549,19 +509,12 @@
 
     private void ShowRepositoryPage(string alias) => _activeRepositoryAlias = GitHubRepositoryRef.NormalizeAlias(alias);
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
         _draftPath = Store.RootDirectory;
         _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
-
-        // Surface the host's own explanation when updates aren't self-managed, so
-        // the message stays accurate per channel without hard-coding it here.
-        if (!Updates.IsSupported)
-        {
-            var result = await Updates.CheckForUpdateAsync();
-            _unsupportedMessage = result.Message;
-        }
+        return Task.CompletedTask;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -598,64 +551,6 @@
         return ApplyAsync();
     }
 
-    private async Task CheckForUpdatesAsync()
-    {
-        if (_busy) return;
-
-        _checking = true;
-        _updateMessage = null;
-        _updateReady = false;
-
-        try
-        {
-            var result = await Updates.CheckForUpdateAsync();
-            _updateReady = result.UpdateReady;
-            _updateMessage = result.Message;
-            _updateStatusClass = result.Availability switch
-            {
-                AppUpdateAvailability.UpToDate => "setting__status--ok",
-                AppUpdateAvailability.Failed => "setting__status--error",
-                _ => string.Empty
-            };
-        }
-        catch
-        {
-            // The service is contracted never to throw, but the UI must survive it
-            // if it ever does.
-            _updateReady = false;
-            _updateMessage = "The update check could not be completed.";
-            _updateStatusClass = "setting__status--error";
-        }
-        finally
-        {
-            _checking = false;
-        }
-    }
-
-    private async Task InstallUpdateAsync()
-    {
-        if (_busy) return;
-
-        _installing = true;
-
-        try
-        {
-            var result = await Updates.StartUpdateAsync();
-            _updateMessage = result.Message;
-            _updateStatusClass = result.Started ? "setting__status--ok" : "setting__status--error";
-            if (!result.Started) _updateReady = false;
-        }
-        catch
-        {
-            _updateMessage = "The update could not be installed.";
-            _updateStatusClass = "setting__status--error";
-        }
-        finally
-        {
-            _installing = false;
-        }
-    }
-
     /// <summary>Commits the repository list. Lines that aren't repositories are
     /// reported and skipped rather than throwing away the ones around them —
     /// a half-typed line is an ordinary thing to have in a text box.</summary>
@@ -675,6 +570,20 @@
         _repoError = messages.Count > 0 ? string.Join(" ", messages) : null;
         _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
+    }
+
+
+    private void AddRepositoryDraft()
+    {
+        if (!AdditionalRepositoriesEnabled)
+        {
+            _repoError = "Enable Additional repositories before adding another repository.";
+            return;
+        }
+
+        var separator = string.IsNullOrWhiteSpace(_draftRepos) ? string.Empty : Environment.NewLine;
+        _draftRepos = $"{_draftRepos}{separator}new-repository = owner/repo";
+        _repoError = "Replace the placeholder with the additional repository owner/repo, then leave the field to save it.";
     }
 
     private string CloneDirectoryDraft(GitHubRepositoryRef repo)
@@ -797,28 +706,40 @@
 
     private static string KnowledgeDraftKey(string alias, string folderKey) => $"{alias}|{folderKey}";
 
-    private async Task OnTokenKeyDownAsync(KeyboardEventArgs e)
+
+    private string RepositoryTokenDraft(GitHubRepositoryRef repo)
     {
-        if (e.Key == "Enter") await ApplyTokenAsync();
-        else if (e.Key == "Escape") _draftToken = string.Empty;
+        if (!_draftTokens.TryGetValue(repo.Alias, out var draft))
+        {
+            draft = string.Empty;
+            _draftTokens[repo.Alias] = draft;
+        }
+
+        return draft;
     }
 
-    private async Task ApplyTokenAsync()
+    private async Task OnRepositoryTokenKeyDownAsync(KeyboardEventArgs e, GitHubRepositoryRef repo)
     {
-        if (string.IsNullOrWhiteSpace(_draftToken)) return;
+        if (e.Key == "Enter") await ApplyRepositoryTokenAsync(repo);
+        else if (e.Key == "Escape") _draftTokens[repo.Alias] = string.Empty;
+    }
 
-        GitHub.Settings.SetToken(_draftToken);
+    private async Task ApplyRepositoryTokenAsync(GitHubRepositoryRef repo)
+    {
+        var draft = RepositoryTokenDraft(repo);
+        if (string.IsNullOrWhiteSpace(draft)) return;
 
-        // The field is cleared straight after: the token is stored, and leaving
-        // it on screen only invites it into a screenshot.
-        _draftToken = string.Empty;
+        _repoError = GitHub.Settings.SetRepositoryToken(repo.Alias, draft);
+        _draftTokens[repo.Alias] = string.Empty;
+        SyncRepositoryDrafts();
         await CheckConnectionAsync();
     }
 
-    private async Task ClearTokenAsync()
+    private async Task ClearRepositoryTokenAsync(GitHubRepositoryRef repo)
     {
-        GitHub.Settings.SetToken(null);
-        _draftToken = string.Empty;
+        _repoError = GitHub.Settings.SetRepositoryToken(repo.Alias, null);
+        _draftTokens[repo.Alias] = string.Empty;
+        SyncRepositoryDrafts();
         await CheckConnectionAsync();
     }
 

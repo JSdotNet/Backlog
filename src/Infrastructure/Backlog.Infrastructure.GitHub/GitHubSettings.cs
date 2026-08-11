@@ -16,9 +16,11 @@ public sealed class GitHubSettings
     /// <summary>Repositories in the order they were configured.</summary>
     public List<GitHubRepositoryRef> Repositories { get; init; } = [];
 
-    /// <summary>Personal access token, used only when the GitHub CLI is not
-    /// signed in. Null means "rely on <c>gh</c>".</summary>
+    /// <summary>Legacy global token read from older settings files and migrated
+    /// onto repositories when saved again.</summary>
     public string? Token { get; init; }
+
+    public bool HasRepositoryToken => Repositories.Any(r => !string.IsNullOrWhiteSpace(r.Token));
 
     public GitHubRepositoryRef? PrimaryRepository =>
         Repositories.FirstOrDefault(r => r.IsPrimary) ?? Repositories.FirstOrDefault();
@@ -33,6 +35,30 @@ public sealed class GitHubSettings
             ?? PrimaryRepository;
     }
 
+    public string? TokenForPath(string? path)
+    {
+        var repository = RepositoryFromApiPath(path);
+        return repository?.Token
+            ?? PrimaryRepository?.Token
+            ?? Repositories.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Token))?.Token;
+    }
+
+
+    private GitHubRepositoryRef? RepositoryFromApiPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+
+        var trimmed = path.TrimStart('/');
+        const string prefix = "repos/";
+        if (!trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return null;
+
+        var parts = trimmed[prefix.Length..].Split('/', 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length < 2) return null;
+
+        return Repositories.FirstOrDefault(r =>
+            string.Equals(r.Owner, parts[0], StringComparison.OrdinalIgnoreCase)
+            && string.Equals(r.Name, parts[1], StringComparison.OrdinalIgnoreCase));
+    }
     /// <summary>The multi-line text shown in Settings, one repository per line.</summary>
     public string ToText() => string.Join('\n', Repositories.Select(r => r.ToLine()));
 
@@ -113,16 +139,34 @@ public sealed class GitHubSettingsStore
     public string? SetRepositories(IEnumerable<GitHubRepositoryRef> repositories) =>
         Save(new GitHubSettings
         {
-            Repositories = EnsureOnePrimary([.. repositories.Select(PreserveExistingRepositorySettings)]),
-            Token = Current.Token
+            Repositories = EnsureOnePrimary([.. repositories.Select(PreserveExistingRepositorySettings)])
         });
 
-    public string? SetToken(string? token) =>
-        Save(new GitHubSettings
+    public string? SetRepositoryToken(string alias, string? token)
+    {
+        var normalized = GitHubRepositoryRef.NormalizeAlias(alias);
+        if (!Current.Repositories.Any(r => string.Equals(r.Alias, normalized, StringComparison.Ordinal)))
         {
-            Repositories = [.. Current.Repositories],
-            Token = string.IsNullOrWhiteSpace(token) ? null : token.Trim()
+            return "That repository is no longer configured.";
+        }
+
+        return Save(new GitHubSettings
+        {
+            Repositories =
+            [
+                .. Current.Repositories.Select(r =>
+                    string.Equals(r.Alias, normalized, StringComparison.Ordinal)
+                        ? r with { Token = CleanToken(token) }
+                        : r)
+            ]
         });
+    }
+
+    public string? SetToken(string? token)
+    {
+        var primary = Current.PrimaryRepository;
+        return primary is null ? null : SetRepositoryToken(primary.Alias, token);
+    }
 
     public string? SetPrimaryRepository(string alias)
     {
@@ -134,8 +178,7 @@ public sealed class GitHubSettingsStore
 
         return Save(new GitHubSettings
         {
-            Repositories = [.. Current.Repositories.Select(r => r with { IsPrimary = string.Equals(r.Alias, normalized, StringComparison.Ordinal) })],
-            Token = Current.Token
+            Repositories = [.. Current.Repositories.Select(r => r with { IsPrimary = string.Equals(r.Alias, normalized, StringComparison.Ordinal) })]
         });
     }
 
@@ -155,8 +198,7 @@ public sealed class GitHubSettingsStore
                     string.Equals(r.Alias, normalized, StringComparison.Ordinal)
                         ? r with { CloneDirectory = CleanPath(cloneDirectory) }
                         : r)
-            ],
-            Token = Current.Token
+            ]
         });
     }
 
@@ -185,8 +227,7 @@ public sealed class GitHubSettingsStore
                             ]
                         }
                         : r)
-            ],
-            Token = Current.Token
+            ]
         });
     }
 
@@ -195,7 +236,7 @@ public sealed class GitHubSettingsStore
         var normalized = new GitHubSettings
         {
             Repositories = EnsureOnePrimary(settings.Repositories),
-            Token = settings.Token
+            Token = null
         };
         Current = normalized;
 
@@ -210,6 +251,7 @@ public sealed class GitHubSettingsStore
                     Owner = r.Owner,
                     Name = r.Name,
                     CloneDirectory = r.CloneDirectory,
+                    Token = r.Token,
                     IsPrimary = r.IsPrimary,
                     KnowledgeFolders =
                     [
@@ -221,7 +263,7 @@ public sealed class GitHubSettingsStore
                         })
                     ]
                 })],
-                Token = settings.Token
+                Token = null
             };
 
             File.WriteAllText(_path, JsonSerializer.Serialize(dto, JsonOptions));
@@ -256,6 +298,7 @@ public sealed class GitHubSettingsStore
                             r.Name!)
                         {
                             CloneDirectory = CleanPath(r.CloneDirectory),
+                            Token = CleanToken(r.Token) ?? CleanToken(dto.Token),
                             IsPrimary = r.IsPrimary,
                             KnowledgeFolders = KnowledgeFolderSetting.Normalize(
                                 r.KnowledgeFolders.Select(f => new KnowledgeFolderSetting(
@@ -268,7 +311,7 @@ public sealed class GitHubSettingsStore
                                 }))
                         })
                 ]),
-                Token = string.IsNullOrWhiteSpace(dto.Token) ? null : dto.Token
+                Token = CleanToken(dto.Token)
             };
         }
         catch (Exception)
@@ -285,12 +328,17 @@ public sealed class GitHubSettingsStore
 
         if (existing is null)
         {
-            return repository with { KnowledgeFolders = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders) };
+            return repository with
+            {
+                Token = CleanToken(repository.Token) ?? CleanToken(Current.Token),
+                KnowledgeFolders = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
+            };
         }
 
         return repository with
         {
             CloneDirectory = string.IsNullOrWhiteSpace(repository.CloneDirectory) ? existing.CloneDirectory : repository.CloneDirectory,
+            Token = CleanToken(repository.Token) ?? existing.Token ?? CleanToken(Current.Token),
             IsPrimary = repository.IsPrimary || existing.IsPrimary,
             KnowledgeFolders = KnowledgeFolderSetting.Normalize(existing.KnowledgeFolders)
         };
@@ -308,12 +356,15 @@ public sealed class GitHubSettingsStore
             {
                 IsPrimary = ReferenceEquals(r, primary) || string.Equals(r.Alias, primary.Alias, StringComparison.Ordinal),
                 CloneDirectory = CleanPath(r.CloneDirectory),
+                Token = CleanToken(r.Token),
                 KnowledgeFolders = KnowledgeFolderSetting.Normalize(r.KnowledgeFolders)
             })
         ];
     }
 
     private static string? CleanPath(string? path) => string.IsNullOrWhiteSpace(path) ? null : path.Trim();
+
+    private static string? CleanToken(string? token) => string.IsNullOrWhiteSpace(token) ? null : token.Trim();
 
     private sealed class SettingsDto
     {
@@ -327,6 +378,7 @@ public sealed class GitHubSettingsStore
         public string? Owner { get; set; }
         public string? Name { get; set; }
         public string? CloneDirectory { get; set; }
+        public string? Token { get; set; }
         public bool IsPrimary { get; set; }
         public List<KnowledgeFolderDto> KnowledgeFolders { get; set; } = [];
     }
