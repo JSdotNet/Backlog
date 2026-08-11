@@ -75,6 +75,18 @@
     --ease-saved-flash: cubic-bezier(0, 0, 0.2, 1);
 }
 
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 * {
     box-sizing: border-box;
 }
@@ -379,7 +391,7 @@ h1, h2, h3 {
     display: grid;
     grid-template-columns: minmax(8rem, 1fr) minmax(0, clamp(16rem, 42%, 34rem));
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     padding: var(--spacing-xs) 0;
 }
 
@@ -831,6 +843,7 @@ h1, h2, h3 {
 .entry-doc__tags {
     min-width: 0;
     max-width: 100%;
+    flex: 0 1 auto;
 }
 
 .entry-doc__meta-start {
@@ -885,28 +898,31 @@ h1, h2, h3 {
     min-width: 0;
     overflow: hidden;
     flex-wrap: nowrap;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .entry-doc--one-line .badge,
 .entry-doc--one-line .tag-chip {
     white-space: nowrap;
 }
-
 .entry-doc__delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
     background: transparent;
-    border: none;
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
     color: var(--color-text-disabled);
     cursor: pointer;
     font-size: var(--font-size-sm);
     line-height: 1;
-    padding: var(--spacing-xs);
-    border-radius: var(--border-radius-sm);
     opacity: 0;
     transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
-    margin-left: var(--spacing-xs);
 }
-.entry-doc:hover .entry-doc__delete,
+
 .entry-doc:focus-within .entry-doc__delete {
     opacity: 1;
 }
@@ -962,7 +978,7 @@ h1, h2, h3 {
     flex: 1 1 22rem;
     flex-wrap: nowrap;
     justify-content: flex-end;
-    margin-left: var(--spacing-md);
+    margin-left: var(--spacing-xs);
     min-width: 0;
     padding-top: 1px;
 }
@@ -1191,11 +1207,33 @@ h1, h2, h3 {
     text-transform: uppercase;
     color: var(--color-text-primary);
     justify-content: center;
-    margin-left: var(--spacing-md);
+    margin-left: var(--spacing-xs);
     min-width: 4.25rem;
 }
 
 .badge--status-draft { background: var(--color-background-raised); color: var(--color-text-secondary); }
+
+.status-editor {
+    padding: 0;
+}
+
+.status-editor__select {
+    min-height: 1.5rem;
+    padding: 1px var(--spacing-sm);
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+}
+
+.status-editor__select:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+}
 .badge--status-ready { background: var(--color-info); }
 .badge--status-inprogress { background: var(--color-primary); color: var(--color-text-inverse); }
 .badge--status-done { background: var(--color-success); }
@@ -1275,33 +1313,44 @@ h1, h2, h3 {
 
 /* Pushing and re-checking are actions, not metadata, so they read as controls
    sitting among the badges rather than as badges themselves. */
-.entry-doc__gh {
-    font-size: var(--font-size-xs);
-    line-height: 1.4;
-    padding: 1px var(--spacing-sm);
+.entry-doc__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.entry-doc__icon-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
     border-radius: var(--border-radius-sm);
     background: transparent;
     border: var(--border-width) solid var(--color-border);
     color: var(--color-text-secondary);
     cursor: pointer;
+    font-size: var(--font-size-xs);
+    line-height: 1;
 }
 
-.entry-doc__gh:hover:not(:disabled) {
+.entry-doc__icon-action:hover:not(:disabled) {
     border-color: var(--color-primary);
     color: var(--color-primary);
 }
 
-.entry-doc__gh:focus-visible {
+.entry-doc__icon-action:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 1px;
 }
 
-.entry-doc__gh:disabled { opacity: 0.5; cursor: default; }
+.entry-doc__icon-action:disabled { opacity: 0.5; cursor: default; }
 
-.entry-doc__gh--push { border-style: dashed; }
+.entry-doc__icon-action--push { border-style: dashed; }
 
-.entry-doc__copilot { border-color: var(--color-primary-dark); }
-
+.entry-doc__icon-action--copilot { border-color: var(--color-primary-dark); }
 .entry-doc__gh-error {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);
@@ -1319,6 +1368,34 @@ h1, h2, h3 {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.entry-doc__tag-editor {
+    min-width: 4.5rem;
+    max-width: 12rem;
+    height: 1.5rem;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+}
+
+.entry-doc__tag-editor::placeholder {
+    color: var(--color-text-disabled);
+}
+
+.entry-doc__tag-editor:hover,
+.entry-doc__tag-editor:focus {
+    border-color: var(--color-border);
+    background: var(--color-background-raised);
+}
+
+.entry-doc__tag-editor:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
 }
 
 @container (max-width: 58rem) {
@@ -1358,8 +1435,12 @@ h1, h2, h3 {
         grid-template-columns: minmax(0, 1fr) auto;
     }
 
-    .entry-doc--one-line .entry-doc__meta-start {
+    .entry-doc--one-line .entry-doc__meta-start .badge:not(.badge--area) {
         display: none;
+    }
+
+    .entry-doc--one-line .entry-doc__meta-start {
+        display: inline-flex;
     }
 
     .entry-doc--one-line .entry-doc__meta-end {
@@ -1369,6 +1450,11 @@ h1, h2, h3 {
     .entry-doc--one-line .badge--status {
         min-width: auto;
         margin-left: 0;
+    }
+
+    .entry-doc--one-line:not(:focus-within) .entry-doc__actions .entry-doc__icon-action,
+    .entry-doc--one-line:not(:focus-within) .entry-doc__actions .entry-doc__delete {
+        display: none;
     }
 }
 

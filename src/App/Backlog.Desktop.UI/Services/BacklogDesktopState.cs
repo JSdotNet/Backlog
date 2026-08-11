@@ -358,6 +358,32 @@ public sealed class BacklogDesktopState : IDisposable
         Changed?.Invoke();
     }
 
+    public async Task ChangeStatusAsync(EntryRow row, EntryStatus status)
+    {
+        if (!BacklogEntry.IsTransitionAllowed(row.Status, status)) return;
+
+        var rewritten = EntryTextParser.WithStatus(row.RawText, status);
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+
+        CancelDebounce(row);
+        row.RawText = rewritten;
+        await SaveRowAsync(row, isFlush: true);
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    public async Task ChangeTagsAsync(EntryRow row, string tags)
+    {
+        var rewritten = EntryTextParser.WithTags(row.RawText, tags);
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+
+        CancelDebounce(row);
+        row.RawText = rewritten;
+        await SaveRowAsync(row, isFlush: true);
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
     public void BeginSubItemDrag(EntryRow row, int index)
     {
         SubItemDragRow = row;
@@ -1038,6 +1064,11 @@ public sealed class EntryRow
     public IReadOnlyList<string> PreviewTags
     {
         get { Render(); return _parsed!.Tags.Count > 0 ? _parsed.Tags : Tags; }
+    }
+
+    public IReadOnlyList<string> PreviewMetadataTags
+    {
+        get { Render(); return _parsed!.MetadataTags; }
     }
 
     public string? PreviewArea

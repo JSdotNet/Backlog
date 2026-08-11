@@ -776,29 +776,16 @@
 
             @if (oneLine)
             {
-                @if (row.PreviewTags.Count > 0)
-                {
-                    <span class="entry-doc__tags">
-                        @foreach (var tag in row.PreviewTags)
-                        {
-                            <span class="tag-chip" data-testid="entry-tag">#@tag</span>
-                        }
-                    </span>
-                }
-                else
-                {
-                    <span class="entry-doc__tags" aria-hidden="true"></span>
-                }
+                <span class="entry-doc__tags">
+                    @RenderTagEditor(row)
+                </span>
             }
 
             <span class="entry-doc__meta-end">
-                @if (!oneLine && row.PreviewTags.Count > 0)
+                @if (!oneLine)
                 {
                     <span class="entry-doc__tags entry-doc__tags--end">
-                        @foreach (var tag in row.PreviewTags)
-                        {
-                            <span class="tag-chip" data-testid="entry-tag">#@tag</span>
-                        }
+                        @RenderTagEditor(row)
                     </span>
                 }
 
@@ -831,42 +818,7 @@
                             </a>
                         }
 
-                        <button type="button"
-                                class="entry-doc__gh"
-                                data-testid="github-refresh-button"
-                                disabled="@row.GitHubBusy"
-                                title="Check this issue on GitHub"
-                                aria-label="Check this issue on GitHub"
-                                @onmousedown:preventDefault="true"
-                                @onclick="() => State.RefreshGitHubAsync(row)">
-                            @(row.GitHubBusy ? "…" : "↻")
-                        </button>
                     }
-                    else if (repository is not null && row.IsPersisted)
-                    {
-                        <button type="button"
-                                class="entry-doc__gh entry-doc__gh--push"
-                                data-testid="github-push-button"
-                                disabled="@row.GitHubBusy"
-                                title="Create an issue in @repository.FullName"
-                                @onmousedown:preventDefault="true"
-                                @onclick="() => State.PushToGitHubAsync(row)">
-                            @(row.GitHubBusy ? "Pushing…" : "Push to GitHub")
-                        </button>
-                    }
-                }
-
-                @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli) && row.IsPersisted)
-                {
-                    <button type="button"
-                            class="entry-doc__gh entry-doc__copilot"
-                            data-testid="copilot-cli-button"
-                            disabled="@row.CopilotBusy"
-                            title="Start GitHub Copilot CLI for this entry"
-                            @onmousedown:preventDefault="true"
-                            @onclick="() => State.StartCopilotCliAsync(row)">
-                        @(row.CopilotBusy ? "Starting..." : "Copilot CLI")
-                    </button>
                 }
 
                 @if (!row.IsPersisted)
@@ -874,19 +826,89 @@
                     <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
                 }
 
-                <span class="badge badge--status badge--status-@row.PreviewStatus.ToString().ToLowerInvariant()" data-testid="status-badge">@Humanize(row.PreviewStatus.ToString())</span>
+                <label class="status-editor badge badge--status badge--status-@row.PreviewStatus.ToString().ToLowerInvariant()" data-testid="status-badge">
+                    <span class="sr-only">Change status</span>
+                    <select class="status-editor__select"
+                            value="@row.PreviewStatus"
+                            aria-label="Change status"
+                            title="Change status"
+                            @onchange="e => OnStatusChangedAsync(row, e)">
+                        @foreach (var status in LegalStatusOptions(row))
+                        {
+                            <option value="@status">@Humanize(status.ToString())</option>
+                        }
+                    </select>
+                </label>
 
-                <button type="button"
-                        class="entry-doc__delete"
-                        id="delete-entry-@row.Key"
-                        data-testid="delete-entry-button"
-                        aria-label="Delete entry"
-                        @onmousedown:preventDefault="true"
-                        @onclick="() => OnDeleteEntryAsync(row)">
-                    ✕
-                </button>
+                <span class="entry-doc__actions" aria-label="Entry actions">
+                    @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured)
+                    {
+                        var repository = RepositoryFor(row);
+
+                        @if (row.IssueLink is not null)
+                        {
+                            <button type="button"
+                                    class="entry-doc__icon-action"
+                                    data-testid="github-refresh-button"
+                                    disabled="@row.GitHubBusy"
+                                    title="Check this issue on GitHub"
+                                    aria-label="Check this issue on GitHub"
+                                    @onmousedown:preventDefault="true"
+                                    @onclick="() => State.RefreshGitHubAsync(row)">
+                                @(row.GitHubBusy ? "…" : "↻")
+                            </button>
+                        }
+                        else if (repository is not null && row.IsPersisted)
+                        {
+                            <button type="button"
+                                    class="entry-doc__icon-action entry-doc__icon-action--push"
+                                    data-testid="github-push-button"
+                                    disabled="@row.GitHubBusy"
+                                    title="Create an issue in @repository.FullName"
+                                    aria-label="Create an issue in @repository.FullName"
+                                    @onmousedown:preventDefault="true"
+                                    @onclick="() => State.PushToGitHubAsync(row)">
+                                @(row.GitHubBusy ? "…" : "⌂")
+                            </button>
+                        }
+                    }
+
+                    @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli) && row.IsPersisted)
+                    {
+                        <button type="button"
+                                class="entry-doc__icon-action entry-doc__icon-action--copilot"
+                                data-testid="copilot-cli-button"
+                                disabled="@row.CopilotBusy"
+                                title="Start GitHub Copilot CLI for this entry"
+                                aria-label="Start GitHub Copilot CLI for this entry"
+                                @onmousedown:preventDefault="true"
+                                @onclick="() => State.StartCopilotCliAsync(row)">
+                            @(row.CopilotBusy ? "…" : "◇")
+                        </button>
+                    }
+
+                    <button type="button"
+                            class="entry-doc__delete"
+                            id="delete-entry-@row.Key"
+                            data-testid="delete-entry-button"
+                            aria-label="Delete entry"
+                            title="Delete entry"
+                            @onmousedown:preventDefault="true"
+                            @onclick="() => OnDeleteEntryAsync(row)">
+                        ×
+                    </button>
+                </span>
             </span>
         </div>;
+
+    private RenderFragment RenderTagEditor(EntryRow row) =>
+        @<input class="entry-doc__tag-editor"
+                data-testid="entry-tags-input"
+                aria-label="Edit tags"
+                title="Edit tags"
+                value="@TagText(row)"
+                placeholder="#tag"
+                @onchange="e => OnTagsChangedAsync(row, e)" />;
 
     /// <summary>The grab areas around an entry — one on each side. All four are
     /// drag sources and drop targets. Only the top rail takes tab focus (four
@@ -1032,6 +1054,23 @@
     private async Task OnDeleteEntryAsync(EntryRow row) => await State.DeleteRowAsync(row);
 
     private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
+
+    private async Task OnStatusChangedAsync(EntryRow row, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<EntryStatus>(e.Value?.ToString(), out var status))
+        {
+            await State.ChangeStatusAsync(row, status);
+        }
+    }
+
+    private async Task OnTagsChangedAsync(EntryRow row, ChangeEventArgs e) =>
+        await State.ChangeTagsAsync(row, e.Value?.ToString() ?? string.Empty);
+
+    private static IReadOnlyList<EntryStatus> LegalStatusOptions(EntryRow row) =>
+        new[] { row.Status }.Concat(BacklogEntry.NextStatusesFrom(row.Status)).Distinct().ToList();
+
+    private static string TagText(EntryRow row) =>
+        string.Join(" ", row.PreviewMetadataTags.Select(tag => "#" + tag));
 
     private async Task OnEditorKeyDownAsync(EntryRow row, KeyboardEventArgs e)
     {
