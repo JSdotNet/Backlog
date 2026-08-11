@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <!--
-    TEST HARNESS — not deployed. See harness/README.md.
+    TEST HARNESS — not deployed. See src/harness/README.md.
     Blazor Server host of Backlog.Mobile.UI at phone width. The Android head needs
     an emulator and cannot run as an Aspire project resource, so this harness lets
     the mobile UI be started by the AppHost ("mobile-web-harness") and driven by
-    Playwright. Publishing flags come from harness/Directory.Build.props.
+    Playwright. Publishing flags come from src/harness/Directory.Build.props.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -15,8 +15,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\..\src\App\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
+    <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\App\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
   </ItemGroup>
 
 </Project>

@@ -3,19 +3,19 @@ var builder = DistributedApplication.CreateBuilder(args);
 // Cloud service — thin sync layer (Azure Container Apps in production).
 var cloud = builder.AddProject("cloud", "..\\..\\Cloud\\Backlog.Cloud\\Backlog.Cloud.csproj");
 
-// --- Test harnesses (harness/) -------------------------------------------
+// --- Test harnesses (src/harness/) ---------------------------------------
 // The two projects below are NOT shipped channels. They are Blazor Server hosts
 // that exist purely so the shared Razor components can be exercised in Aspire
 // and driven by Playwright — the MAUI heads cannot be automated that way.
 
 // Desktop UI in the browser: hosts Backlog.Desktop.UI, the same components the
 // MAUI Blazor Hybrid desktop head renders in its WebView.
-builder.AddProject("desktop-web-harness", "..\\..\\..\\harness\\Backlog.Desktop.WebHarness\\Backlog.Desktop.WebHarness.csproj")
+builder.AddProject("desktop-web-harness", "..\\..\\harness\\Backlog.Desktop.WebHarness\\Backlog.Desktop.WebHarness.csproj")
     .WithReference(cloud);
 
 // Mobile UI in the browser. The Android head needs an emulator, so this harness
 // hosts the same Razor components (Backlog.Mobile.UI) at phone width.
-builder.AddProject("mobile-web-harness", "..\\..\\..\\harness\\Backlog.Mobile.WebHarness\\Backlog.Mobile.WebHarness.csproj")
+builder.AddProject("mobile-web-harness", "..\\..\\harness\\Backlog.Mobile.WebHarness\\Backlog.Mobile.WebHarness.csproj")
     .WithReference(cloud)
     .WaitFor(cloud);
 

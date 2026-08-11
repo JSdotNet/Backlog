@@ -4,21 +4,8 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
-    paths:
-      - 'Backlog.sln'
-      - 'src/App/Backlog.Desktop/**'
-      - 'src/App/Backlog.Desktop.UI/**'
-      - 'src/Aspire/Backlog.Aspire.ServiceDefaults/**'
-      - 'src/Infrastructure/Backlog.Infrastructure.Copilot/**'
-      - 'src/Infrastructure/Backlog.Infrastructure.FileSystem/**'
-      - 'src/Infrastructure/Backlog.Infrastructure.GitHub/**'
-      - 'src/Modules/Backlog/Backlog.Modules.Backlog/**'
-      - 'src/Shared/Backlog.SharedKernel/**'
-      - 'build/Backlog.Desktop.appinstaller.template'
-      - 'build/New-AppInstaller.ps1'
-      - '.github/workflows/release-desktop.yml'
+  schedule:
+    - cron: '0 5 * * *'
   workflow_dispatch:
     inputs:
       version:
@@ -42,16 +29,69 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '10.0.x'
 
+      - name: Check scheduled release changes
+        id: release_gate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ('${{ github.event_name }}' -ne 'schedule') {
+            "should_release=true" >> $env:GITHUB_OUTPUT
+            Write-Output "Release requested by ${{ github.event_name }}."
+            return
+          }
+
+          $latestTag = gh release list --limit 1 --exclude-drafts --exclude-pre-releases --json tagName --jq '.[0].tagName'
+          if ($LASTEXITCODE -ne 0) { throw "Could not inspect existing GitHub releases." }
+
+          if ([string]::IsNullOrWhiteSpace($latestTag) -or $latestTag -eq 'null') {
+            "should_release=true" >> $env:GITHUB_OUTPUT
+            Write-Output "No existing release found; scheduled release will run."
+            return
+          }
+
+          $releasePaths = @(
+            'Backlog.sln',
+            'src/App/Backlog.Desktop',
+            'src/App/Backlog.Desktop.UI',
+            'src/Aspire/Backlog.Aspire.ServiceDefaults',
+            'src/Infrastructure/Backlog.Infrastructure.Copilot',
+            'src/Infrastructure/Backlog.Infrastructure.FileSystem',
+            'src/Infrastructure/Backlog.Infrastructure.GitHub',
+            'src/Modules/Backlog/Backlog.Modules.Backlog',
+            'src/Shared/Backlog.SharedKernel',
+            'build/Backlog.Desktop.appinstaller.template',
+            'build/New-AppInstaller.ps1',
+            '.github/workflows/release-desktop.yml'
+          )
+          $changedFiles = git diff --name-only "$latestTag..HEAD" -- $releasePaths
+          if ($LASTEXITCODE -ne 0) { throw "Could not compare HEAD with latest release $latestTag." }
+
+          if ($changedFiles) {
+            "should_release=true" >> $env:GITHUB_OUTPUT
+            Write-Output "Scheduled release will run because release-relevant files changed since $latestTag."
+            return
+          }
+
+          "should_release=false" >> $env:GITHUB_OUTPUT
+          "### Desktop release skipped" >> $env:GITHUB_STEP_SUMMARY
+          "No release-relevant changes were found since $latestTag." >> $env:GITHUB_STEP_SUMMARY
       - name: Install MAUI Windows workload
+        if: steps.release_gate.outputs.should_release == 'true'
         run: dotnet workload install maui-windows
 
       - name: Derive version numbers
+        if: steps.release_gate.outputs.should_release == 'true'
         id: version
         shell: pwsh
         run: |
@@ -82,6 +122,7 @@ jobs:
           Write-Output "Tag=$tag Display=$raw Package=$four"
 
       - name: Check signing configuration
+        if: steps.release_gate.outputs.should_release == 'true'
         id: signing
         shell: pwsh
         env:
@@ -99,7 +140,7 @@ jobs:
           }
 
           "configured=false" >> $env:GITHUB_OUTPUT
-          if ('${{ github.event_name }}' -eq 'push' -and '${{ github.ref_type }}' -eq 'branch') {
+          if ('${{ github.event_name }}' -ne 'workflow_dispatch' -and '${{ github.ref_type }}' -eq 'branch') {
             "### Desktop release skipped" >> $env:GITHUB_STEP_SUMMARY
             "Signing secrets are not configured, so the main-branch release package was not produced." >> $env:GITHUB_STEP_SUMMARY
             Write-Output "Signing certificate secrets are not configured. Skipping main-branch release packaging."
@@ -112,7 +153,7 @@ jobs:
           throw "Secret WINDOWS_CERTIFICATE_PASSWORD is not set."
 
       - name: Import code-signing certificate
-        if: steps.signing.outputs.configured == 'true'
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
         id: cert
         shell: pwsh
         env:
@@ -135,7 +176,7 @@ jobs:
           Write-Output "Imported certificate with thumbprint $($cert.Thumbprint)."
 
       - name: Publish packaged MSIX
-        if: steps.signing.outputs.configured == 'true'
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -149,7 +190,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 
       - name: Stage MSIX and generate App Installer
-        if: steps.signing.outputs.configured == 'true'
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
         id: stage
         shell: pwsh
         run: |
@@ -185,6 +226,7 @@ jobs:
             -Version '${{ steps.version.outputs.package }}' `
             -Tag '${{ steps.version.outputs.tag }}' `
             -MsixFileName $msixName `
+            -MsixPath $stagedMsix `
             -OutputPath $appInstaller
 
           "dir=$outDir"                        >> $env:GITHUB_OUTPUT
@@ -193,7 +235,7 @@ jobs:
           "appinstaller=$appInstaller"         >> $env:GITHUB_OUTPUT
 
       - name: Publish GitHub Release
-        if: steps.signing.outputs.configured == 'true'
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

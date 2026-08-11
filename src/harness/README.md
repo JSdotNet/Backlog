@@ -16,7 +16,7 @@ an Android emulator.
 
 ## Rules
 
-- A harness may reference anything in `src/`. **Nothing in `src/` may reference a
+- A harness may reference shipping projects under `src/`. **No shipping project may reference a
   harness.** `tests/Backlog.ArchitectureTests` fails the build if that is violated.
 - No feature may live here. A harness contains only hosting glue: `Program.cs`,
   a root `App.razor`, and configuration. If behaviour is worth testing, it belongs
@@ -25,8 +25,8 @@ an Android emulator.
   `IsPackable=false`, and `IsShippingAssembly=false`, so publishing one fails.
 - The release workflow only publishes from `src/App/`.
 
-## Why it is not under `tests/`
+## Why it is under `src/` but not `tests/`
 
 `tests/` holds projects that a test runner executes. A harness is a long-running
-host that other tools point a browser at, so it sits alongside `src/` and `tests/`
-rather than inside either.
+host that other tools point a browser at, so it lives under `src/harness/` with the
+rest of the runnable development projects while remaining outside shipped app folders.
