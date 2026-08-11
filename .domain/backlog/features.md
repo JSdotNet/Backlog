@@ -101,3 +101,25 @@ status: draft
 
 Move entries between active and archived states; archived entries are excluded
 from default views but always accessible and restorable.
+
+## Feature: Roadmap planning
+
+```meta
+status: draft
+depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
+related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+```
+
+Organize selected backlog entries into a forward-looking roadmap without turning
+the roadmap into a separate execution system. The roadmap groups planned work by
+theme, horizon, target environment, or repository while Backlog Entry remains the
+source of truth for status and priority.
+
+### Sub-feature: Roadmap views
+
+```meta
+status: draft
+```
+
+Show roadmap-ready entries by Now/Next/Later, milestone, or custom planning lane,
+with progress derived from the underlying entries instead of maintained manually.

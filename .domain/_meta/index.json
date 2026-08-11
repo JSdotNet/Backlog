@@ -214,6 +214,108 @@
     },
     {
       "type": "directory",
+      "name": "productivity",
+      "path": ".domain/productivity",
+      "title": "Domain: Productivity",
+      "children": [
+        {
+          "type": "file",
+          "name": "domain.md",
+          "path": ".domain/productivity/domain.md",
+          "title": "Domain: Productivity",
+          "status": "draft",
+          "root": true
+        },
+        {
+          "type": "file",
+          "name": "features.md",
+          "path": ".domain/productivity/features.md",
+          "title": "Features: Productivity",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "model.md",
+          "path": ".domain/productivity/model.md",
+          "title": "Domain Model: Productivity",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "flow.md",
+          "path": ".domain/productivity/flow.md",
+          "title": "Flow: Productivity",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "dependencies.md",
+          "path": ".domain/productivity/dependencies.md",
+          "title": "Dependencies: Productivity",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "naming.md",
+          "path": ".domain/productivity/naming.md",
+          "title": "Naming: Productivity",
+          "status": "draft"
+        }
+      ]
+    },
+    {
+      "type": "directory",
+      "name": "environment",
+      "path": ".domain/environment",
+      "title": "Domain: Environment",
+      "children": [
+        {
+          "type": "file",
+          "name": "domain.md",
+          "path": ".domain/environment/domain.md",
+          "title": "Domain: Environment",
+          "status": "draft",
+          "root": true
+        },
+        {
+          "type": "file",
+          "name": "features.md",
+          "path": ".domain/environment/features.md",
+          "title": "Features: Environment",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "model.md",
+          "path": ".domain/environment/model.md",
+          "title": "Domain Model: Environment",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "flow.md",
+          "path": ".domain/environment/flow.md",
+          "title": "Flow: Environment",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "dependencies.md",
+          "path": ".domain/environment/dependencies.md",
+          "title": "Dependencies: Environment",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "naming.md",
+          "path": ".domain/environment/naming.md",
+          "title": "Naming: Environment",
+          "status": "draft"
+        }
+      ]
+    },
+    {
+      "type": "directory",
       "name": "repository-management",
       "path": ".domain/repository-management",
       "title": "Domain: Repository Management",

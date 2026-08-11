@@ -88,7 +88,7 @@ classDiagram
 
 - `BacklogEntry` is the aggregate root and the only consistency boundary.
   `SubItem` is an owned entity (identity within the aggregate only);
-  `ProjectionRef` and `UsageEvent` are immutable value objects.
+  `ProjectionRef`, `UsageEvent`, and `AIWorkLog` are immutable value objects.
 - `repo_ids` is a plain list of repository identifiers, not object references —
   Backlog stays decoupled from Repository Management. Projection turns each
   `repo_id` into a `ProjectionRef` when the entry starts work.
