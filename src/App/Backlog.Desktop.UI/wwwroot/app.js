@@ -56,13 +56,71 @@ document.addEventListener(
     true
 );
 
-// Keyboard reordering has to carry the focus ring with the thing it moved;
-// after the list re-renders the element is a different node, so the caller
+// Keyboard reordering has to carry the focus ring with the thing it moved;// after the list re-renders the element is a different node, so the caller
 // names it by id.
 window.backlogFocus = (id) => {
     const element = document.getElementById(id);
     if (element) element.focus();
 };
+
+// The side pane is resized by dragging its edge. Pointer capture and the live
+// width both belong in the browser; C# only hears the settled value, so a drag
+// costs one interop call instead of one per frame.
+const BACKLOG_PANE_MIN_REM = 24;
+const BACKLOG_PANE_MAX_REM = 54;
+let backlogPaneOwner = null;
+
+function backlogRootFontSize() {
+    return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+}
+
+function backlogPaneWidthAt(layout, clientX) {
+    const rem = (layout.getBoundingClientRect().right - clientX) / backlogRootFontSize();
+    return Math.min(BACKLOG_PANE_MAX_REM, Math.max(BACKLOG_PANE_MIN_REM, Math.round(rem * 2) / 2));
+}
+
+window.backlogPaneResizer = {
+    initialize(owner) {
+        backlogPaneOwner = owner;
+    },
+    dispose() {
+        backlogPaneOwner = null;
+    }
+};
+
+document.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+
+    const handle = event.target instanceof Element ? event.target.closest('[data-pane-resizer]') : null;
+    if (!handle) return;
+
+    const layout = handle.closest('[data-testid="knowledge-layout"]');
+    if (!layout) return;
+
+    event.preventDefault();
+    handle.focus();
+    document.body.classList.add('is-resizing-pane');
+
+    let width = backlogPaneWidthAt(layout, event.clientX);
+
+    const onMove = (move) => {
+        width = backlogPaneWidthAt(layout, move.clientX);
+        layout.style.setProperty('--knowledge-panel-width', `${width}rem`);
+        handle.setAttribute('aria-valuenow', String(width));
+    };
+
+    const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+        document.body.classList.remove('is-resizing-pane');
+        backlogPaneOwner?.invokeMethodAsync('SetSidePaneWidthAsync', width);
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+});
 
 const backlogDiagramInstances = new Map();
 const backlogDiagramLibrarySources = {
