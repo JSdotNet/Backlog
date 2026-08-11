@@ -105,9 +105,61 @@
             </button>
         }
 
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.FeedbackReporting))
+        {
+            <button type="button"
+                    class="header-tool-toggle"
+                    id="feedback-button"
+                    data-testid="feedback-button"
+                    aria-haspopup="dialog"
+                    @onclick="OpenFeedbackDialog">
+                Report issue
+            </button>
+        }
+
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
+    @if (IsFeatureEnabled(AppFeatureSettingsStore.FeedbackReporting) && _feedbackOpen)
+    {
+        <div class="feedback-backdrop" role="presentation">
+            <section class="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-title" aria-describedby="feedback-description" data-testid="feedback-dialog">
+                <header class="feedback-dialog__header">
+                    <div>
+                        <p class="feedback-dialog__eyebrow">GitHub feedback</p>
+                        <h2 id="feedback-title">Report an issue</h2>
+                    </div>
+                    <button type="button" class="btn btn--ghost btn--icon" aria-label="Close feedback dialog" disabled="@_feedbackSubmitting" @onclick="CloseFeedbackDialog">x</button>
+                </header>
+                <p id="feedback-description" class="feedback-dialog__description">Send a Desktop app issue to JSdotNet/Backlog. Add where on the current screen it happens; the app will ask which screen to capture when you submit.</p>
+                <label class="feedback-field" for="feedback-screen-area-input">
+                    <span>Screen area</span>
+                    <input id="feedback-screen-area-input" data-testid="feedback-screen-area-input" value="@_feedbackScreenArea" @oninput="OnFeedbackScreenAreaInput" maxlength="120" placeholder="For example: header, backlog list, settings repositories" disabled="@_feedbackSubmitting" />
+                </label>
+                <label class="feedback-field" for="feedback-title-input">
+                    <span>Title</span>
+                    <input id="feedback-title-input" data-testid="feedback-title-input" value="@_feedbackTitle" @oninput="OnFeedbackTitleInput" maxlength="120" disabled="@_feedbackSubmitting" />
+                </label>
+
+                <label class="feedback-field" for="feedback-details-input">
+                    <span>Details</span>
+                    <textarea id="feedback-details-input" data-testid="feedback-details-input" value="@_feedbackDetails" @oninput="OnFeedbackDetailsInput" rows="6" disabled="@_feedbackSubmitting"></textarea>
+                </label>
+
+                @if (_feedbackMessage is not null)
+                {
+                    <p class="@FeedbackStatusClass" role="@FeedbackStatusRole">@_feedbackMessage</p>
+                }
+
+                <footer class="feedback-dialog__actions">
+                    <button type="button" class="btn btn--ghost" disabled="@_feedbackSubmitting" @onclick="CloseFeedbackDialog">Cancel</button>
+                    <button type="button" class="btn btn--primary" data-testid="feedback-submit" disabled="@(_feedbackSubmitting || string.IsNullOrWhiteSpace(_feedbackTitle))" @onclick="SubmitFeedbackAsync">
+                        @(_feedbackSubmitting ? "Sending..." : "Create GitHub issue")
+                    </button>
+                </footer>
+            </section>
+        </div>
+    }
 
     @if (IsFeatureEnabled(AppFeatureSettingsStore.SystemTools))
     {
@@ -566,6 +618,13 @@
     private bool _checkingForAppUpdate;
     private bool _installingAppUpdate;
     private bool _appUpdateReady;
+    private bool _feedbackOpen;
+    private bool _feedbackSubmitting;
+    private bool _feedbackSucceeded;
+    private string _feedbackTitle = string.Empty;
+    private string _feedbackScreenArea = string.Empty;
+    private string _feedbackDetails = string.Empty;
+    private string? _feedbackMessage;
     private string _aiQuestion = string.Empty;
     private string? _aiAnswer;
     private string? _aiError;
@@ -703,6 +762,97 @@
     }
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
+    private string FeedbackStatusClass => $"feedback-status {(_feedbackSucceeded ? "feedback-status--ok" : "feedback-status--error")}";
+
+    private string FeedbackStatusRole => _feedbackSucceeded ? "status" : "alert";
+
+    private void OpenFeedbackDialog()
+    {
+        _feedbackOpen = true;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void CloseFeedbackDialog()
+    {
+        if (_feedbackSubmitting) return;
+
+        _feedbackOpen = false;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void OnFeedbackTitleInput(ChangeEventArgs e)
+    {
+        _feedbackTitle = e.Value?.ToString() ?? string.Empty;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void OnFeedbackDetailsInput(ChangeEventArgs e)
+    {
+        _feedbackDetails = e.Value?.ToString() ?? string.Empty;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void OnFeedbackScreenAreaInput(ChangeEventArgs e)
+    {
+        _feedbackScreenArea = e.Value?.ToString() ?? string.Empty;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private async Task SubmitFeedbackAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_feedbackTitle))
+        {
+            _feedbackSucceeded = false;
+            _feedbackMessage = "Add a short title before creating the issue.";
+            return;
+        }
+
+        _feedbackSubmitting = true;
+        _feedbackSucceeded = false;
+        _feedbackMessage = "Capturing a screenshot...";
+
+        GitHubFeedbackScreenshot? screenshot = null;
+        string? screenshotError = null;
+
+        try
+        {
+            screenshot = await JS.InvokeAsync<GitHubFeedbackScreenshot?>("backlogCaptureScreenshot");
+            if (screenshot is null)
+            {
+                screenshotError = "No screenshot was captured.";
+            }
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            screenshotError = ex.Message;
+        }
+
+        _feedbackMessage = "Creating the GitHub issue...";
+
+        try
+        {
+            var link = await GitHub.ReportFeedbackAsync(_feedbackTitle, _feedbackDetails, _feedbackScreenArea, screenshot, screenshotError);
+            _feedbackSucceeded = true;
+            _feedbackMessage = $"Created {link.RepoFullName}{link.Label}.";
+            _feedbackTitle = string.Empty;
+            _feedbackScreenArea = string.Empty;
+            _feedbackDetails = string.Empty;
+        }
+        catch (GitHubException ex)
+        {
+            _feedbackSucceeded = false;
+            _feedbackMessage = ex.Message;
+        }
+        finally
+        {
+            _feedbackSubmitting = false;
+        }
+    }
 
     private IReadOnlyList<KnowledgeArea> VisibleKnowledgeAreas
     {

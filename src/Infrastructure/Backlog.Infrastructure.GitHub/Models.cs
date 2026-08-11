@@ -53,3 +53,11 @@ public sealed record GitHubIssueSnapshot(
         ?? PullRequests.FirstOrDefault(p => p.State is GitHubItemState.Open or GitHubItemState.Draft)
         ?? PullRequests.FirstOrDefault();
 }
+
+/// <summary>A compressed screenshot captured by the app for a feedback report.</summary>
+public sealed record GitHubFeedbackScreenshot(
+    string DataUrl,
+    string MediaType,
+    int Width,
+    int Height,
+    long SizeBytes);
