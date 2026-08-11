@@ -344,19 +344,10 @@
 
                                 <div class="entry-doc__title-line">
 
-                                    @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
-                                    {
-                                        <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
-                                    }
-                                    else
-                                    {
-                                        <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
-                                    }
-
                                     @if (row.HasExpandableContent)
                                     {
                                         <button type="button"
-                                                class="entry-doc__fold"
+                                                class="entry-doc__title-toggle"
                                                 id="fold-entry-@row.Key"
                                                 data-testid="entry-fold-button"
                                                 aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
@@ -365,8 +356,24 @@
                                                 @onmousedown:preventDefault="true"
                                                 @onclick:stopPropagation="true"
                                                 @onclick="() => State.ToggleEntry(row)">
+                                            @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
+                                            {
+                                                <span class="entry-doc__title entry-doc__title--empty">Untitled</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</span>
+                                            }
                                             <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
                                         </button>
+                                    }
+                                    else if (string.IsNullOrWhiteSpace(row.PreviewTitle))
+                                    {
+                                        <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
+                                    }
+                                    else
+                                    {
+                                        <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
                                     }
                                     @if (!oneLine)
                                     {

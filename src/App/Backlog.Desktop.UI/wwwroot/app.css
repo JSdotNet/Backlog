@@ -391,7 +391,7 @@ h1, h2, h3 {
     /* Rails on all four sides, wrapped around the content. */
     display: grid;
     grid-template-columns: 14px minmax(0, 1fr) 14px;
-    grid-template-rows: 12px auto 12px;
+    grid-template-rows: 12px minmax(2.75rem, auto) 12px;
     container-type: inline-size;
 }
 
@@ -399,15 +399,15 @@ h1, h2, h3 {
     grid-column: 2;
     grid-row: 2;
     min-width: 0;
-    padding: var(--spacing-xs) 0;
+    padding: var(--spacing-sm) 0;
 }
 
 .entry-doc--one-line .entry-doc__body {
     display: grid;
     grid-template-columns: minmax(8rem, 1fr) minmax(0, clamp(16rem, 42%, 34rem));
-    align-items: center;
+    align-items: start;
     gap: var(--spacing-xs);
-    padding: var(--spacing-xs) 0;
+    padding: var(--spacing-sm) 0;
 }
 
 .entry-doc--dragged {
@@ -848,37 +848,42 @@ h1, h2, h3 {
 
 /* --- Fold control -------------------------------------------------------- */
 /*
-  Folds the sub-item cards away. It keeps the count on screen, so a folded entry
-  still admits what is under it.
+  The title itself folds expandable entries. The arrow sits after the title text
+  so the whole title is the hit target without adding a separate button in front
+  of the reading order.
 */
 
-.entry-doc__fold {
-    display: inline-grid;
-    place-items: center;
-    flex: 0 0 auto;
-    width: 1.5rem;
-    height: 1.5rem;
+.entry-doc__title-toggle {
+    display: inline;
+    min-width: 0;
+    max-width: 100%;
     padding: 0;
-    border: var(--border-width) solid transparent;
-    border-radius: var(--border-radius-sm);
+    border: none;
     background: transparent;
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
+    color: inherit;
+    text-align: left;
     cursor: pointer;
 }
 
-.entry-doc__fold:hover {
-    border-color: var(--color-border);
-    color: var(--color-text-primary);
+.entry-doc__title-toggle:hover .entry-doc__title {
+    color: var(--color-primary);
 }
 
-.entry-doc__fold:focus-visible {
+.entry-doc__title-toggle:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
+    outline-offset: 3px;
+    border-radius: var(--border-radius-sm);
+}
+
+.entry-doc__title-toggle .entry-doc__fold-chevron {
+    margin-left: var(--spacing-xs);
 }
 
 .entry-doc__fold-chevron {
     display: inline-block;
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
     font-size: 1.25rem;
     line-height: 1;
     transition: transform var(--transition-fast);
@@ -939,29 +944,29 @@ h1, h2, h3 {
 .entry-doc--one-line .entry-doc__meta {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
-    align-items: center;
+    align-items: start;
     gap: var(--spacing-xs) var(--spacing-sm);
     min-width: 0;
     width: 100%;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .entry-doc--one-line .entry-doc__meta-start {
     grid-column: 2;
     grid-row: 1;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
     margin-left: 0;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
 }
 
 .entry-doc--one-line .entry-doc__tags {
     grid-column: 1;
     grid-row: 1;
     justify-content: center;
-    overflow: hidden;
-    white-space: nowrap;
-    flex-wrap: nowrap;
+    overflow: visible;
+    white-space: normal;
+    flex-wrap: wrap;
 }
 
 .entry-doc--one-line .entry-doc__meta-end {
@@ -970,14 +975,14 @@ h1, h2, h3 {
     margin-left: 0;
     justify-content: flex-end;
     min-width: 0;
-    overflow: hidden;
-    flex-wrap: nowrap;
+    overflow: visible;
+    flex-wrap: wrap;
     gap: var(--spacing-xs);
 }
 
 .entry-doc--one-line .badge,
 .entry-doc--one-line .tag-chip {
-    white-space: nowrap;
+    white-space: normal;
 }
 .entry-doc__delete {
     display: inline-flex;
@@ -1033,21 +1038,21 @@ h1, h2, h3 {
 
 .entry-doc__title-line {
     display: flex;
-    align-items: center;
-    flex-wrap: nowrap;
+    align-items: flex-start;
+    flex-wrap: wrap;
     gap: var(--spacing-xs);
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line {
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: var(--spacing-sm);
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta {
     flex: 1 1 22rem;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: flex-end;
     margin-left: var(--spacing-xs);
     min-width: 0;
@@ -1056,13 +1061,13 @@ h1, h2, h3 {
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
 }
 
 .entry-doc__title {
     font-family: var(--font-family-heading);
     font-size: var(--font-size-xl);
-    overflow: hidden;
+    overflow: visible;
     overflow-wrap: anywhere;
     line-height: var(--line-height-tight);
     margin: 0 0 var(--spacing-xs);
@@ -1070,20 +1075,21 @@ h1, h2, h3 {
 }
 
 .entry-doc__title-line .entry-doc__title {
-    overflow-wrap: normal;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__title {
-    flex: 1 1 auto;
-    margin-bottom: 0;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
 }
 
 .entry-doc--one-line .entry-doc__title {
     margin: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-overflow: clip;
+    white-space: normal;
 }
 
 .entry-doc__title--empty {
@@ -1648,7 +1654,6 @@ h1, h2, h3 {
         margin-left: 0;
     }
 }
-
 @media (max-width: 48rem) {
     .filter-bar {
         gap: var(--spacing-xs);
@@ -2823,7 +2828,7 @@ h1, h2, h3 {
     display: flex;
     justify-content: space-between;
     gap: var(--spacing-md);
-    align-items: start;
+    align-items: center;
 }
 
 .tech-layer__header h3,
@@ -3378,9 +3383,8 @@ h1, h2, h3 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .tech-graph__canvas canvas,
-    .tech-graph__fallback-svg {
-        scroll-behavior: auto;
+    .save-indicator--saving .save-indicator__dot {
+        animation: none;
     }
 }
 
