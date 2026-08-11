@@ -23,13 +23,13 @@
     --color-text-inverse: #212529;
     --color-text-link: #F2C14E;
 
-    --color-background: #0F172A;
-    --color-background-alt: #1E293B;
-    --color-background-raised: #334155;
+    --color-background: #020617;
+    --color-background-alt: #0F172A;
+    --color-background-raised: #1E293B;
     --color-background-overlay: rgba(0, 0, 0, 0.60);
 
-    --color-border: #475569;
-    --color-border-strong: #64748B;
+    --color-border: #64748B;
+    --color-border-strong: #94A3B8;
     --color-border-focus: #F2C14E;
 
     /* Typography */

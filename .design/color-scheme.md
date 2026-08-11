@@ -73,17 +73,17 @@ standalone UI colors, and do not invent a second, stronger semantic palette.
 
 | Token | Value (dark) | Usage |
 |---|---|---|
-| `color-background` | `#0F172A` | Primary page / panel background (base surface) |
-| `color-background-alt` | `#1E293B` | Sidebar, card surface, alternating rows (surface +1) |
-| `color-background-raised` | `#334155` | Elevated surfaces: dialog, popover, dropdown (surface +2) |
+| `color-background` | `#020617` | Primary page / panel background (base surface) |
+| `color-background-alt` | `#0F172A` | Sidebar, card surface, alternating rows (surface +1) |
+| `color-background-raised` | `#1E293B` | Elevated surfaces: dialog, popover, dropdown (surface +2) |
 | `color-background-overlay` | `rgba(0,0,0,0.60)` | Modal backdrop / scrim |
 
 ### Border
 
 | Token | Value (dark) | Usage |
 |---|---|---|
-| `color-border` | `#475569` | Default dividers, input outlines, card edges |
-| `color-border-strong` | `#64748B` | Emphasized borders, fallback focus ring |
+| `color-border` | `#64748B` | Default dividers, input outlines, card edges |
+| `color-border-strong` | `#94A3B8` | Emphasized borders, fallback focus ring |
 | `color-border-focus` | `#F2C14E` | Keyboard focus ring (same value as `color-primary`) |
 
 ## Full Token Reference
@@ -109,12 +109,12 @@ Copy-paste reference of every color token and its single dark value.
 | `color-text-disabled` | `#6C757D` |
 | `color-text-inverse` | `#212529` |
 | `color-text-link` | `#F2C14E` |
-| `color-background` | `#0F172A` |
-| `color-background-alt` | `#1E293B` |
-| `color-background-raised` | `#334155` |
+| `color-background` | `#020617` |
+| `color-background-alt` | `#0F172A` |
+| `color-background-raised` | `#1E293B` |
 | `color-background-overlay` | `rgba(0,0,0,0.60)` |
-| `color-border` | `#475569` |
-| `color-border-strong` | `#64748B` |
+| `color-border` | `#64748B` |
+| `color-border-strong` | `#94A3B8` |
 | `color-border-focus` | `#F2C14E` |
 
 ## Contrast Rules (WCAG AA minimum)
@@ -185,7 +185,7 @@ stack maps token names to its native theming mechanism. Names MUST match exactly
 | Logical token | Desktop (.NET MAUI Blazor Hybrid, CSS custom property) | Mobile — .NET MAUI (Resources) | Web / webview (CSS custom property) |
 |---|---|---|---|
 | `color-primary` | `--color-primary: #F2C14E;` | `<Color x:Key="ColorPrimary">#F2C14E</Color>` in `Resources/Styles` | `--color-primary: #F2C14E;` |
-| `color-background` | `--color-background: #0F172A;` | `<Color x:Key="ColorBackground">#0F172A</Color>` | `--color-background: #0F172A;` |
+| `color-background` | `--color-background: #020617;` | `<Color x:Key="ColorBackground">#020617</Color>` | `--color-background: #020617;` |
 | `color-text-primary` | `--color-text-primary: #F8F9FA;` | `<Color x:Key="ColorTextPrimary">#F8F9FA</Color>` | `--color-text-primary: #F8F9FA;` |
 | `color-border-focus` | `--color-border-focus: #F2C14E;` | `<Color x:Key="ColorBorderFocus">#F2C14E</Color>` | `--color-border-focus: #F2C14E;` |
 
