@@ -12,13 +12,21 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton(_ => new BacklogStore(builder.Configuration["Backlog:SettingsRoot"]));
-builder.Services.AddSingleton<GitHubSettingsStore>();
+builder.Services.AddSingleton(_ =>
+{
+    var settingsPath = builder.Configuration["Backlog:GitHubSettingsPath"];
+    return string.IsNullOrWhiteSpace(settingsPath)
+        ? new GitHubSettingsStore()
+        : new GitHubSettingsStore(settingsPath);
+});
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<GitHubIntegration>();
+builder.Services.AddSingleton<KnowledgeFolderSource>();
 builder.Services.AddSingleton<DesignKnowledgeProvider>();
 builder.Services.AddSingleton<KnowledgeBacklog>();
+builder.Services.AddSingleton<TechnologyKnowledgeService>();
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddSingleton<DomainKnowledgeStore>();
 builder.Services.AddSingleton<Arc42KnowledgeStore>();
