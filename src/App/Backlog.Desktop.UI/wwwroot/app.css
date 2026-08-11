@@ -405,7 +405,7 @@ h1, h2, h3 {
 .entry-doc--one-line .entry-doc__body {
     display: grid;
     grid-template-columns: minmax(8rem, 1fr) minmax(0, clamp(16rem, 42%, 34rem));
-    align-items: start;
+    align-items: center;
     gap: var(--spacing-xs);
     padding: var(--spacing-sm) 0;
 }
@@ -944,7 +944,7 @@ h1, h2, h3 {
 .entry-doc--one-line .entry-doc__meta {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
-    align-items: start;
+    align-items: center;
     gap: var(--spacing-xs) var(--spacing-sm);
     min-width: 0;
     width: 100%;
@@ -1023,6 +1023,15 @@ h1, h2, h3 {
     grid-row: 1;
     padding: 0;
     min-width: 0;
+}
+
+.entry-doc__read:focus-visible,
+.entry-doc--editing .entry-doc__body {
+    min-height: max-content;
+}
+
+.entry-doc__read:focus-visible {
+    padding-block: var(--spacing-xs);
 }
 
 .entry-doc--one-line .entry-doc__meta {
