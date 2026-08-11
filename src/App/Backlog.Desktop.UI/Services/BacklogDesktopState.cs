@@ -358,6 +358,35 @@ public sealed class BacklogDesktopState : IDisposable
         Changed?.Invoke();
     }
 
+    public async Task ChangeTypeAsync(EntryRow row, EntryType type) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithType(row.RawText, type));
+
+    public async Task ChangePriorityAsync(EntryRow row, Priority priority) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithPriority(row.RawText, priority));
+
+    public async Task ChangeStatusAsync(EntryRow row, EntryStatus status) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status), forceWhenEqual: row.Status != status);
+
+    public async Task ChangeAreaAsync(EntryRow row, string? area) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithArea(row.RawText, area));
+
+    public async Task ChangeTagsAsync(EntryRow row, IEnumerable<string> tags) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithTags(row.RawText, tags));
+
+    public async Task ChangeTagsAsync(EntryRow row, string tags) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithTags(row.RawText, tags));
+
+    private async Task RewriteMetadataAsync(EntryRow row, string rewritten, bool forceWhenEqual = false)
+    {
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal) && !forceWhenEqual) return;
+
+        CancelDebounce(row);
+        row.RawText = rewritten;
+        await SaveRowAsync(row, isFlush: true);
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
     public void BeginSubItemDrag(EntryRow row, int index)
     {
         SubItemDragRow = row;
@@ -659,12 +688,12 @@ public sealed class BacklogDesktopState : IDisposable
             }
 
             // The domain always creates new entries at Draft — apply the typed
-            // status as an initial transition (ignored gracefully if it isn't a
-            // legal move straight out of Draft).
+            // status as the direct metadata value so the compact selector can
+            // jump to any state without requiring lifecycle stepping.
             var entry = new BacklogEntry(parsed.Title, parsed.Body, parsed.Type ?? EntryType.Task, parsed.Priority ?? Priority.Medium, tags: parsed.Tags);
-            if (parsed.Status is { } initialStatus && entry.CanChangeStatusTo(initialStatus))
+            if (parsed.Status is { } initialStatus)
             {
-                entry.ChangeStatus(initialStatus);
+                entry.SetStatus(initialStatus);
             }
 
             entry.SetOrder(Math.Max(Rows.IndexOf(row), 0));
@@ -706,9 +735,9 @@ public sealed class BacklogDesktopState : IDisposable
         existing.SetTags(parsed.Tags);
         existing.SetArea(parsed.Area);
 
-        if (parsed.Status is { } targetStatus && existing.CanChangeStatusTo(targetStatus))
+        if (parsed.Status is { } targetStatus)
         {
-            existing.ChangeStatus(targetStatus);
+            existing.SetStatus(targetStatus);
         }
 
         EntryTextParser.SyncSubItems(existing, parsed.SubItems);
@@ -1020,24 +1049,24 @@ public sealed class EntryRow
 
     public EntryStatus PreviewStatus
     {
-        get { Render(); return _parsed!.Status is { } typed && BacklogEntry.IsTransitionAllowed(Status, typed) ? typed : Status; }
+        get { Render(); return _parsed!.Status ?? Status; }
     }
 
-    /// <summary>The status that was typed but which the lifecycle will not accept
-    /// from the entry's current one, or null when what was typed will stick.
-    /// Surfaced in the editor hint so a refused word is never silently dropped.</summary>
+    /// <summary>Direct metadata editing can jump states, so typed statuses are no
+    /// longer refused by the preview.</summary>
     public EntryStatus? BlockedStatus
     {
-        get
-        {
-            Render();
-            return _parsed!.Status is { } typed && !BacklogEntry.IsTransitionAllowed(Status, typed) ? typed : null;
-        }
+        get { Render(); return null; }
     }
 
     public IReadOnlyList<string> PreviewTags
     {
         get { Render(); return _parsed!.Tags.Count > 0 ? _parsed.Tags : Tags; }
+    }
+
+    public IReadOnlyList<string> PreviewMetadataTags
+    {
+        get { Render(); return _parsed!.MetadataTags; }
     }
 
     public string? PreviewArea

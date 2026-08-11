@@ -5,10 +5,8 @@ using Backlog.Desktop.UI.Services;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The entry lifecycle only allows one step at a time, so a status someone
-/// types is not always a status the entry can take. These cover the promise
-/// that such a word is never silently dropped: the badge keeps telling the
-/// truth, and the editor hint explains the refusal.
+/// Direct metadata edits can jump to any status, while the domain lifecycle
+/// graph still documents the guided transition flow for callers that need it.
 /// </summary>
 public class StatusReadingTests
 {
@@ -28,12 +26,12 @@ public class StatusReadingTests
     }
 
     [Fact]
-    public void An_unreachable_status_leaves_the_preview_alone()
+    public void A_skipped_status_is_previewed()
     {
         var row = RowAt(EntryStatus.Draft, "!in-progress");
 
-        Assert.Equal(EntryStatus.Draft, row.PreviewStatus);
-        Assert.Equal(EntryStatus.InProgress, row.BlockedStatus);
+        Assert.Equal(EntryStatus.InProgress, row.PreviewStatus);
+        Assert.Null(row.BlockedStatus);
     }
 
     [Fact]
@@ -46,16 +44,14 @@ public class StatusReadingTests
     }
 
     [Fact]
-    public void A_refusal_is_explained_in_the_hint()
+    public void A_skipped_status_is_read_without_a_refusal_note()
     {
         var row = RowAt(EntryStatus.Draft, "!done");
 
         var status = row.MetaReadings.Single(r => r.Kind == "status");
 
-        Assert.Equal("draft", status.Value);
-        Assert.NotNull(status.Note);
-        Assert.Contains("done", status.Note);
-        Assert.Contains("ready", status.Note);
+        Assert.Equal("done", status.Value);
+        Assert.Null(status.Note);
     }
 
     [Fact]
@@ -67,19 +63,6 @@ public class StatusReadingTests
 
         Assert.Equal("ready", status.Value);
         Assert.Null(status.Note);
-    }
-
-    [Fact]
-    public void The_hint_lists_every_legal_next_step()
-    {
-        // Ready can go forward to in-progress or back to draft; a refusal from
-        // there should offer both rather than only the forward one.
-        var row = RowAt(EntryStatus.Ready, "!archived");
-
-        var note = row.MetaReadings.Single(r => r.Kind == "status").Note;
-
-        Assert.Contains("in-progress", note);
-        Assert.Contains("draft", note);
     }
 
     [Theory]
@@ -94,7 +77,7 @@ public class StatusReadingTests
     [Fact]
     public void Every_status_has_somewhere_to_go()
     {
-        // A dead-end status would strand entries with no way out through text.
+        // A dead-end status would strand guided lifecycle callers with no next step.
         foreach (var status in Enum.GetValues<EntryStatus>())
         {
             Assert.NotEmpty(BacklogEntry.NextStatusesFrom(status));
