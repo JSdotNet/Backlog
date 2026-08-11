@@ -7,6 +7,7 @@
 @inject GitHubIntegration GitHub
 @inject AppFeatureSettingsStore Features
 @inject IAppUpdateService Updates
+@inject IAzureFoundryChatClient AzureFoundryChat
 
 @*
     One entry is one block of markdown. Not focused, it reads as a document;
@@ -77,6 +78,18 @@
                     aria-expanded="@(_knowledgeExpanded ? "true" : "false")"
                     @onclick="ToggleKnowledgePane">
                 @(_knowledgeExpanded ? "Hide knowledge" : "Show knowledge")
+            </button>
+        }
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant))
+        {
+            <button type="button"
+                    class="header-tool-toggle"
+                    id="ai-toggle-button"
+                    data-testid="ai-toggle-button"
+                    aria-controls="ai-assistant-panel"
+                    aria-expanded="@_aiExpanded"
+                    @onclick="ToggleAiPanel">
+                Ask AI
             </button>
         }
         @if (IsFeatureEnabled(AppFeatureSettingsStore.SystemTools))
@@ -224,6 +237,49 @@
         </section>
     }
 
+
+    @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant) && _aiExpanded)
+    {
+        <section class="ai-panel" id="ai-assistant-panel" data-testid="ai-assistant-panel" aria-labelledby="ai-assistant-title">
+            <div class="ai-panel__header">
+                <div>
+                    <p class="ai-panel__eyebrow">Azure Foundry</p>
+                    <h2 id="ai-assistant-title">Ask about this content</h2>
+                </div>
+                <a class="ai-panel__settings" href="settings">Settings</a>
+            </div>
+            <p class="ai-panel__body">
+                The question is answered from the entries currently in view and loaded backlog knowledge.
+            </p>
+            <textarea class="ai-panel__question"
+                      data-testid="ai-question-input"
+                      rows="3"
+                      placeholder="What should I focus on next?"
+                      value="@_aiQuestion"
+                      @oninput="e => _aiQuestion = e.Value?.ToString() ?? string.Empty"
+                      @onkeydown="OnAiQuestionKeyDownAsync"></textarea>
+            <div class="ai-panel__actions">
+                <button type="button"
+                        class="btn btn--secondary"
+                        data-testid="ai-ask-button"
+                        disabled="@_aiBusy"
+                        @onclick="AskAiAsync">
+                    @(_aiBusy ? "Asking..." : "Ask")
+                </button>
+            </div>
+            @if (_aiError is not null)
+            {
+                <p class="ai-panel__error" data-testid="ai-error" role="alert">@_aiError</p>
+            }
+            @if (_aiAnswer is not null)
+            {
+                <article class="ai-panel__answer" data-testid="ai-answer">
+                    <h3>Answer</h3>
+                    <p>@_aiAnswer</p>
+                </article>
+            }
+        </section>
+    }
     <main class="knowledge-layout @(KnowledgeVisible ? "knowledge-layout--knowledge-open" : "knowledge-layout--knowledge-closed")" data-testid="knowledge-layout">
         <section class="backlog-workspace" aria-label="Backlog entries">
 
@@ -548,6 +604,7 @@
 @code {
     private ElementReference _editor;
     private bool _toolsExpanded;
+    private bool _aiExpanded;
     private bool _knowledgeExpanded;
     private bool _toolsLoading;
     private string? _toolMessage;
@@ -568,6 +625,10 @@
     private string _feedbackScreenArea = string.Empty;
     private string _feedbackDetails = string.Empty;
     private string? _feedbackMessage;
+    private string _aiQuestion = string.Empty;
+    private string? _aiAnswer;
+    private string? _aiError;
+    private bool _aiBusy;
 
     private bool _updateBusy => _checkingForAppUpdate || _installingAppUpdate;
 
@@ -612,6 +673,79 @@
         }
     }
 
+
+    private void ToggleAiPanel() => _aiExpanded = !_aiExpanded;
+
+    private async Task AskAiAsync()
+    {
+        if (_aiBusy) return;
+
+        _aiBusy = true;
+        _aiError = null;
+        _aiAnswer = null;
+
+        try
+        {
+            var response = await AzureFoundryChat.AskAsync(new AzureFoundryChatRequest(BuildAiContent(), _aiQuestion));
+            _aiAnswer = response.Answer;
+        }
+        catch (AzureFoundryException ex)
+        {
+            _aiError = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _aiError = $"Azure Foundry could not be reached: {ex.Message}";
+        }
+        catch (TaskCanceledException)
+        {
+            _aiError = "Azure Foundry did not answer before the request timed out.";
+        }
+        finally
+        {
+            _aiBusy = false;
+        }
+    }
+
+    private Task OnAiQuestionKeyDownAsync(KeyboardEventArgs e) =>
+        e.Key == "Enter" && (e.CtrlKey || e.MetaKey) ? AskAiAsync() : Task.CompletedTask;
+
+    private string BuildAiContent()
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.AppendLine("Visible backlog entries:");
+        foreach (var row in State.FilteredRows.Where(row => !row.IsUntouched))
+        {
+            builder.AppendLine("---");
+            builder.AppendLine(row.RawText.Trim());
+        }
+
+        if (_backlogKnowledge?.IsReady == true && _backlogKnowledge.Concerns.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Loaded .backlog knowledge:");
+            foreach (var concern in _backlogKnowledge.Concerns)
+            {
+                builder.AppendLine($"- {concern.Title} ({concern.RelativePath})");
+                foreach (var item in concern.Items)
+                {
+                    AppendKnowledgeItem(builder, item, indent: "  ");
+                }
+            }
+        }
+
+        var content = builder.ToString().Trim();
+        return content.Length <= 12000 ? content : content[..12000];
+    }
+
+    private static void AppendKnowledgeItem(System.Text.StringBuilder builder, BacklogWorkItemKnowledge item, string indent)
+    {
+        builder.AppendLine($"{indent}- {item.Title}");
+        foreach (var subItem in item.SubItems)
+        {
+            AppendKnowledgeItem(builder, subItem, indent + "  ");
+        }
+    }
     private bool KnowledgeVisible => IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge) && _knowledgeExpanded;
 
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(AppFeatureSettingsStore.AdditionalRepositories);
@@ -1230,4 +1364,3 @@
         State.Changed -= HandleStateChanged;
     }
 }
-

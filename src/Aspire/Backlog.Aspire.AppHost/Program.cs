@@ -4,14 +4,20 @@ var builder = DistributedApplication.CreateBuilder(args);
 var cloud = builder.AddProject("cloud", "..\\..\\Cloud\\Backlog.Cloud\\Backlog.Cloud.csproj");
 
 // --- Test harnesses (src/harness/) ---------------------------------------
-// The two projects below are NOT shipped channels. They are Blazor Server hosts
-// that exist purely so the shared Razor components can be exercised in Aspire
-// and driven by Playwright — the MAUI heads cannot be automated that way.
+// The projects below are NOT shipped channels. They are development-only hosts
+// and local doubles so Aspire and Playwright can exercise app behavior without
+// deploying cloud dependencies or MAUI heads.
+
+// Local Azure Foundry-compatible endpoint used only by Aspire development runs.
+var azureFoundryTest = builder.AddProject("azure-foundry-test", "..\\..\\harness\\Backlog.AzureFoundry.TestService\\Backlog.AzureFoundry.TestService.csproj");
 
 // Desktop UI in the browser: hosts Backlog.Desktop.UI, the same components the
 // MAUI Blazor Hybrid desktop head renders in its WebView.
 builder.AddProject("desktop-web-harness", "..\\..\\harness\\Backlog.Desktop.WebHarness\\Backlog.Desktop.WebHarness.csproj")
-    .WithReference(cloud);
+    .WithReference(cloud)
+    .WithReference(azureFoundryTest)
+    .WithEnvironment("BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT", azureFoundryTest.GetEndpoint("http"))
+    .WaitFor(azureFoundryTest);
 
 // Mobile UI in the browser. The Android head needs an emulator, so this harness
 // hosts the same Razor components (Backlog.Mobile.UI) at phone width.
@@ -51,3 +57,4 @@ builder.AddExecutable(
     .WithExplicitStart();
 
 builder.Build().Run();
+

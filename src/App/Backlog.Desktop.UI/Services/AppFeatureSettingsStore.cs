@@ -19,6 +19,7 @@ public sealed class AppFeatureSettingsStore
     public const string GitHubIntegration = "github-integration";
     public const string FeedbackReporting = "feedback-reporting";
     public const string CopilotCli = "copilot-cli";
+    public const string AiAssistant = "ai-assistant";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -62,7 +63,8 @@ public sealed class AppFeatureSettingsStore
         new(SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers."),
         new(GitHubIntegration, "GitHub integration", "Configure GitHub access, push entries to issues, and refresh issue or pull request state."),
         new(FeedbackReporting, "Feedback reporting", "Report Desktop app issues to GitHub with current-screen context and a screenshot."),
-        new(CopilotCli, "Copilot CLI", "Start GitHub Copilot CLI from Backlog workflows.")
+        new(CopilotCli, "Copilot CLI", "Start GitHub Copilot CLI from Backlog workflows."),
+        new(AiAssistant, "AI assistant", "Ask questions about visible backlog content through Azure Foundry.")
     ];
 
     public bool IsEnabled(string key)

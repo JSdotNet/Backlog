@@ -63,7 +63,8 @@ public sealed class AppFeatureSettingsStoreTests
                 AppFeatureSettingsStore.SystemTools,
                 AppFeatureSettingsStore.GitHubIntegration,
                 AppFeatureSettingsStore.FeedbackReporting,
-                AppFeatureSettingsStore.CopilotCli
+                AppFeatureSettingsStore.CopilotCli,
+                AppFeatureSettingsStore.AiAssistant
             ],
             AppFeatureSettingsStore.Features.Select(feature => feature.Key));
     }
