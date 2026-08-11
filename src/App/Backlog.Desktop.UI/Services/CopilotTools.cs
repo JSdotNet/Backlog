@@ -74,7 +74,7 @@ public sealed record CopilotToolActionResult(bool Succeeded, string Message)
 public sealed record CopilotToolConfigurationPaths(string CatalogPath, string PcConfigPath)
 {
     private const string DefaultRepositoryRoot = "%USERPROFILE%\\.copilot\\repos\\Backlog";
-    private const string ToolFolderName = "tools";
+    private const string ToolFolderName = ".tools";
     private const string CatalogFileName = "copilot-tools.json";
 
     public static CopilotToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null)
