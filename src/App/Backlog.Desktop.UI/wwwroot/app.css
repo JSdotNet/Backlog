@@ -212,6 +212,7 @@ h1, h2, h3 {
     align-items: center;
     gap: var(--spacing-md);
     flex-wrap: wrap;
+    margin-bottom: var(--spacing-md);
 }
 
 .filter-group {
@@ -1245,13 +1246,43 @@ h1, h2, h3 {
     padding-right: var(--spacing-xs);
 }
 
+.metadata-editor {
+    height: 1.5rem;
+    padding: 0;
+}
+
+.metadata-editor__select {
+    width: 100%;
+    min-width: 0;
+    min-height: 1.5rem;
+    padding: 1px var(--spacing-xs);
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+}
+
+.metadata-editor__select:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+}
+
+.metadata-editor--type {
+    width: 5.75rem;
+    min-width: 5.75rem;
+}
+
 /* Priority is an outline, so it reads as a different kind of fact than status. */
 .badge--priority {
     background: transparent;
     border: var(--border-width) solid var(--color-border);
     color: var(--color-text-secondary);
     justify-content: center;
-    min-width: 3.875rem;
+    min-width: 4.75rem;
 }
 
 .badge--priority-high { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
@@ -1271,6 +1302,12 @@ h1, h2, h3 {
     border: var(--border-width) solid var(--color-border);
     padding-left: var(--spacing-xs);
     padding-right: var(--spacing-xs);
+}
+
+.metadata-editor--repo {
+    width: 7rem;
+    min-width: 5rem;
+    max-width: 9rem;
 }
 
 .badge--draft {
@@ -1387,8 +1424,8 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-.entry-doc__tag-editor {
-    min-width: 4.5rem;
+.entry-doc__tag-select {
+    min-width: 5.5rem;
     max-width: 12rem;
     height: 1.5rem;
     padding: 0 var(--spacing-xs);
@@ -1400,17 +1437,13 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
-.entry-doc__tag-editor::placeholder {
-    color: var(--color-text-disabled);
-}
-
-.entry-doc__tag-editor:hover,
-.entry-doc__tag-editor:focus {
+.entry-doc__tag-select:hover,
+.entry-doc__tag-select:focus {
     border-color: var(--color-border);
     background: var(--color-background-raised);
 }
 
-.entry-doc__tag-editor:focus-visible {
+.entry-doc__tag-select:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 1px;
 }
@@ -1460,6 +1493,10 @@ h1, h2, h3 {
 
     .entry-doc--one-line .entry-doc__meta-start .badge:not(.badge--area) {
         display: none;
+    }
+
+    .entry-doc--one-line .entry-doc__meta-start .badge--area {
+        display: inline-flex;
     }
 
     .entry-doc--one-line .entry-doc__meta-start {

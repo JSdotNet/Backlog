@@ -763,17 +763,50 @@
     private RenderFragment RenderEntryMetadata(EntryRow row, bool oneLine) =>
         @<div class="entry-doc__meta" @onclick:stopPropagation="true">
             <span class="entry-doc__meta-start">
-                <span class="badge badge--type" data-testid="type-badge">@Humanize(row.PreviewType.ToString())</span>
-                <span class="badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">@Humanize(row.PreviewPriority.ToString())</span>
+                <label class="metadata-editor metadata-editor--type badge badge--type" data-testid="type-badge">
+                    <span class="sr-only">Change type</span>
+                    <select class="metadata-editor__select"
+                            value="@row.PreviewType"
+                            aria-label="Change type"
+                            title="Change type"
+                            @onchange="e => OnTypeChangedAsync(row, e)">
+                        @foreach (var type in TypeOptions())
+                        {
+                            <option value="@type">@Humanize(type.ToString())</option>
+                        }
+                    </select>
+                </label>
 
-                @if (!string.IsNullOrEmpty(row.PreviewArea))
-                {
-                    <span class="badge badge--area" data-testid="area-badge">@("@" + row.PreviewArea)</span>
-                }
+                <label class="metadata-editor metadata-editor--priority badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">
+                    <span class="sr-only">Change priority</span>
+                    <select class="metadata-editor__select"
+                            value="@row.PreviewPriority"
+                            aria-label="Change priority"
+                            title="Change priority"
+                            @onchange="e => OnPriorityChangedAsync(row, e)">
+                        @foreach (var priority in PriorityOptions())
+                        {
+                            <option value="@priority">@Humanize(priority.ToString())</option>
+                        }
+                    </select>
+                </label>
 
-                @if (row.SubItemCount > 0)
+                @if (KnowledgeRepositories.Count > 0)
                 {
-                    <span class="badge badge--progress" data-testid="progress-text">@row.ProgressText</span>
+                    <label class="metadata-editor metadata-editor--repo badge badge--area" data-testid="area-badge">
+                        <span class="sr-only">Change repository</span>
+                        <select class="metadata-editor__select"
+                                value="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                                aria-label="Change repository"
+                                title="Change repository"
+                                @onchange="e => OnRepositoryChangedAsync(row, e)">
+                            <option value="">No repo</option>
+                            @foreach (var repository in KnowledgeRepositories)
+                            {
+                                <option value="@repository.Alias">@repository.Alias</option>
+                            }
+                        </select>
+                    </label>
                 }
             </span>
 
@@ -931,13 +964,18 @@
         </div>;
 
     private RenderFragment RenderTagEditor(EntryRow row) =>
-        @<input class="entry-doc__tag-editor"
-                data-testid="entry-tags-input"
-                aria-label="Edit tags"
-                title="Edit tags"
-                value="@TagText(row)"
-                placeholder="#tag"
-                @onchange="e => OnTagsChangedAsync(row, e)" />;
+        @<select class="entry-doc__tag-select"
+                 data-testid="entry-tags-input"
+                 aria-label="Edit tags"
+                 title="Edit tags"
+                 multiple
+                 size="1"
+                 @onchange="e => OnTagsChangedAsync(row, e)">
+            @foreach (var tag in TagOptions(row))
+            {
+                <option value="@tag" selected="@row.PreviewMetadataTags.Contains(tag, StringComparer.OrdinalIgnoreCase)">#@tag</option>
+            }
+        </select>;
 
     /// <summary>The grab areas around an entry — one on each side. All four are
     /// drag sources and drop targets. Only the top rail takes tab focus (four
@@ -1084,6 +1122,25 @@
 
     private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
 
+    private async Task OnTypeChangedAsync(EntryRow row, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<EntryType>(e.Value?.ToString(), out var type))
+        {
+            await State.ChangeTypeAsync(row, type);
+        }
+    }
+
+    private async Task OnPriorityChangedAsync(EntryRow row, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<Priority>(e.Value?.ToString(), out var priority))
+        {
+            await State.ChangePriorityAsync(row, priority);
+        }
+    }
+
+    private async Task OnRepositoryChangedAsync(EntryRow row, ChangeEventArgs e) =>
+        await State.ChangeAreaAsync(row, e.Value?.ToString());
+
     private async Task OnStatusChangedAsync(EntryRow row, ChangeEventArgs e)
     {
         if (Enum.TryParse<EntryStatus>(e.Value?.ToString(), out var status))
@@ -1093,7 +1150,11 @@
     }
 
     private async Task OnTagsChangedAsync(EntryRow row, ChangeEventArgs e) =>
-        await State.ChangeTagsAsync(row, e.Value?.ToString() ?? string.Empty);
+        await State.ChangeTagsAsync(row, SelectedTags(e));
+
+    private static IReadOnlyList<EntryType> TypeOptions() => Enum.GetValues<EntryType>();
+
+    private static IReadOnlyList<Priority> PriorityOptions() => [Priority.Low, Priority.Medium, Priority.High];
 
     private static IReadOnlyList<EntryStatus> StatusOptions() => Enum.GetValues<EntryStatus>();
 
@@ -1112,8 +1173,21 @@
 
     private bool IsEntryFocused(EntryRow row) => _focusedEntryKey == row.Key;
 
-    private static string TagText(EntryRow row) =>
-        string.Join(" ", row.PreviewMetadataTags.Select(tag => "#" + tag));
+    private IReadOnlyList<string> TagOptions(EntryRow row) =>
+        State.Rows
+            .SelectMany(existing => existing.PreviewMetadataTags)
+            .Concat(row.PreviewMetadataTags)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static IReadOnlyList<string> SelectedTags(ChangeEventArgs e) => e.Value switch
+    {
+        string[] values => values,
+        IEnumerable<string> values => values.ToList(),
+        string value when value.Length > 0 => [value],
+        _ => []
+    };
 
     private async Task OnEditorKeyDownAsync(EntryRow row, KeyboardEventArgs e)
     {

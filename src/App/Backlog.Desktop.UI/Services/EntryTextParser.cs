@@ -576,20 +576,41 @@ internal static class EntryTextParser
             : $"# {entry.Title}\n{meta}\n\n{body}\n";
     }
 
+    public static string WithType(string raw, EntryType type) =>
+        RewriteMetaLine(raw, type: type);
+
+    public static string WithPriority(string raw, Priority priority) =>
+        RewriteMetaLine(raw, priority: priority);
+
     public static string WithStatus(string raw, EntryStatus status) =>
-        RewriteMetaLine(raw, status, tags: null);
+        RewriteMetaLine(raw, status: status);
+
+    public static string WithArea(string raw, string? area) =>
+        RewriteMetaLine(raw, area: area, updateArea: true);
+
+    public static string WithTags(string raw, IEnumerable<string> tags) =>
+        RewriteMetaLine(raw, tags: NormalizeTags(tags));
 
     public static string WithTags(string raw, string tags) =>
-        RewriteMetaLine(raw, status: null, ParseTagsInput(tags));
+        RewriteMetaLine(raw, tags: ParseTagsInput(tags));
 
     public static IReadOnlyList<string> ParseTagsInput(string tags) =>
-        Regex.Split(tags ?? string.Empty, @"[\s,]+")
-            .Select(tag => tag.Trim().TrimStart('#').ToLowerInvariant())
+        NormalizeTags(Regex.Split(tags ?? string.Empty, @"[\s,]+"));
+
+    private static IReadOnlyList<string> NormalizeTags(IEnumerable<string> tags) =>
+        tags.Select(tag => tag.Trim().TrimStart('#').ToLowerInvariant())
             .Where(tag => TagRegex.IsMatch("#" + tag))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    private static string RewriteMetaLine(string raw, EntryStatus? status, IReadOnlyList<string>? tags)
+    private static string RewriteMetaLine(
+        string raw,
+        EntryType? type = null,
+        Priority? priority = null,
+        EntryStatus? status = null,
+        string? area = null,
+        bool updateArea = false,
+        IReadOnlyList<string>? tags = null)
     {
         var normalized = Normalize(raw);
         var lines = normalized.Split('\n').ToList();
@@ -604,10 +625,32 @@ internal static class EntryTextParser
             ? TokenRegex.Matches(lines[metaIndex]).Select(match => match.Groups[1].Value.Trim()).Where(token => token.Length > 0).ToList()
             : DefaultMetaTokens(Parse(normalized));
 
+        if (type is not null)
+        {
+            tokens.RemoveAll(IsTypeToken);
+            tokens.Insert(0, TypeToken(type.Value));
+        }
+
+        if (priority is not null)
+        {
+            tokens.RemoveAll(token => token.StartsWith('*'));
+            tokens.Insert(Math.Min(1, tokens.Count), "*" + PriorityToken(priority.Value));
+        }
+
         if (status is not null)
         {
             tokens.RemoveAll(token => token.StartsWith('!'));
             tokens.Insert(Math.Min(2, tokens.Count), "!" + StatusToken(status.Value));
+        }
+
+        if (updateArea)
+        {
+            tokens.RemoveAll(token => token.StartsWith('@'));
+            var normalizedArea = (area ?? string.Empty).Trim().TrimStart('@').ToLowerInvariant();
+            if (normalizedArea.Length > 0)
+            {
+                tokens.Insert(Math.Min(3, tokens.Count), "@" + normalizedArea);
+            }
         }
 
         if (tags is not null)
@@ -642,6 +685,11 @@ internal static class EntryTextParser
         tokens.AddRange(parsed.MetadataTags.Select(tag => "#" + tag));
         return tokens;
     }
+
+    private static bool IsTypeToken(string token) =>
+        token.Length > 0
+        && token[0] is not ('!' or '*' or '@' or '#')
+        && TypeTokens.ContainsKey(NormalizeToken(token));
 
     private static int FirstContentLine(IReadOnlyList<string> lines)
     {

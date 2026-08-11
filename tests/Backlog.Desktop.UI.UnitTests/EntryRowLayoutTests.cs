@@ -165,4 +165,41 @@ public sealed class EntryRowLayoutTests
         Assert.Equal(new[] { "sync" }, row.PreviewMetadataTags);
         Assert.Contains("bodytag", row.PreviewTags);
     }
+
+    [Fact]
+    public void Type_priority_and_area_updates_rewrite_canonical_metadata()
+    {
+        const string raw =
+            "# Prepare review\n" +
+            "`task` `*medium` `!draft` `@repos` `#sync`\n\n" +
+            "Keep #bodytag here.\n";
+
+        var typed = EntryTextParser.WithType(raw, EntryType.Prompt);
+        var prioritized = EntryTextParser.WithPriority(typed, Priority.High);
+        var filed = EntryTextParser.WithArea(prioritized, "Backlog");
+
+        Assert.Contains("`prompt`", filed);
+        Assert.Contains("`*high`", filed);
+        Assert.Contains("`!draft`", filed);
+        Assert.Contains("`@backlog`", filed);
+        Assert.Contains("`#sync`", filed);
+        Assert.DoesNotContain("`task`", filed);
+        Assert.DoesNotContain("`*medium`", filed);
+        Assert.DoesNotContain("`@repos`", filed);
+        Assert.Contains("Keep #bodytag here.", filed);
+    }
+
+    [Fact]
+    public void Area_update_can_clear_repository_metadata()
+    {
+        const string raw =
+            "# Prepare review\n" +
+            "`task` `*medium` `!draft` `@repos` `#sync`\n";
+
+        var rewritten = EntryTextParser.WithArea(raw, string.Empty);
+
+        Assert.DoesNotContain("`@repos`", rewritten);
+        Assert.Contains("`#sync`", rewritten);
+    }
+
 }

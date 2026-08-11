@@ -358,22 +358,27 @@ public sealed class BacklogDesktopState : IDisposable
         Changed?.Invoke();
     }
 
-    public async Task ChangeStatusAsync(EntryRow row, EntryStatus status)
-    {
-        var rewritten = EntryTextParser.WithStatus(row.RawText, status);
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal) && row.Status == status) return;
+    public async Task ChangeTypeAsync(EntryRow row, EntryType type) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithType(row.RawText, type));
 
-        CancelDebounce(row);
-        row.RawText = rewritten;
-        await SaveRowAsync(row, isFlush: true);
-        ApplyFilter();
-        Changed?.Invoke();
-    }
+    public async Task ChangePriorityAsync(EntryRow row, Priority priority) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithPriority(row.RawText, priority));
 
-    public async Task ChangeTagsAsync(EntryRow row, string tags)
+    public async Task ChangeStatusAsync(EntryRow row, EntryStatus status) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status), forceWhenEqual: row.Status != status);
+
+    public async Task ChangeAreaAsync(EntryRow row, string? area) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithArea(row.RawText, area));
+
+    public async Task ChangeTagsAsync(EntryRow row, IEnumerable<string> tags) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithTags(row.RawText, tags));
+
+    public async Task ChangeTagsAsync(EntryRow row, string tags) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithTags(row.RawText, tags));
+
+    private async Task RewriteMetadataAsync(EntryRow row, string rewritten, bool forceWhenEqual = false)
     {
-        var rewritten = EntryTextParser.WithTags(row.RawText, tags);
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal) && !forceWhenEqual) return;
 
         CancelDebounce(row);
         row.RawText = rewritten;
