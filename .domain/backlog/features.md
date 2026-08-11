@@ -26,7 +26,13 @@ depends-on: [.domain/backlog/features.md#feature-backlog-entry-creation]
 ```
 
 Edit and enrich entries over time: set priority and status, add context links,
-and flag oversized items with suggested splits.
+and flag oversized items with suggested splits. The desktop experience keeps
+Markdown canonical while letting users adjust type, priority, repository,
+status, and metadata tags directly from the reading layout. Expanded entries
+open into an inline Markdown editor for the full entry body; compact entries can
+stay on one line when they only need metadata-level refinement.
+
+![Desktop backlog entry with inline Markdown editing](assets/backlog-entry-inline-markdown-editing.png)
 
 ### Sub-feature: Sub-items and steps
 
@@ -35,8 +41,9 @@ status: draft
 ```
 
 Break an entry into ordered sub-items with title, status (pending → done), and
-notes. Sub-items reorder/add/remove independently, parent progress reflects
-completion (e.g. 3/5 done), and they can project to GitHub issue task lists.
+notes. Sub-items can be toggled between open and done from the rendered entry,
+reorder/add/remove independently, parent progress reflects completion (e.g. 3/5
+done), and they can project to GitHub issue task lists.
 
 ## Feature: Multi-repo targeting
 
