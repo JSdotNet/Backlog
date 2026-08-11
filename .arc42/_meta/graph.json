@@ -6,26 +6,26 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 70,
-    "edges": 112,
+    "nodes": 73,
+    "edges": 116,
     "nodesByFolder": {
-      "arc42": 57,
-      "domain": 11,
+      "arc42": 58,
+      "domain": 13,
       "tech": 2
     },
     "nodesByType": {
       "file": 14,
-      "chapter": 56
+      "chapter": 59
     },
     "nodesByStatus": {
-      "active": 49,
-      "draft": 18,
+      "active": 50,
+      "draft": 20,
       "accepted": 1,
       "adopted": 2
     },
     "edgesByType": {
-      "contains": 44,
-      "related": 68
+      "contains": 45,
+      "related": 71
     }
   },
   "problems": [],
@@ -617,6 +617,24 @@
       },
       {
         "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#feature-enablement",
+          "label": "Feature Enablement",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "feature-enablement",
+          "level": 2,
+          "line": 34,
+          "status": "active",
+          "related": [
+            ".arc42/04-solution-strategy.md",
+            ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+            ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/08-crosscutting-concepts.md#tagging-and-organization",
           "label": "Tagging and Organization",
           "type": "chapter",
@@ -624,7 +642,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 34,
+          "line": 55,
           "status": "active"
         }
       },
@@ -637,7 +655,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 45,
+          "line": 66,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -653,7 +671,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 60,
+          "line": 81,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -669,7 +687,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 71,
+          "line": 92,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -1001,6 +1019,41 @@
           ],
           "related": [
             ".arc42/07-deployment-view.md#installation-and-updates"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "label": "Feature: Repository knowledge areas",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "feature-repository-knowledge-areas",
+          "level": 2,
+          "line": 60,
+          "status": "draft",
+          "related": [
+            ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
+            ".domain/backlog/features.md#feature-search-filter-and-organize"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
+          "label": "Sub-feature: Copilot tool catalog",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/dev-pc-management/features.md",
+          "slug": "sub-feature-copilot-tool-catalog",
+          "level": 3,
+          "line": 63,
+          "status": "draft",
+          "related": [
+            ".domain/technology-stack/features.md#feature-technology-baseline-definition"
           ],
           "outOfScope": true
         }
@@ -1364,6 +1417,14 @@
           "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#storage-and-sync",
           "source": ".arc42/08-crosscutting-concepts.md",
           "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#feature-enablement",
+          "source": ".arc42/08-crosscutting-concepts.md",
+          "target": ".arc42/08-crosscutting-concepts.md#feature-enablement",
           "type": "contains"
         }
       },
@@ -1828,6 +1889,30 @@
           "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.domain/capture/domain.md#domain-service-source-adapter",
           "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
           "target": ".domain/capture/domain.md#domain-service-source-adapter",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#feature-enablement->.arc42/04-solution-strategy.md",
+          "source": ".arc42/08-crosscutting-concepts.md#feature-enablement",
+          "target": ".arc42/04-solution-strategy.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#feature-enablement->.domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "source": ".arc42/08-crosscutting-concepts.md#feature-enablement",
+          "target": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#feature-enablement->.domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
+          "source": ".arc42/08-crosscutting-concepts.md#feature-enablement",
+          "target": ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
           "type": "related"
         }
       },

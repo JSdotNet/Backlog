@@ -69,6 +69,21 @@ Spawn and close downstream artifacts from an entry: one GitHub issue and/or
 Copilot CLI task per target repo, created when work starts and closed on
 completion, without duplicating the backlog item.
 
+### Sub-feature: Issue projection and state read-back
+
+```meta
+status: draft
+related: [.domain/repository-management/features.md#sub-feature-github-access-resolution, .domain/monitoring/features.md#sub-feature-backlog-and-github-progress]
+```
+
+Push an entry to its target repository as an issue carrying the entry's title,
+body, and tags, and keep the resulting issue reference on the entry so the link
+is part of the item rather than a note about it. The entry can then be asked to
+re-read that issue's current state, and the pull request that references it, so
+downstream progress is visible from the backlog. Reading GitHub state is a
+deliberate act rather than a background poll, because the backlog has to open
+instantly and offline.
+
 ## Feature: Search, filter and organize
 
 ```meta
@@ -99,6 +114,33 @@ status: draft
 
 One-click copy of prompt text to clipboard, usage-history logging on copy/use,
 and reopening historical prompts from the usage log.
+
+### Sub-feature: Hand-off to Copilot CLI
+
+```meta
+status: draft
+related: [.domain/productivity/features.md#sub-feature-ai-activity-capture]
+```
+
+Hand an entry to GitHub Copilot CLI as a task brief without retyping it: the
+entry's own markdown — title, metadata, body, and sub-items — is the brief, and
+the hand-off is recorded in the entry's usage history so the entry itself shows
+that AI was put to work on it.
+
+## Feature: AI assistance over the visible backlog
+
+```meta
+status: draft
+related: [.domain/second-brain/features.md#feature-repository-knowledge-areas, .domain/productivity/features.md#feature-ai-productivity-tracking]
+```
+
+Ask questions about the work currently in view and get an answer grounded in it.
+The question is answered from the entries the active filters leave visible plus
+the loaded backlog knowledge, not from the entire backlog, so the answer matches
+what the person is actually looking at. Entries that were opened but never
+edited are left out, and the assembled context is capped so a large backlog
+degrades into a partial answer rather than a failure. AI assistance is an opt-in
+capability and the product remains fully usable with it switched off.
 
 ## Feature: Archive and lifecycle
 
