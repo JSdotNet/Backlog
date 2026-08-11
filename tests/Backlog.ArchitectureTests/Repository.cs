@@ -4,7 +4,7 @@ namespace Backlog.ArchitectureTests;
 
 /// <summary>
 /// Walks up from the test binary to the repository root — the folder that holds
-/// <c>src</c>, <c>tests</c>, and <c>harness</c> — so these tests keep working no
+/// <c>src</c>, <c>tests</c>, and <c>Backlog.sln</c> — so these tests keep working no
 /// matter where the build output lands.
 /// </summary>
 internal static class Repository
@@ -37,7 +37,7 @@ internal static class Repository
         {
             if (Directory.Exists(Path.Combine(dir.FullName, "src"))
                 && Directory.Exists(Path.Combine(dir.FullName, "tests"))
-                && Directory.Exists(Path.Combine(dir.FullName, "harness")))
+                && File.Exists(Path.Combine(dir.FullName, "Backlog.sln")))
             {
                 return dir;
             }
