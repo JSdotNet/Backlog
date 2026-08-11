@@ -3,7 +3,9 @@
     {
       "name": "copilot-app",
       "source": "JSdotNet/Copilot:plugins/copilot-app",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "copilot-app-canvases",
@@ -11,127 +13,173 @@
       "kind": "repository-canvases",
       "repoPath": "%USERPROFILE%\\.copilot\\repos\\copilot-plugin-source",
       "extensionsPath": "plugins\\copilot-app\\extensions",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "architecture",
       "source": "JSdotNet/Copilot:plugins/architecture",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "domain-design",
       "source": "JSdotNet/Copilot:plugins/domain-design",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "copilot-plugin-manager",
       "source": "JSdotNet/Copilot:plugins/copilot-plugin-manager",
-      "enabled": false
+      "enabled": false,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "copilot-spec-builder",
       "source": "JSdotNet/Copilot:plugins/copilot-spec-builder",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "development",
       "source": "JSdotNet/Copilot:plugins/development",
-      "enabled": false
+      "enabled": false,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "documentation",
       "source": "JSdotNet/Copilot:plugins/documentation",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "product-owner",
       "source": "JSdotNet/Copilot:plugins/product-owner",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "qa",
       "source": "JSdotNet/Copilot:plugins/qa",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "review",
       "source": "JSdotNet/Copilot:plugins/review",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "wip-convention",
       "source": "JSdotNet/Copilot:plugins/wip-convention",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "aikido",
       "source": "JSdotNet/Copilot:plugins/aikido",
-      "enabled": false
+      "enabled": false,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "fincent",
       "source": "JSdotNet/Copilot:plugins/fincent",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "github",
       "source": "JSdotNet/Copilot:plugins/github",
-      "enabled": false
+      "enabled": false,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "jira",
       "source": "JSdotNet/Copilot:plugins/jira",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "ux-design",
       "source": "JSdotNet/Copilot:plugins/ux-design",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "worktree-parallel",
       "source": "JSdotNet/Copilot:plugins/worktree-parallel",
-      "enabled": false
+      "enabled": false,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "csharp-coding",
       "source": "JSdotNet/Copilot:plugins/csharp-coding",
       "kind": "repository",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
       "name": "automations",
       "source": "JSdotNet/Copilot:plugins/automations",
       "kind": "repository",
-      "enabled": false
+      "enabled": false,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
-        "name": "jsdotnet-project-guidelines",
-        "source": "JSdotNet/Project-Guidelines-MCP:plugins/guidelines",
-        "kind": "repository-skills",
-        "repoPath": "%USERPROFILE%\\.copilot\\repos\\project-guidelines-mcp",
-        "skillsPath": "plugins\\guidelines\\skills",
-        "enabled": true
+      "name": "jsdotnet-project-guidelines",
+      "source": "JSdotNet/Project-Guidelines-MCP:plugins/guidelines",
+      "kind": "repository-skills",
+      "repoPath": "%USERPROFILE%\\.copilot\\repos\\project-guidelines-mcp",
+      "skillsPath": "plugins\\guidelines\\skills",
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     },
     {
-        "name": "jsdotnet-project-design",
-        "source": "JSdotNet/Project-Guidelines-MCP:plugins/design",
-        "kind": "repository-skills",
-        "repoPath": "%USERPROFILE%\\.copilot\\repos\\project-guidelines-mcp",
-        "skillsPath": "plugins\\design\\skills",
-        "enabled": true
+      "name": "jsdotnet-project-design",
+      "source": "JSdotNet/Project-Guidelines-MCP:plugins/design",
+      "kind": "repository-skills",
+      "repoPath": "%USERPROFILE%\\.copilot\\repos\\project-guidelines-mcp",
+      "skillsPath": "plugins\\design\\skills",
+      "enabled": true,
+      "installedVersion": "local",
+      "availableVersion": "catalog"
     }
   ],
   "mcpServers": [
     {
       "name": "jsdotnet-project-guidelines",
       "packageId": "JSdotNet.MCP.Guidelines",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "not installed",
+      "availableVersion": "catalog"
     },
     {
       "name": "jsdotnet-project-design",
       "packageId": "JSdotNet.MCP.Design",
-      "enabled": true
+      "enabled": true,
+      "installedVersion": "not installed",
+      "availableVersion": "catalog"
     }
   ]
 }

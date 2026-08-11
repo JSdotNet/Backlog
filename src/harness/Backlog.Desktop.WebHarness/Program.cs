@@ -2,6 +2,7 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Desktop.UI.Components;
 using Backlog.Desktop.UI.Services;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,7 +31,7 @@ builder.Services.AddScoped<DomainKnowledgeStore>();
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-builder.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
+builder.Services.AddSingleton<ICopilotToolService, LocalDevelopmentCopilotToolService>();
 
 var app = builder.Build();
 
