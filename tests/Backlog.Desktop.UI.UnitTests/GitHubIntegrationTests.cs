@@ -13,6 +13,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class GitHubSettingsTests
 {
+    [Fact]
+    public void Knowledge_folder_defaults_place_instructions_first()
+    {
+        Assert.Equal("instructions", KnowledgeFolderSetting.Defaults().First().Key);
+    }
     [Theory]
     [InlineData("JSdotNet/Backlog", "backlog", "JSdotNet", "Backlog")]
     [InlineData("  JSdotNet/Backlog  ", "backlog", "JSdotNet", "Backlog")]

@@ -111,8 +111,8 @@ public sealed record KnowledgeFolderSetting(string Key, string DisplayName, stri
 
     public static List<KnowledgeFolderSetting> Defaults() =>
     [
-        new(".backlog", "Backlog", ".backlog"),
         new("instructions", "Instructions", string.Empty, SupportsPathOverride: false),
+        new(".backlog", "Backlog", ".backlog"),
         new(".domain", "Domain", ".domain"),
         new(".arc42", "arc42 architecture", ".arc42"),
         new(".tech", "Technology", ".tech"),
