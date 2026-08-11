@@ -17,6 +17,8 @@ builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredS
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<GitHubIntegration>();
+builder.Services.AddSingleton<DesignKnowledgeProvider>();
+builder.Services.AddSingleton<KnowledgeBacklog>();
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddSingleton<Arc42KnowledgeStore>();
 

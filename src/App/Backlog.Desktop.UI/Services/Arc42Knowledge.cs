@@ -116,30 +116,7 @@ public sealed record KnowledgeDocument(
     public string Status => Metadata.Status;
 }
 
-public sealed record KnowledgeMeta(string Status, IReadOnlyList<string> Related)
-{
-    public static KnowledgeMeta Empty { get; } = new("draft", []);
-}
-
 public sealed record KnowledgeHeadingSummary(int Level, string Text, KnowledgeMeta Metadata);
-
-public abstract record KnowledgeBlock;
-
-public sealed record KnowledgeHeadingBlock(int Level, string Text, KnowledgeMeta Metadata) : KnowledgeBlock;
-
-public sealed record KnowledgeParagraphBlock(IReadOnlyList<MdInline> Content) : KnowledgeBlock;
-
-public sealed record KnowledgeListBlock(bool Ordered, IReadOnlyList<IReadOnlyList<MdInline>> Items) : KnowledgeBlock;
-
-public sealed record KnowledgeQuoteBlock(IReadOnlyList<MdInline> Content) : KnowledgeBlock;
-
-public sealed record KnowledgeCodeBlock(string Language, string Text) : KnowledgeBlock;
-
-public sealed record KnowledgeDiagramBlock(string Language, string Text, string Title) : KnowledgeBlock;
-
-public sealed record KnowledgeTableBlock(IReadOnlyList<IReadOnlyList<MdInline>> Rows) : KnowledgeBlock;
-
-public sealed record KnowledgeDividerBlock : KnowledgeBlock;
 
 public static class KnowledgeMarkdownParser
 {
@@ -156,20 +133,20 @@ public static class KnowledgeMarkdownParser
         var listItems = new List<IReadOnlyList<MdInline>>();
         bool? orderedList = null;
         var title = Path.GetFileNameWithoutExtension(path);
-        var documentMeta = KnowledgeMeta.Empty;
+        var documentMeta = EmptyMeta();
         var diagramCount = 0;
 
         void FlushParagraph()
         {
             if (paragraph.Count == 0) return;
-            blocks.Add(new KnowledgeParagraphBlock(MarkdownPreview.ParseInlines(string.Join(" ", paragraph))));
+            blocks.Add(new KnowledgeParagraph(MarkdownPreview.ParseInlines(string.Join(" ", paragraph))));
             paragraph.Clear();
         }
 
         void FlushList()
         {
             if (listItems.Count == 0) return;
-            blocks.Add(new KnowledgeListBlock(orderedList ?? false, [.. listItems]));
+            blocks.Add(new KnowledgeList(orderedList ?? false, [.. listItems]));
             listItems.Clear();
             orderedList = null;
         }
@@ -201,11 +178,11 @@ public static class KnowledgeMarkdownParser
                 if (IsDiagramLanguage(language))
                 {
                     diagramCount++;
-                    blocks.Add(new KnowledgeDiagramBlock(language, text, DiagramTitle(text, diagramCount)));
+                    blocks.Add(new KnowledgeDiagram(language, text));
                 }
                 else
                 {
-                    blocks.Add(new KnowledgeCodeBlock(language, text));
+                    blocks.Add(new KnowledgeCode(language, text));
                 }
 
                 continue;
@@ -232,7 +209,7 @@ public static class KnowledgeMarkdownParser
                     documentMeta = metadata;
                 }
 
-                blocks.Add(new KnowledgeHeadingBlock(level, text, metadata));
+                blocks.Add(new KnowledgeSubheading(level, text));
                 headings.Add(new KnowledgeHeadingSummary(level, text, metadata));
                 continue;
             }
@@ -249,21 +226,21 @@ public static class KnowledgeMarkdownParser
                 }
 
                 index--;
-                blocks.Add(new KnowledgeTableBlock([.. tableLines.Select(ParseTableRow)]));
+                blocks.Add(ParseTable(tableLines));
                 continue;
             }
 
             if (trimmed.StartsWith("> ", StringComparison.Ordinal))
             {
                 FlushAll();
-                blocks.Add(new KnowledgeQuoteBlock(MarkdownPreview.ParseInlines(trimmed[2..])));
+                blocks.Add(new KnowledgeQuote(MarkdownPreview.ParseInlines(trimmed[2..])));
                 continue;
             }
 
             if (trimmed is "---" or "***" or "___")
             {
                 FlushAll();
-                blocks.Add(new KnowledgeDividerBlock());
+                blocks.Add(new KnowledgeDivider());
                 continue;
             }
 
@@ -302,7 +279,7 @@ public static class KnowledgeMarkdownParser
 
         if (index >= lines.Length || !string.Equals(lines[index].Trim(), "```meta", StringComparison.Ordinal))
         {
-            return (KnowledgeMeta.Empty, startIndex - 1);
+            return (EmptyMeta(), startIndex - 1);
         }
 
         var metaLines = new List<string>();
@@ -344,7 +321,11 @@ public static class KnowledgeMarkdownParser
             }
         }
 
-        return new KnowledgeMeta(status, related.Distinct(StringComparer.Ordinal).ToList());
+        return new KnowledgeMeta(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["status"] = status,
+            ["related"] = string.Join(", ", related.Distinct(StringComparer.Ordinal))
+        });
     }
 
     private static IEnumerable<string> ParseInlineList(string value)
@@ -365,11 +346,6 @@ public static class KnowledgeMarkdownParser
         language.Equals("mermaid", StringComparison.OrdinalIgnoreCase) ||
         language.StartsWith("c4", StringComparison.OrdinalIgnoreCase);
 
-    private static string DiagramTitle(string text, int number)
-    {
-        var title = text.Split('\n').Select(line => line.Trim()).FirstOrDefault(line => line.StartsWith("title ", StringComparison.OrdinalIgnoreCase));
-        return title is null ? $"Architecture diagram {number}" : title["title ".Length..].Trim();
-    }
 
     private static bool IsTableStart(string[] lines, int index) =>
         index + 1 < lines.Length && IsTableLine(lines[index]) && IsTableSeparator(lines[index + 1].Trim());
@@ -382,8 +358,24 @@ public static class KnowledgeMarkdownParser
         return cleaned.Length > 0 && cleaned.Split('|').All(cell => cell.Length >= 3 && cell.All(c => c is '-' or ':'));
     }
 
-    private static IReadOnlyList<MdInline> ParseTableRow(string line) =>
-        MarkdownPreview.ParseInlines(string.Join(" | ", line.Trim().Trim('|').Split('|', StringSplitOptions.TrimEntries)));
+    private static KnowledgeTable ParseTable(List<string> tableLines)
+    {
+        var rows = tableLines.Select(SplitTableRow).Where(row => row.Count > 0).ToList();
+        var headers = rows.Count > 0 ? rows[0] : [];
+        var body = rows.Count > 1 ? rows.Skip(1).ToList() : [];
+        return new KnowledgeTable(headers, body, false);
+    }
+
+    private static List<string> SplitTableRow(string line)
+    {
+        var text = line.Trim().Trim('|');
+        return [.. text.Split('|', StringSplitOptions.TrimEntries).Select(cell => cell.Trim())];
+    }
+
+    private static KnowledgeMeta EmptyMeta() => new(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["status"] = "draft"
+    });
 }
 
 
