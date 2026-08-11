@@ -15,6 +15,7 @@ builder.Services.AddSingleton<BacklogStore>();
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
+builder.Services.AddSingleton(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<DesignKnowledgeProvider>();
@@ -81,6 +82,16 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
     return settings;
 }
 
+static AppFeatureSettingsStore CreateLocalDevelopmentFeatureSettingsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_FEATURE_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "feature.settings.json");
+    }
+
+    return new AppFeatureSettingsStore(settingsPath);
+}
 static string? ResolveRepositoryRoot(string contentRootPath)
 {
     var configured = Environment.GetEnvironmentVariable("BACKLOG_REPOSITORY_ROOT");
@@ -103,3 +114,4 @@ static string? ResolveRepositoryRoot(string contentRootPath)
 
     return null;
 }
+

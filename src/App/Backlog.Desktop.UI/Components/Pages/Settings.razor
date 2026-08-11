@@ -3,6 +3,7 @@
 @inject IAppUpdateService Updates
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
+@inject AppFeatureSettingsStore Features
 
 @*
     The one screen in this app with a form control, and it earns it: a folder
@@ -19,34 +20,84 @@
 
     <nav class="settings-tabs" aria-label="Settings pages" role="tablist">
         <button type="button"
+                class="@SettingsTabClass(SettingsPage.Features)"
+                role="tab"
+                aria-selected="@SettingsTabSelected(SettingsPage.Features)"
+                @onclick="() => ShowSettingsPage(SettingsPage.Features)">
+            Features
+        </button>
+        <button type="button"
                 class="@SettingsTabClass(SettingsPage.Storage)"
                 role="tab"
                 aria-selected="@SettingsTabSelected(SettingsPage.Storage)"
                 @onclick="() => ShowSettingsPage(SettingsPage.Storage)">
             Storage
         </button>
-        <button type="button"
-                class="@SettingsTabClass(SettingsPage.Updates)"
-                role="tab"
-                aria-selected="@SettingsTabSelected(SettingsPage.Updates)"
-                @onclick="() => ShowSettingsPage(SettingsPage.Updates)">
-            Updates
-        </button>
-        <button type="button"
-                class="@SettingsTabClass(SettingsPage.Repositories)"
-                role="tab"
-                aria-selected="@SettingsTabSelected(SettingsPage.Repositories)"
-                @onclick="() => ShowSettingsPage(SettingsPage.Repositories)">
-            Repositories
-        </button>
-        <button type="button"
-                class="@SettingsTabClass(SettingsPage.GitHubAccess)"
-                role="tab"
-                aria-selected="@SettingsTabSelected(SettingsPage.GitHubAccess)"
-                @onclick="() => ShowSettingsPage(SettingsPage.GitHubAccess)">
-            GitHub access
-        </button>
+        @if (IsSettingsPageAvailable(SettingsPage.Updates))
+        {
+            <button type="button"
+                    class="@SettingsTabClass(SettingsPage.Updates)"
+                    role="tab"
+                    aria-selected="@SettingsTabSelected(SettingsPage.Updates)"
+                    @onclick="() => ShowSettingsPage(SettingsPage.Updates)">
+                Updates
+            </button>
+        }
+        @if (IsSettingsPageAvailable(SettingsPage.Repositories))
+        {
+            <button type="button"
+                    class="@SettingsTabClass(SettingsPage.Repositories)"
+                    role="tab"
+                    aria-selected="@SettingsTabSelected(SettingsPage.Repositories)"
+                    @onclick="() => ShowSettingsPage(SettingsPage.Repositories)">
+                Repositories
+            </button>
+        }
+        @if (IsSettingsPageAvailable(SettingsPage.GitHubAccess))
+        {
+            <button type="button"
+                    class="@SettingsTabClass(SettingsPage.GitHubAccess)"
+                    role="tab"
+                    aria-selected="@SettingsTabSelected(SettingsPage.GitHubAccess)"
+                    @onclick="() => ShowSettingsPage(SettingsPage.GitHubAccess)">
+                GitHub access
+            </button>
+        }
     </nav>
+
+    @if (_activePage == SettingsPage.Features)
+    {
+        <section class="setting" role="tabpanel" aria-label="Feature settings">
+            <h2 class="setting__title">Features</h2>
+            <p class="setting__description">
+                Turn off parts of the app that are not ready yet. Backlog stays available.
+            </p>
+            <div class="feature-flags" role="list" aria-label="Feature flags">
+                @foreach (var feature in AppFeatureSettingsStore.Features)
+                {
+                    <label class="@FeatureFlagClass(feature)" role="listitem">
+                        <span class="feature-flag__content">
+                            <span class="feature-flag__title">@feature.Name</span>
+                            <span class="feature-flag__description">@feature.Description</span>
+                            @if (feature.AlwaysEnabled)
+                            {
+                                <span class="feature-flag__status">Always available</span>
+                            }
+                        </span>
+                        <input type="checkbox"
+                               checked="@Features.IsEnabled(feature.Key)"
+                               disabled="@feature.AlwaysEnabled"
+                               aria-label="Enable @feature.Name"
+                               @onchange="eventArgs => SetFeatureEnabled(feature, eventArgs)" />
+                    </label>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_featureMessage))
+            {
+                <p class="setting__note" role="status">@_featureMessage</p>
+            }
+        </section>
+    }
 
     @if (_activePage == SettingsPage.Storage)
     {
@@ -390,13 +441,15 @@
     private string _draftToken = string.Empty;
     private string? _repoError;
     private GitHubConnection? _connection;
+    private string? _featureMessage;
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftKnowledgePaths = new(StringComparer.OrdinalIgnoreCase);
-    private SettingsPage _activePage = SettingsPage.Repositories;
+    private SettingsPage _activePage = SettingsPage.Features;
     private string? _activeRepositoryAlias;
 
     private enum SettingsPage
     {
+        Features,
         Storage,
         Updates,
         Repositories,
@@ -415,7 +468,43 @@
 
     private string RepositoryPageSelected(GitHubRepositoryRef repo) => IsActiveRepository(repo) ? "true" : "false";
 
-    private void ShowSettingsPage(SettingsPage page) => _activePage = page;
+    private void ShowSettingsPage(SettingsPage page)
+    {
+        if (IsSettingsPageAvailable(page))
+        {
+            _activePage = page;
+        }
+    }
+
+    private bool IsSettingsPageAvailable(SettingsPage page) => page switch
+    {
+        SettingsPage.Features or SettingsPage.Storage => true,
+        SettingsPage.Updates => Features.IsEnabled(AppFeatureSettingsStore.Updates),
+        SettingsPage.Repositories => Features.IsEnabled(AppFeatureSettingsStore.Repositories),
+        SettingsPage.GitHubAccess => Features.IsEnabled(AppFeatureSettingsStore.GitHubIntegration),
+        _ => false
+    };
+
+    private string FeatureFlagClass(AppFeatureDefinition feature) =>
+        feature.AlwaysEnabled ? "feature-flag feature-flag--locked" : "feature-flag";
+
+    private void SetFeatureEnabled(AppFeatureDefinition feature, ChangeEventArgs eventArgs)
+    {
+        var enabled = eventArgs.Value is bool value && value;
+        var error = Features.SetEnabled(feature.Key, enabled);
+        _featureMessage = error ?? (feature.AlwaysEnabled
+            ? $"{feature.Name} is always available."
+            : $"{feature.Name} is now {(enabled ? "enabled" : "disabled")}.");
+        EnsureActiveSettingsPage();
+    }
+
+    private void EnsureActiveSettingsPage()
+    {
+        if (!IsSettingsPageAvailable(_activePage))
+        {
+            _activePage = SettingsPage.Features;
+        }
+    }
 
     private void ShowRepositoryPage(string alias) => _activeRepositoryAlias = GitHubRepositoryRef.NormalizeAlias(alias);
 
@@ -440,7 +529,10 @@
 
         // Asking GitHub who we are is a network call, so it happens after the
         // page is on screen rather than holding it up.
-        await CheckConnectionAsync();
+        if (Features.IsEnabled(AppFeatureSettingsStore.GitHubIntegration))
+        {
+            await CheckConnectionAsync();
+        }
     }
 
     private async Task OnKeyDownAsync(KeyboardEventArgs e)
@@ -689,3 +781,4 @@
         StateHasChanged();
     }
 }
+
