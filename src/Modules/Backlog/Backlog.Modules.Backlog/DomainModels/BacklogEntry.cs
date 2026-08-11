@@ -163,6 +163,9 @@ public sealed class BacklogEntry
     /// <summary>Returns true if the entry may currently transition to <paramref name="target"/>.</summary>
     public bool CanChangeStatusTo(EntryStatus target) => IsTransitionAllowed(Status, target);
 
+    /// <summary>Sets the current status from canonical metadata without walking the lifecycle graph.</summary>
+    public void SetStatus(EntryStatus target) => Status = target;
+
     /// <summary>Moves the entry to <paramref name="target"/> if the transition is
     /// permitted by the lifecycle; throws otherwise.</summary>
     public void ChangeStatus(EntryStatus target)

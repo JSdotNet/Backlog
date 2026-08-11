@@ -783,14 +783,13 @@ h1, h2, h3 {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.4rem;
-    height: 1.4rem;
+    width: 1.75rem;
+    height: 1.75rem;
     padding: 0;
     border: var(--border-width) solid transparent;
     border-radius: var(--border-radius-sm);
     background: transparent;
     color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
     font-family: var(--font-family-mono);
     cursor: pointer;
 }
@@ -807,6 +806,7 @@ h1, h2, h3 {
 
 .entry-doc__fold-chevron {
     display: inline-block;
+    font-size: var(--font-size-sm);
     transition: transform var(--transition-fast);
 }
 
@@ -909,8 +909,8 @@ h1, h2, h3 {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 1.5rem;
+    height: 1.5rem;
     padding: 0;
     background: transparent;
     border: var(--border-width) solid transparent;
@@ -919,12 +919,7 @@ h1, h2, h3 {
     cursor: pointer;
     font-size: var(--font-size-sm);
     line-height: 1;
-    opacity: 0;
-    transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
-}
-
-.entry-doc:focus-within .entry-doc__delete {
-    opacity: 1;
+    transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .entry-doc__delete:hover {
@@ -933,7 +928,6 @@ h1, h2, h3 {
 }
 
 .entry-doc__delete:focus-visible {
-    opacity: 1;
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
@@ -1208,7 +1202,9 @@ h1, h2, h3 {
     color: var(--color-text-primary);
     justify-content: center;
     margin-left: var(--spacing-xs);
-    min-width: 4.25rem;
+    width: 7.5rem;
+    min-width: 7.5rem;
+    height: 1.5rem;
 }
 
 .badge--status-draft { background: var(--color-background-raised); color: var(--color-text-secondary); }
@@ -1218,6 +1214,8 @@ h1, h2, h3 {
 }
 
 .status-editor__select {
+    width: 100%;
+    min-width: 0;
     min-height: 1.5rem;
     padding: 1px var(--spacing-sm);
     border: none;
@@ -1318,14 +1316,15 @@ h1, h2, h3 {
     align-items: center;
     gap: var(--spacing-xs);
     min-width: 0;
+    height: 1.5rem;
 }
 
 .entry-doc__icon-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 1.5rem;
+    height: 1.5rem;
     padding: 0;
     border-radius: var(--border-radius-sm);
     background: transparent;
@@ -1347,6 +1346,24 @@ h1, h2, h3 {
 }
 
 .entry-doc__icon-action:disabled { opacity: 0.5; cursor: default; }
+
+.entry-doc__button-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    fill: currentColor;
+}
+
+.entry-doc__cli-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    font-family: var(--font-family-mono);
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1;
+}
 
 .entry-doc__icon-action--push { border-style: dashed; }
 
@@ -1396,6 +1413,12 @@ h1, h2, h3 {
 .entry-doc__tag-editor:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 1px;
+}
+
+@container (max-width: 58rem) {
+    .entry-doc__tags {
+        display: none;
+    }
 }
 
 @container (max-width: 58rem) {
@@ -1450,11 +1473,6 @@ h1, h2, h3 {
     .entry-doc--one-line .badge--status {
         min-width: auto;
         margin-left: 0;
-    }
-
-    .entry-doc--one-line:not(:focus-within) .entry-doc__actions .entry-doc__icon-action,
-    .entry-doc--one-line:not(:focus-within) .entry-doc__actions .entry-doc__delete {
-        display: none;
     }
 }
 

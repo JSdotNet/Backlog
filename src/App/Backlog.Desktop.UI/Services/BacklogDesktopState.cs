@@ -360,10 +360,8 @@ public sealed class BacklogDesktopState : IDisposable
 
     public async Task ChangeStatusAsync(EntryRow row, EntryStatus status)
     {
-        if (!BacklogEntry.IsTransitionAllowed(row.Status, status)) return;
-
         var rewritten = EntryTextParser.WithStatus(row.RawText, status);
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal) && row.Status == status) return;
 
         CancelDebounce(row);
         row.RawText = rewritten;
@@ -685,12 +683,12 @@ public sealed class BacklogDesktopState : IDisposable
             }
 
             // The domain always creates new entries at Draft — apply the typed
-            // status as an initial transition (ignored gracefully if it isn't a
-            // legal move straight out of Draft).
+            // status as the direct metadata value so the compact selector can
+            // jump to any state without requiring lifecycle stepping.
             var entry = new BacklogEntry(parsed.Title, parsed.Body, parsed.Type ?? EntryType.Task, parsed.Priority ?? Priority.Medium, tags: parsed.Tags);
-            if (parsed.Status is { } initialStatus && entry.CanChangeStatusTo(initialStatus))
+            if (parsed.Status is { } initialStatus)
             {
-                entry.ChangeStatus(initialStatus);
+                entry.SetStatus(initialStatus);
             }
 
             entry.SetOrder(Math.Max(Rows.IndexOf(row), 0));
@@ -732,9 +730,9 @@ public sealed class BacklogDesktopState : IDisposable
         existing.SetTags(parsed.Tags);
         existing.SetArea(parsed.Area);
 
-        if (parsed.Status is { } targetStatus && existing.CanChangeStatusTo(targetStatus))
+        if (parsed.Status is { } targetStatus)
         {
-            existing.ChangeStatus(targetStatus);
+            existing.SetStatus(targetStatus);
         }
 
         EntryTextParser.SyncSubItems(existing, parsed.SubItems);
@@ -1046,19 +1044,14 @@ public sealed class EntryRow
 
     public EntryStatus PreviewStatus
     {
-        get { Render(); return _parsed!.Status is { } typed && BacklogEntry.IsTransitionAllowed(Status, typed) ? typed : Status; }
+        get { Render(); return _parsed!.Status ?? Status; }
     }
 
-    /// <summary>The status that was typed but which the lifecycle will not accept
-    /// from the entry's current one, or null when what was typed will stick.
-    /// Surfaced in the editor hint so a refused word is never silently dropped.</summary>
+    /// <summary>Direct metadata editing can jump states, so typed statuses are no
+    /// longer refused by the preview.</summary>
     public EntryStatus? BlockedStatus
     {
-        get
-        {
-            Render();
-            return _parsed!.Status is { } typed && !BacklogEntry.IsTransitionAllowed(Status, typed) ? typed : null;
-        }
+        get { Render(); return null; }
     }
 
     public IReadOnlyList<string> PreviewTags

@@ -224,7 +224,9 @@
                 var oneLine = !editing && row.UsesOneLineLayout;
 
                 <li class="entry-group" @key="row.Key">
-                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
+                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)"
+                     @onfocusin="() => FocusEntry(row)"
+                     @onfocusout="() => BlurEntry(row)">
 
                     @RenderGrip(row, before: true, "top")
                     @RenderGrip(row, before: true, "left")
@@ -509,6 +511,7 @@
     private bool _checkingForAppUpdate;
     private bool _installingAppUpdate;
     private bool _appUpdateReady;
+    private Guid? _focusedEntryKey;
 
     private bool _updateBusy => _checkingForAppUpdate || _installingAppUpdate;
 
@@ -833,7 +836,7 @@
                             aria-label="Change status"
                             title="Change status"
                             @onchange="e => OnStatusChangedAsync(row, e)">
-                        @foreach (var status in LegalStatusOptions(row))
+                        @foreach (var status in StatusOptions())
                         {
                             <option value="@status">@Humanize(status.ToString())</option>
                         }
@@ -855,7 +858,16 @@
                                     aria-label="Check this issue on GitHub"
                                     @onmousedown:preventDefault="true"
                                     @onclick="() => State.RefreshGitHubAsync(row)">
-                                @(row.GitHubBusy ? "…" : "↻")
+                                @if (row.GitHubBusy)
+                                {
+                                    <span aria-hidden="true">…</span>
+                                }
+                                else
+                                {
+                                    <svg class="entry-doc__button-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                                        <path d="M1.705 8a6.303 6.303 0 0 1 10.848-4.365L11.318 4.87a.75.75 0 0 0 .53 1.281h3.329a.75.75 0 0 0 .75-.75V2.073a.75.75 0 0 0-1.28-.53l-1.018 1.018A7.804 7.804 0 0 0 .204 8a.75.75 0 0 0 1.501 0Zm14.091 0a.75.75 0 0 0-1.501 0 6.303 6.303 0 0 1-10.848 4.365l1.235-1.235a.75.75 0 0 0-.53-1.281H.823a.75.75 0 0 0-.75.75v3.328a.75.75 0 0 0 1.28.53l1.018-1.018A7.804 7.804 0 0 0 15.796 8Z" />
+                                    </svg>
+                                }
                             </button>
                         }
                         else if (repository is not null && row.IsPersisted)
@@ -868,7 +880,16 @@
                                     aria-label="Create an issue in @repository.FullName"
                                     @onmousedown:preventDefault="true"
                                     @onclick="() => State.PushToGitHubAsync(row)">
-                                @(row.GitHubBusy ? "…" : "⌂")
+                                @if (row.GitHubBusy)
+                                {
+                                    <span aria-hidden="true">…</span>
+                                }
+                                else
+                                {
+                                    <svg class="entry-doc__button-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                                        <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
+                                    </svg>
+                                }
                             </button>
                         }
                     }
@@ -883,20 +904,28 @@
                                 aria-label="Start GitHub Copilot CLI for this entry"
                                 @onmousedown:preventDefault="true"
                                 @onclick="() => State.StartCopilotCliAsync(row)">
-                            @(row.CopilotBusy ? "…" : "◇")
+                            @if (row.CopilotBusy)
+                            {
+                                <span aria-hidden="true">…</span>
+                            }
+                            else
+                            {
+                                <span class="entry-doc__cli-mark" aria-hidden="true">gh</span>
+                            }
                         </button>
                     }
 
-                    <button type="button"
-                            class="entry-doc__delete"
-                            id="delete-entry-@row.Key"
-                            data-testid="delete-entry-button"
-                            aria-label="Delete entry"
-                            title="Delete entry"
-                            @onmousedown:preventDefault="true"
-                            @onclick="() => OnDeleteEntryAsync(row)">
-                        ×
-                    </button>
+                    @if (IsEntryFocused(row))
+                    {
+                        <button type="button"
+                                class="entry-doc__delete"
+                                id="delete-entry-@row.Key"
+                                data-testid="delete-entry-button"
+                                aria-label="Delete entry"
+                                title="Delete entry"
+                                @onmousedown:preventDefault="true"
+                                @onclick="() => OnDeleteEntryAsync(row)">×</button>
+                    }
                 </span>
             </span>
         </div>;
@@ -1066,8 +1095,22 @@
     private async Task OnTagsChangedAsync(EntryRow row, ChangeEventArgs e) =>
         await State.ChangeTagsAsync(row, e.Value?.ToString() ?? string.Empty);
 
-    private static IReadOnlyList<EntryStatus> LegalStatusOptions(EntryRow row) =>
-        new[] { row.Status }.Concat(BacklogEntry.NextStatusesFrom(row.Status)).Distinct().ToList();
+    private static IReadOnlyList<EntryStatus> StatusOptions() => Enum.GetValues<EntryStatus>();
+
+    private void FocusEntry(EntryRow row)
+    {
+        _focusedEntryKey = row.Key;
+    }
+
+    private void BlurEntry(EntryRow row)
+    {
+        if (_focusedEntryKey == row.Key)
+        {
+            _focusedEntryKey = null;
+        }
+    }
+
+    private bool IsEntryFocused(EntryRow row) => _focusedEntryKey == row.Key;
 
     private static string TagText(EntryRow row) =>
         string.Join(" ", row.PreviewMetadataTags.Select(tag => "#" + tag));
@@ -1119,4 +1162,3 @@
         State.Changed -= HandleStateChanged;
     }
 }
-
