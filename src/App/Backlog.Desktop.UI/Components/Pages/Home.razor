@@ -116,7 +116,15 @@
                     <button type="button" class="btn btn--ghost btn--icon" aria-label="Close feedback dialog" disabled="@_feedbackSubmitting" @onclick="CloseFeedbackDialog">x</button>
                 </header>
                 <p id="feedback-description" class="feedback-dialog__description">Send a GitHub issue to JSdotNet/Backlog. The app will ask which screen to capture when you submit.</p>
-
+                <label class="feedback-field" for="feedback-area-input">
+                    <span>Area</span>
+                    <select id="feedback-area-input" data-testid="feedback-area-input" value="@_feedbackArea" @onchange="OnFeedbackAreaInput" disabled="@_feedbackSubmitting">
+                        @foreach (var area in FeedbackAreas)
+                        {
+                            <option value="@area">@area</option>
+                        }
+                    </select>
+                </label>
                 <label class="feedback-field" for="feedback-title-input">
                     <span>Title</span>
                     <input id="feedback-title-input" data-testid="feedback-title-input" value="@_feedbackTitle" @oninput="OnFeedbackTitleInput" maxlength="120" disabled="@_feedbackSubmitting" />
@@ -555,10 +563,13 @@
     private bool _checkingForAppUpdate;
     private bool _installingAppUpdate;
     private bool _appUpdateReady;
+    private static readonly string[] FeedbackAreas = ["Desktop app", "Mobile app", "IDE extension", "Backlog/work items", "GitHub integration", "Other"];
+
     private bool _feedbackOpen;
     private bool _feedbackSubmitting;
     private bool _feedbackSucceeded;
     private string _feedbackTitle = string.Empty;
+    private string _feedbackArea = FeedbackAreas[0];
     private string _feedbackDetails = string.Empty;
     private string? _feedbackMessage;
 
@@ -654,7 +665,12 @@
         _feedbackSucceeded = false;
         _feedbackMessage = null;
     }
-
+    private void OnFeedbackAreaInput(ChangeEventArgs e)
+    {
+        _feedbackArea = e.Value?.ToString() ?? FeedbackAreas[0];
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
     private async Task SubmitFeedbackAsync()
     {
         if (string.IsNullOrWhiteSpace(_feedbackTitle))
@@ -688,10 +704,11 @@
 
         try
         {
-            var link = await GitHub.ReportFeedbackAsync(_feedbackTitle, _feedbackDetails, screenshot, screenshotError);
+            var link = await GitHub.ReportFeedbackAsync(_feedbackTitle, _feedbackDetails, _feedbackArea, screenshot, screenshotError);
             _feedbackSucceeded = true;
             _feedbackMessage = $"Created {link.RepoFullName}{link.Label}.";
             _feedbackTitle = string.Empty;
+            _feedbackArea = FeedbackAreas[0];
             _feedbackDetails = string.Empty;
         }
         catch (GitHubException ex)

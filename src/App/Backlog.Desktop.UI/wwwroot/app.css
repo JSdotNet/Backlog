@@ -2832,6 +2832,7 @@ h1, h2, h3 {
 }
 
 .feedback-field input,
+.feedback-field select,
 .feedback-field textarea {
     width: 100%;
     color: var(--color-text-primary);
@@ -2847,6 +2848,7 @@ h1, h2, h3 {
 }
 
 .feedback-field input:focus,
+.feedback-field select:focus,
 .feedback-field textarea:focus {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;

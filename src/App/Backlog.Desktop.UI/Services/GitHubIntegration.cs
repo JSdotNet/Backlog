@@ -94,6 +94,7 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
     public async Task<GitHubIssueLink> ReportFeedbackAsync(
         string title,
         string? details,
+        string? area,
         GitHubFeedbackScreenshot? screenshot,
         string? screenshotError = null,
         CancellationToken cancellationToken = default)
@@ -106,12 +107,17 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
         var repository = FeedbackRepositoryRef();
         var issue = await client.CreateIssueAsync(
             repository,
-            $"[Feedback] {title.Trim()}",
-            BuildFeedbackBody(details, screenshot, screenshotError),
+            BuildFeedbackTitle(title, area),
+            BuildFeedbackBody(details, area, screenshot, screenshotError),
             cancellationToken: cancellationToken);
 
         return new GitHubIssueLink(repository.FullName, issue.Number);
     }
+
+    internal static string BuildFeedbackTitle(string title, string? area) =>
+        string.IsNullOrWhiteSpace(area)
+            ? $"[Feedback] {title.Trim()}"
+            : $"[Feedback][{area.Trim()}] {title.Trim()}";
 
     private GitHubRepositoryRef FeedbackRepositoryRef() =>
         settings.Current.Repositories.FirstOrDefault(r =>
@@ -119,8 +125,12 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
             && string.Equals(r.Name, FeedbackRepository, StringComparison.OrdinalIgnoreCase))
         ?? new GitHubRepositoryRef("backlog", FeedbackOwner, FeedbackRepository);
 
-    internal static string BuildFeedbackBody(string? details, GitHubFeedbackScreenshot? screenshot, string? screenshotError) =>
+    internal static string BuildFeedbackBody(string? details, string? area, GitHubFeedbackScreenshot? screenshot, string? screenshotError) =>
         $"""
+        ## Area
+
+        {(string.IsNullOrWhiteSpace(area) ? "Unspecified" : area.Trim())}
+
         ## Report
 
         {(string.IsNullOrWhiteSpace(details) ? "_No details provided._" : details.Trim())}

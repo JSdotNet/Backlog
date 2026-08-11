@@ -150,10 +150,12 @@ public sealed class GitHubPushFlowTests : IDisposable
             600,
             42);
 
-        var link = await harness.Integration.ReportFeedbackAsync("Broken view", "The pane is blank.", screenshot);
+        var link = await harness.Integration.ReportFeedbackAsync("Broken view", "The pane is blank.", "Desktop app", screenshot);
 
         Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
-        Assert.Equal("[Feedback] Broken view", harness.Client.CreatedTitle);
+        Assert.Equal("[Feedback][Desktop app] Broken view", harness.Client.CreatedTitle);
+        Assert.Contains("## Area", harness.Client.CreatedBody);
+        Assert.Contains("Desktop app", harness.Client.CreatedBody);
         Assert.Contains("The pane is blank.", harness.Client.CreatedBody);
         Assert.Contains("![Screenshot](data:image/jpeg;base64,abc123)", harness.Client.CreatedBody);
         Assert.Equal("JSdotNet/Backlog", link.RepoFullName);
@@ -164,7 +166,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     {
         var harness = Build("JSdotNet/Backlog");
 
-        await harness.Integration.ReportFeedbackAsync("Cannot capture", null, null, "Permission denied.");
+        await harness.Integration.ReportFeedbackAsync("Cannot capture", null, null, null, "Permission denied.");
 
         Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
         Assert.Contains("_No details provided._", harness.Client.CreatedBody);
