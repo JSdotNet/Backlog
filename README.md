@@ -1,5 +1,8 @@
 # Backlog
 
+[![Release desktop](https://github.com/JSdotNet/Backlog/actions/workflows/release-desktop.yml/badge.svg)](https://github.com/JSdotNet/Backlog/actions/workflows/release-desktop.yml)
+[Latest release](https://github.com/JSdotNet/Backlog/releases/latest)
+
 A personal work management system built for AI-driven development. Capture work items, prompts, and knowledge across projects, organize them through an inbox-first workflow, and access them where the work happens: desktop, IDE, and phone.
 
 ## Current state
@@ -140,12 +143,17 @@ GitHub Releases, with an App Installer (`.appinstaller`) that keeps it updated �
 there is no Microsoft Store listing.
 
 1. Open the [latest release](https://github.com/JSdotNet/Backlog/releases/latest)
-   and download `Backlog.Desktop.appinstaller`.
-2. Because the package is **self-signed**, trust the signing certificate on the
-   machine first (import it into *Local Machine → Trusted People*), then open the
-   `.appinstaller` to install.
+   and download `Backlog.Desktop.cer` and `Backlog.Desktop.appinstaller`.
+2. Because the package is **self-signed**, trust the public signing certificate
+   on the machine first, then open the `.appinstaller` to install. In an elevated
+   PowerShell session from the download folder, run:
+
+   ```powershell
+   Import-Certificate -FilePath .\Backlog.Desktop.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+   ```
+
 3. Updates are checked automatically on launch (and in the background). You can
-   also check on demand from **Settings → About and updates**, which offers
+   also check on demand from **Settings -> About and updates**, which offers
    "Check for updates" and "Install and restart".
 
 Debug builds run **unpackaged** (so Aspire and the WebView2 debugging attach keep

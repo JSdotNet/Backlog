@@ -11,7 +11,7 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddSingleton<BacklogStore>();
+builder.Services.AddSingleton(_ => new BacklogStore(builder.Configuration["Backlog:SettingsRoot"]));
 builder.Services.AddSingleton(_ =>
 {
     var settingsPath = builder.Configuration["Backlog:GitHubSettingsPath"];
@@ -24,14 +24,17 @@ builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredServic
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<KnowledgeFolderSource>();
+builder.Services.AddSingleton<DesignKnowledgeProvider>();
 builder.Services.AddSingleton<KnowledgeBacklog>();
 builder.Services.AddSingleton<TechnologyKnowledgeService>();
-builder.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
 builder.Services.AddScoped<BacklogDesktopState>();
+builder.Services.AddSingleton<DomainKnowledgeStore>();
+builder.Services.AddSingleton<Arc42KnowledgeStore>();
 
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
+builder.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
 
 var app = builder.Build();
 

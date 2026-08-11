@@ -10,25 +10,26 @@ namespace Backlog.Desktop.Services;
 
 public sealed partial class CopilotToolService : ICopilotToolService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
-    private readonly string _configPath;
+    private readonly CopilotToolConfigurationPaths _configPaths;
     private readonly ILogger<CopilotToolService>? _logger;
 
     public CopilotToolService(ILogger<CopilotToolService>? logger = null, string? configPath = null)
     {
         _logger = logger;
-        _configPath = ResolveConfiguredPath(configPath ?? "%USERPROFILE%\\.copilot\\copilot-tools.json");
+        _configPaths = configPath is null
+            ? CopilotToolConfigurationPaths.CreateDefault()
+            : CopilotToolConfigurationPaths.FromCatalogPath(configPath);
     }
 
     public async Task<CopilotToolCatalog> ListAsync(CancellationToken ct = default)
     {
-        if (!File.Exists(_configPath))
+        if (!File.Exists(_configPaths.CatalogPath))
         {
-            return new CopilotToolCatalog([], $"Tool config was not found at {_configPath}.");
+            return new CopilotToolCatalog([], $"Tool catalog was not found at {_configPaths.CatalogPath}.");
         }
 
-        var root = await ReadConfigAsync(ct).ConfigureAwait(false);
+        var config = await CopilotToolConfiguration.ReadAsync(_configPaths, ct).ConfigureAwait(false);
+        var root = config.Root;
         var messages = new List<string>();
         var installedPlugins = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var installedTools = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -106,7 +107,10 @@ public sealed partial class CopilotToolService : ICopilotToolService
                 DescribeStatus(enabled, installedTools.ContainsKey(packageId), CopilotToolInfo.VersionDiffers(installedVersion, availableVersion), "mcp-server")));
         }
 
-        var message = messages.Count == 0 ? $"Showing tools from {_configPath}." : string.Join(" ", messages);
+        var sourceMessage = config.PcConfigExists
+            ? $"Showing tools from {config.CatalogPath} with PC config {config.PcConfigPath}."
+            : $"Showing tools from {config.CatalogPath}. PC config will be created at {config.PcConfigPath}.";
+        var message = messages.Count == 0 ? sourceMessage : $"{sourceMessage} {string.Join(" ", messages)}";
         return new CopilotToolCatalog(tools, message);
     }
 
@@ -118,12 +122,13 @@ public sealed partial class CopilotToolService : ICopilotToolService
 
     private async Task<CopilotToolActionResult> ApplyAsync(string key, bool? enabled, CancellationToken ct)
     {
-        if (!File.Exists(_configPath))
+        if (!File.Exists(_configPaths.CatalogPath))
         {
-            return CopilotToolActionResult.Failed($"Tool config was not found at {_configPath}.");
+            return CopilotToolActionResult.Failed($"Tool catalog was not found at {_configPaths.CatalogPath}.");
         }
 
-        var root = await ReadConfigAsync(ct).ConfigureAwait(false);
+        var config = await CopilotToolConfiguration.ReadAsync(_configPaths, ct).ConfigureAwait(false);
+        var root = config.Root;
         var node = FindToolNode(root, key);
         if (node is null)
         {
@@ -132,8 +137,9 @@ public sealed partial class CopilotToolService : ICopilotToolService
 
         if (enabled is not null)
         {
-            node["enabled"] = enabled.Value;
-            await WriteConfigAsync(root, ct).ConfigureAwait(false);
+            await CopilotToolConfiguration.WriteEnabledOverrideAsync(_configPaths, key, enabled.Value, ct).ConfigureAwait(false);
+            root = (await CopilotToolConfiguration.ReadAsync(_configPaths, ct).ConfigureAwait(false)).Root;
+            node = FindToolNode(root, key) ?? throw new InvalidOperationException("That tool is no longer in the config.");
         }
 
         try
@@ -377,20 +383,6 @@ public sealed partial class CopilotToolService : ICopilotToolService
         return clone.ExitCode == 0 ? "source cloned" : CommandFailure(ToolDisplayName(plugin), clone);
     }
 
-    private async Task<JsonNode> ReadConfigAsync(CancellationToken ct)
-    {
-        await using var stream = File.OpenRead(_configPath);
-        return await JsonNode.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("Tool config is empty.");
-    }
-
-
-    private async Task WriteConfigAsync(JsonNode root, CancellationToken ct)
-    {
-        await using var stream = File.Create(_configPath);
-        await JsonSerializer.SerializeAsync(stream, root, JsonOptions, ct).ConfigureAwait(false);
-    }
-
     private static IEnumerable<JsonNode> GetArray(JsonNode root, string name) =>
         root[name]?.AsArray().Where(node => node is not null).Cast<JsonNode>() ?? [];
 
@@ -489,4 +481,3 @@ public sealed partial class CopilotToolService : ICopilotToolService
     [GeneratedRegex("^(?<name>\\S+)(?:\\s+(?<version>\\S+))?")]
     private static partial Regex PluginListLineRegex();
 }
-

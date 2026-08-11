@@ -4,6 +4,21 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
+    paths:
+      - 'Backlog.sln'
+      - 'src/App/Backlog.Desktop/**'
+      - 'src/App/Backlog.Desktop.UI/**'
+      - 'src/Aspire/Backlog.Aspire.ServiceDefaults/**'
+      - 'src/Infrastructure/Backlog.Infrastructure.Copilot/**'
+      - 'src/Infrastructure/Backlog.Infrastructure.FileSystem/**'
+      - 'src/Infrastructure/Backlog.Infrastructure.GitHub/**'
+      - 'src/Modules/Backlog/Backlog.Modules.Backlog/**'
+      - 'src/Shared/Backlog.SharedKernel/**'
+      - 'build/Backlog.Desktop.appinstaller.template'
+      - 'build/New-AppInstaller.ps1'
+      - '.github/workflows/release-desktop.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -12,7 +27,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-desktop-${{ github.ref }}
@@ -22,12 +37,14 @@ jobs:
   release:
     name: Build, sign, and publish the MSIX
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '10.0.x'
 
@@ -46,9 +63,16 @@ jobs:
           else {
             $tag = '${{ github.ref_name }}'
             $raw = $tag.TrimStart('v')
+            if ('${{ github.ref_type }}' -eq 'branch') {
+              if ('${{ github.ref_name }}' -ne 'main') {
+                throw "Unsupported release branch '${{ github.ref_name }}'."
+              }
+              $raw = '0.1.${{ github.run_number }}'
+              $tag = "v$raw"
+            }
           }
           if ($raw -notmatch '^\d+\.\d+\.\d+$') {
-            throw "Version must be MAJOR.MINOR.PATCH (got '$raw')."
+            throw "Version must be MAJOR.MINOR.PATCH or a v-prefixed tag (got '$raw')."
           }
           $four = "$raw.0"
           "tag=$tag"                >> $env:GITHUB_OUTPUT
@@ -57,7 +81,38 @@ jobs:
           "msix=Backlog.Desktop_${four}_x64.msix" >> $env:GITHUB_OUTPUT
           Write-Output "Tag=$tag Display=$raw Package=$four"
 
+      - name: Check signing configuration
+        id: signing
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $hasCertificate = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64)
+          $hasPassword = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)
+
+          if ($hasCertificate -and $hasPassword) {
+            "configured=true" >> $env:GITHUB_OUTPUT
+            Write-Output "Signing certificate secrets are configured."
+            return
+          }
+
+          "configured=false" >> $env:GITHUB_OUTPUT
+          if ('${{ github.event_name }}' -eq 'push' -and '${{ github.ref_type }}' -eq 'branch') {
+            "### Desktop release skipped" >> $env:GITHUB_STEP_SUMMARY
+            "Signing secrets are not configured, so the main-branch release package was not produced." >> $env:GITHUB_STEP_SUMMARY
+            Write-Output "Signing certificate secrets are not configured. Skipping main-branch release packaging."
+            return
+          }
+
+          if (-not $hasCertificate) {
+            throw "Secret WINDOWS_CERTIFICATE_BASE64 is not set. Refusing to produce an unsigned package."
+          }
+          throw "Secret WINDOWS_CERTIFICATE_PASSWORD is not set."
+
       - name: Import code-signing certificate
+        if: steps.signing.outputs.configured == 'true'
         id: cert
         shell: pwsh
         env:
@@ -80,6 +135,7 @@ jobs:
           Write-Output "Imported certificate with thumbprint $($cert.Thumbprint)."
 
       - name: Publish packaged MSIX
+        if: steps.signing.outputs.configured == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -93,6 +149,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 
       - name: Stage MSIX and generate App Installer
+        if: steps.signing.outputs.configured == 'true'
         id: stage
         shell: pwsh
         run: |
@@ -115,6 +172,14 @@ jobs:
           Copy-Item $msix.FullName $stagedMsix -Force
           Write-Output "Staged MSIX: $stagedMsix"
 
+          $publicCertificate = Join-Path $outDir 'Backlog.Desktop.cer'
+          $certificate = Get-ChildItem -LiteralPath "Cert:\CurrentUser\My\${{ steps.cert.outputs.thumbprint }}"
+          if (-not $certificate) {
+            throw "Imported signing certificate was not found in the current user certificate store."
+          }
+          Export-Certificate -Cert $certificate -FilePath $publicCertificate -Type CERT | Out-Null
+          Write-Output "Staged public signing certificate: $publicCertificate"
+
           $appInstaller = Join-Path $outDir 'Backlog.Desktop.appinstaller'
           ./build/New-AppInstaller.ps1 `
             -Version '${{ steps.version.outputs.package }}' `
@@ -124,9 +189,11 @@ jobs:
 
           "dir=$outDir"                        >> $env:GITHUB_OUTPUT
           "msix=$stagedMsix"                   >> $env:GITHUB_OUTPUT
+          "certificate=$publicCertificate"      >> $env:GITHUB_OUTPUT
           "appinstaller=$appInstaller"         >> $env:GITHUB_OUTPUT
 
       - name: Publish GitHub Release
+        if: steps.signing.outputs.configured == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -135,12 +202,18 @@ jobs:
           $tag = '${{ steps.version.outputs.tag }}'
           $msix = '${{ steps.stage.outputs.msix }}'
           $appInstaller = '${{ steps.stage.outputs.appinstaller }}'
+          $certificate = '${{ steps.stage.outputs.certificate }}'
 
           $exists = gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title $tag --notes "Backlog desktop $tag" $msix $appInstaller
+            gh release create $tag --target $env:GITHUB_SHA --title $tag --notes "Backlog desktop $tag" --latest $msix $appInstaller $certificate
           }
           else {
-            gh release upload $tag $msix $appInstaller --clobber
+            gh release upload $tag $msix $appInstaller $certificate --clobber
+            gh release edit $tag --title $tag --notes "Backlog desktop $tag" --latest
           }
           if ($LASTEXITCODE -ne 0) { throw "Publishing the release failed." }
+
+          $url = gh release view $tag --json url --jq .url
+          "### Published GitHub Release" >> $env:GITHUB_STEP_SUMMARY
+          "[$tag]($url)" >> $env:GITHUB_STEP_SUMMARY

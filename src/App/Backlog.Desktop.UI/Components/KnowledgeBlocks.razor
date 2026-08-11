@@ -1,0 +1,77 @@
+@foreach (var block in Blocks)
+{
+    switch (block)
+    {
+        case KnowledgeSubheading heading:
+            <h5 class="knowledge-subheading">@heading.Text</h5>
+            break;
+        case KnowledgeParagraph paragraph:
+            <p class="knowledge-p">@MarkdownRender.Inlines(paragraph.Content)</p>
+            break;
+        case KnowledgeList list:
+            if (list.Ordered)
+            {
+                <ol class="knowledge-list">
+                    @foreach (var item in list.Items)
+                    {
+                        <li>@MarkdownRender.Inlines(item)</li>
+                    }
+                </ol>
+            }
+            else
+            {
+                <ul class="knowledge-list">
+                    @foreach (var item in list.Items)
+                    {
+                        <li>@MarkdownRender.Inlines(item)</li>
+                    }
+                </ul>
+            }
+            break;
+        case KnowledgeQuote quote:
+            <blockquote class="knowledge-quote">@MarkdownRender.Inlines(quote.Content)</blockquote>
+            break;
+        case KnowledgeTable table:
+            <div class="knowledge-table-wrap @(table.IsTokenTable ? "knowledge-table-wrap--tokens" : string.Empty)">
+                <table class="knowledge-table">
+                    <thead>
+                    <tr>
+                        @foreach (var header in table.Headers)
+                        {
+                            <th>@header</th>
+                        }
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in table.Rows)
+                    {
+                        <tr>
+                            @foreach (var cell in row)
+                            {
+                                <td>@cell</td>
+                            }
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            break;
+        case KnowledgeCode codeBlock:
+            <pre class="knowledge-code"><code>@codeBlock.Text</code></pre>
+            break;
+        case KnowledgeDiagram diagram:
+            <DiagramView Title="@DiagramTitle" Language="@diagram.Language" Source="@diagram.Source" />
+            break;
+        case KnowledgeDivider:
+            <hr class="knowledge-divider" />
+            break;
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<KnowledgeBlock> Blocks { get; set; } = [];
+
+    [Parameter]
+    public string DiagramTitle { get; set; } = "Diagram";
+}

@@ -61,7 +61,7 @@
         case MdCode codeBlock:
             @if (DiagramView.IsDiagram(codeBlock.Language))
             {
-                <DiagramView Source="@codeBlock.Text" Language="@codeBlock.Language" />
+                <DiagramView Title="Backlog diagram" Source="@codeBlock.Text" Language="@codeBlock.Language" />
             }
             else
             {

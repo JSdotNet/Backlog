@@ -32,11 +32,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<KnowledgeFolderSource>();
+        builder.Services.AddSingleton<DesignKnowledgeProvider>();
         builder.Services.AddSingleton<KnowledgeBacklog>();
         builder.Services.AddSingleton<TechnologyKnowledgeService>();
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
         builder.Services.AddSingleton<CopilotCliIntegration>();
         builder.Services.AddSingleton<BacklogDesktopState>();
+        builder.Services.AddSingleton<DomainKnowledgeStore>();
+        builder.Services.AddSingleton<Arc42KnowledgeStore>();
 
         // The MSIX head can manage its own updates when packaged; it degrades to
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is
@@ -77,4 +80,3 @@ public static class MauiProgram
         }
     }
 }
-
