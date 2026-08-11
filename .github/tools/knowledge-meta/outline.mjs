@@ -1,9 +1,8 @@
 // outline.mjs — derives the ordered reading outline of a knowledge area from
 // the `order` field in each directory's root document.
 //
-// Markdown stays canonical (see .arc42/02-constraints.md#technical-constraints);
-// this produces the *derived* index that a viewer reads to present files in
-// their intended order instead of alphabetically.
+// Markdown stays canonical; this produces the *derived* index that a viewer
+// reads to present files in their intended order instead of alphabetically.
 //
 // Ordering rules, per directory:
 //   1. The directory's *root document* is the file whose file-level `meta`
@@ -17,7 +16,7 @@
 
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { parseDocument, folderKindForPath } from "../../extensions/knowledge-canvas/metadata.mjs";
+import { parseDocument, folderKindForPath } from "./metadata.mjs";
 import { KNOWLEDGE_FOLDERS, SCHEMA_VERSION, REPO_SCOPE, GENERATOR } from "./graph.mjs";
 
 /** Read one directory into ordered `file` and `directory` outline entries. */
@@ -116,12 +115,14 @@ async function readDirectory(repoRoot, relDir, problems) {
 }
 
 /**
- * Build the serializable outline document for one scope, following
- * `.github/instructions/derived-artifacts.instructions.md`.
+ * Build the serializable outline document for one scope, following the
+ * derived-artifacts convention.
+ *
+ * `folders` is the set of knowledge folders this repository actually adopts.
  */
-export async function buildOutlineDocument(repoRoot, scope = REPO_SCOPE) {
+export async function buildOutlineDocument(repoRoot, scope = REPO_SCOPE, folders = KNOWLEDGE_FOLDERS) {
     const problems = [];
-    const roots = scope === REPO_SCOPE ? KNOWLEDGE_FOLDERS : [scope];
+    const roots = scope === REPO_SCOPE ? folders : [scope];
 
     let entries;
     if (scope === REPO_SCOPE) {

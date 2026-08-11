@@ -1,17 +1,18 @@
 // graph.mjs — derives the cross-folder knowledge graph from the `meta` blocks
 // embedded in .arc42/, .domain/, .backlog/, .tech/, and .design/.
 //
-// Markdown stays canonical (see .arc42/02-constraints.md#technical-constraints);
-// this produces the *derived* index. Output shape is Cytoscape.js `elements`
-// JSON, which most graph libraries consume natively or map from trivially.
+// Markdown stays canonical; this produces the *derived* index. Output shape is
+// Cytoscape.js `elements` JSON, which most graph libraries consume natively or
+// map from trivially.
 //
 // Consumed by the `build.mjs` CLI and by the knowledge-graph canvas, so
 // the CLI output and the live view can never disagree.
 
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { parseDocument, folderKindForPath } from "../../extensions/knowledge-canvas/metadata.mjs";
+import { parseDocument, folderKindForPath } from "./metadata.mjs";
 
+/** Every knowledge folder this convention recognizes. A repository adopts any subset. */
 export const KNOWLEDGE_FOLDERS = [".arc42", ".domain", ".backlog", ".tech", ".design"];
 export const SCHEMA_VERSION = 1;
 export const REPO_SCOPE = ".";
@@ -19,7 +20,7 @@ export const GENERATOR = ".github/tools/knowledge-meta/build.mjs";
 
 // Metadata fields that hold `<path>` / `<path>#<slug>` references, and the edge
 // type each one produces. Non-reference list fields (`aliases`, `alternatives`)
-// are deliberately absent — they stay node attributes.
+// are deliberately absent ��� they stay node attributes.
 const REFERENCE_FIELDS = {
     "depends-on": "depends-on",
     related: "related",
@@ -282,12 +283,19 @@ export function projectScope(graph, scope) {
 }
 
 /**
- * Build the serializable index document for one scope, following
- * `.github/instructions/derived-artifacts.instructions.md`.
+ * Build the serializable index document for one scope, following the
+ * derived-artifacts convention.
  *
  * Pass a pre-built graph to project several scopes without re-reading disk.
+ * `folders` is the set of knowledge folders this repository actually adopts,
+ * so the repo-wide `sources` never claims a folder that is not there.
  */
-export async function buildGraphDocument(repoRoot, scope = REPO_SCOPE, prebuilt = null) {
+export async function buildGraphDocument(
+    repoRoot,
+    scope = REPO_SCOPE,
+    prebuilt = null,
+    folders = KNOWLEDGE_FOLDERS
+) {
     const graph = prebuilt ?? (await buildGraph(repoRoot));
     const { nodes, edges, problems } = projectScope(graph, scope);
     return {
@@ -295,7 +303,7 @@ export async function buildGraphDocument(repoRoot, scope = REPO_SCOPE, prebuilt 
         schemaVersion: SCHEMA_VERSION,
         generatedBy: GENERATOR,
         scope,
-        sources: scope === REPO_SCOPE ? KNOWLEDGE_FOLDERS : [scope],
+        sources: scope === REPO_SCOPE ? folders : [scope],
         // Deliberately no timestamp: the index is a deterministic function of
         // the Markdown, so re-running it produces a byte-identical file and CI
         // can diff it to detect a stale commit.
@@ -308,8 +316,25 @@ export async function buildGraphDocument(repoRoot, scope = REPO_SCOPE, prebuilt 
     };
 }
 
-/** Every scope this generator writes: the repo-wide rollup plus one per folder. */
+/** Every scope this generator knows about: the repo-wide rollup plus one per folder. */
 export const SCOPES = [REPO_SCOPE, ...KNOWLEDGE_FOLDERS];
+
+/**
+ * The scopes a specific repository actually has, so a repo that adopts only
+ * `.domain` and `.arc42` never gets `_meta/` folders for conventions it does
+ * not use. Returns an empty array when no knowledge folder is present.
+ */
+export async function discoverScopes(repoRoot) {
+    const present = [];
+    for (const folder of KNOWLEDGE_FOLDERS) {
+        try {
+            if ((await stat(path.join(repoRoot, folder))).isDirectory()) present.push(folder);
+        } catch {
+            // Folder not adopted by this repository.
+        }
+    }
+    return present.length ? [REPO_SCOPE, ...present] : [];
+}
 
 /** Repo-relative output path for a scope, per the derived-index convention. */
 export function outputPathFor(scope) {

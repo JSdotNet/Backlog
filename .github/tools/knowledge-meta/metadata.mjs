@@ -1,5 +1,5 @@
 // metadata.mjs — parsing and validation for the chapter/file `meta` YAML
-// blocks defined in .github/instructions/chapter-metadata.instructions.md.
+// blocks defined in knowledge-chapter-metadata.instructions.md.
 //
 // The schema used across .domain/.arc42/.backlog/.tech/.design is intentionally small and
 // flat (single-line scalars, null, or bracket lists), so we parse it with a
@@ -191,7 +191,7 @@ export function validateDocument(relPath, markdown) {
     if (!fileTitle) {
         issues.push({
             severity: "error",
-            message: "No top-level `#` heading found — every file needs one file-level chapter.",
+            message: "No top-level `#` heading found ��� every file needs one file-level chapter.",
         });
     } else if (!fileMeta) {
         issues.push({
@@ -247,7 +247,7 @@ export function validateDocument(relPath, markdown) {
             if (FILE_ONLY_FIELDS.includes(key) && chapter.level > 1) {
                 issues.push({
                     severity: "error",
-                    message: `${label} has \`${key}\`, which belongs on the file-level block only — it describes the document's directory, not a chapter.`,
+                    message: `${label} has \`${key}\`, which belongs on the file-level block only �� it describes the document's directory, not a chapter.`,
                 });
                 continue;
             }

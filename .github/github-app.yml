@@ -1,5 +1,4 @@
-# Bootstrap repository baseline. Replace the pre_flight section with solution-specific
-# restore/build/test commands once the implementation scaffold exists.
+# Repository baseline for the GitHub Copilot Coding Agent.
 automation:
   auto_issue_session: false
   remote_control: false
@@ -16,5 +15,37 @@ mcp_servers:
     command: jsdotnet-design-mcpserver
     tools: ["*"]
 
-# No pre_flight steps yet: this repository has no project manifests to restore, build,
-# or test. Add restore/build/test steps here once an implementation scaffold exists.
+# Mirrors .github/workflows/pull-request.yml. The MAUI heads in src/App require the
+# win-x64 / WindowsPackageType flags below; without them restore and build fail.
+pre_flight:
+  - name: Restore dependencies
+    run: >
+      dotnet restore Backlog.sln
+      -p:RuntimeIdentifierOverride=win-x64
+      -p:WindowsPackageType=None
+      -p:AppxPackageSigningEnabled=false
+      -p:GenerateAppxPackageOnBuild=false
+
+  - name: Build (compile)
+    run: >
+      dotnet build Backlog.sln
+      --no-restore
+      --configuration Release
+      -p:RuntimeIdentifierOverride=win-x64
+      -p:WindowsPackageType=None
+      -p:AppxPackageSigningEnabled=false
+      -p:GenerateAppxPackageOnBuild=false
+
+  - name: Run tests
+    run: >
+      dotnet test Backlog.sln
+      --no-build
+      --configuration Release
+      --settings .github\_ci.runsettings
+      --logger trx
+      --results-directory ./TestResults
+      -m:1
+      -p:RuntimeIdentifierOverride=win-x64
+      -p:WindowsPackageType=None
+      -p:AppxPackageSigningEnabled=false
+      -p:GenerateAppxPackageOnBuild=false

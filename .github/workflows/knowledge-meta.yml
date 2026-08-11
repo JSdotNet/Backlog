@@ -1,5 +1,12 @@
 name: Knowledge metadata
 
+# Enforces the knowledge-folder convention: every metadata reference must
+# resolve, and the committed _meta indexes must match the Markdown they derive
+# from. Installed by the `knowledge-base-init` skill.
+#
+# Trim the path filters to the knowledge folders this repository actually
+# adopted; extra entries are harmless but noisy.
+
 on:
   push:
     branches:
@@ -11,7 +18,6 @@ on:
       - '.tech/**'
       - '.design/**'
       - '.github/tools/knowledge-meta/**'
-      - '.github/extensions/knowledge-canvas/metadata.mjs'
       - '.github/workflows/knowledge-meta.yml'
   pull_request:
     branches:
@@ -23,7 +29,6 @@ on:
       - '.tech/**'
       - '.design/**'
       - '.github/tools/knowledge-meta/**'
-      - '.github/extensions/knowledge-canvas/metadata.mjs'
       - '.github/workflows/knowledge-meta.yml'
   workflow_dispatch:
 

@@ -118,7 +118,7 @@ depends-on: [".tech/shared.md#github-platform"]
 The AI development environment this project is built with.
 
 - **Used for** — agent sessions, orchestration skills, custom agents, and the
-  canvas extensions under `.github/extensions/`.
+  canvas extensions delivered by installed plugins.
 - **Why** — the project is explicitly AI-first; its own tooling is part of the
   stack, not incidental.
 
@@ -137,20 +137,43 @@ The authoritative guidance channel for agents working in this repository.
   `jsdotnet-project-design` (design and UX guidance).
 - **Why** — keeps governance out of prompt memory and in a queryable source.
 
+## Knowledge Base Plugin
+
+```meta
+status: adopted
+kind: tool
+depends-on: [".tech/tooling.md#github-copilot-cli", ".tech/shared.md#nodejs"]
+related: [".tech/tooling.md#knowledge-canvas-extension"]
+```
+
+The Copilot plugin that owns the knowledge-folder convention this repository
+follows.
+
+- **Used for** — the authoring instructions for `.arc42`, `.domain`, `.backlog`,
+  `.tech`, and `.design`, the per-folder orchestration skills, the
+  `knowledge-canvas` extension, and the `knowledge-meta` generator installed
+  into `.github/tools/`.
+- **Why** — the convention is reusable across repositories, so it lives in one
+  versioned plugin instead of being duplicated per repository.
+- **Sourced from** — `copilot plugin install JSdotNet/Copilot:plugins/knowledge-base`.
+
 ## Knowledge Canvas Extension
 
 ```meta
 status: adopted
 kind: tool
 depends-on: [".tech/tooling.md#github-copilot-cli", ".tech/shared.md#nodejs", ".tech/shared.md#mermaid"]
+related: [".tech/tooling.md#knowledge-base-plugin"]
 ```
 
-The repository's own Copilot canvas for viewing knowledge folders.
+The `knowledge-base` plugin's Copilot canvas for viewing knowledge folders.
 
-- **Used for** — rendering `.arc42`, `.domain`, `.backlog`, and `.tech` Markdown
-  with live Mermaid diagrams and a metadata/lint side panel.
+- **Used for** — rendering `.arc42`, `.domain`, `.backlog`, `.tech`, and `.design`
+  Markdown with live Mermaid diagrams and a metadata/lint side panel.
 - **Why** — the metadata convention is designed for machine reading, so a viewer
   is what makes the graph usable rather than just stored.
+- **Sourced from** — `JSdotNet/Copilot:plugins/knowledge-base`; it is installed
+  as a plugin rather than checked into this repository.
 
 ## Aspire CLI
 
