@@ -98,8 +98,8 @@
                     class="header-tool-toggle"
                     id="tools-toggle-button"
                     data-testid="tools-toggle-button"
-                    aria-controls="installed-tools-content"
-                    aria-expanded="@_toolsExpanded"
+                    aria-controls="tools-pane"
+                    aria-expanded="@(ToolsVisible ? "true" : "false")"
                     @onclick="OnToolsToggleAsync">
                 Tools
             </button>
@@ -161,82 +161,6 @@
         </div>
     }
 
-    @if (IsFeatureEnabled(AppFeatureSettingsStore.SystemTools))
-    {
-        <section class="tools-panel" aria-labelledby="installed-tools-title" data-testid="tools-panel">
-            <button type="button"
-                    class="tools-panel__summary"
-                    aria-expanded="@_toolsExpanded"
-                    aria-controls="installed-tools-content"
-                    @onclick="OnToolsToggleAsync">
-                <span class="tools-panel__chevron" aria-hidden="true">@(_toolsExpanded ? "▾" : "▸")</span>
-                <span>
-                    <span id="installed-tools-title" class="tools-panel__title">System tools</span>
-                    <span class="tools-panel__subtitle">Manage Copilot plugins, repository tools, and MCP servers</span>
-                </span>
-                <span class="tools-panel__count">@(_tools.Count == 0 ? "Check tools" : $"{_tools.Count} configured")</span>
-            </button>
-
-            @if (_toolsExpanded)
-            {
-                <div class="tools-panel__content" id="installed-tools-content">
-                    <div class="tools-panel__toolbar">
-                        <p class="tools-panel__message" role="status">@(_toolMessage ?? "Checking configured tools...")</p>
-                        <button type="button" class="btn btn--secondary" disabled="@_toolsLoading" @onclick="RefreshToolsAsync">
-                            @(_toolsLoading ? "Checking..." : "Check for updates")
-                        </button>
-                    </div>
-
-                    @if (_toolsLoading && _tools.Count == 0)
-                    {
-                        <p class="tools-panel__empty">Loading installed tool versions.</p>
-                    }
-                    else if (_tools.Count == 0)
-                    {
-                        <p class="tools-panel__empty">No configured tools were found.</p>
-                    }
-                    else
-                    {
-                        <div class="tools-table" role="table" aria-label="Installed Copilot tools">
-                            <div class="tools-table__row tools-table__row--head" role="row">
-                                <span role="columnheader">Tool</span>
-                                <span role="columnheader">Installed</span>
-                                <span role="columnheader">Available</span>
-                                <span role="columnheader">Actions</span>
-                            </div>
-
-                            @foreach (var tool in _tools)
-                            {
-                                <div class="tools-table__row" role="row" @key="tool.Key">
-                                    <div role="cell" class="tools-table__tool">
-                                        <strong>@tool.Name</strong>
-                                        <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
-                                    </div>
-                                    <span role="cell" class="tools-table__version">@tool.InstalledVersion</span>
-                                    <span role="cell" class="tools-table__version @(tool.UpdateAvailable ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
-                                    <div role="cell" class="tools-table__actions">
-                                        <button type="button"
-                                                class="btn btn--secondary"
-                                                disabled="@(_toolsLoading || _toolActionKey == tool.Key || !tool.ConfiguredEnabled)"
-                                                @onclick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
-                                            Update
-                                        </button>
-                                        <button type="button"
-                                                class="btn btn--ghost"
-                                                disabled="@(_toolsLoading || _toolActionKey == tool.Key)"
-                                                @onclick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
-                                            @(tool.ConfiguredEnabled ? "Disable" : "Enable")
-                                        </button>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
-            }
-        </section>
-    }
-
     @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant) && _aiExpanded)
     {
         <section class="ai-panel" id="ai-assistant-panel" data-testid="ai-assistant-panel" aria-labelledby="ai-assistant-title">
@@ -280,7 +204,7 @@
         </section>
     }
 
-    <main class="knowledge-layout @(KnowledgeVisible ? "knowledge-layout--knowledge-open" : "knowledge-layout--knowledge-closed")" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
+    <main class="knowledge-layout @(SidePaneVisible ? "knowledge-layout--side-open" : "knowledge-layout--side-closed")" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
         <section class="backlog-workspace" aria-label="Backlog entries">
 
     @* Areas on the left, because that is what you pick first — which pile am I
@@ -586,14 +510,22 @@
     </button>
         </section>
 
-        @if (KnowledgeVisible)
+        @if (SidePaneVisible)
         {
-            <aside class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
+            <aside class="side-pane-stack" data-testid="side-pane-stack" aria-label="Backlog side panes">
                 <label class="knowledge-stack__resizer">
-                    <span>Knowledge width</span>
+                    <span>Side pane width</span>
                     <input type="range" min="24" max="54" step="1" value="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnKnowledgeWidthChanged" />
                 </label>
-                @if (KnowledgeRepositories.Count > 1)
+                @if (ToolsVisible)
+                {
+                    @RenderToolsPane()
+                }
+
+                @if (KnowledgeVisible)
+                {
+                    <section class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
+                        @if (KnowledgeRepositories.Count > 1)
                 {
                     <nav class="knowledge-stack__repositories" aria-label="Knowledge repository">
                         @foreach (var repository in KnowledgeRepositories)
@@ -625,6 +557,8 @@
                 <div class="knowledge-stack__section" id="knowledge-active-section" role="tabpanel">
                     @RenderActiveKnowledge()
                 </div>
+                    </section>
+                }
             </aside>
         }
     </main>
@@ -704,6 +638,7 @@
         }
     }
 
+    private bool ToolsVisible => IsFeatureEnabled(AppFeatureSettingsStore.SystemTools) && _toolsExpanded;
 
     private void ToggleAiPanel() => _aiExpanded = !_aiExpanded;
 
@@ -777,7 +712,14 @@
             AppendKnowledgeItem(builder, subItem, indent + "  ");
         }
     }
+
     private bool KnowledgeVisible => IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge) && _knowledgeExpanded;
+
+    private bool ToolActionBusy => _toolActionKey is not null;
+
+    private bool CanUpdateAnyTool => _tools.Any(tool => tool.CanUpdate);
+
+    private bool SidePaneVisible => ToolsVisible || KnowledgeVisible;
 
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(AppFeatureSettingsStore.AdditionalRepositories);
 
@@ -970,6 +912,89 @@
     };
 
     private sealed record KnowledgeArea(string Key, string Label);
+
+    private RenderFragment RenderToolsPane() =>
+        @<section class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
+            <header class="tools-panel__header">
+                <div>
+                    <p class="tools-panel__eyebrow">System tools</p>
+                    <h2 id="installed-tools-title" class="tools-panel__title">System tools</h2>
+                    <p class="tools-panel__subtitle">Configured and disabled Copilot plugins, repository tools, and MCP servers.</p>
+                </div>
+                <div class="tools-panel__header-actions">
+                    <span class="tools-panel__count">@(_tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools")</span>
+                    <button type="button" class="btn btn--ghost btn--icon" aria-label="Close tools pane" @onclick="OnToolsToggleAsync">✕</button>
+                </div>
+            </header>
+
+            <div class="tools-panel__content" id="installed-tools-content">
+                <div class="tools-panel__toolbar">
+                    <p class="tools-panel__message" role="status">@(_toolMessage ?? "Checking configured tools...")</p>
+                    <div class="tools-panel__toolbar-actions">
+                        <button type="button" class="btn btn--secondary" disabled="@(_toolsLoading || ToolActionBusy)" @onclick="RefreshToolsAsync">
+                            @(_toolsLoading ? "Checking..." : "Check for updates")
+                        </button>
+                        <button type="button" class="btn btn--primary" disabled="@(_toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" @onclick="UpdateAllToolsAsync">
+                            @(_toolActionKey == "__all__" ? "Updating..." : "Update all")
+                        </button>
+                    </div>
+                </div>
+
+                @if (_toolsLoading && _tools.Count == 0)
+                {
+                    <p class="tools-panel__empty">Loading installed tool versions.</p>
+                }
+                else if (_tools.Count == 0)
+                {
+                    <p class="tools-panel__empty">No configured tools were found.</p>
+                }
+                else
+                {
+                    <div class="tools-table" role="table" aria-label="Configured Copilot tools">
+                        <div class="tools-table__row tools-table__row--head" role="row">
+                            <span role="columnheader">Tool</span>
+                            <span role="columnheader">Installed</span>
+                            <span role="columnheader">Available</span>
+                            <span role="columnheader">Actions</span>
+                        </div>
+
+                        @foreach (var tool in _tools)
+                        {
+                            <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" @key="tool.Key">
+                                <div role="cell" class="tools-table__tool">
+                                    <strong>@tool.Name</strong>
+                                    <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
+                                </div>
+                                <span role="cell" class="tools-table__version">@tool.InstalledVersion</span>
+                                <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
+                                <div role="cell" class="tools-table__actions">
+                                    @if (tool.CanUpdate)
+                                    {
+                                        <button type="button"
+                                                class="btn btn--secondary"
+                                                disabled="@(_toolsLoading || ToolActionBusy)"
+                                                @onclick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
+                                            Update
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="tools-table__action-note">@(tool.ConfiguredEnabled ? "Up to date" : "Disabled")</span>
+                                    }
+                                    <button type="button"
+                                            class="btn btn--ghost"
+                                            disabled="@(_toolsLoading || ToolActionBusy)"
+                                            @onclick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
+                                        @(tool.ConfiguredEnabled ? "Disable" : "Enable")
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </section>;
+
     private RenderFragment RenderBacklogKnowledge() =>
         @<aside class="knowledge-pane" data-testid="backlog-knowledge-pane" aria-labelledby="backlog-knowledge-title">
             <div class="knowledge-pane__header">
@@ -1028,7 +1053,6 @@
                 </div>
             }
         </aside>;
-
     private RenderFragment RenderKnowledgeItem(BacklogWorkItemKnowledge item, bool isSubItem) =>
         @<article class="knowledge-item @(isSubItem ? "knowledge-item--sub" : string.Empty)" data-testid="backlog-knowledge-item">
             <header class="knowledge-item__header">
@@ -1333,6 +1357,24 @@
         finally
         {
             _toolsLoading = false;
+        }
+    }
+
+    private async Task UpdateAllToolsAsync()
+    {
+        _toolActionKey = "__all__";
+        try
+        {
+            var result = await CopilotTools.UpdateAllAsync();
+            _toolMessage = result.Message;
+            if (result.Succeeded)
+            {
+                await RefreshToolsAsync();
+            }
+        }
+        finally
+        {
+            _toolActionKey = null;
         }
     }
 

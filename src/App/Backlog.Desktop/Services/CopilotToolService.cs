@@ -116,6 +116,38 @@ public sealed partial class CopilotToolService : ICopilotToolService
 
     public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => ApplyAsync(key, null, ct);
 
+    public async Task<CopilotToolActionResult> UpdateAllAsync(CancellationToken ct = default)
+    {
+        var catalog = await ListAsync(ct).ConfigureAwait(false);
+        var candidates = catalog.Tools.Where(tool => tool.CanUpdate).ToArray();
+        if (candidates.Length == 0)
+        {
+            return CopilotToolActionResult.Ok("No enabled tools have updates available.");
+        }
+
+        var updated = 0;
+        var failures = new List<string>();
+        foreach (var tool in candidates)
+        {
+            var result = await ApplyAsync(tool.Key, null, ct).ConfigureAwait(false);
+            if (result.Succeeded)
+            {
+                updated++;
+            }
+            else
+            {
+                failures.Add($"{tool.Name}: {result.Message}");
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            return CopilotToolActionResult.Failed($"Updated {updated} tool(s); {failures.Count} failed. {string.Join(" ", failures)}");
+        }
+
+        return CopilotToolActionResult.Ok($"Updated {updated} tool(s).");
+    }
+
     public Task<CopilotToolActionResult> EnableAsync(string key, CancellationToken ct = default) => ApplyAsync(key, true, ct);
 
     public Task<CopilotToolActionResult> DisableAsync(string key, CancellationToken ct = default) => ApplyAsync(key, false, ct);
