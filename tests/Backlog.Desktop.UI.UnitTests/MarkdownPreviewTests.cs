@@ -40,13 +40,16 @@ public class MarkdownPreviewTests
     }
 
     [Fact]
-    public void Keeps_the_heading_level()
+    public void Keeps_plain_heading_levels_after_sub_items_are_grouped()
     {
         var blocks = MarkdownPreview.Parse("# One\n\n### Three\n\n#### Four");
 
-        Assert.Equal([1, 3, 4], blocks.OfType<MdHeading>().Select(h => h.Level));
+        Assert.Equal([1], blocks.OfType<MdHeading>().Select(h => h.Level));
+        var subItem = Assert.IsType<MdSubItem>(blocks[1]);
+        Assert.Equal(3, subItem.Level);
+        var nestedHeading = Assert.IsType<MdHeading>(Assert.Single(subItem.Children));
+        Assert.Equal(4, nestedHeading.Level);
     }
-
     [Fact]
     public void A_level_two_heading_becomes_a_sub_item_not_a_heading()
     {

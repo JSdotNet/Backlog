@@ -26,8 +26,8 @@ namespace Backlog.Desktop.UI.Services;
 /// <para>
 /// Heading level carries structure: a second <c>#</c> heading starts a whole
 /// new entry (see <see cref="SplitSegments"/>), <c>##</c> headings and
-/// <c>- [ ]</c> checklist lines both become sub-items, and <c>###</c> and
-/// deeper are just prose.
+/// <c>- [ ]</c> checklist lines both become sub-items. <c>###</c>
+/// headings become nested sub-items with the same metadata as <c>##</c> chapters.
 /// </para>
 /// <para>
 /// Deliberately independent from <c>Backlog.Infrastructure.FileSystem.EnumMap</c> (internal to
@@ -43,7 +43,7 @@ internal static class EntryTextParser
     private static readonly Regex TagRegex = new(@"(?<!\S)#([A-Za-z][\w-]*)", RegexOptions.Compiled);
     private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.*)$", RegexOptions.Compiled);
     private static readonly Regex CheckboxPrefixRegex = new(@"^\[( |x|X)\][ \t]+", RegexOptions.Compiled);
-    private static readonly Regex HeadingCheckboxMarkerRegex = new(@"^(?<prefix>[ \t]*##[ \t]+)\[(?<marker> |x|X)\](?<suffix>[ \t]+.*)$", RegexOptions.Compiled);
+    private static readonly Regex HeadingCheckboxMarkerRegex = new(@"^(?<prefix>[ \t]*#{2,3}[ \t]+)\[(?<marker> |x|X)\](?<suffix>[ \t]+.*)$", RegexOptions.Compiled);
     private static readonly Regex ChecklistRegex = new(@"^[ \t]*[-*][ \t]+\[( |x|X)\][ \t]+(.+?)[ \t]*$", RegexOptions.Compiled);
 
     private static readonly Dictionary<string, EntryType> TypeTokens = new()
@@ -71,7 +71,16 @@ internal static class EntryTextParser
         ["archived"] = EntryStatus.Archived
     };
 
-    public sealed record ParsedSubItem(string Title, bool Done, string? Notes);
+    public sealed record ParsedSubItem(
+        string Title,
+        bool Done,
+        string? Notes,
+        int Level = 2,
+        EntryType? Type = null,
+        Priority? Priority = null,
+        EntryStatus? Status = null,
+        string? Area = null,
+        IReadOnlyList<string>? MetadataTags = null);
 
     public sealed record ParsedEntry(
         string Title,
@@ -83,6 +92,16 @@ internal static class EntryTextParser
         IReadOnlyList<string> Tags,
         IReadOnlyList<string> MetadataTags,
         IReadOnlyList<ParsedSubItem> SubItems);
+
+    private sealed record Metadata(
+        EntryType? Type,
+        Priority? Priority,
+        EntryStatus? Status,
+        string? Area,
+        IReadOnlyList<string> Tags)
+    {
+        public static Metadata Empty { get; } = new(null, null, null, null, []);
+    }
 
     /// <summary>
     /// Splits a block of text wherever a top-level <c>#</c> heading starts a new
@@ -158,71 +177,19 @@ internal static class EntryTextParser
 
         while (i < lines.Length && string.IsNullOrWhiteSpace(lines[i])) i++;
 
-        EntryType? type = null;
-        Priority? priority = null;
-        EntryStatus? status = null;
-        string? area = null;
-        var metadataTags = new List<string>();
+        var metadata = Metadata.Empty;
 
         if (i < lines.Length && MetaLineRegex.IsMatch(lines[i].Trim()))
         {
-            foreach (Match match in TokenRegex.Matches(lines[i]))
-            {
-                var token = match.Groups[1].Value.Trim();
-                if (token.Length == 0) continue;
-
-                // Each sigil names exactly one kind of metadata, so `!ready`
-                // cannot be mistaken for anything but a status. A sigilled token
-                // that isn't recognized is left unset rather than falling
-                // through to another kind — the sigil already said what was
-                // meant, and guessing past it would be worse than ignoring it.
-                switch (token[0])
-                {
-                    // Free-form on purpose — the vocabulary of areas is the
-                    // person's, not ours — so it is only lower-cased and
-                    // trimmed, never matched against a list.
-                    case '@':
-                    {
-                        var value = token[1..].Trim();
-                        if (value.Length > 0) area = value.ToLowerInvariant();
-                        continue;
-                    }
-
-                    case '!':
-                        if (StatusTokens.TryGetValue(NormalizeToken(token[1..]), out var explicitStatus))
-                        {
-                            status = explicitStatus;
-                        }
-                        continue;
-
-                    case '*':
-                        if (PriorityTokens.TryGetValue(NormalizeToken(token[1..]), out var explicitPriority))
-                        {
-                            priority = explicitPriority;
-                        }
-                        continue;
-                }
-
-                if (token[0] == '#')
-                {
-                    var value = token[1..].Trim();
-                    if (value.Length > 0)
-                    {
-                        metadataTags.Add(value.ToLowerInvariant());
-                    }
-                    continue;
-                }
-
-                // No sigil: an entry written before the sigils existed, or
-                // someone typing the plain word. Recognize it anyway.
-                var normalized = NormalizeToken(token);
-                if (TypeTokens.TryGetValue(normalized, out var t)) type = t;
-                else if (PriorityTokens.TryGetValue(normalized, out var p)) priority = p;
-                else if (StatusTokens.TryGetValue(normalized, out var s)) status = s;
-            }
-
+            metadata = ParseMetadataLine(lines[i]);
             i++;
         }
+
+        var type = metadata.Type;
+        var priority = metadata.Priority;
+        var status = metadata.Status;
+        var area = metadata.Area;
+        var metadataTags = metadata.Tags.ToList();
 
         while (i < lines.Length && string.IsNullOrWhiteSpace(lines[i])) i++;
 
@@ -235,9 +202,61 @@ internal static class EntryTextParser
         var distinctMetadataTags = metadataTags.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var tags = distinctMetadataTags.Concat(bodyTags).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
-        return new ParsedEntry(title, type, priority, status, area, body, tags, distinctMetadataTags, ExtractSubItems(body));
+        return new ParsedEntry(title, type, priority, status, area, body, tags, distinctMetadataTags, ExtractSubItems(body, area));
     }
 
+    private static Metadata ParseMetadataLine(string line)
+    {
+        EntryType? type = null;
+        Priority? priority = null;
+        EntryStatus? status = null;
+        string? area = null;
+        var metadataTags = new List<string>();
+
+        foreach (Match match in TokenRegex.Matches(line))
+        {
+            var token = match.Groups[1].Value.Trim();
+            if (token.Length == 0) continue;
+
+            switch (token[0])
+            {
+                case '@':
+                {
+                    var value = token[1..].Trim();
+                    if (value.Length > 0) area = value.ToLowerInvariant();
+                    continue;
+                }
+
+                case '!':
+                    if (StatusTokens.TryGetValue(NormalizeToken(token[1..]), out var explicitStatus))
+                    {
+                        status = explicitStatus;
+                    }
+                    continue;
+
+                case '*':
+                    if (PriorityTokens.TryGetValue(NormalizeToken(token[1..]), out var explicitPriority))
+                    {
+                        priority = explicitPriority;
+                    }
+                    continue;
+
+                case '#':
+                {
+                    var value = token[1..].Trim();
+                    if (value.Length > 0) metadataTags.Add(value.ToLowerInvariant());
+                    continue;
+                }
+            }
+
+            var normalized = NormalizeToken(token);
+            if (TypeTokens.TryGetValue(normalized, out var t)) type = t;
+            else if (PriorityTokens.TryGetValue(normalized, out var p)) priority = p;
+            else if (StatusTokens.TryGetValue(normalized, out var s)) status = s;
+        }
+
+        return new Metadata(type, priority, status, area, metadataTags.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+    }
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
     /// already ignores fences; a <c>#tag</c> written inside a code sample is
     /// text for the same reason a <c>#</c> heading there is.</summary>
@@ -264,10 +283,11 @@ internal static class EntryTextParser
     }
 
     /// <summary>Collects sub-items from a body, in document order. A <c>##</c>
-    /// heading becomes a sub-item whose notes are the prose beneath it; a
-    /// <c>- [ ]</c> line becomes a standalone checklist sub-item. Both may carry
-    /// a <c>[x]</c> marker for done.</summary>
-    private static List<ParsedSubItem> ExtractSubItems(string body)
+    /// or <c>###</c> heading becomes a sub-item whose notes are the prose beneath
+    /// it; a <c>- [ ]</c> line becomes a standalone checklist sub-item. Heading
+    /// metadata is read like the parent entry metadata, except repository/area
+    /// always inherits from the parent.</summary>
+    private static List<ParsedSubItem> ExtractSubItems(string body, string? parentArea)
     {
         var items = new List<ParsedSubItem>();
         var lines = body.Split('\n');
@@ -275,20 +295,35 @@ internal static class EntryTextParser
 
         string? openTitle = null;
         var openDone = false;
+        var openLevel = 2;
+        var openMetadata = Metadata.Empty;
         var openNotes = new List<string>();
 
         void CloseOpen()
         {
             if (openTitle is null) return;
             var notes = string.Join('\n', openNotes).Trim('\n', ' ', '\t');
-            items.Add(new ParsedSubItem(openTitle, openDone, notes.Length == 0 ? null : notes));
+            var status = openMetadata.Status ?? (openDone ? EntryStatus.Done : null);
+            items.Add(new ParsedSubItem(
+                openTitle,
+                status is EntryStatus.Done || openDone,
+                notes.Length == 0 ? null : notes,
+                openLevel,
+                openMetadata.Type,
+                openMetadata.Priority,
+                status,
+                parentArea,
+                openMetadata.Tags));
             openTitle = null;
             openDone = false;
+            openLevel = 2;
+            openMetadata = Metadata.Empty;
             openNotes.Clear();
         }
 
-        foreach (var line in lines)
+        for (var i = 0; i < lines.Length; i++)
         {
+            var line = lines[i];
             var trimmed = line.TrimStart();
 
             if (trimmed.StartsWith("```", StringComparison.Ordinal))
@@ -307,35 +342,51 @@ internal static class EntryTextParser
             var checklist = ChecklistRegex.Match(line);
             if (checklist.Success)
             {
-                // A checklist line is always its own sub-item, never notes text
-                // for the heading it happens to sit under — and closing the open
-                // heading first keeps sub-items in the order they were written.
                 CloseOpen();
                 items.Add(new ParsedSubItem(
                     checklist.Groups[2].Value.Trim(),
                     checklist.Groups[1].Value is "x" or "X",
-                    Notes: null));
+                    Notes: null,
+                    Area: parentArea,
+                    MetadataTags: []));
                 continue;
             }
 
             var heading = HeadingRegex.Match(trimmed);
             if (heading.Success)
             {
-                CloseOpen();
-
-                if (heading.Groups[1].Value.Length != 2) continue;
-
-                var text = heading.Groups[2].Value.Trim();
-                var box = CheckboxPrefixRegex.Match(text);
-                if (box.Success)
+                var level = heading.Groups[1].Value.Length;
+                if (level is 2 or 3)
                 {
-                    openDone = box.Groups[1].Value is "x" or "X";
-                    text = text[box.Length..].Trim();
+                    CloseOpen();
+
+                    var text = heading.Groups[2].Value.Trim();
+                    var box = CheckboxPrefixRegex.Match(text);
+                    if (box.Success)
+                    {
+                        openDone = box.Groups[1].Value is "x" or "X";
+                        text = text[box.Length..].Trim();
+                    }
+
+                    if (text.Length == 0) continue;
+
+                    openTitle = text;
+                    openLevel = level;
+
+                    var metaIndex = i + 1;
+                    if (metaIndex < lines.Length && MetaLineRegex.IsMatch(lines[metaIndex].Trim()))
+                    {
+                        openMetadata = ParseMetadataLine(lines[metaIndex]) with { Area = parentArea };
+                        i = metaIndex;
+                    }
+                    continue;
                 }
 
-                if (text.Length == 0) continue;
-                openTitle = text;
-                continue;
+                if (level <= 1)
+                {
+                    CloseOpen();
+                    continue;
+                }
             }
 
             if (openTitle is not null) openNotes.Add(line);
@@ -344,7 +395,6 @@ internal static class EntryTextParser
         CloseOpen();
         return items;
     }
-
     /// <summary>The lines one sub-item occupies in an entry's raw text —
     /// <paramref name="End"/> is exclusive.</summary>
     public sealed record SubItemSpan(int Start, int End);
@@ -379,12 +429,10 @@ internal static class EntryTextParser
             if (!heading.Success) continue;
 
             var level = heading.Groups[1].Value.Length;
-            if (level > 2) continue;
+            if (level > 3) continue;
 
-            // A heading at level 1 or 2 closes whatever sub-item was open; only
-            // a level-2 one opens a new sub-item.
             if (starts.Count > ends.Count) ends.Add(i);
-            if (level == 2) starts.Add(i);
+            if (level is 2 or 3) starts.Add(i);
         }
 
         if (starts.Count > ends.Count) ends.Add(lines.Length);
@@ -582,8 +630,23 @@ internal static class EntryTextParser
     public static string WithPriority(string raw, Priority priority) =>
         RewriteMetaLine(raw, priority: priority);
 
-    public static string WithStatus(string raw, EntryStatus status) =>
-        RewriteMetaLine(raw, status: status);
+    public static string WithStatus(string raw, EntryStatus status, bool cascadeSubItems = false)
+    {
+        var rewritten = RewriteMetaLine(raw, status: status);
+        return cascadeSubItems ? RewriteSubItemMetaLines(rewritten, targetIndex: null, status: status) : rewritten;
+    }
+
+    public static string WithSubItemType(string raw, int subItemIndex, EntryType type) =>
+        RewriteSubItemMetaLines(raw, subItemIndex, type: type);
+
+    public static string WithSubItemPriority(string raw, int subItemIndex, Priority priority) =>
+        RewriteSubItemMetaLines(raw, subItemIndex, priority: priority);
+
+    public static string WithSubItemStatus(string raw, int subItemIndex, EntryStatus status) =>
+        RewriteSubItemMetaLines(raw, subItemIndex, status: status);
+
+    public static string WithSubItemTags(string raw, int subItemIndex, string tags) =>
+        RewriteSubItemMetaLines(raw, subItemIndex, tags: ParseTagsInput(tags));
 
     public static string WithArea(string raw, string? area) =>
         RewriteMetaLine(raw, area: area, updateArea: true);
@@ -594,6 +657,8 @@ internal static class EntryTextParser
     public static string WithTags(string raw, string tags) =>
         RewriteMetaLine(raw, tags: ParseTagsInput(tags));
 
+    public static bool IsMetadataLine(string line) => MetaLineRegex.IsMatch((line ?? string.Empty).Trim());
+
     public static IReadOnlyList<string> ParseTagsInput(string tags) =>
         NormalizeTags(Regex.Split(tags ?? string.Empty, @"[\s,]+"));
 
@@ -603,6 +668,88 @@ internal static class EntryTextParser
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+    private static string RewriteSubItemMetaLines(
+        string raw,
+        int? targetIndex,
+        EntryType? type = null,
+        Priority? priority = null,
+        EntryStatus? status = null,
+        IReadOnlyList<string>? tags = null)
+    {
+        if (targetIndex is < 0) return raw;
+
+        var normalized = Normalize(raw);
+        var lines = normalized.Split('\n').ToList();
+        var inFence = false;
+        var seen = 0;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence) continue;
+
+            var heading = HeadingRegex.Match(trimmed);
+            if (!heading.Success || heading.Groups[1].Value.Length is not (2 or 3)) continue;
+
+            var current = seen++;
+            if (targetIndex is not null && current != targetIndex.Value) continue;
+
+            var metaIndex = i + 1;
+            while (metaIndex < lines.Count && string.IsNullOrWhiteSpace(lines[metaIndex])) metaIndex++;
+
+            var hasMetaLine = metaIndex < lines.Count && MetaLineRegex.IsMatch(lines[metaIndex].Trim());
+            var tokens = hasMetaLine
+                ? TokenRegex.Matches(lines[metaIndex]).Select(match => match.Groups[1].Value.Trim()).Where(token => token.Length > 0).ToList()
+                : new List<string> { TypeToken(EntryType.Task), "*" + PriorityToken(Priority.Medium) };
+
+            tokens.RemoveAll(token => token.StartsWith('@'));
+
+            if (type is not null)
+            {
+                tokens.RemoveAll(IsTypeToken);
+                tokens.Insert(0, TypeToken(type.Value));
+            }
+
+            if (priority is not null)
+            {
+                tokens.RemoveAll(token => token.StartsWith('*'));
+                tokens.Insert(Math.Min(1, tokens.Count), "*" + PriorityToken(priority.Value));
+            }
+
+            if (status is not null)
+            {
+                tokens.RemoveAll(token => token.StartsWith('!'));
+                tokens.Insert(Math.Min(2, tokens.Count), "!" + StatusToken(status.Value));
+            }
+
+            if (tags is not null)
+            {
+                tokens.RemoveAll(token => token.StartsWith('#'));
+                tokens.AddRange(tags.Select(tag => "#" + tag.Trim().TrimStart('#').ToLowerInvariant()).Where(tag => tag.Length > 1));
+            }
+
+            var metaLine = string.Join(' ', tokens.Select(token => $"`{token}`"));
+            if (hasMetaLine)
+            {
+                lines[metaIndex] = metaLine;
+            }
+            else
+            {
+                lines.Insert(i + 1, metaLine);
+                i++;
+            }
+
+            if (targetIndex is not null) return string.Join('\n', lines);
+        }
+
+        return targetIndex is null ? string.Join('\n', lines) : raw;
+    }
     private static string RewriteMetaLine(
         string raw,
         EntryType? type = null,

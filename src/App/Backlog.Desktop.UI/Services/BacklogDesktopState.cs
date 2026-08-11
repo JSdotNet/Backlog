@@ -365,7 +365,19 @@ public sealed class BacklogDesktopState : IDisposable
         await RewriteMetadataAsync(row, EntryTextParser.WithPriority(row.RawText, priority));
 
     public async Task ChangeStatusAsync(EntryRow row, EntryStatus status) =>
-        await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status), forceWhenEqual: row.Status != status);
+        await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status, cascadeSubItems: true), forceWhenEqual: row.Status != status);
+
+    public async Task ChangeSubItemTypeAsync(EntryRow row, int subItemIndex, EntryType type) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemType(row.RawText, subItemIndex, type));
+
+    public async Task ChangeSubItemPriorityAsync(EntryRow row, int subItemIndex, Priority priority) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemPriority(row.RawText, subItemIndex, priority));
+
+    public async Task ChangeSubItemStatusAsync(EntryRow row, int subItemIndex, EntryStatus status) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemStatus(row.RawText, subItemIndex, status));
+
+    public async Task ChangeSubItemTagsAsync(EntryRow row, int subItemIndex, string tags) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemTags(row.RawText, subItemIndex, tags));
 
     public async Task ChangeAreaAsync(EntryRow row, string? area) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithArea(row.RawText, area));
@@ -1123,7 +1135,7 @@ public sealed class EntryRow
 
         _renderedFrom = RawText;
         _parsed = EntryTextParser.Parse(RawText);
-        _blocks = MarkdownPreview.Parse(_parsed.Body);
+        _blocks = MarkdownPreview.Parse(_parsed.Body, PreviewArea);
         _bodyBlocks = [.. _blocks.TakeWhile(b => b is not MdSubItem)];
         _subItems = [.. _blocks.OfType<MdSubItem>()];
     }

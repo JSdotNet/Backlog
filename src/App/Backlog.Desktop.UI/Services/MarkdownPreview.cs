@@ -1,3 +1,4 @@
+using Backlog.Modules.Backlog.DomainModels;
 using System.Text.RegularExpressions;
 
 namespace Backlog.Desktop.UI.Services;
@@ -26,7 +27,7 @@ public static class MarkdownPreview
         @"|(?<tag>(?<!\S)#[A-Za-z][\w-]*)",
         RegexOptions.Compiled);
 
-    public static IReadOnlyList<MdBlock> Parse(string? body)
+    public static IReadOnlyList<MdBlock> Parse(string? body, string? inheritedArea = null)
     {
         var lines = (body ?? string.Empty).Replace("\r\n", "\n").Split('\n');
         var blocks = new List<MdBlock>();
@@ -97,8 +98,12 @@ public static class MarkdownPreview
                 var level = heading.Groups[1].Value.Length;
                 var text = heading.Groups[2].Value.Trim();
                 bool? done = null;
+                EntryType? type = null;
+                Priority? priority = null;
+                EntryStatus? status = null;
+                IReadOnlyList<string> metadataTags = [];
 
-                if (level == 2)
+                if (level is 2 or 3)
                 {
                     var box = CheckboxPrefixRegex.Match(text);
                     if (box.Success)
@@ -108,7 +113,17 @@ public static class MarkdownPreview
                     }
                 }
 
-                blocks.Add(new MdHeading(level, ParseInlines(text), done));
+                if (level is 2 or 3 && i + 1 < lines.Length && EntryTextParser.IsMetadataLine(lines[i + 1]))
+                {
+                    var metadata = EntryTextParser.Parse("# Metadata\n" + lines[i + 1]);
+                    type = metadata.Type;
+                    priority = metadata.Priority;
+                    status = metadata.Status;
+                    metadataTags = metadata.MetadataTags;
+                    i++;
+                }
+
+                blocks.Add(new MdHeading(level, ParseInlines(text), done, type, priority, status, inheritedArea, metadataTags));
                 continue;
             }
 
@@ -166,14 +181,14 @@ public static class MarkdownPreview
     /// </summary>
     private static IReadOnlyList<MdBlock> GroupSubItems(List<MdBlock> blocks)
     {
-        if (!blocks.Any(b => b is MdHeading { Level: 2 })) return blocks;
+        if (!blocks.Any(b => b is MdHeading { Level: 2 or 3 })) return blocks;
 
         var grouped = new List<MdBlock>();
         var index = 0;
 
         while (index < blocks.Count)
         {
-            if (blocks[index] is not MdHeading { Level: 2 } heading)
+            if (blocks[index] is not MdHeading { Level: 2 or 3 } heading)
             {
                 grouped.Add(blocks[index++]);
                 continue;
@@ -181,12 +196,23 @@ public static class MarkdownPreview
 
             index++;
             var children = new List<MdBlock>();
-            while (index < blocks.Count && blocks[index] is not MdHeading { Level: <= 2 })
+            while (index < blocks.Count && blocks[index] is not MdHeading { Level: <= 3 })
             {
                 children.Add(blocks[index++]);
             }
 
-            grouped.Add(new MdSubItem(heading.Content, heading.Done ?? false, heading.Done is not null, children));
+            var status = heading.Status ?? (heading.Done is true ? EntryStatus.Done : null);
+            grouped.Add(new MdSubItem(
+                heading.Content,
+                status is EntryStatus.Done || heading.Done is true,
+                heading.Done is not null,
+                children,
+                heading.Level,
+                heading.Type,
+                heading.Priority,
+                status,
+                heading.Area,
+                heading.MetadataTags));
         }
 
         return grouped;
@@ -227,11 +253,29 @@ public abstract record MdBlock;
 
 /// <summary>A heading. <see cref="Done"/> is non-null only for the level-2
 /// headings that carry sub-item state.</summary>
-public sealed record MdHeading(int Level, IReadOnlyList<MdInline> Content, bool? Done) : MdBlock;
+public sealed record MdHeading(
+    int Level,
+    IReadOnlyList<MdInline> Content,
+    bool? Done,
+    EntryType? Type = null,
+    Priority? Priority = null,
+    EntryStatus? Status = null,
+    string? Area = null,
+    IReadOnlyList<string>? MetadataTags = null) : MdBlock;
 
 /// <summary>A level-2 heading and everything written beneath it — the read
 /// view's rendering of a sub-item.</summary>
-public sealed record MdSubItem(IReadOnlyList<MdInline> Title, bool Done, bool HasCheckbox, IReadOnlyList<MdBlock> Children) : MdBlock;
+public sealed record MdSubItem(
+    IReadOnlyList<MdInline> Title,
+    bool Done,
+    bool HasCheckbox,
+    IReadOnlyList<MdBlock> Children,
+    int Level = 2,
+    EntryType? Type = null,
+    Priority? Priority = null,
+    EntryStatus? Status = null,
+    string? Area = null,
+    IReadOnlyList<string>? MetadataTags = null) : MdBlock;
 
 public sealed record MdParagraph(IReadOnlyList<MdInline> Content) : MdBlock;
 

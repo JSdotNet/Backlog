@@ -162,11 +162,14 @@ public class EntryTextParserTests
     }
 
     [Fact]
-    public void A_level_three_heading_is_prose_not_a_sub_item()
+    public void A_level_three_heading_becomes_a_nested_sub_item()
     {
-        var parsed = EntryTextParser.Parse("# Title\n\n### Just a heading\n");
+        var parsed = EntryTextParser.Parse("# Title\n`task` `*medium` `!draft` `@parent`\n\n## Parent\n\n### Child\n`prompt` `*high` `!ready` `@other` `#child`\nNotes\n");
 
-        Assert.Empty(parsed.SubItems);
+        Assert.Equal(["Parent", "Child"], parsed.SubItems.Select(s => s.Title));
+        Assert.Equal(3, parsed.SubItems[1].Level);
+        Assert.Equal("parent", parsed.SubItems[1].Area);
+        Assert.Equal(EntryStatus.Ready, parsed.SubItems[1].Status);
     }
 
     [Fact]
@@ -240,6 +243,37 @@ public class EntryTextParserTests
         var segments = EntryTextParser.SplitSegments("# First\n\n## sub one\n\n## sub two\n");
 
         Assert.Single(segments);
+    }
+
+    [Fact]
+    public void Parent_status_rewrite_cascades_to_sub_item_chapters()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@repo`\n\n" +
+            "## Child\n" +
+            "`task` `*low` `!ready` `@other`\n\n" +
+            "### Grandchild\n" +
+            "`task` `*high` `!done`\n";
+
+        var rewritten = EntryTextParser.WithStatus(raw, EntryStatus.InProgress, cascadeSubItems: true);
+
+        Assert.Contains("# Parent\n`task` `*medium` `!in-progress` `@repo`", rewritten);
+        Assert.Contains("## Child\n`task` `*low` `!in-progress`", rewritten);
+        Assert.Contains("### Grandchild\n`task` `*high` `!in-progress`", rewritten);
+        Assert.DoesNotContain("`@other`", rewritten);
+    }
+
+    [Fact]
+    public void Sub_item_status_rewrite_does_not_change_parent_or_siblings()
+    {
+        const string raw = "# Parent\n`task` `*medium` `!draft` `@repo`\n\n## Child\n`task` `*low` `!ready`\n\n### Grandchild\n`task` `*high` `!done`\n";
+
+        var rewritten = EntryTextParser.WithSubItemStatus(raw, 0, EntryStatus.Archived);
+
+        Assert.Contains("# Parent\n`task` `*medium` `!draft` `@repo`", rewritten);
+        Assert.Contains("## Child\n`task` `*low` `!archived`", rewritten);
+        Assert.Contains("### Grandchild\n`task` `*high` `!done`", rewritten);
     }
 
     [Fact]

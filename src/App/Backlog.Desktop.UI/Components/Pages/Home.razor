@@ -441,26 +441,7 @@
                                         }
                                         <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
                                     </div>
-                                    <div class="subitem-card__meta" aria-label="Sub-item metadata and actions">
-                                        <span class="subitem-card__state">@(subItem.HasCheckbox ? (subItem.Done ? "Done" : "Open") : "Note")</span>
-                                        <span class="subitem-card__actions">
-                                            @if (subItem.HasCheckbox)
-                                            {
-                                                <button type="button"
-                                                        class="subitem-card__action"
-                                                        aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
-                                                        @onmousedown:preventDefault="true"
-                                                        @onclick:stopPropagation="true"
-                                                        @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "Open" : "Done")</button>
-                                            }
-                                            <button type="button"
-                                                    class="subitem-card__action"
-                                                    aria-label="Edit sub-item"
-                                                    @onmousedown:preventDefault="true"
-                                                    @onclick:stopPropagation="true"
-                                                    @onclick="() => State.BeginEdit(row)">Edit</button>
-                                        </span>
-                                    </div>
+                                    @RenderSubItemMetadata(row, subItem, position)
                                     @if (subItem.Children.Count > 0)
                                     {
                                         <div class="subitem-card__notes">
@@ -1289,6 +1270,116 @@
             </span>
         </div>;
 
+    private RenderFragment RenderSubItemMetadata(EntryRow row, MdSubItem subItem, int position) =>
+        @<div class="entry-doc__meta subitem-card__meta" aria-label="Sub-item metadata and actions" @onclick:stopPropagation="true">
+            <span class="entry-doc__meta-start">
+                <label class="metadata-editor metadata-editor--type badge badge--type" data-testid="subitem-type-badge">
+                    <span class="sr-only">Change sub-item type</span>
+                    <select class="metadata-editor__select"
+                            value="@(subItem.Type ?? EntryType.Task)"
+                            aria-label="Change sub-item type"
+                            title="Change sub-item type"
+                            @onchange="e => OnSubItemTypeChangedAsync(row, position, e)">
+                        @foreach (var type in TypeOptions())
+                        {
+                            <option value="@type">@Humanize(type.ToString())</option>
+                        }
+                    </select>
+                </label>
+
+                <label class="metadata-editor metadata-editor--priority badge badge--priority badge--priority-@((subItem.Priority ?? Priority.Medium).ToString().ToLowerInvariant())" data-testid="subitem-priority-badge">
+                    <span class="sr-only">Change sub-item priority</span>
+                    <select class="metadata-editor__select"
+                            value="@(subItem.Priority ?? Priority.Medium)"
+                            aria-label="Change sub-item priority"
+                            title="Change sub-item priority"
+                            @onchange="e => OnSubItemPriorityChangedAsync(row, position, e)">
+                        @foreach (var priority in PriorityOptions())
+                        {
+                            <option value="@priority">@Humanize(priority.ToString())</option>
+                        }
+                    </select>
+                </label>
+
+                @if (RepositoryFor(row) is { } repository)
+                {
+                    <span class="metadata-editor metadata-editor--repo badge badge--area" data-testid="subitem-area-badge" title="Inherited from parent entry">
+                        @repository.Alias
+                    </span>
+                }
+            </span>
+
+            <span class="entry-doc__meta-end">
+                <span class="entry-doc__tags entry-doc__tags--end">
+                    @RenderSubItemTagEditor(row, subItem, position)
+                </span>
+
+                <label class="status-editor badge badge--status badge--status-@((subItem.Status ?? (subItem.Done ? EntryStatus.Done : EntryStatus.Draft)).ToString().ToLowerInvariant())" data-testid="subitem-status-badge">
+                    <span class="sr-only">Change sub-item status</span>
+                    <select class="status-editor__select"
+                            value="@(subItem.Status ?? (subItem.Done ? EntryStatus.Done : EntryStatus.Draft))"
+                            aria-label="Change sub-item status"
+                            title="Change sub-item status"
+                            @onchange="e => OnSubItemStatusChangedAsync(row, position, e)">
+                        @foreach (var status in StatusOptions())
+                        {
+                            <option value="@status">@Humanize(status.ToString())</option>
+                        }
+                    </select>
+                </label>
+
+                <span class="entry-doc__actions" aria-label="Sub-item actions">
+                    @if (subItem.HasCheckbox)
+                    {
+                        <button type="button"
+                                class="subitem-card__action"
+                                aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                @onmousedown:preventDefault="true"
+                                @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "Open" : "Done")</button>
+                    }
+
+                    <button type="button"
+                            class="subitem-card__action"
+                            aria-label="Edit sub-item"
+                            @onmousedown:preventDefault="true"
+                            @onclick="() => State.BeginEdit(row)">Edit</button>
+
+                    @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli) && row.IsPersisted)
+                    {
+                        <button type="button"
+                                class="entry-doc__icon-action entry-doc__icon-action--copilot"
+                                data-testid="subitem-copilot-cli-button"
+                                disabled="@row.CopilotBusy"
+                                title="Start GitHub Copilot CLI from the parent entry"
+                                aria-label="Start GitHub Copilot CLI from the parent entry"
+                                @onmousedown:preventDefault="true"
+                                @onclick="() => State.StartCopilotCliAsync(row)">
+                            @if (row.CopilotBusy)
+                            {
+                                <span aria-hidden="true">…</span>
+                            }
+                            else
+                            {
+                                <span class="entry-doc__cli-mark" aria-hidden="true">gh</span>
+                            }
+                        </button>
+                    }
+                </span>
+            </span>
+        </div>;
+
+    private RenderFragment RenderSubItemTagEditor(EntryRow row, MdSubItem subItem, int position) =>
+        @<label class="entry-doc__tag-picker">
+            <span class="sr-only">Edit sub-item tags</span>
+            <input class="entry-doc__tag-input"
+                   data-testid="subitem-tags-input"
+                   aria-label="Edit sub-item tags"
+                   title="Edit sub-item tags"
+                   list="entry-tags-options-@row.Key"
+                   placeholder="Tags"
+                   value="@TagsInputValue(subItem)"
+                   @onchange="e => OnSubItemTagsChangedAsync(row, position, e)" />
+        </label>;
     private RenderFragment RenderTagEditor(EntryRow row) =>
         @<label class="entry-doc__tag-picker">
             <span class="sr-only">Edit tags</span>
@@ -1493,6 +1584,33 @@
     private async Task OnRepositoryChangedAsync(EntryRow row, ChangeEventArgs e) =>
         await State.ChangeAreaAsync(row, e.Value?.ToString());
 
+    private async Task OnSubItemTypeChangedAsync(EntryRow row, int subItemIndex, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<EntryType>(e.Value?.ToString(), out var type))
+        {
+            await State.ChangeSubItemTypeAsync(row, subItemIndex, type);
+        }
+    }
+
+    private async Task OnSubItemPriorityChangedAsync(EntryRow row, int subItemIndex, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<Priority>(e.Value?.ToString(), out var priority))
+        {
+            await State.ChangeSubItemPriorityAsync(row, subItemIndex, priority);
+        }
+    }
+
+    private async Task OnSubItemStatusChangedAsync(EntryRow row, int subItemIndex, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<EntryStatus>(e.Value?.ToString(), out var status))
+        {
+            await State.ChangeSubItemStatusAsync(row, subItemIndex, status);
+        }
+    }
+
+    private async Task OnSubItemTagsChangedAsync(EntryRow row, int subItemIndex, ChangeEventArgs e) =>
+        await State.ChangeSubItemTagsAsync(row, subItemIndex, e.Value?.ToString() ?? string.Empty);
+
     private async Task OnStatusChangedAsync(EntryRow row, ChangeEventArgs e)
     {
         if (Enum.TryParse<EntryStatus>(e.Value?.ToString(), out var status))
@@ -1533,6 +1651,9 @@
             .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
             .ToList();
     private static string TagsInputValue(EntryRow row) => string.Join(" ", row.PreviewMetadataTags.Select(tag => "#" + tag));
+
+    private static string TagsInputValue(MdSubItem subItem) =>
+        string.Join(" ", (subItem.MetadataTags ?? []).Select(tag => "#" + tag));
 
     private void OnKnowledgeWidthChanged(ChangeEventArgs e)
     {

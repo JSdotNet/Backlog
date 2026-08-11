@@ -202,4 +202,28 @@ public sealed class EntryRowLayoutTests
         Assert.Contains("`#sync`", rewritten);
     }
 
+
+    [Fact]
+    public void Rendered_sub_items_include_level_and_metadata()
+    {
+        var row = new EntryRow
+        {
+            RawText =
+                "# Prepare review\n" +
+                "`task` `*medium` `!draft` `@repo`\n\n" +
+                "## Parent item\n" +
+                "`prompt` `*high` `!ready` `#parent`\n\n" +
+                "### Child item\n" +
+                "`idea` `*low` `!done` `@other` `#child`\n"
+        };
+
+        Assert.Equal(2, row.PreviewSubItems.Count);
+        Assert.Equal(2, row.PreviewSubItems[0].Level);
+        Assert.Equal(EntryStatus.Ready, row.PreviewSubItems[0].Status);
+        Assert.Equal(["parent"], row.PreviewSubItems[0].MetadataTags);
+        Assert.Equal(3, row.PreviewSubItems[1].Level);
+        Assert.Equal(EntryStatus.Done, row.PreviewSubItems[1].Status);
+        Assert.Equal("repo", row.PreviewSubItems[1].Area);
+        Assert.Equal(["child"], row.PreviewSubItems[1].MetadataTags);
+    }
 }
