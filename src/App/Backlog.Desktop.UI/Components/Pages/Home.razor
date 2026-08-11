@@ -964,18 +964,22 @@
         </div>;
 
     private RenderFragment RenderTagEditor(EntryRow row) =>
-        @<select class="entry-doc__tag-select"
-                 data-testid="entry-tags-input"
-                 aria-label="Edit tags"
-                 title="Edit tags"
-                 multiple
-                 size="1"
-                 @onchange="e => OnTagsChangedAsync(row, e)">
-            @foreach (var tag in TagOptions(row))
-            {
-                <option value="@tag" selected="@row.PreviewMetadataTags.Contains(tag, StringComparer.OrdinalIgnoreCase)">#@tag</option>
-            }
-        </select>;
+        @<label class="entry-doc__tag-picker">
+            <span class="sr-only">Edit tags</span>
+            <span class="entry-doc__tag-summary" aria-hidden="true">@TagSummary(row)</span>
+            <select class="entry-doc__tag-select"
+                    data-testid="entry-tags-input"
+                    aria-label="Edit tags"
+                    title="Edit tags"
+                    multiple
+                    size="1"
+                    @onchange="e => OnTagsChangedAsync(row, e)">
+                @foreach (var tag in TagOptions(row))
+                {
+                    <option value="@tag" selected="@row.PreviewMetadataTags.Contains(tag, StringComparer.OrdinalIgnoreCase)">#@tag</option>
+                }
+            </select>
+        </label>;
 
     /// <summary>The grab areas around an entry — one on each side. All four are
     /// drag sources and drop targets. Only the top rail takes tab focus (four
@@ -1180,6 +1184,10 @@
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    private static string TagSummary(EntryRow row) => row.PreviewMetadataTags.Count == 0
+        ? "Tags"
+        : string.Join(" ", row.PreviewMetadataTags.Select(tag => "#" + tag));
 
     private static IReadOnlyList<string> SelectedTags(ChangeEventArgs e) => e.Value switch
     {

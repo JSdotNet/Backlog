@@ -807,7 +807,8 @@ h1, h2, h3 {
 
 .entry-doc__fold-chevron {
     display: inline-block;
-    font-size: var(--font-size-sm);
+    font-size: 1.125rem;
+    line-height: 1;
     transition: transform var(--transition-fast);
 }
 
@@ -967,6 +968,7 @@ h1, h2, h3 {
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line {
     align-items: flex-start;
+    margin-bottom: var(--spacing-sm);
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta {
@@ -1225,8 +1227,18 @@ h1, h2, h3 {
     font: inherit;
     font-weight: inherit;
     letter-spacing: inherit;
+    text-align: center;
+    text-align-last: center;
     text-transform: inherit;
     cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.status-editor__select option {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
 }
 
 .status-editor__select:focus-visible {
@@ -1262,8 +1274,24 @@ h1, h2, h3 {
     font: inherit;
     font-weight: inherit;
     letter-spacing: inherit;
+    text-align: center;
+    text-align-last: center;
     text-transform: inherit;
     cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.metadata-editor__select option {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.status-editor__select::-ms-expand,
+.metadata-editor__select::-ms-expand,
+.entry-doc__tag-select::-ms-expand {
+    display: none;
 }
 
 .metadata-editor__select:focus-visible {
@@ -1424,11 +1452,14 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-.entry-doc__tag-select {
+.entry-doc__tag-picker {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-width: 5.5rem;
     max-width: 12rem;
     height: 1.5rem;
-    padding: 0 var(--spacing-xs);
     border: var(--border-width) solid transparent;
     border-radius: var(--border-radius-sm);
     background: transparent;
@@ -1437,8 +1468,41 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
-.entry-doc__tag-select:hover,
-.entry-doc__tag-select:focus {
+.entry-doc__tag-summary {
+    max-width: 100%;
+    padding: 0 var(--spacing-xs);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.entry-doc__tag-select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0 var(--spacing-xs);
+    border: none;
+    background: transparent;
+    color: transparent;
+    font: inherit;
+    font-size: var(--font-size-xs);
+    text-align: center;
+    text-align-last: center;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.entry-doc__tag-select option {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.entry-doc__tag-picker:hover,
+.entry-doc__tag-picker:focus-within {
     border-color: var(--color-border);
     background: var(--color-background-raised);
 }
