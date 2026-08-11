@@ -1,0 +1,134 @@
+targetScope = 'resourceGroup'
+
+@description('Name of the Azure AI Services / Foundry resource.')
+param accountName string
+
+@description('Azure region for the Foundry resource. Defaults to the resource group location.')
+param location string = resourceGroup().location
+
+@description('SKU for the Azure AI Services account.')
+param accountSkuName string = 'S0'
+
+@allowed([
+  'GlobalStandard'
+  'DataZoneStandard'
+  'Standard'
+  'GlobalProvisioned'
+  'Provisioned'
+])
+@description('SKU used for each model deployment.')
+param deploymentSkuName string = 'GlobalStandard'
+
+@minValue(1)
+@description('Capacity used for each model deployment.')
+param deploymentCapacity int = 1
+
+@description('Deploy the optional balanced alternative model.')
+param includeBalancedModel bool = false
+
+@description('Responsible AI content filter policy name for model deployments.')
+param contentFilterPolicyName string = 'Microsoft.DefaultV2'
+
+@description('Tags applied to the Foundry resource and deployments.')
+param tags object = {
+  workload: 'Backlog'
+  environment: 'playground'
+  managedBy: 'bicep'
+}
+
+var requiredModelDeployments = [
+  {
+    name: 'gpt-5-4'
+    modelName: 'gpt-5.4'
+    modelFormat: 'OpenAI'
+    publisher: 'OpenAI'
+    modelVersion: ''
+    role: 'default-coding-architecture'
+    promptTokenBudget: '922000'
+    outputTokenBudget: '128000'
+  }
+  {
+    name: 'gpt-5-5'
+    modelName: 'gpt-5.5'
+    modelFormat: 'OpenAI'
+    publisher: 'OpenAI'
+    modelVersion: ''
+    role: 'premium-fallback'
+    promptTokenBudget: '922000'
+    outputTokenBudget: '128000'
+  }
+  {
+    name: 'gpt-5-6-luna'
+    modelName: 'gpt-5.6-luna'
+    modelFormat: 'OpenAI'
+    publisher: 'OpenAI'
+    modelVersion: ''
+    role: 'fast-routine'
+    promptTokenBudget: '922000'
+    outputTokenBudget: '128000'
+  }
+]
+
+var optionalModelDeployments = includeBalancedModel ? [
+  {
+    name: 'gpt-5-6-sol'
+    modelName: 'gpt-5.6-sol'
+    modelFormat: 'OpenAI'
+    publisher: 'OpenAI'
+    modelVersion: ''
+    role: 'balanced-alternative'
+    promptTokenBudget: '922000'
+    outputTokenBudget: '128000'
+  }
+] : []
+
+var selectedModelDeployments = concat(requiredModelDeployments, optionalModelDeployments)
+
+resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
+  name: accountName
+  location: location
+  kind: 'AIServices'
+  sku: {
+    name: accountSkuName
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    customSubDomainName: accountName
+    publicNetworkAccess: 'Enabled'
+  }
+  tags: tags
+}
+
+resource modelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025-09-01' = [for deployment in selectedModelDeployments: {
+  name: deployment.name
+  parent: foundryAccount
+  sku: {
+    name: deploymentSkuName
+    capacity: deploymentCapacity
+  }
+  properties: {
+    model: empty(deployment.modelVersion) ? {
+      format: deployment.modelFormat
+      name: deployment.modelName
+      publisher: deployment.publisher
+    } : {
+      format: deployment.modelFormat
+      name: deployment.modelName
+      publisher: deployment.publisher
+      version: deployment.modelVersion
+    }
+    raiPolicyName: contentFilterPolicyName
+    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
+  }
+  tags: union(tags, {
+    'backlog-model-role': deployment.role
+    'backlog-prompt-token-budget': deployment.promptTokenBudget
+    'backlog-output-token-budget': deployment.outputTokenBudget
+  })
+}]
+
+output accountName string = foundryAccount.name
+output accountResourceId string = foundryAccount.id
+output deploymentNames array = [for deployment in selectedModelDeployments: deployment.name]

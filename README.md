@@ -136,6 +136,13 @@ worktrees of this repository can run their own AppHost side by side. Read the
 actual dashboard and resource URLs from the `aspire start` output, or with
 `aspire describe`.
 
+## Deploying Azure Foundry models
+
+Azure AI Foundry model deployments are described in `infra/foundry/` and deployed
+through the manual **Deploy Foundry** GitHub Actions workflow. See
+[`docs/deployment/foundry.md`](docs/deployment/foundry.md) for the playground
+resource group, model list, OIDC setup, and validate/what-if/deploy commands.
+
 ## Installing the desktop app
 
 The Windows desktop app is distributed as a signed **MSIX** sideloaded from
