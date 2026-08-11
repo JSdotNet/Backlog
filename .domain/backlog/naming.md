@@ -75,3 +75,27 @@ A self-chosen grouping the person files an entry under — "repos", "projects",
 "inbox", or whatever vocabulary they actually use. Deliberately a free-form
 string rather than an enum: the taxonomy belongs to the person, not the
 product. An entry with no area is unfiled.
+
+## Term: AI Work Log
+
+```meta
+status: draft
+aliases: [AIWorkLog, AIWorkLogged]
+related: [.domain/backlog/domain.md#domain-event-aiworklogged]
+```
+
+Evidence that an AI-assisted action contributed to a Backlog Entry. The log is
+owned by Backlog because it is part of the entry audit trail; Productivity
+consumes the published event to calculate insight.
+
+## Term: Roadmap
+
+```meta
+status: draft
+aliases: [Roadmap planning, Roadmap view]
+related: [.domain/backlog/features.md#feature-roadmap-planning]
+```
+
+A planning view over selected Backlog Entries, grouped by horizon, milestone,
+theme, target environment, or repository. The roadmap does not own status or
+priority; it reads those from the entries it displays.
