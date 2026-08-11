@@ -21,9 +21,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
+    <ProjectReference Include="..\..\src\harness\Backlog.AzureFoundry.TestService\Backlog.AzureFoundry.TestService.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <ProjectReference Include="..\..\src\App\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
   </ItemGroup>
 
 </Project>
+

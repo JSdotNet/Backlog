@@ -93,8 +93,31 @@ static AzureFoundrySettingsStore CreateLocalDevelopmentAzureFoundrySettingsStore
         settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "azure-foundry.settings.json");
     }
 
-    return new AzureFoundrySettingsStore(settingsPath);
+    var settings = new AzureFoundrySettingsStore(settingsPath);
+    SeedLocalAzureFoundrySettings(settings);
+    return settings;
 }
+
+static void SeedLocalAzureFoundrySettings(AzureFoundrySettingsStore settings)
+{
+    var localEndpoint = Environment.GetEnvironmentVariable("BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT");
+    if (string.IsNullOrWhiteSpace(localEndpoint) || HasUserConfiguredAzureFoundry(settings.Current))
+    {
+        return;
+    }
+
+    var error = settings.SetConnection(localEndpoint, "local-ai", "local-development", AzureFoundrySettingsStore.DefaultApiVersion);
+    if (error is not null)
+    {
+        throw new InvalidOperationException(error);
+    }
+}
+
+static bool HasUserConfiguredAzureFoundry(AzureFoundrySettings settings) =>
+    !string.IsNullOrWhiteSpace(settings.Endpoint)
+    || !string.IsNullOrWhiteSpace(settings.Deployment)
+    || !string.IsNullOrWhiteSpace(settings.ApiKey);
+
 
 static AppFeatureSettingsStore CreateLocalDevelopmentFeatureSettingsStore(string contentRootPath)
 {
@@ -128,3 +151,4 @@ static string? ResolveRepositoryRoot(string contentRootPath)
 
     return null;
 }
+

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.AzureFoundry.TestService;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -184,3 +185,29 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         }
     }
 }
+
+public sealed class AzureFoundryLocalTestServiceTests
+{
+    [Fact]
+    public void Creates_deterministic_answer_from_chat_prompt()
+    {
+        var answer = LocalAzureFoundryCompletion.CreateAnswer(
+        [
+            new AzureFoundryChatMessage("system", "test"),
+            new AzureFoundryChatMessage("user", "Content:\n# Important backlog item\n\nQuestion:\nWhat matters?")
+        ]);
+
+        Assert.Contains("What matters?", answer);
+        Assert.Contains("Important backlog item", answer);
+        Assert.StartsWith("Local Azure Foundry test response:", answer);
+    }
+
+    [Fact]
+    public void Handles_missing_question_without_throwing()
+    {
+        var answer = LocalAzureFoundryCompletion.CreateAnswer([]);
+
+        Assert.Contains("no question", answer);
+    }
+}
+
