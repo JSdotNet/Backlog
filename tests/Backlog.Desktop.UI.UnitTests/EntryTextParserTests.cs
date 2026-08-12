@@ -162,11 +162,104 @@ public class EntryTextParserTests
     }
 
     [Fact]
-    public void A_level_three_heading_is_prose_not_a_sub_item()
+    public void A_level_three_heading_becomes_a_nested_sub_item()
     {
-        var parsed = EntryTextParser.Parse("# Title\n\n### Just a heading\n");
+        var parsed = EntryTextParser.Parse("# Title\n`task` `*medium` `!draft` `@parent`\n\n## Parent\n\n### Child\n`prompt` `*high` `!ready` `@other` `#child`\nNotes\n");
 
-        Assert.Empty(parsed.SubItems);
+        Assert.Equal(["Parent", "Child"], parsed.SubItems.Select(s => s.Title));
+        Assert.Equal(3, parsed.SubItems[1].Level);
+        Assert.Equal("parent", parsed.SubItems[1].Area);
+        Assert.Equal(EntryStatus.Ready, parsed.SubItems[1].Status);
+    }
+
+
+    [Fact]
+    public void Sub_item_text_returns_only_the_clicked_chapter()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@repo`\n\n" +
+            "Intro text.\n\n" +
+            "## Level two\n" +
+            "`task` `*high` `!ready`\n" +
+            "Only level two notes.\n\n" +
+            "### Level three\n" +
+            "`idea` `*low` `!draft`\n" +
+            "Only level three notes.\n\n" +
+            "## Sibling\n" +
+            "Sibling notes.\n";
+
+        var levelTwo = EntryTextParser.GetSubItemText(raw, 0);
+        var levelThree = EntryTextParser.GetSubItemText(raw, 1);
+
+        Assert.StartsWith("## Level two", levelTwo);
+        Assert.Contains("Only level two notes.", levelTwo);
+        Assert.DoesNotContain("### Level three", levelTwo);
+        Assert.StartsWith("### Level three", levelThree);
+        Assert.Contains("Only level three notes.", levelThree);
+        Assert.DoesNotContain("## Sibling", levelThree);
+    }
+
+    [Fact]
+    public void Parent_text_stops_before_heading_sub_items()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@repo`\n\n" +
+            "Intro text.\n\n" +
+            "## Level two\n" +
+            "Child notes.\n\n" +
+            "### Level three\n" +
+            "Nested notes.\n";
+
+        var parent = EntryTextParser.GetParentText(raw);
+
+        Assert.Contains("Intro text.", parent);
+        Assert.DoesNotContain("## Level two", parent);
+        Assert.DoesNotContain("### Level three", parent);
+    }
+
+    [Fact]
+    public void Replacing_parent_text_preserves_child_chapters()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@repo`\n\n" +
+            "Old intro.\n\n" +
+            "## Level two\n" +
+            "Child notes.\n\n" +
+            "### Level three\n" +
+            "Nested notes.\n";
+
+        var rewritten = EntryTextParser.ReplaceParentText(raw,
+            "# Parent\n`task` `*medium` `!ready` `@repo`\n\nNew intro.");
+
+        Assert.Contains("New intro.", rewritten);
+        Assert.DoesNotContain("Old intro.", rewritten);
+        Assert.Contains("## Level two\nChild notes.", rewritten);
+        Assert.Contains("### Level three\nNested notes.", rewritten);
+    }
+
+    [Fact]
+    public void Replacing_sub_item_text_changes_only_that_chapter()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@repo`\n\n" +
+            "## First\n" +
+            "Keep this.\n\n" +
+            "### Target\n" +
+            "Old target notes.\n\n" +
+            "## Last\n" +
+            "Keep last.\n";
+
+        var rewritten = EntryTextParser.ReplaceSubItemText(raw, 1, "### Updated target\nNew target notes.");
+
+        Assert.Contains("## First\nKeep this.", rewritten);
+        Assert.Contains("### Updated target\nNew target notes.", rewritten);
+        Assert.DoesNotContain("Old target notes.", rewritten);
+        Assert.Contains("## Last\nKeep last.", rewritten);
+        Assert.StartsWith("# Parent", rewritten);
     }
 
     [Fact]
@@ -240,6 +333,37 @@ public class EntryTextParserTests
         var segments = EntryTextParser.SplitSegments("# First\n\n## sub one\n\n## sub two\n");
 
         Assert.Single(segments);
+    }
+
+    [Fact]
+    public void Parent_status_rewrite_cascades_to_sub_item_chapters()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@repo`\n\n" +
+            "## Child\n" +
+            "`task` `*low` `!ready` `@other`\n\n" +
+            "### Grandchild\n" +
+            "`task` `*high` `!done`\n";
+
+        var rewritten = EntryTextParser.WithStatus(raw, EntryStatus.InProgress, cascadeSubItems: true);
+
+        Assert.Contains("# Parent\n`task` `*medium` `!in-progress` `@repo`", rewritten);
+        Assert.Contains("## Child\n`task` `*low` `!in-progress`", rewritten);
+        Assert.Contains("### Grandchild\n`task` `*high` `!in-progress`", rewritten);
+        Assert.DoesNotContain("`@other`", rewritten);
+    }
+
+    [Fact]
+    public void Sub_item_status_rewrite_does_not_change_parent_or_siblings()
+    {
+        const string raw = "# Parent\n`task` `*medium` `!draft` `@repo`\n\n## Child\n`task` `*low` `!ready`\n\n### Grandchild\n`task` `*high` `!done`\n";
+
+        var rewritten = EntryTextParser.WithSubItemStatus(raw, 0, EntryStatus.Archived);
+
+        Assert.Contains("# Parent\n`task` `*medium` `!draft` `@repo`", rewritten);
+        Assert.Contains("## Child\n`task` `*low` `!archived`", rewritten);
+        Assert.Contains("### Grandchild\n`task` `*high` `!done`", rewritten);
     }
 
     [Fact]

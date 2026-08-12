@@ -132,12 +132,84 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.NotNull(row.Snapshot);
     }
 
+
+    [Fact]
+    public async Task Editing_a_sub_item_updates_only_that_chapter()
+    {
+        var harness = Build("JSdotNet/Backlog");
+        var row = await WriteEntryAsync(harness.State,
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@backlog`\n\n" +
+            "## First\n" +
+            "Keep this.\n\n" +
+            "### Target\n" +
+            "Old target notes.\n\n" +
+            "## Last\n" +
+            "Keep last.\n");
+
+        harness.State.BeginSubItemEdit(row, 1);
+        harness.State.OnSubItemRawTextInput(row, 1, "### Updated target\nNew target notes.");
+        await harness.State.EndSubItemEditAsync(row, 1);
+
+        Assert.False(harness.State.IsEditingSubItem(row, 1));
+        Assert.Contains("## First\nKeep this.", row.RawText);
+        Assert.Contains("### Updated target\nNew target notes.", row.RawText);
+        Assert.DoesNotContain("Old target notes.", row.RawText);
+        Assert.Contains("## Last\nKeep last.", row.RawText);
+    }
+
+    [Fact]
+    public async Task Editing_parent_entry_updates_only_the_parent_chapter()
+    {
+        var harness = Build("JSdotNet/Backlog");
+        var row = await WriteEntryAsync(harness.State,
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@backlog`\n\n" +
+            "Old parent notes.\n\n" +
+            "## Child\n" +
+            "Keep child.\n\n" +
+            "### Nested\n" +
+            "Keep nested.\n");
+
+        harness.State.BeginEdit(row);
+        Assert.DoesNotContain("## Child", harness.State.EntryEditText(row));
+
+        harness.State.OnRawTextInput(row,
+            "# Parent\n`task` `*medium` `!ready` `@backlog`\n\nNew parent notes.");
+        await harness.State.EndEditAsync(row);
+
+        Assert.Contains("New parent notes.", row.RawText);
+        Assert.DoesNotContain("Old parent notes.", row.RawText);
+        Assert.Contains("## Child\nKeep child.", row.RawText);
+        Assert.Contains("### Nested\nKeep nested.", row.RawText);
+    }
+
+    [Fact]
+    public async Task A_sub_item_push_uses_the_parent_repository()
+    {
+        var harness = Build("backlog = JSdotNet/Backlog", "other = someone/else");
+        var row = await WriteEntryAsync(harness.State,
+            "# Parent\n" +
+            "`task` `*medium` `!draft` `@backlog`\n\n" +
+            "## Child\n" +
+            "`task` `*high` `!ready` `@other` `#child`\n" +
+            "Child notes.\n");
+
+        await harness.State.PushSubItemToGitHubAsync(row, 0);
+
+        Assert.Null(row.GitHubError);
+        Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
+        Assert.Equal("Child", harness.Client.CreatedTitle);
+        Assert.Contains("From backlog entry: Parent", harness.Client.CreatedBody);
+        Assert.Contains("Child notes.", harness.Client.CreatedBody);
+        Assert.Equal(["child"], harness.Client.CreatedLabels);
+    }
+
     [Fact]
     public void Nothing_about_github_shows_until_a_repository_is_configured()
     {
         Assert.False(Build().State.GitHubConfigured);
     }
-
 
     [Fact]
     public async Task Feedback_reports_create_an_issue_in_the_backlog_repository_with_the_screenshot()
@@ -212,6 +284,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         public string? CreatedRepository { get; private set; }
         public string? CreatedTitle { get; private set; }
         public string? CreatedBody { get; private set; }
+        public IReadOnlyList<string> CreatedLabels { get; private set; } = [];
         public Exception? Failure { get; set; }
 
         public GitHubIssueSnapshot Snapshot { get; set; } = new(
@@ -232,6 +305,7 @@ public sealed class GitHubPushFlowTests : IDisposable
             CreatedRepository = repository.FullName;
             CreatedTitle = title;
             CreatedBody = body ?? string.Empty;
+            CreatedLabels = labels?.ToList() ?? [];
 
             return Task.FromResult(new GitHubIssue(
                 101,

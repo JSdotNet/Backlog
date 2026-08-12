@@ -104,6 +104,8 @@ public sealed class BacklogDesktopState : IDisposable
     /// shows the rendered document.</summary>
     public EntryRow? EditingRow { get; private set; }
 
+    public EditingSubItem? EditingSubItem { get; private set; }
+
     /// <summary>The row being dragged, if any — drives the drop indicators.</summary>
     public EntryRow? DraggedRow { get; private set; }
 
@@ -201,14 +203,20 @@ public sealed class BacklogDesktopState : IDisposable
         // over it would promise a save that must never happen.
         if (row.IsReadOnly) return;
         if (ReferenceEquals(EditingRow, row)) return;
+        EditingSubItem = null;
         EditingRow = row;
         FocusPending = true;
     }
 
+    public string EntryEditText(EntryRow row) =>
+        ReferenceEquals(EditingRow, row) ? EntryTextParser.GetParentText(row.RawText) : row.RawText;
+
     /// <summary>Called on every keystroke; schedules a debounced parse+save.</summary>
     public void OnRawTextInput(EntryRow row, string value)
     {
-        row.RawText = value;
+        row.RawText = ReferenceEquals(EditingRow, row)
+            ? EntryTextParser.ReplaceParentText(row.RawText, value)
+            : value;
         ScheduleDebouncedSave(row);
     }
 
@@ -247,6 +255,45 @@ public sealed class BacklogDesktopState : IDisposable
         Changed?.Invoke();
     }
 
+    public bool IsEditingSubItem(EntryRow row, int subItemIndex) =>
+        EditingSubItem is { } editing && ReferenceEquals(editing.Row, row) && editing.Index == subItemIndex;
+
+    public string SubItemEditText(EntryRow row, int subItemIndex) =>
+        EntryTextParser.GetSubItemText(row.RawText, subItemIndex);
+
+    public void BeginSubItemEdit(EntryRow row, int subItemIndex)
+    {
+        if (row.IsReadOnly) return;
+        if (subItemIndex < 0 || subItemIndex >= row.PreviewSubItems.Count) return;
+
+        EditingRow = null;
+        EditingSubItem = new EditingSubItem(row, subItemIndex);
+        FocusPending = true;
+        Changed?.Invoke();
+    }
+
+    public void OnSubItemRawTextInput(EntryRow row, int subItemIndex, string value)
+    {
+        if (!IsEditingSubItem(row, subItemIndex)) return;
+
+        row.RawText = EntryTextParser.ReplaceSubItemText(row.RawText, subItemIndex, value);
+        ScheduleDebouncedSave(row);
+    }
+
+    public async Task EndSubItemEditAsync(EntryRow row, int subItemIndex)
+    {
+        CancelDebounce(row);
+
+        if (IsEditingSubItem(row, subItemIndex))
+        {
+            EditingSubItem = null;
+        }
+
+        await SaveRowAsync(row, isFlush: true);
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
     /// <summary>Explicit, deliberate destructive action — distinct from the
     /// forbidden "Save" gesture, so it stays as a confirmed button.</summary>
     public async Task DeleteRowAsync(EntryRow row)
@@ -258,6 +305,7 @@ public sealed class BacklogDesktopState : IDisposable
         CancelDebounce(row);
 
         if (ReferenceEquals(EditingRow, row)) EditingRow = null;
+        if (EditingSubItem is { } editing && ReferenceEquals(editing.Row, row)) EditingSubItem = null;
 
         if (row.Id is { } id)
         {
@@ -393,7 +441,19 @@ public sealed class BacklogDesktopState : IDisposable
         await RewriteMetadataAsync(row, EntryTextParser.WithPriority(row.RawText, priority));
 
     public async Task ChangeStatusAsync(EntryRow row, EntryStatus status) =>
-        await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status), forceWhenEqual: row.Status != status);
+        await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status, cascadeSubItems: true), forceWhenEqual: row.Status != status);
+
+    public async Task ChangeSubItemTypeAsync(EntryRow row, int subItemIndex, EntryType type) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemType(row.RawText, subItemIndex, type));
+
+    public async Task ChangeSubItemPriorityAsync(EntryRow row, int subItemIndex, Priority priority) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemPriority(row.RawText, subItemIndex, priority));
+
+    public async Task ChangeSubItemStatusAsync(EntryRow row, int subItemIndex, EntryStatus status) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemStatus(row.RawText, subItemIndex, status));
+
+    public async Task ChangeSubItemTagsAsync(EntryRow row, int subItemIndex, string tags) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemTags(row.RawText, subItemIndex, tags));
 
     public async Task ChangeAreaAsync(EntryRow row, string? area) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithArea(row.RawText, area));
@@ -554,6 +614,41 @@ public sealed class BacklogDesktopState : IDisposable
         }
     }
 
+    public async Task PushSubItemToGitHubAsync(EntryRow row, int subItemIndex)
+    {
+        if (row.GitHubBusy) return;
+        if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry)) return;
+
+        var repository = RepositoryFor(row);
+        if (repository is null) return;
+
+        var subItem = EntryTextParser.Parse(row.RawText).SubItems.ElementAtOrDefault(subItemIndex);
+        if (subItem is null) return;
+
+        row.GitHubBusy = true;
+        row.GitHubError = null;
+        Changed?.Invoke();
+
+        try
+        {
+            await _gitHub.PushSubItemAsync(entry, subItem, repository);
+            SetSaveState(AppSaveState.Saved);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
+        {
+            row.GitHubError = ex.Message;
+        }
+        catch (Exception)
+        {
+            row.GitHubError = "Couldn't push that sub-item to GitHub.";
+        }
+        finally
+        {
+            row.GitHubBusy = false;
+            Changed?.Invoke();
+        }
+    }
+
     /// <summary>Re-reads one entry's issue state and the pull requests that
     /// reference it.</summary>
     public async Task RefreshGitHubAsync(EntryRow row)
@@ -645,6 +740,7 @@ public sealed class BacklogDesktopState : IDisposable
     private async void OnRootChanged()
     {
         EditingRow = null;
+        EditingSubItem = null;
         DraggedRow = null;
         EndSubItemDrag();
         _entries.Clear();
@@ -992,6 +1088,8 @@ public sealed record AreaFilterOption(string Label, string Value, int Count);
 /// asked for.</summary>
 public sealed record MetaReading(string Kind, string Value, bool Explicit, string? Note = null);
 
+public sealed record EditingSubItem(EntryRow Row, int Index);
+
 /// <summary>A row in the quick-edit list. <see cref="Key"/> is a stable
 /// client-side identity used for <c>@key</c> and debounce tracking, independent
 /// of <see cref="Id"/> which is null until the row is first saved.
@@ -1206,7 +1304,7 @@ public sealed class EntryRow
 
         _renderedFrom = RawText;
         _parsed = EntryTextParser.Parse(RawText);
-        _blocks = MarkdownPreview.Parse(_parsed.Body);
+        _blocks = MarkdownPreview.Parse(_parsed.Body, PreviewArea);
         _bodyBlocks = [.. _blocks.TakeWhile(b => b is not MdSubItem)];
         _subItems = [.. _blocks.OfType<MdSubItem>()];
     }

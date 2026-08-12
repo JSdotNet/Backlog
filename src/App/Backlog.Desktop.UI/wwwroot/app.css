@@ -494,7 +494,7 @@ h1, h2, h3 {
     /* Rails on all four sides, wrapped around the content. */
     display: grid;
     grid-template-columns: 14px minmax(0, 1fr) 14px;
-    grid-template-rows: 12px auto 12px;
+    grid-template-rows: 12px minmax(2.75rem, auto) 12px;
     container-type: inline-size;
 }
 
@@ -502,15 +502,15 @@ h1, h2, h3 {
     grid-column: 2;
     grid-row: 2;
     min-width: 0;
-    padding: var(--spacing-xs) 0;
+    padding: var(--spacing-sm) 0;
 }
 
 .entry-doc--one-line .entry-doc__body {
     display: grid;
-    grid-template-columns: minmax(8rem, 1fr) minmax(0, clamp(16rem, 42%, 34rem));
+    grid-template-columns: minmax(8rem, 1fr) auto;
     align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-xs) 0;
+    column-gap: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
 }
 
 .entry-doc--dragged {
@@ -741,8 +741,8 @@ h1, h2, h3 {
 
 .subitem-list {
     list-style: none;
-    margin: 0;
-    padding: 0 0 0 var(--spacing-lg);
+    margin: var(--spacing-xs) 0 0 clamp(1rem, 4vw, 2rem);
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
@@ -751,7 +751,7 @@ h1, h2, h3 {
 .subitem-card {
     position: relative;
     display: grid;
-    grid-template-columns: 14px minmax(0, 1fr);
+    grid-template-columns: 1.125rem minmax(0, 1fr);
     align-items: stretch;
     background: var(--color-background-alt);
     border: var(--border-width) solid var(--color-border);
@@ -760,13 +760,17 @@ h1, h2, h3 {
     transition: border-color var(--transition-fast), opacity var(--transition-fast);
 }
 
+.subitem-card--level-3 {
+    margin-left: clamp(0.75rem, 3vw, 1.5rem);
+}
+
 .subitem-card--dragged {
     opacity: 0.4;
 }
 
 .subitem-card__body {
     min-width: 0;
-    padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) 0;
+    padding: var(--spacing-sm);
 }
 
 .subitem-card__title-row {
@@ -793,6 +797,11 @@ h1, h2, h3 {
 
 .subitem-card__notes {
     margin-top: var(--spacing-xs);
+}
+
+.subitem-card__editor {
+    min-height: 7rem;
+    padding: 0;
 }
 
 .subitem-card__notes > :last-child {
@@ -942,37 +951,47 @@ h1, h2, h3 {
 
 /* --- Fold control -------------------------------------------------------- */
 /*
-  Folds the sub-item cards away. It keeps the count on screen, so a folded entry
-  still admits what is under it.
+  The title itself folds expandable entries. The arrow sits after the title text
+  so the whole title is the hit target without adding a separate button in front
+  of the reading order.
 */
 
-.entry-doc__fold {
+.entry-doc__title-toggle {
     display: inline-grid;
-    place-items: center;
-    flex: 0 0 auto;
-    width: 1.5rem;
-    height: 1.5rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--spacing-xs);
+    min-width: 0;
+    max-width: 100%;
+    width: fit-content;
     padding: 0;
-    border: var(--border-width) solid transparent;
-    border-radius: var(--border-radius-sm);
+    border: none;
     background: transparent;
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
+    color: inherit;
+    text-align: left;
     cursor: pointer;
+    vertical-align: middle;
 }
 
-.entry-doc__fold:hover {
-    border-color: var(--color-border);
-    color: var(--color-text-primary);
+.entry-doc--one-line .entry-doc__title-toggle {
+    width: 100%;
 }
 
-.entry-doc__fold:focus-visible {
+.entry-doc__title-toggle:hover .entry-doc__title {
+    color: var(--color-primary);
+}
+
+.entry-doc__title-toggle:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
+    outline-offset: 3px;
+    border-radius: var(--border-radius-sm);
 }
 
 .entry-doc__fold-chevron {
     display: inline-block;
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
     font-size: 1.25rem;
     line-height: 1;
     transition: transform var(--transition-fast);
@@ -1032,19 +1051,19 @@ h1, h2, h3 {
 
 .entry-doc--one-line .entry-doc__meta {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, auto) auto auto;
     align-items: center;
     gap: var(--spacing-xs) var(--spacing-sm);
     min-width: 0;
-    width: 100%;
-    overflow: hidden;
+    width: auto;
+    overflow: visible;
 }
 
 .entry-doc--one-line .entry-doc__meta-start {
     grid-column: 2;
     grid-row: 1;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
     margin-left: 0;
     flex-wrap: nowrap;
 }
@@ -1052,7 +1071,8 @@ h1, h2, h3 {
 .entry-doc--one-line .entry-doc__tags {
     grid-column: 1;
     grid-row: 1;
-    justify-content: center;
+    justify-content: flex-end;
+    max-width: 16rem;
     overflow: hidden;
     white-space: nowrap;
     flex-wrap: nowrap;
@@ -1064,7 +1084,7 @@ h1, h2, h3 {
     margin-left: 0;
     justify-content: flex-end;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
     flex-wrap: nowrap;
     gap: var(--spacing-xs);
 }
@@ -1112,11 +1132,17 @@ h1, h2, h3 {
     grid-row: 1;
     padding: 0;
     min-width: 0;
+    align-self: center;
+}
+
+.entry-doc--editing .entry-doc__body {
+    min-height: max-content;
 }
 
 .entry-doc--one-line .entry-doc__meta {
     grid-column: 2;
     grid-row: 1;
+    align-self: center;
 }
 
 .entry-doc__read:focus-visible {
@@ -1128,20 +1154,20 @@ h1, h2, h3 {
 .entry-doc__title-line {
     display: flex;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: var(--spacing-xs);
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line {
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: var(--spacing-sm);
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta {
     flex: 1 1 22rem;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: flex-end;
     margin-left: var(--spacing-xs);
     min-width: 0;
@@ -1150,34 +1176,39 @@ h1, h2, h3 {
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
 }
 
 .entry-doc__title {
     font-family: var(--font-family-heading);
     font-size: var(--font-size-xl);
-    overflow: hidden;
+    overflow: visible;
     overflow-wrap: anywhere;
     line-height: var(--line-height-tight);
     margin: 0 0 var(--spacing-xs);
     min-width: 0;
 }
 
+.entry-doc__title-toggle .entry-doc__title {
+    margin: 0;
+}
+
 .entry-doc__title-line .entry-doc__title {
-    overflow-wrap: normal;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__title {
-    flex: 1 1 auto;
-    margin-bottom: 0;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
 }
 
 .entry-doc--one-line .entry-doc__title {
     margin: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-overflow: clip;
+    white-space: normal;
 }
 
 .entry-doc__title--empty {
@@ -1191,6 +1222,13 @@ h1, h2, h3 {
 .grow-wrap {
     display: grid;
     padding: var(--spacing-xs) 0 var(--spacing-sm);
+
+    /* The replica and the textarea must share identical text metrics, or the
+       replica sizes the grid track for the wrong line height and the textarea
+       is clipped. Both inherit from here so they can never drift apart. */
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
 }
 
 .grow-wrap::after {
@@ -1203,6 +1241,7 @@ h1, h2, h3 {
 .grow-wrap::after {
     grid-area: 1 / 1 / 2 / 2;
     font: inherit;
+    overflow-wrap: break-word;
     padding: 0;
     border: none;
 }
@@ -1213,16 +1252,7 @@ h1, h2, h3 {
     overflow: hidden;
     background: transparent;
     color: var(--color-text-primary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
     min-height: 3.5em;
-}
-
-.grow-wrap::after {
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
 }
 
 .entry-doc__editor::placeholder {
@@ -1786,7 +1816,6 @@ h1, h2, h3 {
         margin-left: 0;
     }
 }
-
 @media (max-width: 48rem) {
     .filter-bar {
         gap: var(--spacing-xs);
@@ -3034,7 +3063,7 @@ body.is-resizing-pane {
     display: flex;
     justify-content: space-between;
     gap: var(--spacing-md);
-    align-items: start;
+    align-items: center;
 }
 
 .tech-layer__header h3,
@@ -3642,9 +3671,8 @@ body.is-resizing-pane {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .tech-graph__canvas canvas,
-    .tech-graph__fallback-svg {
-        scroll-behavior: auto;
+    .save-indicator--saving .save-indicator__dot {
+        animation: none;
     }
 }
 
