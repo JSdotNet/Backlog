@@ -73,6 +73,51 @@ public class FileBacklogRepositoryTests : IDisposable
         Assert.Empty(await _repo.ListAsync());
     }
 
+
+    [Fact]
+    public async Task NewRepository_StartsWithoutInitialEntries()
+    {
+        var list = await _repo.ListAsync();
+
+        Assert.Empty(list);
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(_dir, "entries"), "*.md"));
+    }
+
+    [Fact]
+    public async Task MarkdownFile_OmitsEmptyMetadataAndKeepsCreatedAtScalar()
+    {
+        var entry = new BacklogEntry("Minimal", "body", EntryType.Task);
+        await _repo.SaveAsync(entry);
+
+        var text = await File.ReadAllTextAsync(Path.Combine(_dir, "entries", $"{entry.Id}.md"));
+
+        Assert.Contains("created_at: ", text);
+        Assert.DoesNotContain("date_time:", text);
+        Assert.DoesNotContain("repo_ids:", text);
+        Assert.DoesNotContain("tags:", text);
+        Assert.DoesNotContain("sub_items:", text);
+        Assert.DoesNotContain("projections:", text);
+        Assert.DoesNotContain("usage_events:", text);
+    }
+
+    [Fact]
+    public async Task Save_WritesEntryOrderToSidecarMetadataIndex()
+    {
+        var entry = new BacklogEntry("Ordered", "body", EntryType.Task);
+        entry.SetOrder(7);
+
+        await _repo.SaveAsync(entry);
+
+        var markdown = await File.ReadAllTextAsync(Path.Combine(_dir, "entries", $"{entry.Id}.md"));
+        var index = await File.ReadAllTextAsync(Path.Combine(_dir, "entries", "_meta", "index.json"));
+        var loaded = await _repo.GetAsync(entry.Id);
+
+        Assert.DoesNotContain("order:", markdown);
+        Assert.Contains(entry.Id.ToString(), index);
+        Assert.Contains("\"order\": 7", index);
+        Assert.Equal(7, loaded!.Order);
+    }
+
     [Fact]
     public async Task MarkdownFile_IsCanonicalSourceWithFrontmatter()
     {

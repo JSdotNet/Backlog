@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Backlog.Modules.Backlog;
@@ -25,11 +26,14 @@ public sealed class FileBacklogRepository : IBacklogRepository
         .Build();
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions MetaJsonOptions = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly string _rootDir;
     private readonly string _entriesDir;
     private readonly string _indexPath;
+    private readonly string _entryMetaDir;
+    private readonly string _entryOrderIndexPath;
 
     /// <summary>Creates a repository rooted at the given folder, or the default
     /// per-user app-data folder (<c>%LOCALAPPDATA%\Backlog</c>) when null.</summary>
@@ -40,6 +44,8 @@ public sealed class FileBacklogRepository : IBacklogRepository
             "Backlog");
         _entriesDir = Path.Combine(_rootDir, "entries");
         _indexPath = Path.Combine(_rootDir, "index.json");
+        _entryMetaDir = Path.Combine(_entriesDir, "_meta");
+        _entryOrderIndexPath = Path.Combine(_entryMetaDir, "index.json");
         Directory.CreateDirectory(_entriesDir);
     }
 
@@ -57,6 +63,7 @@ public sealed class FileBacklogRepository : IBacklogRepository
         try
         {
             await File.WriteAllTextAsync(path, markdown, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+            await SaveEntryOrderAsync(entry.Id, entry.Order, cancellationToken).ConfigureAwait(false);
             await RebuildIndexAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -71,7 +78,8 @@ public sealed class FileBacklogRepository : IBacklogRepository
         if (!File.Exists(path)) return null;
 
         var text = await File.ReadAllTextAsync(path, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-        return FromMarkdown(text);
+        var order = await ReadEntryOrderAsync(id, cancellationToken).ConfigureAwait(false);
+        return FromMarkdown(text, order);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -81,6 +89,7 @@ public sealed class FileBacklogRepository : IBacklogRepository
         {
             var path = EntryPath(id);
             if (File.Exists(path)) File.Delete(path);
+            await RemoveEntryOrderAsync(id, cancellationToken).ConfigureAwait(false);
             await RebuildIndexAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -106,12 +115,15 @@ public sealed class FileBacklogRepository : IBacklogRepository
     // Rebuilds the JSON index by scanning canonical markdown (the source of truth).
     private async Task RebuildIndexAsync(CancellationToken cancellationToken)
     {
+        var orders = await ReadEntryOrdersAsync(cancellationToken).ConfigureAwait(false);
         var summaries = new List<BacklogEntrySummary>();
         foreach (var file in Directory.EnumerateFiles(_entriesDir, "*.md"))
         {
             var text = await File.ReadAllTextAsync(file, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
             var entry = FromMarkdown(text);
             if (entry is null) continue;
+            if (orders.TryGetValue(entry.Id, out var order)) entry.SetOrder(order);
+
             summaries.Add(new BacklogEntrySummary(
                 entry.Id,
                 entry.Title,
@@ -134,6 +146,56 @@ public sealed class FileBacklogRepository : IBacklogRepository
         await File.WriteAllTextAsync(_indexPath, json, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
     }
 
+    private async Task SaveEntryOrderAsync(Guid id, int order, CancellationToken cancellationToken)
+    {
+        var orders = await ReadEntryOrdersAsync(cancellationToken).ConfigureAwait(false);
+        orders[id] = order;
+        await WriteEntryOrdersAsync(orders, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<int?> ReadEntryOrderAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var orders = await ReadEntryOrdersAsync(cancellationToken).ConfigureAwait(false);
+        return orders.TryGetValue(id, out var order) ? order : null;
+    }
+
+    private async Task RemoveEntryOrderAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var orders = await ReadEntryOrdersAsync(cancellationToken).ConfigureAwait(false);
+        if (!orders.Remove(id)) return;
+        await WriteEntryOrdersAsync(orders, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Dictionary<Guid, int>> ReadEntryOrdersAsync(CancellationToken cancellationToken)
+    {
+        if (!File.Exists(_entryOrderIndexPath)) return new Dictionary<Guid, int>();
+
+        await using var stream = File.OpenRead(_entryOrderIndexPath);
+        var index = await JsonSerializer
+            .DeserializeAsync<EntryOrderIndex>(stream, MetaJsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+
+        return index?.Entries?
+            .Where(e => Guid.TryParse(e.Id, out _))
+            .ToDictionary(e => Guid.Parse(e.Id), e => e.Order)
+            ?? new Dictionary<Guid, int>();
+    }
+
+    private async Task WriteEntryOrdersAsync(Dictionary<Guid, int> orders, CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(_entryMetaDir);
+        var index = new EntryOrderIndex
+        {
+            Entries = orders
+                .OrderBy(pair => pair.Value)
+                .ThenBy(pair => pair.Key)
+                .Select(pair => new EntryOrderIndexItem(pair.Key.ToString(), pair.Value))
+                .ToList()
+        };
+        var json = JsonSerializer.Serialize(index, MetaJsonOptions);
+        await File.WriteAllTextAsync(_entryOrderIndexPath, json, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+    }
+
     // --- Markdown (canonical) ----------------------------------------------
 
     private static string ToMarkdown(BacklogEntry entry)
@@ -145,31 +207,30 @@ public sealed class FileBacklogRepository : IBacklogRepository
             Type = EnumMap.ToWire(entry.Type),
             Status = EnumMap.ToWire(entry.Status),
             Priority = EnumMap.ToWire(entry.Priority),
-            RepoIds = entry.RepoIds.ToList(),
-            Tags = entry.Tags.ToList(),
+            RepoIds = entry.RepoIds.Count > 0 ? entry.RepoIds.ToList() : null,
+            Tags = entry.Tags.Count > 0 ? entry.Tags.ToList() : null,
             SourceInboxId = entry.SourceInboxId,
-            CreatedAt = entry.CreatedAt,
-            Order = entry.Order,
+            CreatedAt = entry.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
             Area = entry.Area,
-            SubItems = entry.SubItems.Select(s => new SubItemDto
+            SubItems = entry.SubItems.Count > 0 ? entry.SubItems.Select(s => new SubItemDto
             {
                 Id = s.Id.ToString(),
                 Title = s.Title,
                 Status = EnumMap.ToWire(s.Status),
                 Notes = s.Notes,
                 Order = s.Order
-            }).ToList(),
-            Projections = entry.ProjectionRefs.Select(p => new ProjectionRefDto
+            }).ToList() : null,
+            Projections = entry.ProjectionRefs.Count > 0 ? entry.ProjectionRefs.Select(p => new ProjectionRefDto
             {
                 RepoId = p.RepoId,
                 ExternalId = p.ExternalId,
                 TargetType = p.TargetType
-            }).ToList(),
-            UsageEvents = entry.UsageEvents.Select(u => new UsageEventDto
+            }).ToList() : null,
+            UsageEvents = entry.UsageEvents.Count > 0 ? entry.UsageEvents.Select(u => new UsageEventDto
             {
                 Timestamp = u.Timestamp,
                 Action = u.Action
-            }).ToList()
+            }).ToList() : null
         };
 
         var yaml = YamlSerializer.Serialize(fm).TrimEnd();
@@ -180,12 +241,12 @@ public sealed class FileBacklogRepository : IBacklogRepository
         return sb.ToString();
     }
 
-    private static BacklogEntry? FromMarkdown(string text)
+    private static BacklogEntry? FromMarkdown(string text, int? orderOverride = null)
     {
         var (yaml, body) = SplitFrontmatter(text);
         if (yaml is null) return null;
 
-        var fm = YamlDeserializer.Deserialize<EntryFrontmatter>(yaml);
+        var fm = YamlDeserializer.Deserialize<EntryFrontmatter>(NormalizeCreatedAt(yaml));
         if (fm is null || string.IsNullOrWhiteSpace(fm.Id)) return null;
 
         var entry = new BacklogEntry(
@@ -195,14 +256,14 @@ public sealed class FileBacklogRepository : IBacklogRepository
             EnumMap.ParseType(fm.Type),
             EnumMap.ParseStatus(fm.Status),
             EnumMap.ParsePriority(fm.Priority),
-            fm.RepoIds,
-            fm.Tags,
+            fm.RepoIds ?? [],
+            fm.Tags ?? [],
             string.IsNullOrWhiteSpace(fm.SourceInboxId) ? null : fm.SourceInboxId,
-            fm.CreatedAt);
+            ParseCreatedAt(fm.CreatedAt));
 
-        entry.SetOrder(fm.Order);
+        entry.SetOrder(orderOverride ?? fm.Order ?? 0);
         entry.SetArea(fm.Area);
-        foreach (var s in fm.SubItems.OrderBy(s => s.Order))
+        foreach (var s in (fm.SubItems ?? []).OrderBy(s => s.Order))
         {
             var subItem = entry.CreateSubItemForLoad(
                 Guid.Parse(s.Id),
@@ -213,13 +274,59 @@ public sealed class FileBacklogRepository : IBacklogRepository
             entry.LoadSubItem(subItem);
         }
 
-        foreach (var p in fm.Projections)
+        foreach (var p in fm.Projections ?? [])
             entry.AddProjectionRef(new ProjectionRef(p.RepoId, p.ExternalId, p.TargetType));
 
-        foreach (var u in fm.UsageEvents)
+        foreach (var u in fm.UsageEvents ?? [])
             entry.LoadUsageEvent(new UsageEvent(u.Timestamp, u.Action));
 
         return entry;
+    }
+
+    private static DateTimeOffset ParseCreatedAt(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return default;
+
+        return DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+    }
+
+    private static string NormalizeCreatedAt(string yaml)
+    {
+        var lines = yaml.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var output = new List<string>(lines.Length);
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (!string.Equals(lines[i], "created_at:", StringComparison.Ordinal))
+            {
+                output.Add(lines[i]);
+                continue;
+            }
+
+            var value = string.Empty;
+            var j = i + 1;
+            for (; j < lines.Length && lines[j].StartsWith("  ", StringComparison.Ordinal); j++)
+            {
+                var trimmed = lines[j].Trim();
+                if (trimmed.StartsWith("utc_date_time:", StringComparison.Ordinal))
+                {
+                    value = trimmed["utc_date_time:".Length..].Trim();
+                }
+                else if (value.Length == 0 && trimmed.StartsWith("local_date_time:", StringComparison.Ordinal))
+                {
+                    value = trimmed["local_date_time:".Length..].Trim();
+                }
+                else if (value.Length == 0 && trimmed.StartsWith("date_time:", StringComparison.Ordinal))
+                {
+                    value = trimmed["date_time:".Length..].Trim();
+                }
+            }
+
+            output.Add(value.Length > 0 ? "created_at: " + value : lines[i]);
+            i = j - 1;
+        }
+
+        return string.Join('\n', output);
     }
 
     private static (string? Yaml, string Body) SplitFrontmatter(string text)
@@ -237,4 +344,11 @@ public sealed class FileBacklogRepository : IBacklogRepository
     }
 
     private string EntryPath(Guid id) => Path.Combine(_entriesDir, $"{id}.md");
+
+    private sealed class EntryOrderIndex
+    {
+        public List<EntryOrderIndexItem>? Entries { get; set; }
+    }
+
+    private sealed record EntryOrderIndexItem(string Id, int Order);
 }
