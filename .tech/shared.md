@@ -187,3 +187,41 @@ The external system of record for issues, repositories, and automation.
   health signals, CI/CD, and this repository itself.
 - **Why** — a hard organizational constraint: GitHub is the external issue
   system, so the product integrates with it rather than replacing it.
+
+## Anthropic Claude Platform
+
+```meta
+status: candidate
+kind: service
+related: [".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"]
+alternatives: ["Local accumulation of per-response token counts"]
+```
+
+The external source of measured Claude usage: token counts, cost, and Claude
+Code session activity.
+
+- **Used for** — importing usage evidence for productivity metrics through the
+  Admin API's usage, cost, and Claude Code reports.
+- **Why** — it is the only authoritative record of what was actually spent.
+  Kept a candidate because the reports are organization-scoped: Anthropic
+  documents the Admin API as unavailable to individual accounts, so this
+  dependency only pays off for a person whose subscription sits behind an
+  organization. The recorded alternative covers everyone else.
+
+## GitHub Copilot Usage APIs
+
+```meta
+status: candidate
+kind: service
+depends-on: [".tech/shared.md#github-platform"]
+related: [".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"]
+```
+
+The organization-level record of Copilot seat activity and usage metrics.
+
+- **Used for** — importing Copilot activity evidence alongside Claude usage,
+  over the same transport the product already uses for issues.
+- **Why** — the same reasoning as above, with a sharper limit: GitHub publishes
+  no endpoint for an individual subscriber's own Copilot usage at all, and the
+  organization endpoints are owner-only. Everything here is therefore
+  conditional on the person owning an organization.

@@ -10,33 +10,34 @@
     ".design"
   ],
   "stats": {
-    "nodes": 469,
-    "edges": 821,
+    "nodes": 474,
+    "edges": 831,
     "nodesByFolder": {
       "arc42": 58,
-      "domain": 284,
+      "domain": 287,
       "backlog": 4,
-      "tech": 50,
+      "tech": 52,
       "design": 73
     },
     "nodesByType": {
       "file": 89,
-      "chapter": 344,
-      "heading": 36
+      "chapter": 348,
+      "heading": 37
     },
     "nodesByStatus": {
       "active": 118,
       "proposed": 1,
-      "draft": 263,
+      "draft": 264,
       "accepted": 1,
-      "candidate": 30,
+      "idea": 1,
+      "candidate": 32,
       "adopted": 20,
-      "none": 36
+      "none": 37
     },
     "edgesByType": {
-      "contains": 380,
-      "related": 378,
-      "depends-on": 61,
+      "contains": 385,
+      "related": 382,
+      "depends-on": 62,
       "implements": 2
     }
   },
@@ -3524,6 +3525,38 @@
       },
       {
         "data": {
+          "id": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "label": "Sub-feature: AI vendor usage import",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/features.md",
+          "slug": "sub-feature-ai-vendor-usage-import",
+          "level": 3,
+          "line": 49,
+          "status": "draft",
+          "related": [
+            ".domain/productivity/dependencies.md#outbound-dependencies"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/features.md#sub-feature-local-usage-accumulation",
+          "label": "Sub-feature: Local usage accumulation",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/productivity/features.md",
+          "slug": "sub-feature-local-usage-accumulation",
+          "level": 3,
+          "line": 63,
+          "status": "idea",
+          "related": [
+            ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/productivity/features.md#feature-personal-productivity-dashboard",
           "label": "Feature: Personal productivity dashboard",
           "type": "chapter",
@@ -3531,7 +3564,7 @@
           "path": ".domain/productivity/features.md",
           "slug": "feature-personal-productivity-dashboard",
           "level": 2,
-          "line": 49,
+          "line": 87,
           "status": "draft",
           "related": [
             ".domain/monitoring/features.md#feature-multi-layer-dashboards"
@@ -5431,6 +5464,46 @@
       },
       {
         "data": {
+          "id": ".tech/shared.md#anthropic-claude-platform",
+          "label": "Anthropic Claude Platform",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "anthropic-claude-platform",
+          "level": 2,
+          "line": 191,
+          "status": "candidate",
+          "kind": "service",
+          "alternatives": [
+            "Local accumulation of per-response token counts"
+          ],
+          "related": [
+            ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#github-copilot-usage-apis",
+          "label": "GitHub Copilot Usage APIs",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "github-copilot-usage-apis",
+          "level": 2,
+          "line": 211,
+          "status": "candidate",
+          "kind": "service",
+          "depends-on": [
+            ".tech/shared.md#github-platform"
+          ],
+          "related": [
+            ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/technology-graph.md",
           "label": "Technology Graph",
           "type": "file",
@@ -6929,6 +7002,18 @@
           "slug": "signal-payload",
           "level": 4,
           "line": 41
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/productivity/dependencies.md#outbound-dependencies",
+          "label": "Outbound dependencies",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/productivity/dependencies.md",
+          "slug": "outbound-dependencies",
+          "level": 2,
+          "line": 11
         }
       },
       {
@@ -8607,6 +8692,22 @@
       },
       {
         "data": {
+          "id": "contains:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "target": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/productivity/features.md#feature-ai-productivity-tracking->.domain/productivity/features.md#sub-feature-local-usage-accumulation",
+          "source": ".domain/productivity/features.md#feature-ai-productivity-tracking",
+          "target": ".domain/productivity/features.md#sub-feature-local-usage-accumulation",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/productivity/features.md->.domain/productivity/features.md#feature-personal-productivity-dashboard",
           "source": ".domain/productivity/features.md",
           "target": ".domain/productivity/features.md#feature-personal-productivity-dashboard",
@@ -9314,6 +9415,22 @@
           "id": "contains:.tech/shared.md->.tech/shared.md#github-platform",
           "source": ".tech/shared.md",
           "target": ".tech/shared.md#github-platform",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#anthropic-claude-platform",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#anthropic-claude-platform",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#github-copilot-usage-apis",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#github-copilot-usage-apis",
           "type": "contains"
         }
       },
@@ -11695,6 +11812,30 @@
       },
       {
         "data": {
+          "id": "contains:.domain/productivity/dependencies.md->.domain/productivity/dependencies.md#outbound-dependencies",
+          "source": ".domain/productivity/dependencies.md",
+          "target": ".domain/productivity/dependencies.md#outbound-dependencies",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/features.md#sub-feature-ai-vendor-usage-import->.domain/productivity/dependencies.md#outbound-dependencies",
+          "source": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "target": ".domain/productivity/dependencies.md#outbound-dependencies",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/productivity/features.md#sub-feature-local-usage-accumulation->.domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "source": ".domain/productivity/features.md#sub-feature-local-usage-accumulation",
+          "target": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/productivity/features.md#feature-personal-productivity-dashboard->.domain/monitoring/features.md#feature-multi-layer-dashboards",
           "source": ".domain/productivity/features.md#feature-personal-productivity-dashboard",
           "target": ".domain/monitoring/features.md#feature-multi-layer-dashboards",
@@ -12858,6 +12999,30 @@
           "id": "related:.tech/shared.md#github-platform->.arc42/02-constraints.md#organizational--process-constraints",
           "source": ".tech/shared.md#github-platform",
           "target": ".arc42/02-constraints.md#organizational--process-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#anthropic-claude-platform->.domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "source": ".tech/shared.md#anthropic-claude-platform",
+          "target": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#github-copilot-usage-apis->.tech/shared.md#github-platform",
+          "source": ".tech/shared.md#github-copilot-usage-apis",
+          "target": ".tech/shared.md#github-platform",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#github-copilot-usage-apis->.domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "source": ".tech/shared.md#github-copilot-usage-apis",
+          "target": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
           "type": "related"
         }
       },

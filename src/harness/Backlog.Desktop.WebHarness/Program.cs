@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Desktop.UI.Components;
 using Backlog.Desktop.UI.Services;
@@ -21,6 +22,15 @@ builder.Services.AddSingleton(_ => CreateLocalDevelopmentFeatureSettingsStore(bu
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+builder.Services.AddSingleton<ICopilotUsageClient>(sp => new CopilotUsageClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+
+// Claude usage reporting reports itself unavailable until an Admin API key is
+// configured, so it is safe to register unconditionally.
+builder.Services.AddSingleton(_ => CreateLocalDevelopmentClaudeSettingsStore(builder.Environment.ContentRootPath));
+builder.Services.AddHttpClient<IClaudeTransport, ClaudeAdminTransport>();
+builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
+    sp.GetRequiredService<IClaudeTransport>(),
+    sp.GetRequiredService<ClaudeSettingsStore>()));
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<DesignKnowledgeProvider>();
 builder.Services.AddSingleton<KnowledgeFolderSource>();
@@ -130,6 +140,18 @@ static AppFeatureSettingsStore CreateLocalDevelopmentFeatureSettingsStore(string
 
     return new AppFeatureSettingsStore(settingsPath);
 }
+
+static ClaudeSettingsStore CreateLocalDevelopmentClaudeSettingsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_CLAUDE_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "claude.settings.json");
+    }
+
+    return new ClaudeSettingsStore(settingsPath);
+}
+
 static string? ResolveRepositoryRoot(string contentRootPath)
 {
     var configured = Environment.GetEnvironmentVariable("BACKLOG_REPOSITORY_ROOT");

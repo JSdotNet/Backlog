@@ -2,11 +2,29 @@ using System.Text.Json;
 
 namespace Backlog.Desktop.UI.Services;
 
-public sealed record AppFeatureDefinition(string Key, string Name, string Description, bool AlwaysEnabled = false);
+/// <summary>
+/// A switchable part of the app. Most features ship on and are opt-out; a
+/// feature that is not proven yet sets <paramref name="EnabledByDefault"/> to
+/// false so nobody meets it without asking for it.
+/// </summary>
+public sealed record AppFeatureDefinition(
+    string Key,
+    string Name,
+    string Description,
+    bool AlwaysEnabled = false,
+    bool EnabledByDefault = true);
 
+/// <summary>
+/// Which features have been switched away from their default. Two sets rather
+/// than one, because "not mentioned" has to keep meaning "default" — otherwise
+/// a default-off feature added after a settings file was written would silently
+/// come on.
+/// </summary>
 public sealed class AppFeatureSettings
 {
     public HashSet<string> DisabledFeatures { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public HashSet<string> EnabledFeatures { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class AppFeatureSettingsStore
@@ -20,6 +38,7 @@ public sealed class AppFeatureSettingsStore
     public const string FeedbackReporting = "feedback-reporting";
     public const string CopilotCli = "copilot-cli";
     public const string AiAssistant = "ai-assistant";
+    public const string UsageMetrics = "usage-metrics";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -64,13 +83,23 @@ public sealed class AppFeatureSettingsStore
         new(GitHubIntegration, "GitHub integration", "Configure GitHub access, push entries to issues, and refresh issue or pull request state."),
         new(FeedbackReporting, "Feedback reporting", "Report Desktop app issues to GitHub with current-screen context and a screenshot."),
         new(CopilotCli, "Copilot CLI", "Start GitHub Copilot CLI from Backlog workflows."),
-        new(AiAssistant, "AI assistant", "Ask questions about visible backlog content through Azure Foundry.")
+        new(AiAssistant, "AI assistant", "Ask questions about visible backlog content through Azure Foundry."),
+        new(
+            UsageMetrics,
+            "AI usage metrics",
+            "Read Claude and GitHub Copilot usage from their organization APIs as evidence for productivity metrics. Both are organization-scoped: Claude needs an Admin API key and GitHub needs organization-owner access.",
+            EnabledByDefault: false)
     ];
 
     public bool IsEnabled(string key)
     {
         var feature = Find(key) ?? throw new ArgumentException($"Unknown feature '{key}'.", nameof(key));
-        return feature.AlwaysEnabled || !Current.DisabledFeatures.Contains(feature.Key);
+
+        if (feature.AlwaysEnabled) return true;
+
+        return feature.EnabledByDefault
+            ? !Current.DisabledFeatures.Contains(feature.Key)
+            : Current.EnabledFeatures.Contains(feature.Key);
     }
 
     public string? SetEnabled(string key, bool enabled)
@@ -87,16 +116,24 @@ public sealed class AppFeatureSettingsStore
         }
 
         var disabled = new HashSet<string>(Current.DisabledFeatures, StringComparer.OrdinalIgnoreCase);
-        if (enabled)
+        var explicitlyEnabled = new HashSet<string>(Current.EnabledFeatures, StringComparer.OrdinalIgnoreCase);
+
+        if (feature.EnabledByDefault)
         {
-            disabled.Remove(feature.Key);
+            if (enabled) disabled.Remove(feature.Key);
+            else disabled.Add(feature.Key);
         }
         else
         {
-            disabled.Add(feature.Key);
+            if (enabled) explicitlyEnabled.Add(feature.Key);
+            else explicitlyEnabled.Remove(feature.Key);
         }
 
-        return Save(new AppFeatureSettings { DisabledFeatures = disabled });
+        return Save(new AppFeatureSettings
+        {
+            DisabledFeatures = disabled,
+            EnabledFeatures = explicitlyEnabled
+        });
     }
 
     private static AppFeatureDefinition? Find(string key) =>
@@ -111,7 +148,8 @@ public sealed class AppFeatureSettingsStore
         {
             var dto = new FeatureSettingsDto
             {
-                DisabledFeatures = [.. Current.DisabledFeatures.Order(StringComparer.OrdinalIgnoreCase)]
+                DisabledFeatures = [.. Current.DisabledFeatures.Order(StringComparer.OrdinalIgnoreCase)],
+                EnabledFeatures = [.. Current.EnabledFeatures.Order(StringComparer.OrdinalIgnoreCase)]
             };
 
             File.WriteAllText(_path, JsonSerializer.Serialize(dto, JsonOptions));
@@ -136,7 +174,8 @@ public sealed class AppFeatureSettingsStore
 
             return Normalize(new AppFeatureSettings
             {
-                DisabledFeatures = new HashSet<string>(dto.DisabledFeatures, StringComparer.OrdinalIgnoreCase)
+                DisabledFeatures = new HashSet<string>(dto.DisabledFeatures, StringComparer.OrdinalIgnoreCase),
+                EnabledFeatures = new HashSet<string>(dto.EnabledFeatures, StringComparer.OrdinalIgnoreCase)
             });
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -147,15 +186,21 @@ public sealed class AppFeatureSettingsStore
 
     private static AppFeatureSettings Normalize(AppFeatureSettings settings)
     {
-        var disableable = Features.Where(f => !f.AlwaysEnabled).Select(f => f.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var switchable = Features.Where(f => !f.AlwaysEnabled).ToList();
+        var optOut = switchable.Where(f => f.EnabledByDefault).Select(f => f.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var optIn = switchable.Where(f => !f.EnabledByDefault).Select(f => f.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         return new AppFeatureSettings
         {
-            DisabledFeatures = [.. settings.DisabledFeatures.Where(disableable.Contains)]
+            DisabledFeatures = [.. settings.DisabledFeatures.Where(optOut.Contains)],
+            EnabledFeatures = [.. settings.EnabledFeatures.Where(optIn.Contains)]
         };
     }
 
     private sealed class FeatureSettingsDto
     {
         public string[] DisabledFeatures { get; init; } = [];
+
+        public string[] EnabledFeatures { get; init; } = [];
     }
 }
