@@ -58,18 +58,21 @@
             <DiagramView Title="@_view.Diagrams[0].Title" Language="@_view.Diagrams[0].Language" Source="@_view.Diagrams[0].Source" />
         }
 
-        <section class="tech-layer-tabs" aria-label="Technology layers">
-            @foreach (var layer in _view.Layers)
-            {
-                <button type="button"
-                        class="tech-layer-tab @(ReferenceEquals(layer, ActiveLayer) ? "tech-layer-tab--active" : string.Empty)"
-                        aria-pressed="@(ReferenceEquals(layer, ActiveLayer) ? "true" : "false")"
-                        @onclick="() => _activeLayerFile = layer.FileName">
-                    <span>@LayerLabel(layer)</span>
-                    <span class="tech-layer-tab__count">@layer.Nodes.Count</span>
-                </button>
-            }
-        </section>
+        @if (string.IsNullOrWhiteSpace(SelectedPath))
+        {
+            <section class="tech-layer-tabs" aria-label="Technology layers">
+                @foreach (var layer in _view.Layers)
+                {
+                    <button type="button"
+                            class="tech-layer-tab @(ReferenceEquals(layer, ActiveLayer) ? "tech-layer-tab--active" : string.Empty)"
+                            aria-pressed="@(ReferenceEquals(layer, ActiveLayer) ? "true" : "false")"
+                            @onclick="() => _activeLayerFile = layer.FileName">
+                        <span>@LayerLabel(layer)</span>
+                        <span class="tech-layer-tab__count">@layer.Nodes.Count</span>
+                    </button>
+                }
+            </section>
+        }
 
         @if (ActiveLayer is { } activeLayer)
         {
@@ -146,7 +149,12 @@
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
-    private TechnologyLayer? ActiveLayer => _view?.Layers.FirstOrDefault(layer => layer.FileName == _activeLayerFile) ?? _view?.Layers.FirstOrDefault();
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    private TechnologyLayer? ActiveLayer => !string.IsNullOrWhiteSpace(SelectedPath)
+        ? _view?.Layers.FirstOrDefault(layer => PathMatches(layer.FileName, SelectedPath)) ?? _view?.Layers.FirstOrDefault()
+        : _view?.Layers.FirstOrDefault(layer => layer.FileName == _activeLayerFile) ?? _view?.Layers.FirstOrDefault();
 
     private int NodeCount => _view?.Layers.Sum(layer => layer.Nodes.Count) ?? 0;
 
@@ -181,6 +189,16 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    private static bool PathMatches(string candidate, string selectedPath)
+    {
+        var candidatePath = NormalizePath(candidate);
+        var selected = NormalizePath(selectedPath);
+        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
+            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Path.GetFileName(candidatePath), Path.GetFileName(selected), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
     private RenderFragment RenderStatusSelect(string itemPath, string title, string status) => @<span class="knowledge-status-control">
         <label class="status-editor badge badge--status badge--status-@status" data-testid="knowledge-state-select">
             <span class="sr-only">State for @title</span>
@@ -248,3 +266,4 @@
         TechnologyKnowledge.Changed -= OnKnowledgeChanged;
     }
 }
+

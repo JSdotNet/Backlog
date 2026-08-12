@@ -7,6 +7,7 @@
 @inject AppFeatureSettingsStore Features
 @inject IAppUpdateService Updates
 @inject IAzureFoundryChatClient AzureFoundryChat
+@inject KnowledgeMenu KnowledgeMenu
 
 @*
     One entry is one block of markdown. Not focused, it reads as a document;
@@ -564,7 +565,7 @@
                         <button type="button"
                                 class="knowledge-stack__nav-item @(IsKnowledgeSectionActive(area.Key) ? "knowledge-stack__nav-item--active" : string.Empty)"
                                 role="tab"
-                                aria-selected="@IsKnowledgeSectionActive(area.Key)"
+                                aria-selected="@(IsKnowledgeSectionActive(area.Key) ? "true" : "false")"
                                 aria-controls="knowledge-active-section"
                                 @onclick="() => SelectKnowledgeSection(area.Key)">
                             @area.Label
@@ -572,8 +573,34 @@
                     }
                 </nav>
 
-                <div class="knowledge-stack__section" id="knowledge-active-section" role="tabpanel">
-                    @RenderActiveKnowledge()
+                <div class="knowledge-stack__body @(KnowledgeSectionUsesMenu ? string.Empty : "knowledge-stack__body--without-menu")">
+                    @if (KnowledgeSectionUsesMenu)
+                    {
+                        <nav class="knowledge-stack__menu" aria-label="Knowledge menu">
+                        <div class="knowledge-stack__menu-heading">@(VisibleKnowledgeAreas.FirstOrDefault(area => IsKnowledgeSectionActive(area.Key))?.Label ?? "Knowledge")</div>
+                        @if (_knowledgeMenuLoading)
+                        {
+                            <p class="knowledge-stack__menu-message">Loading knowledge menu...</p>
+                        }
+                        else if (ActiveKnowledgeMenuNodes.Count == 0)
+                        {
+                            <p class="knowledge-stack__menu-message">No chapters are available for this area.</p>
+                        }
+                        else
+                        {
+                            <ul class="knowledge-menu" role="tree" aria-label="Knowledge chapters">
+                                @foreach (var node in ActiveKnowledgeMenuNodes)
+                                {
+                                    @RenderKnowledgeMenuNode(node, 0)
+                                }
+                            </ul>
+                        }
+                    </nav>
+                    }
+
+                    <div class="knowledge-stack__section" id="knowledge-active-section" role="tabpanel">
+                        @RenderActiveKnowledge()
+                    </div>
                 </div>
                     </section>
                 }
@@ -596,7 +623,13 @@
     private string? _toolMessage;
     private string? _toolActionKey;
     private IReadOnlyList<CopilotToolInfo> _tools = [];
+    private KnowledgeMenuTree _knowledgeMenuTree = KnowledgeMenuTree.Empty;
+    private readonly HashSet<string> _expandedKnowledgeMenuNodes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _selectedKnowledgeChapterPaths = new(StringComparer.Ordinal);
+    private bool _knowledgeMenuLoading;
     private string _selectedKnowledgeSection = KnowledgeAreas[0].Key;
+    private string? _loadedKnowledgeMenuRepositoryAlias;
+    private string _loadedKnowledgeMenuVisibleKeyFingerprint = string.Empty;
     private string? _appUpdateMessage;
     private string _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Unknown);
     private bool _checkingForAppUpdate;
@@ -621,6 +654,7 @@
     {
         State.Changed += HandleStateChanged;
         await State.InitializeAsync();
+        await RefreshKnowledgeMenuForActiveRepositoryAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -915,21 +949,222 @@
     private bool IsKnowledgeSectionActive(string key) =>
         string.Equals(EffectiveKnowledgeSection, key, StringComparison.Ordinal);
 
+    private IReadOnlyList<KnowledgeMenuNode> ActiveKnowledgeMenuNodes => ActiveKnowledgeMenuRoot switch
+    {
+        null => [],
+        { Children.Count: > 0 } root => root.Children,
+        var root => [root]
+    };
+
+    private KnowledgeMenuNode? ActiveKnowledgeMenuRoot =>
+        _knowledgeMenuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, EffectiveKnowledgeSection, StringComparison.Ordinal));
+
+    private bool KnowledgeSectionUsesMenu => !string.Equals(EffectiveKnowledgeSection, "tech", StringComparison.Ordinal);
+
+    private string? SelectedKnowledgeChapterPath =>
+        KnowledgeSectionUsesMenu && _selectedKnowledgeChapterPaths.TryGetValue(EffectiveKnowledgeSection, out var path) ? path : null;
+
     private void SelectKnowledgeSection(string key)
     {
         _selectedKnowledgeSection = key;
+        if (KnowledgeSectionUsesMenu)
+        {
+            EnsureSelectedKnowledgeChapter();
+        }
     }
+
+    private void SelectKnowledgeMenuNode(KnowledgeMenuNode node)
+    {
+        if (!node.Available || node.Kind == KnowledgeMenuNodeKind.Message) return;
+
+        _selectedKnowledgeSection = node.AreaKey;
+        if (node.Kind == KnowledgeMenuNodeKind.File || !node.HasChildren)
+        {
+            _selectedKnowledgeChapterPaths[node.AreaKey] = node.Path;
+            return;
+        }
+
+        var key = KnowledgeMenuNodeKey(node);
+        if (!_expandedKnowledgeMenuNodes.Add(key))
+        {
+            _expandedKnowledgeMenuNodes.Remove(key);
+        }
+    }
+
+    private bool IsKnowledgeMenuNodeExpanded(KnowledgeMenuNode node) => _expandedKnowledgeMenuNodes.Contains(KnowledgeMenuNodeKey(node));
+
+    private static string KnowledgeMenuNodeKey(KnowledgeMenuNode node) => $"{node.AreaKey}:{node.Key}";
+
+    private bool IsKnowledgeMenuNodeSelected(KnowledgeMenuNode node) =>
+        string.Equals(SelectedKnowledgeChapterPath, node.Path, StringComparison.OrdinalIgnoreCase);
+
+    private string KnowledgeMenuNodeClass(KnowledgeMenuNode node) => string.Join(' ', new[]
+    {
+        "knowledge-menu__item",
+        node.Kind == KnowledgeMenuNodeKind.Folder ? "knowledge-menu__item--folder" : "knowledge-menu__item--file",
+        IsKnowledgeMenuNodeSelected(node) ? "knowledge-menu__item--active" : null,
+        !node.Available ? "knowledge-menu__item--unavailable" : null
+    }.Where(value => value is not null));
+
+    private RenderFragment RenderKnowledgeMenuNode(KnowledgeMenuNode node, int depth) => @<li class="knowledge-menu__node" role="none">
+        @if (node.Kind == KnowledgeMenuNodeKind.Message)
+        {
+            <p class="knowledge-menu__message" role="treeitem" style="--knowledge-menu-depth: @depth">@node.Message</p>
+        }
+        else
+        {
+            var expanded = node.HasChildren ? IsKnowledgeMenuNodeExpanded(node) : (bool?)null;
+            <button type="button"
+                    class="@KnowledgeMenuNodeClass(node)"
+                    role="treeitem"
+                    aria-selected="@(IsKnowledgeMenuNodeSelected(node) ? "true" : "false")"
+                    aria-expanded="@(node.HasChildren ? (IsKnowledgeMenuNodeExpanded(node) ? "true" : "false") : null)"
+                    disabled="@(!node.Available)"
+                    title="@node.Message"
+                    style="--knowledge-menu-depth: @depth"
+                    @onclick="() => SelectKnowledgeMenuNode(node)">
+                @if (node.HasChildren)
+                {
+                    <span class="knowledge-menu__twisty" aria-hidden="true">@(IsKnowledgeMenuNodeExpanded(node) ? "-" : "+")</span>
+                }
+                else
+                {
+                    <span class="knowledge-menu__twisty" aria-hidden="true"></span>
+                }
+                <span class="knowledge-menu__label">@node.Label</span>
+            </button>
+            @if (node.HasChildren && IsKnowledgeMenuNodeExpanded(node))
+            {
+                <ul class="knowledge-menu__children" role="group">
+                    @foreach (var child in node.Children)
+                    {
+                        @RenderKnowledgeMenuNode(child, depth + 1)
+                    }
+                </ul>
+            }
+        }
+    </li>;
 
     private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
         AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Settings.Current.PrimaryRepository;
 
+    private async Task RefreshKnowledgeMenuForActiveRepositoryAsync()
+    {
+        if (!IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge)) return;
+
+        var repositoryAlias = ActiveKnowledgeRepositoryAlias;
+        var visibleKeys = VisibleKnowledgeAreas.Select(area => area.Key).ToArray();
+        var fingerprint = string.Join("|", visibleKeys);
+        if (string.Equals(_loadedKnowledgeMenuRepositoryAlias, repositoryAlias, StringComparison.Ordinal)
+            && string.Equals(_loadedKnowledgeMenuVisibleKeyFingerprint, fingerprint, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await LoadKnowledgeMenuAsync(visibleKeys, repositoryAlias, fingerprint);
+    }
+
+    private async Task LoadKnowledgeMenuAsync(string[] visibleKeys, string? repositoryAlias, string fingerprint)
+    {
+        _knowledgeMenuLoading = true;
+        try
+        {
+            _knowledgeMenuTree = await KnowledgeMenu.LoadAsync(visibleKeys, repositoryAlias);
+            _loadedKnowledgeMenuRepositoryAlias = repositoryAlias;
+            _loadedKnowledgeMenuVisibleKeyFingerprint = fingerprint;
+
+            var selectedVisible = visibleKeys.Contains(_selectedKnowledgeSection, StringComparer.Ordinal);
+            if (!selectedVisible && visibleKeys.Length > 0)
+            {
+                _selectedKnowledgeSection = visibleKeys[0];
+            }
+
+            foreach (var root in _knowledgeMenuTree.Roots)
+            {
+                _expandedKnowledgeMenuNodes.Add(KnowledgeMenuNodeKey(root));
+            }
+
+            EnsureSelectedKnowledgeChapter();
+        }
+        finally
+        {
+            _knowledgeMenuLoading = false;
+        }
+    }
+
+    private void EnsureSelectedKnowledgeChapter()
+    {
+        var root = ActiveKnowledgeMenuRoot;
+        if (root is null) return;
+
+        var selectedPath = SelectedKnowledgeChapterPath;
+        if (selectedPath is null || !ContainsPath(root, selectedPath))
+        {
+            var first = PreferredKnowledgeChapter(root) ?? FirstSelectableChapter(root);
+            if (first is not null)
+            {
+                _selectedKnowledgeChapterPaths[root.AreaKey] = first.Path;
+                selectedPath = first.Path;
+            }
+        }
+
+        ExpandAncestorsToSelected(root.Children, selectedPath);
+    }
+
+    private void ExpandAncestorsToSelected(IEnumerable<KnowledgeMenuNode> nodes, string? selectedPath)
+    {
+        if (string.IsNullOrWhiteSpace(selectedPath)) return;
+
+        foreach (var node in nodes.Where(node => node.HasChildren && ContainsPath(node, selectedPath)))
+        {
+            _expandedKnowledgeMenuNodes.Add(KnowledgeMenuNodeKey(node));
+            ExpandAncestorsToSelected(node.Children, selectedPath);
+        }
+    }
+
+    private static KnowledgeMenuNode? PreferredKnowledgeChapter(KnowledgeMenuNode root) => root.AreaKey switch
+    {
+        "domain" => FindSelectableChapter(root, "context-map.md"),
+        _ => null
+    };
+
+    private static KnowledgeMenuNode? FindSelectableChapter(KnowledgeMenuNode node, string path)
+    {
+        if (node.Kind == KnowledgeMenuNodeKind.File && node.Available && string.Equals(node.Path, path, StringComparison.OrdinalIgnoreCase)) return node;
+
+        foreach (var child in node.Children)
+        {
+            var selected = FindSelectableChapter(child, path);
+            if (selected is not null) return selected;
+        }
+
+        return null;
+    }
+
+    private static KnowledgeMenuNode? FirstSelectableChapter(KnowledgeMenuNode node)
+    {
+        if (node.Kind == KnowledgeMenuNodeKind.File && node.Available) return node;
+
+        foreach (var child in node.Children)
+        {
+            var selected = FirstSelectableChapter(child);
+            if (selected is not null) return selected;
+        }
+
+        return node.Available && node.Kind != KnowledgeMenuNodeKind.Message ? node : null;
+    }
+
+    private static bool ContainsPath(KnowledgeMenuNode node, string selectedPath) =>
+        string.Equals(node.Path, selectedPath, StringComparison.OrdinalIgnoreCase)
+        || node.Children.Any(child => ContainsPath(child, selectedPath));
+
     private RenderFragment RenderActiveKnowledge() => EffectiveKnowledgeSection switch
     {
-        "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
-        "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
-        "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
+        "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
+        "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
+        "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
         "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
-        "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
+        "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
         _ => @<p class="knowledge-empty" role="status">Turn on knowledge sections in Settings to read repository knowledge here.</p>
     };
 
@@ -1016,6 +1251,7 @@
                 }
             </div>
         </section>;
+
 
     private RenderFragment RenderEntryMetadata(EntryRow row, bool oneLine) =>
         @<div class="entry-doc__meta" @onclick:stopPropagation="true">
@@ -1452,7 +1688,11 @@
             _toolActionKey = null;
         }
     }
-    private void HandleStateChanged() => InvokeAsync(StateHasChanged);
+    private void HandleStateChanged() => _ = InvokeAsync(async () =>
+    {
+        await RefreshKnowledgeMenuForActiveRepositoryAsync();
+        StateHasChanged();
+    });
 
 
     private async Task CheckForUpdatesAsync()
@@ -1704,3 +1944,8 @@
         _selfReference = null;
     }
 }
+
+
+
+
+
