@@ -29,10 +29,14 @@ Changes confined to those folders are documentation work — see `## QA Depth`.
 From the repository root:
 
 ```powershell
-aspire run
+aspire start --isolated --non-interactive --apphost src\Aspire\Backlog.Aspire.AppHost\Backlog.Aspire.AppHost.csproj
 ```
 
-Or without the Aspire CLI:
+Use `--isolated` for Copilot worktrees and any other parallel local session so Aspire
+assigns independent resource ports and user-secrets state per run. For a single human-run
+foreground session, `aspire run` from the repository root is also acceptable.
+
+Or without the Aspire CLI for a single local session:
 
 ```powershell
 dotnet run --project src/Aspire/Backlog.Aspire.AppHost
@@ -45,14 +49,14 @@ dotnet build Backlog.sln
 dotnet test Backlog.sln
 ```
 
-Only `cloud`, `desktop-web-harness`, and `mobile-web-harness` start automatically. The
-`desktop`, `mobile-android`, `ide-vscode-build`, and `ide-vscode-host` resources are
-registered with `WithExplicitStart()` and must be started deliberately from the dashboard —
-do not treat them as failed startups when they sit idle.
+Only `cloud`, `azure-foundry-test`, `desktop-web-harness`, and `mobile-web-harness` start
+automatically. The `desktop`, `mobile-android`, `ide-vscode-build`, and `ide-vscode-host`
+resources are registered with `WithExplicitStart()` and must be started deliberately from
+the dashboard — do not treat them as failed startups when they sit idle.
 
 ## Base URLs
 
-**Ports are dynamic.** Every host is configured with `http://localhost:0`, so the OS assigns
+**Ports are dynamic.** Every host is configured with `localhost:0`, so the OS assigns
 a free port per run. Never hard-code a port or assume one from a previous session — read the
 actual URLs from the Aspire dashboard or the AppHost startup output, then use those.
 
