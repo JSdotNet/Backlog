@@ -58,6 +58,40 @@ public sealed record AppUpdateCheckResult(AppUpdateAvailability Availability, st
 }
 
 /// <summary>
+/// How the header renders an update check. The version itself is the control a
+/// person clicks, so the label and the status colour are derived here rather than
+/// inline in the markup — that keeps the wording testable without a head.
+/// </summary>
+public static class AppUpdatePresentation
+{
+    /// <summary>The label on the version control while idle or mid-check.</summary>
+    public static string CheckLabel(bool isChecking) =>
+        isChecking ? "Checking..." : "Check for updates";
+
+    /// <summary>
+    /// The accessible name for the version control: it has to say both which build
+    /// this is and what clicking it does.
+    /// </summary>
+    public static string VersionActionLabel(string? currentVersion, bool isChecking)
+    {
+        var version = string.IsNullOrWhiteSpace(currentVersion) ? "unknown" : currentVersion.Trim();
+        return isChecking
+            ? $"Version {version}. Checking for updates."
+            : $"Version {version}. Check for updates.";
+    }
+
+    /// <summary>The CSS classes for the status message next to the version.</summary>
+    public static string StatusClass(AppUpdateAvailability availability) => availability switch
+    {
+        AppUpdateAvailability.UpToDate => "app-version__status app-version__status--ok",
+        AppUpdateAvailability.Available or AppUpdateAvailability.Required =>
+            "app-version__status app-version__status--available",
+        AppUpdateAvailability.Failed => "app-version__status app-version__status--error",
+        _ => "app-version__status"
+    };
+}
+
+/// <summary>
 /// The result of asking to apply an update.
 /// </summary>
 /// <param name="Started">True when the install/restart was successfully kicked off.</param>

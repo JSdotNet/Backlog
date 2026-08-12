@@ -19,31 +19,33 @@
     <header class="app-header">
         <h1>Backlog</h1>
 
-        <div class="app-header__version" data-testid="app-version">
-            Version <code>@Updates.CurrentVersion</code>
-            @if (Updates.IsSupported)
+        @* The version is the control: clicking it asks for a newer one. There is no
+           separate button, and it stays clickable on heads that do not manage their
+           own updates so the answer is a stated reason rather than nothing. *@
+        <div class="app-header__version">
+            <button type="button"
+                    class="app-version"
+                    data-testid="app-version"
+                    disabled="@_updateBusy"
+                    title="@AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)"
+                    aria-label="@AppUpdatePresentation.VersionActionLabel(Updates.CurrentVersion, _checkingForAppUpdate)"
+                    @onclick="CheckForUpdatesAsync">
+                Version <code>@Updates.CurrentVersion</code>
+                <span class="app-version__hint" aria-hidden="true">@AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)</span>
+            </button>
+            @if (_appUpdateReady)
             {
                 <button type="button"
                         class="header-tool-toggle"
-                        data-testid="check-for-updates"
+                        data-testid="install-update"
                         disabled="@_updateBusy"
-                        @onclick="CheckForUpdatesAsync">
-                    @(_checkingForAppUpdate ? "Checking..." : "Check for updates")
+                        @onclick="InstallUpdateAsync">
+                    @(_installingAppUpdate ? "Installing..." : "Install update")
                 </button>
-                @if (_appUpdateReady)
-                {
-                    <button type="button"
-                            class="header-tool-toggle"
-                            data-testid="install-update"
-                            disabled="@_updateBusy"
-                            @onclick="InstallUpdateAsync">
-                        @(_installingAppUpdate ? "Installing..." : "Install update")
-                    </button>
-                }
             }
             @if (_appUpdateMessage is not null)
             {
-                <span class="@_appUpdateStatusClass" role="status">@_appUpdateMessage</span>
+                <span class="@_appUpdateStatusClass" data-testid="app-update-status" role="status">@_appUpdateMessage</span>
             }
         </div>
         <div class="save-indicator save-indicator--@State.SaveState.ToString().ToLowerInvariant()" id="save-state-indicator" data-testid="save-state-indicator" role="status">
@@ -578,7 +580,7 @@
     private string _selectedKnowledgeSection = "backlog";
     private string? _selectedKnowledgeRepositoryAlias;
     private string? _appUpdateMessage;
-    private string _appUpdateStatusClass = string.Empty;
+    private string _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Unknown);
     private bool _checkingForAppUpdate;
     private bool _installingAppUpdate;
     private bool _appUpdateReady;
@@ -1418,18 +1420,13 @@
             var result = await Updates.CheckForUpdateAsync();
             _appUpdateReady = result.UpdateReady;
             _appUpdateMessage = result.Message;
-            _appUpdateStatusClass = result.Availability switch
-            {
-                AppUpdateAvailability.UpToDate => "setting__status--ok",
-                AppUpdateAvailability.Failed => "setting__status--error",
-                _ => string.Empty
-            };
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(result.Availability);
         }
         catch
         {
             _appUpdateReady = false;
             _appUpdateMessage = "The update check could not be completed.";
-            _appUpdateStatusClass = "setting__status--error";
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
         }
         finally
         {
@@ -1447,13 +1444,14 @@
         {
             var result = await Updates.StartUpdateAsync();
             _appUpdateMessage = result.Message;
-            _appUpdateStatusClass = result.Started ? "setting__status--ok" : "setting__status--error";
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(
+                result.Started ? AppUpdateAvailability.UpToDate : AppUpdateAvailability.Failed);
             if (!result.Started) _appUpdateReady = false;
         }
         catch
         {
             _appUpdateMessage = "The update could not be installed.";
-            _appUpdateStatusClass = "setting__status--error";
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
         }
         finally
         {

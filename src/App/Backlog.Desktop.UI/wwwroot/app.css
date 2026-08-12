@@ -164,6 +164,72 @@ h1, h2, h3 {
     outline-offset: 2px;
 }
 
+/* --- Clickable app version ----------------------------------------------- */
+
+.app-header__version {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.app-version {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    background: transparent;
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.app-version code {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-primary);
+}
+
+.app-version__hint {
+    color: var(--color-text-disabled);
+    font-size: var(--font-size-xs);
+}
+
+.app-version:hover:not(:disabled),
+.app-version:focus-visible {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+    background: var(--color-background-alt);
+}
+
+.app-version:hover:not(:disabled) .app-version__hint,
+.app-version:focus-visible .app-version__hint {
+    color: var(--color-primary);
+}
+
+.app-version:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.app-version:disabled {
+    cursor: default;
+    color: var(--color-text-disabled);
+}
+
+.app-version__status {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.app-version__status--ok { color: var(--color-text-secondary); }
+.app-version__status--available { color: var(--color-primary); }
+.app-version__status--error { color: #E4626F; }
+
 /* --- Save-state indicator ------------------------------------------------ */
 
 .save-indicator {

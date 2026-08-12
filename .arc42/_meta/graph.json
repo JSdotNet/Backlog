@@ -578,7 +578,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 75,
+          "line": 76,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
