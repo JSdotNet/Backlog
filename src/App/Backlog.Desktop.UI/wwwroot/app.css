@@ -70,6 +70,8 @@
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-base: 250ms cubic-bezier(0, 0, 0.2, 1);
     --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+    /* How little of the backlog the side pane is allowed to leave standing. */
+    --workspace-min-width: 22rem;
     /* Saved-confirmation flash uses a smooth ease-out rather than the org
        style guide's ease-bounce token, per explicit product decision. */
     --ease-saved-flash: cubic-bezier(0, 0, 0.2, 1);
@@ -2499,7 +2501,9 @@ h1, h2, h3 {
 }
 
 .knowledge-layout--side-open {
-    grid-template-columns: minmax(0, 1fr) auto minmax(24rem, min(var(--knowledge-panel-width, 36rem), 54rem));
+    /* The pane is only capped by leaving the backlog readable, so the knowledge
+       side can be the wider of the two. */
+    grid-template-columns: minmax(0, 1fr) auto minmax(24rem, min(var(--knowledge-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
     gap: var(--spacing-sm);
 }
 

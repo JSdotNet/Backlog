@@ -8,8 +8,15 @@ public sealed class SidePaneWidthTests
     public void Dragging_past_the_edges_stops_at_the_bounds()
     {
         Assert.Equal(SidePaneWidth.MinRem, SidePaneWidth.Clamp(4));
-        Assert.Equal(SidePaneWidth.MaxRem, SidePaneWidth.Clamp(400));
+        Assert.Equal(SidePaneWidth.MaxRem, SidePaneWidth.Clamp(4000));
         Assert.Equal(30, SidePaneWidth.Clamp(30));
+    }
+
+    [Fact]
+    public void The_pane_may_be_wider_than_the_backlog_when_the_window_allows_it()
+    {
+        Assert.Equal(90, SidePaneWidth.Clamp(90, 120));
+        Assert.Equal(70, SidePaneWidth.Clamp(90, 70));
     }
 
     [Fact]
@@ -23,14 +30,14 @@ public sealed class SidePaneWidthTests
     public void Home_and_end_jump_to_the_reported_aria_bounds()
     {
         Assert.Equal(SidePaneWidth.MinRem, SidePaneWidth.Adjust(36, "Home"));
-        Assert.Equal(SidePaneWidth.MaxRem, SidePaneWidth.Adjust(36, "End"));
+        Assert.Equal(80, SidePaneWidth.Adjust(36, "End", 80));
     }
 
     [Fact]
     public void Paging_moves_further_but_still_clamps()
     {
         Assert.Equal(42, SidePaneWidth.Adjust(36, "PageUp"));
-        Assert.Equal(SidePaneWidth.MaxRem, SidePaneWidth.Adjust(52, "PageUp"));
+        Assert.Equal(70, SidePaneWidth.Adjust(68, "PageUp", 70));
         Assert.Equal(SidePaneWidth.MinRem, SidePaneWidth.Adjust(26, "PageDown"));
     }
 

@@ -522,7 +522,7 @@
                  aria-orientation="vertical"
                  aria-label="Side pane width"
                  aria-valuemin="@MinSidePaneWidthRem"
-                 aria-valuemax="@MaxSidePaneWidthRem"
+                 aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                  aria-valuenow="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                  tabindex="0"
                  @onkeydown="OnResizerKeyDown"
@@ -584,10 +584,10 @@
     private bool _aiExpanded;
     private bool _knowledgeExpanded;
     private double _knowledgePanelWidthRem = SidePaneWidth.DefaultRem;
+    private double _maxSidePaneWidthRem = SidePaneWidth.MaxRem;
     private DotNetObjectReference<Home>? _selfReference;
 
     private const double MinSidePaneWidthRem = SidePaneWidth.MinRem;
-    private const double MaxSidePaneWidthRem = SidePaneWidth.MaxRem;
     private bool _toolsLoading;
     private string? _toolMessage;
     private string? _toolActionKey;
@@ -1568,7 +1568,7 @@
     [JSInvokable]
     public Task SetSidePaneWidthAsync(double widthRem)
     {
-        var clamped = SidePaneWidth.Clamp(widthRem);
+        var clamped = SidePaneWidth.Clamp(widthRem, _maxSidePaneWidthRem);
         if (Math.Abs(clamped - _knowledgePanelWidthRem) < 0.001) return Task.CompletedTask;
 
         _knowledgePanelWidthRem = clamped;
@@ -1576,10 +1576,28 @@
         return Task.CompletedTask;
     }
 
+    // How wide the pane may actually get depends on the window, which only the
+    // browser knows; without it the separator would keep counting past the edge.
+    [JSInvokable]
+    public Task SetSidePaneMaxWidthAsync(double maxRem)
+    {
+        var clamped = SidePaneWidth.Clamp(maxRem, SidePaneWidth.MaxRem);
+        var width = Math.Min(_knowledgePanelWidthRem, clamped);
+        if (Math.Abs(clamped - _maxSidePaneWidthRem) < 0.001 && Math.Abs(width - _knowledgePanelWidthRem) < 0.001)
+        {
+            return Task.CompletedTask;
+        }
+
+        _maxSidePaneWidthRem = clamped;
+        _knowledgePanelWidthRem = width;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
     // The drag lives in JavaScript because pointer capture does; the keyboard
     // equivalent stays here so the separator has one clamped source of truth.
     private void OnResizerKeyDown(KeyboardEventArgs e) =>
-        _knowledgePanelWidthRem = SidePaneWidth.Adjust(_knowledgePanelWidthRem, e.Key);
+        _knowledgePanelWidthRem = SidePaneWidth.Adjust(_knowledgePanelWidthRem, e.Key, _maxSidePaneWidthRem);
 
     private async Task OnEditorKeyDownAsync(EntryRow row, KeyboardEventArgs e)
     {

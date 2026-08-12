@@ -8,26 +8,36 @@ namespace Backlog.Desktop.UI.Services;
 public static class SidePaneWidth
 {
     public const double MinRem = 24;
-    public const double MaxRem = 54;
+
+    /// <summary>
+    /// A safety rail, not the real ceiling: the layout caps the pane at the
+    /// window width less <c>--workspace-min-width</c>, so on a wide screen the
+    /// knowledge pane can be the wider of the two panes.
+    /// </summary>
+    public const double MaxRem = 200;
+
     public const double DefaultRem = 36;
 
     private const double StepRem = 2;
 
-    public static double Clamp(double widthRem) => Math.Clamp(widthRem, MinRem, MaxRem);
+    private static double EffectiveMax(double maxRem) => Math.Clamp(maxRem, MinRem, MaxRem);
+
+    public static double Clamp(double widthRem, double maxRem = MaxRem) =>
+        Math.Clamp(widthRem, MinRem, EffectiveMax(maxRem));
 
     /// <summary>
     /// Applies a separator key press. Left widens the pane because the separator
     /// moves left; Home and End map to the reported aria bounds, not to the
     /// visual ones.
     /// </summary>
-    public static double Adjust(double widthRem, string? key) => Clamp(key switch
+    public static double Adjust(double widthRem, string? key, double maxRem = MaxRem) => Clamp(key switch
     {
         "ArrowLeft" => widthRem + StepRem,
         "ArrowRight" => widthRem - StepRem,
         "PageUp" => widthRem + (StepRem * 3),
         "PageDown" => widthRem - (StepRem * 3),
         "Home" => MinRem,
-        "End" => MaxRem,
+        "End" => EffectiveMax(maxRem),
         _ => widthRem
-    });
+    }, maxRem);
 }

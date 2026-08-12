@@ -67,26 +67,52 @@ window.backlogFocus = (id) => {
 // width both belong in the browser; C# only hears the settled value, so a drag
 // costs one interop call instead of one per frame.
 const BACKLOG_PANE_MIN_REM = 24;
-const BACKLOG_PANE_MAX_REM = 54;
+const BACKLOG_PANE_ABSOLUTE_MAX_REM = 200;
 let backlogPaneOwner = null;
 
 function backlogRootFontSize() {
     return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 }
 
+function backlogPaneLayout() {
+    return document.querySelector('[data-testid="knowledge-layout"]');
+}
+
+// The pane may take everything the backlog does not strictly need, so the real
+// ceiling is the window, not a fixed number of rem.
+function backlogPaneMaxRem(layout) {
+    const rem = backlogRootFontSize();
+    const styles = getComputedStyle(layout);
+    const workspaceMinRem = parseFloat(styles.getPropertyValue('--workspace-min-width')) || 22;
+    const gapRem = ((parseFloat(styles.columnGap) || 0) * 2) / rem;
+    const available = (layout.clientWidth / rem) - workspaceMinRem - gapRem - 1;
+
+    return Math.min(BACKLOG_PANE_ABSOLUTE_MAX_REM, Math.max(BACKLOG_PANE_MIN_REM, Math.round(available * 2) / 2));
+}
+
 function backlogPaneWidthAt(layout, clientX) {
     const rem = (layout.getBoundingClientRect().right - clientX) / backlogRootFontSize();
-    return Math.min(BACKLOG_PANE_MAX_REM, Math.max(BACKLOG_PANE_MIN_REM, Math.round(rem * 2) / 2));
+    return Math.min(backlogPaneMaxRem(layout), Math.max(BACKLOG_PANE_MIN_REM, Math.round(rem * 2) / 2));
+}
+
+function backlogReportPaneBounds() {
+    const layout = backlogPaneLayout();
+    if (!layout || !backlogPaneOwner) return;
+
+    backlogPaneOwner.invokeMethodAsync('SetSidePaneMaxWidthAsync', backlogPaneMaxRem(layout));
 }
 
 window.backlogPaneResizer = {
     initialize(owner) {
         backlogPaneOwner = owner;
+        backlogReportPaneBounds();
     },
     dispose() {
         backlogPaneOwner = null;
     }
 };
+
+window.addEventListener('resize', backlogReportPaneBounds);
 
 document.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
