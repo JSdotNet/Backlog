@@ -88,7 +88,21 @@ If `gh auth status` reports an error, or the account shown is not `JSdotNet`, st
 If neither a resolved token nor a working `JSdotNet` keyring login is available, stop with a
 clear message explaining which credential sources were checked.
 
-### Step 3 — Push branch if needed
+### Step 3 — Stop local Aspire instances
+
+Before pushing or creating the pull request, stop any running Aspire instance scoped to the
+current checkout. This prevents validation AppHosts and Aspire control-plane processes from
+being left running after the PR handoff.
+
+```powershell
+& (Join-Path (Get-Location) 'build\stop-aspire-before-pr.ps1')
+```
+
+If the script fails, stop and surface the exact error instead of creating the pull request.
+The script only targets Aspire/AppHost processes whose command line is scoped to this
+repository checkout, so other worktrees are not intentionally terminated.
+
+### Step 4 — Push branch if needed
 
 Ensure the feature branch is pushed to the remote before calling `gh pr create`. A missing remote branch is the most common reason `gh pr create` fails silently.
 
@@ -98,7 +112,7 @@ git push --set-upstream origin HEAD
 
 If the push fails due to authentication, ensure the remote URL uses HTTPS and the token has write access to the repository.
 
-### Step 4 — Create the PR
+### Step 5 — Create the PR
 
 Create the PR with JSdotNet credentials, then immediately unset `GH_TOKEN` when a token source
 was used.
@@ -124,7 +138,7 @@ Remove-Item Env:GH_TOKEN
 Only set `GH_TOKEN` for this command block when a token source is being used. Remove it
 immediately after to avoid contaminating subsequent `gh` calls with JSdotNet credentials.
 
-### Step 5 — Confirm and sync
+### Step 6 — Confirm and sync
 
 After successful creation, output the PR URL. Do not call the built-in `create_pull_request` tool after a successful `gh pr create`; the session context is already updated.
 

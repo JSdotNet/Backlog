@@ -70,6 +70,8 @@
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-base: 250ms cubic-bezier(0, 0, 0.2, 1);
     --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+    /* How little of the backlog the side pane is allowed to leave standing. */
+    --workspace-min-width: 22rem;
     /* Saved-confirmation flash uses a smooth ease-out rather than the org
        style guide's ease-bounce token, per explicit product decision. */
     --ease-saved-flash: cubic-bezier(0, 0, 0.2, 1);
@@ -89,6 +91,41 @@
 
 * {
     box-sizing: border-box;
+}
+
+/*
+  Scrollbars are chrome, not content: slim, dark, and only as loud as the
+  border tokens. Firefox gets the standard properties, Chromium/WebView2 the
+  vendor pseudo-elements so the desktop shell never shows an OS-light bar.
+*/
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--color-border);
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-strong);
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 html, body {
@@ -163,6 +200,72 @@ h1, h2, h3 {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
+
+/* --- Clickable app version ----------------------------------------------- */
+
+.app-header__version {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.app-version {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    background: transparent;
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.app-version code {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-primary);
+}
+
+.app-version__hint {
+    color: var(--color-text-disabled);
+    font-size: var(--font-size-xs);
+}
+
+.app-version:hover:not(:disabled),
+.app-version:focus-visible {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+    background: var(--color-background-alt);
+}
+
+.app-version:hover:not(:disabled) .app-version__hint,
+.app-version:focus-visible .app-version__hint {
+    color: var(--color-primary);
+}
+
+.app-version:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.app-version:disabled {
+    cursor: default;
+    color: var(--color-text-disabled);
+}
+
+.app-version__status {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.app-version__status--ok { color: var(--color-text-secondary); }
+.app-version__status--available { color: var(--color-primary); }
+.app-version__status--error { color: #E4626F; }
 
 /* --- Save-state indicator ------------------------------------------------ */
 
@@ -1415,6 +1518,50 @@ h1, h2, h3 {
     font-style: italic;
 }
 
+/* An entry a repository committed. It reads exactly like every other entry —
+   what it does not do is pretend the controls around it would change anything,
+   so the badge names the file and the card stops offering a caret. */
+.badge--source {
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: var(--border-width) dashed var(--color-border);
+}
+
+.badge--source code {
+    background: transparent;
+    color: inherit;
+    font-size: inherit;
+}
+
+.entry-doc--read-only .entry-doc__read {
+    cursor: default;
+}
+
+.entry-doc--read-only .entry-doc__grip {
+    cursor: default;
+    opacity: 0.35;
+}
+
+.entry-doc--read-only .subitem-card__grip {
+    cursor: default;
+    opacity: 0.35;
+}
+
+/* A disabled control still takes part in hit testing, so the metadata badges
+   would swallow clicks meant for the fold caret they sit over. On a read-only
+   row none of them respond to a click anyway, so let the click fall through. */
+.entry-doc--read-only .metadata-editor__select:disabled,
+.entry-doc--read-only .entry-doc__tag-input[readonly] {
+    pointer-events: none;
+}
+
+.knowledge-stack__repository {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* GitHub badges are links, so they are underline-free but clearly interactive,
    and carry the same state colours the rest of the app already uses. */
 .badge--gh {
@@ -2464,7 +2611,10 @@ h1, h2, h3 {
 }
 
 .knowledge-layout--side-open {
-    grid-template-columns: minmax(0, 1fr) minmax(24rem, min(var(--knowledge-panel-width, 36rem), 54rem));
+    /* The pane is only capped by leaving the backlog readable, so the knowledge
+       side can be the wider of the two. */
+    grid-template-columns: minmax(0, 1fr) auto minmax(24rem, min(var(--knowledge-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
+    gap: var(--spacing-sm);
 }
 
 .knowledge-layout--side-closed .backlog-workspace {
@@ -2481,17 +2631,23 @@ h1, h2, h3 {
 .side-pane-stack {
     position: sticky;
     top: var(--spacing-lg);
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-lg);
     max-height: calc(100vh - (var(--spacing-lg) * 2));
-    overflow: auto;
-    padding-right: var(--spacing-sm);
-    padding-bottom: var(--spacing-sm);
-    scrollbar-gutter: stable;
+    overflow: hidden;
 }
 
-.backlog-workspace,
-.knowledge-stack {
+.side-pane-stack > * {
+    min-height: 0;
+}
+
+.side-pane-stack > .tools-panel {
+    flex: 0 1 auto;
+    overflow: auto;
+}
+
+.backlog-workspace {
     min-height: 0;
     overflow: auto;
     padding-right: var(--spacing-sm);
@@ -2499,21 +2655,52 @@ h1, h2, h3 {
     scrollbar-gutter: stable;
 }
 
-
-.knowledge-stack__resizer {
-    display: grid;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-md);
-    padding: var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background-alt);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
+/* The pane edge itself is the control: a hairline that thickens under the
+   pointer, with a hit area wider than the line it draws. */
+.pane-resizer {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--spacing-md);
+    margin: 0 calc(var(--spacing-xs) * -1);
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: col-resize;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
-.knowledge-stack__resizer input {
-    width: 100%;
+.pane-resizer__grip {
+    width: 4px;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--color-border);
+    transform: scaleX(0.5);
+    transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.pane-resizer:hover .pane-resizer__grip,
+.pane-resizer:focus-visible .pane-resizer__grip,
+body.is-resizing-pane .pane-resizer__grip {
+    transform: scaleX(1);
+    background: var(--color-primary);
+}
+
+.pane-resizer:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+/* Mid-drag the pointer belongs to the separator, not to whatever text it
+   crosses. */
+body.is-resizing-pane {
+    cursor: col-resize;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .knowledge-pane {
@@ -2716,13 +2903,46 @@ h1, h2, h3 {
         position: static;
         max-height: none;
     }
+
+    /* Stacked, there is no vertical edge left to drag. */
+    .pane-resizer {
+        display: none;
+    }
+
+    .side-pane-stack,
+    .knowledge-stack {
+        overflow: visible;
+    }
+
+    .knowledge-stack__section {
+        overflow: visible;
+    }
 }
 
+/* Picking a knowledge area is navigation, so it stays put; only the section
+   below it scrolls. */
 .knowledge-stack {
-    display: grid;
-    align-content: start;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
     gap: var(--spacing-lg);
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.knowledge-stack__repositories,
+.knowledge-stack__nav {
+    flex: 0 0 auto;
+}
+
+.knowledge-stack__section {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding-right: var(--spacing-sm);
+    padding-bottom: var(--spacing-sm);
+    scrollbar-gutter: stable;
 }
 
 .knowledge-stack .knowledge-pane {
@@ -2923,7 +3143,6 @@ h1, h2, h3 {
 }
 
 .knowledge-stack__nav,
-.knowledge-stack__repositories,
 .design-knowledge__nav,
 .domain-knowledge__contexts,
 .knowledge-chapters {
@@ -2934,7 +3153,6 @@ h1, h2, h3 {
 
 .knowledge-stack__nav a,
 .knowledge-stack__nav-item,
-.knowledge-stack__repo,
 .design-knowledge__nav-link,
 .domain-context-tab,
 .knowledge-chapter {
@@ -2958,9 +3176,6 @@ h1, h2, h3 {
 .knowledge-stack__nav-item:hover,
 .knowledge-stack__nav-item:focus-visible,
 .knowledge-stack__nav-item--active,
-.knowledge-stack__repo:hover,
-.knowledge-stack__repo:focus-visible,
-.knowledge-stack__repo--active,
 .design-knowledge__nav-link:hover,
 .design-knowledge__nav-link:focus-visible,
 .domain-context-tab:hover,
@@ -3116,6 +3331,7 @@ h1, h2, h3 {
 .domain-knowledge__header,
 .domain-context__header,
 .domain-document__header,
+.domain-section__header,
 .knowledge-document__header,
 .tech-layer__header,
 .tech-node__header,
@@ -3132,8 +3348,65 @@ h1, h2, h3 {
 .domain-knowledge__header h2,
 .domain-context__header h3,
 .domain-document__header h3,
+.domain-section__header h4,
 .knowledge-document__header h2 {
     margin: 0;
+}
+.domain-knowledge__actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
+
+.knowledge-status-control {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.knowledge-chapter__button {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.knowledge-chapter__button:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.domain-metadata__link {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--color-primary-light);
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
+.domain-metadata__link:hover,
+.domain-metadata__link:focus-visible {
+    color: var(--color-primary);
+}
+.domain-knowledge__action-error {
+    color: var(--color-danger);
+    font-size: var(--font-size-xs);
 }
 
 .design-knowledge__eyebrow,

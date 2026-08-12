@@ -14,6 +14,8 @@ status: draft
 |---|---|---|---|---|
 | [Backlog Management](../backlog/domain.md#aggregate-backlog-entry) | OHS + Published Language (Backlog = supplier) | Subscribes to `AIWorkLogged` | `.domain/backlog/domain.md#domain-event-aiworklogged` | Productivity needs AI-assisted activity evidence linked to backlog work without reading Backlog Entry internals. |
 | [Monitoring & Dashboard](../monitoring/domain.md#aggregate-progress-signal) | Customer/Supplier (Productivity = customer for session signals) | Consumes Copilot session progress signals | `.domain/monitoring/domain.md#aggregate-progress-signal` | Productivity may correlate AI sessions with work outcomes when Monitoring already observes those sessions. |
+| Anthropic Claude (external) | Conformist (Productivity accepts Anthropic's report shape) | Reads the Admin API usage and cost reports | `.domain/productivity/features.md#sub-feature-ai-vendor-usage-import` | Measured token and cost evidence for AI-assisted work. Organization-scoped: an Admin API key is required, and Anthropic does not offer these reports to individual accounts. |
+| GitHub Copilot (external) | Conformist (Productivity accepts GitHub's report shape) | Reads organization Copilot seat activity and metrics reports | `.domain/productivity/features.md#sub-feature-ai-vendor-usage-import` | Copilot activity evidence. Organization-scoped and owner-only; GitHub publishes no endpoint for an individual subscriber's own usage. |
 
 ## Inbound dependents (known)
 
@@ -28,3 +30,7 @@ status: draft
   performance scoring.
 - Backlog remains the owner of work status; Productivity records contribution
   evidence and derived metrics only.
+- Both vendor dependencies are organization-scoped by the vendors' own design.
+  Without an organization there is no usage history to read, which is what
+  `.domain/productivity/features.md#sub-feature-local-usage-accumulation`
+  exists to answer.

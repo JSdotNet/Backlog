@@ -34,7 +34,7 @@
     else
     {
         <div class="knowledge-pane__summary" aria-label="Architecture knowledge summary">
-            <span><strong>@_catalog.ActiveCount</strong> active</span>
+            <span><strong>@_catalog.DecisionRecordCount</strong> ADR/TDR</span>
             <span><strong>@_catalog.DiagramCount</strong> diagrams</span>
             <span><strong>@_selected.Headings.Count</strong> headings</span>
         </div>
@@ -45,35 +45,44 @@
                 <nav class="knowledge-chapters" aria-label="arc42 chapters">
                     @foreach (var chapter in _catalog.Documents)
                     {
-                        <button type="button"
-                                class="knowledge-chapter @(ReferenceEquals(chapter, _selected) ? "knowledge-chapter--active" : string.Empty)"
-                                data-testid="arc42-chapter-option"
-                                aria-current="@(ReferenceEquals(chapter, _selected) ? "page" : null)"
-                                @onclick="() => Select(chapter)">
-                            <span class="knowledge-chapter__title">@chapter.Title</span>
-                            <span class="knowledge-chapter__meta">
-                                <span class="knowledge-status knowledge-status--@chapter.Status">@chapter.Status</span>
-                                @if (chapter.DiagramCount > 0)
-                                {
-                                    <span>@chapter.DiagramCount diagram@(chapter.DiagramCount == 1 ? string.Empty : "s")</span>
-                                }
-                            </span>
-                        </button>
+                        <div class="knowledge-chapter @(ReferenceEquals(chapter, _selected) ? "knowledge-chapter--active" : string.Empty)" data-testid="arc42-chapter-option">
+                            <button type="button"
+                                    class="knowledge-chapter__button"
+                                    aria-current="@(ReferenceEquals(chapter, _selected) ? "page" : null)"
+                                    @onclick="() => Select(chapter)">
+                                <span class="knowledge-chapter__title">@chapter.Title</span>
+                                <span class="knowledge-chapter__meta">
+                                    <span class="knowledge-status knowledge-status--@chapter.Status">@chapter.Status</span>
+                                    @if (chapter.DiagramCount > 0)
+                                    {
+                                        <span>@chapter.DiagramCount diagram@(chapter.DiagramCount == 1 ? string.Empty : "s")</span>
+                                    }
+                                </span>
+                            </button>
+                        </div>
                     }
                 </nav>
             }
 
             <article class="knowledge-document" data-testid="arc42-document" aria-label="@_selected.Title">
                 <header class="knowledge-document__header">
-                    <p class="knowledge-document__path">@_selected.Path</p>
-                    <h2>@_selected.Title</h2>
-                    <p class="knowledge-document__meta">
-                        <span class="knowledge-status knowledge-status--@_selected.Status">@_selected.Status</span>
-                        @if (_selected.Metadata.Related.Count > 0)
-                        {
-                            <span>@_selected.Metadata.Related.Count relation@(_selected.Metadata.Related.Count == 1 ? string.Empty : "s")</span>
-                        }
-                    </p>
+                    <div>
+                        <p class="knowledge-document__path">@_selected.Path</p>
+                        <h2>@_selected.Title</h2>
+                    </div>
+                    @if (IsDecisionRecord(_selected) || _selected.Metadata.Related.Count > 0)
+                    {
+                        <p class="knowledge-document__meta">
+                            @if (IsDecisionRecord(_selected))
+                            {
+                                @RenderStatusSelect(_selected.Path, _selected.Title, _selected.Status)
+                            }
+                            @if (_selected.Metadata.Related.Count > 0)
+                            {
+                                <span>@_selected.Metadata.Related.Count relation@(_selected.Metadata.Related.Count == 1 ? string.Empty : "s")</span>
+                            }
+                        </p>
+                    }
                 </header>
 
                 @if (_selected.Headings.Count > 1)
@@ -93,6 +102,9 @@
 </aside>
 
 @code {
+    private static readonly string[] KnowledgeStatuses = ["draft", "candidate", "accepted", "active", "adopted"];
+
+    private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
     private Arc42KnowledgeCatalog? _catalog;
     private KnowledgeDocument? _selected;
     private bool _loading = true;
@@ -121,16 +133,20 @@
 
     private async void OnKnowledgeChanged()
     {
-        await ReloadAsync();
+        await ReloadAsync(_selected?.Path);
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task ReloadAsync()
+    private async Task ReloadAsync(string? selectedPath = null)
     {
         _loading = true;
         _catalog = await Knowledge.LoadAsync(RepositoryAlias);
         _loadedRepositoryAlias = RepositoryAlias;
-        _selected = _catalog.Documents.FirstOrDefault(document => document.DiagramCount > 0) ?? _catalog.Documents.FirstOrDefault();
+        _selected = selectedPath is null
+            ? _catalog.Documents.FirstOrDefault(document => document.DiagramCount > 0) ?? _catalog.Documents.FirstOrDefault()
+            : _catalog.Documents.FirstOrDefault(document => PathMatches(document.Path, selectedPath))
+                ?? _catalog.Documents.FirstOrDefault(document => document.DiagramCount > 0)
+                ?? _catalog.Documents.FirstOrDefault();
         SelectRequestedDocument();
         _loading = false;
     }
@@ -154,6 +170,50 @@
     }
 
     private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
+    private RenderFragment RenderStatusSelect(string itemPath, string title, string status) => @<span class="knowledge-status-control">
+        <label class="status-editor badge badge--status badge--status-@status" data-testid="knowledge-state-select">
+            <span class="sr-only">State for @title</span>
+            <select id="@StateSelectId(itemPath)"
+                    class="status-editor__select"
+                    value="@status"
+                    aria-label="State for @title"
+                    title="State for @title"
+                    @onchange="e => ChangeKnowledgeStatusAsync(itemPath, status, e.Value?.ToString())">
+                @foreach (var option in StatusOptions(status))
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+        </label>
+        @if (_statusErrors.TryGetValue(itemPath, out var error))
+        {
+            <span class="domain-knowledge__action-error" role="status">@error</span>
+        }
+    </span>;
+
+    private async Task ChangeKnowledgeStatusAsync(string itemPath, string currentStatus, string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status) || string.Equals(status, currentStatus, StringComparison.OrdinalIgnoreCase)) return;
+
+        _statusErrors.Remove(itemPath);
+        try
+        {
+            await Knowledge.UpdateStatusAsync(RepositoryAlias, itemPath, status);
+            await ReloadAsync(itemPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _statusErrors[itemPath] = ex.Message;
+        }
+    }
+
+    private static IReadOnlyList<string> StatusOptions(string status) => KnowledgeStatuses.Contains(status, StringComparer.OrdinalIgnoreCase)
+        ? KnowledgeStatuses
+        : [.. KnowledgeStatuses, status];
+
+    private static bool IsDecisionRecord(KnowledgeDocument document) => Arc42KnowledgeCatalog.IsDecisionRecord(document.Path);
+
+    private static string StateSelectId(string itemPath) => "knowledge-" + new string(itemPath.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-') + "-state";
 
     public void Dispose()
     {

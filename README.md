@@ -160,8 +160,8 @@ there is no Microsoft Store listing.
    ```
 
 3. Updates are checked automatically on launch (and in the background). You can
-   also check on demand from **Settings -> About and updates**, which offers
-   "Check for updates" and "Install and restart".
+   also check on demand by clicking the version in the app header, which reports
+   the outcome and offers "Install update" when a newer build is available.
 
 Debug builds run **unpackaged** (so Aspire and the WebView2 debugging attach keep
 working); the in-app updater reports "unsupported" there, which is expected.

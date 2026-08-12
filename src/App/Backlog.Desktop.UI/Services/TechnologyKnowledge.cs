@@ -30,6 +30,20 @@ public sealed class TechnologyKnowledgeService(KnowledgeFolderSource source)
                 location with { Message = $"Technology knowledge could not be read: {ex.Message}" }));
         }
     }
+
+    public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
+        if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
+
+        var location = source.Resolve(".tech", repositoryAlias);
+        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Technology knowledge is unavailable.");
+        if (location.FullPath is null) throw new InvalidOperationException("Technology knowledge folder path is unavailable.");
+
+        KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".tech/", status);
+        return Task.CompletedTask;
+    }
 }
 
 public sealed record TechnologyKnowledgeView(

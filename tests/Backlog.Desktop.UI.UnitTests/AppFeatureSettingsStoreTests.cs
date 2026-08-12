@@ -64,9 +64,73 @@ public sealed class AppFeatureSettingsStoreTests
                 AppFeatureSettingsStore.GitHubIntegration,
                 AppFeatureSettingsStore.FeedbackReporting,
                 AppFeatureSettingsStore.CopilotCli,
-                AppFeatureSettingsStore.AiAssistant
+                AppFeatureSettingsStore.AiAssistant,
+                AppFeatureSettingsStore.UsageMetrics
             ],
             AppFeatureSettingsStore.Features.Select(feature => feature.Key));
+    }
+
+    [Fact]
+    public void Usage_metrics_stays_off_until_it_is_asked_for()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new AppFeatureSettingsStore(path);
+
+            Assert.False(store.IsEnabled(AppFeatureSettingsStore.UsageMetrics));
+
+            store.SetEnabled(AppFeatureSettingsStore.UsageMetrics, enabled: true);
+
+            Assert.True(new AppFeatureSettingsStore(path).IsEnabled(AppFeatureSettingsStore.UsageMetrics));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    [Fact]
+    public void An_opt_in_feature_stays_off_for_settings_written_before_it_existed()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            // A file saved by an older build knows nothing about usage metrics;
+            // silence must not read as consent.
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(new { disabledFeatures = Array.Empty<string>() }));
+
+            Assert.False(new AppFeatureSettingsStore(path).IsEnabled(AppFeatureSettingsStore.UsageMetrics));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    [Fact]
+    public void Switching_an_opt_in_feature_back_off_forgets_it_again()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new AppFeatureSettingsStore(path);
+            store.SetEnabled(AppFeatureSettingsStore.UsageMetrics, enabled: true);
+            store.SetEnabled(AppFeatureSettingsStore.UsageMetrics, enabled: false);
+
+            var restarted = new AppFeatureSettingsStore(path);
+
+            Assert.False(restarted.IsEnabled(AppFeatureSettingsStore.UsageMetrics));
+            Assert.Empty(restarted.Current.EnabledFeatures);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
     }
 
     [Fact]

@@ -82,7 +82,7 @@
                         <h3>@activeLayer.Title</h3>
                         <p>@activeLayer.FileName</p>
                     </div>
-                    <span class="badge badge--status">@activeLayer.Metadata.Status</span>
+                    @RenderStatusSelect(LayerPath(activeLayer), activeLayer.Title, activeLayer.Metadata.Status ?? "draft")
                 </header>
 
                 <div class="tech-node-grid">
@@ -98,7 +98,7 @@
                             </header>
 
                             <div class="tech-node__meta">
-                                <span class="badge badge--status">@node.Status</span>
+                                @RenderStatusSelect(node.Id, node.Label, node.Status)
                                 @if (!string.IsNullOrWhiteSpace(node.Metadata.Version))
                                 {
                                     <span class="badge">@node.Metadata.Version</span>
@@ -139,6 +139,9 @@
 </aside>
 
 @code {
+    private static readonly string[] KnowledgeStatuses = ["draft", "candidate", "accepted", "active", "adopted"];
+
+    private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
     private TechnologyKnowledgeView? _view;
     private string? _activeLayerFile;
     private string? _loadedRepositoryAlias;
@@ -196,12 +199,54 @@
     }
 
     private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
+    private RenderFragment RenderStatusSelect(string itemPath, string title, string status) => @<span class="knowledge-status-control">
+        <label class="status-editor badge badge--status badge--status-@status" data-testid="knowledge-state-select">
+            <span class="sr-only">State for @title</span>
+            <select id="@StateSelectId(itemPath)"
+                    class="status-editor__select"
+                    value="@status"
+                    aria-label="State for @title"
+                    title="State for @title"
+                    @onchange="e => ChangeKnowledgeStatusAsync(itemPath, status, e.Value?.ToString())">
+                @foreach (var option in StatusOptions(status))
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+        </label>
+        @if (_statusErrors.TryGetValue(itemPath, out var error))
+        {
+            <span class="domain-knowledge__action-error" role="status">@error</span>
+        }
+    </span>;
+
+    private async Task ChangeKnowledgeStatusAsync(string itemPath, string currentStatus, string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status) || string.Equals(status, currentStatus, StringComparison.OrdinalIgnoreCase)) return;
+
+        _statusErrors.Remove(itemPath);
+        try
+        {
+            await TechnologyKnowledge.UpdateStatusAsync(RepositoryAlias, itemPath, status);
+            await LoadAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _statusErrors[itemPath] = ex.Message;
+        }
+    }
+
+    private static IReadOnlyList<string> StatusOptions(string status) => KnowledgeStatuses.Contains(status, StringComparer.OrdinalIgnoreCase)
+        ? KnowledgeStatuses
+        : [.. KnowledgeStatuses, status];
 
     private static string LayerLabel(TechnologyLayer layer) => layer.Title.EndsWith(" Technologies", StringComparison.OrdinalIgnoreCase)
         ? layer.Title[..^" Technologies".Length]
         : layer.Title.EndsWith(" Stack", StringComparison.OrdinalIgnoreCase)
             ? layer.Title[..^" Stack".Length]
             : layer.Title;
+
+    private static string LayerPath(TechnologyLayer layer) => $".tech/{layer.FileName}";
 
     private static string ReferenceLabel(string reference)
     {
@@ -213,6 +258,8 @@
     private static string ReferenceHref(string reference) => reference.StartsWith(".", StringComparison.Ordinal)
         ? reference.Replace('\\', '/')
         : reference;
+
+    private static string StateSelectId(string itemPath) => "knowledge-" + new string(itemPath.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-') + "-state";
 
     public void Dispose()
     {

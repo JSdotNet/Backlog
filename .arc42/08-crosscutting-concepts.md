@@ -31,6 +31,33 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   create Inbox/Backlog/Knowledge items, while Dev PC Management tracking is a
   separate compliance/monitoring concern.
 
+## Feature Enablement
+
+```meta
+status: proposed
+related: [".arc42/04-solution-strategy.md", ".domain/second-brain/features.md#feature-repository-knowledge-areas", ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog"]
+```
+
+- **Optional capabilities are switchable per installation** — repository knowledge,
+  the non-backlog knowledge areas, additional repositories, system tools, GitHub
+  integration, feedback reporting, Copilot CLI, and AI assistance can each be turned
+  on. Core backlog editing is always available and is never switchable.
+- **Disabled is the default**; the stored setting records only what has been switched
+  *on*, so a capability added later stays out of the way until it is deliberately
+  chosen.
+- **A disabled capability leaves no surface behind** — its entry points are absent
+  rather than present-but-inert, and dependent settings disappear with it.
+- **The switch is local to the installation**, kept with the other machine-local
+  settings rather than inside the backlog folder, so it never travels with synced
+  content.
+- **Unreadable or unknown settings fall back to "everything disabled"** rather than
+  failing startup, leaving only the always-available core.
+
+> Not yet implemented: the current build defaults every optional capability to
+> enabled and stores only the disabled ones. This section records the intended
+> reversal, so treat it as the target state rather than a description of today's
+> behavior.
+
 ## Tagging and Organization
 
 ```meta

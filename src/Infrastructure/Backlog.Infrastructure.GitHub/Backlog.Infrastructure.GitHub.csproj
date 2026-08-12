@@ -19,6 +19,7 @@
     <!-- The line format people type into Settings and the JSON shapes GitHub
          answers with are both worth testing directly. -->
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+    <InternalsVisibleTo Include="Backlog.Infrastructure.GitHub.UnitTests" />
   </ItemGroup>
 
 </Project>

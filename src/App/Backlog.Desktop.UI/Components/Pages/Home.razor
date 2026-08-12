@@ -3,7 +3,6 @@
 @inject BacklogDesktopState State
 @inject IJSRuntime JS
 @inject ICopilotToolService CopilotTools
-@inject KnowledgeBacklog RepositoryBacklog
 @inject GitHubIntegration GitHub
 @inject AppFeatureSettingsStore Features
 @inject IAppUpdateService Updates
@@ -20,31 +19,33 @@
     <header class="app-header">
         <h1>Backlog</h1>
 
-        <div class="app-header__version" data-testid="app-version">
-            Version <code>@Updates.CurrentVersion</code>
-            @if (Updates.IsSupported)
+        @* The version is the control: clicking it asks for a newer one. There is no
+           separate button, and it stays clickable on heads that do not manage their
+           own updates so the answer is a stated reason rather than nothing. *@
+        <div class="app-header__version">
+            <button type="button"
+                    class="app-version"
+                    data-testid="app-version"
+                    disabled="@_updateBusy"
+                    title="@AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)"
+                    aria-label="@AppUpdatePresentation.VersionActionLabel(Updates.CurrentVersion, _checkingForAppUpdate)"
+                    @onclick="CheckForUpdatesAsync">
+                Version <code>@Updates.CurrentVersion</code>
+                <span class="app-version__hint" aria-hidden="true">@AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)</span>
+            </button>
+            @if (_appUpdateReady)
             {
                 <button type="button"
                         class="header-tool-toggle"
-                        data-testid="check-for-updates"
+                        data-testid="install-update"
                         disabled="@_updateBusy"
-                        @onclick="CheckForUpdatesAsync">
-                    @(_checkingForAppUpdate ? "Checking..." : "Check for updates")
+                        @onclick="InstallUpdateAsync">
+                    @(_installingAppUpdate ? "Installing..." : "Install update")
                 </button>
-                @if (_appUpdateReady)
-                {
-                    <button type="button"
-                            class="header-tool-toggle"
-                            data-testid="install-update"
-                            disabled="@_updateBusy"
-                            @onclick="InstallUpdateAsync">
-                        @(_installingAppUpdate ? "Installing..." : "Install update")
-                    </button>
-                }
             }
             @if (_appUpdateMessage is not null)
             {
-                <span class="@_appUpdateStatusClass" role="status">@_appUpdateMessage</span>
+                <span class="@_appUpdateStatusClass" data-testid="app-update-status" role="status">@_appUpdateMessage</span>
             }
         </div>
         <div class="save-indicator save-indicator--@State.SaveState.ToString().ToLowerInvariant()" id="save-state-indicator" data-testid="save-state-indicator" role="status">
@@ -69,7 +70,7 @@
             </button>
         }
 
-        @if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge))
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge) && VisibleKnowledgeAreas.Count > 0)
         {
             <button type="button"
                     class="header-tool-toggle"
@@ -257,7 +258,7 @@
                 var oneLine = !editing && row.UsesOneLineLayout;
 
                 <li class="entry-group" @key="row.Key">
-                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
+                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(row.IsReadOnly ? "entry-doc--read-only" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
 
                     @RenderGrip(row, before: true, "top")
                     @RenderGrip(row, before: true, "left")
@@ -339,7 +340,9 @@
                                  data-testid="entry-read-view"
                                  role="group"
                                  tabindex="0"
-                                 aria-label="Edit markdown for @(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)"
+                                 aria-label="@(row.IsReadOnly
+                                     ? $"Read-only entry from {row.Origin!.RepositoryFullName}: {(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)}"
+                                     : $"Edit markdown for {(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)}")"
                                  @onclick="() => State.BeginEdit(row)"
                                  @onkeydown="e => OnReadViewKeyDown(row, e)">
 
@@ -411,7 +414,8 @@
                                         id="subitem-grip-@row.Key-@position"
                                         data-testid="subitem-grip"
                                         data-drag-grip="@row.Key-@position"
-                                        draggable="true"
+                                        draggable="@(!row.IsReadOnly)"
+                                        tabindex="@(row.IsReadOnly ? "-1" : "0")"
                                         aria-label="Reorder sub-item — drag, or use the up and down arrow keys"
                                         @ondragstart="() => State.BeginSubItemDrag(row, position)"
                                         @ondragend="() => State.EndSubItemDrag()"
@@ -425,7 +429,7 @@
                                 <div class="subitem-card__body"
                                      role="group"
                                      tabindex="0"
-                                     aria-label="Edit sub-item"
+                                     aria-label="@(row.IsReadOnly ? "Read-only sub-item" : "Edit sub-item")"
                                      @onclick="() => State.BeginEdit(row)"
                                      @onkeydown="e => OnReadViewKeyDown(row, e)">
                                     <div class="subitem-card__title-row">
@@ -436,6 +440,7 @@
                                                     data-testid="subitem-checkbox"
                                                     aria-pressed="@(subItem.Done ? "true" : "false")"
                                                     aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                                    disabled="@row.IsReadOnly"
                                                     @onmousedown:preventDefault="true"
                                                     @onclick:stopPropagation="true"
                                                     @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "✔" : string.Empty)</button>
@@ -444,23 +449,26 @@
                                     </div>
                                     <div class="subitem-card__meta" aria-label="Sub-item metadata and actions">
                                         <span class="subitem-card__state">@(subItem.HasCheckbox ? (subItem.Done ? "Done" : "Open") : "Note")</span>
-                                        <span class="subitem-card__actions">
-                                            @if (subItem.HasCheckbox)
-                                            {
+                                        @if (!row.IsReadOnly)
+                                        {
+                                            <span class="subitem-card__actions">
+                                                @if (subItem.HasCheckbox)
+                                                {
+                                                    <button type="button"
+                                                            class="subitem-card__action"
+                                                            aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                                            @onmousedown:preventDefault="true"
+                                                            @onclick:stopPropagation="true"
+                                                            @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "Open" : "Done")</button>
+                                                }
                                                 <button type="button"
                                                         class="subitem-card__action"
-                                                        aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                                        aria-label="Edit sub-item"
                                                         @onmousedown:preventDefault="true"
                                                         @onclick:stopPropagation="true"
-                                                        @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "Open" : "Done")</button>
-                                            }
-                                            <button type="button"
-                                                    class="subitem-card__action"
-                                                    aria-label="Edit sub-item"
-                                                    @onmousedown:preventDefault="true"
-                                                    @onclick:stopPropagation="true"
-                                                    @onclick="() => State.BeginEdit(row)">Edit</button>
-                                        </span>
+                                                        @onclick="() => State.BeginEdit(row)">Edit</button>
+                                            </span>
+                                        }
                                     </div>
                                     @if (subItem.Children.Count > 0)
                                     {
@@ -513,11 +521,25 @@
 
         @if (SidePaneVisible)
         {
+            @* The pane edge is the handle. Dragging it is the obvious gesture, so
+               the slider that used to sit inside the pane is gone; arrow keys on
+               the same separator carry the keyboard equivalent. *@
+            <div class="pane-resizer"
+                 data-testid="side-pane-resizer"
+                 data-pane-resizer="true"
+                 role="separator"
+                 aria-orientation="vertical"
+                 aria-label="Side pane width"
+                 aria-valuemin="@MinSidePaneWidthRem"
+                 aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                 aria-valuenow="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                 tabindex="0"
+                 @onkeydown="OnResizerKeyDown"
+                 @onkeydown:preventDefault="true">
+                <span class="pane-resizer__grip" aria-hidden="true"></span>
+            </div>
+
             <aside class="side-pane-stack" data-testid="side-pane-stack" aria-label="Backlog side panes">
-                <label class="knowledge-stack__resizer">
-                    <span>Side pane width</span>
-                    <input type="range" min="24" max="54" step="1" value="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnKnowledgeWidthChanged" />
-                </label>
                 @if (ToolsVisible)
                 {
                     @RenderToolsPane()
@@ -526,20 +548,14 @@
                 @if (KnowledgeVisible)
                 {
                     <section class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
-                        @if (KnowledgeRepositories.Count > 1)
-                {
-                    <nav class="knowledge-stack__repositories" aria-label="Knowledge repository">
-                        @foreach (var repository in KnowledgeRepositories)
+                        @* Which repository is being read is not a second choice to
+                           make here: it follows the area filter above the backlog,
+                           so the knowledge beside an entry is the knowledge of the
+                           repository that entry belongs to. *@
+                        @if (ActiveKnowledgeRepository is { } knowledgeRepository)
                         {
-                            <button type="button"
-                                    class="knowledge-stack__repo @(IsKnowledgeRepositoryActive(repository.Alias) ? "knowledge-stack__repo--active" : string.Empty)"
-                                    aria-pressed="@IsKnowledgeRepositoryActive(repository.Alias)"
-                                    @onclick="() => SelectKnowledgeRepositoryAsync(repository.Alias)">
-                                @repository.FullName
-                            </button>
+                            <p class="knowledge-stack__repository" data-testid="knowledge-repository">@knowledgeRepository.FullName</p>
                         }
-                    </nav>
-                }
 
                 <nav class="knowledge-stack__nav" aria-label="Knowledge sections" role="tablist">
                     @foreach (var area in VisibleKnowledgeAreas)
@@ -596,20 +612,24 @@
     private bool _toolsExpanded;
     private bool _aiExpanded;
     private bool _knowledgeExpanded;
-    private double _knowledgePanelWidthRem = 36;
+    private double _knowledgePanelWidthRem = SidePaneWidth.DefaultRem;
+    private double _maxSidePaneWidthRem = SidePaneWidth.MaxRem;
+    private DotNetObjectReference<Home>? _selfReference;
+
+    private const double MinSidePaneWidthRem = SidePaneWidth.MinRem;
     private bool _toolsLoading;
     private string? _toolMessage;
     private string? _toolActionKey;
     private IReadOnlyList<CopilotToolInfo> _tools = [];
-    private BacklogKnowledgeView? _backlogKnowledge;
     private KnowledgeMenuTree _knowledgeMenuTree = KnowledgeMenuTree.Empty;
     private readonly HashSet<string> _expandedKnowledgeMenuNodes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _selectedKnowledgeChapterPaths = new(StringComparer.Ordinal);
     private bool _knowledgeMenuLoading;
-    private string _selectedKnowledgeSection = "backlog";
-    private string? _selectedKnowledgeRepositoryAlias;
+    private string _selectedKnowledgeSection = KnowledgeAreas[0].Key;
+    private string? _loadedKnowledgeMenuRepositoryAlias;
+    private string _loadedKnowledgeMenuVisibleKeyFingerprint = string.Empty;
     private string? _appUpdateMessage;
-    private string _appUpdateStatusClass = string.Empty;
+    private string _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Unknown);
     private bool _checkingForAppUpdate;
     private bool _installingAppUpdate;
     private bool _appUpdateReady;
@@ -632,15 +652,24 @@
     {
         State.Changed += HandleStateChanged;
         await State.InitializeAsync();
-        if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge))
-        {
-            await LoadBacklogKnowledgeAsync();
-            await LoadKnowledgeMenuAsync();
-        }
+        await RefreshKnowledgeMenuForActiveRepositoryAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            _selfReference = DotNetObjectReference.Create(this);
+            try
+            {
+                await JS.InvokeVoidAsync("backlogPaneResizer.initialize", _selfReference);
+            }
+            catch (Exception)
+            {
+                // Without the interop the separator still resizes by keyboard.
+            }
+        }
+
         // A sub-item that was just moved with the keyboard has to take the caret
         // with it, or the next press moves whatever slid into the old slot.
         if (State.SubItemFocus is { } focus)
@@ -718,34 +747,14 @@
             builder.AppendLine(row.RawText.Trim());
         }
 
-        if (_backlogKnowledge?.IsReady == true && _backlogKnowledge.Concerns.Count > 0)
-        {
-            builder.AppendLine();
-            builder.AppendLine("Loaded .backlog knowledge:");
-            foreach (var concern in _backlogKnowledge.Concerns)
-            {
-                builder.AppendLine($"- {concern.Title} ({concern.RelativePath})");
-                foreach (var item in concern.Items)
-                {
-                    AppendKnowledgeItem(builder, item, indent: "  ");
-                }
-            }
-        }
-
         var content = builder.ToString().Trim();
         return content.Length <= 12000 ? content : content[..12000];
     }
 
-    private static void AppendKnowledgeItem(System.Text.StringBuilder builder, BacklogWorkItemKnowledge item, string indent)
-    {
-        builder.AppendLine($"{indent}- {item.Title}");
-        foreach (var subItem in item.SubItems)
-        {
-            AppendKnowledgeItem(builder, subItem, indent + "  ");
-        }
-    }
-
-    private bool KnowledgeVisible => IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge) && _knowledgeExpanded;
+    private bool KnowledgeVisible =>
+        IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge)
+        && VisibleKnowledgeAreas.Count > 0
+        && _knowledgeExpanded;
 
     private bool ToolActionBusy => _toolActionKey is not null;
 
@@ -863,19 +872,18 @@
     {
         get
         {
-            var areas = IsFeatureEnabled(AppFeatureSettingsStore.KnowledgeSections)
-                ? KnowledgeAreas
-                : KnowledgeAreas[..1];
+            if (!IsFeatureEnabled(AppFeatureSettingsStore.KnowledgeSections)) return [];
 
             return ActiveRepositoryInstructionsEnabled
-                ? areas
-                : [.. areas.Where(area => !string.Equals(area.Key, "instructions", StringComparison.Ordinal))];
+                ? KnowledgeAreas
+                : [.. KnowledgeAreas.Where(area => !string.Equals(area.Key, "instructions", StringComparison.Ordinal))];
         }
     }
 
+    // The repository's own work items are no longer a section here — they are
+    // entries in the backlog itself, filed under the repository's area.
     private static readonly KnowledgeArea[] KnowledgeAreas =
     [
-        new("backlog", "Backlog"),
         new("instructions", "Instructions"),
         new("domain", "Domain"),
         new("arc42", "Architecture"),
@@ -883,10 +891,27 @@
         new("design", "Design")
     ];
 
-    private GitHubRepositoryRef? ActiveKnowledgeRepository =>
-        KnowledgeRepositories.FirstOrDefault(repo => string.Equals(repo.Alias, _selectedKnowledgeRepositoryAlias, StringComparison.Ordinal))
-        ?? GitHub.Settings.Current.PrimaryRepository
-        ?? KnowledgeRepositories.FirstOrDefault();
+    /// <summary>The area filter above the backlog doubles as the repository
+    /// picker: filing entries under <c>`@alias`</c> is already how the app says
+    /// which repository something belongs to.</summary>
+    private GitHubRepositoryRef? ActiveKnowledgeRepository
+    {
+        get
+        {
+            if (!AdditionalRepositoriesEnabled)
+            {
+                return GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
+            }
+
+            var area = State.SelectedArea;
+            if (area.Length == 0 || string.Equals(area, BacklogDesktopState.UnfiledArea, StringComparison.Ordinal))
+            {
+                return GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
+            }
+
+            return GitHub.Settings.Current.Find(area);
+        }
+    }
 
     private string? ActiveKnowledgeRepositoryAlias => ActiveKnowledgeRepository?.Alias;
 
@@ -903,11 +928,24 @@
         }
     }
 
-    private bool IsKnowledgeSectionActive(string key) =>
-        string.Equals(_selectedKnowledgeSection, key, StringComparison.Ordinal);
+    /// <summary>The section actually shown. A section can stop being available
+    /// (instructions turned off for this repository), and a tab panel pointing at
+    /// nothing is worse than one that has moved on to the next section.</summary>
+    private string EffectiveKnowledgeSection
+    {
+        get
+        {
+            var areas = VisibleKnowledgeAreas;
+            if (areas.Count == 0) return string.Empty;
 
-    private bool IsKnowledgeRepositoryActive(string alias) =>
-        string.Equals(ActiveKnowledgeRepositoryAlias, alias, StringComparison.Ordinal);
+            return areas.Any(area => string.Equals(area.Key, _selectedKnowledgeSection, StringComparison.Ordinal))
+                ? _selectedKnowledgeSection
+                : areas[0].Key;
+        }
+    }
+
+    private bool IsKnowledgeSectionActive(string key) =>
+        string.Equals(EffectiveKnowledgeSection, key, StringComparison.Ordinal);
 
     private IReadOnlyList<KnowledgeMenuNode> ActiveKnowledgeMenuNodes => ActiveKnowledgeMenuRoot switch
     {
@@ -917,12 +955,12 @@
     };
 
     private KnowledgeMenuNode? ActiveKnowledgeMenuRoot =>
-        _knowledgeMenuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, _selectedKnowledgeSection, StringComparison.Ordinal));
+        _knowledgeMenuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, EffectiveKnowledgeSection, StringComparison.Ordinal));
 
-    private bool KnowledgeSectionUsesMenu => !string.Equals(_selectedKnowledgeSection, "tech", StringComparison.Ordinal);
+    private bool KnowledgeSectionUsesMenu => !string.Equals(EffectiveKnowledgeSection, "tech", StringComparison.Ordinal);
 
     private string? SelectedKnowledgeChapterPath =>
-        KnowledgeSectionUsesMenu && _selectedKnowledgeChapterPaths.TryGetValue(_selectedKnowledgeSection, out var path) ? path : null;
+        KnowledgeSectionUsesMenu && _selectedKnowledgeChapterPaths.TryGetValue(EffectiveKnowledgeSection, out var path) ? path : null;
 
     private void SelectKnowledgeSection(string key)
     {
@@ -1008,30 +1046,30 @@
     private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
         AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Settings.Current.PrimaryRepository;
 
-    private async Task SelectKnowledgeRepositoryAsync(string alias)
+    private async Task RefreshKnowledgeMenuForActiveRepositoryAsync()
     {
-        if (string.Equals(_selectedKnowledgeRepositoryAlias, alias, StringComparison.Ordinal)) return;
+        if (!IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge)) return;
 
-        _selectedKnowledgeRepositoryAlias = alias;
-        if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge))
+        var repositoryAlias = ActiveKnowledgeRepositoryAlias;
+        var visibleKeys = VisibleKnowledgeAreas.Select(area => area.Key).ToArray();
+        var fingerprint = string.Join("|", visibleKeys);
+        if (string.Equals(_loadedKnowledgeMenuRepositoryAlias, repositoryAlias, StringComparison.Ordinal)
+            && string.Equals(_loadedKnowledgeMenuVisibleKeyFingerprint, fingerprint, StringComparison.Ordinal))
         {
-            await LoadBacklogKnowledgeAsync();
-            await LoadKnowledgeMenuAsync();
+            return;
         }
+
+        await LoadKnowledgeMenuAsync(visibleKeys, repositoryAlias, fingerprint);
     }
 
-    private async Task LoadBacklogKnowledgeAsync()
-    {
-        _backlogKnowledge = await RepositoryBacklog.LoadAsync(ActiveKnowledgeRepositoryAlias);
-    }
-
-    private async Task LoadKnowledgeMenuAsync()
+    private async Task LoadKnowledgeMenuAsync(string[] visibleKeys, string? repositoryAlias, string fingerprint)
     {
         _knowledgeMenuLoading = true;
         try
         {
-            var visibleKeys = VisibleKnowledgeAreas.Select(area => area.Key).ToArray();
-            _knowledgeMenuTree = await KnowledgeMenu.LoadAsync(visibleKeys, ActiveKnowledgeRepositoryAlias);
+            _knowledgeMenuTree = await KnowledgeMenu.LoadAsync(visibleKeys, repositoryAlias);
+            _loadedKnowledgeMenuRepositoryAlias = repositoryAlias;
+            _loadedKnowledgeMenuVisibleKeyFingerprint = fingerprint;
 
             var selectedVisible = visibleKeys.Contains(_selectedKnowledgeSection, StringComparer.Ordinal);
             if (!selectedVisible && visibleKeys.Length > 0)
@@ -1051,7 +1089,6 @@
             _knowledgeMenuLoading = false;
         }
     }
-
 
     private void EnsureSelectedKnowledgeChapter()
     {
@@ -1118,14 +1155,15 @@
     private static bool ContainsPath(KnowledgeMenuNode node, string selectedPath) =>
         string.Equals(node.Path, selectedPath, StringComparison.OrdinalIgnoreCase)
         || node.Children.Any(child => ContainsPath(child, selectedPath));
-    private RenderFragment RenderActiveKnowledge() => _selectedKnowledgeSection switch
+
+    private RenderFragment RenderActiveKnowledge() => EffectiveKnowledgeSection switch
     {
         "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
         "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
         "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
         "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
         "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
-        _ => RenderBacklogKnowledge()
+        _ => @<p class="knowledge-empty" role="status">Turn on knowledge sections in Settings to read repository knowledge here.</p>
     };
 
     private sealed record KnowledgeArea(string Key, string Label);
@@ -1212,128 +1250,7 @@
             </div>
         </section>;
 
-    private RenderFragment RenderBacklogKnowledge() =>
-        @<aside class="knowledge-pane" data-testid="backlog-knowledge-pane" aria-labelledby="backlog-knowledge-title">
-            <div class="knowledge-pane__header">
-                <p class="knowledge-pane__eyebrow">Knowledge base</p>
-                <h2 id="backlog-knowledge-title">.backlog work items</h2>
-                <p class="knowledge-pane__subtitle">Repository-authored Items and Sub-items, shown beside the active backlog.</p>
-            </div>
 
-            @if (_backlogKnowledge is null)
-            {
-                <p class="knowledge-empty">Loading repository knowledge...</p>
-            }
-            else if (!_backlogKnowledge.IsReady)
-            {
-                <div class="knowledge-empty" role="status">
-                    <p>@_backlogKnowledge.Message</p>
-                    <a href="settings">Open repository settings</a>
-                </div>
-            }
-            else if (_backlogKnowledge.Concerns.Count == 0)
-            {
-                <div class="knowledge-empty" role="status">
-                    <p>No authored .backlog Markdown files were found.</p>
-                    <span>@_backlogKnowledge.Directory</span>
-                </div>
-            }
-            else
-            {
-                <div class="knowledge-pane__source">
-                    <span>@_backlogKnowledge.RepositoryFullName</span>
-                    <code>@_backlogKnowledge.Directory</code>
-                </div>
-
-                <div class="knowledge-concerns">
-                    @foreach (var concern in SelectedBacklogConcerns())
-                    {
-                        <article class="knowledge-concern" data-testid="backlog-knowledge-concern">
-                            <header class="knowledge-concern__header">
-                                <div>
-                                    <h3>@concern.Title</h3>
-                                    <code>@concern.RelativePath</code>
-                                </div>
-                                <span class="knowledge-count">@concern.Items.Count item@(concern.Items.Count == 1 ? string.Empty : "s")</span>
-                            </header>
-
-                            @RenderKnowledgeMetadata(concern.Metadata)
-
-                            <div class="knowledge-items">
-                                @foreach (var item in concern.Items)
-                                {
-                                    @RenderKnowledgeItem(item, isSubItem: false)
-                                }
-                            </div>
-                        </article>
-                    }
-                </div>
-            }
-        </aside>;
-    private IReadOnlyList<BacklogConcernKnowledge> SelectedBacklogConcerns()
-    {
-        if (_backlogKnowledge is null || string.IsNullOrWhiteSpace(SelectedKnowledgeChapterPath)) return _backlogKnowledge?.Concerns ?? [];
-
-        var selected = _backlogKnowledge.Concerns
-            .Where(concern => PathMatches(concern.RelativePath, SelectedKnowledgeChapterPath))
-            .ToArray();
-        return selected.Length == 0 ? _backlogKnowledge.Concerns.Take(1).ToArray() : selected;
-    }
-
-    private static bool PathMatches(string candidate, string selectedPath)
-    {
-        var candidatePath = NormalizePath(candidate);
-        var selected = NormalizePath(selectedPath);
-        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
-            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(Path.GetFileName(candidatePath), Path.GetFileName(selected), StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
-
-    private RenderFragment RenderKnowledgeItem(BacklogWorkItemKnowledge item, bool isSubItem) =>
-        @<article class="knowledge-item @(isSubItem ? "knowledge-item--sub" : string.Empty)" data-testid="backlog-knowledge-item">
-            <header class="knowledge-item__header">
-                <h4>@item.Title</h4>
-                @if (TryMetadata(item.Metadata, "status") is { Length: > 0 } status)
-                {
-                    <span class="badge badge--status status-accent--@status.ToLowerInvariant()">@status</span>
-                }
-            </header>
-
-            @RenderKnowledgeMetadata(item.Metadata)
-
-            @if (item.Description.Count > 0)
-            {
-                <div class="knowledge-item__body">
-                    <MarkdownView Blocks="@item.Description" />
-                </div>
-            }
-
-            @if (item.SubItems.Count > 0)
-            {
-                <div class="knowledge-subitems">
-                    @foreach (var subItem in item.SubItems)
-                    {
-                        @RenderKnowledgeItem(subItem, isSubItem: true)
-                    }
-                </div>
-            }
-        </article>;
-
-    private RenderFragment RenderKnowledgeMetadata(IReadOnlyDictionary<string, string> metadata) =>
-        @<div class="knowledge-meta" aria-label="Knowledge metadata">
-            @foreach (var pair in metadata)
-            {
-                <span class="knowledge-meta__chip">
-                    <strong>@pair.Key</strong>
-                    <span>@pair.Value</span>
-                </span>
-            }
-        </div>;
-
-    private static string? TryMetadata(IReadOnlyDictionary<string, string> metadata, string key) =>
-        metadata.TryGetValue(key, out var value) ? value : null;
     private RenderFragment RenderEntryMetadata(EntryRow row, bool oneLine) =>
         @<div class="entry-doc__meta" @onclick:stopPropagation="true">
             <span class="entry-doc__meta-start">
@@ -1343,6 +1260,7 @@
                             value="@row.PreviewType"
                             aria-label="Change type"
                             title="Change type"
+                            disabled="@row.IsReadOnly"
                             @onchange="e => OnTypeChangedAsync(row, e)">
                         @foreach (var type in TypeOptions())
                         {
@@ -1357,6 +1275,7 @@
                             value="@row.PreviewPriority"
                             aria-label="Change priority"
                             title="Change priority"
+                            disabled="@row.IsReadOnly"
                             @onchange="e => OnPriorityChangedAsync(row, e)">
                         @foreach (var priority in PriorityOptions())
                         {
@@ -1373,6 +1292,7 @@
                                 value="@(RepositoryFor(row)?.Alias ?? string.Empty)"
                                 aria-label="Change repository"
                                 title="Change repository"
+                                disabled="@row.IsReadOnly"
                                 @onchange="e => OnRepositoryChangedAsync(row, e)">
                             <option value="">No repo</option>
                             @foreach (var repository in KnowledgeRepositories)
@@ -1421,7 +1341,13 @@
                     }
                 }
 
-                @if (!row.IsPersisted)
+                @if (row.Origin is { } origin)
+                {
+                    <span class="badge badge--source" data-testid="entry-source-badge" title="@origin.RepositoryFullName · @origin.RelativePath">
+                        Read-only · <code>@origin.RelativePath</code>
+                    </span>
+                }
+                else if (!row.IsPersisted)
                 {
                     <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
                 }
@@ -1432,6 +1358,7 @@
                             value="@row.PreviewStatus"
                             aria-label="Change status"
                             title="Change status"
+                            disabled="@row.IsReadOnly"
                             @onchange="e => OnStatusChangedAsync(row, e)">
                         @foreach (var status in StatusOptions())
                         {
@@ -1536,6 +1463,7 @@
                    title="Edit tags"
                    list="entry-tags-options-@row.Key"
                    placeholder="Tags"
+                   readonly="@row.IsReadOnly"
                    value="@TagsInputValue(row)"
                    @onchange="e => OnTagsChangedAsync(row, e)" />
             <datalist id="entry-tags-options-@row.Key">
@@ -1555,9 +1483,9 @@
                  class="entry-doc__grip entry-doc__grip--@side"
                  data-testid="entry-grip-@side"
                  data-drag-grip="@row.Key"
-                 draggable="true"
-                 tabindex="@(side == "top" ? "0" : "-1")"
-                 aria-hidden="@(side == "top" ? "false" : "true")"
+                 draggable="@(!row.IsReadOnly)"
+                 tabindex="@(side == "top" && !row.IsReadOnly ? "0" : "-1")"
+                 aria-hidden="@(side == "top" && !row.IsReadOnly ? "false" : "true")"
                  aria-label="Reorder entry — drag, or use the up and down arrow keys"
                  @ondragstart="() => State.BeginDrag(row)"
                  @ondragend="() => State.EndDrag()"
@@ -1640,7 +1568,11 @@
             _toolActionKey = null;
         }
     }
-    private void HandleStateChanged() => InvokeAsync(StateHasChanged);
+    private void HandleStateChanged() => _ = InvokeAsync(async () =>
+    {
+        await RefreshKnowledgeMenuForActiveRepositoryAsync();
+        StateHasChanged();
+    });
 
 
     private async Task CheckForUpdatesAsync()
@@ -1656,18 +1588,13 @@
             var result = await Updates.CheckForUpdateAsync();
             _appUpdateReady = result.UpdateReady;
             _appUpdateMessage = result.Message;
-            _appUpdateStatusClass = result.Availability switch
-            {
-                AppUpdateAvailability.UpToDate => "setting__status--ok",
-                AppUpdateAvailability.Failed => "setting__status--error",
-                _ => string.Empty
-            };
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(result.Availability);
         }
         catch
         {
             _appUpdateReady = false;
             _appUpdateMessage = "The update check could not be completed.";
-            _appUpdateStatusClass = "setting__status--error";
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
         }
         finally
         {
@@ -1685,13 +1612,14 @@
         {
             var result = await Updates.StartUpdateAsync();
             _appUpdateMessage = result.Message;
-            _appUpdateStatusClass = result.Started ? "setting__status--ok" : "setting__status--error";
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(
+                result.Started ? AppUpdateAvailability.UpToDate : AppUpdateAvailability.Failed);
             if (!result.Started) _appUpdateReady = false;
         }
         catch
         {
             _appUpdateMessage = "The update could not be installed.";
-            _appUpdateStatusClass = "setting__status--error";
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
         }
         finally
         {
@@ -1772,13 +1700,39 @@
             .ToList();
     private static string TagsInputValue(EntryRow row) => string.Join(" ", row.PreviewMetadataTags.Select(tag => "#" + tag));
 
-    private void OnKnowledgeWidthChanged(ChangeEventArgs e)
+    [JSInvokable]
+    public Task SetSidePaneWidthAsync(double widthRem)
     {
-        if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var width))
-        {
-            _knowledgePanelWidthRem = Math.Clamp(width, 24, 54);
-        }
+        var clamped = SidePaneWidth.Clamp(widthRem, _maxSidePaneWidthRem);
+        if (Math.Abs(clamped - _knowledgePanelWidthRem) < 0.001) return Task.CompletedTask;
+
+        _knowledgePanelWidthRem = clamped;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
+
+    // How wide the pane may actually get depends on the window, which only the
+    // browser knows; without it the separator would keep counting past the edge.
+    [JSInvokable]
+    public Task SetSidePaneMaxWidthAsync(double maxRem)
+    {
+        var clamped = SidePaneWidth.Clamp(maxRem, SidePaneWidth.MaxRem);
+        var width = Math.Min(_knowledgePanelWidthRem, clamped);
+        if (Math.Abs(clamped - _maxSidePaneWidthRem) < 0.001 && Math.Abs(width - _knowledgePanelWidthRem) < 0.001)
+        {
+            return Task.CompletedTask;
+        }
+
+        _maxSidePaneWidthRem = clamped;
+        _knowledgePanelWidthRem = width;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    // The drag lives in JavaScript because pointer capture does; the keyboard
+    // equivalent stays here so the separator has one clamped source of truth.
+    private void OnResizerKeyDown(KeyboardEventArgs e) =>
+        _knowledgePanelWidthRem = SidePaneWidth.Adjust(_knowledgePanelWidthRem, e.Key, _maxSidePaneWidthRem);
 
     private async Task OnEditorKeyDownAsync(EntryRow row, KeyboardEventArgs e)
     {
@@ -1825,6 +1779,8 @@
     public void Dispose()
     {
         State.Changed -= HandleStateChanged;
+        _selfReference?.Dispose();
+        _selfReference = null;
     }
 }
 
