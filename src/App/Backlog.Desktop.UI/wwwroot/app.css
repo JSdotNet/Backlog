@@ -3041,6 +3041,45 @@ h1, h2, h3 {
     text-transform: lowercase;
 }
 
+.knowledge-status-control {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.knowledge-state-select {
+    border: 1px solid var(--color-border-strong);
+    cursor: pointer;
+    font: inherit;
+    text-transform: lowercase;
+}
+
+.knowledge-state-select option {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.knowledge-chapter__button {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.knowledge-chapter__button:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
 .domain-metadata__link {
     appearance: none;
     background: transparent;

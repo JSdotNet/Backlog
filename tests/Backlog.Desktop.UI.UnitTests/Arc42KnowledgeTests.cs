@@ -1,4 +1,5 @@
 using Backlog.Desktop.UI.Services;
+using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -79,6 +80,40 @@ public class Arc42KnowledgeTests
         }
     }
 
+
+    [Fact]
+    public async Task Updates_arc42_chapter_status_metadata()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, ".arc42"));
+            File.WriteAllText(Path.Combine(root, ".arc42", "04-solution-strategy.md"), """
+                # Solution Strategy
+
+                ```meta
+                status: active
+                related: [.tech/shared.md]
+                ```
+
+                Strategy text.
+                """);
+            var store = ConfiguredSettings(root);
+            var knowledge = new Arc42KnowledgeStore(new KnowledgeFolderSource(store));
+
+            await knowledge.UpdateStatusAsync("backlog", ".arc42/04-solution-strategy.md", "adopted");
+            var catalog = await knowledge.LoadAsync("backlog");
+
+            var document = Assert.Single(catalog.Documents);
+            Assert.Equal("adopted", document.Status);
+            Assert.Contains("status: adopted", File.ReadAllText(Path.Combine(root, ".arc42", "04-solution-strategy.md")));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public void Parses_ordinary_architecture_prose_as_readable_blocks()
     {
@@ -89,5 +124,17 @@ public class Arc42KnowledgeTests
         var list = Assert.IsType<KnowledgeListBlock>(document.Blocks[2]);
         Assert.Equal(["one", "two"], list.Items.Select(PlainText));
     }
+
+    private static GitHubSettingsStore ConfiguredSettings(string repo)
+    {
+        var path = Path.Combine(repo, "github.json");
+        var settings = new GitHubSettingsStore(path);
+        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        Assert.Empty(errors);
+        settings.SetRepositories(repositories);
+        settings.SetCloneDirectory("backlog", repo);
+        return settings;
+    }
+
 }
 

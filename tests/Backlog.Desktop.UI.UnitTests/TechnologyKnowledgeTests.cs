@@ -137,6 +137,49 @@ public sealed class TechnologyKnowledgeReaderTests
         Assert.Contains(view.Graph.Edges, edge => edge.Source == ".tech/shared.md#net" && edge.Target == ".tech/desktop.md#blazor" && edge.Label == "depends on");
     }
 
+
+    [Fact]
+    public async Task Updates_layer_and_node_status_metadata()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), """
+            # Technology graph
+            ```meta
+            status: draft
+            order: ["shared.md"]
+            ```
+            """);
+        File.WriteAllText(Path.Combine(techPath, "shared.md"), """
+            # Shared Technologies
+            ```meta
+            status: accepted
+            kind: layer
+            ```
+
+            ## .NET
+            ```meta
+            status: accepted
+            kind: runtime
+            ```
+
+            Cross-platform runtime.
+            """);
+        var service = new TechnologyKnowledgeService(new KnowledgeFolderSource(workspace.CreateStore()));
+
+        await service.UpdateStatusAsync("backlog", ".tech/shared.md", "adopted");
+        await service.UpdateStatusAsync("backlog", ".tech/shared.md#net", "active");
+        var view = await service.ReadAsync("backlog");
+
+        var layer = Assert.Single(view.Layers);
+        Assert.Equal("adopted", layer.Metadata.Status);
+        Assert.Equal("active", Assert.Single(layer.Nodes).Status);
+        var markdown = File.ReadAllText(Path.Combine(techPath, "shared.md"));
+        Assert.Contains("status: adopted", markdown);
+        Assert.Contains("status: active", markdown);
+    }
+
     [Theory]
     [InlineData("mermaid")]
     [InlineData("mmd")]

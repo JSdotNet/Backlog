@@ -21,6 +21,20 @@ public sealed class Arc42KnowledgeStore(KnowledgeFolderSource source)
 
         return Arc42KnowledgeReader.LoadAsync(location.Repository.CloneDirectory);
     }
+
+    public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
+        if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
+
+        var location = source.Resolve(".arc42", repositoryAlias);
+        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Architecture knowledge is unavailable.");
+        if (location.FullPath is null) throw new InvalidOperationException("Architecture knowledge folder path is unavailable.");
+
+        KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".arc42/", status);
+        return Task.CompletedTask;
+    }
 }
 
 public static class Arc42KnowledgeReader
