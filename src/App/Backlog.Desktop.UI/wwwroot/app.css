@@ -3219,6 +3219,7 @@ body.is-resizing-pane {
 .domain-knowledge__header,
 .domain-context__header,
 .domain-document__header,
+.domain-section__header,
 .knowledge-document__header,
 .tech-layer__header,
 .tech-node__header,
@@ -3235,8 +3236,65 @@ body.is-resizing-pane {
 .domain-knowledge__header h2,
 .domain-context__header h3,
 .domain-document__header h3,
+.domain-section__header h4,
 .knowledge-document__header h2 {
     margin: 0;
+}
+.domain-knowledge__actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
+
+.knowledge-status-control {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.knowledge-chapter__button {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.knowledge-chapter__button:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.domain-metadata__link {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--color-primary-light);
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
+.domain-metadata__link:hover,
+.domain-metadata__link:focus-visible {
+    color: var(--color-primary);
+}
+.domain-knowledge__action-error {
+    color: var(--color-danger);
+    font-size: var(--font-size-xs);
 }
 
 .design-knowledge__eyebrow,

@@ -90,6 +90,12 @@
         catch (JSException)
         {
         }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     public static bool IsDiagram(string? language) =>
