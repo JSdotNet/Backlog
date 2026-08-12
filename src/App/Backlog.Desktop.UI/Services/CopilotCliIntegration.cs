@@ -28,6 +28,18 @@ public sealed class CopilotCliIntegration(ICopilotCliLauncher launcher)
         entry.RecordUsage(UsageAction);
     }
 
+    public async Task StartFromKnowledgeAsync(
+        KnowledgeActionItem item,
+        string? workingDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        await launcher.LaunchAsync(
+            new CopilotCliRequest(KnowledgeActionMetadata.BuildPrompt(item), workingDirectory),
+            cancellationToken);
+    }
+
     internal static string BuildEntryPrompt(BacklogEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);

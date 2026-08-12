@@ -18,4 +18,5 @@
 
 - [ ] Scope is focused and excludes unrelated changes
 - [ ] Documentation or instruction files were updated when governance or behavior changed
+- [ ] Running Aspire instances for this checkout were stopped before PR creation (`build\stop-aspire-before-pr.ps1`)
 - [ ] Follow-up work is captured when the implementation is intentionally partial
