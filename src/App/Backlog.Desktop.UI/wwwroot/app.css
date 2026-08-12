@@ -470,10 +470,10 @@ h1, h2, h3 {
 
 .entry-doc--one-line .entry-doc__body {
     display: grid;
-    grid-template-columns: minmax(8rem, 1fr) minmax(0, clamp(16rem, 42%, 34rem));
-    align-items: stretch;
+    grid-template-columns: minmax(8rem, 1fr) auto;
+    align-items: center;
     column-gap: var(--spacing-sm);
-    padding: var(--spacing-md) 0;
+    padding: var(--spacing-sm) 0;
 }
 
 .entry-doc--dragged {
@@ -1014,11 +1014,11 @@ h1, h2, h3 {
 
 .entry-doc--one-line .entry-doc__meta {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, auto) auto auto;
     align-items: center;
     gap: var(--spacing-xs) var(--spacing-sm);
     min-width: 0;
-    width: 100%;
+    width: auto;
     overflow: visible;
 }
 
@@ -1028,16 +1028,17 @@ h1, h2, h3 {
     min-width: 0;
     overflow: visible;
     margin-left: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .entry-doc--one-line .entry-doc__tags {
     grid-column: 1;
     grid-row: 1;
-    justify-content: center;
-    overflow: visible;
-    white-space: normal;
-    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 16rem;
+    overflow: hidden;
+    white-space: nowrap;
+    flex-wrap: nowrap;
 }
 
 .entry-doc--one-line .entry-doc__meta-end {
@@ -1047,13 +1048,13 @@ h1, h2, h3 {
     justify-content: flex-end;
     min-width: 0;
     overflow: visible;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: var(--spacing-xs);
 }
 
 .entry-doc--one-line .badge,
 .entry-doc--one-line .tag-chip {
-    white-space: normal;
+    white-space: nowrap;
 }
 .entry-doc__delete {
     display: inline-flex;
@@ -1184,6 +1185,13 @@ h1, h2, h3 {
 .grow-wrap {
     display: grid;
     padding: var(--spacing-xs) 0 var(--spacing-sm);
+
+    /* The replica and the textarea must share identical text metrics, or the
+       replica sizes the grid track for the wrong line height and the textarea
+       is clipped. Both inherit from here so they can never drift apart. */
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
 }
 
 .grow-wrap::after {
@@ -1196,6 +1204,7 @@ h1, h2, h3 {
 .grow-wrap::after {
     grid-area: 1 / 1 / 2 / 2;
     font: inherit;
+    overflow-wrap: break-word;
     padding: 0;
     border: none;
 }
@@ -1206,16 +1215,7 @@ h1, h2, h3 {
     overflow: hidden;
     background: transparent;
     color: var(--color-text-primary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
     min-height: 3.5em;
-}
-
-.grow-wrap::after {
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
 }
 
 .entry-doc__editor::placeholder {
