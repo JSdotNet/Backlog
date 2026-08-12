@@ -48,7 +48,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<DesignKnowledgeProvider>();
         builder.Services.AddSingleton<KnowledgeFolderSource>();
-        builder.Services.AddSingleton<KnowledgeBacklog>();
+        builder.Services.AddSingleton<RepositoryBacklogSource>();
         builder.Services.AddSingleton<TechnologyKnowledgeService>();
         builder.Services.AddSingleton<InstructionSourceDiscovery>();
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();

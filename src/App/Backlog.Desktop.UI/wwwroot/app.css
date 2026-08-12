@@ -1518,6 +1518,50 @@ h1, h2, h3 {
     font-style: italic;
 }
 
+/* An entry a repository committed. It reads exactly like every other entry —
+   what it does not do is pretend the controls around it would change anything,
+   so the badge names the file and the card stops offering a caret. */
+.badge--source {
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: var(--border-width) dashed var(--color-border);
+}
+
+.badge--source code {
+    background: transparent;
+    color: inherit;
+    font-size: inherit;
+}
+
+.entry-doc--read-only .entry-doc__read {
+    cursor: default;
+}
+
+.entry-doc--read-only .entry-doc__grip {
+    cursor: default;
+    opacity: 0.35;
+}
+
+.entry-doc--read-only .subitem-card__grip {
+    cursor: default;
+    opacity: 0.35;
+}
+
+/* A disabled control still takes part in hit testing, so the metadata badges
+   would swallow clicks meant for the fold caret they sit over. On a read-only
+   row none of them respond to a click anyway, so let the click fall through. */
+.entry-doc--read-only .metadata-editor__select:disabled,
+.entry-doc--read-only .entry-doc__tag-input[readonly] {
+    pointer-events: none;
+}
+
+.knowledge-stack__repository {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* GitHub badges are links, so they are underline-free but clearly interactive,
    and carry the same state colours the rest of the app already uses. */
 .badge--gh {
@@ -3099,7 +3143,6 @@ body.is-resizing-pane {
 }
 
 .knowledge-stack__nav,
-.knowledge-stack__repositories,
 .design-knowledge__nav,
 .domain-knowledge__contexts,
 .knowledge-chapters {
@@ -3110,7 +3153,6 @@ body.is-resizing-pane {
 
 .knowledge-stack__nav a,
 .knowledge-stack__nav-item,
-.knowledge-stack__repo,
 .design-knowledge__nav-link,
 .domain-context-tab,
 .knowledge-chapter {
@@ -3134,9 +3176,6 @@ body.is-resizing-pane {
 .knowledge-stack__nav-item:hover,
 .knowledge-stack__nav-item:focus-visible,
 .knowledge-stack__nav-item--active,
-.knowledge-stack__repo:hover,
-.knowledge-stack__repo:focus-visible,
-.knowledge-stack__repo--active,
 .design-knowledge__nav-link:hover,
 .design-knowledge__nav-link:focus-visible,
 .domain-context-tab:hover,
