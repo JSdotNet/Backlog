@@ -27,7 +27,7 @@ public sealed class KnowledgeMenuTests : IDisposable
         Assert.Equal(["Backlog", "Domain"], tree.Roots.Select(node => node.Label));
         var domain = tree.Roots.Single(node => node.AreaKey == "domain");
         Assert.True(domain.Available);
-        Assert.Contains(domain.Children, node => node.Kind == KnowledgeMenuNodeKind.File && node.Path == "context-map.md");
+        Assert.Equal("context-map.md", domain.Children.First().Path);
 
         var intake = Assert.Single(domain.Children, node => node.Kind == KnowledgeMenuNodeKind.Folder && node.Path == "intake");
         Assert.Equal("Intake", intake.Label);
@@ -142,5 +142,3 @@ public sealed class KnowledgeMenuTests : IDisposable
         settings.SetCloneDirectory("backlog", repo);
     }
 }
-
-

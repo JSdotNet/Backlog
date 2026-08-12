@@ -179,10 +179,19 @@ public sealed class KnowledgeMenu(KnowledgeFolderSource source)
 
     private static string SortKey(string areaKey, string root, string directory, KnowledgeMenuNode node)
     {
-        if (string.Equals(areaKey, "arc42", StringComparison.OrdinalIgnoreCase) && string.Equals(root, directory, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(root, directory, StringComparison.OrdinalIgnoreCase))
         {
-            if (string.Equals(node.Path, "adr", StringComparison.OrdinalIgnoreCase)) return "09.5-adr";
-            if (string.Equals(node.Path, "tdr", StringComparison.OrdinalIgnoreCase)) return "11.5-tdr";
+            if (string.Equals(areaKey, "domain", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(node.Path, "context-map.md", StringComparison.OrdinalIgnoreCase))
+            {
+                return "00-context-map.md";
+            }
+
+            if (string.Equals(areaKey, "arc42", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.Equals(node.Path, "adr", StringComparison.OrdinalIgnoreCase)) return "09.5-adr";
+                if (string.Equals(node.Path, "tdr", StringComparison.OrdinalIgnoreCase)) return "11.5-tdr";
+            }
         }
 
         return node.Path;
@@ -232,4 +241,3 @@ public enum KnowledgeMenuNodeKind
     File,
     Message
 }
-

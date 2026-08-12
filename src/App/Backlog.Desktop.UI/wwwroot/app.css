@@ -2994,6 +2994,12 @@ h1, h2, h3 {
     grid-template-columns: minmax(0, 1fr);
 }
 
+.knowledge-stack__body--without-menu .knowledge-stack__section,
+.knowledge-stack__body--without-menu .tech-knowledge-pane {
+    width: 100%;
+    max-width: none;
+}
+
 .knowledge-stack__menu {
     position: sticky;
     top: 0;
@@ -3575,4 +3581,3 @@ h1, h2, h3 {
     color: var(--color-error);
     background: rgba(255, 107, 107, 0.1);
 }
-
