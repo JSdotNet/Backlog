@@ -10,18 +10,18 @@
     ".design"
   ],
   "stats": {
-    "nodes": 459,
-    "edges": 796,
+    "nodes": 461,
+    "edges": 801,
     "nodesByFolder": {
       "arc42": 57,
       "domain": 275,
       "backlog": 4,
-      "tech": 50,
+      "tech": 52,
       "design": 73
     },
     "nodesByType": {
       "file": 89,
-      "chapter": 333,
+      "chapter": 335,
       "heading": 37
     },
     "nodesByStatus": {
@@ -29,14 +29,14 @@
       "draft": 252,
       "accepted": 1,
       "idea": 1,
-      "candidate": 30,
+      "candidate": 32,
       "adopted": 20,
       "none": 37
     },
     "edgesByType": {
-      "contains": 370,
-      "related": 364,
-      "depends-on": 60,
+      "contains": 372,
+      "related": 366,
+      "depends-on": 61,
       "implements": 2
     }
   },
@@ -5255,6 +5255,46 @@
       },
       {
         "data": {
+          "id": ".tech/shared.md#anthropic-claude-platform",
+          "label": "Anthropic Claude Platform",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "anthropic-claude-platform",
+          "level": 2,
+          "line": 191,
+          "status": "candidate",
+          "kind": "service",
+          "alternatives": [
+            "Local accumulation of per-response token counts"
+          ],
+          "related": [
+            ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#github-copilot-usage-apis",
+          "label": "GitHub Copilot Usage APIs",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "github-copilot-usage-apis",
+          "level": 2,
+          "line": 211,
+          "status": "candidate",
+          "kind": "service",
+          "depends-on": [
+            ".tech/shared.md#github-platform"
+          ],
+          "related": [
+            ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/technology-graph.md",
           "label": "Technology Graph",
           "type": "file",
@@ -9067,6 +9107,22 @@
       },
       {
         "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#anthropic-claude-platform",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#anthropic-claude-platform",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#github-copilot-usage-apis",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#github-copilot-usage-apis",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.tech/tooling.md->.tech/tooling.md#git",
           "source": ".tech/tooling.md",
           "target": ".tech/tooling.md#git",
@@ -12494,6 +12550,30 @@
           "id": "related:.tech/shared.md#github-platform->.arc42/02-constraints.md#organizational--process-constraints",
           "source": ".tech/shared.md#github-platform",
           "target": ".arc42/02-constraints.md#organizational--process-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#anthropic-claude-platform->.domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "source": ".tech/shared.md#anthropic-claude-platform",
+          "target": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#github-copilot-usage-apis->.tech/shared.md#github-platform",
+          "source": ".tech/shared.md#github-copilot-usage-apis",
+          "target": ".tech/shared.md#github-platform",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#github-copilot-usage-apis->.domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
+          "source": ".tech/shared.md#github-copilot-usage-apis",
+          "target": ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import",
           "type": "related"
         }
       },
