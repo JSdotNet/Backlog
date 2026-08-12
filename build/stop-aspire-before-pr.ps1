@@ -80,9 +80,18 @@ if (-not $ListOnly) {
             $aspireCommand = Get-Command aspire -ErrorAction SilentlyContinue
             if ($aspireCommand) {
                 Write-Output 'Stopping Aspire through the Aspire CLI...'
-                & $aspireCommand.Source stop
-                if ($LASTEXITCODE -ne 0) {
-                    throw "aspire stop failed with exit code $LASTEXITCODE."
+                $aspireStopOutput = & $aspireCommand.Source stop --apphost $appHostFullPath --non-interactive --nologo 2>&1
+                $aspireStopExitCode = $LASTEXITCODE
+                $aspireStopOutput | ForEach-Object { Write-Output $_ }
+
+                if ($aspireStopExitCode -ne 0) {
+                    $combinedOutput = $aspireStopOutput -join [Environment]::NewLine
+                    if ($combinedOutput -match 'No running AppHosts found') {
+                        Write-Output 'No running Aspire AppHost was found for this checkout.'
+                    }
+                    else {
+                        throw "aspire stop failed with exit code $aspireStopExitCode."
+                    }
                 }
             }
             else {
