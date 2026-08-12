@@ -17,8 +17,15 @@ context, per `.github/instructions/mcp-usage.instructions.md`.
 ## The gate
 
 **Before the first `edit` or `create` to any file under `src/` or `tests/`, you MUST
-invoke the matching `orch-*` skill.** Exploration first is expected and does not
-consume the gate; the trigger is the first write, not the first action.
+invoke the matching `orch-*` skill through the `copilot-app:orchestrator` agent.**
+Exploration first is expected and does not consume the gate; the trigger is the first
+write, not the first action.
+
+Every orchestration owner must open or reattach the `orch-dashboard` canvas when the
+canvas is available, call `start_run` for the selected `orch-*` skill, and track each
+stage there. Loading a skill directly without the orchestrator owner is not sufficient
+for code-modifying work because it can bypass dashboard state, shared QA Validation, and
+the Personal Validation gate.
 
 Apply the gate literally:
 
@@ -80,3 +87,8 @@ dedicated `orch-*` skill from either source. See `.github/copilot-orch-context.m
 
 Startup and QA expectations live in `.github/copilot-orch-context.md`; per-category model
 overrides live in `.github/copilot-model-selection.md`.
+For code-modifying runs, keep `phase-build-test` before `phase-qa-validation` and pass the
+repo context into QA so it uses the Aspire AppHost, dynamic harness URLs, and configured QA
+depth. The current repo default is Playwright QA for UI behavior, with the documented
+exceptions in `.github/copilot-orch-context.md` for documentation-only and non-UI code
+changes.
