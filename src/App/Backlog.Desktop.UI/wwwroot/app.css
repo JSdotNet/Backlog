@@ -471,9 +471,9 @@ h1, h2, h3 {
 .entry-doc--one-line .entry-doc__body {
     display: grid;
     grid-template-columns: minmax(8rem, 1fr) minmax(0, clamp(16rem, 42%, 34rem));
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm) 0;
+    align-items: stretch;
+    column-gap: var(--spacing-sm);
+    padding: var(--spacing-md) 0;
 }
 
 .entry-doc--dragged {
@@ -920,15 +920,24 @@ h1, h2, h3 {
 */
 
 .entry-doc__title-toggle {
-    display: inline;
+    display: inline-grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--spacing-xs);
     min-width: 0;
     max-width: 100%;
+    width: fit-content;
     padding: 0;
     border: none;
     background: transparent;
     color: inherit;
     text-align: left;
     cursor: pointer;
+    vertical-align: middle;
+}
+
+.entry-doc--one-line .entry-doc__title-toggle {
+    width: 100%;
 }
 
 .entry-doc__title-toggle:hover .entry-doc__title {
@@ -939,10 +948,6 @@ h1, h2, h3 {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 3px;
     border-radius: var(--border-radius-sm);
-}
-
-.entry-doc__title-toggle .entry-doc__fold-chevron {
-    margin-left: var(--spacing-xs);
 }
 
 .entry-doc__fold-chevron {
@@ -1089,20 +1094,17 @@ h1, h2, h3 {
     grid-row: 1;
     padding: 0;
     min-width: 0;
+    align-self: center;
 }
 
-.entry-doc__read:focus-visible,
 .entry-doc--editing .entry-doc__body {
     min-height: max-content;
-}
-
-.entry-doc__read:focus-visible {
-    padding-block: var(--spacing-xs);
 }
 
 .entry-doc--one-line .entry-doc__meta {
     grid-column: 2;
     grid-row: 1;
+    align-self: center;
 }
 
 .entry-doc__read:focus-visible {
@@ -1113,7 +1115,7 @@ h1, h2, h3 {
 
 .entry-doc__title-line {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
     min-width: 0;
@@ -1147,6 +1149,10 @@ h1, h2, h3 {
     line-height: var(--line-height-tight);
     margin: 0 0 var(--spacing-xs);
     min-width: 0;
+}
+
+.entry-doc__title-toggle .entry-doc__title {
+    margin: 0;
 }
 
 .entry-doc__title-line .entry-doc__title {
