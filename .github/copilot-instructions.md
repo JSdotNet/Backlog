@@ -26,10 +26,14 @@ proceed straight from exploration to implementation.
 
 At the start of every `orch-*` run, the orchestrator must open or reattach the
 `orch-dashboard` canvas when available, call `start_run` for the selected skill, and keep
-that dashboard as the run tracker. Code-modifying runs must include the shared
-`phase-build-test` and `phase-qa-validation` phases using `.github/copilot-orch-context.md`
-for startup, harness, and QA-depth settings. Never skip Personal Validation, and never
-create a pull request or mark an orchestration complete without explicit user approval.
+that dashboard as the run tracker. If the dashboard canvas is listed as available but the
+current agent cannot call the canvas tools, treat that as a tooling/runtime failure: report
+the missing canvas capability and stop instead of substituting chat-only tracking. Only skip
+dashboard calls when the extension is genuinely unavailable. Code-modifying runs must
+include the shared `phase-build-test` and `phase-qa-validation` phases using
+`.github/copilot-orch-context.md` for startup, harness, and QA-depth settings. Never skip
+Personal Validation, and never create a pull request or mark an orchestration complete
+without explicit user approval.
 
 ## Orchestration configuration
 

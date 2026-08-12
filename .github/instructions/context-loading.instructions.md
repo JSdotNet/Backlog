@@ -23,9 +23,12 @@ write, not the first action.
 
 Every orchestration owner must open or reattach the `orch-dashboard` canvas when the
 canvas is available, call `start_run` for the selected `orch-*` skill, and track each
-stage there. Loading a skill directly without the orchestrator owner is not sufficient
-for code-modifying work because it can bypass dashboard state, shared QA Validation, and
-the Personal Validation gate.
+stage there. When `orch-dashboard` is listed as an available canvas but the current agent
+does not have callable canvas tools, block the run as a tooling/runtime failure and report
+the missing capability instead of falling back to chat-only orchestration tracking. Skip
+dashboard calls only when the extension is genuinely unavailable. Loading a skill directly
+without the orchestrator owner is not sufficient for code-modifying work because it can
+bypass dashboard state, shared QA Validation, and the Personal Validation gate.
 
 Apply the gate literally:
 

@@ -89,9 +89,13 @@ Invoke: orch-fallback
 ## Canvas Interface
 
 This skill reports progress through the `orch-dashboard` canvas extension
-(`plugins/copilot-app/extensions/orch-dashboard/`). If the extension is not
-installed, skip the canvas calls below and continue through standard chat
-interaction.
+(`plugins/copilot-app/extensions/orch-dashboard/`). If the extension is genuinely not
+installed, skip the canvas calls below and continue through standard chat interaction.
+If the canvas is advertised as available but the current agent cannot call the canvas
+tools, mark the run blocked and report the missing canvas capability instead of continuing
+with chat-only orchestration tracking. The fix for that blocked state belongs in the
+`copilot-app` plugin/runtime: expose `open_canvas`, `invoke_canvas_action`, and dashboard
+actions to the orchestrator agent.
 
 - Open canvas `orch-dashboard`, then call `start_run` with
   `skillId: "orch-fallback"` and these stages: Routing Check, Plan, Execute,
