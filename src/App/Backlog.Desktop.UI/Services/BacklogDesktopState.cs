@@ -41,15 +41,26 @@ public sealed class BacklogDesktopState : IDisposable
     private readonly BacklogStore _store;
     private readonly GitHubIntegration _gitHub;
     private readonly CopilotCliIntegration _copilot;
+    private readonly RepositoryBacklogSource? _repositoryBacklog;
     private readonly Dictionary<Guid, BacklogEntry> _entries = new();
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
 
-    public BacklogDesktopState(BacklogStore store, GitHubIntegration gitHub, CopilotCliIntegration? copilot = null)
+    public BacklogDesktopState(
+        BacklogStore store,
+        GitHubIntegration gitHub,
+        CopilotCliIntegration? copilot = null,
+        RepositoryBacklogSource? repositoryBacklog = null)
     {
         _store = store;
         _gitHub = gitHub;
         _copilot = copilot ?? CopilotCliIntegration.Unavailable;
+        _repositoryBacklog = repositoryBacklog;
         _store.RootChanged += OnRootChanged;
+
+        if (_repositoryBacklog is not null)
+        {
+            _repositoryBacklog.Changed += OnRepositoryKnowledgeChanged;
+        }
     }
 
     private IBacklogRepository Repository => _store.Repository;
@@ -188,6 +199,9 @@ public sealed class BacklogDesktopState : IDisposable
     /// <summary>Swaps a row from its rendered form to raw markdown.</summary>
     public void BeginEdit(EntryRow row)
     {
+        // A repository authored this one and committed it. Opening an editor
+        // over it would promise a save that must never happen.
+        if (row.IsReadOnly) return;
         if (ReferenceEquals(EditingRow, row)) return;
         EditingSubItem = null;
         EditingRow = row;
@@ -249,6 +263,7 @@ public sealed class BacklogDesktopState : IDisposable
 
     public void BeginSubItemEdit(EntryRow row, int subItemIndex)
     {
+        if (row.IsReadOnly) return;
         if (subItemIndex < 0 || subItemIndex >= row.PreviewSubItems.Count) return;
 
         EditingRow = null;
@@ -283,6 +298,10 @@ public sealed class BacklogDesktopState : IDisposable
     /// forbidden "Save" gesture, so it stays as a confirmed button.</summary>
     public async Task DeleteRowAsync(EntryRow row)
     {
+        // Deleting the local row would say nothing about the file it came from,
+        // and it would be back on the next reload.
+        if (row.IsReadOnly) return;
+
         CancelDebounce(row);
 
         if (ReferenceEquals(EditingRow, row)) EditingRow = null;
@@ -311,7 +330,11 @@ public sealed class BacklogDesktopState : IDisposable
 
     // --- Reordering ------------------------------------------------------
 
-    public void BeginDrag(EntryRow row) => DraggedRow = row;
+    public void BeginDrag(EntryRow row)
+    {
+        if (row.IsReadOnly) return;
+        DraggedRow = row;
+    }
 
     public void EndDrag() => DraggedRow = null;
 
@@ -338,6 +361,8 @@ public sealed class BacklogDesktopState : IDisposable
     /// among the rows currently visible under the active filter.</summary>
     public async Task MoveAsync(EntryRow row, int delta)
     {
+        if (row.IsReadOnly) return;
+
         var visible = FilteredRows;
         var from = visible.IndexOf(row);
         var to = from + delta;
@@ -383,6 +408,8 @@ public sealed class BacklogDesktopState : IDisposable
     /// text debounce.</summary>
     public async Task ToggleTaskItemAsync(EntryRow row, int taskIndex)
     {
+        if (row.IsReadOnly) return;
+
         var rewritten = EntryTextParser.ToggleChecklistItem(row.RawText, taskIndex);
         if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
 
@@ -395,6 +422,8 @@ public sealed class BacklogDesktopState : IDisposable
 
     public async Task ToggleSubItemAsync(EntryRow row, int subItemIndex)
     {
+        if (row.IsReadOnly) return;
+
         var rewritten = EntryTextParser.ToggleSubItem(row.RawText, subItemIndex);
         if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
 
@@ -437,6 +466,7 @@ public sealed class BacklogDesktopState : IDisposable
 
     private async Task RewriteMetadataAsync(EntryRow row, string rewritten, bool forceWhenEqual = false)
     {
+        if (row.IsReadOnly) return;
         if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal) && !forceWhenEqual) return;
 
         CancelDebounce(row);
@@ -448,6 +478,8 @@ public sealed class BacklogDesktopState : IDisposable
 
     public void BeginSubItemDrag(EntryRow row, int index)
     {
+        if (row.IsReadOnly) return;
+
         SubItemDragRow = row;
         SubItemDragIndex = index;
     }
@@ -488,6 +520,7 @@ public sealed class BacklogDesktopState : IDisposable
 
     private async Task ReorderSubItemAsync(EntryRow row, int from, int to, bool focusAfter = false)
     {
+        if (row.IsReadOnly) return;
         if (from == to || from < 0 || to < 0 || to >= row.PreviewSubItems.Count) return;
 
         var rewritten = EntryTextParser.MoveSubItem(row.RawText, from, to);
@@ -507,6 +540,11 @@ public sealed class BacklogDesktopState : IDisposable
     public void Dispose()
     {
         _store.RootChanged -= OnRootChanged;
+
+        if (_repositoryBacklog is not null)
+        {
+            _repositoryBacklog.Changed -= OnRepositoryKnowledgeChanged;
+        }
 
         foreach (var timer in _debounceTimers.Values)
         {
@@ -928,8 +966,45 @@ public sealed class BacklogDesktopState : IDisposable
             rows.Add(row);
         }
 
+        rows.AddRange(LoadRepositoryRows());
+
         Rows = rows;
         ApplyFilter();
+    }
+
+    /// <summary>Entries the configured repositories authored in their own
+    /// <c>.backlog</c> folders. They are filed under the repository's alias, so
+    /// the same area chips that sort the local backlog sort these too.</summary>
+    private List<EntryRow> LoadRepositoryRows()
+    {
+        if (_repositoryBacklog is null) return [];
+
+        var rows = new List<EntryRow>();
+
+        foreach (var repository in _gitHub.Repositories)
+        {
+            foreach (var document in _repositoryBacklog.Load(repository.Alias))
+            {
+                rows.Add(new EntryRow
+                {
+                    RawText = document.RawText,
+                    Area = document.Area,
+                    Status = document.Status ?? EntryStatus.Draft,
+                    Origin = new RepositoryBacklogOrigin(document.RepositoryFullName, document.RelativePath)
+                });
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>A repository was added, pointed somewhere else, or had its
+    /// knowledge folders turned on or off — which repository entries exist is
+    /// now a different answer.</summary>
+    private async void OnRepositoryKnowledgeChanged()
+    {
+        await ReloadRowsAsync();
+        Changed?.Invoke();
     }
 
     private void ApplyFilter()
@@ -1074,6 +1149,15 @@ public sealed class EntryRow
     public string? CopilotError { get; set; }
 
     public bool IsPersisted => Id.HasValue;
+
+    /// <summary>Where this row came from when the local store did not write it —
+    /// a repository's committed <c>.backlog</c> file.</summary>
+    public RepositoryBacklogOrigin? Origin { get; set; }
+
+    /// <summary>True for rows the app only reads. They render exactly like every
+    /// other entry; what they refuse is being typed into, re-ranked, or
+    /// deleted.</summary>
+    public bool IsReadOnly => Origin is not null;
 
     /// <summary>True briefly after a successful save, driving the inline
     /// saved-confirmation flash on the whole entry.</summary>
