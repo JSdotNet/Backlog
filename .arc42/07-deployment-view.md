@@ -54,9 +54,10 @@ Microsoft Store listing and no custom update server.
   `Name`/`Publisher`/`ProcessorArchitecture` match the MSIX exactly, or Windows
   refuses the update.
 - **Update checks** — `UpdateSettings` requests an `OnLaunch` check (every 8
-  hours, with a prompt) plus an `AutomaticBackgroundTask`. The Settings screen
-  also exposes an explicit "Check for updates" / "Install and restart" action,
-  backed by `PackageManager.CheckUpdateAvailabilityAsync` and
+  hours, with a prompt) plus an `AutomaticBackgroundTask`. The version shown in
+  the app header is itself the on-demand control: activating it checks, and an
+  "Install update" action appears when a newer build is found, backed by
+  `PackageManager.CheckUpdateAvailabilityAsync` and
   `AddPackageByAppInstallerFileAsync`.
 - **Trust** — the certificate is self-signed for personal-scope use, so it must
   be trusted on the target machine before the first install.
