@@ -80,6 +80,60 @@ public class Arc42KnowledgeTests
         }
     }
 
+    [Fact]
+    public async Task Counts_only_adr_and_tdr_files_as_decision_records()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, ".arc42", "_meta"));
+            Directory.CreateDirectory(Path.Combine(root, ".arc42", "adr"));
+            Directory.CreateDirectory(Path.Combine(root, ".arc42", "tdr"));
+            File.WriteAllText(Path.Combine(root, ".arc42", "01-introduction-and-goals.md"), """
+                # Intro
+                ```meta
+                status: active
+                ```
+                """);
+            File.WriteAllText(Path.Combine(root, ".arc42", "adr", "0001-test.md"), """
+                # ADR 0001
+                ```meta
+                status: accepted
+                ```
+                """);
+            File.WriteAllText(Path.Combine(root, ".arc42", "tdr", "0001-test.md"), """
+                # TDR 0001
+                ```meta
+                status: draft
+                ```
+                """);
+            File.WriteAllText(Path.Combine(root, ".arc42", "_meta", "index.json"), """
+                {
+                  "entries": [
+                    { "type": "file", "path": ".arc42/01-introduction-and-goals.md" },
+                    { "type": "directory", "path": ".arc42/adr", "children": [
+                      { "type": "file", "path": ".arc42/adr/0001-test.md" }
+                    ] },
+                    { "type": "directory", "path": ".arc42/tdr", "children": [
+                      { "type": "file", "path": ".arc42/tdr/0001-test.md" }
+                    ] }
+                  ]
+                }
+                """);
+
+            var catalog = await Arc42KnowledgeReader.LoadAsync(root);
+
+            Assert.Equal(2, catalog.DecisionRecordCount);
+            Assert.False(Arc42KnowledgeCatalog.IsDecisionRecord(".arc42/01-introduction-and-goals.md"));
+            Assert.True(Arc42KnowledgeCatalog.IsDecisionRecord(".arc42/adr/0001-test.md"));
+            Assert.True(Arc42KnowledgeCatalog.IsDecisionRecord(".arc42/tdr/0001-test.md"));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
 
     [Fact]
     public async Task Updates_arc42_chapter_status_metadata()

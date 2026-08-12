@@ -124,7 +124,11 @@ public sealed record Arc42KnowledgeCatalog(string RootDirectory, bool Exists, IR
 
     public int DiagramCount => Documents.Sum(document => document.DiagramCount);
 
-    public int ActiveCount => Documents.Count(document => string.Equals(document.Status, "active", StringComparison.OrdinalIgnoreCase));
+    public int DecisionRecordCount => Documents.Count(document => IsDecisionRecord(document.Path));
+
+    public static bool IsDecisionRecord(string path) =>
+        path.StartsWith(".arc42/adr/", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith(".arc42/tdr/", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed record KnowledgeDocument(

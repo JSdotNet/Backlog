@@ -34,7 +34,7 @@
     else
     {
         <div class="knowledge-pane__summary" aria-label="Architecture knowledge summary">
-            <span><strong>@_catalog.ActiveCount</strong> active</span>
+            <span><strong>@_catalog.DecisionRecordCount</strong> ADR/TDR</span>
             <span><strong>@_catalog.DiagramCount</strong> diagrams</span>
             <span><strong>@_selected.Headings.Count</strong> headings</span>
         </div>
@@ -54,7 +54,6 @@
                                 <span>@chapter.DiagramCount diagram@(chapter.DiagramCount == 1 ? string.Empty : "s")</span>
                             }
                         </button>
-                        @RenderStatusSelect(chapter.Path, chapter.Title, chapter.Status)
                     </div>
                 }
             </nav>
@@ -65,13 +64,19 @@
                         <p class="knowledge-document__path">@_selected.Path</p>
                         <h2>@_selected.Title</h2>
                     </div>
-                    <p class="knowledge-document__meta">
-                        @RenderStatusSelect(_selected.Path, _selected.Title, _selected.Status)
-                        @if (_selected.Metadata.Related.Count > 0)
-                        {
-                            <span>@_selected.Metadata.Related.Count relation@(_selected.Metadata.Related.Count == 1 ? string.Empty : "s")</span>
-                        }
-                    </p>
+                    @if (IsDecisionRecord(_selected) || _selected.Metadata.Related.Count > 0)
+                    {
+                        <p class="knowledge-document__meta">
+                            @if (IsDecisionRecord(_selected))
+                            {
+                                @RenderStatusSelect(_selected.Path, _selected.Title, _selected.Status)
+                            }
+                            @if (_selected.Metadata.Related.Count > 0)
+                            {
+                                <span>@_selected.Metadata.Related.Count relation@(_selected.Metadata.Related.Count == 1 ? string.Empty : "s")</span>
+                            }
+                        </p>
+                    }
                 </header>
 
                 @if (_selected.Headings.Count > 1)
@@ -137,17 +142,20 @@
     private void Select(KnowledgeDocument document) => _selected = document;
 
     private RenderFragment RenderStatusSelect(string itemPath, string title, string status) => @<span class="knowledge-status-control">
-        <label class="sr-only" for="@StateSelectId(itemPath)">State for @title</label>
-        <select id="@StateSelectId(itemPath)"
-                class="knowledge-status knowledge-status--@status knowledge-state-select"
-                data-testid="knowledge-state-select"
-                value="@status"
-                @onchange="e => ChangeKnowledgeStatusAsync(itemPath, status, e.Value?.ToString())">
-            @foreach (var option in StatusOptions(status))
-            {
-                <option value="@option">@option</option>
-            }
-        </select>
+        <label class="status-editor badge badge--status badge--status-@status" data-testid="knowledge-state-select">
+            <span class="sr-only">State for @title</span>
+            <select id="@StateSelectId(itemPath)"
+                    class="status-editor__select"
+                    value="@status"
+                    aria-label="State for @title"
+                    title="State for @title"
+                    @onchange="e => ChangeKnowledgeStatusAsync(itemPath, status, e.Value?.ToString())">
+                @foreach (var option in StatusOptions(status))
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+        </label>
         @if (_statusErrors.TryGetValue(itemPath, out var error))
         {
             <span class="domain-knowledge__action-error" role="status">@error</span>
@@ -173,6 +181,8 @@
     private static IReadOnlyList<string> StatusOptions(string status) => KnowledgeStatuses.Contains(status, StringComparer.OrdinalIgnoreCase)
         ? KnowledgeStatuses
         : [.. KnowledgeStatuses, status];
+
+    private static bool IsDecisionRecord(KnowledgeDocument document) => Arc42KnowledgeCatalog.IsDecisionRecord(document.Path);
 
     private static string StateSelectId(string itemPath) => "knowledge-" + new string(itemPath.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-') + "-state";
 
