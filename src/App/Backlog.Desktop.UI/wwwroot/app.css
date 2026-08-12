@@ -2990,6 +2990,10 @@ h1, h2, h3 {
     align-items: start;
 }
 
+.knowledge-stack__body--without-menu {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .knowledge-stack__menu {
     position: sticky;
     top: 0;
@@ -3571,3 +3575,4 @@ h1, h2, h3 {
     color: var(--color-error);
     background: rgba(255, 107, 107, 0.1);
 }
+

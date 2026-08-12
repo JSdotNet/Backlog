@@ -34,7 +34,7 @@
                     }
                 </div>
 
-                @if (activeRepository.Message is not null)
+                @if (activeRepository.Message is not null && SelectedDocument is null)
                 {
                     <div class="knowledge-empty" data-testid="instructions-repository-empty" role="status">
                         <p>No instruction content to show.</p>
@@ -44,19 +44,22 @@
                 else
                 {
                     <div class="instructions-layout">
-                        <nav class="instructions-list" aria-label="Instruction documents">
-                            @foreach (var document in activeRepository.Documents)
-                            {
-                                <button type="button"
-                                        class="@DocumentButtonClass(document)"
-                                        data-testid="instructions-document-button"
-                                        aria-pressed="@DocumentSelected(document)"
-                                        @onclick="() => SelectDocument(document.RelativePath)">
-                                    <span class="instructions-list__title">@document.RelativePath</span>
-                                    <span class="instructions-list__meta">@document.Agent - @document.Scope</span>
-                                </button>
-                            }
-                        </nav>
+                        @if (string.IsNullOrWhiteSpace(SelectedPath))
+                        {
+                            <nav class="instructions-list" aria-label="Instruction documents">
+                                @foreach (var document in activeRepository.Documents)
+                                {
+                                    <button type="button"
+                                            class="@DocumentButtonClass(document)"
+                                            data-testid="instructions-document-button"
+                                            aria-pressed="@DocumentSelected(document)"
+                                            @onclick="() => SelectDocument(document.RelativePath)">
+                                        <span class="instructions-list__title">@document.RelativePath</span>
+                                        <span class="instructions-list__meta">@document.Agent - @document.Scope</span>
+                                    </button>
+                                }
+                            </nav>
+                        }
 
                         @if (SelectedDocument is { } selectedDocument)
                         {
@@ -86,13 +89,14 @@
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
     private InstructionRepositoryView? ActiveRepository =>
         _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal))
         ?? _repositories.FirstOrDefault();
 
-    private InstructionDocument? SelectedDocument =>
-        ActiveRepository?.Documents.FirstOrDefault(d => string.Equals(d.RelativePath, _selectedDocumentPath, StringComparison.OrdinalIgnoreCase))
-        ?? ActiveRepository?.Documents.FirstOrDefault();
+    private InstructionDocument? SelectedDocument => ResolveSelectedDocument();
 
     protected override void OnParametersSet()
     {
@@ -103,6 +107,73 @@
             _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
         }
     }
+
+    private InstructionDocument? ResolveSelectedDocument()
+    {
+        var repository = ActiveRepository;
+        if (repository is null) return null;
+
+        if (!string.IsNullOrWhiteSpace(SelectedPath))
+        {
+            return repository.Documents.FirstOrDefault(d => PathMatches(d.RelativePath, SelectedPath))
+                ?? TryReadSelectedInstructionFile(repository, SelectedPath);
+        }
+
+        return repository.Documents.FirstOrDefault(d => string.Equals(d.RelativePath, _selectedDocumentPath, StringComparison.OrdinalIgnoreCase))
+            ?? repository.Documents.FirstOrDefault();
+    }
+
+    private static InstructionDocument? TryReadSelectedInstructionFile(InstructionRepositoryView repository, string selectedPath)
+    {
+        if (string.IsNullOrWhiteSpace(repository.LocalRoot)) return null;
+
+        var relativePath = NormalizePath(selectedPath);
+        if (!IsInstructionRootPath(relativePath)) return null;
+
+        var root = Path.GetFullPath(repository.LocalRoot);
+        var fullPath = Path.GetFullPath(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+        if (!File.Exists(fullPath) && relativePath.StartsWith(".agent/", StringComparison.OrdinalIgnoreCase))
+        {
+            var fallbackPath = ".agents/" + relativePath[".agent/".Length..];
+            fullPath = Path.GetFullPath(Path.Combine(root, fallbackPath.Replace('/', Path.DirectorySeparatorChar)));
+        }
+
+        if (!fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath)) return null;
+
+        var info = new FileInfo(fullPath);
+        return new InstructionDocument(
+            Path.GetFileName(relativePath),
+            relativePath.Replace('/', Path.DirectorySeparatorChar),
+            InstructionAgent(relativePath),
+            "Repository file",
+            File.ReadAllText(fullPath),
+            info.Length,
+            info.LastWriteTimeUtc);
+    }
+
+    private static bool PathMatches(string candidate, string selectedPath)
+    {
+        var candidatePath = NormalizePath(candidate);
+        var selected = NormalizePath(selectedPath);
+        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
+            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Path.GetFileName(candidatePath), Path.GetFileName(selected), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsInstructionRootPath(string path) =>
+        path.StartsWith(".github/", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(".agent/", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(".agents/", StringComparison.OrdinalIgnoreCase);
+
+    private static string InstructionAgent(string path)
+    {
+        if (path.StartsWith(".github/", StringComparison.OrdinalIgnoreCase)) return "GitHub Copilot";
+        if (path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase)) return "Claude Code";
+        return "Agent instructions";
+    }
+
+    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/').Insert(0, path.TrimStart().StartsWith('.') ? "." : string.Empty);
 
     private string DocumentButtonClass(InstructionDocument document) =>
         string.Equals(document.RelativePath, SelectedDocument?.RelativePath, StringComparison.OrdinalIgnoreCase)
@@ -116,3 +187,4 @@
 
     private static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024d:0.#} KB";
 }
+

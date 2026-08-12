@@ -23,12 +23,19 @@ public sealed class KnowledgeMenu(KnowledgeFolderSource source)
     private KnowledgeMenuNode ReadFolder(KnowledgeFolderSetting folder, string? repositoryAlias, CancellationToken cancellationToken)
     {
         var areaKey = AreaKey(folder.Key);
-        if (string.Equals(folder.Key, "instructions", StringComparison.OrdinalIgnoreCase))
+        var location = source.Resolve(folder.Key, repositoryAlias);
+
+        if (string.Equals(areaKey, "instructions", StringComparison.OrdinalIgnoreCase))
         {
-            return new KnowledgeMenuNode(areaKey, folder.DisplayName, folder.Key, KnowledgeMenuNodeKind.Folder, areaKey, [], true);
+            if (!location.Available || location.FullPath is null)
+            {
+                return new KnowledgeMenuNode(areaKey, folder.DisplayName, folder.Key, KnowledgeMenuNodeKind.Folder, areaKey, [], false, location.Message);
+            }
+
+            var roots = EnumerateInstructionRoots(location.FullPath, areaKey, cancellationToken);
+            return new KnowledgeMenuNode(areaKey, folder.DisplayName, folder.Key, KnowledgeMenuNodeKind.Folder, areaKey, roots, true);
         }
 
-        var location = source.Resolve(folder.Key, repositoryAlias);
         if (!location.Available || location.FullPath is null)
         {
             return new KnowledgeMenuNode(areaKey, folder.DisplayName, folder.Key, KnowledgeMenuNodeKind.Folder, areaKey, [], false, location.Message);
@@ -38,11 +45,76 @@ public sealed class KnowledgeMenu(KnowledgeFolderSource source)
         return new KnowledgeMenuNode(areaKey, folder.DisplayName, folder.Key, KnowledgeMenuNodeKind.Folder, areaKey, children, true);
     }
 
+    private static IReadOnlyList<KnowledgeMenuNode> EnumerateInstructionRoots(
+        string repositoryRoot,
+        string areaKey,
+        CancellationToken cancellationToken)
+    {
+        var roots = new List<KnowledgeMenuNode>();
+        AddInstructionRoot(roots, repositoryRoot, ".github", ".github", areaKey, cancellationToken);
+        AddInstructionRoot(roots, repositoryRoot, ".claude", ".claude", areaKey, cancellationToken);
+        AddInstructionRoot(roots, repositoryRoot, ".agent", ".agent", areaKey, cancellationToken, fallbackRelativePath: ".agents");
+        return roots;
+    }
+
+    private static void AddInstructionRoot(
+        List<KnowledgeMenuNode> roots,
+        string repositoryRoot,
+        string displayPath,
+        string relativePath,
+        string areaKey,
+        CancellationToken cancellationToken,
+        string? fallbackRelativePath = null)
+    {
+        var fullPath = Path.Combine(repositoryRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        var nodePath = relativePath;
+        if (!Directory.Exists(fullPath) && fallbackRelativePath is not null)
+        {
+            fullPath = Path.Combine(repositoryRoot, fallbackRelativePath.Replace('/', Path.DirectorySeparatorChar));
+            nodePath = Directory.Exists(fullPath) ? fallbackRelativePath : relativePath;
+        }
+
+        var available = Directory.Exists(fullPath);
+        var children = available
+            ? EnumerateInstructionChildren(repositoryRoot, fullPath, displayPath, nodePath, areaKey, cancellationToken)
+            : [];
+        roots.Add(new KnowledgeMenuNode(areaKey, displayPath, displayPath, KnowledgeMenuNodeKind.Folder, areaKey, children, available));
+    }
+
+
+    private static IReadOnlyList<KnowledgeMenuNode> EnumerateInstructionChildren(
+        string repositoryRoot,
+        string directory,
+        string displayRoot,
+        string sourceRoot,
+        string areaKey,
+        CancellationToken cancellationToken)
+    {
+        var nodes = EnumerateChildren(repositoryRoot, directory, areaKey, cancellationToken, includeAllFiles: true);
+        return nodes.Select(node => RewriteInstructionPath(node, displayRoot, sourceRoot)).ToList();
+    }
+
+    private static KnowledgeMenuNode RewriteInstructionPath(KnowledgeMenuNode node, string displayRoot, string sourceRoot)
+    {
+        var displayPath = RewriteInstructionPath(node.Path, displayRoot, sourceRoot);
+        return node with
+        {
+            Key = RewriteInstructionPath(node.Key, displayRoot, sourceRoot).ToLowerInvariant(),
+            Path = displayPath,
+            Children = node.Children.Select(child => RewriteInstructionPath(child, displayRoot, sourceRoot)).ToList()
+        };
+    }
+
+    private static string RewriteInstructionPath(string path, string displayRoot, string sourceRoot) =>
+        path.StartsWith(sourceRoot, StringComparison.OrdinalIgnoreCase)
+            ? displayRoot + path[sourceRoot.Length..]
+            : path;
     private static IReadOnlyList<KnowledgeMenuNode> EnumerateChildren(
         string root,
         string directory,
         string areaKey,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeAllFiles = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -50,19 +122,17 @@ public sealed class KnowledgeMenu(KnowledgeFolderSource source)
         {
             var directories = Directory.EnumerateDirectories(directory)
                 .Where(path => !Path.GetFileName(path).StartsWith('_'))
-                .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
                 .Select(path => new KnowledgeMenuNode(
                     Key(root, path),
                     Humanize(Path.GetFileName(path)),
                     RelativePath(root, path),
                     KnowledgeMenuNodeKind.Folder,
                     areaKey,
-                    EnumerateChildren(root, path, areaKey, cancellationToken),
+                    EnumerateChildren(root, path, areaKey, cancellationToken, includeAllFiles),
                     true));
 
-            var files = Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly)
+            var files = Directory.EnumerateFiles(directory, includeAllFiles ? "*" : "*.md", SearchOption.TopDirectoryOnly)
                 .Where(path => !Path.GetFileName(path).StartsWith('_'))
-                .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
                 .Select(path => new KnowledgeMenuNode(
                     Key(root, path),
                     FileLabel(path),
@@ -72,7 +142,12 @@ public sealed class KnowledgeMenu(KnowledgeFolderSource source)
                     [],
                     true));
 
-            return [.. directories.Concat(files)];
+            return
+            [
+                .. directories.Concat(files)
+                    .OrderBy(node => SortKey(areaKey, root, directory, node), StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(node => node.Label, StringComparer.OrdinalIgnoreCase)
+            ];
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
         {
@@ -101,6 +176,17 @@ public sealed class KnowledgeMenu(KnowledgeFolderSource source)
         "instructions" => "instructions",
         _ => folderKey.TrimStart('.').ToLowerInvariant()
     };
+
+    private static string SortKey(string areaKey, string root, string directory, KnowledgeMenuNode node)
+    {
+        if (string.Equals(areaKey, "arc42", StringComparison.OrdinalIgnoreCase) && string.Equals(root, directory, StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.Equals(node.Path, "adr", StringComparison.OrdinalIgnoreCase)) return "09.5-adr";
+            if (string.Equals(node.Path, "tdr", StringComparison.OrdinalIgnoreCase)) return "11.5-tdr";
+        }
+
+        return node.Path;
+    }
 
     private static string Key(string root, string path) => RelativePath(root, path).Replace('\\', '/').ToLowerInvariant();
 
@@ -146,3 +232,4 @@ public enum KnowledgeMenuNodeKind
     File,
     Message
 }
+

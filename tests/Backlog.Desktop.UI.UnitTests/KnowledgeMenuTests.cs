@@ -54,6 +54,7 @@ public sealed class KnowledgeMenuTests : IDisposable
     public async Task Includes_virtual_instructions_folder_for_instruction_section()
     {
         var repo = TempDir();
+        Directory.CreateDirectory(repo);
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
@@ -65,6 +66,53 @@ public sealed class KnowledgeMenuTests : IDisposable
         Assert.True(instructions.Available);
     }
 
+
+    [Fact]
+    public async Task Orders_arc42_adr_after_chapter_09_and_tdr_after_chapter_11()
+    {
+        var repo = TempDir();
+        Directory.CreateDirectory(Path.Combine(repo, ".arc42", "adr"));
+        Directory.CreateDirectory(Path.Combine(repo, ".arc42", "tdr"));
+        File.WriteAllText(Path.Combine(repo, ".arc42", "09-architecture-decisions.md"), "# Decisions");
+        File.WriteAllText(Path.Combine(repo, ".arc42", "10-quality-requirements.md"), "# Quality");
+        File.WriteAllText(Path.Combine(repo, ".arc42", "11-risks-and-technical-debt.md"), "# Risks");
+        File.WriteAllText(Path.Combine(repo, ".arc42", "12-glossary.md"), "# Glossary");
+
+        var settings = NewSettingsStore();
+        ConfigureRepository(settings, repo);
+
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["arc42"]);
+
+        var arc42 = Assert.Single(tree.Roots);
+        Assert.Equal(
+            ["09-architecture-decisions.md", "adr", "10-quality-requirements.md", "11-risks-and-technical-debt.md", "tdr", "12-glossary.md"],
+            arc42.Children.Select(node => node.Path));
+    }
+
+    [Fact]
+    public async Task Builds_instruction_roots_from_agent_folders_and_all_files()
+    {
+        var repo = TempDir();
+        Directory.CreateDirectory(Path.Combine(repo, ".github", "workflows"));
+        Directory.CreateDirectory(Path.Combine(repo, ".claude", "rules"));
+        Directory.CreateDirectory(Path.Combine(repo, ".agents", "guides"));
+        File.WriteAllText(Path.Combine(repo, ".github", "copilot-instructions.md"), "# Copilot");
+        File.WriteAllText(Path.Combine(repo, ".github", "workflows", "ci.yml"), "name: CI");
+        File.WriteAllText(Path.Combine(repo, ".claude", "rules", "style.md"), "# Style");
+        File.WriteAllText(Path.Combine(repo, ".agents", "guides", "coding.txt"), "Code well");
+
+        var settings = NewSettingsStore();
+        ConfigureRepository(settings, repo);
+
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["instructions"]);
+
+        var instructions = Assert.Single(tree.Roots);
+        Assert.Equal([".github", ".claude", ".agent"], instructions.Children.Select(node => node.Label));
+        var github = instructions.Children.Single(node => node.Path == ".github");
+        var agent = instructions.Children.Single(node => node.Path == ".agent");
+        Assert.Contains(github.Children.Single(node => node.Path == ".github/workflows").Children, node => node.Path == ".github/workflows/ci.yml");
+        Assert.Contains(agent.Children.Single(node => node.Path == ".agent/guides").Children, node => node.Path == ".agent/guides/coding.txt");
+    }
     public void Dispose()
     {
         foreach (var dir in _tempDirs.Where(Directory.Exists))
@@ -94,3 +142,5 @@ public sealed class KnowledgeMenuTests : IDisposable
         settings.SetCloneDirectory("backlog", repo);
     }
 }
+
+

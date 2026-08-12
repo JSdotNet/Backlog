@@ -555,8 +555,10 @@
                     }
                 </nav>
 
-                <div class="knowledge-stack__body">
-                    <nav class="knowledge-stack__menu" aria-label="Knowledge menu">
+                <div class="knowledge-stack__body @(KnowledgeSectionUsesMenu ? string.Empty : "knowledge-stack__body--without-menu")">
+                    @if (KnowledgeSectionUsesMenu)
+                    {
+                        <nav class="knowledge-stack__menu" aria-label="Knowledge menu">
                         <div class="knowledge-stack__menu-heading">@(VisibleKnowledgeAreas.FirstOrDefault(area => IsKnowledgeSectionActive(area.Key))?.Label ?? "Knowledge")</div>
                         @if (_knowledgeMenuLoading)
                         {
@@ -576,6 +578,7 @@
                             </ul>
                         }
                     </nav>
+                    }
 
                     <div class="knowledge-stack__section" id="knowledge-active-section" role="tabpanel">
                         @RenderActiveKnowledge()
@@ -916,13 +919,18 @@
     private KnowledgeMenuNode? ActiveKnowledgeMenuRoot =>
         _knowledgeMenuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, _selectedKnowledgeSection, StringComparison.Ordinal));
 
+    private bool KnowledgeSectionUsesMenu => !string.Equals(_selectedKnowledgeSection, "tech", StringComparison.Ordinal);
+
     private string? SelectedKnowledgeChapterPath =>
-        _selectedKnowledgeChapterPaths.TryGetValue(_selectedKnowledgeSection, out var path) ? path : null;
+        KnowledgeSectionUsesMenu && _selectedKnowledgeChapterPaths.TryGetValue(_selectedKnowledgeSection, out var path) ? path : null;
 
     private void SelectKnowledgeSection(string key)
     {
         _selectedKnowledgeSection = key;
-        EnsureSelectedKnowledgeChapter();
+        if (KnowledgeSectionUsesMenu)
+        {
+            EnsureSelectedKnowledgeChapter();
+        }
     }
 
     private void SelectKnowledgeMenuNode(KnowledgeMenuNode node)
@@ -1053,7 +1061,7 @@
         var selectedPath = SelectedKnowledgeChapterPath;
         if (selectedPath is null || !ContainsPath(root, selectedPath))
         {
-            var first = FirstSelectableChapter(root);
+            var first = PreferredKnowledgeChapter(root) ?? FirstSelectableChapter(root);
             if (first is not null)
             {
                 _selectedKnowledgeChapterPaths[root.AreaKey] = first.Path;
@@ -1073,6 +1081,25 @@
             _expandedKnowledgeMenuNodes.Add(KnowledgeMenuNodeKey(node));
             ExpandAncestorsToSelected(node.Children, selectedPath);
         }
+    }
+
+    private static KnowledgeMenuNode? PreferredKnowledgeChapter(KnowledgeMenuNode root) => root.AreaKey switch
+    {
+        "domain" => FindSelectableChapter(root, "context-map.md"),
+        _ => null
+    };
+
+    private static KnowledgeMenuNode? FindSelectableChapter(KnowledgeMenuNode node, string path)
+    {
+        if (node.Kind == KnowledgeMenuNodeKind.File && node.Available && string.Equals(node.Path, path, StringComparison.OrdinalIgnoreCase)) return node;
+
+        foreach (var child in node.Children)
+        {
+            var selected = FindSelectableChapter(child, path);
+            if (selected is not null) return selected;
+        }
+
+        return null;
     }
 
     private static KnowledgeMenuNode? FirstSelectableChapter(KnowledgeMenuNode node)
@@ -1096,8 +1123,8 @@
         "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
         "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
         "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
-        "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
-        "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
+        "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
+        "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
         _ => RenderBacklogKnowledge()
     };
 
@@ -1800,5 +1827,8 @@
         State.Changed -= HandleStateChanged;
     }
 }
+
+
+
 
 
