@@ -147,3 +147,17 @@ related: [.domain/inbox/features.md#feature-incoming-queue]
 Every capture source produces a standard Inbox Item (title, `body_md`, source,
 tags, `captured_at`) and delivers it to the Inbox incoming queue, preserving the
 original source link and capture timestamp.
+
+## Feature: In-app feedback capture
+
+```meta
+status: draft
+related: [.domain/repository-management/features.md#sub-feature-github-access-resolution]
+```
+
+Report a problem with the app from inside the app, at the moment it happens.
+The report carries a title, optional detail, and which area of the screen the
+problem concerns, and the product attaches a picture of the current screen so
+the reporter does not have to describe what they were looking at. The report is
+filed as an issue against the product's own repository, and a failure to capture
+the screen is stated in the report rather than silently dropping it.

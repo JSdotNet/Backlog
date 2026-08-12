@@ -144,7 +144,7 @@ The XML manifest that turns a bare MSIX into an updatable install.
   the app can check for and pull newer versions from GitHub Releases.
 - **Why** — App Installer's `UpdateSettings` (`OnLaunch` +
   `AutomaticBackgroundTask`) gives launch-time and background update checks
-  without any custom update server; the in-app "Check for updates" in Settings
+  without any custom update server; clicking the version in the app header
   drives the same mechanism via `PackageManager`.
 - **How** — generated from `build/Backlog.Desktop.appinstaller.template` by
   `build/New-AppInstaller.ps1` during the release workflow. Its own `Uri` points

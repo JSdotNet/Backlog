@@ -60,6 +60,21 @@ Report installed tool versions on startup and on demand, store version snapshots
 compare against the team baseline, and alert when a tool is outdated or
 incompatible.
 
+### Sub-feature: Copilot tool catalog
+
+```meta
+status: draft
+related: [.domain/technology-stack/features.md#feature-technology-baseline-definition]
+```
+
+Track the AI tooling a development machine is expected to run — Copilot plugins
+and MCP servers — as a catalog the repository declares, layered with per-machine
+choices. The catalog states which tools belong to the working setup; the machine
+layer records what this particular PC has enabled and which version is actually
+installed. Each tool reports its installed version against the available one, so
+"behind", "up to date", and "not installed" are distinguishable rather than
+lumped together.
+
 ## Feature: Remote tool updates
 
 ```meta
@@ -70,6 +85,20 @@ depends-on: [.domain/dev-pc-management/features.md#feature-configuration-and-too
 Trigger single, targeted, or bulk tool updates from the dashboard or CLI, queue
 them for offline PCs, report progress with rollback on failure, and optionally
 require explicit confirmation.
+
+### Sub-feature: Local tool enablement and updates
+
+```meta
+status: draft
+depends-on: [.domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog]
+```
+
+Act on the machine the person is sitting at: re-check the catalog for newer
+versions, update one tool or every updatable tool at once, and switch an
+individual tool on or off for this machine without changing what the catalog
+declares for everyone else. Each action reports back whether it succeeded, and
+tool management is a capability that can be switched off wholesale on machines
+where it does not apply.
 
 ## Feature: Copilot session tracking
 

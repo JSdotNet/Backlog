@@ -185,3 +185,84 @@ public class AppVersionTests
         Assert.False(string.IsNullOrWhiteSpace(version));
     }
 }
+
+/// <summary>
+/// The version in the header is itself the "check for updates" control, so its
+/// label, accessible name, and status colour are the visible contract of that
+/// interaction. They are pure, so they are asserted here rather than through a head.
+/// </summary>
+public class AppUpdatePresentationTests
+{
+    [Fact]
+    public void The_idle_label_says_what_clicking_the_version_does()
+    {
+        Assert.Equal("Check for updates", AppUpdatePresentation.CheckLabel(isChecking: false));
+    }
+
+    [Fact]
+    public void The_busy_label_says_a_check_is_running()
+    {
+        Assert.Equal("Checking...", AppUpdatePresentation.CheckLabel(isChecking: true));
+    }
+
+    [Fact]
+    public void The_accessible_name_carries_both_the_version_and_the_action()
+    {
+        var label = AppUpdatePresentation.VersionActionLabel("1.2.3", isChecking: false);
+
+        Assert.Contains("1.2.3", label);
+        Assert.Contains("Check for updates", label);
+    }
+
+    [Fact]
+    public void The_accessible_name_reports_a_check_in_progress()
+    {
+        var label = AppUpdatePresentation.VersionActionLabel("1.2.3", isChecking: true);
+
+        Assert.Contains("Checking for updates", label);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void A_missing_version_still_produces_an_accessible_name(string? version)
+    {
+        var label = AppUpdatePresentation.VersionActionLabel(version, isChecking: false);
+
+        Assert.Contains("unknown", label);
+        Assert.Contains("Check for updates", label);
+    }
+
+    [Theory]
+    [InlineData(AppUpdateAvailability.UpToDate, "app-version__status--ok")]
+    [InlineData(AppUpdateAvailability.Available, "app-version__status--available")]
+    [InlineData(AppUpdateAvailability.Required, "app-version__status--available")]
+    [InlineData(AppUpdateAvailability.Failed, "app-version__status--error")]
+    public void An_outcome_gets_its_own_status_colour(AppUpdateAvailability availability, string expected)
+    {
+        var css = AppUpdatePresentation.StatusClass(availability);
+
+        Assert.Contains(expected, css);
+    }
+
+    [Theory]
+    [InlineData(AppUpdateAvailability.Unknown)]
+    [InlineData(AppUpdateAvailability.Unsupported)]
+    public void A_neutral_outcome_is_rendered_without_a_colour_modifier(AppUpdateAvailability availability)
+    {
+        Assert.Equal("app-version__status", AppUpdatePresentation.StatusClass(availability));
+    }
+
+    [Theory]
+    [InlineData(AppUpdateAvailability.Unknown)]
+    [InlineData(AppUpdateAvailability.UpToDate)]
+    [InlineData(AppUpdateAvailability.Available)]
+    [InlineData(AppUpdateAvailability.Required)]
+    [InlineData(AppUpdateAvailability.Unsupported)]
+    [InlineData(AppUpdateAvailability.Failed)]
+    public void Every_outcome_keeps_the_base_status_class(AppUpdateAvailability availability)
+    {
+        Assert.StartsWith("app-version__status", AppUpdatePresentation.StatusClass(availability));
+    }
+}

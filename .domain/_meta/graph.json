@@ -6,27 +6,27 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 283,
-    "edges": 397,
+    "nodes": 295,
+    "edges": 423,
     "nodesByFolder": {
-      "domain": 275,
+      "domain": 287,
       "arc42": 8
     },
     "nodesByType": {
       "file": 60,
-      "chapter": 190,
+      "chapter": 202,
       "heading": 33
     },
     "nodesByStatus": {
-      "draft": 241,
+      "draft": 253,
       "idea": 1,
       "none": 33,
       "active": 8
     },
     "edgesByType": {
-      "contains": 215,
-      "related": 164,
-      "depends-on": 18
+      "contains": 227,
+      "related": 177,
+      "depends-on": 19
     }
   },
   "problems": [],
@@ -207,7 +207,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-sub-items-and-steps",
           "level": 3,
-          "line": 31,
+          "line": 37,
           "status": "draft"
         }
       },
@@ -220,7 +220,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-multi-repo-targeting",
           "level": 2,
-          "line": 41,
+          "line": 48,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-backlog-entry-creation"
@@ -239,12 +239,29 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-projection",
           "level": 2,
-          "line": 53,
+          "line": 60,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-multi-repo-targeting"
           ],
           "related": [
+            ".domain/monitoring/features.md#sub-feature-backlog-and-github-progress"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#sub-feature-issue-projection-and-state-read-back",
+          "label": "Sub-feature: Issue projection and state read-back",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "sub-feature-issue-projection-and-state-read-back",
+          "level": 3,
+          "line": 72,
+          "status": "draft",
+          "related": [
+            ".domain/repository-management/features.md#sub-feature-github-access-resolution",
             ".domain/monitoring/features.md#sub-feature-backlog-and-github-progress"
           ]
         }
@@ -258,7 +275,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-search-filter-and-organize",
           "level": 2,
-          "line": 65,
+          "line": 87,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-bi-directional-linking"
@@ -274,7 +291,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-manual-ordering",
           "level": 3,
-          "line": 77,
+          "line": 99,
           "status": "draft"
         }
       },
@@ -287,8 +304,41 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-prompt-features",
           "level": 2,
-          "line": 87,
+          "line": 109,
           "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#sub-feature-hand-off-to-copilot-cli",
+          "label": "Sub-feature: Hand-off to Copilot CLI",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "sub-feature-hand-off-to-copilot-cli",
+          "level": 3,
+          "line": 118,
+          "status": "draft",
+          "related": [
+            ".domain/productivity/features.md#sub-feature-ai-activity-capture"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#feature-ai-assistance-over-the-visible-backlog",
+          "label": "Feature: AI assistance over the visible backlog",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "feature-ai-assistance-over-the-visible-backlog",
+          "level": 2,
+          "line": 130,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+            ".domain/productivity/features.md#feature-ai-productivity-tracking"
+          ]
         }
       },
       {
@@ -300,7 +350,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-archive-and-lifecycle",
           "level": 2,
-          "line": 96,
+          "line": 145,
           "status": "draft"
         }
       },
@@ -313,7 +363,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-roadmap-planning",
           "level": 2,
-          "line": 105,
+          "line": 154,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -332,7 +382,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-roadmap-views",
           "level": 3,
-          "line": 118,
+          "line": 167,
           "status": "draft"
         }
       },
@@ -835,6 +885,22 @@
       },
       {
         "data": {
+          "id": ".domain/capture/features.md#feature-in-app-feedback-capture",
+          "label": "Feature: In-app feedback capture",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/capture/features.md",
+          "slug": "feature-in-app-feedback-capture",
+          "level": 2,
+          "line": 151,
+          "status": "draft",
+          "related": [
+            ".domain/repository-management/features.md#sub-feature-github-access-resolution"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/capture/model.md",
           "label": "Domain Model: Capture",
           "type": "file",
@@ -1166,6 +1232,22 @@
       },
       {
         "data": {
+          "id": ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
+          "label": "Sub-feature: Copilot tool catalog",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/dev-pc-management/features.md",
+          "slug": "sub-feature-copilot-tool-catalog",
+          "level": 3,
+          "line": 63,
+          "status": "draft",
+          "related": [
+            ".domain/technology-stack/features.md#feature-technology-baseline-definition"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/dev-pc-management/features.md#feature-remote-tool-updates",
           "label": "Feature: Remote tool updates",
           "type": "chapter",
@@ -1173,10 +1255,26 @@
           "path": ".domain/dev-pc-management/features.md",
           "slug": "feature-remote-tool-updates",
           "level": 2,
-          "line": 63,
+          "line": 78,
           "status": "draft",
           "depends-on": [
             ".domain/dev-pc-management/features.md#feature-configuration-and-tool-version-tracking"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/dev-pc-management/features.md#sub-feature-local-tool-enablement-and-updates",
+          "label": "Sub-feature: Local tool enablement and updates",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/dev-pc-management/features.md",
+          "slug": "sub-feature-local-tool-enablement-and-updates",
+          "level": 3,
+          "line": 89,
+          "status": "draft",
+          "depends-on": [
+            ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog"
           ]
         }
       },
@@ -1189,7 +1287,7 @@
           "path": ".domain/dev-pc-management/features.md",
           "slug": "feature-copilot-session-tracking",
           "level": 2,
-          "line": 74,
+          "line": 103,
           "status": "draft",
           "related": [
             ".domain/monitoring/features.md#feature-multi-layer-dashboards"
@@ -1205,7 +1303,7 @@
           "path": ".domain/dev-pc-management/features.md",
           "slug": "feature-security",
           "level": 2,
-          "line": 85,
+          "line": 114,
           "status": "draft"
         }
       },
@@ -2830,6 +2928,39 @@
       },
       {
         "data": {
+          "id": ".domain/repository-management/features.md#sub-feature-repository-registry-configuration",
+          "label": "Sub-feature: Repository registry configuration",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/repository-management/features.md",
+          "slug": "sub-feature-repository-registry-configuration",
+          "level": 3,
+          "line": 20,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/features.md#feature-multi-repo-targeting",
+            ".domain/second-brain/features.md#feature-repository-knowledge-areas"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
+          "label": "Sub-feature: Repository knowledge folder settings",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/repository-management/features.md",
+          "slug": "sub-feature-repository-knowledge-folder-settings",
+          "level": 3,
+          "line": 35,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/features.md#feature-repository-knowledge-areas"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/repository-management/features.md#feature-package-and-dependency-tracking",
           "label": "Feature: Package and dependency tracking",
           "type": "chapter",
@@ -2837,7 +2968,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-package-and-dependency-tracking",
           "level": 2,
-          "line": 20,
+          "line": 49,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-registration"
@@ -2853,7 +2984,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-technology-stack-inventory",
           "level": 2,
-          "line": 31,
+          "line": 60,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-registration"
@@ -2872,8 +3003,24 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-github-integration",
           "level": 2,
-          "line": 42,
+          "line": 71,
           "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/repository-management/features.md#sub-feature-github-access-resolution",
+          "label": "Sub-feature: GitHub access resolution",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/repository-management/features.md",
+          "slug": "sub-feature-github-access-resolution",
+          "level": 3,
+          "line": 81,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/features.md#feature-projection"
+          ]
         }
       },
       {
@@ -2885,7 +3032,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-repository-health-scoring",
           "level": 2,
-          "line": 52,
+          "line": 95,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-package-and-dependency-tracking",
@@ -2905,7 +3052,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-technology-trend-analysis",
           "level": 2,
-          "line": 64,
+          "line": 107,
           "status": "draft",
           "related": [
             ".domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking"
@@ -2921,7 +3068,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-bulk-operations",
           "level": 2,
-          "line": 75,
+          "line": 118,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-health-scoring"
@@ -3209,6 +3356,49 @@
           "related": [
             ".domain/backlog/features.md#feature-search-filter-and-organize"
           ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "label": "Feature: Repository knowledge areas",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "feature-repository-knowledge-areas",
+          "level": 2,
+          "line": 60,
+          "status": "draft",
+          "related": [
+            ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
+            ".domain/backlog/features.md#feature-search-filter-and-organize"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#sub-feature-area-selection-and-scope",
+          "label": "Sub-feature: Area selection and scope",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "sub-feature-area-selection-and-scope",
+          "level": 3,
+          "line": 75,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#sub-feature-rendered-knowledge-documents",
+          "label": "Sub-feature: Rendered knowledge documents",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "sub-feature-rendered-knowledge-documents",
+          "level": 3,
+          "line": 87,
+          "status": "draft"
         }
       },
       {
@@ -4038,7 +4228,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 71,
+          "line": 98,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -4131,7 +4321,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 75,
+          "line": 76,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -4149,7 +4339,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 60,
+          "line": 87,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -4267,6 +4457,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/backlog/features.md#feature-projection->.domain/backlog/features.md#sub-feature-issue-projection-and-state-read-back",
+          "source": ".domain/backlog/features.md#feature-projection",
+          "target": ".domain/backlog/features.md#sub-feature-issue-projection-and-state-read-back",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#feature-search-filter-and-organize",
           "source": ".domain/backlog/features.md",
           "target": ".domain/backlog/features.md#feature-search-filter-and-organize",
@@ -4286,6 +4484,22 @@
           "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#feature-prompt-features",
           "source": ".domain/backlog/features.md",
           "target": ".domain/backlog/features.md#feature-prompt-features",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md#feature-prompt-features->.domain/backlog/features.md#sub-feature-hand-off-to-copilot-cli",
+          "source": ".domain/backlog/features.md#feature-prompt-features",
+          "target": ".domain/backlog/features.md#sub-feature-hand-off-to-copilot-cli",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#feature-ai-assistance-over-the-visible-backlog",
+          "source": ".domain/backlog/features.md",
+          "target": ".domain/backlog/features.md#feature-ai-assistance-over-the-visible-backlog",
           "type": "contains"
         }
       },
@@ -4539,6 +4753,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/capture/features.md->.domain/capture/features.md#feature-in-app-feedback-capture",
+          "source": ".domain/capture/features.md",
+          "target": ".domain/capture/features.md#feature-in-app-feedback-capture",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/capture/naming.md->.domain/capture/naming.md#term-capture",
           "source": ".domain/capture/naming.md",
           "target": ".domain/capture/naming.md#term-capture",
@@ -4667,9 +4889,25 @@
       },
       {
         "data": {
+          "id": "contains:.domain/dev-pc-management/features.md#feature-configuration-and-tool-version-tracking->.domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
+          "source": ".domain/dev-pc-management/features.md#feature-configuration-and-tool-version-tracking",
+          "target": ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/dev-pc-management/features.md->.domain/dev-pc-management/features.md#feature-remote-tool-updates",
           "source": ".domain/dev-pc-management/features.md",
           "target": ".domain/dev-pc-management/features.md#feature-remote-tool-updates",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/dev-pc-management/features.md#feature-remote-tool-updates->.domain/dev-pc-management/features.md#sub-feature-local-tool-enablement-and-updates",
+          "source": ".domain/dev-pc-management/features.md#feature-remote-tool-updates",
+          "target": ".domain/dev-pc-management/features.md#sub-feature-local-tool-enablement-and-updates",
           "type": "contains"
         }
       },
@@ -5331,6 +5569,22 @@
       },
       {
         "data": {
+          "id": "contains:.domain/repository-management/features.md#feature-repository-registration->.domain/repository-management/features.md#sub-feature-repository-registry-configuration",
+          "source": ".domain/repository-management/features.md#feature-repository-registration",
+          "target": ".domain/repository-management/features.md#sub-feature-repository-registry-configuration",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/repository-management/features.md#feature-repository-registration->.domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
+          "source": ".domain/repository-management/features.md#feature-repository-registration",
+          "target": ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/repository-management/features.md->.domain/repository-management/features.md#feature-package-and-dependency-tracking",
           "source": ".domain/repository-management/features.md",
           "target": ".domain/repository-management/features.md#feature-package-and-dependency-tracking",
@@ -5350,6 +5604,14 @@
           "id": "contains:.domain/repository-management/features.md->.domain/repository-management/features.md#feature-github-integration",
           "source": ".domain/repository-management/features.md",
           "target": ".domain/repository-management/features.md#feature-github-integration",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/repository-management/features.md#feature-github-integration->.domain/repository-management/features.md#sub-feature-github-access-resolution",
+          "source": ".domain/repository-management/features.md#feature-github-integration",
+          "target": ".domain/repository-management/features.md#sub-feature-github-access-resolution",
           "type": "contains"
         }
       },
@@ -5478,6 +5740,30 @@
           "id": "contains:.domain/second-brain/features.md->.domain/second-brain/features.md#feature-bi-directional-linking",
           "source": ".domain/second-brain/features.md",
           "target": ".domain/second-brain/features.md#feature-bi-directional-linking",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md->.domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "source": ".domain/second-brain/features.md",
+          "target": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md#feature-repository-knowledge-areas->.domain/second-brain/features.md#sub-feature-area-selection-and-scope",
+          "source": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "target": ".domain/second-brain/features.md#sub-feature-area-selection-and-scope",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md#feature-repository-knowledge-areas->.domain/second-brain/features.md#sub-feature-rendered-knowledge-documents",
+          "source": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "target": ".domain/second-brain/features.md#sub-feature-rendered-knowledge-documents",
           "type": "contains"
         }
       },
@@ -5795,9 +6081,49 @@
       },
       {
         "data": {
+          "id": "related:.domain/backlog/features.md#sub-feature-issue-projection-and-state-read-back->.domain/repository-management/features.md#sub-feature-github-access-resolution",
+          "source": ".domain/backlog/features.md#sub-feature-issue-projection-and-state-read-back",
+          "target": ".domain/repository-management/features.md#sub-feature-github-access-resolution",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#sub-feature-issue-projection-and-state-read-back->.domain/monitoring/features.md#sub-feature-backlog-and-github-progress",
+          "source": ".domain/backlog/features.md#sub-feature-issue-projection-and-state-read-back",
+          "target": ".domain/monitoring/features.md#sub-feature-backlog-and-github-progress",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/backlog/features.md#feature-search-filter-and-organize->.domain/second-brain/features.md#feature-bi-directional-linking",
           "source": ".domain/backlog/features.md#feature-search-filter-and-organize",
           "target": ".domain/second-brain/features.md#feature-bi-directional-linking",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#sub-feature-hand-off-to-copilot-cli->.domain/productivity/features.md#sub-feature-ai-activity-capture",
+          "source": ".domain/backlog/features.md#sub-feature-hand-off-to-copilot-cli",
+          "target": ".domain/productivity/features.md#sub-feature-ai-activity-capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#feature-ai-assistance-over-the-visible-backlog->.domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "source": ".domain/backlog/features.md#feature-ai-assistance-over-the-visible-backlog",
+          "target": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#feature-ai-assistance-over-the-visible-backlog->.domain/productivity/features.md#feature-ai-productivity-tracking",
+          "source": ".domain/backlog/features.md#feature-ai-assistance-over-the-visible-backlog",
+          "target": ".domain/productivity/features.md#feature-ai-productivity-tracking",
           "type": "related"
         }
       },
@@ -5974,6 +6300,14 @@
           "id": "related:.domain/capture/features.md#feature-normalized-delivery->.domain/inbox/features.md#feature-incoming-queue",
           "source": ".domain/capture/features.md#feature-normalized-delivery",
           "target": ".domain/inbox/features.md#feature-incoming-queue",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/capture/features.md#feature-in-app-feedback-capture->.domain/repository-management/features.md#sub-feature-github-access-resolution",
+          "source": ".domain/capture/features.md#feature-in-app-feedback-capture",
+          "target": ".domain/repository-management/features.md#sub-feature-github-access-resolution",
           "type": "related"
         }
       },
@@ -6163,9 +6497,25 @@
       },
       {
         "data": {
+          "id": "related:.domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog->.domain/technology-stack/features.md#feature-technology-baseline-definition",
+          "source": ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
+          "target": ".domain/technology-stack/features.md#feature-technology-baseline-definition",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.domain/dev-pc-management/features.md#feature-remote-tool-updates->.domain/dev-pc-management/features.md#feature-configuration-and-tool-version-tracking",
           "source": ".domain/dev-pc-management/features.md#feature-remote-tool-updates",
           "target": ".domain/dev-pc-management/features.md#feature-configuration-and-tool-version-tracking",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/dev-pc-management/features.md#sub-feature-local-tool-enablement-and-updates->.domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
+          "source": ".domain/dev-pc-management/features.md#sub-feature-local-tool-enablement-and-updates",
+          "target": ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
           "type": "depends-on"
         }
       },
@@ -6939,6 +7289,30 @@
       },
       {
         "data": {
+          "id": "related:.domain/repository-management/features.md#sub-feature-repository-registry-configuration->.domain/backlog/features.md#feature-multi-repo-targeting",
+          "source": ".domain/repository-management/features.md#sub-feature-repository-registry-configuration",
+          "target": ".domain/backlog/features.md#feature-multi-repo-targeting",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/repository-management/features.md#sub-feature-repository-registry-configuration->.domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "source": ".domain/repository-management/features.md#sub-feature-repository-registry-configuration",
+          "target": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings->.domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "source": ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
+          "target": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.domain/repository-management/features.md#feature-package-and-dependency-tracking->.domain/repository-management/features.md#feature-repository-registration",
           "source": ".domain/repository-management/features.md#feature-package-and-dependency-tracking",
           "target": ".domain/repository-management/features.md#feature-repository-registration",
@@ -6958,6 +7332,14 @@
           "id": "related:.domain/repository-management/features.md#feature-technology-stack-inventory->.domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking",
           "source": ".domain/repository-management/features.md#feature-technology-stack-inventory",
           "target": ".domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/repository-management/features.md#sub-feature-github-access-resolution->.domain/backlog/features.md#feature-projection",
+          "source": ".domain/repository-management/features.md#sub-feature-github-access-resolution",
+          "target": ".domain/backlog/features.md#feature-projection",
           "type": "related"
         }
       },
@@ -7133,6 +7515,22 @@
         "data": {
           "id": "related:.domain/second-brain/features.md#feature-bi-directional-linking->.domain/backlog/features.md#feature-search-filter-and-organize",
           "source": ".domain/second-brain/features.md#feature-bi-directional-linking",
+          "target": ".domain/backlog/features.md#feature-search-filter-and-organize",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#feature-repository-knowledge-areas->.domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
+          "source": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "target": ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#feature-repository-knowledge-areas->.domain/backlog/features.md#feature-search-filter-and-organize",
+          "source": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
           "target": ".domain/backlog/features.md#feature-search-filter-and-organize",
           "type": "related"
         }

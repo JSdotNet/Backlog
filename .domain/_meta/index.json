@@ -5,7 +5,13 @@
   "sources": [
     ".domain"
   ],
-  "problems": [],
+  "problems": [
+    {
+      "severity": "warning",
+      "path": ".domain/backlog/domain.md",
+      "message": ".domain/backlog/assets is missing from `order` in domain.md; appended alphabetically. Add it to pin its position."
+    }
+  ],
   "entries": [
     {
       "type": "file",
@@ -158,6 +164,13 @@
           "path": ".domain/backlog/naming.md",
           "title": "Naming: Backlog Management",
           "status": "draft"
+        },
+        {
+          "type": "directory",
+          "name": "assets",
+          "path": ".domain/backlog/assets",
+          "title": "assets",
+          "children": []
         }
       ]
     },
