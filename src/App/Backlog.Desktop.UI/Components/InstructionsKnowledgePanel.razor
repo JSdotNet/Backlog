@@ -44,7 +44,7 @@
                 }
                 else
                 {
-                    <div class="instructions-layout">
+                    <div class="instructions-layout @(string.IsNullOrWhiteSpace(SelectedPath) ? string.Empty : "instructions-layout--document-only")">
                         @if (string.IsNullOrWhiteSpace(SelectedPath))
                         {
                             <nav class="instructions-list" aria-label="Instruction documents">
@@ -72,7 +72,9 @@
                                     </div>
                                     <code>@selectedDocument.RelativePath</code>
                                 </header>
-                                <pre class="instruction-doc__content">@selectedDocument.Content</pre>
+                                <div class="instruction-doc__content">
+                                    <KnowledgeMarkdownView Blocks="@InstructionBlocks(selectedDocument)" />
+                                </div>
                             </section>
                         }
                     </div>
@@ -196,5 +198,27 @@
     private void SelectDocument(string relativePath) => _selectedDocumentPath = relativePath;
 
     private static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024d:0.#} KB";
+
+    private static IReadOnlyList<KnowledgeBlock> InstructionBlocks(InstructionDocument document) =>
+        KnowledgeMarkdownParser.Parse(document.RelativePath, StripFrontmatter(document.Content)).Blocks;
+
+    private static string StripFrontmatter(string content)
+    {
+        var normalized = content.Replace("\r\n", "\n").Replace('\r', '\n');
+        if (!normalized.StartsWith("---\n", StringComparison.Ordinal))
+        {
+            return content;
+        }
+
+        var end = normalized.IndexOf("\n---", 4, StringComparison.Ordinal);
+        if (end < 0)
+        {
+            return content;
+        }
+
+        var afterEnd = end + "\n---".Length;
+        if (afterEnd < normalized.Length && normalized[afterEnd] == '\n') afterEnd++;
+        return normalized[afterEnd..];
+    }
 }
 
