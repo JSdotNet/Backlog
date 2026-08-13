@@ -2967,6 +2967,7 @@ body.is-resizing-pane {
 .knowledge-stack__repositories,
 .knowledge-stack__nav {
     flex: 0 0 auto;
+    align-items: flex-start;
 }
 
 .knowledge-stack__section {
@@ -3143,16 +3144,6 @@ body.is-resizing-pane {
 
 /* --- Integrated repository knowledge stack -------------------------------- */
 
-.knowledge-stack {
-    position: sticky;
-    top: var(--spacing-lg);
-    max-height: calc(100vh - (var(--spacing-lg) * 2));
-    overflow: auto;
-    display: grid;
-    gap: var(--spacing-lg);
-    min-width: 0;
-    padding-right: var(--spacing-xs);
-}
 
 .knowledge-stack__header,
 .knowledge-stack__section > .knowledge-pane,
