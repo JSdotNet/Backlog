@@ -13,6 +13,7 @@ public class ClaudeSettingsStoreTests
 
         Assert.False(store.Current.IsConfigured);
         Assert.Equal(ClaudeSettingsStore.DefaultApiVersion, store.Current.ApiVersion);
+        Assert.Equal(ClaudeSettingsStore.DefaultApiEndpoint, store.Current.ApiEndpoint);
     }
 
     [Fact]
@@ -27,6 +28,20 @@ public class ClaudeSettingsStoreTests
 
         Assert.Equal("sk-ant-admin01-example", reopened.Current.AdminApiKey);
         Assert.True(reopened.Current.LooksLikeAdminKey);
+    }
+
+    [Fact]
+    public void A_custom_api_endpoint_is_normalized_and_survives_a_restart()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = directory.File("claude.json");
+
+        var store = new ClaudeSettingsStore(path);
+        store.SetApiEndpoint(" https://claude.example.internal/v1/ ");
+
+        var reopened = new ClaudeSettingsStore(path);
+
+        Assert.Equal("https://claude.example.internal/v1", reopened.Current.ApiEndpoint);
     }
 
     [Fact]

@@ -2418,6 +2418,65 @@ h1, h2, h3 {
     color: var(--color-background);
 }
 
+.header-tool-toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pane-multiselect {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-background-alt);
+}
+
+.pane-multiselect__option {
+    border: var(--border-width) solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.pane-multiselect__option:hover,
+.pane-multiselect__option:focus-visible {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.pane-multiselect__option:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.pane-multiselect__option--selected {
+    border-color: var(--color-primary);
+    background: rgba(242, 193, 78, 0.18);
+    color: var(--color-primary-light);
+}
+
+.pane-multiselect__option--selected:hover,
+.pane-multiselect__option--selected:focus-visible {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.pane-multiselect__option:disabled {
+    cursor: not-allowed;
+}
+
+.pane-multiselect__option--selected:disabled {
+    opacity: 0.8;
+}
+
 /* --- Azure Foundry AI assistant ------------------------------------------ */
 
 .ai-panel {
@@ -2491,6 +2550,77 @@ h1, h2, h3 {
     border: var(--border-width) solid rgba(173, 181, 189, 0.22);
     border-radius: var(--border-radius-sm);
     background: rgba(0, 0, 0, 0.16);
+}
+
+/* --- Inbox side pane ----------------------------------------------------- */
+
+.inbox-pane {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid rgba(108, 117, 125, 0.42);
+    border-left: 4px solid var(--color-secondary);
+    border-radius: var(--border-radius-lg);
+    background: linear-gradient(180deg, rgba(108, 117, 125, 0.16), rgba(108, 117, 125, 0.04) 45%, transparent);
+    box-shadow: var(--shadow-md);
+}
+
+.inbox-pane__header,
+.inbox-pane__content {
+    min-width: 0;
+}
+
+.inbox-pane__eyebrow,
+.inbox-pane__title,
+.inbox-pane__subtitle,
+.inbox-pane__empty,
+.inbox-pane__item-title,
+.inbox-pane__item-meta {
+    margin: 0;
+}
+
+.inbox-pane__eyebrow {
+    color: var(--color-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.inbox-pane__title {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-lg);
+}
+
+.inbox-pane__subtitle,
+.inbox-pane__empty,
+.inbox-pane__item-meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pane__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pane__item {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid rgba(108, 117, 125, 0.24);
+    border-radius: var(--border-radius-sm);
+    background: rgba(0, 0, 0, 0.16);
+}
+
+.inbox-pane__item-title {
+    font-weight: 600;
 }
 
 /* --- Installed tools side pane ------------------------------------------- */
@@ -2665,6 +2795,22 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+.knowledge-layout--inbox-before-backlog.knowledge-layout--side-closed {
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+}
+
+.knowledge-layout--inbox-before-backlog.knowledge-layout--side-open {
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) auto minmax(24rem, min(var(--knowledge-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
+}
+
+.knowledge-layout--inbox-before-backlog > .inbox-pane {
+    position: sticky;
+    top: var(--spacing-lg);
+    align-self: start;
+    max-height: calc(100vh - (var(--spacing-lg) * 2));
+    overflow: auto;
+}
+
 .knowledge-layout--side-closed .backlog-workspace {
     width: 100%;
 }
@@ -2692,6 +2838,18 @@ h1, h2, h3 {
 
 .side-pane-stack > .tools-panel {
     flex: 0 1 auto;
+    overflow: auto;
+}
+
+.side-pane-stack > .inbox-pane {
+    flex: 0 1 auto;
+    overflow: auto;
+}
+
+.side-pane-stack--full {
+    position: static;
+    top: auto;
+    max-height: none;
     overflow: auto;
 }
 
@@ -2944,6 +3102,17 @@ body.is-resizing-pane {
     .knowledge-layout,
     .knowledge-layout--side-open {
         grid-template-columns: 1fr;
+    }
+
+    .knowledge-layout--inbox-before-backlog.knowledge-layout--side-open,
+    .knowledge-layout--inbox-before-backlog.knowledge-layout--side-closed {
+        grid-template-columns: 1fr;
+    }
+
+    .knowledge-layout--inbox-before-backlog > .inbox-pane {
+        position: static;
+        top: auto;
+        max-height: none;
     }
 
     .side-pane-stack,

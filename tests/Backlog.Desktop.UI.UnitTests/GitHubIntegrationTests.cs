@@ -213,6 +213,28 @@ public sealed class GitHubSettingsTests
     }
 
     [Fact]
+    public void A_custom_api_endpoint_survives_a_restart()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");
+
+        try
+        {
+            var store = new GitHubSettingsStore(path);
+            var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
+            store.SetRepositories(repositories);
+            store.SetApiEndpoint(" https://ghe.example.internal/api/v3/ ");
+
+            var reopened = new GitHubSettingsStore(path);
+
+            Assert.Equal("https://ghe.example.internal/api/v3", reopened.Current.ApiEndpoint);
+        }
+        finally
+        {
+            try { Directory.Delete(Path.GetDirectoryName(path)!, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
     public void Storage_knowledge_source_resolves_without_a_repository_selection()
     {
         var directory = Path.Combine(Path.GetTempPath(), "backlog-store-tests", Guid.NewGuid().ToString("n"));
@@ -238,6 +260,7 @@ public sealed class GitHubSettingsTests
             try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
         }
     }
+
     [Fact]
     public void A_repository_can_be_removed_from_settings()
     {
@@ -259,7 +282,6 @@ public sealed class GitHubSettingsTests
             try { Directory.Delete(Path.GetDirectoryName(path)!, recursive: true); } catch (IOException) { }
         }
     }
-
     [Fact]
     public void A_corrupt_settings_file_never_stops_the_app_from_opening()
     {

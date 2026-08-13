@@ -11,17 +11,16 @@ namespace Backlog.Infrastructure.GitHub;
 /// </summary>
 public sealed class TokenTransport : IGitHubTransport
 {
-    private const string ApiRoot = "https://api.github.com/";
-
     private readonly HttpClient _http;
     private readonly Func<string?, string?> _token;
+    private readonly Func<string?> _apiEndpoint;
 
-    public TokenTransport(Func<string?, string?> token, HttpClient? http = null)
+    public TokenTransport(Func<string?, string?> token, Func<string?>? apiEndpoint = null, HttpClient? http = null)
     {
         _token = token;
+        _apiEndpoint = apiEndpoint ?? (() => GitHubSettings.DefaultApiEndpoint);
         _http = http ?? new HttpClient();
 
-        if (_http.BaseAddress is null) _http.BaseAddress = new Uri(ApiRoot);
         _http.DefaultRequestHeaders.UserAgent.TryParseAdd("Backlog");
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         _http.DefaultRequestHeaders.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
@@ -44,7 +43,7 @@ public sealed class TokenTransport : IGitHubTransport
             throw new GitHubNotConfiguredException("No GitHub token is configured.");
         }
 
-        using var request = new HttpRequestMessage(method, path.TrimStart('/'));
+        using var request = new HttpRequestMessage(method, EndpointUri(path));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
 
         if (body is not null)
@@ -82,6 +81,26 @@ public sealed class TokenTransport : IGitHubTransport
                 throw new GitHubException("GitHub returned something that wasn't JSON.", ex);
             }
         }
+    }
+
+
+    internal Uri EndpointUri(string path)
+    {
+        var raw = _apiEndpoint();
+        var endpoint = string.IsNullOrWhiteSpace(raw)
+            ? GitHubSettings.DefaultApiEndpoint
+            : raw.Trim().TrimEnd('/');
+
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var baseUri))
+        {
+            throw new GitHubNotConfiguredException("The GitHub organization API endpoint must be an absolute URL.");
+        }
+
+        var baseText = baseUri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal)
+            ? baseUri.AbsoluteUri
+            : baseUri.AbsoluteUri + "/";
+
+        return new Uri(baseText + path.TrimStart('/'));
     }
 
     private static string Describe(HttpStatusCode status, string payload)
