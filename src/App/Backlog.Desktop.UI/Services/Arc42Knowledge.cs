@@ -143,6 +143,11 @@ public sealed record KnowledgeDocument(
     int DiagramCount)
 {
     public string Status => Metadata.Status;
+
+    public IReadOnlyList<KnowledgeBlock> ContentBlocks => Blocks.FirstOrDefault() is KnowledgeHeadingBlock { Level: 1 } heading
+        && string.Equals(heading.Text, Title, StringComparison.Ordinal)
+            ? Blocks.Skip(1).ToList()
+            : Blocks;
 }
 
 public sealed record KnowledgeMeta(string Status, IReadOnlyList<string> Related)

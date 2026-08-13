@@ -39,6 +39,29 @@ public class Arc42KnowledgeTests
     }
 
     [Fact]
+    public void Content_blocks_skip_document_heading_metadata()
+    {
+        var document = KnowledgeMarkdownParser.Parse(
+            ".arc42/adr/0001-test.md",
+            """
+            # ADR 0001: Test decision
+            ```meta
+            status: accepted
+            related: [.arc42/04-solution-strategy.md]
+            ```
+
+            ## Status
+
+            Accepted - this decision is final.
+            """);
+
+        Assert.Contains(document.Blocks, block => block is KnowledgeHeadingBlock { Level: 1, Text: "ADR 0001: Test decision" });
+        Assert.DoesNotContain(document.ContentBlocks, block => block is KnowledgeHeadingBlock { Level: 1 });
+        var statusHeading = Assert.IsType<KnowledgeHeadingBlock>(document.ContentBlocks.First());
+        Assert.Equal("Status", statusHeading.Text);
+    }
+
+    [Fact]
     public void Turns_mermaid_fences_into_reusable_diagram_blocks()
     {
         var document = KnowledgeMarkdownParser.Parse(
