@@ -15,6 +15,8 @@ internal enum GlobalPane
 /// </summary>
 internal sealed class GlobalPaneSelection
 {
+    private static readonly HashSet<GlobalPane> KnownPanes = [GlobalPane.Inbox, GlobalPane.Backlog, GlobalPane.Knowledge];
+
     private readonly HashSet<GlobalPane> _enabled;
 
     public GlobalPaneSelection()
@@ -24,9 +26,7 @@ internal sealed class GlobalPaneSelection
 
     public GlobalPaneSelection(params GlobalPane[] enabled)
     {
-        _enabled = enabled.Length == 0
-            ? [GlobalPane.Backlog]
-            : [.. enabled.Distinct()];
+        _enabled = [.. enabled.Where(IsKnownPane).Distinct()];
 
         if (_enabled.Count == 0)
         {
@@ -38,23 +38,32 @@ internal sealed class GlobalPaneSelection
 
     public IReadOnlyCollection<GlobalPane> Enabled => new ReadOnlyCollection<GlobalPane>([.. _enabled]);
 
-    public bool IsEnabled(GlobalPane pane) => _enabled.Contains(pane);
+    public bool IsEnabled(GlobalPane pane) => IsKnownPane(pane) && _enabled.Contains(pane);
 
-    public bool CanDisable(GlobalPane pane) => _enabled.Contains(pane) && _enabled.Count > 1;
+    public bool CanDisable(GlobalPane pane) => IsEnabled(pane) && _enabled.Count > 1;
 
     public bool TrySetEnabled(GlobalPane pane, bool enabled)
     {
+        if (!IsKnownPane(pane))
+        {
+            return false;
+        }
+
         if (enabled)
         {
             return _enabled.Add(pane);
         }
 
-        if (!_enabled.Contains(pane)) return false;
-        if (_enabled.Count == 1) return false;
+        if (!_enabled.Contains(pane) || _enabled.Count == 1)
+        {
+            return false;
+        }
 
         _enabled.Remove(pane);
         return true;
     }
 
     public bool Toggle(GlobalPane pane) => TrySetEnabled(pane, !IsEnabled(pane));
+
+    private static bool IsKnownPane(GlobalPane pane) => KnownPanes.Contains(pane);
 }

@@ -2408,6 +2408,60 @@ h1, h2, h3 {
     cursor: not-allowed;
 }
 
+.pane-multiselect {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-background-alt);
+}
+
+.pane-multiselect__option {
+    border: var(--border-width) solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.pane-multiselect__option:hover,
+.pane-multiselect__option:focus-visible {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.pane-multiselect__option:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.pane-multiselect__option--selected {
+    border-color: var(--color-primary);
+    background: rgba(242, 193, 78, 0.18);
+    color: var(--color-primary-light);
+}
+
+.pane-multiselect__option--selected:hover,
+.pane-multiselect__option--selected:focus-visible {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.pane-multiselect__option:disabled {
+    cursor: not-allowed;
+}
+
+.pane-multiselect__option--selected:disabled {
+    opacity: 0.8;
+}
+
 /* --- Azure Foundry AI assistant ------------------------------------------ */
 
 .ai-panel {

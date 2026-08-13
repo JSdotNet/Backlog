@@ -3,17 +3,39 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class GlobalPaneMarkupTests
 {
     [Fact]
-    public void Home_shell_exposes_global_pane_toggles_and_sections()
+    public void Home_shell_exposes_global_pane_multiselect_and_sections()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("data-testid=\"inbox-toggle-button\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"backlog-toggle-button\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"knowledge-toggle-button\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"global-pane-multiselect\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"inbox-pane-option\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"backlog-pane-option\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"knowledge-pane-option\"", home, StringComparison.Ordinal);
 
         Assert.Contains("id=\"inbox-pane\"", home, StringComparison.Ordinal);
         Assert.Contains("id=\"backlog-pane\"", home, StringComparison.Ordinal);
         Assert.Contains("id=\"repository-knowledge-pane\"", home, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Pane_multiselect_uses_selected_state_and_never_zero_selection_affordance()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("aria-pressed=\"@(InboxPaneVisible ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
+        Assert.Contains("aria-pressed=\"@(BacklogPaneVisible ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
+        Assert.Contains("aria-pressed=\"@(KnowledgePaneVisible ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
+
+        Assert.Contains("disabled=\"@PaneToggleDisabled(GlobalPane.Inbox)\"", home, StringComparison.Ordinal);
+        Assert.Contains("disabled=\"@PaneToggleDisabled(GlobalPane.Backlog)\"", home, StringComparison.Ordinal);
+        Assert.Contains("disabled=\"@PaneToggleDisabled(GlobalPane.Knowledge)\"", home, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("Show inbox", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("Hide inbox", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("Show backlog", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("Hide backlog", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("Show knowledge", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("Hide knowledge", home, StringComparison.Ordinal);
     }
 
     [Fact]

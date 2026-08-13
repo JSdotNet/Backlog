@@ -70,41 +70,43 @@
             </button>
         }
 
-        <button type="button"
-                class="header-tool-toggle"
-                id="inbox-toggle-button"
-                data-testid="inbox-toggle-button"
-                aria-controls="inbox-pane"
-                aria-expanded="@(InboxPaneVisible ? "true" : "false")"
-                disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
-                @onclick="ToggleInboxPane">
-            @(InboxPaneVisible ? "Hide inbox" : "Show inbox")
-        </button>
-
-        <button type="button"
-                class="header-tool-toggle"
-                id="backlog-toggle-button"
-                data-testid="backlog-toggle-button"
-                aria-controls="backlog-pane"
-                aria-expanded="@(BacklogPaneVisible ? "true" : "false")"
-                disabled="@PaneToggleDisabled(GlobalPane.Backlog)"
-                @onclick="ToggleBacklogPane">
-            @(BacklogPaneVisible ? "Hide backlog" : "Show backlog")
-        </button>
-
-        @if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge) && VisibleKnowledgeAreas.Count > 0)
-        {
+        <div class="pane-multiselect" role="group" aria-label="Visible panes" data-testid="global-pane-multiselect">
             <button type="button"
-                    class="header-tool-toggle"
-                    id="knowledge-toggle-button"
-                    data-testid="knowledge-toggle-button"
-                    aria-controls="repository-knowledge-pane"
-                    aria-expanded="@(KnowledgePaneVisible ? "true" : "false")"
-                    disabled="@PaneToggleDisabled(GlobalPane.Knowledge)"
-                    @onclick="ToggleKnowledgePane">
-                @(KnowledgePaneVisible ? "Hide knowledge" : "Show knowledge")
+                    class="pane-multiselect__option @(InboxPaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
+                    id="inbox-pane-option"
+                    data-testid="inbox-pane-option"
+                    aria-controls="inbox-pane"
+                    aria-pressed="@(InboxPaneVisible ? "true" : "false")"
+                    disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
+                    @onclick="ToggleInboxPane">
+                Inbox
             </button>
-        }
+
+            <button type="button"
+                    class="pane-multiselect__option @(BacklogPaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
+                    id="backlog-pane-option"
+                    data-testid="backlog-pane-option"
+                    aria-controls="backlog-pane"
+                    aria-pressed="@(BacklogPaneVisible ? "true" : "false")"
+                    disabled="@PaneToggleDisabled(GlobalPane.Backlog)"
+                    @onclick="ToggleBacklogPane">
+                Backlog
+            </button>
+
+            @if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge) && VisibleKnowledgeAreas.Count > 0)
+            {
+                <button type="button"
+                        class="pane-multiselect__option @(KnowledgePaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
+                        id="knowledge-pane-option"
+                        data-testid="knowledge-pane-option"
+                        aria-controls="repository-knowledge-pane"
+                        aria-pressed="@(KnowledgePaneVisible ? "true" : "false")"
+                        disabled="@PaneToggleDisabled(GlobalPane.Knowledge)"
+                        @onclick="ToggleKnowledgePane">
+                    Knowledge
+                </button>
+            }
+        </div>
         @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant))
         {
             <button type="button"
