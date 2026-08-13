@@ -31,69 +31,91 @@ Edges point from a technology to what it sits on top of, mirroring the
 `depends-on` field of each chapter.
 
 ```mermaid
-flowchart TB
-    subgraph Shared
-        Markdown["Markdown"]
-        JSON["JSON"]
-        YAML["YAML"]
-        Mermaid["Mermaid"]
-        DotNet[".NET Runtime"]
-        CSharp["C#"]
-        NodeJS["Node.js"]
-        TypeScript["TypeScript"]
-        GitHubPlatform["GitHub Platform"]
-        MAUI[".NET MAUI"]
-        BlazorHybrid["Blazor Hybrid"]
+flowchart LR
+    subgraph Legend["Status legend"]
+        CandidateLegend["candidate"]:::candidate
+        AdoptedLegend["adopted"]:::adopted
+        FoundationLegend["foundation / external"]:::foundation
     end
 
-    subgraph Desktop
-        Windows["Windows"]
-        WinAppSDK["Windows App SDK"]
-        WinUI["WinUI 3"]
-        LocalStore["Local Markdown + JSON Store"]
-        Workers["Background Workers"]
-        GhCli["GitHub CLI"]
-        MSIX["MSIX Packaging"]
+    subgraph Foundations["Foundations"]
+        Windows["Windows"]:::candidate
+        Android["Android"]:::candidate
+        GitHubPlatform["GitHub Platform"]:::adopted
+        Anthropic["Anthropic Claude Platform"]:::candidate
+        Cosmos["Azure Cosmos DB"]:::candidate
+        KeyVault["Azure Key Vault"]:::candidate
+        FCM["Firebase Cloud Messaging"]:::candidate
+        Git["Git"]:::adopted
+        YAML["YAML"]:::adopted
+        Markdown["Markdown"]:::adopted
+        JSON["JSON"]:::adopted
     end
 
-    subgraph Mobile
-        Android["Android"]
-        OfflineStore["Local Offline Store"]
+    subgraph Shared["Shared technologies"]
+        Mermaid["Mermaid"]:::adopted
+        DotNet[".NET Runtime 10.0"]:::candidate
+        CSharp["C#"]:::candidate
+        NodeJS["Node.js"]:::candidate
+        TypeScript["TypeScript"]:::candidate
+        MAUI[".NET MAUI"]:::adopted
+        BlazorHybrid["Blazor Hybrid"]:::adopted
+        CopilotUsage["GitHub Copilot Usage APIs"]:::candidate
     end
 
-    subgraph IDE
-        VSCodeApi["VS Code Extension API"]
-        Webview["VS Code Webview UI"]
-        VSSDK["Visual Studio Extensibility"]
-        WPF["WPF"]
+    subgraph ProductChannels["Product channels"]
+        direction TB
+
+        subgraph Desktop["Desktop - local-first Windows client"]
+            WinAppSDK["Windows App SDK"]:::candidate
+            WinUI["WinUI 3"]:::adopted
+            LocalStore["Local Markdown + JSON Store"]:::candidate
+            Workers["Background Workers"]:::candidate
+            GhCli["GitHub CLI"]:::adopted
+            MSIX["MSIX Packaging"]:::adopted
+            AppInstaller["App Installer (.appinstaller)"]:::adopted
+        end
+
+        subgraph Mobile["Mobile - Android capture and review"]
+            OfflineStore["Local Offline Store"]:::candidate
+        end
+
+        subgraph IDE["IDE - editor extensions"]
+            VSCodeApi["VS Code Extension API"]:::candidate
+            Webview["VS Code Webview UI"]:::candidate
+            VSSDK["Visual Studio Extensibility"]:::candidate
+            WPF["WPF"]:::candidate
+        end
+
+        subgraph Cloud["Cloud - thin Azure sync service"]
+            MinimalApis["ASP.NET Core Minimal APIs"]:::candidate
+            Aspire[".NET Aspire"]:::candidate
+            ACA["Azure Container Apps"]:::candidate
+        end
     end
 
-    subgraph Cloud
-        MinimalApis["ASP.NET Core Minimal APIs"]
-        Aspire[".NET Aspire"]
-        ACA["Azure Container Apps"]
-        Cosmos["Azure Cosmos DB"]
-        KeyVault["Azure Key Vault"]
-        FCM["Firebase Cloud Messaging"]
-    end
-
-    subgraph Tooling
-        Git["Git"]
-        DotNetSdk[".NET SDK"]
-        NuGet["NuGet"]
-        Npm["npm"]
-        Actions["GitHub Actions"]
-        CodeQL["CodeQL"]
-        Dependabot["Dependabot"]
-        CopilotCli["GitHub Copilot CLI"]
-        MCP["MCP Servers"]
-        Canvas["Knowledge Canvas Extension"]
-        AspireCli["Aspire CLI"]
+    subgraph Tooling["Development and governance tooling"]
+        DotNetSdk[".NET SDK"]:::candidate
+        NuGet["NuGet"]:::candidate
+        Npm["npm"]:::candidate
+        Actions["GitHub Actions"]:::adopted
+        CodeQL["CodeQL"]:::adopted
+        Dependabot["Dependabot"]:::adopted
+        CopilotCli["GitHub Copilot CLI"]:::adopted
+        MCP["Model Context Protocol Servers"]:::adopted
+        KnowledgePlugin["Knowledge Base Plugin"]:::adopted
+        Canvas["Knowledge Canvas Extension"]:::adopted
+        AspireCli["Aspire CLI"]:::candidate
     end
 
     Mermaid --> Markdown
     CSharp --> DotNet
     TypeScript --> NodeJS
+    MAUI --> WinUI
+    MAUI --> Android
+    MAUI --> CSharp
+    BlazorHybrid --> MAUI
+    CopilotUsage --> GitHubPlatform
 
     WinAppSDK --> Windows
     WinAppSDK --> DotNet
@@ -104,11 +126,7 @@ flowchart TB
     Workers --> DotNet
     GhCli --> GitHubPlatform
     MSIX --> WinAppSDK
-
-    MAUI --> Android
-    MAUI --> WinUI
-    MAUI --> CSharp
-    BlazorHybrid --> MAUI
+    AppInstaller --> MSIX
     OfflineStore --> JSON
 
     VSCodeApi --> TypeScript
@@ -131,16 +149,22 @@ flowchart TB
     Dependabot --> GitHubPlatform
     CopilotCli --> GitHubPlatform
     MCP --> CopilotCli
+    KnowledgePlugin --> CopilotCli
+    KnowledgePlugin --> NodeJS
     Canvas --> CopilotCli
     Canvas --> NodeJS
     Canvas --> Mermaid
     AspireCli --> Aspire
+
+    classDef adopted fill:#1f6f4a,stroke:#9be7c3,color:#fff,stroke-width:2px
+    classDef candidate fill:#2b3245,stroke:#8aa4ff,color:#fff,stroke-width:1.5px
+    classDef foundation fill:#3a2f14,stroke:#ffd166,color:#fff,stroke-width:1.5px
 ```
 
 Nodes without an outgoing edge (`YAML`, `Git`, `Windows`, `Android`,
-`GitHub Platform`, `Azure Cosmos DB`, `Azure Key Vault`,
-`Firebase Cloud Messaging`) are foundations: nothing in this project sits below
-them.
+`GitHub Platform`, `Anthropic Claude Platform`, `Azure Cosmos DB`,
+`Azure Key Vault`, `Firebase Cloud Messaging`) are foundations: nothing in
+this project sits below them.
 
 ## Status ladder
 
