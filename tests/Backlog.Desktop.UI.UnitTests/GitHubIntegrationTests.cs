@@ -95,26 +95,33 @@ public sealed class GitHubSettingsTests
     }
 
     [Fact]
-    public void The_primary_repository_owns_unassigned_work()
+    public void Missing_settings_file_starts_with_zero_repositories()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");
 
         try
         {
             var store = new GitHubSettingsStore(path);
-            var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs");
-            store.SetRepositories(repositories);
-            store.SetPrimaryRepository("docs");
 
-            Assert.Equal("JSdotNet/Backlog-docs", store.Current.Find(null)!.FullName);
-            Assert.Equal("JSdotNet/Backlog-docs", store.Current.Find("something-else")!.FullName);
-            Assert.Equal("JSdotNet/Backlog", store.Current.Find("backlog")!.FullName);
+            Assert.Empty(store.Current.Repositories);
         }
         finally
         {
             var directory = Path.GetDirectoryName(path)!;
             try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
         }
+    }
+
+    [Fact]
+    public void Blank_and_unknown_areas_do_not_fall_back_to_a_repository()
+    {
+        var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs");
+        var settings = new GitHubSettings { Repositories = repositories };
+
+        Assert.Null(settings.Find(null));
+        Assert.Null(settings.Find("   "));
+        Assert.Null(settings.Find("something-else"));
+        Assert.Equal("JSdotNet/Backlog", settings.Find("backlog")!.FullName);
     }
 
     [Fact]
@@ -134,7 +141,6 @@ public sealed class GitHubSettingsTests
             Assert.Equal("backlog", repository.Alias);
             Assert.Equal("ghp_example", repository.Token);
             Assert.Equal("ghp_example", reopened.Current.TokenForPath("repos/JSdotNet/Backlog/issues"));
-            Assert.True(repository.IsPrimary);
 
             reopened.SetRepositoryToken("backlog", null);
             Assert.Null(new GitHubSettingsStore(path).Current.Repositories[0].Token);
@@ -156,7 +162,6 @@ public sealed class GitHubSettingsTests
             var store = new GitHubSettingsStore(path);
             var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs");
             store.SetRepositories(repositories);
-            store.SetPrimaryRepository("docs");
             store.SetCloneDirectory("docs", @"D:\Repos\Backlog-docs");
             store.SetKnowledgeFolder("docs", ".tech", enabled: false, path: null);
             store.SetKnowledgeFolder("docs", ".domain", enabled: true, path: @"knowledge\domain");
@@ -165,7 +170,6 @@ public sealed class GitHubSettingsTests
             var reopened = new GitHubSettingsStore(path);
             var docs = reopened.Current.Find("docs")!;
 
-            Assert.True(docs.IsPrimary);
             Assert.Equal(@"D:\Repos\Backlog-docs", docs.CloneDirectory);
             Assert.False(docs.KnowledgeFolders.Single(f => f.Key == ".tech").Enabled);
             Assert.Equal(@"knowledge\domain", docs.KnowledgeFolders.Single(f => f.Key == ".domain").Path);
@@ -173,6 +177,28 @@ public sealed class GitHubSettingsTests
             var instructions = docs.KnowledgeFolders.Single(f => f.Key == "instructions");
             Assert.False(instructions.Enabled);
             Assert.Null(instructions.Path);
+        }
+        finally
+        {
+            try { Directory.Delete(Path.GetDirectoryName(path)!, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
+    public void A_repository_can_be_removed_from_settings()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");
+
+        try
+        {
+            var store = new GitHubSettingsStore(path);
+            var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs");
+            store.SetRepositories(repositories);
+
+            Assert.Null(store.RemoveRepository("docs"));
+
+            var repository = Assert.Single(new GitHubSettingsStore(path).Current.Repositories);
+            Assert.Equal("backlog", repository.Alias);
         }
         finally
         {

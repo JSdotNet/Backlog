@@ -24,9 +24,6 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// GitHub CLI is not signed in. Null means "rely on <c>gh</c>".</summary>
     public string? Token { get; init; }
 
-    /// <summary>The repository that owns entries and knowledge not assigned to a
-    /// more specific repository.</summary>
-    public bool IsPrimary { get; init; }
 
     public List<KnowledgeFolderSetting> KnowledgeFolders { get; init; } = KnowledgeFolderSetting.Defaults();
 

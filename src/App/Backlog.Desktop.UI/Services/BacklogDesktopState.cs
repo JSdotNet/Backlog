@@ -574,12 +574,12 @@ public sealed class BacklogDesktopState : IDisposable
     /// <summary>Creates the GitHub issue for an entry and remembers the link on
     /// the entry itself, so the association survives a restart and travels with
     /// the markdown file.</summary>
-    public async Task PushToGitHubAsync(EntryRow row)
+    public async Task PushToGitHubAsync(EntryRow row, GitHubRepositoryRef? repositoryOverride = null)
     {
         if (row.GitHubBusy) return;
         if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry)) return;
 
-        var repository = RepositoryFor(row);
+        var repository = repositoryOverride ?? RepositoryFor(row);
         if (repository is null) return;
 
         row.GitHubBusy = true;
@@ -614,12 +614,12 @@ public sealed class BacklogDesktopState : IDisposable
         }
     }
 
-    public async Task PushSubItemToGitHubAsync(EntryRow row, int subItemIndex)
+    public async Task PushSubItemToGitHubAsync(EntryRow row, int subItemIndex, GitHubRepositoryRef? repositoryOverride = null)
     {
         if (row.GitHubBusy) return;
         if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry)) return;
 
-        var repository = RepositoryFor(row);
+        var repository = repositoryOverride ?? RepositoryFor(row);
         if (repository is null) return;
 
         var subItem = EntryTextParser.Parse(row.RawText).SubItems.ElementAtOrDefault(subItemIndex);

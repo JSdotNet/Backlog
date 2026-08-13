@@ -78,7 +78,7 @@ public sealed class AppFeatureSettingsStore
         new(Backlog, "Backlog", "Create, edit, filter, reorder, and store backlog entries.", AlwaysEnabled: true),
         new(KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
         new(RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
-        new(AdditionalRepositories, "Additional repositories", "Configure repositories beyond the primary repository and switch repository-specific knowledge."),
+        new(AdditionalRepositories, "Additional repositories", "Configure multiple repositories and switch repository-specific knowledge."),
         new(SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers."),
         new(GitHubIntegration, "GitHub integration", "Configure GitHub access, push entries to issues, and refresh issue or pull request state."),
         new(FeedbackReporting, "Feedback reporting", "Report Desktop app issues to GitHub with current-screen context and a screenshot."),

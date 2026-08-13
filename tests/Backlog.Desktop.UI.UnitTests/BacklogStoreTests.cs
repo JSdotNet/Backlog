@@ -215,4 +215,33 @@ public sealed class BacklogStoreTests : IDisposable
 
         Assert.False(File.Exists(Path.Combine(target, "settings.json")));
     }
+
+    [Fact]
+    public void Storage_repository_metadata_survives_a_restart()
+    {
+        var appData = TempDir();
+        var settingsPath = Path.Combine(appData, "settings.json");
+        var store = new BacklogStore(appData, settingsPath);
+
+        Assert.Null(store.TrySetRepository("JSdotNet/Backlog"));
+
+        var reopened = new BacklogStore(appData, settingsPath);
+        Assert.NotNull(reopened.RootRepository);
+        Assert.Equal("JSdotNet/Backlog", reopened.RootRepository!.FullName);
+    }
+
+    [Fact]
+    public void Storage_repository_metadata_can_be_cleared()
+    {
+        var appData = TempDir();
+        var settingsPath = Path.Combine(appData, "settings.json");
+        var store = new BacklogStore(appData, settingsPath);
+        Assert.Null(store.TrySetRepository("JSdotNet/Backlog"));
+
+        Assert.Null(store.ClearRepository());
+
+        Assert.Null(store.RootRepository);
+        Assert.Null(new BacklogStore(appData, settingsPath).RootRepository);
+    }
+
 }

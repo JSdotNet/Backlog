@@ -12,7 +12,9 @@ public sealed class DesignKnowledgeProvider(GitHubIntegration gitHub)
 {
     public Task<DesignKnowledgeModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
-        var repository = gitHub.Settings.Current.Find(repositoryAlias);
+        var repository = string.IsNullOrWhiteSpace(repositoryAlias)
+            ? gitHub.Settings.Current.Repositories.FirstOrDefault()
+            : gitHub.Settings.Current.Find(repositoryAlias);
         if (repository is null)
         {
             return Task.FromResult(DesignKnowledgeModel.Unavailable(

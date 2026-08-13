@@ -13,7 +13,9 @@ public sealed class DomainKnowledgeStore(GitHubSettingsStore settings)
     public Task<DomainKnowledgeView> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var repo = settings.Current.Find(repositoryAlias);
+        var repo = string.IsNullOrWhiteSpace(repositoryAlias)
+            ? settings.Current.Repositories.FirstOrDefault()
+            : settings.Current.Find(repositoryAlias);
         if (repo is null) return Task.FromResult(DomainKnowledgeView.Unavailable("Configure a repository before opening domain knowledge."));
         if (string.IsNullOrWhiteSpace(repo.CloneDirectory)) return Task.FromResult(DomainKnowledgeView.Unavailable($"Set a local clone directory for {repo.FullName} before opening domain knowledge."));
 
@@ -39,7 +41,9 @@ public sealed class DomainKnowledgeStore(GitHubSettingsStore settings)
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
-        var repo = settings.Current.Find(repositoryAlias);
+        var repo = string.IsNullOrWhiteSpace(repositoryAlias)
+            ? settings.Current.Repositories.FirstOrDefault()
+            : settings.Current.Find(repositoryAlias);
         if (repo is null) throw new InvalidOperationException("Configure a repository before updating domain knowledge.");
         if (string.IsNullOrWhiteSpace(repo.CloneDirectory)) throw new InvalidOperationException($"Set a local clone directory for {repo.FullName} before updating domain knowledge.");
 

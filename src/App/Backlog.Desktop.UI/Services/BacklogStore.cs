@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Backlog.Modules.Backlog;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Desktop.UI.Services;
 
@@ -49,7 +50,9 @@ public sealed class BacklogStore
         _settingsPath = settingsPath;
         DefaultRootDirectory = appData;
 
-        RootDirectory = ReadSavedRoot() ?? DefaultRootDirectory;
+        var settings = ReadSettings();
+        RootDirectory = settings?.RootDirectory ?? DefaultRootDirectory;
+        RootRepository = settings?.RootRepository?.ToRepository();
         Repository = new FileBacklogRepository(RootDirectory);
     }
 
@@ -62,6 +65,10 @@ public sealed class BacklogStore
     public string RootDirectory { get; private set; }
 
     public IBacklogRepository Repository { get; private set; }
+
+    /// <summary>Optional GitHub repository metadata for backing up the storage
+    /// folder later. The folder remains the source of truth today.</summary>
+    public GitHubRepositoryRef? RootRepository { get; private set; }
 
     public bool IsDefaultRoot =>
         string.Equals(
@@ -118,17 +125,13 @@ public sealed class BacklogStore
         RootDirectory = full;
         Repository = new FileBacklogRepository(full);
 
-        try
-        {
-            var json = JsonSerializer.Serialize(new StoreSettings { RootDirectory = full }, JsonOptions);
-            File.WriteAllText(_settingsPath, json);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        var saveError = SaveSettings("Moved, but the choice couldn't be saved for next time.");
+        if (saveError is not null)
         {
             // The move itself succeeded; only remembering it failed. Say so
             // rather than silently reverting to the old folder next launch.
             RootChanged?.Invoke();
-            return "Moved, but the choice couldn't be saved for next time.";
+            return saveError;
         }
 
         RootChanged?.Invoke();
@@ -138,18 +141,65 @@ public sealed class BacklogStore
     /// <summary>Returns the app to its default per-user folder.</summary>
     public string? ResetToDefault() => TryUseRoot(DefaultRootDirectory);
 
-    private string? ReadSavedRoot()
+    public string? TrySetRepository(string? repoText)
+    {
+        var repository = GitHubRepositoryRef.TryParse(repoText, out var error);
+        if (repository is null)
+        {
+            return error ?? "Enter a GitHub repository as owner/repo, or clear it.";
+        }
+
+        RootRepository = repository;
+        return SaveSettings("Repository configured, but the choice couldn't be saved for next time.");
+    }
+
+    public string? ClearRepository()
+    {
+        if (RootRepository is null) return null;
+
+        RootRepository = null;
+        return SaveSettings("Repository cleared, but the choice couldn't be saved for next time.");
+    }
+
+    private string? SaveSettings(string saveFailureMessage)
+    {
+        try
+        {
+            var settings = new StoreSettings
+            {
+                RootDirectory = RootDirectory,
+                RootRepository = RootRepository is null
+                    ? null
+                    : new StoreRepositorySettings
+                    {
+                        Alias = RootRepository.Alias,
+                        Owner = RootRepository.Owner,
+                        Name = RootRepository.Name
+                    }
+            };
+            File.WriteAllText(_settingsPath, JsonSerializer.Serialize(settings, JsonOptions));
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return saveFailureMessage;
+        }
+    }
+
+    private StoreSettings? ReadSettings()
     {
         try
         {
             if (!File.Exists(_settingsPath)) return null;
 
             var settings = JsonSerializer.Deserialize<StoreSettings>(File.ReadAllText(_settingsPath), JsonOptions);
-            var root = settings?.RootDirectory;
-            if (string.IsNullOrWhiteSpace(root)) return null;
+            if (settings is null) return null;
+
+            var root = settings.RootDirectory;
+            if (string.IsNullOrWhiteSpace(root)) return settings with { RootDirectory = null };
 
             Directory.CreateDirectory(Path.Combine(root, "entries"));
-            return root;
+            return settings with { RootDirectory = root };
         }
         catch (Exception)
         {
@@ -159,8 +209,30 @@ public sealed class BacklogStore
         }
     }
 
-    private sealed class StoreSettings
+    private sealed record StoreSettings
     {
-        public string? RootDirectory { get; set; }
+        public string? RootDirectory { get; init; }
+
+        public StoreRepositorySettings? RootRepository { get; init; }
+    }
+
+    private sealed record StoreRepositorySettings
+    {
+        public string? Alias { get; init; }
+
+        public string? Owner { get; init; }
+
+        public string? Name { get; init; }
+
+        public GitHubRepositoryRef? ToRepository()
+        {
+            if (string.IsNullOrWhiteSpace(Owner) || string.IsNullOrWhiteSpace(Name))
+            {
+                return null;
+            }
+
+            var alias = string.IsNullOrWhiteSpace(Alias) ? Name : Alias;
+            return new GitHubRepositoryRef(GitHubRepositoryRef.NormalizeAlias(alias), Owner, Name);
+        }
     }
 }
