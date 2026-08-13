@@ -40,17 +40,18 @@ public sealed class BacklogStoreTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(store.RootDirectory));
         Assert.True(Directory.Exists(store.EntriesDirectory));
         Assert.NotNull(store.Repository);
+        Assert.True(Directory.Exists(store.InboxDirectory));
     }
 
     [Fact]
-    public void Entries_live_in_an_entries_folder_under_the_root()
+    public void Entries_live_in_a_backlog_folder_under_the_root()
     {
         var store = Store();
         var target = TempDir();
 
         Assert.Null(store.TryUseRoot(target));
 
-        Assert.Equal(Path.Combine(target, "entries"), store.EntriesDirectory);
+        Assert.Equal(Path.Combine(target, "_backlog"), store.EntriesDirectory);
     }
 
     [Fact]
@@ -62,7 +63,8 @@ public sealed class BacklogStoreTests : IDisposable
         Assert.False(Directory.Exists(target));
         Assert.Null(store.TryUseRoot(target));
 
-        Assert.True(Directory.Exists(Path.Combine(target, "entries")));
+        Assert.True(Directory.Exists(Path.Combine(target, "_backlog")));
+        Assert.True(Directory.Exists(Path.Combine(target, "_inbox")));
         Assert.Equal(target, store.RootDirectory);
     }
 
@@ -215,4 +217,33 @@ public sealed class BacklogStoreTests : IDisposable
 
         Assert.False(File.Exists(Path.Combine(target, "settings.json")));
     }
+
+    [Fact]
+    public void Storage_repository_metadata_survives_a_restart()
+    {
+        var appData = TempDir();
+        var settingsPath = Path.Combine(appData, "settings.json");
+        var store = new BacklogStore(appData, settingsPath);
+
+        Assert.Null(store.TrySetRepository("JSdotNet/Backlog"));
+
+        var reopened = new BacklogStore(appData, settingsPath);
+        Assert.NotNull(reopened.RootRepository);
+        Assert.Equal("JSdotNet/Backlog", reopened.RootRepository!.FullName);
+    }
+
+    [Fact]
+    public void Storage_repository_metadata_can_be_cleared()
+    {
+        var appData = TempDir();
+        var settingsPath = Path.Combine(appData, "settings.json");
+        var store = new BacklogStore(appData, settingsPath);
+        Assert.Null(store.TrySetRepository("JSdotNet/Backlog"));
+
+        Assert.Null(store.ClearRepository());
+
+        Assert.Null(store.RootRepository);
+        Assert.Null(new BacklogStore(appData, settingsPath).RootRepository);
+    }
+
 }

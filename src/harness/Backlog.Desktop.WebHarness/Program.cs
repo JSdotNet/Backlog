@@ -85,7 +85,6 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
         new GitHubRepositoryRef(alias, "JSdotNet", "Backlog")
         {
             CloneDirectory = repositoryRoot,
-            IsPrimary = true,
             KnowledgeFolders = KnowledgeFolderSetting.Defaults()
         }
     ]);

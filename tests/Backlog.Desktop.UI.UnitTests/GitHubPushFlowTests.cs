@@ -42,17 +42,18 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task An_area_that_names_no_repository_uses_the_primary_repository()
+    public async Task An_area_that_names_no_repository_does_not_push_silently()
     {
         var harness = Build("JSdotNet/Backlog");
 
         var row = await WriteEntryAsync(harness.State, "# Buy milk\n`task` `*low` `!draft` `@errands`\n");
 
-        Assert.Equal("JSdotNet/Backlog", harness.State.RepositoryFor(row)!.FullName);
+        Assert.Null(harness.State.RepositoryFor(row));
 
         await harness.State.PushToGitHubAsync(row);
 
-        Assert.Equal("JSdotNet/Backlog", row.IssueLink!.RepoFullName);
+        Assert.Null(row.IssueLink);
+        Assert.Equal(0, harness.Client.CreateCount);
     }
 
     [Fact]

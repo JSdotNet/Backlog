@@ -80,7 +80,7 @@ public class FileBacklogRepositoryTests : IDisposable
         var list = await _repo.ListAsync();
 
         Assert.Empty(list);
-        Assert.Empty(Directory.EnumerateFiles(Path.Combine(_dir, "entries"), "*.md"));
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(_dir, "_backlog"), "*.md"));
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class FileBacklogRepositoryTests : IDisposable
         var entry = new BacklogEntry("Minimal", "body", EntryType.Task);
         await _repo.SaveAsync(entry);
 
-        var text = await File.ReadAllTextAsync(Path.Combine(_dir, "entries", $"{entry.Id}.md"));
+        var text = await File.ReadAllTextAsync(Path.Combine(_dir, "_backlog", $"{entry.Id}.md"));
 
         Assert.Contains("created_at: ", text);
         Assert.DoesNotContain("date_time:", text);
@@ -108,8 +108,8 @@ public class FileBacklogRepositoryTests : IDisposable
 
         await _repo.SaveAsync(entry);
 
-        var markdown = await File.ReadAllTextAsync(Path.Combine(_dir, "entries", $"{entry.Id}.md"));
-        var index = await File.ReadAllTextAsync(Path.Combine(_dir, "entries", "_meta", "index.json"));
+        var markdown = await File.ReadAllTextAsync(Path.Combine(_dir, "_backlog", $"{entry.Id}.md"));
+        var index = await File.ReadAllTextAsync(Path.Combine(_dir, "_backlog", "_meta", "index.json"));
         var loaded = await _repo.GetAsync(entry.Id);
 
         Assert.DoesNotContain("order:", markdown);
@@ -124,11 +124,35 @@ public class FileBacklogRepositoryTests : IDisposable
         var a = new BacklogEntry("A", "body text", EntryType.Task);
         await _repo.SaveAsync(a);
 
-        var file = Path.Combine(_dir, "entries", $"{a.Id}.md");
+        var file = Path.Combine(_dir, "_backlog", $"{a.Id}.md");
         var text = await File.ReadAllTextAsync(file);
         Assert.StartsWith("---", text);
         Assert.Contains("title: A", text);
         Assert.Contains("body text", text);
+    }
+
+
+    [Fact]
+    public async Task Existing_entries_folder_is_migrated_to_backlog_folder()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "backlog-tests-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var legacy = Path.Combine(dir, "entries");
+            Directory.CreateDirectory(legacy);
+            var marker = Path.Combine(legacy, "legacy.md");
+            await File.WriteAllTextAsync(marker, "legacy");
+
+            _ = new FileBacklogRepository(dir);
+
+            Assert.False(Directory.Exists(legacy));
+            Assert.True(File.Exists(Path.Combine(dir, "_backlog", "legacy.md")));
+            Assert.True(Directory.Exists(Path.Combine(dir, "_inbox")));
+        }
+        finally
+        {
+            try { if (Directory.Exists(dir)) Directory.Delete(dir, true); } catch { }
+        }
     }
 
     public void Dispose()
