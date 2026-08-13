@@ -43,8 +43,24 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("(BacklogPaneVisible && SidePaneVisible) ? \"knowledge-layout--side-open\"", home, StringComparison.Ordinal);
+        Assert.Contains("(BacklogPaneVisible && RightSidePaneVisible) ? \"knowledge-layout--side-open\"", home, StringComparison.Ordinal);
         Assert.Contains("side-pane-stack--full", home, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Inbox_renders_before_backlog_when_both_are_visible()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("@if (InboxBeforeBacklogVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("@if (!BacklogPaneVisible && InboxPaneVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("knowledge-layout--inbox-before-backlog", home, StringComparison.Ordinal);
+
+        var inboxGuardIndex = home.IndexOf("@if (InboxBeforeBacklogVisible)", StringComparison.Ordinal);
+        var backlogPaneIndex = home.IndexOf("<section class=\"backlog-workspace\"", StringComparison.Ordinal);
+
+        Assert.True(inboxGuardIndex >= 0);
+        Assert.True(backlogPaneIndex > inboxGuardIndex);
     }
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
@@ -75,3 +91,4 @@ public sealed class GlobalPaneMarkupTests
         throw new FileNotFoundException("Could not locate src\\App\\Backlog.Desktop.UI\\Components\\Pages\\Home.razor from the test output directory.");
     }
 }
+

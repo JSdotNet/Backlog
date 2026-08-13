@@ -231,7 +231,12 @@
         </section>
     }
 
-    <main class="knowledge-layout @((BacklogPaneVisible && SidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed")" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
+    <main class="knowledge-layout @((BacklogPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeBacklogVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
+        @if (InboxBeforeBacklogVisible)
+        {
+            @RenderInboxPane()
+        }
+
         @if (BacklogPaneVisible)
         {
             <section class="backlog-workspace" id="backlog-pane" data-testid="backlog-pane" aria-label="Backlog entries">
@@ -549,7 +554,7 @@
         </section>
         }
 
-        @if (SidePaneVisible)
+        @if (RightSidePaneVisible)
         {
             @if (BacklogPaneVisible)
             {
@@ -573,7 +578,7 @@
             }
 
             <aside class="side-pane-stack @(BacklogPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Backlog side panes">
-                @if (InboxPaneVisible)
+                @if (!BacklogPaneVisible && InboxPaneVisible)
                 {
                     @RenderInboxPane()
                 }
@@ -802,7 +807,9 @@
 
     private bool CanUpdateAnyTool => _tools.Any(tool => tool.CanUpdate);
 
-    private bool SidePaneVisible => ToolsVisible || InboxPaneVisible || KnowledgePaneVisible;
+    private bool InboxBeforeBacklogVisible => BacklogPaneVisible && InboxPaneVisible;
+
+    private bool RightSidePaneVisible => ToolsVisible || KnowledgePaneVisible || (InboxPaneVisible && !BacklogPaneVisible);
 
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(AppFeatureSettingsStore.AdditionalRepositories);
 

@@ -2780,6 +2780,22 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+.knowledge-layout--inbox-before-backlog.knowledge-layout--side-closed {
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+}
+
+.knowledge-layout--inbox-before-backlog.knowledge-layout--side-open {
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) auto minmax(24rem, min(var(--knowledge-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
+}
+
+.knowledge-layout--inbox-before-backlog > .inbox-pane {
+    position: sticky;
+    top: var(--spacing-lg);
+    align-self: start;
+    max-height: calc(100vh - (var(--spacing-lg) * 2));
+    overflow: auto;
+}
+
 .knowledge-layout--side-closed .backlog-workspace {
     width: 100%;
 }
@@ -3071,6 +3087,17 @@ body.is-resizing-pane {
     .knowledge-layout,
     .knowledge-layout--side-open {
         grid-template-columns: 1fr;
+    }
+
+    .knowledge-layout--inbox-before-backlog.knowledge-layout--side-open,
+    .knowledge-layout--inbox-before-backlog.knowledge-layout--side-closed {
+        grid-template-columns: 1fr;
+    }
+
+    .knowledge-layout--inbox-before-backlog > .inbox-pane {
+        position: static;
+        top: auto;
+        max-height: none;
     }
 
     .side-pane-stack,
