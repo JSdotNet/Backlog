@@ -19,7 +19,9 @@ public sealed class KnowledgeFolderSource(GitHubSettingsStore settings)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        var repository = settings.Current.Find(repositoryAlias);
+        var repository = string.IsNullOrWhiteSpace(repositoryAlias)
+            ? settings.Current.Repositories.FirstOrDefault()
+            : settings.Current.Find(repositoryAlias);
         if (repository is null)
         {
             return KnowledgeFolderLocation.Unavailable(

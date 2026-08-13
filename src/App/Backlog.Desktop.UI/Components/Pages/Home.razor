@@ -772,8 +772,8 @@
         {
             if (AdditionalRepositoriesEnabled) return GitHub.Repositories;
 
-            var primary = GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
-            return primary is null ? [] : [primary];
+            var repository = GitHub.Repositories.FirstOrDefault();
+            return repository is null ? [] : [repository];
         }
     }
 
@@ -902,13 +902,13 @@
         {
             if (!AdditionalRepositoriesEnabled)
             {
-                return GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
+                return GitHub.Repositories.FirstOrDefault();
             }
 
             var area = State.SelectedArea;
             if (area.Length == 0 || string.Equals(area, BacklogDesktopState.UnfiledArea, StringComparison.Ordinal))
             {
-                return GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
+                return GitHub.Repositories.FirstOrDefault();
             }
 
             return GitHub.Settings.Current.Find(area);
@@ -1046,7 +1046,7 @@
     </li>;
 
     private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
-        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Settings.Current.PrimaryRepository;
+        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Repositories.FirstOrDefault();
 
     private async Task RefreshKnowledgeMenuForActiveRepositoryAsync()
     {
@@ -1405,7 +1405,7 @@
                                     title="Create an issue in @repository.FullName"
                                     aria-label="Create an issue in @repository.FullName"
                                     @onmousedown:preventDefault="true"
-                                    @onclick="() => State.PushToGitHubAsync(row)">
+                                    @onclick="() => State.PushToGitHubAsync(row, repository)">
                                 @if (row.GitHubBusy)
                                 {
                                     <span aria-hidden="true">…</span>
@@ -1524,7 +1524,7 @@
                                 title="Create an issue in @subItemRepository.FullName"
                                 aria-label="Create an issue in @subItemRepository.FullName"
                                 @onmousedown:preventDefault="true"
-                                @onclick="() => State.PushSubItemToGitHubAsync(row, position)">
+                                @onclick="() => State.PushSubItemToGitHubAsync(row, position, subItemRepository)">
                             @if (row.GitHubBusy)
                             {
                                 <span aria-hidden="true">…</span>
@@ -1589,7 +1589,7 @@
             <datalist id="entry-tags-options-@row.Key">
                 @foreach (var tag in TagOptions(row))
                 {
-                    <option value="#@tag"></option>
+                    <option value="@tag"></option>
                 }
             </datalist>
         </label>;
@@ -1856,10 +1856,10 @@
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
             .ToList();
-    private static string TagsInputValue(EntryRow row) => string.Join(" ", row.PreviewMetadataTags.Select(tag => "#" + tag));
+    private static string TagsInputValue(EntryRow row) => EntryTextParser.FormatTagsInput(row.PreviewMetadataTags);
 
     private static string TagsInputValue(MdSubItem subItem) =>
-        string.Join(" ", (subItem.MetadataTags ?? []).Select(tag => "#" + tag));
+        EntryTextParser.FormatTagsInput(subItem.MetadataTags ?? []);
 
     [JSInvokable]
     public Task SetSidePaneWidthAsync(double widthRem)

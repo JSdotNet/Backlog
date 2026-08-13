@@ -1,4 +1,4 @@
-﻿@page "/settings"
+@page "/settings"
 @using Backlog.Infrastructure.Claude
 @inject BacklogStore Store
 @inject GitHubIntegration GitHub
@@ -277,7 +277,7 @@
                 }
                 else
                 {
-                    <span>Entries live in <code>@Store.EntriesDirectory</code>@(Store.IsDefaultRoot ? " - the default location." : ".")</span>
+                    <span>Entries live in <code>@Store.EntriesDirectory</code>@(Store.IsDefaultRoot ? " - the default location." : ".") Inbox is prepared at <code>@Store.InboxDirectory</code>.</span>
                 }
             </p>
 
@@ -296,6 +296,52 @@
                 Entries already written stay in the old folder until you move the files
                 yourself.
             </p>
+
+            <div class="repo-card__section" data-testid="storage-backup-repository">
+                <h3 class="knowledge-folders__title">Backup repository</h3>
+                <p class="setting__note">
+                    Optional GitHub repository metadata for future backup. The folder above remains the place entries are written today.
+                </p>
+
+                <label class="setting__label" for="storage-repository">Repository</label>
+                <input class="setting__input @(_storageRepositoryError is null ? string.Empty : "setting__input--error")"
+                       id="storage-repository"
+                       data-testid="storage-repository-input"
+                       type="text"
+                       spellcheck="false"
+                       autocomplete="off"
+                       placeholder="owner/repo"
+                       aria-describedby="storage-repository-status"
+                       value="@_draftStorageRepository"
+                       @oninput="e => _draftStorageRepository = e.Value?.ToString() ?? string.Empty"
+                       @onchange="ApplyStorageRepository"
+                       @onkeydown="OnStorageRepositoryKeyDown" />
+
+                <p class="setting__status" id="storage-repository-status" data-testid="storage-repository-status" role="status">
+                    @if (_storageRepositoryError is not null)
+                    {
+                        <span class="setting__status--error">@_storageRepositoryError</span>
+                    }
+                    else if (Store.RootRepository is { } storageRepository)
+                    {
+                        <span>Backup metadata points at <code>@storageRepository.FullName</code>.</span>
+                    }
+                    else
+                    {
+                        <span>No backup repository configured.</span>
+                    }
+                </p>
+
+                <div class="setting__actions">
+                    <button type="button"
+                            class="btn"
+                            data-testid="clear-storage-repository-button"
+                            disabled="@(Store.RootRepository is null)"
+                            @onclick="ClearStorageRepository">
+                        Clear backup repository
+                    </button>
+                </div>
+            </div>
         </section>
     }
     else if (_activePage == SettingsPage.Repositories)
@@ -303,9 +349,8 @@
         <section class="setting" data-testid="github-settings" role="tabpanel" aria-label="Repository settings">
             <h2 class="setting__title">Repositories</h2>
             <p class="setting__body">
-                Configure the primary repository Backlog always needs. Extra repositories
-                are available only when the Additional repositories feature is enabled.
-                GitHub needs an <code>owner/repo</code> connection; local features also
+                Configure zero or more repositories Backlog can work with. GitHub needs an
+                <code>owner/repo</code> connection; local features also
                 need the clone directory on this machine.
             </p>
 
@@ -332,17 +377,15 @@
                 }
                 else
                 {
-                    var primaryRepository = GitHub.Settings.Current.PrimaryRepository ?? VisibleRepositories.First();
-
                     <span>
-                        <code>@primaryRepository.FullName</code> is primary.
+                        <code>@VisibleRepositories.First().FullName</code> is configured@(VisibleRepositories.Count > 1 ? $", and {VisibleRepositories.Count - 1} more." : ".")
                         @if (AdditionalRepositoriesEnabled)
                         {
-                            <span>Type <code>@("@" + VisibleRepositories.First().Alias)</code> on an entry to assign it to <code>@VisibleRepositories.First().FullName</code>@(VisibleRepositories.Count > 1 ? $", and {VisibleRepositories.Count - 1} more." : ".")</span>
+                            <span>Type <code>@("@" + VisibleRepositories.First().Alias)</code> on an entry to assign it to <code>@VisibleRepositories.First().FullName</code>.</span>
                         }
                         else
                         {
-                            <span>Enable Additional repositories to configure repository-specific areas beyond the primary repository.</span>
+                            <span>The first configured repository is used for the single-repository backlog experience.</span>
                         }
                     </span>
                 }
@@ -352,7 +395,6 @@
                 <button type="button"
                         class="btn"
                         data-testid="add-repository-button"
-                        disabled="@(!AdditionalRepositoriesEnabled)"
                         @onclick="AddRepositoryDraft">
                     Add repository
                 </button>
@@ -369,39 +411,27 @@
                                 aria-selected="@RepositoryPageSelected(repository)"
                                 @onclick="() => ShowRepositoryPage(repository.Alias)">
                             <span>@repository.FullName</span>
-                            @if (repository.IsPrimary)
-                            {
-                                <span class="repo-card__badge">Primary</span>
-                            }
                         </button>
                     }
                 </div>
 
                 @if (ActiveRepository is { } activeRepo)
                 {
-                    <article class="repo-card @(activeRepo.IsPrimary ? "repo-card--primary" : string.Empty)" data-testid="github-repo-card" role="tabpanel" aria-label="@($"{activeRepo.FullName} repository settings")">
+                    <article class="repo-card" data-testid="github-repo-card" role="tabpanel" aria-label="@($"{activeRepo.FullName} repository settings")">
                         <header class="repo-card__header">
                             <div>
                                 <h3 class="repo-card__title">@activeRepo.FullName</h3>
                                 <p class="repo-card__meta">
                                     Area <code>@("@" + activeRepo.Alias)</code>
-                                    @if (activeRepo.IsPrimary)
-                                    {
-                                        <span class="repo-card__badge">Primary</span>
-                                    }
                                 </p>
                             </div>
 
-                            @if (AdditionalRepositoriesEnabled)
-                            {
-                                <label class="repo-card__primary">
-                                    <input type="radio"
-                                           name="primary-repository"
-                                           checked="@activeRepo.IsPrimary"
-                                           @onchange="() => SetPrimaryRepository(activeRepo.Alias)" />
-                                    Primary fallback
-                                </label>
-                            }
+                            <button type="button"
+                                    class="btn"
+                                    data-testid="remove-repository-button"
+                                    @onclick="() => RemoveRepository(activeRepo)">
+                                Remove repository
+                            </button>
                         </header>
 
                         <label class="setting__label" for="clone-@activeRepo.Alias">Local clone directory</label>
@@ -544,6 +574,8 @@
 
     private string _draftRepos = string.Empty;
     private string? _repoError;
+    private string _draftStorageRepository = string.Empty;
+    private string? _storageRepositoryError;
     private GitHubConnection? _connection;
     private string? _featureMessage;
     private string _draftAzureFoundryEndpoint = string.Empty;
@@ -581,24 +613,13 @@
 
     private bool UsageMetricsEnabled => Features.IsEnabled(AppFeatureSettingsStore.UsageMetrics);
 
-    private string RepositoryInputLabel => AdditionalRepositoriesEnabled ? "Repositories" : "Primary repository";
+    private string RepositoryInputLabel => "Repositories";
 
-    private int RepositoryInputRows => AdditionalRepositoriesEnabled ? 4 : 2;
+    private int RepositoryInputRows => Math.Max(4, GitHub.Repositories.Count + 1);
 
-    private string RepositoryInputPlaceholder => AdditionalRepositoriesEnabled
-        ? "JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs"
-        : "JSdotNet/Backlog";
+    private string RepositoryInputPlaceholder => "JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs";
 
-    private IReadOnlyList<GitHubRepositoryRef> VisibleRepositories
-    {
-        get
-        {
-            if (AdditionalRepositoriesEnabled) return GitHub.Repositories;
-
-            var primary = GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
-            return primary is null ? [] : [primary];
-        }
-    }
+    private IReadOnlyList<GitHubRepositoryRef> VisibleRepositories => GitHub.Repositories;
 
     private string RepositoryPageClass(GitHubRepositoryRef repo) =>
         IsActiveRepository(repo) ? "repo-subpage repo-subpage--active" : "repo-subpage";
@@ -725,6 +746,7 @@
     protected override Task OnInitializedAsync()
     {
         _draftPath = Store.RootDirectory;
+        _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
         SyncAzureFoundryDrafts();
         SyncUsageEndpointDrafts();
         _draftRepos = RepositorySettingsText();
@@ -766,6 +788,26 @@
         return ApplyAsync();
     }
 
+    private void ApplyStorageRepository()
+    {
+        _storageRepositoryError = string.IsNullOrWhiteSpace(_draftStorageRepository)
+            ? Store.ClearRepository()
+            : Store.TrySetRepository(_draftStorageRepository);
+        _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+    }
+
+    private void ClearStorageRepository()
+    {
+        _storageRepositoryError = Store.ClearRepository();
+        _draftStorageRepository = string.Empty;
+    }
+
+    private void OnStorageRepositoryKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyStorageRepository();
+        else if (e.Key == "Escape") _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+    }
+
     /// <summary>Commits the repository list. Lines that aren't repositories are
     /// reported and skipped rather than throwing away the ones around them —
     /// a half-typed line is an ordinary thing to have in a text box.</summary>
@@ -773,12 +815,6 @@
     {
         var (repositories, errors) = GitHubSettings.ParseText(_draftRepos);
         var messages = new List<string>(errors);
-
-        if (!AdditionalRepositoriesEnabled && repositories.Count > 1)
-        {
-            repositories = [repositories[0]];
-            messages.Add("Enable Additional repositories before adding more than the primary repository.");
-        }
 
         var saveError = GitHub.Settings.SetRepositories(repositories);
         if (saveError is not null) messages.Add(saveError);
@@ -790,15 +826,9 @@
 
     private void AddRepositoryDraft()
     {
-        if (!AdditionalRepositoriesEnabled)
-        {
-            _repoError = "Enable Additional repositories before adding another repository.";
-            return;
-        }
-
         var separator = string.IsNullOrWhiteSpace(_draftRepos) ? string.Empty : Environment.NewLine;
         _draftRepos = $"{_draftRepos}{separator}new-repository = owner/repo";
-        _repoError = "Replace the placeholder with the additional repository owner/repo, then leave the field to save it.";
+        _repoError = "Replace the placeholder with the repository owner/repo, then leave the field to save it.";
     }
 
     private string CloneDirectoryDraft(GitHubRepositoryRef repo)
@@ -824,9 +854,10 @@
         return draft;
     }
 
-    private void SetPrimaryRepository(string alias)
+    private void RemoveRepository(GitHubRepositoryRef repository)
     {
-        _repoError = GitHub.Settings.SetPrimaryRepository(alias);
+        _repoError = GitHub.Settings.RemoveRepository(repository.Alias);
+        _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
     }
 
@@ -894,7 +925,7 @@
             if (selected is not null) return selected;
         }
 
-        return GitHub.Settings.Current.PrimaryRepository ?? VisibleRepositories[0];
+        return VisibleRepositories[0];
     }
 
     private bool IsActiveRepository(GitHubRepositoryRef repo) =>
@@ -911,13 +942,7 @@
         _activeRepositoryAlias = FindActiveRepository()?.Alias;
     }
 
-    private string RepositorySettingsText()
-    {
-        if (AdditionalRepositoriesEnabled) return GitHub.Settings.Current.ToText();
-
-        var primary = GitHub.Settings.Current.PrimaryRepository ?? GitHub.Repositories.FirstOrDefault();
-        return primary?.ToLine() ?? string.Empty;
-    }
+    private string RepositorySettingsText() => GitHub.Settings.Current.ToText();
 
     private static string KnowledgeDraftKey(string alias, string folderKey) => $"{alias}|{folderKey}";
 
