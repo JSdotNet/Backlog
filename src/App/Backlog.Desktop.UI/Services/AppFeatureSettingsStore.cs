@@ -30,6 +30,7 @@ public sealed class AppFeatureSettings
 public sealed class AppFeatureSettingsStore
 {
     public const string Backlog = "backlog";
+    public const string InboxPane = "inbox-pane";
     public const string RepositoryKnowledge = "repository-knowledge";
     public const string KnowledgeSections = "knowledge-sections";
     public const string SystemTools = "system-tools";
@@ -76,6 +77,7 @@ public sealed class AppFeatureSettingsStore
     public static IReadOnlyList<AppFeatureDefinition> Features { get; } =
     [
         new(Backlog, "Backlog", "Create, edit, filter, reorder, and store backlog entries.", AlwaysEnabled: true),
+        new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false),
         new(KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
         new(RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
         new(AdditionalRepositories, "Additional repositories", "Configure multiple repositories and switch repository-specific knowledge."),

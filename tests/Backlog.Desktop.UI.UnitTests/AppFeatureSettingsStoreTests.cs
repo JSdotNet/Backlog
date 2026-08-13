@@ -57,6 +57,7 @@ public sealed class AppFeatureSettingsStoreTests
         Assert.Equal(
             [
                 AppFeatureSettingsStore.Backlog,
+                AppFeatureSettingsStore.InboxPane,
                 AppFeatureSettingsStore.KnowledgeSections,
                 AppFeatureSettingsStore.RepositoryKnowledge,
                 AppFeatureSettingsStore.AdditionalRepositories,
@@ -84,6 +85,27 @@ public sealed class AppFeatureSettingsStoreTests
             store.SetEnabled(AppFeatureSettingsStore.UsageMetrics, enabled: true);
 
             Assert.True(new AppFeatureSettingsStore(path).IsEnabled(AppFeatureSettingsStore.UsageMetrics));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    [Fact]
+    public void Inbox_pane_stays_off_until_it_is_asked_for()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new AppFeatureSettingsStore(path);
+
+            Assert.False(store.IsEnabled(AppFeatureSettingsStore.InboxPane));
+
+            store.SetEnabled(AppFeatureSettingsStore.InboxPane, enabled: true);
+
+            Assert.True(new AppFeatureSettingsStore(path).IsEnabled(AppFeatureSettingsStore.InboxPane));
         }
         finally
         {
