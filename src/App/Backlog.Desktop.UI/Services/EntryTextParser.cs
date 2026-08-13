@@ -717,6 +717,8 @@ internal static class EntryTextParser
     public static IReadOnlyList<string> ParseTagsInput(string tags) =>
         NormalizeTags(Regex.Split(tags ?? string.Empty, @"[\s,]+"));
 
+    public static string FormatTagsInput(IEnumerable<string> tags) => string.Join(" ", NormalizeTags(tags));
+
     private static IReadOnlyList<string> NormalizeTags(IEnumerable<string> tags) =>
         tags.Select(tag => tag.Trim().TrimStart('#').ToLowerInvariant())
             .Where(tag => TagRegex.IsMatch("#" + tag))
