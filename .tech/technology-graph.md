@@ -2,7 +2,7 @@
 
 ```meta
 status: candidate
-order: ["shared.md", "desktop.md", "ide.md", "mobile.md", "cloud.md", "tooling.md", "assets"]
+order: ["shared.md", "desktop.md", "ide.md", "mobile.md", "cloud.md", "tooling.md"]
 related: [".arc42/04-solution-strategy.md#technology-choices", ".arc42/07-deployment-view.md", ".arc42/09-architecture-decisions.md"]
 ```
 
@@ -27,16 +27,14 @@ layer is the exception: it is already in daily use.
 
 ## Graph
 
-The primary visual roadmap is stored as SVG so it can be rendered directly by
-GitHub and richer viewers without depending on Mermaid layout quality:
-
-![Backlog technology roadmap](assets/technology-roadmap.svg)
-
-Edges in the fallback graph still point from a technology to what it sits on top
-of, mirroring the `depends-on` field of each chapter.
+The application renders this metadata as an embedded interactive roadmap with
+layer lanes, status styling, and selectable dependency highlighting. The source
+Mermaid graph below remains the portable fallback and keeps edges pointing from a
+technology to what it sits on top of, mirroring each chapter's `depends-on`
+field.
 
 <details>
-<summary>Mermaid fallback and source graph</summary>
+<summary>Mermaid source graph</summary>
 ```mermaid
 flowchart LR
     subgraph Legend["Status legend"]
@@ -194,7 +192,7 @@ this project sits below them.
   by two or more channels moves to `shared.md`.
 - Rationale lives in `.arc42` (solution strategy, ADRs). Chapters here link to
   it with `related` instead of restating it.
-- When a node or edge changes, update both the SVG roadmap and the Mermaid fallback in the same change.
+- When a node or edge changes, update the Mermaid source graph in the same change; the embedded roadmap is generated from `.tech` metadata.
 
 Full authoring rules: `knowledge-tech.instructions.md` from the
 `knowledge-base` plugin.

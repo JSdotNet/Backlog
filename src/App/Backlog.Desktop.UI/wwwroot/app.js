@@ -241,13 +241,39 @@ function backlogRenderDiagramError(element, message) {
 
 function backlogStatusColor(status) {
     const normalized = String(status ?? '').toLowerCase();
-    if (normalized === 'accepted' || normalized === 'active') return '#22c55e';
-    if (normalized === 'proposed' || normalized === 'draft') return '#f59e0b';
-    if (normalized === 'deprecated') return '#ef4444';
+    if (normalized === 'accepted' || normalized === 'active' || normalized === 'adopted') return '#22c55e';
+    if (normalized === 'trial') return '#38bdf8';
+    if (normalized === 'hold') return '#f59e0b';
+    if (normalized === 'retired' || normalized === 'deprecated') return '#ef4444';
+    if (normalized === 'proposed' || normalized === 'draft' || normalized === 'candidate') return '#f59e0b';
     return '#38bdf8';
 }
 
-function backlogRenderGraphFallback(element, graph) {
+function backlogGroupTechnologyLayers(nodes) {
+    const layers = [];
+    const byLayer = new Map();
+    for (const node of nodes) {
+        const layer = String(node.layer || 'Unassigned');
+        if (!byLayer.has(layer)) {
+            const group = { layer, nodes: [] };
+            byLayer.set(layer, group);
+            layers.push(group);
+        }
+
+        byLayer.get(layer).nodes.push(node);
+    }
+
+    return layers;
+}
+
+function backlogCreateRoadmapElement(tagName, className, text) {
+    const element = document.createElement(tagName);
+    if (className) element.className = className;
+    if (text !== undefined) element.textContent = text;
+    return element;
+}
+
+function backlogRenderTechnologyRoadmap(element, graph, id) {
     const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
     const edges = Array.isArray(graph?.edges) ? graph.edges : [];
     if (nodes.length === 0) {
@@ -255,41 +281,173 @@ function backlogRenderGraphFallback(element, graph) {
         return;
     }
 
-    const width = Math.max(720, nodes.length * 120);
-    const height = Math.max(360, Math.ceil(nodes.length / 6) * 140);
-    const radius = Math.min(width, height) * 0.34;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const positions = new Map(nodes.map((node, index) => {
-        const angle = (Math.PI * 2 * index) / nodes.length - Math.PI / 2;
-        return [node.id, {
-            x: centerX + Math.cos(angle) * radius,
-            y: centerY + Math.sin(angle) * radius
-        }];
-    }));
+    const existing = backlogDiagramInstances.get(id);
+    existing?.destroy?.();
+    element.replaceChildren();
 
-    const edgeMarkup = edges.map(edge => {
-        const source = positions.get(edge.source);
-        const target = positions.get(edge.target);
-        if (!source || !target) return '';
-        return `<line class="tech-graph__edge" x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" />`;
-    }).join('');
+    const incoming = new Map();
+    const outgoing = new Map();
+    for (const node of nodes) {
+        incoming.set(node.id, []);
+        outgoing.set(node.id, []);
+    }
 
-    const nodeMarkup = nodes.map(node => {
-        const position = positions.get(node.id);
-        const label = backlogEscapeHtml(node.label);
-        const layer = backlogEscapeHtml(node.layer);
-        const color = backlogStatusColor(node.status);
-        return `<g class="tech-graph__node" transform="translate(${position.x} ${position.y})">
-            <circle r="34" fill="${color}" />
-            <text y="-4" text-anchor="middle">${label}</text>
-            <text y="14" text-anchor="middle" class="tech-graph__node-layer">${layer}</text>
-        </g>`;
-    }).join('');
+    for (const edge of edges) {
+        if (!incoming.has(edge.source) || !outgoing.has(edge.target)) continue;
+        incoming.get(edge.source).push(edge.target);
+        outgoing.get(edge.target).push(edge.source);
+    }
 
-    element.innerHTML = `<svg class="tech-graph__fallback-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Technology dependency graph">${edgeMarkup}${nodeMarkup}</svg>`;
+    const roadmap = backlogCreateRoadmapElement('div', 'tech-roadmap');
+    const legend = backlogCreateRoadmapElement('div', 'tech-roadmap__legend');
+    for (const item of ['candidate', 'trial', 'adopted', 'hold', 'retired']) {
+        const swatch = backlogCreateRoadmapElement('span', `tech-roadmap__legend-item tech-roadmap__legend-item--${item}`);
+        swatch.textContent = item;
+        legend.appendChild(swatch);
+    }
+
+    const hint = backlogCreateRoadmapElement('p', 'tech-roadmap__hint', 'Select a card to spotlight its direct dependencies and dependents.');
+    const viewport = backlogCreateRoadmapElement('div', 'tech-roadmap__viewport');
+    const canvas = backlogCreateRoadmapElement('div', 'tech-roadmap__canvas');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'tech-roadmap__edges');
+    svg.setAttribute('aria-hidden', 'true');
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', `${id}-arrow`);
+    marker.setAttribute('viewBox', '0 0 10 10');
+    marker.setAttribute('refX', '9');
+    marker.setAttribute('refY', '5');
+    marker.setAttribute('markerWidth', '7');
+    marker.setAttribute('markerHeight', '7');
+    marker.setAttribute('orient', 'auto-start-reverse');
+    const markerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    markerPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    marker.appendChild(markerPath);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+    canvas.appendChild(svg);
+
+    const cardById = new Map();
+    for (const group of backlogGroupTechnologyLayers(nodes)) {
+        const lane = backlogCreateRoadmapElement('section', 'tech-roadmap__lane');
+        lane.setAttribute('aria-label', group.layer);
+        const header = backlogCreateRoadmapElement('header', 'tech-roadmap__lane-header');
+        header.appendChild(backlogCreateRoadmapElement('h4', null, group.layer));
+        header.appendChild(backlogCreateRoadmapElement('span', 'tech-roadmap__lane-count', String(group.nodes.length)));
+        lane.appendChild(header);
+
+        for (const node of group.nodes) {
+            const dependencies = incoming.get(node.id) ?? [];
+            const dependents = outgoing.get(node.id) ?? [];
+            const card = backlogCreateRoadmapElement('button', `tech-roadmap__card tech-roadmap__card--${String(node.status || 'unknown').toLowerCase()}`);
+            card.type = 'button';
+            card.dataset.nodeId = node.id;
+            card.style.setProperty('--tech-roadmap-status-color', backlogStatusColor(node.status));
+            card.title = node.description || node.label;
+
+            const title = backlogCreateRoadmapElement('span', 'tech-roadmap__card-title', node.label);
+            const meta = backlogCreateRoadmapElement('span', 'tech-roadmap__card-meta');
+            meta.appendChild(backlogCreateRoadmapElement('span', 'tech-roadmap__pill', node.kind || 'technology'));
+            meta.appendChild(backlogCreateRoadmapElement('span', 'tech-roadmap__pill tech-roadmap__pill--status', node.status || 'unknown'));
+            const summary = backlogCreateRoadmapElement('span', 'tech-roadmap__card-summary', node.description || 'No summary yet.');
+            const relation = backlogCreateRoadmapElement('span', 'tech-roadmap__card-relations', `${dependencies.length} dependencies / ${dependents.length} dependents`);
+            card.append(title, meta, summary, relation);
+            lane.appendChild(card);
+            cardById.set(node.id, card);
+        }
+
+        canvas.appendChild(lane);
+    }
+
+    viewport.appendChild(canvas);
+    roadmap.append(legend, hint, viewport);
+    element.appendChild(roadmap);
+
+    let selectedId = null;
+    const relatedIds = () => new Set([
+        selectedId,
+        ...(incoming.get(selectedId) ?? []),
+        ...(outgoing.get(selectedId) ?? [])
+    ].filter(Boolean));
+
+    const drawEdges = () => {
+        const width = Math.max(canvas.scrollWidth, viewport.clientWidth);
+        const height = Math.max(canvas.scrollHeight, viewport.clientHeight);
+        svg.setAttribute('width', String(width));
+        svg.setAttribute('height', String(height));
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        for (const edgePath of [...svg.querySelectorAll('path.tech-roadmap__edge')]) edgePath.remove();
+
+        const highlighted = selectedId ? relatedIds() : null;
+        for (const edge of edges) {
+            const source = cardById.get(edge.source);
+            const target = cardById.get(edge.target);
+            if (!source || !target) continue;
+
+            const sourceRect = source.getBoundingClientRect();
+            const targetRect = target.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+            const from = {
+                x: targetRect.right - canvasRect.left,
+                y: targetRect.top - canvasRect.top + targetRect.height / 2
+            };
+            const to = {
+                x: sourceRect.left - canvasRect.left,
+                y: sourceRect.top - canvasRect.top + sourceRect.height / 2
+            };
+            const direction = Math.max(80, Math.abs(to.x - from.x) * 0.45);
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('class', 'tech-roadmap__edge');
+            path.setAttribute('d', `M ${from.x} ${from.y} C ${from.x + direction} ${from.y}, ${to.x - direction} ${to.y}, ${to.x} ${to.y}`);
+            path.setAttribute('marker-end', `url(#${id}-arrow)`);
+            if (highlighted) {
+                path.classList.toggle('tech-roadmap__edge--active', highlighted.has(edge.source) && highlighted.has(edge.target));
+                path.classList.toggle('tech-roadmap__edge--muted', !(highlighted.has(edge.source) && highlighted.has(edge.target)));
+            }
+            svg.appendChild(path);
+        }
+    };
+
+    const applySelection = (nodeId) => {
+        selectedId = selectedId === nodeId ? null : nodeId;
+        const highlighted = selectedId ? relatedIds() : null;
+        for (const [cardId, card] of cardById) {
+            card.classList.toggle('tech-roadmap__card--selected', cardId === selectedId);
+            card.classList.toggle('tech-roadmap__card--muted', Boolean(highlighted) && !highlighted.has(cardId));
+            card.setAttribute('aria-pressed', cardId === selectedId ? 'true' : 'false');
+        }
+        drawEdges();
+    };
+
+    const listeners = [];
+    for (const [nodeId, card] of cardById) {
+        const onClick = () => applySelection(nodeId);
+        card.addEventListener('click', onClick);
+        listeners.push(() => card.removeEventListener('click', onClick));
+    }
+
+    const onViewportChange = () => window.requestAnimationFrame(drawEdges);
+    viewport.addEventListener('scroll', onViewportChange, { passive: true });
+    window.addEventListener('resize', onViewportChange);
+    listeners.push(() => viewport.removeEventListener('scroll', onViewportChange));
+    listeners.push(() => window.removeEventListener('resize', onViewportChange));
+
+    let resizeObserver;
+    if (window.ResizeObserver) {
+        resizeObserver = new ResizeObserver(onViewportChange);
+        resizeObserver.observe(canvas);
+        listeners.push(() => resizeObserver.disconnect());
+    }
+
+    backlogDiagramInstances.set(id, {
+        destroy() {
+            for (const remove of listeners) remove();
+        }
+    });
+
+    window.requestAnimationFrame(drawEdges);
 }
-
 window.backlogDiagrams = {
     async render(element, id, language, source) {
         const normalized = String(language ?? '').trim().toLowerCase();
@@ -311,51 +469,8 @@ window.backlogDiagrams = {
     },
 
     async renderTechnologyGraph(element, id, graph) {
-        element.innerHTML = '<p class="tech-graph__status" role="status">Rendering AntV G6 technology graph...</p>';
-
-        try {
-            const g6 = await backlogLoadG6();
-            const existing = backlogDiagramInstances.get(id);
-            existing?.destroy?.();
-
-            const data = {
-                nodes: (graph?.nodes ?? []).map(node => ({
-                    id: node.id,
-                    data: node,
-                    style: {
-                        labelText: node.label,
-                        fill: backlogStatusColor(node.status),
-                        stroke: '#e2e8f0'
-                    }
-                })),
-                edges: (graph?.edges ?? []).map(edge => ({
-                    id: edge.id,
-                    source: edge.source,
-                    target: edge.target,
-                    data: edge,
-                    style: {
-                        labelText: edge.label,
-                        stroke: '#64748b',
-                        endArrow: true
-                    }
-                }))
-            };
-
-            const instance = new g6.Graph({
-                container: element,
-                data,
-                autoFit: 'view',
-                layout: { type: 'force', preventOverlap: true, linkDistance: 160 },
-                behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
-                node: { type: 'circle', style: { size: 48, labelFill: '#f8fafc', labelPlacement: 'bottom' } },
-                edge: { type: 'line', style: { labelFill: '#cbd5e1', labelBackground: true } }
-            });
-
-            backlogDiagramInstances.set(id, instance);
-            await instance.render();
-        } catch {
-            backlogRenderGraphFallback(element, graph);
-        }
+        element.innerHTML = '<p class="tech-graph__status" role="status">Rendering embedded technology roadmap...</p>';
+        backlogRenderTechnologyRoadmap(element, graph, id);
     },
 
     dispose(id) {
