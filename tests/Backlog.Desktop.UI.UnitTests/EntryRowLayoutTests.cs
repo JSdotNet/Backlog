@@ -152,6 +152,12 @@ public sealed class EntryRowLayoutTests
     }
 
     [Fact]
+    public void Tag_input_values_display_plain_tag_names_for_datalist_selection()
+    {
+        Assert.Equal("desktop qa-new-tag", EntryTextParser.FormatTagsInput(["desktop", "qa-new-tag"]));
+    }
+
+    [Fact]
     public void Metadata_tag_preview_excludes_body_tags()
     {
         var row = new EntryRow

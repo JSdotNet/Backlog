@@ -1737,6 +1737,10 @@ h1, h2, h3 {
     color: var(--color-text-disabled);
 }
 
+.entry-doc__tag-input::-webkit-calendar-picker-indicator {
+    display: none !important;
+}
+
 .entry-doc__tag-picker:hover,
 .entry-doc__tag-picker:focus-within {
     border-color: var(--color-border);
