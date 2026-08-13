@@ -85,6 +85,10 @@ public sealed class BacklogDesktopState : IDisposable
 
     public string SelectedStatusFilterWire { get; private set; } = string.Empty;
 
+    /// <summary>The repository currently scoping repository-authored backlog and
+    /// knowledge, or empty for all configured repositories.</summary>
+    public string SelectedRepositoryAlias { get; private set; } = string.Empty;
+
     /// <summary>The selected area, or empty for all. <see cref="UnfiledArea"/>
     /// selects the entries that have no area at all.</summary>
     public string SelectedArea { get; private set; } = string.Empty;
@@ -97,6 +101,8 @@ public sealed class BacklogDesktopState : IDisposable
     /// <summary>The areas actually in use, in alphabetical order. There is no
     /// fixed taxonomy: an area exists because somebody typed it.</summary>
     public List<AreaFilterOption> AreaFilters { get; private set; } = [];
+
+    public IReadOnlyList<GitHubRepositoryRef> Repositories => _gitHub.Repositories;
 
     public AppSaveState SaveState { get; private set; } = AppSaveState.Saved;
 
@@ -166,6 +172,26 @@ public sealed class BacklogDesktopState : IDisposable
     {
         SelectedStatusFilterWire = wire ?? string.Empty;
         ApplyFilter();
+    }
+
+    public void SetRepositoryFilter(string? repositoryAlias)
+    {
+        var alias = repositoryAlias ?? string.Empty;
+        var repository = alias.Length == 0 ? null : _gitHub.Settings.Current.Find(alias);
+        if (alias.Length > 0 && repository is null)
+        {
+            alias = string.Empty;
+        }
+        else if (repository is not null)
+        {
+            alias = repository.Alias;
+        }
+
+        if (string.Equals(SelectedRepositoryAlias, alias, StringComparison.Ordinal)) return;
+
+        SelectedRepositoryAlias = alias;
+        ApplyFilter();
+        Changed?.Invoke();
     }
 
     public void SetAreaFilter(string? area)
@@ -973,8 +999,8 @@ public sealed class BacklogDesktopState : IDisposable
     }
 
     /// <summary>Entries the configured repositories authored in their own
-    /// <c>.backlog</c> folders. They are filed under the repository's alias, so
-    /// the same area chips that sort the local backlog sort these too.</summary>
+    /// <c>.backlog</c> folders. They are filed under the repository's alias so
+    /// the global repository scope can keep them with matching local entries.</summary>
     private List<EntryRow> LoadRepositoryRows()
     {
         if (_repositoryBacklog is null) return [];
@@ -1009,9 +1035,16 @@ public sealed class BacklogDesktopState : IDisposable
 
     private void ApplyFilter()
     {
-        RebuildAreaFilters();
-
         IEnumerable<EntryRow> rows = Rows;
+
+        if (SelectedRepositoryAlias.Length > 0)
+        {
+            rows = rows.Where(RowBelongsToSelectedRepository);
+        }
+
+        var repositoryScopedRows = rows.ToList();
+        RebuildAreaFilters(repositoryScopedRows);
+        rows = repositoryScopedRows;
 
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
@@ -1033,15 +1066,22 @@ public sealed class BacklogDesktopState : IDisposable
         FilteredRows = [.. rows.Union(Rows.Where(r => ReferenceEquals(r, EditingRow))).OrderBy(Rows.IndexOf)];
     }
 
-    /// <summary>Areas exist because somebody typed one, so the filter is
-    /// rebuilt from what is actually in the list.</summary>
-    private void RebuildAreaFilters()
-    {
-        var options = new List<AreaFilterOption> { new("All", string.Empty, Rows.Count) };
+    private bool RowBelongsToSelectedRepository(EntryRow row) =>
+        string.Equals(row.PreviewArea, SelectedRepositoryAlias, StringComparison.Ordinal);
 
-        var used = Rows
+    /// <summary>Areas exist because somebody typed one, so the filter is
+    /// rebuilt from what is actually in the current repository scope. Configured
+    /// repository aliases are hidden here because repository selection is a
+    /// global scope, not another area/tag chip.</summary>
+    private void RebuildAreaFilters(IReadOnlyList<EntryRow> scopedRows)
+    {
+        var repositoryAliases = _gitHub.Repositories.Select(repository => repository.Alias).ToHashSet(StringComparer.Ordinal);
+        var options = new List<AreaFilterOption> { new("All", string.Empty, scopedRows.Count) };
+
+        var used = scopedRows
             .Select(r => r.PreviewArea)
             .Where(a => !string.IsNullOrEmpty(a))
+            .Where(a => !repositoryAliases.Contains(a!))
             .GroupBy(a => a!, StringComparer.Ordinal)
             .OrderBy(g => g.Key, StringComparer.Ordinal);
 
@@ -1050,13 +1090,18 @@ public sealed class BacklogDesktopState : IDisposable
             options.Add(new AreaFilterOption(group.Key, group.Key, group.Count()));
         }
 
-        var unfiled = Rows.Count(r => string.IsNullOrEmpty(r.PreviewArea));
+        var unfiled = scopedRows.Count(r => string.IsNullOrEmpty(r.PreviewArea));
         if (unfiled > 0 && options.Count > 1)
         {
             options.Add(new AreaFilterOption("Unfiled", UnfiledArea, unfiled));
         }
 
         AreaFilters = options;
+
+        if (SelectedRepositoryAlias.Length > 0 && _gitHub.Settings.Current.Find(SelectedRepositoryAlias) is null)
+        {
+            SelectedRepositoryAlias = string.Empty;
+        }
 
         // An area stops existing when its last entry leaves it.
         if (SelectedArea.Length > 0 && options.All(o => o.Value != SelectedArea))

@@ -41,7 +41,7 @@ builder.Services.AddSingleton<KnowledgeMenu>();
 builder.Services.AddSingleton<Arc42KnowledgeStore>();
 builder.Services.AddSingleton(_ => CopilotCliIntegration.Unavailable);
 builder.Services.AddScoped<BacklogDesktopState>();
-builder.Services.AddScoped<DomainKnowledgeStore>();
+builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<KnowledgeFolderSource>()));
 
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.

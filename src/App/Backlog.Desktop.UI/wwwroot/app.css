@@ -169,12 +169,12 @@ h1, h2, h3 {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
+    flex-wrap: wrap;
 }
 
 .app-header h1 {
     min-width: min-content;
     font-size: var(--font-size-2xl);
-    margin-right: auto;
 }
 
 .header-link {
@@ -203,11 +203,19 @@ h1, h2, h3 {
 
 /* --- Clickable app version ----------------------------------------------- */
 
+.app-header__repository-scope {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+    min-width: 0;
+}
 .app-header__version {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-sm);
     flex-wrap: wrap;
+    margin-left: auto;
 }
 
 .app-version {
@@ -308,11 +316,12 @@ h1, h2, h3 {
     50% { opacity: 0.35; }
 }
 
-/* --- Filter bar ---------------------------------------------------------- */
+/* --- Repository scope and filter bar ------------------------------------- */
 /*
-  Areas on the left (which pile am I in), status on the right (narrow what is
-  already in view). Two different questions, so two visually separate groups.
+  Repository is a global content scope for backlog + knowledge. Areas remain
+  local piles inside that scope; status narrows what is already in view.
 */
+
 
 .filter-bar {
     display: flex;
@@ -367,6 +376,10 @@ h1, h2, h3 {
     background: var(--color-primary);
     color: var(--color-text-inverse);
     border-color: var(--color-primary);
+}
+
+.chip--scope {
+    background: var(--color-background-raised);
 }
 
 /* The count turns the area filter into a sense of where the work actually is. */
@@ -1924,6 +1937,8 @@ h1, h2, h3 {
 
 .shell--narrow {
     max-width: 720px;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 
 .shell--wide {
@@ -1935,7 +1950,7 @@ h1, h2, h3 {
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
     padding: var(--spacing-lg);
-    overflow: hidden;
+    overflow: visible;
 }
 
 

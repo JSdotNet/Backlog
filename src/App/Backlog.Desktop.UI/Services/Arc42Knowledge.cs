@@ -14,12 +14,12 @@ public sealed class Arc42KnowledgeStore(KnowledgeFolderSource source)
     public Task<Arc42KnowledgeCatalog> LoadAsync(string? repositoryAlias = null)
     {
         var location = source.Resolve(".arc42", repositoryAlias);
-        if (!location.Available || location.Repository?.CloneDirectory is null)
+        if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(Arc42KnowledgeCatalog.Missing(location.Repository?.CloneDirectory ?? location.FullPath ?? string.Empty));
+            return Task.FromResult(Arc42KnowledgeCatalog.Missing(location.RootPath ?? location.FullPath ?? string.Empty));
         }
 
-        return Arc42KnowledgeReader.LoadAsync(location.Repository.CloneDirectory);
+        return Arc42KnowledgeReader.LoadFolderAsync(location.FullPath);
     }
 
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
@@ -41,9 +41,12 @@ public static class Arc42KnowledgeReader
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public static async Task<Arc42KnowledgeCatalog> LoadAsync(string rootDirectory)
+    public static Task<Arc42KnowledgeCatalog> LoadAsync(string rootDirectory) =>
+        LoadFolderAsync(Path.Combine(rootDirectory, ".arc42"));
+
+    public static async Task<Arc42KnowledgeCatalog> LoadFolderAsync(string arc42Directory)
     {
-        var arc42Directory = Path.Combine(rootDirectory, ".arc42");
+        var rootDirectory = Directory.GetParent(arc42Directory)?.FullName ?? arc42Directory;
         if (!Directory.Exists(arc42Directory))
         {
             return Arc42KnowledgeCatalog.Missing(rootDirectory);
