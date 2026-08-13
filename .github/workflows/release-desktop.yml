@@ -171,6 +171,10 @@ jobs:
           [System.IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64))
           $securePassword = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
           $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
+          $expectedSubject = 'CN=JSdotNet'
+          if ($cert.Subject -ne $expectedSubject) {
+            throw "Imported signing certificate subject '$($cert.Subject)' does not match expected publisher '$expectedSubject'. Replace WINDOWS_CERTIFICATE_BASE64 with a code-signing certificate whose subject is $expectedSubject."
+          }
           Remove-Item $pfxPath -Force
           "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
           Write-Output "Imported certificate with thumbprint $($cert.Thumbprint)."
