@@ -56,6 +56,13 @@
       "path": ".tech/tooling.md",
       "title": "Development and Governance Tooling",
       "status": "adopted"
+    },
+    {
+      "type": "directory",
+      "name": "assets",
+      "path": ".tech/assets",
+      "title": "assets",
+      "children": []
     }
   ]
 }

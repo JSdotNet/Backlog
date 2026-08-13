@@ -2,7 +2,7 @@
 
 ```meta
 status: candidate
-order: ["shared.md", "desktop.md", "ide.md", "mobile.md", "cloud.md", "tooling.md"]
+order: ["shared.md", "desktop.md", "ide.md", "mobile.md", "cloud.md", "tooling.md", "assets"]
 related: [".arc42/04-solution-strategy.md#technology-choices", ".arc42/07-deployment-view.md", ".arc42/09-architecture-decisions.md"]
 ```
 
@@ -27,9 +27,16 @@ layer is the exception: it is already in daily use.
 
 ## Graph
 
-Edges point from a technology to what it sits on top of, mirroring the
-`depends-on` field of each chapter.
+The primary visual roadmap is stored as SVG so it can be rendered directly by
+GitHub and richer viewers without depending on Mermaid layout quality:
 
+![Backlog technology roadmap](assets/technology-roadmap.svg)
+
+Edges in the fallback graph still point from a technology to what it sits on top
+of, mirroring the `depends-on` field of each chapter.
+
+<details>
+<summary>Mermaid fallback and source graph</summary>
 ```mermaid
 flowchart LR
     subgraph Legend["Status legend"]
@@ -161,6 +168,8 @@ flowchart LR
     classDef foundation fill:#3a2f14,stroke:#ffd166,color:#fff,stroke-width:1.5px
 ```
 
+</details>
+
 Nodes without an outgoing edge (`YAML`, `Git`, `Windows`, `Android`,
 `GitHub Platform`, `Anthropic Claude Platform`, `Azure Cosmos DB`,
 `Azure Key Vault`, `Firebase Cloud Messaging`) are foundations: nothing in
@@ -185,7 +194,7 @@ this project sits below them.
   by two or more channels moves to `shared.md`.
 - Rationale lives in `.arc42` (solution strategy, ADRs). Chapters here link to
   it with `related` instead of restating it.
-- When a node or edge changes, update this diagram in the same change.
+- When a node or edge changes, update both the SVG roadmap and the Mermaid fallback in the same change.
 
 Full authoring rules: `knowledge-tech.instructions.md` from the
 `knowledge-base` plugin.
