@@ -56,7 +56,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<CopilotCliIntegration>();
         builder.Services.AddSingleton<BacklogDesktopState>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();
-        builder.Services.AddSingleton<DomainKnowledgeStore>();
+        builder.Services.AddSingleton(sp => new DomainKnowledgeStore(sp.GetRequiredService<KnowledgeFolderSource>()));
 
         // The MSIX head can manage its own updates when packaged; it degrades to
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is

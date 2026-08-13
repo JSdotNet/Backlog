@@ -1,10 +1,19 @@
 using Backlog.Infrastructure.GitHub;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text.RegularExpressions;
 
 namespace Backlog.Desktop.UI.Services;
 
-public sealed class DomainKnowledgeStore(KnowledgeFolderSource source)
+public sealed class DomainKnowledgeStore
 {
+    private readonly KnowledgeFolderSource source;
+
+    [ActivatorUtilitiesConstructor]
+    public DomainKnowledgeStore(KnowledgeFolderSource source)
+    {
+        this.source = source;
+    }
+
     public DomainKnowledgeStore(GitHubSettingsStore settings)
         : this(new KnowledgeFolderSource(settings))
     {
