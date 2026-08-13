@@ -79,11 +79,35 @@ public class FileBacklogRepositoryTests : IDisposable
         var a = new BacklogEntry("A", "body text", EntryType.Task);
         await _repo.SaveAsync(a);
 
-        var file = Path.Combine(_dir, "entries", $"{a.Id}.md");
+        var file = Path.Combine(_dir, "_backlog", $"{a.Id}.md");
         var text = await File.ReadAllTextAsync(file);
         Assert.StartsWith("---", text);
         Assert.Contains("title: A", text);
         Assert.Contains("body text", text);
+    }
+
+
+    [Fact]
+    public async Task Existing_entries_folder_is_migrated_to_backlog_folder()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "backlog-tests-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var legacy = Path.Combine(dir, "entries");
+            Directory.CreateDirectory(legacy);
+            var marker = Path.Combine(legacy, "legacy.md");
+            await File.WriteAllTextAsync(marker, "legacy");
+
+            _ = new FileBacklogRepository(dir);
+
+            Assert.False(Directory.Exists(legacy));
+            Assert.True(File.Exists(Path.Combine(dir, "_backlog", "legacy.md")));
+            Assert.True(Directory.Exists(Path.Combine(dir, "_inbox")));
+        }
+        finally
+        {
+            try { if (Directory.Exists(dir)) Directory.Delete(dir, true); } catch { }
+        }
     }
 
     public void Dispose()

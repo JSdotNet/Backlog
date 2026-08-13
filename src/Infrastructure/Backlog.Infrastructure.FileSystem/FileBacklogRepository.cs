@@ -24,6 +24,10 @@ public sealed class FileBacklogRepository : IBacklogRepository
         .IgnoreUnmatchedProperties()
         .Build();
 
+    public const string BacklogFolderName = "_backlog";
+    public const string InboxFolderName = "_inbox";
+    private const string LegacyEntriesFolderName = "entries";
+
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -38,9 +42,23 @@ public sealed class FileBacklogRepository : IBacklogRepository
         _rootDir = rootDir ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Backlog");
-        _entriesDir = Path.Combine(_rootDir, "entries");
+        _entriesDir = Path.Combine(_rootDir, BacklogFolderName);
         _indexPath = Path.Combine(_rootDir, "index.json");
-        Directory.CreateDirectory(_entriesDir);
+        EnsureStorageFolders(_rootDir);
+    }
+
+
+    public static void EnsureStorageFolders(string rootDir)
+    {
+        var backlogDir = Path.Combine(rootDir, BacklogFolderName);
+        var legacyEntriesDir = Path.Combine(rootDir, LegacyEntriesFolderName);
+        if (!Directory.Exists(backlogDir) && Directory.Exists(legacyEntriesDir))
+        {
+            Directory.Move(legacyEntriesDir, backlogDir);
+        }
+
+        Directory.CreateDirectory(backlogDir);
+        Directory.CreateDirectory(Path.Combine(rootDir, InboxFolderName));
     }
 
     /// <summary>The folder where canonical markdown files live.</summary>

@@ -78,7 +78,9 @@ public sealed class BacklogStore
 
     /// <summary>Where the entry markdown files themselves are written — shown on
     /// the settings page so the folder can be found in a file manager.</summary>
-    public string EntriesDirectory => Path.Combine(RootDirectory, "entries");
+    public string EntriesDirectory => Path.Combine(RootDirectory, FileBacklogRepository.BacklogFolderName);
+
+    public string InboxDirectory => Path.Combine(RootDirectory, FileBacklogRepository.InboxFolderName);
 
     /// <summary>Points the app at a different folder. Returns an error message
     /// when the folder cannot be used, rather than throwing — a bad path typed
@@ -108,7 +110,7 @@ public sealed class BacklogStore
 
         try
         {
-            Directory.CreateDirectory(Path.Combine(full, "entries"));
+            FileBacklogRepository.EnsureStorageFolders(full);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
@@ -198,7 +200,7 @@ public sealed class BacklogStore
             var root = settings.RootDirectory;
             if (string.IsNullOrWhiteSpace(root)) return settings with { RootDirectory = null };
 
-            Directory.CreateDirectory(Path.Combine(root, "entries"));
+            FileBacklogRepository.EnsureStorageFolders(root);
             return settings with { RootDirectory = root };
         }
         catch (Exception)
