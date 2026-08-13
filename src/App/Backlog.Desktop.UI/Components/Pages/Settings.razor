@@ -85,50 +85,9 @@
 
                     @if (IsUsageMetricsFeature(feature) && UsageMetricsEnabled)
                     {
-                        <div class="setting" data-testid="usage-api-endpoints-settings" aria-label="AI usage API settings">
-                            <h3 class="setting__title">AI usage organization APIs</h3>
-                            <p class="setting__body">
-                                Configure the API roots Backlog uses for organization-scoped Claude and GitHub Copilot usage metrics.
-                            </p>
-
-                            <label class="setting__label" for="claude-usage-endpoint">Claude organization API endpoint</label>
-                            <input class="setting__input"
-                                   id="claude-usage-endpoint"
-                                   data-testid="claude-usage-endpoint-input"
-                                   type="url"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   value="@_draftClaudeUsageEndpoint"
-                                   @oninput="e => _draftClaudeUsageEndpoint = e.Value?.ToString() ?? string.Empty"
-                                   @onchange="ApplyUsageEndpoints"
-                                   @onkeydown="OnUsageEndpointKeyDown" />
-
-                            <label class="setting__label" for="github-usage-endpoint">GitHub organization API endpoint</label>
-                            <input class="setting__input"
-                                   id="github-usage-endpoint"
-                                   data-testid="github-usage-endpoint-input"
-                                   type="url"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   value="@_draftGitHubUsageEndpoint"
-                                   @oninput="e => _draftGitHubUsageEndpoint = e.Value?.ToString() ?? string.Empty"
-                                   @onchange="ApplyUsageEndpoints"
-                                   @onkeydown="OnUsageEndpointKeyDown" />
-
-                            <p class="setting__status" data-testid="usage-api-endpoints-status" role="status">
-                                @if (_usageEndpointsMessage is not null)
-                                {
-                                    <span>@_usageEndpointsMessage</span>
-                                }
-                                else
-                                {
-                                    <span>Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code> and GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>.</span>
-                                }
-                            </p>
-                            <p class="setting__note">
-                                These endpoints are auto-saved. Keep keys and tokens in their existing secure settings fields; endpoint settings contain no secrets.
-                            </p>
-                        </div>
+                        <p class="setting__note" data-testid="usage-api-endpoints-context-note">
+                            Configure organization usage API endpoints on the AI tab.
+                        </p>
                     }
                 }
             </div>
@@ -142,94 +101,146 @@
 
     @if (_activePage == SettingsPage.Ai && IsSettingsPageAvailable(SettingsPage.Ai))
     {
-        <section class="setting" data-testid="azure-foundry-settings" role="tabpanel" aria-label="AI settings">
-            <h2 class="setting__title">Azure Foundry AI</h2>
-            <p class="setting__body">
-                Connect Backlog to an Azure Foundry chat deployment. The app sends the
-                visible backlog content and your question to that deployment only when
-                you ask.
-            </p>
+        <section class="setting" role="tabpanel" aria-label="AI settings">
+            @if (UsageMetricsEnabled)
+            {
+                <section class="setting" data-testid="usage-api-endpoints-settings" aria-label="AI usage API settings">
+                    <h2 class="setting__title">AI usage organization APIs</h2>
+                    <p class="setting__body">
+                        Configure the API roots Backlog uses for organization-scoped Claude and GitHub Copilot usage metrics.
+                    </p>
 
-            <label class="setting__label" for="azure-foundry-endpoint">Endpoint</label>
-            <input class="setting__input"
-                   id="azure-foundry-endpoint"
-                   data-testid="azure-foundry-endpoint-input"
-                   type="url"
-                   spellcheck="false"
-                   autocomplete="off"
-                   placeholder="https://your-resource.openai.azure.com"
-                   value="@_draftAzureFoundryEndpoint"
-                   @oninput="e => _draftAzureFoundryEndpoint = e.Value?.ToString() ?? string.Empty"
-                   @onchange="ApplyAzureFoundryConnection"
-                   @onkeydown="OnAzureFoundryKeyDown" />
+                    <label class="setting__label" for="claude-usage-endpoint">Claude organization API endpoint</label>
+                    <input class="setting__input"
+                           id="claude-usage-endpoint"
+                           data-testid="claude-usage-endpoint-input"
+                           type="url"
+                           spellcheck="false"
+                           autocomplete="off"
+                           value="@_draftClaudeUsageEndpoint"
+                           @oninput="e => _draftClaudeUsageEndpoint = e.Value?.ToString() ?? string.Empty"
+                           @onchange="ApplyUsageEndpoints"
+                           @onkeydown="OnUsageEndpointKeyDown" />
 
-            <label class="setting__label" for="azure-foundry-deployment">Deployment</label>
-            <input class="setting__input"
-                   id="azure-foundry-deployment"
-                   data-testid="azure-foundry-deployment-input"
-                   type="text"
-                   spellcheck="false"
-                   autocomplete="off"
-                   placeholder="gpt-5.4"
-                   value="@_draftAzureFoundryDeployment"
-                   @oninput="e => _draftAzureFoundryDeployment = e.Value?.ToString() ?? string.Empty"
-                   @onchange="ApplyAzureFoundryConnection"
-                   @onkeydown="OnAzureFoundryKeyDown" />
+                    <label class="setting__label" for="github-usage-endpoint">GitHub organization API endpoint</label>
+                    <input class="setting__input"
+                           id="github-usage-endpoint"
+                           data-testid="github-usage-endpoint-input"
+                           type="url"
+                           spellcheck="false"
+                           autocomplete="off"
+                           value="@_draftGitHubUsageEndpoint"
+                           @oninput="e => _draftGitHubUsageEndpoint = e.Value?.ToString() ?? string.Empty"
+                           @onchange="ApplyUsageEndpoints"
+                           @onkeydown="OnUsageEndpointKeyDown" />
 
-            <label class="setting__label" for="azure-foundry-api-version">API version</label>
-            <input class="setting__input"
-                   id="azure-foundry-api-version"
-                   data-testid="azure-foundry-api-version-input"
-                   type="text"
-                   spellcheck="false"
-                   autocomplete="off"
-                   value="@_draftAzureFoundryApiVersion"
-                   @oninput="e => _draftAzureFoundryApiVersion = e.Value?.ToString() ?? string.Empty"
-                   @onchange="ApplyAzureFoundryConnection"
-                   @onkeydown="OnAzureFoundryKeyDown" />
+                    <p class="setting__status" data-testid="usage-api-endpoints-status" role="status">
+                        @if (_usageEndpointsMessage is not null)
+                        {
+                            <span>@_usageEndpointsMessage</span>
+                        }
+                        else
+                        {
+                            <span>Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code> and GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>.</span>
+                        }
+                    </p>
+                    <p class="setting__note">
+                        These endpoints are auto-saved. Keep keys and tokens in their existing secure settings fields; endpoint settings contain no secrets.
+                    </p>
+                </section>
+            }
 
-            <label class="setting__label" for="azure-foundry-api-key">API key</label>
-            <input class="setting__input"
-                   id="azure-foundry-api-key"
-                   data-testid="azure-foundry-api-key-input"
-                   type="password"
-                   spellcheck="false"
-                   autocomplete="off"
-                   placeholder="@(AzureFoundry.Current.ApiKey is null ? "key" : "stored - hidden")"
-                   value="@_draftAzureFoundryApiKey"
-                   @oninput="e => _draftAzureFoundryApiKey = e.Value?.ToString() ?? string.Empty"
-                   @onchange="ApplyAzureFoundryApiKey"
-                   @onkeydown="OnAzureFoundryApiKeyDown" />
+            @if (AiAssistantEnabled)
+            {
+                <section class="setting" data-testid="azure-foundry-settings" aria-label="Azure Foundry AI settings">
+                    <h2 class="setting__title">Azure Foundry AI</h2>
+                    <p class="setting__body">
+                        Connect Backlog to an Azure Foundry chat deployment. The app sends the
+                        visible backlog content and your question to that deployment only when
+                        you ask.
+                    </p>
 
-            <p class="setting__status" data-testid="azure-foundry-status" role="status">
-                @if (_azureFoundryMessage is not null)
-                {
-                    <span>@_azureFoundryMessage</span>
-                }
-                else if (AzureFoundry.Current.IsConfigured)
-                {
-                    <span>AI is connected to <code>@AzureFoundry.Current.Deployment</code>.</span>
-                }
-                else
-                {
-                    <span>AI needs an endpoint, deployment, and API key before it can answer questions.</span>
-                }
-            </p>
+                    <label class="setting__label" for="azure-foundry-endpoint">Endpoint</label>
+                    <input class="setting__input"
+                           id="azure-foundry-endpoint"
+                           data-testid="azure-foundry-endpoint-input"
+                           type="url"
+                           spellcheck="false"
+                           autocomplete="off"
+                           placeholder="https://your-resource.openai.azure.com"
+                           value="@_draftAzureFoundryEndpoint"
+                           @oninput="e => _draftAzureFoundryEndpoint = e.Value?.ToString() ?? string.Empty"
+                           @onchange="ApplyAzureFoundryConnection"
+                           @onkeydown="OnAzureFoundryKeyDown" />
 
-            <div class="setting__actions">
-                <button type="button"
-                        class="btn"
-                        data-testid="azure-foundry-clear-key-button"
-                        disabled="@(AzureFoundry.Current.ApiKey is null)"
-                        @onclick="ClearAzureFoundryApiKey">
-                    Forget API key
-                </button>
-            </div>
+                    <label class="setting__label" for="azure-foundry-deployment">Deployment</label>
+                    <input class="setting__input"
+                           id="azure-foundry-deployment"
+                           data-testid="azure-foundry-deployment-input"
+                           type="text"
+                           spellcheck="false"
+                           autocomplete="off"
+                           placeholder="gpt-5.4"
+                           value="@_draftAzureFoundryDeployment"
+                           @oninput="e => _draftAzureFoundryDeployment = e.Value?.ToString() ?? string.Empty"
+                           @onchange="ApplyAzureFoundryConnection"
+                           @onkeydown="OnAzureFoundryKeyDown" />
 
-            <p class="setting__note">
-                The key is kept in <code>@AzureFoundry.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
-            </p>
+                    <label class="setting__label" for="azure-foundry-api-version">API version</label>
+                    <input class="setting__input"
+                           id="azure-foundry-api-version"
+                           data-testid="azure-foundry-api-version-input"
+                           type="text"
+                           spellcheck="false"
+                           autocomplete="off"
+                           value="@_draftAzureFoundryApiVersion"
+                           @oninput="e => _draftAzureFoundryApiVersion = e.Value?.ToString() ?? string.Empty"
+                           @onchange="ApplyAzureFoundryConnection"
+                           @onkeydown="OnAzureFoundryKeyDown" />
 
+                    <label class="setting__label" for="azure-foundry-api-key">API key</label>
+                    <input class="setting__input"
+                           id="azure-foundry-api-key"
+                           data-testid="azure-foundry-api-key-input"
+                           type="password"
+                           spellcheck="false"
+                           autocomplete="off"
+                           placeholder="@(AzureFoundry.Current.ApiKey is null ? "key" : "stored - hidden")"
+                           value="@_draftAzureFoundryApiKey"
+                           @oninput="e => _draftAzureFoundryApiKey = e.Value?.ToString() ?? string.Empty"
+                           @onchange="ApplyAzureFoundryApiKey"
+                           @onkeydown="OnAzureFoundryApiKeyDown" />
+
+                    <p class="setting__status" data-testid="azure-foundry-status" role="status">
+                        @if (_azureFoundryMessage is not null)
+                        {
+                            <span>@_azureFoundryMessage</span>
+                        }
+                        else if (AzureFoundry.Current.IsConfigured)
+                        {
+                            <span>AI is connected to <code>@AzureFoundry.Current.Deployment</code>.</span>
+                        }
+                        else
+                        {
+                            <span>AI needs an endpoint, deployment, and API key before it can answer questions.</span>
+                        }
+                    </p>
+
+                    <div class="setting__actions">
+                        <button type="button"
+                                class="btn"
+                                data-testid="azure-foundry-clear-key-button"
+                                disabled="@(AzureFoundry.Current.ApiKey is null)"
+                                @onclick="ClearAzureFoundryApiKey">
+                            Forget API key
+                        </button>
+                    </div>
+
+                    <p class="setting__note">
+                        The key is kept in <code>@AzureFoundry.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
+                    </p>
+                </section>
+            }
         </section>
     }
     @if (_activePage == SettingsPage.Storage)
@@ -566,6 +577,8 @@
 
     private bool AdditionalRepositoriesEnabled => Features.IsEnabled(AppFeatureSettingsStore.AdditionalRepositories);
 
+    private bool AiAssistantEnabled => Features.IsEnabled(AppFeatureSettingsStore.AiAssistant);
+
     private bool UsageMetricsEnabled => Features.IsEnabled(AppFeatureSettingsStore.UsageMetrics);
 
     private string RepositoryInputLabel => AdditionalRepositoriesEnabled ? "Repositories" : "Primary repository";
@@ -603,7 +616,7 @@
     private bool IsSettingsPageAvailable(SettingsPage page) => page switch
     {
         SettingsPage.Features or SettingsPage.Storage or SettingsPage.Repositories => true,
-        SettingsPage.Ai => Features.IsEnabled(AppFeatureSettingsStore.AiAssistant),
+        SettingsPage.Ai => AiAssistantEnabled || UsageMetricsEnabled,
         _ => false
     };
 

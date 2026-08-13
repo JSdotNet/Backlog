@@ -11,11 +11,19 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class SettingsAiUsageTests
 {
     [Fact]
-    public void Usage_endpoint_settings_stay_available_without_ai_assistant()
+    public void Ai_tab_and_usage_endpoints_are_visible_when_only_usage_metrics_enabled()
     {
         using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
 
-        Assert.Single(context.Component.FindAll("[data-testid='usage-api-endpoints-settings']"));
+        Assert.Contains("AI", SettingsTabs(context.Component));
+        Assert.Empty(context.Component.FindAll("[data-testid='usage-api-endpoints-settings']"));
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Single(context.Component.FindAll("[data-testid='usage-api-endpoints-settings']"));
+            Assert.Empty(context.Component.FindAll("[data-testid='azure-foundry-settings']"));
+        });
 
         var claudeInput = context.Component.Find("[data-testid='claude-usage-endpoint-input']");
         claudeInput.Input(" https://claude.example.internal/v1/ ");
@@ -31,28 +39,40 @@ public sealed class SettingsAiUsageTests
     }
 
     [Fact]
-    public void Azure_foundry_settings_stay_hidden_when_ai_assistant_disabled()
+    public void Ai_tab_shows_azure_foundry_only_when_only_ai_assistant_enabled()
     {
-        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
+        using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: false);
 
-        var tabs = context.Component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim()).ToArray();
-        Assert.DoesNotContain("AI", tabs);
-        Assert.Empty(context.Component.FindAll("[data-testid='azure-foundry-settings']"));
+        Assert.Contains("AI", SettingsTabs(context.Component));
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Single(context.Component.FindAll("[data-testid='azure-foundry-settings']"));
+            Assert.Empty(context.Component.FindAll("[data-testid='usage-api-endpoints-settings']"));
+        });
     }
 
     [Fact]
-    public void Usage_metrics_and_ai_assistant_settings_coexist_when_enabled()
+    public void Ai_tab_shows_both_sections_when_usage_metrics_and_ai_assistant_are_enabled()
     {
         using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: true);
 
-        Assert.Single(context.Component.FindAll("[data-testid='usage-api-endpoints-settings']"));
+        Assert.Contains("AI", SettingsTabs(context.Component));
 
-        context.Component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "AI").Click();
-        context.Component.WaitForAssertion(() => Assert.Single(context.Component.FindAll("[data-testid='azure-foundry-settings']")));
-
-        context.Component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Features").Click();
-        context.Component.WaitForAssertion(() => Assert.Single(context.Component.FindAll("[data-testid='usage-api-endpoints-settings']")));
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Single(context.Component.FindAll("[data-testid='azure-foundry-settings']"));
+            Assert.Single(context.Component.FindAll("[data-testid='usage-api-endpoints-settings']"));
+        });
     }
+
+    private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
+        component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim()).ToArray();
+
+    private static void OpenAiTab(IRenderedComponent<Settings> component) =>
+        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "AI").Click();
 
     private static SettingsRenderContext RenderSettings(bool aiAssistantEnabled, bool usageMetricsEnabled)
     {
