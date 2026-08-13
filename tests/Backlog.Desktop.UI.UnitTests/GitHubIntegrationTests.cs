@@ -185,6 +185,60 @@ public sealed class GitHubSettingsTests
     }
 
     [Fact]
+    public void Storage_knowledge_folder_settings_survive_a_restart()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "backlog-store-tests", Guid.NewGuid().ToString("n"));
+        var settingsPath = Path.Combine(directory, "settings.json");
+
+        try
+        {
+            var store = new BacklogStore(directory, settingsPath);
+            store.SetKnowledgeFolder(".tech", enabled: false, path: null);
+            store.SetKnowledgeFolder(".domain", enabled: true, path: @"knowledge\domain");
+            store.SetKnowledgeFolder("instructions", enabled: false, path: @"custom\instructions");
+
+            var reopened = new BacklogStore(directory, settingsPath);
+
+            Assert.False(reopened.KnowledgeFolders.Single(f => f.Key == ".tech").Enabled);
+            Assert.Equal(@"knowledge\domain", reopened.KnowledgeFolders.Single(f => f.Key == ".domain").Path);
+            Assert.Equal(".arc42", reopened.KnowledgeFolders.Single(f => f.Key == ".arc42").EffectivePath);
+            var instructions = reopened.KnowledgeFolders.Single(f => f.Key == "instructions");
+            Assert.False(instructions.Enabled);
+            Assert.Null(instructions.Path);
+        }
+        finally
+        {
+            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
+    public void Storage_knowledge_source_resolves_without_a_repository_selection()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "backlog-store-tests", Guid.NewGuid().ToString("n"));
+        var settingsPath = Path.Combine(directory, "settings.json");
+        var githubPath = Path.Combine(directory, "github.json");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(directory, "knowledge", "domain"));
+            var store = new BacklogStore(directory, settingsPath);
+            store.SetKnowledgeFolder(".domain", enabled: true, path: @"knowledge\domain");
+            var source = new KnowledgeFolderSource(new GitHubSettingsStore(githubPath), store);
+
+            var location = source.Resolve(".domain");
+
+            Assert.True(location.Available);
+            Assert.Equal(Path.GetFullPath(Path.Combine(directory, "knowledge", "domain")), location.FullPath);
+            Assert.Equal(directory, location.RootPath);
+            Assert.Equal("storage", location.ScopeLabel);
+        }
+        finally
+        {
+            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+        }
+    }
+    [Fact]
     public void A_repository_can_be_removed_from_settings()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");

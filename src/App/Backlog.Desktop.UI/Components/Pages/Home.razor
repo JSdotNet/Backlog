@@ -8,6 +8,7 @@
 @inject IAppUpdateService Updates
 @inject IAzureFoundryChatClient AzureFoundryChat
 @inject KnowledgeMenu KnowledgeMenu
+@inject BacklogStore Store
 
 @*
     One entry is one block of markdown. Not focused, it reads as a document;
@@ -1064,14 +1065,6 @@
             return;
         }
 
-        if (repositoryAlias is null)
-        {
-            _knowledgeMenuTree = KnowledgeMenuTree.Empty;
-            _loadedKnowledgeMenuRepositoryAlias = null;
-            _loadedKnowledgeMenuVisibleKeyFingerprint = fingerprint;
-            _knowledgeMenuLoading = false;
-            return;
-        }
 
         await LoadKnowledgeMenuAsync(visibleKeys, repositoryAlias, fingerprint);
     }
@@ -1172,10 +1165,6 @@
 
     private RenderFragment RenderActiveKnowledge()
     {
-        if (ActiveKnowledgeRepositoryAlias is null)
-        {
-            return @<p class="knowledge-empty" role="status">Select a repository to read its knowledge here.</p>;
-        }
 
         return EffectiveKnowledgeSection switch
         {

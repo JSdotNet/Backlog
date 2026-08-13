@@ -1,39 +1,37 @@
-using System.Text.RegularExpressions;
 using Backlog.Infrastructure.GitHub;
+using System.Text.RegularExpressions;
 
 namespace Backlog.Desktop.UI.Services;
 
-public sealed class DomainKnowledgeStore(GitHubSettingsStore settings)
+public sealed class DomainKnowledgeStore(KnowledgeFolderSource source)
 {
+    public DomainKnowledgeStore(GitHubSettingsStore settings)
+        : this(new KnowledgeFolderSource(settings))
+    {
+    }
+
     private static readonly Regex Heading = new("^(#{1,6})[ \\t]+(.+?)\\s*$", RegexOptions.Compiled);
     private static readonly Regex Fence = new("^```(?<lang>[A-Za-z0-9_-]*)\\s*$", RegexOptions.Compiled);
     private static readonly Regex KnowledgeLink = new("\\.(?:domain|arc42|backlog|tech|design)/[^\\s)`>,]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly string[] ContextFiles = ["domain.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
 
-    public Task<DomainKnowledgeView> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
+public Task<DomainKnowledgeView> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var repo = string.IsNullOrWhiteSpace(repositoryAlias)
-            ? settings.Current.Repositories.FirstOrDefault()
-            : settings.Current.Find(repositoryAlias);
-        if (repo is null) return Task.FromResult(DomainKnowledgeView.Unavailable("Configure a repository before opening domain knowledge."));
-        if (string.IsNullOrWhiteSpace(repo.CloneDirectory)) return Task.FromResult(DomainKnowledgeView.Unavailable($"Set a local clone directory for {repo.FullName} before opening domain knowledge."));
+        var location = source.Resolve(".domain", repositoryAlias);
+        if (!location.Available || location.FullPath is null)
+        {
+            return Task.FromResult(DomainKnowledgeView.Unavailable(location.Message ?? "Domain knowledge is unavailable."));
+        }
 
-        var folder = repo.KnowledgeFolders.FirstOrDefault(f => string.Equals(f.Key, ".domain", StringComparison.OrdinalIgnoreCase))
-            ?? KnowledgeFolderSetting.Defaults().First(f => f.Key == ".domain");
-        if (!folder.Enabled) return Task.FromResult(DomainKnowledgeView.Unavailable($"Domain knowledge is turned off for {repo.FullName}."));
-
-        var root = Path.IsPathRooted(folder.EffectivePath) ? Path.GetFullPath(folder.EffectivePath) : Path.GetFullPath(Path.Combine(repo.CloneDirectory, folder.EffectivePath));
-        if (!Directory.Exists(root)) return Task.FromResult(DomainKnowledgeView.Unavailable($"Domain knowledge folder was not found at {root}."));
-
+        var root = location.FullPath;
         var contextMapPath = Path.Combine(root, "context-map.md");
         if (!File.Exists(contextMapPath)) return Task.FromResult(DomainKnowledgeView.Unavailable($"Domain knowledge folder at {root} has no context-map.md."));
 
         var contextMap = ReadDocument(contextMapPath, root, DomainKnowledgeDocumentKind.ContextMap);
         var contexts = ReadContexts(root, ReadOrder(contextMap.Metadata).ToList());
-        return Task.FromResult(new DomainKnowledgeView(repo.FullName, repo.CloneDirectory, root, null, contextMap, contexts));
+        return Task.FromResult(new DomainKnowledgeView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts));
     }
-
 
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
     {
@@ -41,18 +39,11 @@ public sealed class DomainKnowledgeStore(GitHubSettingsStore settings)
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
-        var repo = string.IsNullOrWhiteSpace(repositoryAlias)
-            ? settings.Current.Repositories.FirstOrDefault()
-            : settings.Current.Find(repositoryAlias);
-        if (repo is null) throw new InvalidOperationException("Configure a repository before updating domain knowledge.");
-        if (string.IsNullOrWhiteSpace(repo.CloneDirectory)) throw new InvalidOperationException($"Set a local clone directory for {repo.FullName} before updating domain knowledge.");
+        var location = source.Resolve(".domain", repositoryAlias);
+        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Domain knowledge is unavailable.");
+        if (location.FullPath is null) throw new InvalidOperationException("Domain knowledge folder path is unavailable.");
 
-        var folder = repo.KnowledgeFolders.FirstOrDefault(f => string.Equals(f.Key, ".domain", StringComparison.OrdinalIgnoreCase))
-            ?? KnowledgeFolderSetting.Defaults().First(f => f.Key == ".domain");
-        if (!folder.Enabled) throw new InvalidOperationException($"Domain knowledge is turned off for {repo.FullName}.");
-
-        var root = Path.IsPathRooted(folder.EffectivePath) ? Path.GetFullPath(folder.EffectivePath) : Path.GetFullPath(Path.Combine(repo.CloneDirectory, folder.EffectivePath));
-        KnowledgeMarkdownStatusWriter.UpdateStatus(root, itemPath, ".domain/", status);
+        KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".domain/", status);
         return Task.CompletedTask;
     }
     private static IReadOnlyList<DomainKnowledgeContext> ReadContexts(string root, IReadOnlyList<string> orderedSlugs)

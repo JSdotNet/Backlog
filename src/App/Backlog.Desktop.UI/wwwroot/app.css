@@ -1937,6 +1937,8 @@ h1, h2, h3 {
 
 .shell--narrow {
     max-width: 720px;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 
 .shell--wide {
@@ -1948,7 +1950,7 @@ h1, h2, h3 {
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
     padding: var(--spacing-lg);
-    overflow: hidden;
+    overflow: visible;
 }
 
 

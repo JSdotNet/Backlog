@@ -235,6 +235,49 @@
                 yourself.
             </p>
 
+            <div class="knowledge-folders" data-testid="storage-knowledge-folder-settings">
+                <h3 class="knowledge-folders__title">Knowledge-base sections</h3>
+                <p class="setting__note">
+                    Storage knowledge folders default to their conventional paths under the storage folder.
+                    Clear an override to return to the default, or turn a section off for global knowledge.
+                    Instructions are on/off only and use Backlog's standard folder discovery.
+                </p>
+
+                @foreach (var folder in Store.KnowledgeFolders)
+                {
+                    var knowledgeInputId = $"storage-knowledge-{folder.Key.TrimStart('.')}";
+
+                    <div class="knowledge-folder" data-testid="storage-knowledge-folder-row">
+                        <label class="knowledge-folder__toggle">
+                            <input type="checkbox"
+                                   data-testid="storage-knowledge-folder-enabled"
+                                   checked="@folder.Enabled"
+                                   @onchange="e => SetStorageKnowledgeFolderEnabled(folder, e)" />
+                            <span>@folder.DisplayName</span>
+                            <code>@folder.Key</code>
+                        </label>
+
+                        @if (folder.SupportsPathOverride)
+                        {
+                            <input class="setting__input"
+                                   id="@knowledgeInputId"
+                                   data-testid="storage-knowledge-folder-path-input"
+                                   type="text"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   placeholder="@folder.DefaultRelativePath"
+                                   value="@StorageKnowledgePathDraft(folder)"
+                                   @oninput="e => _draftKnowledgePaths[KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key)] = e.Value?.ToString() ?? string.Empty"
+                                   @onchange="() => ApplyStorageKnowledgeFolderPath(folder)"
+                                   @onkeydown="e => OnStorageKnowledgePathKeyDown(e, folder)" />
+                        }
+                        else
+                        {
+                            <span class="knowledge-folder__fixed">Uses standard instruction file discovery</span>
+                        }
+                    </div>
+                }
+            </div>
             <div class="repo-card__section" data-testid="storage-backup-repository">
                 <h3 class="knowledge-folders__title">Backup repository</h3>
                 <p class="setting__note">
@@ -526,6 +569,7 @@
     private readonly Dictionary<string, string> _draftTokens = new(StringComparer.Ordinal);
     private SettingsPage _activePage = SettingsPage.Features;
     private string? _activeRepositoryAlias;
+    private const string StorageKnowledgeAlias = "storage";
 
     private enum SettingsPage
     {
@@ -649,6 +693,7 @@
     {
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+        SyncStorageKnowledgeDrafts();
         SyncAzureFoundryDrafts();
         _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
@@ -709,6 +754,49 @@
         else if (e.Key == "Escape") _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
     }
 
+    private string StorageKnowledgePathDraft(KnowledgeFolderSetting folder)
+    {
+        var key = KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key);
+        if (!_draftKnowledgePaths.TryGetValue(key, out var draft))
+        {
+            draft = folder.Path ?? string.Empty;
+            _draftKnowledgePaths[key] = draft;
+        }
+
+        return draft;
+    }
+
+    private void SetStorageKnowledgeFolderEnabled(KnowledgeFolderSetting folder, ChangeEventArgs e)
+    {
+        _error = Store.SetKnowledgeFolder(
+            folder.Key,
+            e.Value is bool enabled && enabled,
+            StorageKnowledgePathDraft(folder));
+        SyncStorageKnowledgeDrafts();
+    }
+
+    private void ApplyStorageKnowledgeFolderPath(KnowledgeFolderSetting folder)
+    {
+        _error = Store.SetKnowledgeFolder(
+            folder.Key,
+            folder.Enabled,
+            StorageKnowledgePathDraft(folder));
+        SyncStorageKnowledgeDrafts();
+    }
+
+    private void OnStorageKnowledgePathKeyDown(KeyboardEventArgs e, KnowledgeFolderSetting folder)
+    {
+        if (e.Key == "Enter") ApplyStorageKnowledgeFolderPath(folder);
+        else if (e.Key == "Escape") _draftKnowledgePaths[KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key)] = folder.Path ?? string.Empty;
+    }
+
+    private void SyncStorageKnowledgeDrafts()
+    {
+        foreach (var folder in Store.KnowledgeFolders)
+        {
+            _draftKnowledgePaths[KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key)] = folder.Path ?? string.Empty;
+        }
+    }
     /// <summary>Commits the repository list. Lines that aren't repositories are
     /// reported and skipped rather than throwing away the ones around them —
     /// a half-typed line is an ordinary thing to have in a text box.</summary>

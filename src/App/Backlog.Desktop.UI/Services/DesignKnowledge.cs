@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Desktop.UI.Services;
 
@@ -8,41 +7,18 @@ namespace Backlog.Desktop.UI.Services;
 /// knowledge pane. The Markdown files remain canonical; this service only builds
 /// a read model for display.
 /// </summary>
-public sealed class DesignKnowledgeProvider(GitHubIntegration gitHub)
+public sealed class DesignKnowledgeProvider(KnowledgeFolderSource source)
 {
-    public Task<DesignKnowledgeModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
+public Task<DesignKnowledgeModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
-        var repository = string.IsNullOrWhiteSpace(repositoryAlias)
-            ? gitHub.Settings.Current.Repositories.FirstOrDefault()
-            : gitHub.Settings.Current.Find(repositoryAlias);
-        if (repository is null)
+        cancellationToken.ThrowIfCancellationRequested();
+        var location = source.Resolve(".design", repositoryAlias);
+        if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(DesignKnowledgeModel.Unavailable(
-                "Configure a repository in Settings to show its `.design` knowledge."));
+            return Task.FromResult(DesignKnowledgeModel.Unavailable(location.Message ?? "Design knowledge is unavailable."));
         }
 
-        var folder = repository.KnowledgeFolders.FirstOrDefault(f => string.Equals(f.Key, ".design", StringComparison.OrdinalIgnoreCase))
-                     ?? KnowledgeFolderSetting.Defaults().First(f => f.Key == ".design");
-
-        if (!folder.Enabled)
-        {
-            return Task.FromResult(DesignKnowledgeModel.Unavailable(
-                "The `.design` knowledge folder is turned off for this repository."));
-        }
-
-        if (string.IsNullOrWhiteSpace(repository.CloneDirectory))
-        {
-            return Task.FromResult(DesignKnowledgeModel.Unavailable(
-                $"Set the local clone directory for {repository.FullName} in Settings to read `.design`."));
-        }
-
-        var folderPath = ResolveFolderPath(repository.CloneDirectory, folder.EffectivePath);
-        if (!Directory.Exists(folderPath))
-        {
-            return Task.FromResult(DesignKnowledgeModel.Unavailable(
-                $"No `.design` folder was found at {folderPath}."));
-        }
-
+        var folderPath = location.FullPath;
         var files = Directory.EnumerateFiles(folderPath, "*.md", SearchOption.TopDirectoryOnly)
             .Select(path => DesignKnowledgeParser.ParseFile(folderPath, path))
             .ToList();
@@ -54,13 +30,8 @@ public sealed class DesignKnowledgeProvider(GitHubIntegration gitHub)
         }
 
         files = OrderFiles(files);
-        return Task.FromResult(DesignKnowledgeModel.Available(repository.FullName, folderPath, files));
+        return Task.FromResult(DesignKnowledgeModel.Available(location.ScopeLabel ?? "storage", folderPath, files));
     }
-
-    private static string ResolveFolderPath(string cloneDirectory, string effectivePath) =>
-        Path.IsPathFullyQualified(effectivePath)
-            ? Path.GetFullPath(effectivePath)
-            : Path.GetFullPath(Path.Combine(cloneDirectory, effectivePath));
 
     private static List<DesignKnowledgeFile> OrderFiles(List<DesignKnowledgeFile> files)
     {

@@ -1,20 +1,21 @@
 @inject GitHubIntegration GitHub
 @inject InstructionSourceDiscovery InstructionSources
+@inject BacklogStore Store
 
 <aside class="knowledge-pane instructions-knowledge" data-testid="instructions-knowledge-panel" aria-labelledby="instructions-knowledge-title">
     <header class="knowledge-pane__header">
         <p class="knowledge-pane__eyebrow">Knowledge base</p>
         <h2 id="instructions-knowledge-title">Instructions</h2>
         <p class="knowledge-pane__subtitle">
-            Agent guidance from GitHub Copilot, Claude Code, and shared <code>AGENTS.md</code> files in the configured repository.
+            Agent guidance from GitHub Copilot, Claude Code, and shared <code>AGENTS.md</code> files in the current repository or storage folder.
         </p>
     </header>
 
     @if (!_repositories.Any())
     {
         <div class="knowledge-empty" data-testid="instructions-empty-state" role="status">
-            <p>No repositories are configured.</p>
-            <a href="settings">Open repository settings</a>
+            <p>No instruction source is configured.</p>
+            <a href="settings">Open storage settings</a>
         </div>
     }
     else
@@ -93,8 +94,9 @@
     public string? SelectedPath { get; set; }
 
     private InstructionRepositoryView? ActiveRepository =>
-        _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal))
-        ?? _repositories.FirstOrDefault();
+        string.IsNullOrWhiteSpace(RepositoryAlias)
+            ? _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, "storage", StringComparison.Ordinal))
+            : _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal));
 
     private InstructionDocument? SelectedDocument => ResolveSelectedDocument();
 
@@ -102,11 +104,19 @@
     {
         if (_repositories.Count == 0 || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
         {
-            _repositories = InstructionSources.Discover(GitHub.Repositories);
+            _repositories = string.IsNullOrWhiteSpace(RepositoryAlias)
+                ? InstructionSources.Discover([StorageInstructionRepository()])
+                : InstructionSources.Discover(GitHub.Repositories);
             _loadedRepositoryAlias = RepositoryAlias;
             _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
         }
     }
+
+    private GitHubRepositoryRef StorageInstructionRepository() => new("storage", "Storage", "Folder")
+    {
+        CloneDirectory = Store.RootDirectory,
+        KnowledgeFolders = [.. Store.KnowledgeFolders]
+    };
 
     private InstructionDocument? ResolveSelectedDocument()
     {
