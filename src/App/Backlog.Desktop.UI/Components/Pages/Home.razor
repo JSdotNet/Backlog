@@ -645,7 +645,7 @@
     private readonly HashSet<string> _expandedKnowledgeMenuNodes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _selectedKnowledgeChapterPaths = new(StringComparer.Ordinal);
     private bool _knowledgeMenuLoading;
-    private string _selectedKnowledgeSection = KnowledgeAreas[0].Key;
+    private string _selectedKnowledgeSection = "instructions";
     private string? _loadedKnowledgeMenuRepositoryAlias;
     private string _loadedKnowledgeMenuVisibleKeyFingerprint = string.Empty;
     private string? _appUpdateMessage;
@@ -894,22 +894,10 @@
         {
             if (!IsFeatureEnabled(AppFeatureSettingsStore.KnowledgeSections)) return [];
 
-            return ActiveRepositoryInstructionsEnabled
-                ? KnowledgeAreas
-                : [.. KnowledgeAreas.Where(area => !string.Equals(area.Key, "instructions", StringComparison.Ordinal))];
+            return KnowledgeAreaCatalog.VisibleAreas(ActiveKnowledgeFolders);
         }
     }
 
-    // The repository's own work items are no longer a section here — they are
-    // entries in the backlog itself, filed under the repository's area.
-    private static readonly KnowledgeArea[] KnowledgeAreas =
-    [
-        new("instructions", "Instructions"),
-        new("domain", "Domain"),
-        new("arc42", "Architecture"),
-        new("tech", "Technology"),
-        new("design", "Design")
-    ];
 
     /// <summary>The selected repository is a global scope for both the backlog
     /// list and the knowledge pane. With no explicit scope, knowledge stays
@@ -921,18 +909,9 @@
 
     private string? ActiveKnowledgeRepositoryAlias => ActiveKnowledgeRepository?.Alias;
 
-    private bool ActiveRepositoryInstructionsEnabled
-    {
-        get
-        {
-            var repository = ActiveKnowledgeRepository;
-            if (repository is null) return true;
-
-            var instructions = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
-                .FirstOrDefault(folder => string.Equals(folder.Key, "instructions", StringComparison.OrdinalIgnoreCase));
-            return instructions?.Enabled != false;
-        }
-    }
+    private IReadOnlyList<KnowledgeFolderSetting> ActiveKnowledgeFolders => ActiveKnowledgeRepository is { } repository
+        ? repository.KnowledgeFolders
+        : Store.KnowledgeFolders;
 
     /// <summary>The section actually shown. A section can stop being available
     /// (instructions turned off for this repository), and a tab panel pointing at
@@ -1177,7 +1156,6 @@
         };
     }
 
-    private sealed record KnowledgeArea(string Key, string Label);
 
     private RenderFragment RenderToolsPane() =>
         @<section class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
