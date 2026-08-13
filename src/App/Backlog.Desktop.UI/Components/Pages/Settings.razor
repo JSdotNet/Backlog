@@ -26,13 +26,16 @@
                 @onclick="() => ShowSettingsPage(SettingsPage.Features)">
             Features
         </button>
-        <button type="button"
-                class="@SettingsTabClass(SettingsPage.Ai)"
-                role="tab"
-                aria-selected="@SettingsTabSelected(SettingsPage.Ai)"
-                @onclick="() => ShowSettingsPage(SettingsPage.Ai)">
-            AI
-        </button>
+        @if (IsSettingsPageAvailable(SettingsPage.Ai))
+        {
+            <button type="button"
+                    class="@SettingsTabClass(SettingsPage.Ai)"
+                    role="tab"
+                    aria-selected="@SettingsTabSelected(SettingsPage.Ai)"
+                    @onclick="() => ShowSettingsPage(SettingsPage.Ai)">
+                AI
+            </button>
+        }
         <button type="button"
                 class="@SettingsTabClass(SettingsPage.Storage)"
                 role="tab"
@@ -87,7 +90,7 @@
     }
 
 
-    @if (_activePage == SettingsPage.Ai)
+    @if (_activePage == SettingsPage.Ai && IsSettingsPageAvailable(SettingsPage.Ai))
     {
         <section class="setting" data-testid="azure-foundry-settings" role="tabpanel" aria-label="AI settings">
             <h2 class="setting__title">Azure Foundry AI</h2>
@@ -564,7 +567,8 @@
 
     private bool IsSettingsPageAvailable(SettingsPage page) => page switch
     {
-        SettingsPage.Features or SettingsPage.Ai or SettingsPage.Storage or SettingsPage.Repositories => true,
+        SettingsPage.Features or SettingsPage.Storage or SettingsPage.Repositories => true,
+        SettingsPage.Ai => Features.IsEnabled(AppFeatureSettingsStore.AiAssistant),
         _ => false
     };
 
