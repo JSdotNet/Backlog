@@ -13,12 +13,16 @@ namespace Backlog.Infrastructure.GitHub;
 /// </summary>
 public sealed class GitHubSettings
 {
+    public const string DefaultApiEndpoint = "https://api.github.com";
+
     /// <summary>Repositories in the order they were configured.</summary>
     public List<GitHubRepositoryRef> Repositories { get; init; } = [];
 
     /// <summary>Legacy global token read from older settings files and migrated
     /// onto repositories when saved again.</summary>
     public string? Token { get; init; }
+
+    public string ApiEndpoint { get; init; } = DefaultApiEndpoint;
 
     public bool HasRepositoryToken => Repositories.Any(r => !string.IsNullOrWhiteSpace(r.Token));
 
@@ -139,7 +143,8 @@ public sealed class GitHubSettingsStore
     public string? SetRepositories(IEnumerable<GitHubRepositoryRef> repositories) =>
         Save(new GitHubSettings
         {
-            Repositories = EnsureOnePrimary([.. repositories.Select(PreserveExistingRepositorySettings)])
+            Repositories = EnsureOnePrimary([.. repositories.Select(PreserveExistingRepositorySettings)]),
+            ApiEndpoint = Current.ApiEndpoint
         });
 
     public string? SetRepositoryToken(string alias, string? token)
@@ -158,7 +163,8 @@ public sealed class GitHubSettingsStore
                     string.Equals(r.Alias, normalized, StringComparison.Ordinal)
                         ? r with { Token = CleanToken(token) }
                         : r)
-            ]
+            ],
+            ApiEndpoint = Current.ApiEndpoint
         });
     }
 
@@ -167,6 +173,14 @@ public sealed class GitHubSettingsStore
         var primary = Current.PrimaryRepository;
         return primary is null ? null : SetRepositoryToken(primary.Alias, token);
     }
+
+    public string? SetApiEndpoint(string? apiEndpoint) =>
+        Save(new GitHubSettings
+        {
+            Repositories = [.. Current.Repositories],
+            Token = null,
+            ApiEndpoint = CleanEndpoint(apiEndpoint) ?? GitHubSettings.DefaultApiEndpoint
+        });
 
     public string? SetPrimaryRepository(string alias)
     {
@@ -178,7 +192,8 @@ public sealed class GitHubSettingsStore
 
         return Save(new GitHubSettings
         {
-            Repositories = [.. Current.Repositories.Select(r => r with { IsPrimary = string.Equals(r.Alias, normalized, StringComparison.Ordinal) })]
+            Repositories = [.. Current.Repositories.Select(r => r with { IsPrimary = string.Equals(r.Alias, normalized, StringComparison.Ordinal) })],
+            ApiEndpoint = Current.ApiEndpoint
         });
     }
 
@@ -198,7 +213,8 @@ public sealed class GitHubSettingsStore
                     string.Equals(r.Alias, normalized, StringComparison.Ordinal)
                         ? r with { CloneDirectory = CleanPath(cloneDirectory) }
                         : r)
-            ]
+            ],
+            ApiEndpoint = Current.ApiEndpoint
         });
     }
 
@@ -227,7 +243,8 @@ public sealed class GitHubSettingsStore
                             ]
                         }
                         : r)
-            ]
+            ],
+            ApiEndpoint = Current.ApiEndpoint
         });
     }
 
@@ -236,7 +253,8 @@ public sealed class GitHubSettingsStore
         var normalized = new GitHubSettings
         {
             Repositories = EnsureOnePrimary(settings.Repositories),
-            Token = null
+            Token = null,
+            ApiEndpoint = CleanEndpoint(settings.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint
         };
         Current = normalized;
 
@@ -263,7 +281,8 @@ public sealed class GitHubSettingsStore
                         })
                     ]
                 })],
-                Token = null
+                Token = null,
+                ApiEndpoint = normalized.ApiEndpoint
             };
 
             File.WriteAllText(_path, JsonSerializer.Serialize(dto, JsonOptions));
@@ -311,7 +330,8 @@ public sealed class GitHubSettingsStore
                                 }))
                         })
                 ]),
-                Token = CleanToken(dto.Token)
+                Token = CleanToken(dto.Token),
+                ApiEndpoint = CleanEndpoint(dto.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint
             };
         }
         catch (Exception)
@@ -366,10 +386,21 @@ public sealed class GitHubSettingsStore
 
     private static string? CleanToken(string? token) => string.IsNullOrWhiteSpace(token) ? null : token.Trim();
 
+    private static string? CleanEndpoint(string? endpoint)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint)) return null;
+
+        var trimmed = endpoint.Trim();
+        return trimmed.EndsWith("/", StringComparison.Ordinal)
+            ? trimmed.TrimEnd('/')
+            : trimmed;
+    }
+
     private sealed class SettingsDto
     {
         public List<RepositoryDto> Repositories { get; set; } = [];
         public string? Token { get; set; }
+        public string? ApiEndpoint { get; set; }
     }
 
     private sealed class RepositoryDto

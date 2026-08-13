@@ -10,8 +10,6 @@ namespace Backlog.Infrastructure.Claude;
 /// </summary>
 public sealed class ClaudeAdminTransport : IClaudeTransport
 {
-    private const string ApiRoot = "https://api.anthropic.com/";
-
     private readonly HttpClient _http;
     private readonly ClaudeSettingsStore _settings;
 
@@ -20,7 +18,6 @@ public sealed class ClaudeAdminTransport : IClaudeTransport
         _settings = settings;
         _http = http;
 
-        _http.BaseAddress ??= new Uri(ApiRoot);
         _http.DefaultRequestHeaders.UserAgent.TryParseAdd("Backlog");
     }
 
@@ -52,7 +49,7 @@ public sealed class ClaudeAdminTransport : IClaudeTransport
                 + "Claude Console.");
         }
 
-        using var request = new HttpRequestMessage(method, path.TrimStart('/'));
+        using var request = new HttpRequestMessage(method, EndpointUri(settings.ApiEndpoint, path));
         request.Headers.TryAddWithoutValidation("x-api-key", settings.AdminApiKey);
         request.Headers.TryAddWithoutValidation("anthropic-version", settings.ApiVersion);
 
@@ -86,6 +83,27 @@ public sealed class ClaudeAdminTransport : IClaudeTransport
                 throw new ClaudeException("Anthropic returned something that wasn't JSON.", ex);
             }
         }
+    }
+
+
+    internal static Uri EndpointUri(string endpoint, string path)
+    {
+        var trimmed = endpoint.Trim();
+        if (trimmed.Length == 0)
+        {
+            throw new ClaudeNotConfiguredException("Set the Claude organization API endpoint before reading usage.");
+        }
+
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var baseUri))
+        {
+            throw new ClaudeNotConfiguredException("The Claude organization API endpoint must be an absolute URL.");
+        }
+
+        var baseText = baseUri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal)
+            ? baseUri.AbsoluteUri
+            : baseUri.AbsoluteUri + "/";
+
+        return new Uri(baseText + path.TrimStart('/'));
     }
 
     internal static string Describe(HttpStatusCode status, string payload)

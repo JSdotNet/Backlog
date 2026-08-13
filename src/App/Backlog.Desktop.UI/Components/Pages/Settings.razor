@@ -1,9 +1,11 @@
-@page "/settings"
+﻿@page "/settings"
+@using Backlog.Infrastructure.Claude
 @inject BacklogStore Store
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject AppFeatureSettingsStore Features
 @inject AzureFoundrySettingsStore AzureFoundry
+@inject ClaudeSettingsStore Claude
 
 @*
     The one screen in this app with a form control, and it earns it: a folder
@@ -175,6 +177,49 @@
 
             <p class="setting__note">
                 The key is kept in <code>@AzureFoundry.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
+            </p>
+
+            <h3 class="setting__title">AI usage organization APIs</h3>
+            <p class="setting__body">
+                Configure the API roots Backlog uses for organization-scoped Claude and GitHub Copilot usage metrics.
+            </p>
+
+            <label class="setting__label" for="claude-usage-endpoint">Claude organization API endpoint</label>
+            <input class="setting__input"
+                   id="claude-usage-endpoint"
+                   data-testid="claude-usage-endpoint-input"
+                   type="url"
+                   spellcheck="false"
+                   autocomplete="off"
+                   value="@_draftClaudeUsageEndpoint"
+                   @oninput="e => _draftClaudeUsageEndpoint = e.Value?.ToString() ?? string.Empty"
+                   @onchange="ApplyUsageEndpoints"
+                   @onkeydown="OnUsageEndpointKeyDown" />
+
+            <label class="setting__label" for="github-usage-endpoint">GitHub organization API endpoint</label>
+            <input class="setting__input"
+                   id="github-usage-endpoint"
+                   data-testid="github-usage-endpoint-input"
+                   type="url"
+                   spellcheck="false"
+                   autocomplete="off"
+                   value="@_draftGitHubUsageEndpoint"
+                   @oninput="e => _draftGitHubUsageEndpoint = e.Value?.ToString() ?? string.Empty"
+                   @onchange="ApplyUsageEndpoints"
+                   @onkeydown="OnUsageEndpointKeyDown" />
+
+            <p class="setting__status" data-testid="usage-api-endpoints-status" role="status">
+                @if (_usageEndpointsMessage is not null)
+                {
+                    <span>@_usageEndpointsMessage</span>
+                }
+                else
+                {
+                    <span>Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code> and GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>.</span>
+                }
+            </p>
+            <p class="setting__note">
+                These endpoints are auto-saved. Keep keys and tokens in their existing secure settings fields; endpoint settings contain no secrets.
             </p>
         </section>
     }
@@ -486,6 +531,9 @@
     private string _draftAzureFoundryApiVersion = AzureFoundrySettingsStore.DefaultApiVersion;
     private string _draftAzureFoundryApiKey = string.Empty;
     private string? _azureFoundryMessage;
+    private string _draftClaudeUsageEndpoint = string.Empty;
+    private string _draftGitHubUsageEndpoint = string.Empty;
+    private string? _usageEndpointsMessage;
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftKnowledgePaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _draftTokens = new(StringComparer.Ordinal);
@@ -610,6 +658,32 @@
         _draftAzureFoundryDeployment = AzureFoundry.Current.Deployment ?? string.Empty;
         _draftAzureFoundryApiVersion = AzureFoundry.Current.ApiVersion;
     }
+
+    private void ApplyUsageEndpoints()
+    {
+        var claudeError = Claude.SetApiEndpoint(_draftClaudeUsageEndpoint);
+        var githubError = GitHub.Settings.SetApiEndpoint(_draftGitHubUsageEndpoint);
+
+        _usageEndpointsMessage = string.Join(" ", new[] { claudeError, githubError }.Where(message => !string.IsNullOrWhiteSpace(message)));
+        if (string.IsNullOrWhiteSpace(_usageEndpointsMessage))
+        {
+            _usageEndpointsMessage = "AI usage API settings updated.";
+        }
+
+        SyncUsageEndpointDrafts();
+    }
+
+    private void OnUsageEndpointKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyUsageEndpoints();
+        else if (e.Key == "Escape") SyncUsageEndpointDrafts();
+    }
+
+    private void SyncUsageEndpointDrafts()
+    {
+        _draftClaudeUsageEndpoint = Claude.Current.ApiEndpoint;
+        _draftGitHubUsageEndpoint = GitHub.Settings.Current.ApiEndpoint;
+    }
     private void EnsureActiveSettingsPage()
     {
         if (!IsSettingsPageAvailable(_activePage))
@@ -624,6 +698,7 @@
     {
         _draftPath = Store.RootDirectory;
         SyncAzureFoundryDrafts();
+        SyncUsageEndpointDrafts();
         _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
         return Task.CompletedTask;

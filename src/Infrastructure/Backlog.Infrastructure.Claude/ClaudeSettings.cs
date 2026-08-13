@@ -19,6 +19,8 @@ public sealed record ClaudeSettings
 
     public string ApiVersion { get; init; } = ClaudeSettingsStore.DefaultApiVersion;
 
+    public string ApiEndpoint { get; init; } = ClaudeSettingsStore.DefaultApiEndpoint;
+
     /// <summary>
     /// True when a key is present. Anthropic only issues admin keys to
     /// organizations, so a configured key is also the practical signal that an
@@ -46,6 +48,7 @@ public sealed record ClaudeSettings
 public sealed class ClaudeSettingsStore
 {
     public const string DefaultApiVersion = "2023-06-01";
+    public const string DefaultApiEndpoint = "https://api.anthropic.com";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -91,6 +94,9 @@ public sealed class ClaudeSettingsStore
     public string? SetWorkspaceId(string? workspaceId) =>
         Save(Current with { WorkspaceId = workspaceId });
 
+    public string? SetApiEndpoint(string? apiEndpoint) =>
+        Save(Current with { ApiEndpoint = apiEndpoint ?? DefaultApiEndpoint });
+
     public string? ClearAdminApiKey() => SetAdminApiKey(null);
 
     private string? Save(ClaudeSettings settings)
@@ -131,8 +137,19 @@ public sealed class ClaudeSettingsStore
     {
         AdminApiKey = Clean(settings.AdminApiKey),
         WorkspaceId = Clean(settings.WorkspaceId),
-        ApiVersion = Clean(settings.ApiVersion) ?? DefaultApiVersion
+        ApiVersion = Clean(settings.ApiVersion) ?? DefaultApiVersion,
+        ApiEndpoint = NormalizeEndpoint(settings.ApiEndpoint)
     };
+
+    private static string NormalizeEndpoint(string? endpoint)
+    {
+        var trimmed = Clean(endpoint);
+        if (trimmed is null) return DefaultApiEndpoint;
+
+        return trimmed.EndsWith("/", StringComparison.Ordinal)
+            ? trimmed.TrimEnd('/')
+            : trimmed;
+    }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

@@ -33,7 +33,7 @@ public sealed class ResolvingGitHubTransport(
     TokenTransport? token = null) : IGitHubTransport, IGitHubConnectionProbe
 {
     private readonly GhCliTransport _cli = cli ?? new GhCliTransport();
-    private readonly TokenTransport _token = token ?? new TokenTransport(settings.Current.TokenForPath);
+    private readonly TokenTransport _token = token ?? new TokenTransport(settings.Current.TokenForPath, () => settings.Current.ApiEndpoint);
 
     public string Description => "GitHub CLI, or a personal access token";
 
