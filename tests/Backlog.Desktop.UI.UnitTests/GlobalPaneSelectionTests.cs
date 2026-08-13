@@ -74,4 +74,29 @@ public sealed class GlobalPaneSelectionTests
         Assert.True(selection.IsEnabled(GlobalPane.Inbox));
         Assert.Equal(1, selection.EnabledCount);
     }
+    [Fact]
+    public void Unavailable_panes_cannot_be_enabled_or_toggled()
+    {
+        var selection = new GlobalPaneSelection();
+        selection.TrySetAvailable(GlobalPane.Inbox, available: false);
+
+        Assert.False(selection.TrySetEnabled(GlobalPane.Inbox, enabled: true));
+        Assert.False(selection.Toggle(GlobalPane.Inbox));
+        Assert.False(selection.IsEnabled(GlobalPane.Inbox));
+        Assert.Equal(1, selection.EnabledCount);
+    }
+
+    [Fact]
+    public void Removing_the_last_selected_available_pane_falls_back_to_backlog()
+    {
+        var selection = new GlobalPaneSelection(GlobalPane.Inbox);
+
+        var changed = selection.TrySetAvailable(GlobalPane.Inbox, available: false);
+
+        Assert.True(changed);
+        Assert.False(selection.IsEnabled(GlobalPane.Inbox));
+        Assert.True(selection.IsEnabled(GlobalPane.Backlog));
+        Assert.Equal(1, selection.EnabledCount);
+    }
+
 }

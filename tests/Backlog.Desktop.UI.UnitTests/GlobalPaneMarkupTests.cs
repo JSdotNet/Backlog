@@ -17,6 +17,17 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("id=\"repository-knowledge-pane\"", home, StringComparison.Ordinal);
     }
 
+
+    [Fact]
+    public void Inbox_option_and_pane_are_guarded_by_feature_flag()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("@if (InboxPaneOptionVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("AppFeatureSettingsStore.InboxPane", home, StringComparison.Ordinal);
+        Assert.Contains("_globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);", home, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Pane_multiselect_uses_selected_state_and_never_zero_selection_affordance()
     {

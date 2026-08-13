@@ -71,16 +71,19 @@
         }
 
         <div class="pane-multiselect" role="group" aria-label="Visible panes" data-testid="global-pane-multiselect">
-            <button type="button"
-                    class="pane-multiselect__option @(InboxPaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
-                    id="inbox-pane-option"
-                    data-testid="inbox-pane-option"
-                    aria-controls="inbox-pane"
-                    aria-pressed="@(InboxPaneVisible ? "true" : "false")"
-                    disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
-                    @onclick="ToggleInboxPane">
-                Inbox
-            </button>
+            @if (InboxPaneOptionVisible)
+            {
+                <button type="button"
+                        class="pane-multiselect__option @(InboxPaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
+                        id="inbox-pane-option"
+                        data-testid="inbox-pane-option"
+                        aria-controls="inbox-pane"
+                        aria-pressed="@(InboxPaneVisible ? "true" : "false")"
+                        disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
+                        @onclick="ToggleInboxPane">
+                    Inbox
+                </button>
+            }
 
             <button type="button"
                     class="pane-multiselect__option @(BacklogPaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
@@ -93,7 +96,7 @@
                 Backlog
             </button>
 
-            @if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge) && VisibleKnowledgeAreas.Count > 0)
+            @if (KnowledgePaneOptionVisible)
             {
                 <button type="button"
                         class="pane-multiselect__option @(KnowledgePaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
@@ -694,7 +697,9 @@
     protected override async Task OnInitializedAsync()
     {
         State.Changed += HandleStateChanged;
+        Features.Changed += HandleFeaturesChanged;
         await State.InitializeAsync();
+        SynchronizePaneAvailability();
         await RefreshKnowledgeMenuForActiveRepositoryAsync();
     }
 
@@ -796,12 +801,17 @@
 
     private bool BacklogPaneVisible => _globalPanes.IsEnabled(GlobalPane.Backlog);
 
-    private bool InboxPaneVisible => _globalPanes.IsEnabled(GlobalPane.Inbox);
+    private bool InboxFeatureEnabled => IsFeatureEnabled(AppFeatureSettingsStore.InboxPane);
 
-    private bool KnowledgePaneVisible =>
+    private bool InboxPaneOptionVisible => InboxFeatureEnabled;
+
+    private bool InboxPaneVisible => InboxPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Inbox);
+
+    private bool KnowledgePaneOptionVisible =>
         IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge)
-        && VisibleKnowledgeAreas.Count > 0
-        && _globalPanes.IsEnabled(GlobalPane.Knowledge);
+        && VisibleKnowledgeAreas.Count > 0;
+
+    private bool KnowledgePaneVisible => KnowledgePaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Knowledge);
 
     private bool ToolActionBusy => _toolActionKey is not null;
 
@@ -1770,7 +1780,14 @@
     }
     private void HandleStateChanged() => _ = InvokeAsync(async () =>
     {
+        SynchronizePaneAvailability();
         await RefreshKnowledgeMenuForActiveRepositoryAsync();
+        StateHasChanged();
+    });
+
+    private void HandleFeaturesChanged() => _ = InvokeAsync(() =>
+    {
+        SynchronizePaneAvailability();
         StateHasChanged();
     });
 
@@ -1831,6 +1848,13 @@
             .Where(row => !row.IsUntouched && row.PreviewStatus == EntryStatus.Draft)
             .OrderBy(row => row.PreviewTitle, StringComparer.OrdinalIgnoreCase)
             .Take(12)];
+
+    private void SynchronizePaneAvailability()
+    {
+        _globalPanes.TrySetAvailable(GlobalPane.Backlog, available: true);
+        _globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);
+        _globalPanes.TrySetAvailable(GlobalPane.Knowledge, KnowledgePaneOptionVisible);
+    }
 
     private bool PaneToggleDisabled(GlobalPane pane) => !_globalPanes.CanDisable(pane) && _globalPanes.IsEnabled(pane);
 
@@ -2038,6 +2062,7 @@
     public void Dispose()
     {
         State.Changed -= HandleStateChanged;
+        Features.Changed -= HandleFeaturesChanged;
         _selfReference?.Dispose();
         _selfReference = null;
     }
