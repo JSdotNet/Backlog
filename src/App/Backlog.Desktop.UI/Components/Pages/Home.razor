@@ -70,6 +70,28 @@
             </button>
         }
 
+        <button type="button"
+                class="header-tool-toggle"
+                id="inbox-toggle-button"
+                data-testid="inbox-toggle-button"
+                aria-controls="inbox-pane"
+                aria-expanded="@(InboxPaneVisible ? "true" : "false")"
+                disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
+                @onclick="ToggleInboxPane">
+            @(InboxPaneVisible ? "Hide inbox" : "Show inbox")
+        </button>
+
+        <button type="button"
+                class="header-tool-toggle"
+                id="backlog-toggle-button"
+                data-testid="backlog-toggle-button"
+                aria-controls="backlog-pane"
+                aria-expanded="@(BacklogPaneVisible ? "true" : "false")"
+                disabled="@PaneToggleDisabled(GlobalPane.Backlog)"
+                @onclick="ToggleBacklogPane">
+            @(BacklogPaneVisible ? "Hide backlog" : "Show backlog")
+        </button>
+
         @if (IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge) && VisibleKnowledgeAreas.Count > 0)
         {
             <button type="button"
@@ -77,9 +99,10 @@
                     id="knowledge-toggle-button"
                     data-testid="knowledge-toggle-button"
                     aria-controls="repository-knowledge-pane"
-                    aria-expanded="@(_knowledgeExpanded ? "true" : "false")"
+                    aria-expanded="@(KnowledgePaneVisible ? "true" : "false")"
+                    disabled="@PaneToggleDisabled(GlobalPane.Knowledge)"
                     @onclick="ToggleKnowledgePane">
-                @(_knowledgeExpanded ? "Hide knowledge" : "Show knowledge")
+                @(KnowledgePaneVisible ? "Hide knowledge" : "Show knowledge")
             </button>
         }
         @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant))
@@ -206,8 +229,10 @@
         </section>
     }
 
-    <main class="knowledge-layout @(SidePaneVisible ? "knowledge-layout--side-open" : "knowledge-layout--side-closed")" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
-        <section class="backlog-workspace" aria-label="Backlog entries">
+    <main class="knowledge-layout @((BacklogPaneVisible && SidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed")" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
+        @if (BacklogPaneVisible)
+        {
+            <section class="backlog-workspace" id="backlog-pane" data-testid="backlog-pane" aria-label="Backlog entries">
 
     @* Areas on the left, because that is what you pick first — which pile am I
        in. Status narrows what is already in view, so it sits on the right. *@
@@ -520,34 +545,43 @@
         New entry
     </button>
         </section>
+        }
 
         @if (SidePaneVisible)
         {
-            @* The pane edge is the handle. Dragging it is the obvious gesture, so
-               the slider that used to sit inside the pane is gone; arrow keys on
-               the same separator carry the keyboard equivalent. *@
-            <div class="pane-resizer"
-                 data-testid="side-pane-resizer"
-                 data-pane-resizer="true"
-                 role="separator"
-                 aria-orientation="vertical"
-                 aria-label="Side pane width"
-                 aria-valuemin="@MinSidePaneWidthRem"
-                 aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                 aria-valuenow="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                 tabindex="0"
-                 @onkeydown="OnResizerKeyDown"
-                 @onkeydown:preventDefault="true">
-                <span class="pane-resizer__grip" aria-hidden="true"></span>
-            </div>
+            @if (BacklogPaneVisible)
+            {
+                @* The pane edge is the handle. Dragging it is the obvious gesture, so
+                   the slider that used to sit inside the pane is gone; arrow keys on
+                   the same separator carry the keyboard equivalent. *@
+                <div class="pane-resizer"
+                     data-testid="side-pane-resizer"
+                     data-pane-resizer="true"
+                     role="separator"
+                     aria-orientation="vertical"
+                     aria-label="Side pane width"
+                     aria-valuemin="@MinSidePaneWidthRem"
+                     aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                     aria-valuenow="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                     tabindex="0"
+                     @onkeydown="OnResizerKeyDown"
+                     @onkeydown:preventDefault="true">
+                    <span class="pane-resizer__grip" aria-hidden="true"></span>
+                </div>
+            }
 
-            <aside class="side-pane-stack" data-testid="side-pane-stack" aria-label="Backlog side panes">
+            <aside class="side-pane-stack @(BacklogPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Backlog side panes">
+                @if (InboxPaneVisible)
+                {
+                    @RenderInboxPane()
+                }
+
                 @if (ToolsVisible)
                 {
                     @RenderToolsPane()
                 }
 
-                @if (KnowledgeVisible)
+                @if (KnowledgePaneVisible)
                 {
                     <section class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
                         @* Which repository is being read is not a second choice to
@@ -613,7 +647,7 @@
     private ElementReference _editor;
     private bool _toolsExpanded;
     private bool _aiExpanded;
-    private bool _knowledgeExpanded;
+    private readonly GlobalPaneSelection _globalPanes = new();
     private double _knowledgePanelWidthRem = SidePaneWidth.DefaultRem;
     private double _maxSidePaneWidthRem = SidePaneWidth.MaxRem;
     private DotNetObjectReference<Home>? _selfReference;
@@ -753,16 +787,20 @@
         return content.Length <= 12000 ? content : content[..12000];
     }
 
-    private bool KnowledgeVisible =>
+    private bool BacklogPaneVisible => _globalPanes.IsEnabled(GlobalPane.Backlog);
+
+    private bool InboxPaneVisible => _globalPanes.IsEnabled(GlobalPane.Inbox);
+
+    private bool KnowledgePaneVisible =>
         IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge)
         && VisibleKnowledgeAreas.Count > 0
-        && _knowledgeExpanded;
+        && _globalPanes.IsEnabled(GlobalPane.Knowledge);
 
     private bool ToolActionBusy => _toolActionKey is not null;
 
     private bool CanUpdateAnyTool => _tools.Any(tool => tool.CanUpdate);
 
-    private bool SidePaneVisible => ToolsVisible || KnowledgeVisible;
+    private bool SidePaneVisible => ToolsVisible || InboxPaneVisible || KnowledgePaneVisible;
 
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(AppFeatureSettingsStore.AdditionalRepositories);
 
@@ -1169,6 +1207,39 @@
     };
 
     private sealed record KnowledgeArea(string Key, string Label);
+
+    private RenderFragment RenderInboxPane() =>
+        @<section class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
+            <header class="inbox-pane__header">
+                <div>
+                    <p class="inbox-pane__eyebrow">Global pane</p>
+                    <h2 id="inbox-pane-title" class="inbox-pane__title">Inbox</h2>
+                    <p class="inbox-pane__subtitle">Capture and triage drafts before they settle into the backlog and knowledge lanes.</p>
+                </div>
+            </header>
+
+            <div class="inbox-pane__content">
+                @if (InboxDraftRows.Count == 0)
+                {
+                    <p class="inbox-pane__empty">Inbox is empty. New drafts appear here as soon as they are captured.</p>
+                }
+                else
+                {
+                    <ul class="inbox-pane__list" data-testid="inbox-pane-list">
+                        @foreach (var row in InboxDraftRows)
+                        {
+                            <li class="inbox-pane__item" @key="row.Key">
+                                <div>
+                                    <p class="inbox-pane__item-title">@(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle)</p>
+                                    <p class="inbox-pane__item-meta">Draft · @(string.IsNullOrWhiteSpace(row.PreviewArea) ? "Unfiled" : row.PreviewArea)</p>
+                                </div>
+                                <button type="button" class="btn btn--ghost" @onclick="() => OpenInboxItem(row)">Open in backlog</button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>;
 
     private RenderFragment RenderToolsPane() =>
         @<section class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
@@ -1746,7 +1817,25 @@
             _installingAppUpdate = false;
         }
     }
-    private void ToggleKnowledgePane() => _knowledgeExpanded = !_knowledgeExpanded;
+    private IReadOnlyList<EntryRow> InboxDraftRows =>
+        [.. State.Rows
+            .Where(row => !row.IsUntouched && row.PreviewStatus == EntryStatus.Draft)
+            .OrderBy(row => row.PreviewTitle, StringComparer.OrdinalIgnoreCase)
+            .Take(12)];
+
+    private bool PaneToggleDisabled(GlobalPane pane) => !_globalPanes.CanDisable(pane) && _globalPanes.IsEnabled(pane);
+
+    private void ToggleInboxPane() => _globalPanes.Toggle(GlobalPane.Inbox);
+
+    private void ToggleBacklogPane() => _globalPanes.Toggle(GlobalPane.Backlog);
+
+    private void ToggleKnowledgePane() => _globalPanes.Toggle(GlobalPane.Knowledge);
+
+    private void OpenInboxItem(EntryRow row)
+    {
+        _globalPanes.TrySetEnabled(GlobalPane.Backlog, true);
+        State.BeginEdit(row);
+    }
 
     private void OnNewEntry() => State.NewRow();
 

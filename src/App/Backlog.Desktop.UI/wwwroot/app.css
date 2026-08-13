@@ -2403,6 +2403,11 @@ h1, h2, h3 {
     color: var(--color-background);
 }
 
+.header-tool-toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* --- Azure Foundry AI assistant ------------------------------------------ */
 
 .ai-panel {
@@ -2476,6 +2481,77 @@ h1, h2, h3 {
     border: var(--border-width) solid rgba(173, 181, 189, 0.22);
     border-radius: var(--border-radius-sm);
     background: rgba(0, 0, 0, 0.16);
+}
+
+/* --- Inbox side pane ----------------------------------------------------- */
+
+.inbox-pane {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid rgba(108, 117, 125, 0.42);
+    border-left: 4px solid var(--color-secondary);
+    border-radius: var(--border-radius-lg);
+    background: linear-gradient(180deg, rgba(108, 117, 125, 0.16), rgba(108, 117, 125, 0.04) 45%, transparent);
+    box-shadow: var(--shadow-md);
+}
+
+.inbox-pane__header,
+.inbox-pane__content {
+    min-width: 0;
+}
+
+.inbox-pane__eyebrow,
+.inbox-pane__title,
+.inbox-pane__subtitle,
+.inbox-pane__empty,
+.inbox-pane__item-title,
+.inbox-pane__item-meta {
+    margin: 0;
+}
+
+.inbox-pane__eyebrow {
+    color: var(--color-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.inbox-pane__title {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-lg);
+}
+
+.inbox-pane__subtitle,
+.inbox-pane__empty,
+.inbox-pane__item-meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pane__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pane__item {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid rgba(108, 117, 125, 0.24);
+    border-radius: var(--border-radius-sm);
+    background: rgba(0, 0, 0, 0.16);
+}
+
+.inbox-pane__item-title {
+    font-weight: 600;
 }
 
 /* --- Installed tools side pane ------------------------------------------- */
@@ -2677,6 +2753,18 @@ h1, h2, h3 {
 
 .side-pane-stack > .tools-panel {
     flex: 0 1 auto;
+    overflow: auto;
+}
+
+.side-pane-stack > .inbox-pane {
+    flex: 0 1 auto;
+    overflow: auto;
+}
+
+.side-pane-stack--full {
+    position: static;
+    top: auto;
+    max-height: none;
     overflow: auto;
 }
 
