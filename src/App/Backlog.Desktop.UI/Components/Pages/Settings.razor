@@ -82,6 +82,54 @@
                                aria-label="Enable @feature.Name"
                                @onchange="eventArgs => SetFeatureEnabled(feature, eventArgs)" />
                     </label>
+
+                    @if (IsUsageMetricsFeature(feature) && UsageMetricsEnabled)
+                    {
+                        <div class="setting" data-testid="usage-api-endpoints-settings" aria-label="AI usage API settings">
+                            <h3 class="setting__title">AI usage organization APIs</h3>
+                            <p class="setting__body">
+                                Configure the API roots Backlog uses for organization-scoped Claude and GitHub Copilot usage metrics.
+                            </p>
+
+                            <label class="setting__label" for="claude-usage-endpoint">Claude organization API endpoint</label>
+                            <input class="setting__input"
+                                   id="claude-usage-endpoint"
+                                   data-testid="claude-usage-endpoint-input"
+                                   type="url"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   value="@_draftClaudeUsageEndpoint"
+                                   @oninput="e => _draftClaudeUsageEndpoint = e.Value?.ToString() ?? string.Empty"
+                                   @onchange="ApplyUsageEndpoints"
+                                   @onkeydown="OnUsageEndpointKeyDown" />
+
+                            <label class="setting__label" for="github-usage-endpoint">GitHub organization API endpoint</label>
+                            <input class="setting__input"
+                                   id="github-usage-endpoint"
+                                   data-testid="github-usage-endpoint-input"
+                                   type="url"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   value="@_draftGitHubUsageEndpoint"
+                                   @oninput="e => _draftGitHubUsageEndpoint = e.Value?.ToString() ?? string.Empty"
+                                   @onchange="ApplyUsageEndpoints"
+                                   @onkeydown="OnUsageEndpointKeyDown" />
+
+                            <p class="setting__status" data-testid="usage-api-endpoints-status" role="status">
+                                @if (_usageEndpointsMessage is not null)
+                                {
+                                    <span>@_usageEndpointsMessage</span>
+                                }
+                                else
+                                {
+                                    <span>Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code> and GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>.</span>
+                                }
+                            </p>
+                            <p class="setting__note">
+                                These endpoints are auto-saved. Keep keys and tokens in their existing secure settings fields; endpoint settings contain no secrets.
+                            </p>
+                        </div>
+                    }
                 }
             </div>
             @if (!string.IsNullOrWhiteSpace(_featureMessage))
@@ -182,48 +230,6 @@
                 The key is kept in <code>@AzureFoundry.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
             </p>
 
-            <h3 class="setting__title">AI usage organization APIs</h3>
-            <p class="setting__body">
-                Configure the API roots Backlog uses for organization-scoped Claude and GitHub Copilot usage metrics.
-            </p>
-
-            <label class="setting__label" for="claude-usage-endpoint">Claude organization API endpoint</label>
-            <input class="setting__input"
-                   id="claude-usage-endpoint"
-                   data-testid="claude-usage-endpoint-input"
-                   type="url"
-                   spellcheck="false"
-                   autocomplete="off"
-                   value="@_draftClaudeUsageEndpoint"
-                   @oninput="e => _draftClaudeUsageEndpoint = e.Value?.ToString() ?? string.Empty"
-                   @onchange="ApplyUsageEndpoints"
-                   @onkeydown="OnUsageEndpointKeyDown" />
-
-            <label class="setting__label" for="github-usage-endpoint">GitHub organization API endpoint</label>
-            <input class="setting__input"
-                   id="github-usage-endpoint"
-                   data-testid="github-usage-endpoint-input"
-                   type="url"
-                   spellcheck="false"
-                   autocomplete="off"
-                   value="@_draftGitHubUsageEndpoint"
-                   @oninput="e => _draftGitHubUsageEndpoint = e.Value?.ToString() ?? string.Empty"
-                   @onchange="ApplyUsageEndpoints"
-                   @onkeydown="OnUsageEndpointKeyDown" />
-
-            <p class="setting__status" data-testid="usage-api-endpoints-status" role="status">
-                @if (_usageEndpointsMessage is not null)
-                {
-                    <span>@_usageEndpointsMessage</span>
-                }
-                else
-                {
-                    <span>Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code> and GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>.</span>
-                }
-            </p>
-            <p class="setting__note">
-                These endpoints are auto-saved. Keep keys and tokens in their existing secure settings fields; endpoint settings contain no secrets.
-            </p>
         </section>
     }
     @if (_activePage == SettingsPage.Storage)
@@ -560,6 +566,8 @@
 
     private bool AdditionalRepositoriesEnabled => Features.IsEnabled(AppFeatureSettingsStore.AdditionalRepositories);
 
+    private bool UsageMetricsEnabled => Features.IsEnabled(AppFeatureSettingsStore.UsageMetrics);
+
     private string RepositoryInputLabel => AdditionalRepositoriesEnabled ? "Repositories" : "Primary repository";
 
     private int RepositoryInputRows => AdditionalRepositoriesEnabled ? 4 : 2;
@@ -601,6 +609,9 @@
 
     private string FeatureFlagClass(AppFeatureDefinition feature) =>
         feature.AlwaysEnabled ? "feature-flag feature-flag--locked" : "feature-flag";
+
+    private static bool IsUsageMetricsFeature(AppFeatureDefinition feature) =>
+        string.Equals(feature.Key, AppFeatureSettingsStore.UsageMetrics, StringComparison.OrdinalIgnoreCase);
 
     private void SetFeatureEnabled(AppFeatureDefinition feature, ChangeEventArgs eventArgs)
     {
