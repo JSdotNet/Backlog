@@ -497,12 +497,23 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
     const renderCloudView = () => {
         const cloud = backlogCreateRoadmapElement('div', 'tech-roadmap__cloud-map');
         cloud.setAttribute('role', 'group');
-        cloud.setAttribute('aria-label', 'Clustered technology cloud map with dependency links');
+        cloud.setAttribute('aria-label', 'Clustered technology cloud map with dependency links. Drag the map to pan, or focus it and use arrow keys.');
+        cloud.tabIndex = 0;
+        const scene = backlogCreateRoadmapElement('div', 'tech-roadmap__cloud-scene');
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('class', 'tech-roadmap__cloud-links');
         svg.setAttribute('viewBox', '0 0 100 100');
         svg.setAttribute('preserveAspectRatio', 'none');
         const nodeLayer = backlogCreateRoadmapElement('div', 'tech-roadmap__cloud-nodes');
+        const pan = { x: 0, y: 0, dragging: false, pointerId: null, startX: 0, startY: 0, originX: 0, originY: 0 };
+        const applyCloudPan = () => {
+            scene.style.transform = `translate(${pan.x}px, ${pan.y}px)`;
+        };
+        const moveCloudPan = (deltaX, deltaY) => {
+            pan.x += deltaX;
+            pan.y += deltaY;
+            applyCloudPan();
+        };
         const groups = backlogGroupTechnologyBy(nodes, backlogTechnologyCloudCluster);
         const order = ['Cloud platform', 'Delivery', 'Observability', 'Data and storage', 'Application surfaces', 'Shared foundations'];
         groups.sort((left, right) => order.indexOf(left.key) - order.indexOf(right.key));
@@ -552,7 +563,52 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
             addLine('tech-roadmap__cloud-link tech-roadmap__cloud-link--dependency', source.x, source.y, target.x, target.y);
         }
 
-        cloud.append(svg, nodeLayer);
+        const onPointerDown = (event) => {
+            if (event.button !== 0 || event.target.closest('.tech-roadmap__cloud-node')) return;
+            pan.dragging = true;
+            pan.pointerId = event.pointerId;
+            pan.startX = event.clientX;
+            pan.startY = event.clientY;
+            pan.originX = pan.x;
+            pan.originY = pan.y;
+            cloud.classList.add('tech-roadmap__cloud-map--dragging');
+            cloud.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        };
+        const onPointerMove = (event) => {
+            if (!pan.dragging || event.pointerId !== pan.pointerId) return;
+            pan.x = pan.originX + event.clientX - pan.startX;
+            pan.y = pan.originY + event.clientY - pan.startY;
+            applyCloudPan();
+        };
+        const endDrag = (event) => {
+            if (!pan.dragging || event.pointerId !== pan.pointerId) return;
+            pan.dragging = false;
+            pan.pointerId = null;
+            cloud.classList.remove('tech-roadmap__cloud-map--dragging');
+            if (cloud.hasPointerCapture(event.pointerId)) cloud.releasePointerCapture(event.pointerId);
+        };
+        const onKeyDown = (event) => {
+            const panStep = event.shiftKey ? 72 : 24;
+            if (event.key === 'ArrowLeft') moveCloudPan(panStep, 0);
+            else if (event.key === 'ArrowRight') moveCloudPan(-panStep, 0);
+            else if (event.key === 'ArrowUp') moveCloudPan(0, panStep);
+            else if (event.key === 'ArrowDown') moveCloudPan(0, -panStep);
+            else if (event.key === 'Home') {
+                pan.x = 0;
+                pan.y = 0;
+                applyCloudPan();
+            }
+            else return;
+            event.preventDefault();
+        };
+        for (const [eventName, handler] of [['pointerdown', onPointerDown], ['pointermove', onPointerMove], ['pointerup', endDrag], ['pointercancel', endDrag], ['keydown', onKeyDown]]) {
+            cloud.addEventListener(eventName, handler);
+            viewListeners.push(() => cloud.removeEventListener(eventName, handler));
+        }
+
+        scene.append(svg, nodeLayer);
+        cloud.appendChild(scene);
         return cloud;
     };
 
@@ -564,8 +620,8 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
         const zoom = zoomLevels[zoomIndex];
         content.style.transform = `scale(${zoom})`;
         content.style.transformOrigin = 'top left';
-        content.style.marginRight = zoom < 1 ? `-${Math.round((1 - zoom) * 100)}%` : '0';
-        content.style.marginBottom = zoom < 1 ? `-${Math.round((1 - zoom) * 100)}%` : '0';
+        content.style.marginRight = `${Math.round((zoom - 1) * 100)}%`;
+        content.style.marginBottom = `${Math.round((zoom - 1) * 100)}%`;
         for (const button of zoomControls.querySelectorAll('[data-zoom-action]')) {
             button.disabled = (button.dataset.zoomAction === 'out' && zoomIndex === 0) || (button.dataset.zoomAction === 'in' && zoomIndex === zoomLevels.length - 1);
         }
