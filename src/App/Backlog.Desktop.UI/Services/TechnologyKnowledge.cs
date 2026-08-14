@@ -238,6 +238,7 @@ internal static class TechnologyKnowledgeReader
                 node.Status,
                 node.Description)))
             .ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase);
+        var orderedNodes = graphNodes.Values.ToList();
 
         foreach (var relationship in relationships)
         {
@@ -250,6 +251,7 @@ internal static class TechnologyKnowledgeReader
                     "external",
                     "unknown",
                     string.Empty);
+                orderedNodes.Add(graphNodes[relationship.ToId]);
             }
         }
 
@@ -261,7 +263,7 @@ internal static class TechnologyKnowledgeReader
                 "depends on"))
             .ToList();
 
-        return new TechnologyGraphData(graphNodes.Values.OrderBy(node => node.Layer).ThenBy(node => node.Label).ToList(), edges);
+        return new TechnologyGraphData(orderedNodes, edges);
     }
     private static TechnologyGraphStats ReadStats(string path)
     {
