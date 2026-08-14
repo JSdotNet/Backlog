@@ -598,7 +598,7 @@
                 </div>
             }
 
-            <aside class="side-pane-stack @(BacklogPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Backlog side panes">
+            <aside class="side-pane-stack @(BacklogPaneVisible ? string.Empty : "side-pane-stack--full") @(ToolsVisible ? "side-pane-stack--right-docked" : string.Empty)" data-testid="side-pane-stack" aria-label="Backlog side panes">
                 @if (!BacklogPaneVisible && InboxPaneVisible)
                 {
                     @RenderInboxPane()

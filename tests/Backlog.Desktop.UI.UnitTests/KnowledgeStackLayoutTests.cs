@@ -31,6 +31,20 @@ public sealed class KnowledgeStackLayoutTests
         Assert.Contains("align-items: flex-start;", navRule, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Tools_pane_stays_right_docked_when_it_is_the_only_side_pane()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var ruleStart = css.IndexOf(".side-pane-stack--full.side-pane-stack--right-docked", StringComparison.Ordinal);
+
+        Assert.True(ruleStart >= 0, "The Tools pane must not stretch into a horizontal full-width pane when Backlog is hidden.");
+
+        var nextRuleStart = css.IndexOf("\n.", ruleStart + 1, StringComparison.Ordinal);
+        var rule = css[ruleStart..(nextRuleStart < 0 ? css.Length : nextRuleStart)];
+
+        Assert.Contains("margin-left: auto;", rule, StringComparison.Ordinal);
+    }
+
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
     private static string FindAppCss()

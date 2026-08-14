@@ -56,6 +56,7 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("(BacklogPaneVisible && RightSidePaneVisible) ? \"knowledge-layout--side-open\"", home, StringComparison.Ordinal);
         Assert.Contains("side-pane-stack--full", home, StringComparison.Ordinal);
+        Assert.Contains("ToolsVisible ? \"side-pane-stack--right-docked\"", home, StringComparison.Ordinal);
     }
 
     [Fact]
