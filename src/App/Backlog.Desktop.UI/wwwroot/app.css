@@ -978,38 +978,27 @@ h1, h2, h3 {
 }
 
 /* --- Fold control -------------------------------------------------------- */
-/*
-  The title itself folds expandable entries. The arrow sits after the title text
-  so the whole title is the hit target without adding a separate button in front
-  of the reading order.
-*/
 
-.entry-doc__title-toggle {
-    display: inline-grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+.entry-doc__title-button {
+    display: inline-flex;
     align-items: center;
-    column-gap: var(--spacing-xs);
+    gap: var(--spacing-xs);
     min-width: 0;
-    max-width: 100%;
-    width: fit-content;
+    flex: 1 1 auto;
     padding: 0;
     border: none;
     background: transparent;
     color: inherit;
-    text-align: left;
     cursor: pointer;
-    vertical-align: middle;
+    text-align: left;
 }
 
-.entry-doc--one-line .entry-doc__title-toggle {
-    width: 100%;
-}
-
-.entry-doc__title-toggle:hover .entry-doc__title {
+.entry-doc__title-button:hover .entry-doc__fold-chevron,
+.subitem-card__title-button:hover .entry-doc__fold-chevron {
     color: var(--color-primary);
 }
 
-.entry-doc__title-toggle:focus-visible {
+.entry-doc__title-button:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 3px;
     border-radius: var(--border-radius-sm);
@@ -1182,29 +1171,29 @@ h1, h2, h3 {
 .entry-doc__title-line {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: var(--spacing-xs);
     min-width: 0;
     overflow: visible;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line {
-    align-items: flex-start;
+    align-items: center;
     margin-bottom: var(--spacing-sm);
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta {
-    flex: 1 1 22rem;
-    flex-wrap: wrap;
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
     justify-content: flex-end;
-    margin-left: var(--spacing-xs);
+    margin-left: auto;
     min-width: 0;
     padding-top: 1px;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .entry-doc__title {
@@ -1217,17 +1206,17 @@ h1, h2, h3 {
     min-width: 0;
 }
 
-.entry-doc__title-toggle .entry-doc__title {
-    margin: 0;
-}
-
 .entry-doc__title-line .entry-doc__title {
+    flex: 1 1 auto;
+    margin: 0;
     overflow-wrap: anywhere;
     text-overflow: clip;
     white-space: normal;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__title {
+    flex: 1 1 auto;
+    margin: 0;
     overflow-wrap: anywhere;
     text-overflow: clip;
     white-space: normal;

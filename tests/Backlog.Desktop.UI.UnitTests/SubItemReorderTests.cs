@@ -27,7 +27,6 @@ public class SubItemReorderTests
     public void Finds_one_span_per_sub_item()
     {
         var spans = EntryTextParser.LocateSubItems(ThreeSubItems);
-
         Assert.Equal(3, spans.Count);
     }
 
@@ -35,9 +34,7 @@ public class SubItemReorderTests
     public void Ignores_headings_inside_fenced_code()
     {
         var raw = "# Title\n\n```\n## not a sub-item\n```\n\n## A real one\n";
-
         var spans = EntryTextParser.LocateSubItems(raw);
-
         Assert.Single(spans);
     }
 
@@ -67,19 +64,51 @@ public class SubItemReorderTests
     {
         var moved = EntryTextParser.MoveSubItem(ThreeSubItems, 0, 1);
         var titles = EntryTextParser.Parse(moved).SubItems.Select(s => s.Title).ToArray();
-
         Assert.Equal(["Map the columns", "Read the file", "Write the rows"], titles);
+    }
+
+    [Fact]
+    public void Moving_a_level_two_sub_item_moves_its_level_three_descendants_with_it()
+    {
+        const string raw =
+            "# Title\n\n" +
+            "## Parent A\n" +
+            "Parent notes.\n\n" +
+            "### Child A\n" +
+            "Child notes.\n\n" +
+            "## Parent B\n" +
+            "Sibling notes.\n";
+
+        var moved = EntryTextParser.MoveSubItem(raw, 0, 2);
+
+        Assert.Equal(
+            "# Title\n\n" +
+            "## Parent B\n" +
+            "Sibling notes.\n\n" +
+            "## Parent A\n" +
+            "Parent notes.\n\n" +
+            "### Child A\n" +
+            "Child notes.\n",
+            moved);
+    }
+
+    [Fact]
+    public void Moving_a_level_three_sub_item_cannot_escape_its_parent_scope()
+    {
+        const string raw =
+            "# Title\n\n" +
+            "## Parent A\n\n" +
+            "### Child A\n\n" +
+            "## Parent B\n";
+
+        Assert.Equal(raw, EntryTextParser.MoveSubItem(raw, 1, 2));
     }
 
     [Fact]
     public void Leaves_the_body_above_the_sub_items_alone()
     {
         var moved = EntryTextParser.MoveSubItem(ThreeSubItems, 0, 2);
-
-        Assert.StartsWith(
-            "# Ship the importer\n`task` `*medium` `!draft`\n\nSome prose about the whole thing.\n\n## ",
-            moved,
-            StringComparison.Ordinal);
+        Assert.StartsWith("# Ship the importer\n`task` `*medium` `!draft`\n\nSome prose about the whole thing.\n\n## ", moved, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -102,7 +131,6 @@ public class SubItemReorderTests
     public void Refuses_a_move_that_goes_nowhere(int from, int to)
     {
         var moved = EntryTextParser.MoveSubItem(ThreeSubItems, from, to);
-
         Assert.Equal(ThreeSubItems, moved);
     }
 
@@ -110,7 +138,6 @@ public class SubItemReorderTests
     public void Survives_an_entry_with_no_sub_items()
     {
         const string raw = "# Title\n`task`\n\nJust prose.\n";
-
         Assert.Equal(raw, EntryTextParser.MoveSubItem(raw, 0, 1));
     }
 }

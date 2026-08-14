@@ -15,9 +15,9 @@ namespace Backlog.Desktop.UI.Services;
 /// entry's status than as a code block nobody asked to read.
 /// </para>
 /// <para>
-/// Nothing is written back. These files are committed to somebody's repository,
-/// and quietly rewriting them from a backlog list is not an edit anyone asked
-/// for — see <see cref="EntryRow.IsReadOnly"/>.
+/// These files round-trip through the same backlog markdown rules as local
+/// entries: the sigil line stays canonical, while the knowledge <c>meta</c>
+/// fence contributes the entry status.
 /// </para>
 /// </summary>
 public sealed class RepositoryBacklogSource(KnowledgeFolderSource source)
@@ -65,14 +65,18 @@ public sealed class RepositoryBacklogSource(KnowledgeFolderSource source)
             }
 
             var relativePath = RelativePath(file, root);
-            foreach (var entry in RepositoryBacklogText.ToEntries(text))
+            var entries = RepositoryBacklogText.ToEntries(text);
+            for (var segmentIndex = 0; segmentIndex < entries.Count; segmentIndex++)
             {
+                var entry = entries[segmentIndex];
                 documents.Add(new RepositoryBacklogDocument(
                     entry.RawText,
                     entry.Status,
                     repository?.FullName ?? "Configured repository",
                     relativePath,
-                    repository?.Alias));
+                    repository?.Alias,
+                    file,
+                    segmentIndex));
             }
         }
 
@@ -93,11 +97,18 @@ public sealed record RepositoryBacklogDocument(
     EntryStatus? Status,
     string RepositoryFullName,
     string RelativePath,
-    string? Area);
+    string? Area,
+    string FilePath,
+    int SegmentIndex);
 
-/// <summary>Where a row came from when it is not the local store. Shown on the
-/// entry so it is obvious why it cannot be typed into.</summary>
-public sealed record RepositoryBacklogOrigin(string RepositoryFullName, string RelativePath);
+/// <summary>Where a row came from when it is not the local store. Carries enough
+/// identity to write the edited text back to the correct segment in the correct
+/// <c>.backlog</c> file.</summary>
+public sealed record RepositoryBacklogOrigin(
+    string RepositoryFullName,
+    string RelativePath,
+    string FilePath,
+    int SegmentIndex);
 
 /// <summary>Turns knowledge-folder Markdown into the plain entry text the
 /// quick-edit list already understands.</summary>
@@ -215,4 +226,16 @@ internal static class RepositoryBacklogText
             _ => null
         };
     }
+
+    /// <summary>Maps a backlog <see cref="EntryStatus"/> back to the knowledge
+    /// meta vocabulary used in <c>```meta</c> blocks.</summary>
+    public static string ToKnowledgeStatus(EntryStatus status) => status switch
+    {
+        EntryStatus.Draft => "draft",
+        EntryStatus.Ready => "accepted",
+        EntryStatus.InProgress => "active",
+        EntryStatus.Done => "done",
+        EntryStatus.Archived => "archived",
+        _ => status.ToString().ToLowerInvariant()
+    };
 }

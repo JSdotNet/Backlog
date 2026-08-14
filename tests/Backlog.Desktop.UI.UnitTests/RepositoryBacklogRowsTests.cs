@@ -82,22 +82,22 @@ public sealed class RepositoryBacklogRowsTests : IDisposable
     }
 
     [Fact]
-    public async Task The_list_refuses_to_edit_a_file_it_does_not_own()
+    public async Task Repository_rows_are_editable_and_changes_persist_to_the_source_file()
     {
-        var harness = Build("# Roadmap planning\n\n## Add the view\n");
+        var harness = Build("# Roadmap planning\n\n```meta\nstatus: active\n```\n\n## Add the view\n");
         await harness.State.InitializeAsync();
         var row = Assert.Single(harness.State.Rows);
-        var original = row.RawText;
 
+        // Repository rows are now editable.
         harness.State.BeginEdit(row);
-        Assert.Null(harness.State.EditingRow);
+        Assert.NotNull(harness.State.EditingRow);
 
-        await harness.State.ToggleSubItemAsync(row, 0);
-        await harness.State.DeleteRowAsync(row);
+        // Changing status persists back to the file.
+        await harness.State.ChangeStatusAsync(row, EntryStatus.Done);
+        var fileContent = File.ReadAllText(harness.BacklogFile);
+        Assert.Contains("done", fileContent, StringComparison.OrdinalIgnoreCase);
 
-        Assert.Equal(original, row.RawText);
         Assert.Single(harness.State.Rows);
-        Assert.Contains("## Add the view", File.ReadAllText(harness.BacklogFile), StringComparison.Ordinal);
     }
 
     private Harness Build(string backlogMarkdown)

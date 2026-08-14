@@ -99,7 +99,45 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("app-version__hint", home, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Knowledge_folder_errors_do_not_use_empty_razor_fragment_tags()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.DoesNotContain("@<>", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("</>", home, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Expandable_entry_title_uses_an_integrated_collapse_button()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("data-testid=\"entry-title-button\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-testid=\"entry-fold-button\"", home, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Entry_metadata_keeps_focus_events_out_of_read_view_editor()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("class=\"entry-doc__meta\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", home, StringComparison.Ordinal);
+        Assert.Contains("class=\"entry-doc__meta subitem-card__meta\" aria-label=\"Sub-item metadata and actions\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", home, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Title_line_css_aligns_title_and_metadata_without_wrapping_controls()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        Assert.Contains(".entry-doc__title-line .entry-doc__title {\n    flex: 1 1 auto;\n    margin: 0;", css, StringComparison.Ordinal);
+        Assert.Contains(".entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,\n.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end {\n    flex-wrap: nowrap;\n}", css, StringComparison.Ordinal);
+    }
+
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
+
+    private static string FindAppCss() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css"));
 
     private static string FindHomeRazor() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "Components", "Pages", "Home.razor"));
 
