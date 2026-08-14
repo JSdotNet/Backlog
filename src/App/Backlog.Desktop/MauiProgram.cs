@@ -55,6 +55,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
         builder.Services.AddSingleton<CopilotCliIntegration>();
         builder.Services.AddSingleton<BacklogDesktopState>();
+        builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
+        builder.Services.AddSingleton<KnowledgeFolderOpenService>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();
         builder.Services.AddSingleton(sp => new DomainKnowledgeStore(sp.GetRequiredService<KnowledgeFolderSource>()));
 

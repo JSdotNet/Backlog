@@ -17,7 +17,7 @@ public sealed class KnowledgeAreaCatalogTests
     }
 
     [Fact]
-    public void Shows_only_enabled_non_backlog_knowledge_areas()
+    public void Shows_enabled_knowledge_areas_including_backlog()
     {
         var folders = KnowledgeFolderSetting.Defaults()
             .Select(folder => folder with
@@ -27,6 +27,6 @@ public sealed class KnowledgeAreaCatalogTests
 
         var areas = KnowledgeAreaCatalog.VisibleAreas(folders);
 
-        Assert.Equal(["domain", "design"], areas.Select(area => area.Key));
+        Assert.Equal(["backlog", "domain", "design"], areas.Select(area => area.Key));
     }
 }

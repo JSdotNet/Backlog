@@ -3459,6 +3459,10 @@ body.is-resizing-pane {
 }
 
 .knowledge-stack__menu-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
     color: var(--color-text-primary);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
@@ -3473,6 +3477,53 @@ body.is-resizing-pane {
     font-size: var(--font-size-sm);
 }
 
+
+.knowledge-menu__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+.knowledge-menu__open-vscode,
+.knowledge-folder-open {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
+.knowledge-menu__open-vscode:hover:not(:disabled),
+.knowledge-menu__open-vscode:focus-visible,
+.knowledge-folder-open:hover:not(:disabled),
+.knowledge-folder-open:focus-visible {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 24%, transparent);
+    outline: none;
+}
+
+.knowledge-menu__open-vscode:disabled,
+.knowledge-folder-open:disabled {
+    cursor: default;
+    opacity: 0.58;
+}
+
+.knowledge-menu__open-error,
+.knowledge-folder-open-error {
+    margin: 0;
+    color: var(--color-danger);
+    font-size: var(--font-size-xs);
+}
 .knowledge-menu,
 .knowledge-menu__children {
     display: grid;

@@ -6,6 +6,7 @@ internal static class KnowledgeAreaCatalog
 {
     private static readonly KnowledgeArea[] Areas =
     [
+        new("backlog", "Backlog"),
         new("instructions", "Instructions"),
         new("domain", "Domain"),
         new("arc42", "Architecture"),
@@ -27,6 +28,7 @@ internal static class KnowledgeAreaCatalog
 
     private static string AreaKey(KnowledgeFolderSetting folder) => folder.Key switch
     {
+        ".backlog" => "backlog",
         "instructions" => "instructions",
         ".domain" => "domain",
         ".arc42" => "arc42",
