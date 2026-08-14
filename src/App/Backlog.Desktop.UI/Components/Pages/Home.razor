@@ -1526,7 +1526,7 @@
                 @if (row.Origin is { } origin)
                 {
                     <span class="badge badge--source" data-testid="entry-source-badge" title="@origin.RepositoryFullName · @origin.RelativePath">
-                        Read-only · <code>@origin.RelativePath</code>
+                        <code>@origin.RelativePath</code>
                     </span>
                 }
                 else if (!row.IsPersisted)

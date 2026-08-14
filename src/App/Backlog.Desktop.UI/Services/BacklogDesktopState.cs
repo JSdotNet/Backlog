@@ -260,7 +260,8 @@ public sealed class BacklogDesktopState : IDisposable
 
         // An entry someone opened and left untouched was never an entry. Drop
         // it rather than leaving an "Untitled" husk in the list.
-        if (!row.IsPersisted && row.IsUntouched)
+        // Repository-origin rows are always retained — they come from a file.
+        if (!row.IsPersisted && row.Origin is null && row.IsUntouched)
         {
             Rows.Remove(row);
             ApplyFilter();
@@ -273,7 +274,10 @@ public sealed class BacklogDesktopState : IDisposable
         // keystroke, so the caret never jumps mid-word.
         row.RawText = EnsureTitleHeading(row.RawText);
 
-        await SaveRowAsync(row, isFlush: true);
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: true);
 
         // What was just typed can change which area an entry belongs to, so the
         // area chips are rebuilt against the text as it now stands.
@@ -315,7 +319,11 @@ public sealed class BacklogDesktopState : IDisposable
             EditingSubItem = null;
         }
 
-        await SaveRowAsync(row, isFlush: true);
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: true);
+
         ApplyFilter();
         Changed?.Invoke();
     }
@@ -441,7 +449,12 @@ public sealed class BacklogDesktopState : IDisposable
 
         CancelDebounce(row);
         row.RawText = rewritten;
-        await SaveRowAsync(row, isFlush: true);
+
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: true);
+
         ApplyFilter();
         Changed?.Invoke();
     }
@@ -455,7 +468,12 @@ public sealed class BacklogDesktopState : IDisposable
 
         CancelDebounce(row);
         row.RawText = rewritten;
-        await SaveRowAsync(row, isFlush: true);
+
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: true);
+
         ApplyFilter();
         Changed?.Invoke();
     }
@@ -497,7 +515,16 @@ public sealed class BacklogDesktopState : IDisposable
 
         CancelDebounce(row);
         row.RawText = rewritten;
-        await SaveRowAsync(row, isFlush: true);
+
+        if (row.Origin is { } origin)
+        {
+            await SaveRepositoryRowAsync(row, origin);
+        }
+        else
+        {
+            await SaveRowAsync(row, isFlush: true);
+        }
+
         ApplyFilter();
         Changed?.Invoke();
     }
@@ -558,7 +585,11 @@ public sealed class BacklogDesktopState : IDisposable
 
         // A re-rank is a finished gesture, not a keystroke: save it now rather
         // than on a debounce that a drag never generates.
-        await SaveRowAsync(row, isFlush: true);
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: true);
+
         ApplyFilter();
         Changed?.Invoke();
     }
@@ -788,7 +819,12 @@ public sealed class BacklogDesktopState : IDisposable
     private async void OnDebounceElapsed(EntryRow row)
     {
         _debounceTimers.Remove(row.Key);
-        await SaveRowAsync(row, isFlush: false);
+
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: false);
+
         Changed?.Invoke();
     }
 
@@ -798,6 +834,28 @@ public sealed class BacklogDesktopState : IDisposable
         {
             timer.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Writes a repository-authored row back to its source <c>.backlog</c> file,
+    /// translating backlog sigils to knowledge meta vocabulary and preserving
+    /// non-status meta fields. Errors are surfaced through the save-state
+    /// indicator.</summary>
+    private Task SaveRepositoryRowAsync(EntryRow row, RepositoryBacklogOrigin origin)
+    {
+        SetSaveState(AppSaveState.Saving);
+        try
+        {
+            RepositoryBacklogWriter.SaveRowToSource(origin, row.RawText);
+            SetSaveState(AppSaveState.Saved);
+            FlashSaved(row);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or FileNotFoundException)
+        {
+            SetSaveState(AppSaveState.Error);
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -1016,7 +1074,11 @@ public sealed class BacklogDesktopState : IDisposable
                     RawText = document.RawText,
                     Area = document.Area,
                     Status = document.Status ?? EntryStatus.Draft,
-                    Origin = new RepositoryBacklogOrigin(document.RepositoryFullName, document.RelativePath)
+                    Origin = new RepositoryBacklogOrigin(
+                        document.RepositoryFullName,
+                        document.RelativePath,
+                        document.FilePath,
+                        document.SegmentIndex)
                 });
             }
         }
@@ -1199,10 +1261,10 @@ public sealed class EntryRow
     /// a repository's committed <c>.backlog</c> file.</summary>
     public RepositoryBacklogOrigin? Origin { get; set; }
 
-    /// <summary>True for rows the app only reads. They render exactly like every
-    /// other entry; what they refuse is being typed into, re-ranked, or
-    /// deleted.</summary>
-    public bool IsReadOnly => Origin is not null;
+    /// <summary>True for rows the app only reads. Local and repository-authored
+    /// entries are both editable; this property is reserved for future sources
+    /// that truly cannot be written back.</summary>
+    public bool IsReadOnly => false;
 
     /// <summary>True briefly after a successful save, driving the inline
     /// saved-confirmation flash on the whole entry.</summary>
