@@ -187,9 +187,8 @@ public class AppVersionTests
 }
 
 /// <summary>
-/// The version in the header is itself the "check for updates" control, so its
-/// label, accessible name, and status colour are the visible contract of that
-/// interaction. They are pure, so they are asserted here rather than through a head.
+/// The version in the header opens the update window, while the update window owns
+/// checking, installing, and status presentation.
 /// </summary>
 public class AppUpdatePresentationTests
 {
@@ -206,20 +205,20 @@ public class AppUpdatePresentationTests
     }
 
     [Fact]
-    public void The_accessible_name_carries_both_the_version_and_the_action()
+    public void The_header_version_accessible_name_opens_the_update_window()
     {
-        var label = AppUpdatePresentation.VersionActionLabel("1.2.3", isChecking: false);
+        var label = AppUpdatePresentation.VersionWindowLabel("1.2.3");
 
         Assert.Contains("1.2.3", label);
-        Assert.Contains("Check for updates", label);
+        Assert.Contains("Open update window", label);
     }
 
     [Fact]
-    public void The_accessible_name_reports_a_check_in_progress()
+    public void The_header_version_accessible_name_does_not_start_a_check()
     {
-        var label = AppUpdatePresentation.VersionActionLabel("1.2.3", isChecking: true);
+        var label = AppUpdatePresentation.VersionWindowLabel("1.2.3");
 
-        Assert.Contains("Checking for updates", label);
+        Assert.DoesNotContain("Check for updates", label);
     }
 
     [Theory]
@@ -228,10 +227,10 @@ public class AppUpdatePresentationTests
     [InlineData("   ")]
     public void A_missing_version_still_produces_an_accessible_name(string? version)
     {
-        var label = AppUpdatePresentation.VersionActionLabel(version, isChecking: false);
+        var label = AppUpdatePresentation.VersionWindowLabel(version);
 
         Assert.Contains("unknown", label);
-        Assert.Contains("Check for updates", label);
+        Assert.Contains("Open update window", label);
     }
 
     [Theory]

@@ -201,7 +201,7 @@ h1, h2, h3 {
     outline-offset: 2px;
 }
 
-/* --- Clickable app version ----------------------------------------------- */
+/* --- App version ---------------------------------------------------------- */
 
 .app-header__repository-scope {
     display: inline-flex;
@@ -238,21 +238,11 @@ h1, h2, h3 {
     color: var(--color-text-primary);
 }
 
-.app-version__hint {
-    color: var(--color-text-disabled);
-    font-size: var(--font-size-xs);
-}
-
 .app-version:hover:not(:disabled),
 .app-version:focus-visible {
     color: var(--color-text-primary);
     border-color: var(--color-border-strong);
     background: var(--color-background-alt);
-}
-
-.app-version:hover:not(:disabled) .app-version__hint,
-.app-version:focus-visible .app-version__hint {
-    color: var(--color-primary);
 }
 
 .app-version:focus-visible {
@@ -274,6 +264,15 @@ h1, h2, h3 {
 .app-version__status--ok { color: var(--color-text-secondary); }
 .app-version__status--available { color: var(--color-primary); }
 .app-version__status--error { color: #E4626F; }
+
+.app-update-dialog__actions {
+    justify-content: flex-start;
+}
+
+.app-update-dialog__description code {
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+}
 
 /* --- Save-state indicator ------------------------------------------------ */
 
@@ -4586,6 +4585,7 @@ body.is-resizing-pane {
 
 /* --- Feedback dialog ----------------------------------------------------- */
 
+.app-update-backdrop,
 .feedback-backdrop {
     position: fixed;
     inset: 0;
@@ -4596,6 +4596,7 @@ body.is-resizing-pane {
     background: rgba(0, 0, 0, 0.68);
 }
 
+.app-update-dialog,
 .feedback-dialog {
     width: min(640px, 100%);
     display: flex;
@@ -4608,6 +4609,8 @@ body.is-resizing-pane {
     box-shadow: var(--shadow-lg);
 }
 
+.app-update-dialog__header,
+.app-update-dialog__actions,
 .feedback-dialog__header,
 .feedback-dialog__actions {
     display: flex;
@@ -4616,12 +4619,16 @@ body.is-resizing-pane {
     gap: var(--spacing-md);
 }
 
+.app-update-dialog__header h2,
+.app-update-dialog__header p,
+.app-update-dialog__description,
 .feedback-dialog__header h2,
 .feedback-dialog__header p,
 .feedback-dialog__description {
     margin: 0;
 }
 
+.app-update-dialog__eyebrow,
 .feedback-dialog__eyebrow {
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
@@ -4629,6 +4636,7 @@ body.is-resizing-pane {
     letter-spacing: 0.08em;
 }
 
+.app-update-dialog__description,
 .feedback-dialog__description {
     color: var(--color-text-secondary);
 }

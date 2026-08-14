@@ -37,34 +37,17 @@
                 }
             </div>
         }
-        @* The version is the control: clicking it asks for a newer one. There is no
-           separate button, and it stays clickable on heads that do not manage their
-           own updates so the answer is a stated reason rather than nothing. *@
+        @* The header keeps the current version visible. Checking and installing updates
+           happen in the separate update window opened from this control. *@
         <div class="app-header__version">
             <button type="button"
                     class="app-version"
                     data-testid="app-version"
-                    disabled="@_updateBusy"
-                    title="@AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)"
-                    aria-label="@AppUpdatePresentation.VersionActionLabel(Updates.CurrentVersion, _checkingForAppUpdate)"
-                    @onclick="CheckForUpdatesAsync">
+                    title="Open update window"
+                    aria-label="@AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)"
+                    @onclick="OpenUpdateWindow">
                 Version <code>@Updates.CurrentVersion</code>
-                <span class="app-version__hint" aria-hidden="true">@AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)</span>
             </button>
-            @if (_appUpdateReady)
-            {
-                <button type="button"
-                        class="header-tool-toggle"
-                        data-testid="install-update"
-                        disabled="@_updateBusy"
-                        @onclick="InstallUpdateAsync">
-                    @(_installingAppUpdate ? "Installing..." : "Install update")
-                </button>
-            }
-            @if (_appUpdateMessage is not null)
-            {
-                <span class="@_appUpdateStatusClass" data-testid="app-update-status" role="status">@_appUpdateMessage</span>
-            }
         </div>
         <div class="save-indicator save-indicator--@State.SaveState.ToString().ToLowerInvariant()" id="save-state-indicator" data-testid="save-state-indicator" role="status">
             <span class="save-indicator__dot" aria-hidden="true"></span>
@@ -168,6 +151,46 @@
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
+    @if (_appUpdateWindowOpen)
+    {
+        <div class="app-update-backdrop" role="presentation">
+            <section class="app-update-dialog" role="dialog" aria-modal="true" aria-labelledby="app-update-title" aria-describedby="app-update-description" data-testid="app-update-dialog">
+                <header class="app-update-dialog__header">
+                    <div>
+                        <p class="app-update-dialog__eyebrow">Application updates</p>
+                        <h2 id="app-update-title">Update Backlog</h2>
+                    </div>
+                    <button type="button" class="btn btn--ghost btn--icon" aria-label="Close update window" disabled="@_updateBusy" @onclick="CloseUpdateWindow">x</button>
+                </header>
+                <p id="app-update-description" class="app-update-dialog__description">
+                    You are running Version <code>@Updates.CurrentVersion</code>. Check for a newer build here without crowding the header.
+                </p>
+                <div class="app-update-dialog__actions">
+                    <button type="button"
+                            class="btn btn--secondary"
+                            data-testid="check-for-updates"
+                            disabled="@_updateBusy"
+                            @onclick="CheckForUpdatesAsync">
+                        @AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)
+                    </button>
+                    @if (_appUpdateReady)
+                    {
+                        <button type="button"
+                                class="btn btn--primary"
+                                data-testid="install-update"
+                                disabled="@_updateBusy"
+                                @onclick="InstallUpdateAsync">
+                            @(_installingAppUpdate ? "Installing..." : "Install update")
+                        </button>
+                    }
+                </div>
+                @if (_appUpdateMessage is not null)
+                {
+                    <p class="@_appUpdateStatusClass" data-testid="app-update-status" role="status">@_appUpdateMessage</p>
+                }
+            </section>
+        </div>
+    }
     @if (IsFeatureEnabled(AppFeatureSettingsStore.FeedbackReporting) && _feedbackOpen)
     {
         <div class="feedback-backdrop" role="presentation">
@@ -697,6 +720,7 @@
     private bool _checkingForAppUpdate;
     private bool _installingAppUpdate;
     private bool _appUpdateReady;
+    private bool _appUpdateWindowOpen;
     private Guid? _textFocusedEntryKey;
     private bool _feedbackOpen;
     private bool _feedbackSubmitting;
@@ -1778,6 +1802,14 @@
         StateHasChanged();
     });
 
+    private void OpenUpdateWindow() => _appUpdateWindowOpen = true;
+
+    private void CloseUpdateWindow()
+    {
+        if (_updateBusy) return;
+
+        _appUpdateWindowOpen = false;
+    }
 
     private async Task CheckForUpdatesAsync()
     {
