@@ -392,6 +392,12 @@ h1, h2, h3 {
     background: var(--color-background-raised);
 }
 
+.chip--scope.chip--active {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    border-color: var(--color-primary);
+}
+
 /* The count turns the area filter into a sense of where the work actually is. */
 .chip__count {
     margin-left: var(--spacing-xs);
