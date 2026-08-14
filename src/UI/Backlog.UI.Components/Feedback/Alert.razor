@@ -1,11 +1,15 @@
 @if (!string.IsNullOrWhiteSpace(Message))
 {
-    <p class="@CssClassValue" data-testid="@TestId" role="@Role">@Message</p>
+    <p class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message</p>
 }
 
 @code {
     [Parameter]
     public string? Message { get; set; }
+
+    /// <summary>Set when a field points at this alert through aria-describedby.</summary>
+    [Parameter]
+    public string? Id { get; set; }
 
     [Parameter]
     public string Role { get; set; } = "alert";

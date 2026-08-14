@@ -1,0 +1,42 @@
+@*
+    The label is not decoration: a spinner with no accessible name announces
+    nothing, so the text is always rendered and only visually hidden.
+*@
+
+<span class="@ClassValue" role="status" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <span class="spinner__ring" aria-hidden="true"></span>
+    <span class="sr-only">@Label</span>
+</span>
+
+@code {
+    [Parameter]
+    public SpinnerSize Size { get; set; } = SpinnerSize.Medium;
+
+    [Parameter]
+    public string Label { get; set; } = "Loading";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue
+    {
+        get
+        {
+            var size = Size switch
+            {
+                SpinnerSize.Small => "spinner--small",
+                SpinnerSize.Large => "spinner--large",
+                _ => "spinner--medium"
+            };
+
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"spinner {size}{extra}";
+        }
+    }
+}

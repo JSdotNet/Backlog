@@ -1,0 +1,40 @@
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (Icon is not null)
+    {
+        <div class="empty-state__icon" aria-hidden="true">@Icon</div>
+    }
+    <p class="empty-state__title">@Title</p>
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <p class="empty-state__body">@Description</p>
+    }
+    @if (Action is not null)
+    {
+        <div class="empty-state__action">@Action</div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public RenderFragment? Icon { get; set; }
+
+    [Parameter]
+    public RenderFragment? Action { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "empty-state" : $"empty-state {CssClass}";
+}

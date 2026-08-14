@@ -1,0 +1,121 @@
+@*
+    A dialog is only a dialog while it is open: when closed it renders nothing at
+    all, so nothing behind it is reachable through a hidden node. Escape is
+    handled on the container rather than on the document, which means it works
+    without a document-wide listener and cannot outlive the dialog.
+*@
+
+@if (Open)
+{
+    <div class="modal-backdrop" @onclick="BackdropClickedAsync">
+        <div @ref="_dialog"
+             class="@ClassValue"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="@(string.IsNullOrWhiteSpace(Title) ? null : TitleId)"
+             aria-label="@(string.IsNullOrWhiteSpace(Title) ? AriaLabel : null)"
+             data-testid="@TestId"
+             tabindex="-1"
+             @onkeydown="OnKeyDownAsync"
+             @onclick:stopPropagation="true"
+             @attributes="AdditionalAttributes">
+            @if (!string.IsNullOrWhiteSpace(Title))
+            {
+                <header class="modal__header">
+                    <h2 id="@TitleId" class="modal__title">@Title</h2>
+                    <IconButton AriaLabel="@CloseLabel" CssClass="modal__close" OnClick="CloseAsync">x</IconButton>
+                </header>
+            }
+
+            <div class="modal__body">@ChildContent</div>
+
+            @if (Footer is not null)
+            {
+                <footer class="modal__footer">@Footer</footer>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private readonly string _id = "modal-" + Guid.NewGuid().ToString("N");
+    private ElementReference _dialog;
+    private bool _focusPending;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? Footer { get; set; }
+
+    [Parameter]
+    public bool CloseOnBackdropClick { get; set; } = true;
+
+    [Parameter]
+    public bool CloseOnEscape { get; set; } = true;
+
+    [Parameter]
+    public string CloseLabel { get; set; } = "Close dialog";
+
+    [Parameter]
+    public EventCallback OnClosed { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string TitleId => _id + "-title";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "modal" : $"modal {CssClass}";
+
+    protected override void OnParametersSet()
+    {
+        // Focus has to land inside the dialog the moment it appears, or the
+        // keyboard is still out in the page behind it.
+        if (Open) _focusPending = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!Open || !_focusPending) return;
+
+        _focusPending = false;
+
+        try
+        {
+            await _dialog.FocusAsync();
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private Task BackdropClickedAsync() => CloseOnBackdropClick ? CloseAsync() : Task.CompletedTask;
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e) =>
+        CloseOnEscape && e.Key == "Escape" ? CloseAsync() : Task.CompletedTask;
+
+    private async Task CloseAsync()
+    {
+        Open = false;
+        await OpenChanged.InvokeAsync(false);
+        await OnClosed.InvokeAsync();
+    }
+}

@@ -1,0 +1,43 @@
+@*
+    The metadata strip a knowledge document carries: one status pill and the
+    files it relates to. Empty in, nothing out — the strip should not leave a gap
+    where a document has no metadata.
+*@
+
+@if (HasFields)
+{
+    <div class="@ClassValue" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
+        @if (!string.IsNullOrWhiteSpace(Status))
+        {
+            <span class="knowledge-status knowledge-status--@Status">@Status</span>
+        }
+        @foreach (var related in Related)
+        {
+            <code class="knowledge-related">@related</code>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? Status { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<string> Related { get; set; } = [];
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Metadata";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool HasFields => !string.IsNullOrWhiteSpace(Status) || Related.Count > 0;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "knowledge-meta" : $"knowledge-meta {CssClass}";
+}

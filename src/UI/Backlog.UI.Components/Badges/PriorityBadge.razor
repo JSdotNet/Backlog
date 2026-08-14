@@ -1,0 +1,54 @@
+<Badge Kind="priority" Slug="@Slug" TestId="@TestId" CssClass="@CssClass" Title="@Title" @attributes="AdditionalAttributes">@Label</Badge>
+
+@code {
+    [Parameter]
+    public string Priority { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Text { get; set; }
+
+    [Parameter]
+    public string FallbackSlug { get; set; } = "normal";
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Slug => BadgeSlug.Of(Priority, FallbackSlug);
+
+    /// <summary>Priorities arrive as identifiers ("veryHigh", "in_progress");
+    /// the badge shows them as words.</summary>
+    private string Label
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Text)) return Text;
+            if (string.IsNullOrWhiteSpace(Priority)) return string.Empty;
+
+            var source = Priority.Trim().Replace('_', ' ').Replace('-', ' ');
+            var builder = new System.Text.StringBuilder(source.Length + 4);
+
+            for (var i = 0; i < source.Length; i++)
+            {
+                var ch = source[i];
+
+                if (i > 0 && char.IsUpper(ch) && !char.IsWhiteSpace(source[i - 1]) && !char.IsUpper(source[i - 1]))
+                {
+                    builder.Append(' ');
+                }
+
+                builder.Append(i == 0 ? char.ToUpperInvariant(ch) : char.ToLowerInvariant(ch));
+            }
+
+            return builder.ToString();
+        }
+    }
+}

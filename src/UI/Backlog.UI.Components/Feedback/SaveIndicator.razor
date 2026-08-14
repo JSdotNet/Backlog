@@ -1,0 +1,61 @@
+@*
+    Nothing in this product has a save button, so the only way a reader knows the
+    edit landed is this line. It is a polite live region: it must announce, but
+    never interrupt what is being typed.
+*@
+
+@if (State is not SaveState.Idle)
+{
+    <span class="@ClassValue" role="status" aria-live="polite" data-testid="@TestId" @attributes="AdditionalAttributes">
+        <span class="save-indicator__dot" aria-hidden="true"></span>
+        <span>@Text</span>
+    </span>
+}
+
+@code {
+    [Parameter]
+    public SaveState State { get; set; } = SaveState.Idle;
+
+    [Parameter]
+    public string SavingText { get; set; } = "Saving...";
+
+    [Parameter]
+    public string SavedText { get; set; } = "Saved";
+
+    [Parameter]
+    public string FailedText { get; set; } = "Could not save";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Text => State switch
+    {
+        SaveState.Saving => SavingText,
+        SaveState.Saved => SavedText,
+        SaveState.Failed => FailedText,
+        _ => string.Empty
+    };
+
+    private string ClassValue
+    {
+        get
+        {
+            var modifier = State switch
+            {
+                SaveState.Saving => " save-indicator--saving",
+                SaveState.Saved => " save-indicator--saved",
+                SaveState.Failed => " save-indicator--error",
+                _ => string.Empty
+            };
+
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"save-indicator{modifier}{extra}";
+        }
+    }
+}

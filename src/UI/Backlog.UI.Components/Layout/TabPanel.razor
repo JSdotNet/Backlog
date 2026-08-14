@@ -1,0 +1,55 @@
+@implements IDisposable
+
+@*
+    The panel registers itself with the strip above it, so the tab list is
+    whatever panels the caller wrote — there is no second list to keep in sync.
+*@
+
+@if (Parent is not null)
+{
+    <div id="@Parent.PanelId(Id)"
+         class="@ClassValue"
+         role="tabpanel"
+         aria-labelledby="@Parent.TabId(Id)"
+         hidden="@(!Parent.IsActive(Id))"
+         tabindex="0"
+         data-testid="@TestId"
+         @attributes="AdditionalAttributes">
+        @if (Parent.IsActive(Id))
+        {
+            @ChildContent
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    public Tabs? Parent { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "tabs__panel" : $"tabs__panel {CssClass}";
+
+    protected override void OnInitialized() => Parent?.Register(this);
+
+    public void Dispose() => Parent?.Unregister(this);
+}

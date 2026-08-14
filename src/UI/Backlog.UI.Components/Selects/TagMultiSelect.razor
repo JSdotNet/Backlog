@@ -1,0 +1,246 @@
+@*
+    A tag picker with no JS at all: the popup is a real listbox in the DOM, the
+    input owns the focus the whole time, and `aria-activedescendant` moves the
+    reading cursor instead of the focus. That is what makes the keyboard route —
+    Up/Down to walk the list, Enter to take one, Backspace on an empty input to
+    drop the last chip, Escape to close — behave the same for a mouse user and a
+    screen reader user.
+*@
+
+<div class="@ClassValue" data-testid="@TestId">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <label class="field__label" for="@InputId">@Label</label>
+    }
+
+    <div class="tag-select__control">
+        @foreach (var value in VisibleValues)
+        {
+            <TagChip Text="@LabelFor(value)"
+                     Removable="true"
+                     Disabled="@Disabled"
+                     CssClass="tag-select__chip"
+                     OnRemove="() => RemoveAsync(value)" />
+        }
+        @if (HiddenCount > 0)
+        {
+            <span class="tag-select__overflow">+@HiddenCount</span>
+        }
+
+        <input id="@InputId"
+               class="tag-select__input"
+               type="text"
+               role="combobox"
+               autocomplete="off"
+               value="@_query"
+               placeholder="@Placeholder"
+               disabled="@Disabled"
+               aria-expanded="@(_open ? "true" : "false")"
+               aria-controls="@ListId"
+               aria-autocomplete="list"
+               aria-activedescendant="@ActiveOptionId"
+               aria-label="@(string.IsNullOrWhiteSpace(Label) ? Placeholder : null)"
+               @oninput="OnQueryInput"
+               @onfocus="() => _open = true"
+               @onkeydown="OnKeyDownAsync"
+               @onkeydown:preventDefault="_preventDefault"
+               @attributes="AdditionalAttributes" />
+    </div>
+
+    @if (_open && (Matches.Count > 0 || CanCreate))
+    {
+        <ul id="@ListId" class="tag-select__list" role="listbox" aria-label="@(Label ?? "Tags")">
+            @for (var i = 0; i < Matches.Count; i++)
+            {
+                var index = i;
+                var option = Matches[index];
+                <li id="@OptionId(index)"
+                    class="@OptionClass(index)"
+                    role="option"
+                    aria-selected="@(index == _activeIndex ? "true" : "false")"
+                    @onclick="() => AddAsync(option.Value)">@option.Label</li>
+            }
+            @if (CanCreate)
+            {
+                <li id="@OptionId(Matches.Count)"
+                    class="@OptionClass(Matches.Count)"
+                    role="option"
+                    aria-selected="@(_activeIndex == Matches.Count ? "true" : "false")"
+                    @onclick="() => AddAsync(_query.Trim())">@CreateLabel</li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private readonly string _id = "tag-select-" + Guid.NewGuid().ToString("N");
+    private string _query = string.Empty;
+    private bool _open;
+    private bool _preventDefault;
+    private int _activeIndex = -1;
+
+    [Parameter]
+    public IReadOnlyList<SelectorOption> Options { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<string> SelectedValues { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<IReadOnlyList<string>> SelectedValuesChanged { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    /// <summary>Lets the user commit whatever they typed as a new tag.</summary>
+    [Parameter]
+    public bool AllowCreate { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>How many chips fit before the rest collapse into a "+n" count.
+    /// Zero or less shows them all.</summary>
+    [Parameter]
+    public int MaxVisible { get; set; }
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string InputId => string.IsNullOrWhiteSpace(Id) ? _id : Id;
+
+    private string ListId => InputId + "-list";
+
+    private string OptionId(int index) => $"{InputId}-option-{index}";
+
+    private string ClassValue
+    {
+        get
+        {
+            var open = _open ? " tag-select--open" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"field tag-select{open}{extra}";
+        }
+    }
+
+    private IReadOnlyList<string> VisibleValues =>
+        MaxVisible > 0 && SelectedValues.Count > MaxVisible
+            ? SelectedValues.Take(MaxVisible).ToList()
+            : SelectedValues;
+
+    private int HiddenCount => MaxVisible > 0 ? Math.Max(0, SelectedValues.Count - MaxVisible) : 0;
+
+    private List<SelectorOption> Matches => Options
+        .Where(option => !SelectedValues.Contains(option.Value, StringComparer.OrdinalIgnoreCase))
+        .Where(option => string.IsNullOrWhiteSpace(_query)
+            || option.Label.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private bool CanCreate =>
+        AllowCreate
+        && !string.IsNullOrWhiteSpace(_query)
+        && !SelectedValues.Contains(_query.Trim(), StringComparer.OrdinalIgnoreCase)
+        && !Options.Any(option => string.Equals(option.Value, _query.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private int OptionCount => Matches.Count + (CanCreate ? 1 : 0);
+
+    private string CreateLabel => $"Add \"{_query.Trim()}\"";
+
+    private string? ActiveOptionId => _open && _activeIndex >= 0 && _activeIndex < OptionCount
+        ? OptionId(_activeIndex)
+        : null;
+
+    private string OptionClass(int index) => index == _activeIndex
+        ? "tag-select__option tag-select__option--active"
+        : "tag-select__option";
+
+    private string LabelFor(string value) =>
+        Options.FirstOrDefault(option => string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase))?.Label
+        ?? value;
+
+    private void OnQueryInput(ChangeEventArgs e)
+    {
+        _query = e.Value?.ToString() ?? string.Empty;
+        _open = true;
+        _activeIndex = OptionCount > 0 ? 0 : -1;
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        // Arrow keys would scroll the popup's ancestor and Enter would submit a
+        // surrounding form, so those are the keys we swallow — and only those.
+        _preventDefault = e.Key is "ArrowDown" or "ArrowUp" or "Enter" or "Escape";
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                _open = true;
+                if (OptionCount > 0) _activeIndex = (_activeIndex + 1) % OptionCount;
+                break;
+
+            case "ArrowUp":
+                _open = true;
+                if (OptionCount > 0) _activeIndex = (_activeIndex <= 0 ? OptionCount : _activeIndex) - 1;
+                break;
+
+            case "Enter":
+                if (!_open || _activeIndex < 0 || _activeIndex >= OptionCount) break;
+                await AddAsync(_activeIndex < Matches.Count ? Matches[_activeIndex].Value : _query.Trim());
+                break;
+
+            case "Escape":
+                _open = false;
+                _activeIndex = -1;
+                break;
+
+            case "Backspace":
+                if (_query.Length > 0 || SelectedValues.Count == 0) break;
+                await RemoveAsync(SelectedValues[^1]);
+                break;
+        }
+    }
+
+    private async Task AddAsync(string value)
+    {
+        if (Disabled || string.IsNullOrWhiteSpace(value)) return;
+        if (SelectedValues.Contains(value, StringComparer.OrdinalIgnoreCase)) return;
+
+        var next = SelectedValues.ToList();
+        next.Add(value);
+
+        _query = string.Empty;
+        _activeIndex = -1;
+
+        await CommitAsync(next);
+    }
+
+    private async Task RemoveAsync(string value)
+    {
+        if (Disabled) return;
+
+        var next = SelectedValues
+            .Where(existing => !string.Equals(existing, value, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (next.Count == SelectedValues.Count) return;
+
+        await CommitAsync(next);
+    }
+
+    private Task CommitAsync(List<string> next)
+    {
+        SelectedValues = next;
+        return SelectedValuesChanged.InvokeAsync(next);
+    }
+}

@@ -274,35 +274,6 @@ h1, h2, h3 {
     font-family: var(--font-family-mono);
 }
 
-/* --- Save-state indicator ------------------------------------------------ */
-
-.save-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-}
-
-.save-indicator__dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 9999px;
-    background: var(--color-text-secondary);
-}
-
-.save-indicator--saving .save-indicator__dot {
-    background: var(--color-primary);
-    animation: pulse 1s ease-in-out infinite;
-}
-
-.save-indicator--error {
-    color: var(--color-text-primary);
-}
-
-.save-indicator--error .save-indicator__dot {
-    background: #E4626F;
-}
 
 @media (prefers-reduced-motion: reduce) {
     .tech-roadmap__card {
@@ -320,10 +291,6 @@ h1, h2, h3 {
     }
 }
 
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.35; }
-}
 
 /* --- Repository scope and filter bar ------------------------------------- */
 /*
@@ -431,69 +398,6 @@ h1, h2, h3 {
     outline-offset: 2px;
 }
 
-/* --- Buttons ------------------------------------------------------------ */
-
-.btn {
-    font: inherit;
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--border-radius-md);
-    border: var(--border-width) solid transparent;
-    cursor: pointer;
-    transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
-}
-
-.btn:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
-.btn--primary {
-    background: var(--color-primary);
-    color: var(--color-text-inverse);
-    box-shadow: var(--shadow-sm);
-}
-
-.btn--primary:hover {
-    background: var(--color-primary-light);
-    box-shadow: var(--shadow-md);
-}
-
-.btn--primary:active {
-    background: var(--color-primary-dark);
-    transform: scale(0.98);
-}
-
-.btn--secondary {
-    background: transparent;
-    color: var(--color-primary);
-    border-color: var(--color-primary);
-}
-
-.btn--secondary:hover {
-    background: rgba(242, 193, 78, 0.1);
-}
-
-.btn--ghost {
-    background: transparent;
-    color: var(--color-text-secondary);
-}
-
-.btn--ghost:hover {
-    background: var(--color-background-alt);
-    color: var(--color-text-primary);
-}
-
-.btn--destructive:hover {
-    background: var(--color-error);
-    color: var(--color-text-primary);
-}
-
-.btn--icon {
-    padding: var(--spacing-xs);
-    min-width: 32px;
-}
 
 /* --- Entry list: markdown documents ------------------------------------- */
 /*
@@ -977,52 +881,6 @@ h1, h2, h3 {
     opacity: 1;
 }
 
-/* --- Fold control -------------------------------------------------------- */
-
-.entry-doc__title-button {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    min-width: 0;
-    flex: 1 1 auto;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    text-align: left;
-}
-
-.entry-doc__title-button:hover .entry-doc__fold-chevron,
-.subitem-card__title-button:hover .entry-doc__fold-chevron {
-    color: var(--color-primary);
-}
-
-.entry-doc__title-button:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 3px;
-    border-radius: var(--border-radius-sm);
-}
-
-.entry-doc__fold-chevron {
-    display: inline-block;
-    flex: 0 0 auto;
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
-    font-size: 1.25rem;
-    line-height: 1;
-    transition: transform var(--transition-fast);
-}
-
-.entry-doc__fold-chevron--open {
-    transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .entry-doc__fold-chevron {
-        transition: none;
-    }
-}
 
 /* --- Metadata strip ------------------------------------------------------ */
 
@@ -1232,354 +1090,9 @@ h1, h2, h3 {
     color: var(--color-text-disabled);
 }
 
-/* --- Raw editor ---------------------------------------------------------- */
 
-/* CSS-only auto-growing textarea: a hidden replica of the text sets the grid
-   track height, so the visible textarea grows with it — no JS needed. */
-.grow-wrap {
-    display: grid;
-    padding: var(--spacing-xs) 0 var(--spacing-sm);
 
-    /* The replica and the textarea must share identical text metrics, or the
-       replica sizes the grid track for the wrong line height and the textarea
-       is clipped. Both inherit from here so they can never drift apart. */
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
-}
 
-.grow-wrap::after {
-    content: attr(data-replicated-value);
-    white-space: pre-wrap;
-    visibility: hidden;
-}
-
-.grow-wrap > textarea,
-.grow-wrap::after {
-    grid-area: 1 / 1 / 2 / 2;
-    font: inherit;
-    overflow-wrap: break-word;
-    padding: 0;
-    border: none;
-}
-
-.entry-doc__editor {
-    width: 100%;
-    resize: none;
-    overflow: hidden;
-    background: transparent;
-    color: var(--color-text-primary);
-    min-height: 3.5em;
-}
-
-.entry-doc__editor::placeholder {
-    color: var(--color-text-disabled);
-}
-
-.entry-doc__editor:focus-visible {
-    outline: none;
-}
-
-.entry-doc--editing {
-    border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 var(--border-width-2) rgba(242, 193, 78, 0.18);
-}
-
-/* --- Rendered markdown --------------------------------------------------- */
-
-.md-p {
-    margin: 0 0 var(--spacing-sm);
-    color: var(--color-text-secondary);
-}
-
-.md-heading {
-    font-family: var(--font-family-heading);
-    color: var(--color-text-primary);
-    margin: var(--spacing-sm) 0 var(--spacing-xs);
-    line-height: var(--line-height-tight);
-}
-
-.md-heading--1 { font-size: var(--font-size-lg); }
-.md-heading--3 { font-size: var(--font-size-base); }
-.md-heading--4,
-.md-heading--5,
-.md-heading--6 {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-/* A checkbox looks like a checkbox: a box, ticked or not. */
-.md-check {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 15px;
-    height: 15px;
-    flex: 0 0 auto;
-    margin-top: 0.2em;
-    padding: 0;
-    background: transparent;
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-sm);
-    font-size: 10px;
-    line-height: 1;
-    color: transparent;
-    cursor: pointer;
-}
-
-.md-check--done {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: var(--color-text-inverse);
-}
-
-.md-check:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
-.md-item--done {
-    color: var(--color-text-disabled);
-    text-decoration: line-through;
-}
-
-.md-item--done .md-check--done {
-    text-decoration: none;
-    cursor: pointer;
-}
-
-.md-list {
-    margin: 0 0 var(--spacing-sm);
-    padding-left: var(--spacing-lg);
-    color: var(--color-text-secondary);
-}
-
-.md-list--tasks {
-    list-style: none;
-    padding-left: var(--spacing-xs);
-}
-
-.md-list--tasks li {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--spacing-sm);
-}
-
-.md-quote {
-    margin: 0 0 var(--spacing-sm);
-    padding-left: var(--spacing-md);
-    border-left: var(--border-width-2) solid var(--color-border);
-    color: var(--color-text-secondary);
-    font-style: italic;
-}
-
-.md-code {
-    margin: 0 0 var(--spacing-sm);
-    padding: var(--spacing-sm);
-    background: var(--color-background);
-    border-radius: var(--border-radius-sm);
-    overflow-x: auto;
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-}
-
-.md-inline-code {
-    font-family: var(--font-family-mono);
-    font-size: 0.9em;
-    padding: 0 var(--spacing-xs);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background);
-    color: var(--color-text-primary);
-}
-
-.md-divider {
-    border: none;
-    border-top: var(--border-width) solid var(--color-border);
-    margin: var(--spacing-md) 0;
-}
-
-.md-link {
-    color: var(--color-text-link);
-}
-
-/* --- Badges & tag chips -------------------------------------------------- */
-
-.badge {
-    display: inline-flex;
-    align-items: center;
-    font-size: var(--font-size-xs);
-    line-height: 1.4;
-    padding: 1px var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-raised);
-    color: var(--color-text-secondary);
-}
-
-/* Status is the one piece of metadata that carries color. */
-.badge--status {
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--color-text-primary);
-    justify-content: center;
-    margin-left: var(--spacing-xs);
-    width: 7.5rem;
-    min-width: 7.5rem;
-    height: 1.5rem;
-}
-
-.badge--status-draft { background: var(--color-background-raised); color: var(--color-text-secondary); }
-
-.status-editor {
-    padding: 0;
-}
-
-.status-editor__select {
-    width: 100%;
-    min-width: 0;
-    min-height: 1.5rem;
-    padding: 1px var(--spacing-sm);
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-weight: inherit;
-    letter-spacing: inherit;
-    text-align: center;
-    text-align-last: center;
-    text-transform: inherit;
-    cursor: pointer;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-}
-
-.status-editor__select option {
-    background: var(--color-background-raised);
-    color: var(--color-text-primary);
-}
-
-.status-editor__select:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 1px;
-}
-.badge--status-ready { background: var(--color-info); }
-.badge--status-inprogress { background: var(--color-primary); color: var(--color-text-inverse); }
-.badge--status-done { background: var(--color-success); }
-.badge--status-archived { background: transparent; color: var(--color-text-disabled); border: var(--border-width) solid var(--color-border); }
-
-/* Type is quiet: it labels, it does not compete. */
-.badge--type {
-    background: transparent;
-    color: var(--color-text-disabled);
-    padding-left: 0;
-    padding-right: var(--spacing-xs);
-}
-
-.metadata-editor {
-    height: 1.5rem;
-    padding: 0;
-}
-
-.metadata-editor__select {
-    width: 100%;
-    min-width: 0;
-    min-height: 1.5rem;
-    padding: 1px var(--spacing-xs);
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-weight: inherit;
-    letter-spacing: inherit;
-    text-align: center;
-    text-align-last: center;
-    text-transform: inherit;
-    cursor: pointer;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-}
-
-.metadata-editor__select option {
-    background: var(--color-background-raised);
-    color: var(--color-text-primary);
-}
-
-.status-editor__select::-ms-expand,
-.metadata-editor__select::-ms-expand,
-.entry-doc__tag-input::-ms-expand {
-    display: none;
-}
-
-.metadata-editor__select:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 1px;
-}
-
-.metadata-editor--type {
-    width: 5.75rem;
-    min-width: 5.75rem;
-}
-
-/* Priority is an outline, so it reads as a different kind of fact than status. */
-.badge--priority {
-    background: transparent;
-    border: var(--border-width) solid var(--color-border);
-    color: var(--color-text-secondary);
-    justify-content: center;
-    min-width: 4.75rem;
-}
-
-.badge--priority-high { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
-.badge--priority-critical { border-color: #E4626F; color: #E4626F; }
-.badge--priority-low { color: var(--color-text-disabled); }
-
-.badge--progress {
-    justify-content: center;
-    font-variant-numeric: tabular-nums;
-    min-width: 2.25rem;
-}
-
-/* The area an entry is filed under — a quiet counterpart to the tag chips. */
-.badge--area {
-    background: transparent;
-    color: var(--color-text-secondary);
-    border: var(--border-width) solid var(--color-border);
-    padding-left: var(--spacing-xs);
-    padding-right: var(--spacing-xs);
-}
-
-.metadata-editor--repo {
-    width: 7rem;
-    min-width: 5rem;
-    max-width: 9rem;
-}
-
-.badge--draft {
-    color: var(--color-text-disabled);
-    background: transparent;
-    font-style: italic;
-}
-
-/* An entry a repository committed. It reads exactly like every other entry —
-   what it does not do is pretend the controls around it would change anything,
-   so the badge names the file and the card stops offering a caret. */
-.badge--source {
-    gap: var(--spacing-xs);
-    color: var(--color-text-secondary);
-    background: transparent;
-    border: var(--border-width) dashed var(--color-border);
-}
-
-.badge--source code {
-    background: transparent;
-    color: inherit;
-    font-size: inherit;
-}
 
 .entry-doc--read-only .entry-doc__read {
     cursor: default;
@@ -1609,35 +1122,6 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-/* GitHub badges are links, so they are underline-free but clearly interactive,
-   and carry the same state colours the rest of the app already uses. */
-.badge--gh {
-    gap: var(--spacing-xs);
-    text-decoration: none;
-    background: transparent;
-    border: var(--border-width) solid var(--color-border);
-    color: var(--color-text-secondary);
-    font-variant-numeric: tabular-nums;
-}
-
-.badge--gh:hover { border-color: var(--color-border-strong); color: var(--color-text-primary); }
-
-.badge--gh:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 1px;
-}
-
-.badge__state {
-    font-size: var(--font-size-xs);
-    opacity: 0.75;
-    text-transform: lowercase;
-}
-
-.badge--gh-open { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
-.badge--gh-draft { color: var(--color-text-disabled); }
-.badge--gh-merged { border-color: #8B6FC4; color: #C0A9E8; }
-.badge--gh-closed { color: var(--color-text-disabled); text-decoration: line-through; }
-.badge--gh-unknown { color: var(--color-text-disabled); border-style: dashed; }
 
 /* Pushing and re-checking are actions, not metadata, so they read as controls
    sitting among the badges rather than as badges themselves. */
@@ -1705,17 +1189,6 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
-.tag-chip {
-    display: inline-flex;
-    align-items: center;
-    font-size: var(--font-size-xs);
-    color: var(--color-primary);
-    min-width: 0;
-    max-width: 9rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
 
 .entry-doc__tag-picker {
     display: inline-flex;
@@ -1876,26 +1349,6 @@ h1, h2, h3 {
     .filter-group--status {
         margin-left: 0;
     }
-}
-/* --- Empty state ----------------------------------------------------------- */
-
-.empty-state {
-    text-align: center;
-    padding: var(--spacing-xl);
-    border: 1px dashed var(--color-border);
-    border-radius: var(--border-radius-lg);
-    color: var(--color-text-secondary);
-}
-
-.empty-state__title {
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-xl);
-    color: var(--color-text-primary);
-    margin: 0 0 var(--spacing-xs) 0;
-}
-
-.empty-state__body {
-    margin: 0 0 var(--spacing-md) 0;
 }
 
 /* --- Add entry ------------------------------------------------------------ */
@@ -2871,53 +2324,6 @@ h1, h2, h3 {
     scrollbar-gutter: stable;
 }
 
-/* The pane edge itself is the control: a hairline that thickens under the
-   pointer, with a hit area wider than the line it draws. */
-.pane-resizer {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--spacing-md);
-    margin: 0 calc(var(--spacing-xs) * -1);
-    padding: 0;
-    border: 0;
-    background: none;
-    cursor: col-resize;
-    touch-action: none;
-    -webkit-user-select: none;
-    user-select: none;
-}
-
-.pane-resizer__grip {
-    width: 4px;
-    height: 100%;
-    border-radius: 999px;
-    background: var(--color-border);
-    transform: scaleX(0.5);
-    transition: background var(--transition-fast), transform var(--transition-fast);
-}
-
-.pane-resizer:hover .pane-resizer__grip,
-.pane-resizer:focus-visible .pane-resizer__grip,
-body.is-resizing-pane .pane-resizer__grip {
-    transform: scaleX(1);
-    background: var(--color-primary);
-}
-
-.pane-resizer:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-    border-radius: var(--border-radius-sm);
-}
-
-/* Mid-drag the pointer belongs to the separator, not to whatever text it
-   crosses. */
-body.is-resizing-pane {
-    cursor: col-resize;
-    -webkit-user-select: none;
-    user-select: none;
-}
 
 .knowledge-pane {
     overflow: visible;
@@ -3028,85 +2434,7 @@ body.is-resizing-pane {
     background: var(--color-background-alt);
 }
 
-.knowledge-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-}
 
-.knowledge-meta:empty {
-    display: none;
-}
-
-.knowledge-meta__chip {
-    display: inline-flex;
-    gap: var(--spacing-xs);
-    align-items: center;
-    max-width: 100%;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: 999px;
-    background: var(--color-background-alt);
-    font-size: var(--font-size-xs);
-}
-
-.knowledge-meta__chip span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.diagram-view {
-    display: grid;
-    gap: var(--spacing-sm);
-    margin: var(--spacing-md) 0;
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-lg);
-    background: var(--color-background-alt);
-}
-
-.diagram-view__caption {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-weight: 700;
-}
-
-.diagram-view__canvas {
-    display: grid;
-    gap: var(--spacing-md);
-}
-
-.diagram-view__nodes {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-    align-items: center;
-}
-
-.diagram-view__node {
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: var(--border-width) solid var(--color-primary-dark);
-    border-radius: var(--border-radius-md);
-    background: var(--color-warning);
-    color: var(--color-text-primary);
-    font-weight: 700;
-}
-
-.diagram-view__source {
-    max-height: 12rem;
-    overflow: auto;
-    margin: 0;
-    padding: var(--spacing-md);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-}
 
 @media (max-width: 72rem) {
     .knowledge-layout,
@@ -3502,22 +2830,17 @@ body.is-resizing-pane {
     text-transform: uppercase;
 }
 
-.knowledge-stack__menu-message,
-.knowledge-menu__message {
+
+
+
+.knowledge-stack__menu-message {
     margin: 0;
     color: var(--color-text-muted);
     font-size: var(--font-size-sm);
 }
 
-
-.knowledge-menu__row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: var(--spacing-2xs);
-}
-
-.knowledge-menu__open-vscode,
+/* The app's own "open this folder" button. It shares its look with the shared
+   TreeView's `knowledge-menu__open-vscode`, which components.css owns. */
 .knowledge-folder-open {
     display: inline-flex;
     align-items: center;
@@ -3535,8 +2858,6 @@ body.is-resizing-pane {
     cursor: pointer;
 }
 
-.knowledge-menu__open-vscode:hover:not(:disabled),
-.knowledge-menu__open-vscode:focus-visible,
 .knowledge-folder-open:hover:not(:disabled),
 .knowledge-folder-open:focus-visible {
     border-color: var(--color-primary);
@@ -3544,80 +2865,14 @@ body.is-resizing-pane {
     outline: none;
 }
 
-.knowledge-menu__open-vscode:disabled,
 .knowledge-folder-open:disabled {
     cursor: default;
     opacity: 0.58;
 }
 
-.app-error-message {
-    margin: 0;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border: var(--border-width) solid color-mix(in srgb, var(--color-danger) 55%, transparent);
-    border-radius: var(--border-radius-md);
-    background: color-mix(in srgb, var(--color-danger) 14%, transparent);
-    color: var(--color-danger);
-    font-size: var(--font-size-xs);
-}
-
 .knowledge-stack__menu-error,
 .knowledge-folder-open-error {
     margin: 0;
-}
-.knowledge-menu,
-.knowledge-menu__children {
-    display: grid;
-    gap: var(--spacing-2xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.knowledge-menu__item {
-    display: grid;
-    grid-template-columns: 1rem minmax(0, 1fr);
-    align-items: center;
-    gap: var(--spacing-2xs);
-    width: 100%;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    padding-left: calc(var(--spacing-sm) + (var(--knowledge-menu-depth, 0) * var(--spacing-md)));
-    border: var(--border-width) solid transparent;
-    border-radius: var(--border-radius-md);
-    background: transparent;
-    color: var(--color-text-secondary);
-    font: inherit;
-    font-size: var(--font-size-sm);
-    text-align: left;
-    cursor: pointer;
-}
-
-.knowledge-menu__item:hover,
-.knowledge-menu__item:focus-visible,
-.knowledge-menu__item--active {
-    border-color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
-    color: var(--color-text-primary);
-    outline: none;
-}
-
-.knowledge-menu__item--unavailable,
-.knowledge-menu__item:disabled {
-    color: var(--color-text-muted);
-    cursor: not-allowed;
-    opacity: 0.72;
-}
-
-.knowledge-menu__twisty {
-    display: inline-flex;
-    justify-content: center;
-    color: var(--color-text-muted);
-}
-
-.knowledge-menu__label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 @media (max-width: 900px) {
@@ -3654,8 +2909,7 @@ body.is-resizing-pane {
 .domain-section__header,
 .knowledge-document__header,
 .tech-layer__header,
-.tech-node__header,
-.diagram-view__header {
+.tech-node__header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -3770,24 +3024,8 @@ body.is-resizing-pane {
 }
 
 .design-token__name,
-.design-token__value,
-.knowledge-related,
-.knowledge-status {
+.design-token__value {
     font-family: var(--font-family-mono);
-}
-
-.knowledge-status,
-.knowledge-related {
-    display: inline-flex;
-    align-items: center;
-    min-height: 1.5rem;
-    padding: 0 var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: 999px;
-    background: var(--color-background-alt);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: 700;
 }
 
 .knowledge-pane__summary {
@@ -3801,8 +3039,7 @@ body.is-resizing-pane {
     overflow: auto;
 }
 
-.knowledge-code,
-.diagram-view__source {
+.knowledge-code {
     overflow: auto;
     margin: 0;
     padding: var(--spacing-md);
@@ -3813,14 +3050,6 @@ body.is-resizing-pane {
     font-size: var(--font-size-sm);
 }
 
-.diagram-view__language {
-    padding: 0 var(--spacing-sm);
-    border-radius: 999px;
-    background: var(--color-info);
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-xs);
-}
 
 @media (max-width: 72rem) {
     .knowledge-stack {
@@ -3995,78 +3224,6 @@ body.is-resizing-pane {
     }
 }
 
-.diagram-view__rendered,
-.tech-graph__canvas {
-    min-height: 18rem;
-    overflow: auto;
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: color-mix(in srgb, var(--color-background) 88%, #020617);
-}
-
-.diagram-view__rendered {
-    display: grid;
-    place-items: center;
-    padding: var(--spacing-md);
-}
-
-.diagram-view__rendered svg {
-    max-width: 100%;
-    height: auto;
-}
-
-.diagram-view__status,
-.diagram-view__fallback,
-.tech-graph__status {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.diagram-view__fallback {
-    padding: var(--spacing-md);
-    border: var(--border-width) dashed var(--color-border-strong);
-    border-radius: var(--border-radius-md);
-}
-
-.diagram-view__details {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.diagram-view__details summary {
-    cursor: pointer;
-}
-
-.tech-graph {
-    display: grid;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-lg);
-    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
-}
-
-.tech-graph__header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--spacing-md);
-}
-
-.tech-graph__header h3,
-.tech-graph__header p {
-    margin: 0;
-}
-
-.tech-graph__header p {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.tech-graph__canvas {
-    min-height: 30rem;
-}
 
 .tech-roadmap {
     display: grid;
@@ -4669,106 +3826,3 @@ body.is-resizing-pane {
     }
 }
 
-/* --- Feedback dialog ----------------------------------------------------- */
-
-.app-update-backdrop,
-.feedback-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    display: grid;
-    place-items: center;
-    padding: var(--spacing-lg);
-    background: rgba(0, 0, 0, 0.68);
-}
-
-.app-update-dialog,
-.feedback-dialog {
-    width: min(640px, 100%);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-    padding: var(--spacing-lg);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-lg);
-    background: var(--color-background);
-    box-shadow: var(--shadow-lg);
-}
-
-.app-update-dialog__header,
-.app-update-dialog__actions,
-.feedback-dialog__header,
-.feedback-dialog__actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-md);
-}
-
-.app-update-dialog__header h2,
-.app-update-dialog__header p,
-.app-update-dialog__description,
-.feedback-dialog__header h2,
-.feedback-dialog__header p,
-.feedback-dialog__description {
-    margin: 0;
-}
-
-.app-update-dialog__eyebrow,
-.feedback-dialog__eyebrow {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.app-update-dialog__description,
-.feedback-dialog__description {
-    color: var(--color-text-secondary);
-}
-
-.feedback-field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-}
-
-.feedback-field input,
-.feedback-field textarea {
-    width: 100%;
-    color: var(--color-text-primary);
-    background: var(--color-background-alt);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    padding: var(--spacing-sm);
-    font: inherit;
-}
-
-.feedback-field textarea {
-    resize: vertical;
-}
-
-.feedback-field input:focus,
-.feedback-field textarea:focus {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
-.feedback-status {
-    margin: 0;
-    padding: var(--spacing-sm);
-    border-radius: var(--border-radius-md);
-}
-
-.feedback-status--ok {
-    color: var(--color-success);
-    background: rgba(70, 211, 105, 0.1);
-}
-
-.feedback-status--error {
-    color: var(--color-error);
-    background: rgba(255, 107, 107, 0.1);
-}

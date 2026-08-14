@@ -1,0 +1,113 @@
+@implements IDisposable
+
+@*
+    Search that does not fire on every keystroke. The debounce is a cancellable
+    delay rather than a timer so a fast typist cancels the pending round trip
+    instead of queueing one per character.
+*@
+
+<div class="@ClassValue" role="search" data-testid="@TestId">
+    <input id="@FieldId"
+           class="search-box__input"
+           type="search"
+           value="@Value"
+           placeholder="@Placeholder"
+           disabled="@Disabled"
+           aria-label="@AriaLabel"
+           @oninput="OnInput"
+           @attributes="AdditionalAttributes" />
+    @if (!string.IsNullOrEmpty(Value))
+    {
+        <IconButton AriaLabel="@ClearLabel"
+                    CssClass="search-box__clear"
+                    Disabled="@Disabled"
+                    OnClick="ClearAsync">x</IconButton>
+    }
+</div>
+
+@code {
+    private readonly string _id = "search-" + Guid.NewGuid().ToString("N");
+    private CancellationTokenSource? _pending;
+
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Search";
+
+    [Parameter]
+    public string ClearLabel { get; set; } = "Clear search";
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>Zero disables the delay, which is what a test wants.</summary>
+    [Parameter]
+    public int DebounceMilliseconds { get; set; } = 200;
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string FieldId => string.IsNullOrWhiteSpace(Id) ? _id : Id;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "search-box" : $"search-box {CssClass}";
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString() ?? string.Empty;
+
+        CancelPending();
+
+        if (DebounceMilliseconds <= 0)
+        {
+            await ValueChanged.InvokeAsync(Value);
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        _pending = cts;
+        var pendingValue = Value;
+
+        try
+        {
+            await Task.Delay(DebounceMilliseconds, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await InvokeAsync(() => ValueChanged.InvokeAsync(pendingValue));
+    }
+
+    private async Task ClearAsync()
+    {
+        CancelPending();
+        Value = string.Empty;
+        await ValueChanged.InvokeAsync(string.Empty);
+    }
+
+    private void CancelPending()
+    {
+        _pending?.Cancel();
+        _pending?.Dispose();
+        _pending = null;
+    }
+
+    public void Dispose() => CancelPending();
+}

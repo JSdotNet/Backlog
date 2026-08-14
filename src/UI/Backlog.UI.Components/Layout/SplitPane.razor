@@ -1,0 +1,153 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    Two panes with a draggable edge. The pointer drag lives in
+    `backlogPaneResizer` on the JS side because a per-frame interop call is a
+    per-frame render; C# only hears the settled width. The separator is also a
+    focusable `role="separator"` with Left/Right (and Home/End) resizing, because
+    every drag in this product owes the keyboard an equivalent.
+*@
+
+<div class="@ClassValue"
+     data-testid="@TestId"
+     data-pane-split="true"
+     style="--split-pane-start: @Rem(StartWidthRem)rem"
+     @attributes="AdditionalAttributes">
+    <div class="split-pane__start">@Start</div>
+
+    <div class="pane-resizer split-pane__separator"
+         data-pane-resizer="true"
+         data-testid="@SeparatorTestId"
+         role="separator"
+         aria-orientation="vertical"
+         aria-label="@AriaLabel"
+         aria-valuemin="@Rem(MinRem)"
+         aria-valuemax="@Rem(MaxRem)"
+         aria-valuenow="@Rem(StartWidthRem)"
+         tabindex="0"
+         @onkeydown="OnKeyDownAsync"
+         @onkeydown:preventDefault="true">
+        <span class="pane-resizer__grip" aria-hidden="true"></span>
+    </div>
+
+    <div class="split-pane__end">@End</div>
+</div>
+
+@code {
+    private const double StepRem = 2;
+
+    [Parameter]
+    public RenderFragment? Start { get; set; }
+
+    [Parameter]
+    public RenderFragment? End { get; set; }
+
+    [Parameter]
+    public double StartWidthRem { get; set; } = 36;
+
+    [Parameter]
+    public EventCallback<double> StartWidthRemChanged { get; set; }
+
+    [Parameter]
+    public double MinRem { get; set; } = 24;
+
+    [Parameter]
+    public double MaxRem { get; set; } = 200;
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Pane width";
+
+    /// <summary>Set false when the host already owns the JS resizer, so the two
+    /// do not both claim the singleton on the JS side.</summary>
+    [Parameter]
+    public bool UseJsResizer { get; set; } = true;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? SeparatorTestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private DotNetObjectReference<SplitPane>? _self;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "split-pane" : $"split-pane {CssClass}";
+
+    private static string Rem(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !UseJsResizer) return;
+
+        _self = DotNetObjectReference.Create(this);
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogPaneResizer.initialize", _self);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    /// <summary>Called by the JS drag once the pointer is released.</summary>
+    [JSInvokable]
+    public Task SetSidePaneWidthAsync(double widthRem) => CommitAsync(widthRem);
+
+    [JSInvokable]
+    public Task SetSidePaneMaxWidthAsync(double maxRem)
+    {
+        MaxRem = maxRem;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Part of the resizer's interop contract. A two-pane split has no
+    /// pane budget to report, so this is a no-op that keeps JS from failing.</summary>
+    [JSInvokable]
+    public Task SetGlobalPaneCapacityAsync(int capacity) => Task.CompletedTask;
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e) => e.Key switch
+    {
+        // The separator moves left to widen the start pane, so Left grows it.
+        "ArrowLeft" => CommitAsync(StartWidthRem - StepRem),
+        "ArrowRight" => CommitAsync(StartWidthRem + StepRem),
+        "PageUp" => CommitAsync(StartWidthRem - (StepRem * 3)),
+        "PageDown" => CommitAsync(StartWidthRem + (StepRem * 3)),
+        "Home" => CommitAsync(MinRem),
+        "End" => CommitAsync(MaxRem),
+        _ => Task.CompletedTask
+    };
+
+    private Task CommitAsync(double widthRem)
+    {
+        var clamped = Math.Clamp(widthRem, MinRem, Math.Max(MinRem, MaxRem));
+        if (Math.Abs(clamped - StartWidthRem) < 0.001) return Task.CompletedTask;
+
+        StartWidthRem = clamped;
+        StateHasChanged();
+        return StartWidthRemChanged.InvokeAsync(clamped);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (UseJsResizer)
+        {
+            try
+            {
+                await Js.InvokeVoidAsync("backlogPaneResizer.dispose");
+            }
+            catch (JSException)
+            {
+            }
+        }
+
+        _self?.Dispose();
+    }
+}

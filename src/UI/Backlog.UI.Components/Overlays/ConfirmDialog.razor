@@ -1,0 +1,85 @@
+@*
+    Cancel is the default: Escape and the backdrop both mean "no", so a
+    destructive action can never be taken by dismissing the question.
+*@
+
+<Modal Open="@Open"
+       OpenChanged="OnOpenChangedAsync"
+       Title="@Title"
+       AriaLabel="@AriaLabel"
+       CssClass="@ClassValue"
+       TestId="@TestId">
+    <ChildContent>
+        <p class="confirm-dialog__message">@Message</p>
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="@CancelTestId">@CancelText</AppButton>
+        <AppButton Variant="@ConfirmVariant" OnClick="ConfirmAsync" TestId="@ConfirmTestId">@ConfirmText</AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string Message { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ConfirmText { get; set; } = "Confirm";
+
+    [Parameter]
+    public string CancelText { get; set; } = "Cancel";
+
+    [Parameter]
+    public bool Destructive { get; set; }
+
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? ConfirmTestId { get; set; }
+
+    [Parameter]
+    public string? CancelTestId { get; set; }
+
+    private ButtonVariant ConfirmVariant => Destructive ? ButtonVariant.Danger : ButtonVariant.Primary;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass)
+        ? "confirm-dialog"
+        : $"confirm-dialog {CssClass}";
+
+    private Task OnOpenChangedAsync(bool open) => open ? OpenChanged.InvokeAsync(true) : CancelAsync();
+
+    private async Task ConfirmAsync()
+    {
+        Open = false;
+        await OpenChanged.InvokeAsync(false);
+        await OnConfirm.InvokeAsync();
+    }
+
+    private async Task CancelAsync()
+    {
+        Open = false;
+        await OpenChanged.InvokeAsync(false);
+        await OnCancel.InvokeAsync();
+    }
+}

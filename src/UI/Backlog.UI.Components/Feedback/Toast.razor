@@ -1,0 +1,124 @@
+@implements IDisposable
+
+@*
+    A transient message. Errors and warnings assert themselves (`role="alert"`),
+    the rest wait their turn (`role="status"`), because an interruption is only
+    warranted when something went wrong.
+*@
+
+@if (_visible)
+{
+    <div class="@ClassValue" role="@Role" data-testid="@TestId" @attributes="AdditionalAttributes">
+        @if (!string.IsNullOrWhiteSpace(Title))
+        {
+            <strong class="toast__title">@Title</strong>
+        }
+        <span class="toast__message">@Message</span>
+        @ChildContent
+        @if (Dismissable)
+        {
+            <IconButton AriaLabel="@DismissLabel" CssClass="toast__dismiss" OnClick="DismissAsync">x</IconButton>
+        }
+    </div>
+}
+
+@code {
+    private CancellationTokenSource? _autoDismiss;
+    private bool _visible = true;
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string Message { get; set; } = string.Empty;
+
+    [Parameter]
+    public ToastSeverity Severity { get; set; } = ToastSeverity.Info;
+
+    /// <summary>Zero or less keeps the toast up until it is dismissed.</summary>
+    [Parameter]
+    public int DurationMilliseconds { get; set; } = 5000;
+
+    [Parameter]
+    public bool Dismissable { get; set; } = true;
+
+    [Parameter]
+    public string DismissLabel { get; set; } = "Dismiss notification";
+
+    [Parameter]
+    public EventCallback OnDismissed { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Role => Severity is ToastSeverity.Error or ToastSeverity.Warning ? "alert" : "status";
+
+    private string ClassValue
+    {
+        get
+        {
+            var severity = Severity switch
+            {
+                ToastSeverity.Success => "toast--success",
+                ToastSeverity.Warning => "toast--warning",
+                ToastSeverity.Error => "toast--error",
+                _ => "toast--info"
+            };
+
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"toast {severity}{extra}";
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        _autoDismiss?.Cancel();
+        _autoDismiss?.Dispose();
+        _autoDismiss = null;
+
+        if (DurationMilliseconds <= 0) return;
+
+        var cts = new CancellationTokenSource();
+        _autoDismiss = cts;
+
+        _ = AutoDismissAsync(cts.Token);
+    }
+
+    private async Task AutoDismissAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(DurationMilliseconds, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await InvokeAsync(DismissAsync);
+    }
+
+    private async Task DismissAsync()
+    {
+        if (!_visible) return;
+
+        _visible = false;
+        StateHasChanged();
+        await OnDismissed.InvokeAsync();
+    }
+
+    public void Dispose()
+    {
+        _autoDismiss?.Cancel();
+        _autoDismiss?.Dispose();
+    }
+}

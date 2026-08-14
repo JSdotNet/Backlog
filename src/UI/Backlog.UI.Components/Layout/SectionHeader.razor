@@ -1,0 +1,61 @@
+@*
+    Heading level is a parameter because the right level depends on where the
+    section sits, not on how the header looks. Skipping a level is the usual way
+    a document outline stops making sense.
+*@
+
+<header class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <div class="section-header__text">
+        @switch (Level)
+        {
+            case 3:
+                <h3 class="section-header__title">@Title</h3>
+                break;
+            case 4:
+                <h4 class="section-header__title">@Title</h4>
+                break;
+            case 5:
+                <h5 class="section-header__title">@Title</h5>
+                break;
+            default:
+                <h2 class="section-header__title">@Title</h2>
+                break;
+        }
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <p class="section-header__description">@Description</p>
+        }
+    </div>
+    @if (Actions is not null)
+    {
+        <div class="section-header__actions">@Actions</div>
+    }
+</header>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    /// <summary>2 through 5; anything else renders an h2.</summary>
+    [Parameter]
+    public int Level { get; set; } = 2;
+
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass)
+        ? "section-header"
+        : $"section-header {CssClass}";
+}

@@ -1,0 +1,44 @@
+@*
+    A badge is `badge` plus the kind it belongs to, and optionally the value it
+    holds — `badge badge--status badge--status-ready`. StatusBadge and
+    PriorityBadge are this component with the slug already worked out.
+*@
+
+<span class="@ClassValue" data-testid="@TestId" title="@Title" @attributes="AdditionalAttributes">@ChildContent</span>
+
+@code {
+    [Parameter]
+    public string Kind { get; set; } = "status";
+
+    [Parameter]
+    public string? Slug { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue
+    {
+        get
+        {
+            var kind = string.IsNullOrWhiteSpace(Kind) ? string.Empty : $" badge--{Kind}";
+            var slug = string.IsNullOrWhiteSpace(Kind) || string.IsNullOrWhiteSpace(Slug)
+                ? string.Empty
+                : $" badge--{Kind}-{Slug}";
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"badge{kind}{slug}{extra}";
+        }
+    }
+}

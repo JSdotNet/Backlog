@@ -1,0 +1,110 @@
+@*
+    Roving tabindex: exactly one tab is reachable with Tab, and the arrow keys
+    move between them. That is what keeps a tab strip one stop in the tab order
+    instead of one stop per tab.
+*@
+
+<CascadingValue Value="this" IsFixed="true">
+    <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+        <div class="tabs__list" role="tablist" aria-label="@AriaLabel" aria-orientation="horizontal">
+            @foreach (var panel in _panels)
+            {
+                var id = panel.Id;
+                <button type="button"
+                        id="@TabId(id)"
+                        class="@TabClass(id)"
+                        role="tab"
+                        aria-selected="@(IsActive(id) ? "true" : "false")"
+                        aria-controls="@PanelId(id)"
+                        tabindex="@(IsActive(id) ? 0 : -1)"
+                        disabled="@panel.Disabled"
+                        @onclick="() => ActivateAsync(id)"
+                        @onkeydown="e => OnKeyDownAsync(e, id)">@panel.Title</button>
+            }
+        </div>
+        <div class="tabs__panels">
+            @ChildContent
+        </div>
+    </div>
+</CascadingValue>
+
+@code {
+    private readonly List<TabPanel> _panels = [];
+
+    [Parameter]
+    public string? ActiveId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ActiveIdChanged { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "tabs" : $"tabs {CssClass}";
+
+    internal string TabId(string id) => $"tab-{id}";
+
+    internal string PanelId(string id) => $"tabpanel-{id}";
+
+    internal bool IsActive(string id) =>
+        string.Equals(ActiveId, id, StringComparison.Ordinal)
+        || (string.IsNullOrEmpty(ActiveId) && _panels.Count > 0 && _panels[0].Id == id);
+
+    private string TabClass(string id) => IsActive(id) ? "tabs__tab tabs__tab--active" : "tabs__tab";
+
+    internal void Register(TabPanel panel)
+    {
+        if (_panels.Contains(panel)) return;
+
+        _panels.Add(panel);
+        StateHasChanged();
+    }
+
+    internal void Unregister(TabPanel panel)
+    {
+        if (!_panels.Remove(panel)) return;
+
+        StateHasChanged();
+    }
+
+    private Task ActivateAsync(string id)
+    {
+        if (string.Equals(ActiveId, id, StringComparison.Ordinal)) return Task.CompletedTask;
+
+        ActiveId = id;
+        StateHasChanged();
+        return ActiveIdChanged.InvokeAsync(id);
+    }
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e, string id)
+    {
+        var enabled = _panels.Where(panel => !panel.Disabled).Select(panel => panel.Id).ToList();
+        if (enabled.Count == 0) return Task.CompletedTask;
+
+        var current = enabled.IndexOf(id);
+        if (current < 0) current = 0;
+
+        var target = e.Key switch
+        {
+            "ArrowRight" => (current + 1) % enabled.Count,
+            "ArrowLeft" => (current - 1 + enabled.Count) % enabled.Count,
+            "Home" => 0,
+            "End" => enabled.Count - 1,
+            _ => -1
+        };
+
+        return target < 0 ? Task.CompletedTask : ActivateAsync(enabled[target]);
+    }
+}
