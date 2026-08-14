@@ -1194,7 +1194,7 @@ h1, h2, h3 {
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .entry-doc__title {
@@ -1209,6 +1209,7 @@ h1, h2, h3 {
 
 .entry-doc__title-line .entry-doc__title {
     flex: 1 1 auto;
+    margin: 0;
     overflow-wrap: anywhere;
     text-overflow: clip;
     white-space: normal;
@@ -1216,6 +1217,7 @@ h1, h2, h3 {
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__title {
     flex: 1 1 auto;
+    margin: 0;
     overflow-wrap: anywhere;
     text-overflow: clip;
     white-space: normal;

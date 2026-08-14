@@ -109,22 +109,37 @@ public sealed class GlobalPaneMarkupTests
         Assert.True(foldButtonIndex > titleIndex);
     }
 
+
+    [Fact]
+    public void Entry_metadata_keeps_focus_events_out_of_read_view_editor()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("class=\"entry-doc__meta\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", home, StringComparison.Ordinal);
+        Assert.Contains("class=\"entry-doc__meta subitem-card__meta\" aria-label=\"Sub-item metadata and actions\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", home, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Title_line_css_aligns_title_and_metadata_without_wrapping_controls()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        Assert.Contains(".entry-doc__title-line .entry-doc__title {\n    flex: 1 1 auto;\n    margin: 0;", css, StringComparison.Ordinal);
+        Assert.Contains(".entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,\n.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end {\n    flex-wrap: nowrap;\n}", css, StringComparison.Ordinal);
+    }
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
-    private static string FindHomeRazor()
+    private static string FindAppCss() => FindRepoFile("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css");
+
+    private static string FindHomeRazor() => FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "Pages", "Home.razor");
+
+    private static string FindRepoFile(params string[] relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
         while (directory is not null)
         {
-            var candidate = Path.Combine(
-                directory.FullName,
-                "src",
-                "App",
-                "Backlog.Desktop.UI",
-                "Components",
-                "Pages",
-                "Home.razor");
+            var candidate = Path.Combine(new[] { directory.FullName }.Concat(relativePath).ToArray());
 
             if (File.Exists(candidate))
             {
@@ -134,7 +149,7 @@ public sealed class GlobalPaneMarkupTests
             directory = directory.Parent;
         }
 
-        throw new FileNotFoundException("Could not locate src\\App\\Backlog.Desktop.UI\\Components\\Pages\\Home.razor from the test output directory.");
+        throw new FileNotFoundException($"Could not locate {Path.Combine(relativePath)} from the test output directory.");
     }
 }
 

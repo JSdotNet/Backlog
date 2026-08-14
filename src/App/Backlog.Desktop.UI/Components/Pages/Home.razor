@@ -442,7 +442,6 @@
                                                 aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
                                                 aria-controls="entry-content-@row.Key"
                                                 aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
-                                                @onmousedown:preventDefault="true"
                                                 @onclick:stopPropagation="true"
                                                 @onclick="() => State.ToggleEntry(row)">
                                             <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
@@ -541,7 +540,6 @@
                                                         aria-pressed="@(subItem.Done ? "true" : "false")"
                                                         aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
                                                         disabled="@row.IsReadOnly"
-                                                        @onmousedown:preventDefault="true"
                                                         @onclick:stopPropagation="true"
                                                         @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "✔" : string.Empty)</button>
                                             }
@@ -1436,7 +1434,7 @@
 
 
     private RenderFragment RenderEntryMetadata(EntryRow row, bool oneLine) =>
-        @<div class="entry-doc__meta" @onclick:stopPropagation="true">
+        @<div class="entry-doc__meta" @onmousedown:stopPropagation="true" @onclick:stopPropagation="true">
             <span class="entry-doc__meta-start">
                 <label class="metadata-editor metadata-editor--type badge badge--type" data-testid="type-badge">
                     <span class="sr-only">Change type</span>
@@ -1564,7 +1562,6 @@
                                     disabled="@row.GitHubBusy"
                                     title="Check this issue on GitHub"
                                     aria-label="Check this issue on GitHub"
-                                    @onmousedown:preventDefault="true"
                                     @onclick="() => State.RefreshGitHubAsync(row)">
                                 @if (row.GitHubBusy)
                                 {
@@ -1586,7 +1583,6 @@
                                     disabled="@row.GitHubBusy"
                                     title="Create an issue in @repository.FullName"
                                     aria-label="Create an issue in @repository.FullName"
-                                    @onmousedown:preventDefault="true"
                                     @onclick="() => State.PushToGitHubAsync(row, repository)">
                                 @if (row.GitHubBusy)
                                 {
@@ -1610,7 +1606,6 @@
                                 disabled="@row.CopilotBusy"
                                 title="Start GitHub Copilot CLI for this entry"
                                 aria-label="Start GitHub Copilot CLI for this entry"
-                                @onmousedown:preventDefault="true"
                                 @onclick="() => State.StartCopilotCliAsync(row)">
                             @if (row.CopilotBusy)
                             {
@@ -1631,7 +1626,6 @@
                                 data-testid="delete-entry-button"
                                 aria-label="Delete entry"
                                 title="Delete entry"
-                                @onmousedown:preventDefault="true"
                                 @onclick="() => OnDeleteEntryAsync(row)">×</button>
                     }
                 </span>
@@ -1639,7 +1633,7 @@
         </div>;
 
     private RenderFragment RenderSubItemMetadata(EntryRow row, MdSubItem subItem, int position) =>
-        @<div class="entry-doc__meta subitem-card__meta" aria-label="Sub-item metadata and actions" @onclick:stopPropagation="true">
+        @<div class="entry-doc__meta subitem-card__meta" aria-label="Sub-item metadata and actions" @onmousedown:stopPropagation="true" @onclick:stopPropagation="true">
             <span class="entry-doc__meta-start">
                 <label class="metadata-editor metadata-editor--type badge badge--type" data-testid="subitem-type-badge">
                     <span class="sr-only">Change sub-item type</span>
@@ -1705,7 +1699,6 @@
                                 disabled="@row.GitHubBusy"
                                 title="Create an issue in @subItemRepository.FullName"
                                 aria-label="Create an issue in @subItemRepository.FullName"
-                                @onmousedown:preventDefault="true"
                                 @onclick="() => State.PushSubItemToGitHubAsync(row, position, subItemRepository)">
                             @if (row.GitHubBusy)
                             {
@@ -1728,7 +1721,6 @@
                                 disabled="@row.CopilotBusy"
                                 title="Start GitHub Copilot CLI from the parent entry"
                                 aria-label="Start GitHub Copilot CLI from the parent entry"
-                                @onmousedown:preventDefault="true"
                                 @onclick="() => State.StartCopilotCliAsync(row)">
                             @if (row.CopilotBusy)
                             {
