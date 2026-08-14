@@ -1,0 +1,45 @@
+<label class="metadata-editor metadata-editor--priority badge badge--priority badge--priority-@CurrentValue.ToString().ToLowerInvariant()" data-testid="@TestId">
+    <span class="sr-only">@Label</span>
+    <select class="metadata-editor__select"
+            value="@CurrentValue"
+            aria-label="@Label"
+            title="@Label"
+            disabled="@Disabled"
+            @onchange="OnChange">
+        @foreach (var option in AvailableOptions)
+        {
+            <option value="@option">@Humanize(option.ToString())</option>
+        }
+    </select>
+</label>
+
+@code {
+    [Parameter]
+    public Priority CurrentValue { get; set; } = Priority.Medium;
+
+    [Parameter]
+    public IReadOnlyList<Priority>? Options { get; set; }
+
+    [Parameter]
+    public string Label { get; set; } = "Change priority";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback<Priority> OnChanged { get; set; }
+
+    private IReadOnlyList<Priority> AvailableOptions => Options is { Count: > 0 }
+        ? Options
+        : Enum.GetValues<Priority>();
+
+    private Task OnChange(ChangeEventArgs e) =>
+        Enum.TryParse<Priority>(e.Value?.ToString(), out var priority)
+            ? OnChanged.InvokeAsync(priority)
+            : Task.CompletedTask;
+
+    private static string Humanize(string value) => string.Concat(value.Select((ch, index) => index > 0 && char.IsUpper(ch) ? " " + ch : ch.ToString()));
+}

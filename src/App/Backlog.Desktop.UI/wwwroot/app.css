@@ -979,27 +979,26 @@ h1, h2, h3 {
 
 /* --- Fold control -------------------------------------------------------- */
 
-.entry-doc__title-toggle {
+.entry-doc__title-button {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 1.5rem;
-    height: 1.5rem;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    flex: 1 1 auto;
     padding: 0;
     border: none;
-    border-radius: var(--border-radius-sm);
     background: transparent;
     color: inherit;
     cursor: pointer;
-    vertical-align: middle;
+    text-align: left;
 }
 
-.entry-doc__title-toggle:hover .entry-doc__fold-chevron {
+.entry-doc__title-button:hover .entry-doc__fold-chevron,
+.subitem-card__title-button:hover .entry-doc__fold-chevron {
     color: var(--color-primary);
 }
 
-.entry-doc__title-toggle:focus-visible {
+.entry-doc__title-button:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 3px;
     border-radius: var(--border-radius-sm);

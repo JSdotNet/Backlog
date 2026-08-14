@@ -401,18 +401,23 @@ internal static class EntryTextParser
     /// <paramref name="End"/> is exclusive.</summary>
     public sealed record SubItemSpan(int Start, int End);
 
+    private sealed record LocatedSubItem(SubItemSpan Span, int Level);
+
     /// <summary>
-    /// Finds the line range of every <c>##</c> sub-item in a block of raw entry
-    /// text. A sub-item owns everything written after its heading up to the next
-    /// heading of the same level or higher, which is exactly what the read view
-    /// hangs beneath it — so moving a span moves the sub-item together with its
-    /// notes. Headings inside fenced code are text, not structure.
+    /// Finds the line range of every <c>##</c> and <c>###</c> sub-item in a block
+    /// of raw entry text. A sub-item owns everything written after its heading up
+    /// to the next heading of the same level or higher. Headings inside fenced
+    /// code are text, not structure.
     /// </summary>
-    public static IReadOnlyList<SubItemSpan> LocateSubItems(string raw)
+    public static IReadOnlyList<SubItemSpan> LocateSubItems(string raw) =>
+        LocateSubItemDetails(raw).Select(item => item.Span).ToList();
+
+    private static List<LocatedSubItem> LocateSubItemDetails(string raw)
     {
         var lines = Normalize(raw).Split('\n');
         var starts = new List<int>();
         var ends = new List<int>();
+        var levels = new List<int>();
         var inFence = false;
 
         for (var i = 0; i < lines.Length; i++)
@@ -431,22 +436,25 @@ internal static class EntryTextParser
             if (!heading.Success) continue;
 
             var level = heading.Groups[1].Value.Length;
-            if (level > 3) continue;
+            if (level is not (2 or 3))
+            {
+                if (level <= 1 && starts.Count > ends.Count) ends.Add(i);
+                continue;
+            }
 
             if (starts.Count > ends.Count) ends.Add(i);
-            if (level is 2 or 3) starts.Add(i);
+            starts.Add(i);
+            levels.Add(level);
         }
 
         if (starts.Count > ends.Count) ends.Add(lines.Length);
 
-        var spans = new List<SubItemSpan>(starts.Count);
+        var spans = new List<LocatedSubItem>(starts.Count);
         for (var i = 0; i < starts.Count; i++)
         {
-            // Trailing blank lines are separators between sub-items, not part of
-            // one; leaving them in would multiply on every move.
             var end = ends[i];
             while (end > starts[i] + 1 && string.IsNullOrWhiteSpace(lines[end - 1])) end--;
-            spans.Add(new SubItemSpan(starts[i], end));
+            spans.Add(new LocatedSubItem(new SubItemSpan(starts[i], end), levels[i]));
         }
 
         return spans;
@@ -486,29 +494,53 @@ internal static class EntryTextParser
     public static string MoveSubItem(string raw, int from, int to)
     {
         var normalized = Normalize(raw);
-        var spans = LocateSubItems(normalized);
+        var items = LocateSubItemDetails(normalized);
 
-        if (from == to || from < 0 || to < 0 || from >= spans.Count || to >= spans.Count) return raw;
+        if (from == to || from < 0 || to < 0 || from >= items.Count || to >= items.Count) return raw;
 
         var lines = normalized.Split('\n');
-        var blocks = spans.Select(span => lines[span.Start..span.End]).ToList();
+        var blocks = items.Select(item => lines[item.Span.Start..item.Span.End]).ToList();
+
+        if (items[from].Level == 2)
+        {
+            var groupEnd = from + 1;
+            while (groupEnd < items.Count && items[groupEnd].Level > 2)
+            {
+                groupEnd++;
+            }
+
+            if (to >= from && to < groupEnd) return raw;
+
+            var groupSize = groupEnd - from;
+            var movedGroup = blocks.GetRange(from, groupSize);
+            blocks.RemoveRange(from, groupSize);
+
+            var insertAt = to > from ? to - groupSize + 1 : to;
+            blocks.InsertRange(insertAt, movedGroup);
+            return RebuildSubItemText(lines, items[0].Span.Start, blocks);
+        }
+
+        var parentIndex = from - 1;
+        while (parentIndex >= 0 && items[parentIndex].Level != 2)
+        {
+            parentIndex--;
+        }
+
+        if (parentIndex < 0) return raw;
+
+        var maxIndex = parentIndex;
+        while (maxIndex + 1 < items.Count && items[maxIndex + 1].Level > 2)
+        {
+            maxIndex++;
+        }
+
+        var minChildIndex = parentIndex + 1;
+        if (to < minChildIndex || to > maxIndex) return raw;
+
         var moved = blocks[from];
         blocks.RemoveAt(from);
         blocks.Insert(to, moved);
-
-        var rebuilt = new List<string>(lines[..spans[0].Start]);
-        while (rebuilt.Count > 0 && string.IsNullOrWhiteSpace(rebuilt[^1]))
-        {
-            rebuilt.RemoveAt(rebuilt.Count - 1);
-        }
-
-        foreach (var block in blocks)
-        {
-            if (rebuilt.Count > 0) rebuilt.Add(string.Empty);
-            rebuilt.AddRange(block);
-        }
-
-        return string.Join('\n', rebuilt) + "\n";
+        return RebuildSubItemText(lines, items[0].Span.Start, blocks);
     }
 
     /// <summary>Toggles the nth markdown checklist item in an entry, ignoring
@@ -548,7 +580,7 @@ internal static class EntryTextParser
         return raw;
     }
 
-    /// <summary>Toggles the checkbox on the nth rendered level-2 sub-item heading,
+    /// <summary>Toggles the checkbox on the nth rendered sub-item heading,
     /// ignoring fenced code blocks. Sub-items without a checkbox marker are left
     /// untouched rather than inventing state the markdown did not carry.</summary>
     public static string ToggleSubItem(string raw, int subItemIndex)
@@ -572,7 +604,7 @@ internal static class EntryTextParser
             if (inFence) continue;
 
             var heading = HeadingRegex.Match(trimmed);
-            if (!heading.Success || heading.Groups[1].Value.Length != 2) continue;
+            if (!heading.Success || heading.Groups[1].Value.Length is not (2 or 3)) continue;
 
             if (seen++ != subItemIndex) continue;
 
@@ -586,6 +618,23 @@ internal static class EntryTextParser
         }
 
         return raw;
+    }
+
+    private static string RebuildSubItemText(string[] lines, int firstSubItemStart, List<string[]> blocks)
+    {
+        var rebuilt = new List<string>(lines[..firstSubItemStart]);
+        while (rebuilt.Count > 0 && string.IsNullOrWhiteSpace(rebuilt[^1]))
+        {
+            rebuilt.RemoveAt(rebuilt.Count - 1);
+        }
+
+        foreach (var block in blocks)
+        {
+            if (rebuilt.Count > 0) rebuilt.Add(string.Empty);
+            rebuilt.AddRange(block);
+        }
+
+        return string.Join('\n', rebuilt) + "\n";
     }
 
     /// <summary>Syncs parsed sub-items onto the entry's structured sub-items by

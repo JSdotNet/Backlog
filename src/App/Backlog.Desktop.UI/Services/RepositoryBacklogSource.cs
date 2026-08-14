@@ -15,9 +15,9 @@ namespace Backlog.Desktop.UI.Services;
 /// entry's status than as a code block nobody asked to read.
 /// </para>
 /// <para>
-/// Nothing is written back. These files are committed to somebody's repository,
-/// and quietly rewriting them from a backlog list is not an edit anyone asked
-/// for — see <see cref="EntryRow.IsReadOnly"/>.
+/// These files round-trip through the same backlog markdown rules as local
+/// entries: the sigil line stays canonical, while the knowledge <c>meta</c>
+/// fence contributes the entry status.
 /// </para>
 /// </summary>
 public sealed class RepositoryBacklogSource(KnowledgeFolderSource source)

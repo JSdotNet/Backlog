@@ -87,7 +87,6 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("app-version__hint", home, StringComparison.Ordinal);
     }
 
-
     [Fact]
     public void Knowledge_folder_errors_do_not_use_empty_razor_fragment_tags()
     {
@@ -98,17 +97,13 @@ public sealed class GlobalPaneMarkupTests
     }
 
     [Fact]
-    public void Expandable_entry_title_remains_outside_fold_button()
+    public void Expandable_entry_title_uses_an_integrated_collapse_button()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        var titleIndex = home.IndexOf("data-testid=\"entry-title\"", StringComparison.Ordinal);
-        var foldButtonIndex = home.IndexOf("data-testid=\"entry-fold-button\"", StringComparison.Ordinal);
-
-        Assert.True(titleIndex >= 0);
-        Assert.True(foldButtonIndex > titleIndex);
+        Assert.Contains("data-testid=\"entry-title-button\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-testid=\"entry-fold-button\"", home, StringComparison.Ordinal);
     }
-
 
     [Fact]
     public void Entry_metadata_keeps_focus_events_out_of_read_view_editor()
@@ -127,6 +122,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains(".entry-doc__title-line .entry-doc__title {\n    flex: 1 1 auto;\n    margin: 0;", css, StringComparison.Ordinal);
         Assert.Contains(".entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,\n.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end {\n    flex-wrap: nowrap;\n}", css, StringComparison.Ordinal);
     }
+
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
     private static string FindAppCss() => FindRepoFile("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css");
@@ -152,4 +148,3 @@ public sealed class GlobalPaneMarkupTests
         throw new FileNotFoundException($"Could not locate {Path.Combine(relativePath)} from the test output directory.");
     }
 }
-

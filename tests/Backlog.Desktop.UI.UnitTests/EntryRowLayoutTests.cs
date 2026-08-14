@@ -92,6 +92,20 @@ public sealed class EntryRowLayoutTests
     }
 
     [Fact]
+    public void Nested_sub_item_heading_checkboxes_toggle_in_the_raw_markdown()
+    {
+        const string raw =
+            "# Prepare review\n\n" +
+            "## Parent sub-item\n\n" +
+            "### [ ] Child sub-item\n";
+
+        var toggled = EntryTextParser.ToggleSubItem(raw, 1);
+
+        Assert.Contains("### [x] Child sub-item", toggled);
+        Assert.Contains("## Parent sub-item", toggled);
+    }
+
+    [Fact]
     public void Rendered_sub_items_remember_whether_their_heading_had_a_checkbox()
     {
         var row = new EntryRow
@@ -208,7 +222,6 @@ public sealed class EntryRowLayoutTests
         Assert.Contains("`#sync`", rewritten);
     }
 
-
     [Fact]
     public void Rendered_sub_items_include_level_and_metadata()
     {
@@ -231,5 +244,31 @@ public sealed class EntryRowLayoutTests
         Assert.Equal(EntryStatus.Done, row.PreviewSubItems[1].Status);
         Assert.Equal("repo", row.PreviewSubItems[1].Area);
         Assert.Equal(["child"], row.PreviewSubItems[1].MetadataTags);
+    }
+
+    [Fact]
+    public void Sub_item_collapse_state_is_tracked_per_sub_item()
+    {
+        var row = new EntryRow
+        {
+            RawText =
+                "# Prepare review\n\n" +
+                "## First\n" +
+                "Notes one.\n\n" +
+                "## Second\n" +
+                "Notes two.\n"
+        };
+
+        Assert.False(row.IsSubItemCollapsed(0));
+        Assert.False(row.IsSubItemCollapsed(1));
+
+        row.ToggleSubItemCollapsed(0);
+
+        Assert.True(row.IsSubItemCollapsed(0));
+        Assert.False(row.IsSubItemCollapsed(1));
+
+        row.ToggleSubItemCollapsed(0);
+
+        Assert.False(row.IsSubItemCollapsed(0));
     }
 }
