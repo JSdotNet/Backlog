@@ -3442,9 +3442,12 @@ body.is-resizing-pane {
 
 .knowledge-stack__body {
     display: grid;
+    flex: 1 1 auto;
     grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
     gap: var(--spacing-md);
-    align-items: start;
+    align-items: stretch;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .knowledge-stack__body--without-menu {

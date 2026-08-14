@@ -52,6 +52,27 @@ public sealed class KnowledgeStackLayoutTests
     }
 
     [Fact]
+    public void Knowledge_body_constrains_tall_panels_to_the_available_pane_height()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var ruleStart = css.IndexOf(".knowledge-stack__body {", StringComparison.Ordinal);
+
+        Assert.True(ruleStart >= 0, "The Knowledge body layout rule should exist.");
+
+        var ruleEnd = css.IndexOf("}\n", ruleStart, StringComparison.Ordinal);
+        Assert.True(ruleEnd > ruleStart, "The Knowledge body layout rule should be complete.");
+
+        var rule = css[ruleStart..ruleEnd];
+
+        Assert.Contains("display: grid;", rule, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 auto;", rule, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", rule, StringComparison.Ordinal);
+        Assert.Contains("overflow: hidden;", rule, StringComparison.Ordinal);
+        Assert.Contains("align-items: stretch;", rule, StringComparison.Ordinal);
+        Assert.DoesNotContain("align-items: start;", rule, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Tools_pane_stays_right_docked_when_it_is_the_only_side_pane()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
