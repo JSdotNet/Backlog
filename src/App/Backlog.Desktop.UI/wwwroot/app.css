@@ -3984,7 +3984,8 @@ body.is-resizing-pane {
     padding: var(--spacing-sm) var(--spacing-sm) 0;
 }
 
-.tech-roadmap__tabs {
+.tech-roadmap__tabs,
+.tech-roadmap__zoom {
     display: inline-flex;
     gap: var(--spacing-xs);
     padding: var(--spacing-xs);
@@ -4017,6 +4018,48 @@ body.is-resizing-pane {
 .tech-roadmap__tab:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
+}
+
+.tech-roadmap__zoom {
+    align-items: center;
+}
+
+.tech-roadmap__zoom-button {
+    min-width: 2.4rem;
+    min-height: 2.4rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-size-sm);
+}
+
+.tech-roadmap__zoom-button:hover,
+.tech-roadmap__zoom-button:focus-visible {
+    color: var(--color-text-primary);
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-background-raised));
+}
+
+.tech-roadmap__zoom-button:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.tech-roadmap__zoom-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.tech-roadmap__zoom-value {
+    min-width: 3rem;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 
 .tech-roadmap__legend {
@@ -4068,6 +4111,8 @@ body.is-resizing-pane {
 .tech-roadmap__content {
     min-width: max-content;
     min-height: 24rem;
+    transition: transform var(--transition-fast);
+    will-change: transform;
 }
 
 .tech-roadmap__canvas {
@@ -4224,31 +4269,125 @@ body.is-resizing-pane {
     font-size: var(--font-size-sm);
 }
 
-.tech-roadmap__cloud {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(20rem, 1fr));
-    gap: var(--spacing-lg);
-    min-width: 74rem;
-    padding: var(--spacing-lg);
-}
-
-.tech-roadmap__cloud-cluster {
-    min-height: 14rem;
-    padding: var(--spacing-md);
-    border: var(--border-width) solid rgba(148, 163, 184, 0.35);
+.tech-roadmap__cloud-map {
+    position: relative;
+    width: 96rem;
+    height: 58rem;
+    overflow: hidden;
+    border: var(--border-width) solid rgba(148, 163, 184, 0.24);
     border-radius: var(--border-radius-lg);
-    background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.14), transparent 36%), color-mix(in srgb, var(--color-background-raised) 54%, transparent);
+    background:
+        radial-gradient(circle at 22% 28%, rgba(242, 193, 78, 0.11), transparent 20%),
+        radial-gradient(circle at 75% 54%, rgba(56, 189, 248, 0.12), transparent 22%),
+        radial-gradient(circle at 50% 68%, rgba(217, 119, 177, 0.11), transparent 18%),
+        color-mix(in srgb, var(--color-background-raised) 36%, var(--color-background));
 }
 
-.tech-roadmap__cloud-cluster:first-child {
-    grid-column: span 2;
-    background: radial-gradient(circle at top right, rgba(242, 193, 78, 0.14), transparent 36%), color-mix(in srgb, var(--color-background-raised) 64%, transparent);
+.tech-roadmap__cloud-links,
+.tech-roadmap__cloud-nodes {
+    position: absolute;
+    inset: 0;
 }
 
-.tech-roadmap__cloud-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-    gap: var(--spacing-sm);
+.tech-roadmap__cloud-links {
+    width: 100%;
+    height: 100%;
+}
+
+.tech-roadmap__cloud-link {
+    vector-effect: non-scaling-stroke;
+    stroke-linecap: round;
+}
+
+.tech-roadmap__cloud-link--spoke {
+    stroke: rgba(148, 163, 184, 0.38);
+    stroke-width: 0.16;
+}
+
+.tech-roadmap__cloud-link--dependency {
+    stroke: rgba(226, 232, 240, 0.44);
+    stroke-dasharray: 0.9 0.7;
+    stroke-width: 0.1;
+}
+
+.tech-roadmap__cloud-hub,
+.tech-roadmap__cloud-node {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+
+.tech-roadmap__cloud-hub {
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 7rem;
+    min-height: 3.1rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width-2) solid rgba(242, 193, 78, 0.58);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-primary) 22%, var(--color-background-raised));
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    line-height: var(--line-height-tight);
+    text-align: center;
+    box-shadow: 0 0 0 5px rgba(2, 6, 23, 0.58), var(--shadow-md);
+}
+
+.tech-roadmap__cloud-node {
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: var(--tech-roadmap-status-color, var(--color-primary));
+    color: transparent;
+    cursor: pointer;
+    box-shadow: 0 0 0 2px rgba(2, 6, 23, 0.64), 0 0 0 4px color-mix(in srgb, var(--tech-roadmap-status-color, var(--color-primary)) 20%, transparent);
+    transition: box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.tech-roadmap__cloud-node span {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 0.25rem);
+    max-width: 8rem;
+    padding: 1px var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    background: rgba(2, 6, 23, 0.88);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
+    opacity: 0;
+    pointer-events: none;
+    text-align: center;
+    transform: translateX(-50%);
+    transition: opacity var(--transition-fast);
+    white-space: nowrap;
+}
+
+.tech-roadmap__cloud-node:hover,
+.tech-roadmap__cloud-node:focus-visible,
+.tech-roadmap__cloud-node.tech-roadmap__card--selected {
+    transform: translate(-50%, -50%) scale(1.75);
+    box-shadow: 0 0 0 3px rgba(2, 6, 23, 0.74), 0 0 0 7px color-mix(in srgb, var(--tech-roadmap-status-color, var(--color-primary)) 38%, transparent), var(--shadow-md);
+}
+
+.tech-roadmap__cloud-node:hover span,
+.tech-roadmap__cloud-node:focus-visible span,
+.tech-roadmap__cloud-node.tech-roadmap__card--selected span {
+    opacity: 1;
+}
+
+.tech-roadmap__cloud-node:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 5px;
 }
 
 .tech-roadmap__card {
@@ -4376,13 +4515,13 @@ body.is-resizing-pane {
         order: -1;
     }
 
-    .tech-roadmap__cloud {
-        grid-template-columns: minmax(18rem, 1fr);
-        min-width: 20rem;
+    .tech-roadmap__cloud-map {
+        width: 72rem;
+        height: 46rem;
     }
 
-    .tech-roadmap__cloud-cluster:first-child {
-        grid-column: auto;
+    .tech-roadmap__cloud-hub {
+        width: 6rem;
     }
 }
 @media (prefers-reduced-motion: reduce) {

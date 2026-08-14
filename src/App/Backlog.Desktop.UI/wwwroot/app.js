@@ -351,6 +351,8 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
     const tabs = backlogCreateRoadmapElement('div', 'tech-roadmap__tabs');
     tabs.setAttribute('role', 'tablist');
     tabs.setAttribute('aria-label', 'Technology visualizer views');
+    const zoomLevels = [0.5, 0.67, 0.85, 1, 1.25, 1.5];
+    let zoomIndex = 3;
     const legend = backlogCreateRoadmapElement('div', 'tech-roadmap__legend');
     for (const item of ['candidate', 'trial', 'adopted', 'hold', 'retired']) {
         const swatch = backlogCreateRoadmapElement('span', `tech-roadmap__legend-item tech-roadmap__legend-item--${item}`);
@@ -369,12 +371,15 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
     const hint = backlogCreateRoadmapElement('p', 'tech-roadmap__hint');
     const viewport = backlogCreateRoadmapElement('div', 'tech-roadmap__viewport');
     const content = backlogCreateRoadmapElement('div', 'tech-roadmap__content');
+    const zoomControls = backlogCreateRoadmapElement('div', 'tech-roadmap__zoom');
+    zoomControls.setAttribute('aria-label', 'Zoom technology visualizer');
     viewport.appendChild(content);
-    toolbar.append(tabs, legend);
+    toolbar.append(tabs, zoomControls, legend);
     visualizer.append(toolbar, hint, viewport);
     element.appendChild(visualizer);
 
     const listeners = [];
+    const viewListeners = [];
     const cardById = new Map();
     const relatedIds = () => new Set([
         selectedId,
@@ -417,7 +422,7 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
 
         const onClick = () => applySelection(node.id);
         card.addEventListener('click', onClick);
-        listeners.push(() => card.removeEventListener('click', onClick));
+        viewListeners.push(() => card.removeEventListener('click', onClick));
         cardById.set(node.id, card);
         return card;
     };
@@ -469,27 +474,110 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
         return spine;
     };
 
+    const makeCloudNode = (node, x, y) => {
+        const status = backlogNormalizeTechnologyStatus(node.status);
+        const nodeButton = backlogCreateRoadmapElement('button', `tech-roadmap__cloud-node tech-roadmap__card--${status}`);
+        nodeButton.type = 'button';
+        nodeButton.dataset.nodeId = node.id;
+        nodeButton.style.left = `${x}%`;
+        nodeButton.style.top = `${y}%`;
+        nodeButton.style.setProperty('--tech-roadmap-status-color', backlogStatusColor(status));
+        nodeButton.title = `${node.label}: ${node.description || 'No summary yet.'}`;
+        nodeButton.setAttribute('aria-label', `${node.label}, ${status}, ${node.kind || 'technology'}`);
+        nodeButton.setAttribute('aria-pressed', node.id === selectedId ? 'true' : 'false');
+        nodeButton.appendChild(backlogCreateRoadmapElement('span', null, node.label));
+
+        const onClick = () => applySelection(node.id);
+        nodeButton.addEventListener('click', onClick);
+        viewListeners.push(() => nodeButton.removeEventListener('click', onClick));
+        cardById.set(node.id, nodeButton);
+        return nodeButton;
+    };
+
     const renderCloudView = () => {
-        const cloud = backlogCreateRoadmapElement('div', 'tech-roadmap__cloud');
+        const cloud = backlogCreateRoadmapElement('div', 'tech-roadmap__cloud-map');
+        cloud.setAttribute('role', 'group');
+        cloud.setAttribute('aria-label', 'Clustered technology cloud map with dependency links');
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'tech-roadmap__cloud-links');
+        svg.setAttribute('viewBox', '0 0 100 100');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        const nodeLayer = backlogCreateRoadmapElement('div', 'tech-roadmap__cloud-nodes');
         const groups = backlogGroupTechnologyBy(nodes, backlogTechnologyCloudCluster);
         const order = ['Cloud platform', 'Delivery', 'Observability', 'Data and storage', 'Application surfaces', 'Shared foundations'];
         groups.sort((left, right) => order.indexOf(left.key) - order.indexOf(right.key));
+        const centers = [
+            { x: 23, y: 30 },
+            { x: 56, y: 24 },
+            { x: 79, y: 54 },
+            { x: 50, y: 70 },
+            { x: 25, y: 70 },
+            { x: 44, y: 45 }
+        ];
+        const positions = new Map();
 
-        for (const group of groups) {
-            const cluster = backlogCreateRoadmapElement('section', 'tech-roadmap__cloud-cluster');
-            cluster.setAttribute('aria-label', group.label);
-            cluster.appendChild(makeGroupHeader(group.label, group.nodes.length));
-            const cards = backlogCreateRoadmapElement('div', 'tech-roadmap__cloud-cards');
-            for (const node of group.nodes) cards.appendChild(makeCard(node, 'compact'));
-            cluster.appendChild(cards);
-            cloud.appendChild(cluster);
+        const addLine = (className, x1, y1, x2, y2) => {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('class', className);
+            line.setAttribute('x1', x1.toFixed(2));
+            line.setAttribute('y1', y1.toFixed(2));
+            line.setAttribute('x2', x2.toFixed(2));
+            line.setAttribute('y2', y2.toFixed(2));
+            svg.appendChild(line);
+        };
+
+        groups.forEach((group, groupIndex) => {
+            const center = centers[groupIndex % centers.length];
+            const hub = backlogCreateRoadmapElement('div', 'tech-roadmap__cloud-hub');
+            hub.style.left = `${center.x}%`;
+            hub.style.top = `${center.y}%`;
+            hub.textContent = group.label;
+            nodeLayer.appendChild(hub);
+
+            group.nodes.forEach((node, nodeIndex) => {
+                const angle = (Math.PI * 2 * nodeIndex / Math.max(group.nodes.length, 1)) + (groupIndex * 0.45);
+                const radius = 9 + Math.min(12, group.nodes.length * 0.42) + ((nodeIndex % 3) * 2.2);
+                const x = Math.min(96, Math.max(4, center.x + Math.cos(angle) * radius));
+                const y = Math.min(94, Math.max(6, center.y + Math.sin(angle) * radius));
+                positions.set(node.id, { x, y });
+                addLine('tech-roadmap__cloud-link tech-roadmap__cloud-link--spoke', center.x, center.y, x, y);
+                nodeLayer.appendChild(makeCloudNode(node, x, y));
+            });
+        });
+
+        for (const edge of edges) {
+            const source = positions.get(edge.source);
+            const target = positions.get(edge.target);
+            if (!source || !target) continue;
+            addLine('tech-roadmap__cloud-link tech-roadmap__cloud-link--dependency', source.x, source.y, target.x, target.y);
         }
 
+        cloud.append(svg, nodeLayer);
         return cloud;
     };
 
     const removeCardListeners = () => {
-        while (listeners.length > viewDefinitions.length) listeners.pop()?.();
+        while (viewListeners.length > 0) viewListeners.pop()?.();
+    };
+
+    const applyZoomState = () => {
+        const zoom = zoomLevels[zoomIndex];
+        content.style.transform = `scale(${zoom})`;
+        content.style.transformOrigin = 'top left';
+        content.style.marginRight = zoom < 1 ? `-${Math.round((1 - zoom) * 100)}%` : '0';
+        content.style.marginBottom = zoom < 1 ? `-${Math.round((1 - zoom) * 100)}%` : '0';
+        for (const button of zoomControls.querySelectorAll('[data-zoom-action]')) {
+            button.disabled = (button.dataset.zoomAction === 'out' && zoomIndex === 0) || (button.dataset.zoomAction === 'in' && zoomIndex === zoomLevels.length - 1);
+        }
+        const value = zoomControls.querySelector('.tech-roadmap__zoom-value');
+        if (value) value.textContent = `${Math.round(zoom * 100)}%`;
+    };
+
+    const changeZoom = (action) => {
+        if (action === 'out') zoomIndex = Math.max(0, zoomIndex - 1);
+        if (action === 'in') zoomIndex = Math.min(zoomLevels.length - 1, zoomIndex + 1);
+        if (action === 'reset') zoomIndex = 3;
+        applyZoomState();
     };
 
     const renderActiveView = () => {
@@ -508,7 +596,28 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
                     : renderRoadmapView()
         );
         applySelectionState();
+        applyZoomState();
     };
+
+    const zoomOut = backlogCreateRoadmapElement('button', 'tech-roadmap__zoom-button', '-');
+    zoomOut.type = 'button';
+    zoomOut.dataset.zoomAction = 'out';
+    zoomOut.setAttribute('aria-label', 'Zoom out');
+    const zoomValue = backlogCreateRoadmapElement('span', 'tech-roadmap__zoom-value', '100%');
+    const zoomReset = backlogCreateRoadmapElement('button', 'tech-roadmap__zoom-button', 'Reset');
+    zoomReset.type = 'button';
+    zoomReset.dataset.zoomAction = 'reset';
+    zoomReset.setAttribute('aria-label', 'Reset zoom');
+    const zoomIn = backlogCreateRoadmapElement('button', 'tech-roadmap__zoom-button', '+');
+    zoomIn.type = 'button';
+    zoomIn.dataset.zoomAction = 'in';
+    zoomIn.setAttribute('aria-label', 'Zoom in');
+    zoomControls.append(zoomOut, zoomValue, zoomReset, zoomIn);
+    for (const button of [zoomOut, zoomReset, zoomIn]) {
+        const onClick = () => changeZoom(button.dataset.zoomAction);
+        button.addEventListener('click', onClick);
+        listeners.push(() => button.removeEventListener('click', onClick));
+    }
 
     for (const view of viewDefinitions) {
         const tab = backlogCreateRoadmapElement('button', 'tech-roadmap__tab', view.label);
@@ -537,6 +646,7 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
 
     backlogDiagramInstances.set(id, {
         destroy() {
+            removeCardListeners();
             for (const remove of listeners) remove();
         }
     });
