@@ -1,0 +1,20 @@
+@*
+    The technology graph is the shared GraphView shell plus one app-specific
+    renderer: the node/edge shapes come from .tech metadata, so the drawing code
+    stays in app.js as backlogDiagrams.renderTechnologyGraph.
+*@
+<GraphView Title="Technology graph"
+           Description="@Summary"
+           BadgeText="Embedded views"
+           Data="@Graph"
+           JsFunction="backlogDiagrams.renderTechnologyGraph"
+           StatusText="Rendering technology visualizer..."
+           AriaLabel="Technology dependency visualizer" />
+
+@code {
+    [Parameter, EditorRequired]
+    public TechnologyGraphData Graph { get; set; } = TechnologyGraphData.Empty;
+
+    private string Summary =>
+        $"{Graph.Nodes.Count} technologies and {Graph.Edges.Count} dependencies rendered from .tech metadata.";
+}
