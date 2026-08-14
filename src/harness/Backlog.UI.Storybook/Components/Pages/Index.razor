@@ -1,0 +1,80 @@
+@page "/"
+
+<PageTitle>Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Backlog UI Storybook"
+           Summary="Every component in Backlog.UI.Components, rendered on its own.">
+
+    <Story Name="What this is"
+           Description="Why the library exists and what this host is for.">
+        <div class="sb-stack">
+            <p>
+                <code>Backlog.UI.Components</code> is a Razor Class Library with no domain in it.
+                It knows about buttons, inputs, markdown blocks and tree rows — it does not know
+                about entries, backlogs or repositories. Anything that would need that vocabulary
+                stays in the app.
+            </p>
+            <p>
+                This storybook references the library and <code>Backlog.Aspire.ServiceDefaults</code>
+                and nothing else. If a component ever grew a dependency on a module, this project
+                would stop compiling — which is the cheapest possible test of that boundary.
+            </p>
+            <p>
+                It is also the surface to review the components on: they render here exactly as
+                they render in the app, because the storybook links the library stylesheet and
+                adds only page chrome of its own.
+            </p>
+        </div>
+    </Story>
+
+    <Story Name="How to run it"
+           Description="Standalone, or as an Aspire resource next to the other harnesses."
+           Code="@RunCode">
+        <div class="sb-stack">
+            <p>
+                Under the AppHost it is the <code>ui-storybook</code> resource. It starts
+                automatically and waits for nothing, because it depends on nothing.
+            </p>
+        </div>
+    </Story>
+
+    <Story Name="Component groups"
+           Description="One page per folder in the library.">
+        <div class="sb-grid">
+            @foreach (var link in Pages)
+            {
+                <a class="sb-card-link" href="@link.Href">
+                    <span class="sb-card-link__title">@link.Title</span>
+                    <span class="sb-card-link__text">@link.Text</span>
+                </a>
+            }
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private const string RunCode = """
+        # standalone
+        dotnet run --project src/harness/Backlog.UI.Storybook
+
+        # with everything else
+        aspire run
+        """;
+
+    private sealed record PageLink(string Href, string Title, string Text);
+
+    private static readonly IReadOnlyList<PageLink> Pages =
+    [
+        new("/buttons", "Buttons", "AppButton, IconButton, ButtonGroup, ToggleButton."),
+        new("/markdown", "Markdown", "The parser and the read view, side by side with an editor."),
+        new("/diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
+        new("/menus", "Menus", "TreeView, MenuList, ContextMenu, NavList."),
+        new("/selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect, SearchBox."),
+        new("/inputs", "Inputs", "TextField, TextArea, SearchBox, Toggle, Checkbox."),
+        new("/badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge."),
+        new("/feedback", "Feedback", "Alert, EmptyState, Spinner, SaveIndicator, Toast."),
+        new("/overlays", "Overlays", "Modal and ConfirmDialog."),
+        new("/layout", "Layout", "Tabs, Card, SectionHeader, FoldControl, SplitPane.")
+    ];
+}

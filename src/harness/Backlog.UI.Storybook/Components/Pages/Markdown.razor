@@ -1,0 +1,206 @@
+@page "/markdown"
+@using System.Text.RegularExpressions
+@implements IDisposable
+
+<PageTitle>Markdown — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Markdown"
+           Summary="MarkdownPreview parses the source, MarkdownView renders it. Editing and reading are the same text seen two ways.">
+
+    <Story Name="Edit and read"
+           Description="Source on the left, read view on the right. There is no save button on purpose: the product auto-saves, so the indicator under the editor goes Saving then Saved as you type — it renders nothing at all while idle. The checkboxes in the read view write back into the source."
+           Code="@EditCode">
+        <div class="sb-columns">
+            <div class="sb-stack">
+                <p class="sb-label">Source</p>
+                <TextArea Value="@_source"
+                          ValueChanged="OnSourceChangedAsync"
+                          AriaLabel="Markdown source"
+                          Rows="18"
+                          AutoGrow="false"
+                          TestId="markdown-source" />
+                <SaveIndicator State="_saveState" TestId="markdown-save-indicator" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Read view</p>
+                <div data-testid="markdown-preview">
+                    <MarkdownView Blocks="Blocks" OnTaskItemToggled="ToggleTaskAsync" />
+                </div>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Read-only view"
+           Description="The same component with fixed content and no toggle handler — how a body renders when it is not being edited."
+           Code="@ReadOnlyCode">
+        <div data-testid="markdown-readonly">
+            <MarkdownView Blocks="@MarkdownPreview.Parse(FixedSample)" />
+        </div>
+    </Story>
+
+    <Story Name="Blocks the parser produces"
+           Description="What MarkdownPreview made of the source in the first story — useful when a line renders as prose and you want to know why.">
+        <ul class="sb-stack" data-testid="markdown-blocks">
+            @foreach (var block in Blocks)
+            {
+                <li><code>@block.GetType().Name</code></li>
+            }
+        </ul>
+    </Story>
+
+    <Story Name="Sub-items are not rendered here"
+           Description="A `##` heading starts a sub-item, and the read view leaves those to the host to lay out as its own card. Only the prose above the first `##` appears — which is why nothing else on this page uses one.">
+        <div class="sb-columns">
+            <div>
+                <p class="sb-label">Source</p>
+                <pre class="sb-story__code"><code>@SubItemSample</code></pre>
+            </div>
+            <div>
+                <p class="sb-label">Read view</p>
+                <div data-testid="markdown-subitems">
+                    <MarkdownView Blocks="@MarkdownPreview.Parse(SubItemSample)" />
+                </div>
+            </div>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    // The task index MarkdownView reports counts `- [ ]` lines in document order,
+    // so writing a toggle back means finding the nth such line in the source.
+    private static readonly Regex TaskLineRegex = new(@"^(\s*[-*]\s+\[)( |x|X)(\]\s)", RegexOptions.Compiled);
+
+    private const string InitialSource = """
+        # Storybook entry
+
+        A paragraph with **bold**, *emphasis*, `inline code`, a #tag and a
+        [link to the read view](https://learn.microsoft.com/aspnet/core/blazor).
+
+        # Checklist
+
+        - [x] Move the shared components into Backlog.UI.Components
+        - [x] Keep the markdown parser next to the view that renders it
+        - [ ] Give every component a story
+        - [ ] Drive the storybook from Playwright
+
+        # Notes
+
+        - Plain bullets still work
+        - So do #tags in a list
+
+        1. First ordered item
+        2. Second ordered item
+
+        > Everything auto-saves. There is no save button anywhere in the product.
+
+        ```csharp
+        var blocks = MarkdownPreview.Parse(source);
+        ```
+
+        ---
+
+        Anything the parser does not recognise falls through as readable prose.
+        """;
+
+    private const string FixedSample = """
+        # Read-only body
+
+        This one never changes, so it shows the read view without an editor next to it.
+
+        - [x] Done item
+        - [ ] Open item
+
+        > A quote, and a #tag.
+        """;
+
+    // A `##` heading is a sub-item: the parser folds everything under it into an
+    // MdSubItem, and MarkdownView deliberately does not render those because the
+    // host lays each one out as its own card. Nothing on this page uses `##`, or
+    // half the sample would vanish from the read view.
+    private const string SubItemSample = """
+        # Visible
+
+        This paragraph renders.
+
+        ## A sub-item
+
+        Everything from the `##` down belongs to the sub-item, so the read view
+        leaves it to the host.
+        """;
+
+    private string _source = InitialSource;
+    private SaveState _saveState = SaveState.Idle;
+    private CancellationTokenSource? _saveDelay;
+
+    private IReadOnlyList<MdBlock> Blocks => MarkdownPreview.Parse(_source);
+
+    private async Task OnSourceChangedAsync(string value)
+    {
+        _source = value;
+        await MarkSavingAsync();
+    }
+
+    private async Task ToggleTaskAsync(int taskIndex)
+    {
+        var lines = _source.Replace("\r\n", "\n").Split('\n');
+        var seen = 0;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var match = TaskLineRegex.Match(lines[i]);
+            if (!match.Success) continue;
+
+            if (seen++ != taskIndex) continue;
+
+            var flipped = match.Groups[2].Value == " " ? "x" : " ";
+            lines[i] = match.Groups[1].Value + flipped + match.Groups[3].Value + lines[i][match.Length..];
+            break;
+        }
+
+        _source = string.Join('\n', lines);
+        await MarkSavingAsync();
+    }
+
+    /// <summary>Stands in for the real auto-save: Saving while the keystrokes are
+    /// still arriving, Saved once they stop.</summary>
+    private async Task MarkSavingAsync()
+    {
+        _saveDelay?.Cancel();
+        _saveDelay?.Dispose();
+        _saveDelay = new CancellationTokenSource();
+        var token = _saveDelay.Token;
+
+        _saveState = SaveState.Saving;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(600), token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        _saveState = SaveState.Saved;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _saveDelay?.Cancel();
+        _saveDelay?.Dispose();
+    }
+
+    private const string EditCode = """
+        <TextArea Value="@_source" ValueChanged="OnSourceChangedAsync" Rows="18" />
+        <SaveIndicator State="_saveState" />
+
+        <MarkdownView Blocks="@MarkdownPreview.Parse(_source)" OnTaskItemToggled="ToggleTaskAsync" />
+        """;
+
+    private const string ReadOnlyCode = """
+        <MarkdownView Blocks="@MarkdownPreview.Parse(body)" />
+        """;
+}

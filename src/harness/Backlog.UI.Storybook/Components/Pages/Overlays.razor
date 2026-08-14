@@ -1,0 +1,141 @@
+@page "/overlays"
+
+<PageTitle>Overlays — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Overlays"
+           Summary="The two things that take over the screen: a modal you put content in, and a confirm dialog that asks one question.">
+
+    <Story Name="Modal"
+           Description="Opened from a button and closed by the backdrop, Escape, the close button, or a footer action. Focus moves into the dialog and comes back when it closes."
+           Code="@ModalCode">
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Primary" OnClick="OpenModal" TestId="open-modal">
+                Open the modal
+            </AppButton>
+            <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _noBackdropOpen = true">
+                Open one that ignores the backdrop
+            </AppButton>
+        </div>
+        <p class="sb-state" data-testid="modal-state">Last modal result: @(_modalResult ?? "(nothing yet)")</p>
+
+        <Modal Open="_modalOpen"
+               OpenChanged="v => _modalOpen = v"
+               Title="Rename entry"
+               TestId="demo-modal"
+               OnClosed="OnModalClosed">
+            <ChildContent>
+                <div class="sb-stack">
+                    <TextField Label="Title"
+                               Value="@_title"
+                               ValueChanged="v => _title = v"
+                               HelpText="Renaming is instant in the product; this dialog exists to show the overlay." />
+                </div>
+            </ChildContent>
+            <Footer>
+                <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelModal">Cancel</AppButton>
+                <AppButton Variant="ButtonVariant.Primary" OnClick="SaveModal" TestId="modal-save">Save</AppButton>
+            </Footer>
+        </Modal>
+
+        <Modal Open="_noBackdropOpen"
+               OpenChanged="v => _noBackdropOpen = v"
+               Title="Backdrop clicks do nothing here"
+               CloseOnBackdropClick="false">
+            <ChildContent>
+                <p>Use Escape or the close button. A dialog that must not be dismissed by accident sets CloseOnBackdropClick to false.</p>
+            </ChildContent>
+        </Modal>
+    </Story>
+
+    <Story Name="ConfirmDialog"
+           Description="One question, two answers, and the outcome recorded below so it is visible which callback ran."
+           Code="@ConfirmCode">
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _confirmOpen = true" TestId="open-confirm">
+                Archive entry
+            </AppButton>
+            <AppButton Variant="ButtonVariant.Danger" OnClick="() => _destructiveOpen = true" TestId="open-destructive">
+                Delete entry
+            </AppButton>
+        </div>
+        <p class="sb-state" data-testid="confirm-state">Last answer: @(_confirmResult ?? "(nothing yet)")</p>
+
+        <ConfirmDialog Open="_confirmOpen"
+                       OpenChanged="v => _confirmOpen = v"
+                       Title="Archive entry"
+                       Message="The entry moves out of the active list. You can bring it back later."
+                       ConfirmText="Archive"
+                       TestId="confirm-dialog"
+                       ConfirmTestId="confirm-dialog-confirm"
+                       CancelTestId="confirm-dialog-cancel"
+                       OnConfirm="ConfirmArchive"
+                       OnCancel="CancelArchive" />
+
+        <ConfirmDialog Open="_destructiveOpen"
+                       OpenChanged="v => _destructiveOpen = v"
+                       Title="Delete entry"
+                       Message="This cannot be undone."
+                       ConfirmText="Delete"
+                       Destructive="true"
+                       TestId="destructive-dialog"
+                       ConfirmTestId="destructive-dialog-confirm"
+                       CancelTestId="destructive-dialog-cancel"
+                       OnConfirm="ConfirmDelete"
+                       OnCancel="CancelDelete" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private bool _modalOpen;
+    private bool _noBackdropOpen;
+    private bool _confirmOpen;
+    private bool _destructiveOpen;
+    private string _title = "Storybook for Backlog.UI.Components";
+    private string? _modalResult;
+    private string? _confirmResult;
+
+    private void OpenModal()
+    {
+        _modalResult = null;
+        _modalOpen = true;
+    }
+
+    private void SaveModal()
+    {
+        _modalOpen = false;
+        _modalResult = $"saved \"{_title}\"";
+    }
+
+    private void CancelModal()
+    {
+        _modalOpen = false;
+        _modalResult = "cancelled";
+    }
+
+    // Fires for every close route the modal owns — backdrop, Escape, close
+    // button — but not for the footer actions, which set their own result first.
+    private void OnModalClosed() => _modalResult ??= "closed";
+
+    private void ConfirmArchive() => _confirmResult = "archive confirmed";
+
+    private void CancelArchive() => _confirmResult = "archive cancelled";
+
+    private void ConfirmDelete() => _confirmResult = "delete confirmed";
+
+    private void CancelDelete() => _confirmResult = "delete cancelled";
+
+    private const string ModalCode = """
+        <Modal Open="_open" OpenChanged="v => _open = v" Title="Rename entry">
+            <ChildContent><TextField Label="Title" @bind-Value="_title" /></ChildContent>
+            <Footer><AppButton Variant="ButtonVariant.Primary" OnClick="Save">Save</AppButton></Footer>
+        </Modal>
+        """;
+
+    private const string ConfirmCode = """
+        <ConfirmDialog Open="_open" OpenChanged="v => _open = v"
+                       Title="Delete entry" Message="This cannot be undone."
+                       ConfirmText="Delete" Destructive="true"
+                       OnConfirm="Delete" OnCancel="Keep" />
+        """;
+}

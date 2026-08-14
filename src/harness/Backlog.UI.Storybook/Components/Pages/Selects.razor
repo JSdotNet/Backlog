@@ -1,0 +1,218 @@
+@page "/selects"
+
+<PageTitle>Selects — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Selects"
+           Summary="Everything that picks a value: a plain select, a select that renders as a badge, a select over an enum, a tag picker, and the search box that filters a list.">
+
+    <Story Name="SelectField"
+           Description="A labelled select over string options. Without an empty option the first value is always chosen; with one, 'nothing selected' is expressible."
+           Code="@SelectFieldCode">
+        <div class="sb-columns">
+            <div>
+                <p class="sb-label">Required — no empty option</p>
+                <SelectField CurrentValue="@_area"
+                             Options="Areas"
+                             Label="Area"
+                             TestId="select-area"
+                             OnChanged="v => _area = v ?? string.Empty" />
+                <p class="sb-state" data-testid="select-area-value">Area = @Show(_area)</p>
+            </div>
+            <div>
+                <p class="sb-label">Optional — IncludeEmptyOption</p>
+                <SelectField CurrentValue="@_owner"
+                             Options="Owners"
+                             Label="Owner"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="Unassigned"
+                             TestId="select-owner"
+                             OnChanged="v => _owner = v" />
+                <p class="sb-state" data-testid="select-owner-value">Owner = @Show(_owner)</p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="BadgeSelect"
+           Description="The same select, rendered as the badge it sets. Used wherever a status is both shown and changed in place."
+           Code="@BadgeSelectCode">
+        <div class="sb-row">
+            <BadgeSelect CurrentValue="@_status"
+                         Options="Statuses"
+                         Label="Change status"
+                         TestId="select-status"
+                         OnChanged="v => _status = v" />
+            <BadgeSelect CurrentValue="blocked"
+                         Options="Statuses"
+                         Label="Blocked example"
+                         Disabled="true" />
+        </div>
+        <p class="sb-state" data-testid="select-status-value">Status = @Show(_status)</p>
+
+        <div class="sb-row" style="margin-top: 1rem">
+            @foreach (var status in Statuses)
+            {
+                <StatusBadge Status="@status.Value" Text="@status.Label" />
+            }
+        </div>
+    </Story>
+
+    <Story Name="EnumSelect"
+           Description="A select over an enum, so the options cannot drift from the type. The storybook uses its own DemoPriority — the library has no domain enum to bind to."
+           Code="@EnumSelectCode">
+        <div class="sb-row">
+            <EnumSelect TEnum="DemoPriority"
+                        CurrentValue="_priority"
+                        Label="Change priority"
+                        TestId="select-priority"
+                        OnChanged="v => _priority = v" />
+            <EnumSelect TEnum="DemoPriority"
+                        CurrentValue="_priority"
+                        Options="ShortList"
+                        Label="Only the top three"
+                        BadgeKind="priority"
+                        OnChanged="v => _priority = v" />
+        </div>
+        <p class="sb-state" data-testid="select-priority-value">Priority = @_priority</p>
+    </Story>
+
+    <Story Name="TagMultiSelect"
+           Description="Many values from a list. With AllowCreate the typed text becomes a new tag; without it, only known options can be picked."
+           Code="@TagCode">
+        <div class="sb-columns">
+            <div>
+                <p class="sb-label">AllowCreate = true</p>
+                <TagMultiSelect Options="Tags"
+                                SelectedValues="_openTags"
+                                SelectedValuesChanged="v => _openTags = v"
+                                Label="Tags"
+                                Placeholder="Add or create a tag"
+                                AllowCreate="true"
+                                TestId="tags-open" />
+                <p class="sb-state" data-testid="tags-open-value">[@string.Join(", ", _openTags)]</p>
+            </div>
+            <div>
+                <p class="sb-label">AllowCreate = false</p>
+                <TagMultiSelect Options="Tags"
+                                SelectedValues="_closedTags"
+                                SelectedValuesChanged="v => _closedTags = v"
+                                Label="Tags"
+                                Placeholder="Pick a known tag"
+                                TestId="tags-closed" />
+                <p class="sb-state" data-testid="tags-closed-value">[@string.Join(", ", _closedTags)]</p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="SearchBox"
+           Description="Debounced: the bound value only changes once typing pauses, so a filter does not re-run per keystroke."
+           Code="@SearchCode">
+        <SearchBox Value="@_query"
+                   ValueChanged="v => _query = v"
+                   Placeholder="Filter entries"
+                   TestId="select-search" />
+        <p class="sb-state" data-testid="select-search-value">Query = @Show(_query)</p>
+        <ul class="sb-stack" style="margin-top: 0.5rem">
+            @foreach (var match in Matches)
+            {
+                <li>@match</li>
+            }
+        </ul>
+    </Story>
+
+</StoryPage>
+
+@code {
+    /// <summary>A storybook-local enum. The library is domain-free, so the enum
+    /// select needs something of its own to demonstrate against.</summary>
+    public enum DemoPriority
+    {
+        Highest,
+        High,
+        Medium,
+        Low,
+        Lowest
+    }
+
+    private static readonly IReadOnlyList<SelectorOption> Areas =
+    [
+        new("product", "Product"),
+        new("platform", "Platform"),
+        new("design", "Design")
+    ];
+
+    private static readonly IReadOnlyList<SelectorOption> Owners =
+    [
+        new("ada", "Ada"),
+        new("linus", "Linus"),
+        new("grace", "Grace")
+    ];
+
+    private static readonly IReadOnlyList<SelectorOption> Statuses =
+    [
+        new("draft", "Draft"),
+        new("ready", "Ready"),
+        new("active", "Active"),
+        new("blocked", "Blocked"),
+        new("done", "Done")
+    ];
+
+    private static readonly IReadOnlyList<SelectorOption> Tags =
+    [
+        new("ui", "ui"),
+        new("markdown", "markdown"),
+        new("sync", "sync"),
+        new("aspire", "aspire"),
+        new("docs", "docs")
+    ];
+
+    private static readonly IReadOnlyList<DemoPriority> ShortList =
+        [DemoPriority.Highest, DemoPriority.High, DemoPriority.Medium];
+
+    private static readonly string[] Entries =
+    [
+        "Carve the shared components out of the desktop UI",
+        "Storybook for Backlog.UI.Components",
+        "Markdown read view keeps task indexes stable",
+        "Aspire dashboard shows every harness"
+    ];
+
+    private string _area = "product";
+    private string? _owner;
+    private string _status = "ready";
+    private DemoPriority _priority = DemoPriority.High;
+    private IReadOnlyList<string> _openTags = ["ui", "markdown"];
+    private IReadOnlyList<string> _closedTags = ["aspire"];
+    private string _query = string.Empty;
+
+    private IEnumerable<string> Matches => string.IsNullOrWhiteSpace(_query)
+        ? Entries
+        : Entries.Where(entry => entry.Contains(_query, StringComparison.OrdinalIgnoreCase));
+
+    private static string Show(string? value) => string.IsNullOrEmpty(value) ? "(none)" : value;
+
+    private const string SelectFieldCode = """
+        <SelectField CurrentValue="@_owner" Options="Owners" Label="Owner"
+                     IncludeEmptyOption="true" EmptyLabel="Unassigned"
+                     OnChanged="v => _owner = v" />
+        """;
+
+    private const string BadgeSelectCode = """
+        <BadgeSelect CurrentValue="@_status" Options="Statuses" Label="Change status"
+                     OnChanged="v => _status = v" />
+        """;
+
+    private const string EnumSelectCode = """
+        <EnumSelect TEnum="DemoPriority" CurrentValue="_priority"
+                    Label="Change priority" OnChanged="v => _priority = v" />
+        """;
+
+    private const string TagCode = """
+        <TagMultiSelect Options="Tags" SelectedValues="_tags"
+                        SelectedValuesChanged="v => _tags = v"
+                        AllowCreate="true" Label="Tags" />
+        """;
+
+    private const string SearchCode = """
+        <SearchBox Value="@_query" ValueChanged="v => _query = v" Placeholder="Filter entries" />
+        """;
+}

@@ -146,6 +146,14 @@
             catch (JSException)
             {
             }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+                // Disposed from a prerender: the resizer was never initialized,
+                // so there is nothing to dispose.
+            }
         }
 
         _self?.Dispose();

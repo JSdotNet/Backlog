@@ -1,0 +1,53 @@
+@*
+    One live example. The test id is derived from the story name so Playwright
+    can address a story by what it is called on screen, without the page having
+    to invent and maintain a second set of identifiers.
+*@
+
+<section class="sb-story" data-testid="@("story-" + Slug(Name))" aria-label="@Name">
+    <header class="sb-story__header">
+        <h2 class="sb-story__name">@Name</h2>
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <p class="sb-story__description">@Description</p>
+        }
+    </header>
+
+    <div class="sb-story__example">
+        @ChildContent
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Code))
+    {
+        <pre class="sb-story__code"><code>@Code.Trim()</code></pre>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    /// <summary>The razor usage shown under the example. Optional: a story that
+    /// is only about behaviour does not need one.</summary>
+    [Parameter]
+    public string? Code { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    internal static string Slug(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "story";
+
+        var chars = value.Trim().ToLowerInvariant()
+            .Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')
+            .ToArray();
+
+        var slug = string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
+
+        return slug.Length == 0 ? "story" : slug;
+    }
+}

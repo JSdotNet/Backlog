@@ -1,0 +1,170 @@
+@page "/menus"
+
+<PageTitle>Menus — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Menus"
+           Summary="A tree, a flat menu, the same menu at a pointer position, and the navigation list this storybook's own sidebar is built from.">
+
+    <Story Name="TreeView"
+           Description="Expansion and selection live in the page, not the tree — the component asks two predicates and raises one event, so a host keeps whatever state model it already has."
+           Code="@TreeCode">
+        <TreeView Nodes="Nodes"
+                  RootFolder="Root"
+                  HeadingLabel="Knowledge"
+                  HeadingTestId="tree-heading"
+                  OpenButtonTestId="tree-open-folder"
+                  IsNodeSelected="node => node.Id == _selectedId"
+                  IsNodeExpanded="node => _expanded.Contains(node.Id)"
+                  OnNodeSelected="OnNodeSelected"
+                  OnOpenFolder="OnOpenFolder"
+                  OpenErrorMessage="@_treeError" />
+        <p class="sb-state" data-testid="tree-state">
+            Selected: @(_selectedId ?? "(none)") &nbsp;|&nbsp; Expanded: [@string.Join(", ", _expanded)]
+        </p>
+        <div class="sb-row" style="margin-top: 0.5rem">
+            <AppButton Variant="ButtonVariant.Ghost" OnClick="ToggleTreeError">
+                Toggle the open-error line
+            </AppButton>
+        </div>
+    </Story>
+
+    <Story Name="MenuList"
+           Description="One tab stop: arrows walk it, Enter and Space activate, disabled rows and separators are skipped."
+           Code="@MenuCode">
+        <MenuList Items="MenuItems"
+                  AriaLabel="Entry actions"
+                  TestId="menu"
+                  OnItemSelected="OnMenuItemSelected" />
+    </Story>
+
+    <Story Name="ContextMenu"
+           Description="The same MenuList placed at a pointer position. Right-click the surface below; Escape or a click outside closes it."
+           Code="@ContextCode">
+        <div class="sb-surface"
+             data-testid="context-surface"
+             @oncontextmenu="OpenContextMenu"
+             @oncontextmenu:preventDefault="true">
+            Right-click anywhere in this box.
+        </div>
+        <ContextMenu Open="_contextOpen"
+                     OpenChanged="v => _contextOpen = v"
+                     X="_contextX"
+                     Y="_contextY"
+                     Items="MenuItems"
+                     AriaLabel="Entry actions"
+                     TestId="context-menu"
+                     OnItemSelected="OnContextItemSelected" />
+    </Story>
+
+    <Story Name="NavList"
+           Description="Router-aware links. Match=true means the link is only active on an exact route, which is what the root entry needs."
+           Code="@NavCode">
+        <NavList Items="NavItems" AriaLabel="Storybook pages" TestId="nav-demo" />
+    </Story>
+
+    <Story Name="Last thing selected"
+           Description="Every menu on this page writes here, so it is visible that the callbacks fire.">
+        <p class="sb-state" data-testid="menu-last-action">@(_lastAction ?? "(nothing yet)")</p>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly TreeNode Root = new("root", "Knowledge", TreeNodeKind.Folder);
+
+    private static readonly IReadOnlyList<TreeNode> Nodes =
+    [
+        new("arc42", "Architecture", TreeNodeKind.Folder, true, null,
+        [
+            TreeNode.Leaf("arc42-1", "Introduction and goals"),
+            TreeNode.Leaf("arc42-5", "Building block view"),
+            new("arc42-8", "Cross-cutting concepts", TreeNodeKind.Folder, true, null,
+            [
+                TreeNode.Leaf("arc42-8-ui", "UI components"),
+                TreeNode.Leaf("arc42-8-sync", "Sync")
+            ])
+        ]),
+        new("design", "Design", TreeNodeKind.Folder, true, null,
+        [
+            TreeNode.Leaf("design-colors", "Color scheme"),
+            TreeNode.Leaf("design-tokens", "Design tokens"),
+            TreeNode.Leaf("design-motion", "Motion", available: false, message: "Not written yet")
+        ]),
+        new("empty", string.Empty, TreeNodeKind.Message, true, "No technology chapters have been generated.")
+    ];
+
+    private static readonly IReadOnlyList<MenuItem> MenuItems =
+    [
+        new("open", "Open", "↗"),
+        new("rename", "Rename", "✎"),
+        MenuItem.Divider("sep-1"),
+        new("duplicate", "Duplicate", "⧉"),
+        new("archive", "Archive", "📦", Disabled: true),
+        MenuItem.Divider("sep-2"),
+        new("delete", "Delete", "🗑", Destructive: true)
+    ];
+
+    private static readonly IReadOnlyList<NavItem> NavItems =
+    [
+        new("/", "Introduction", Match: true),
+        new("/buttons", "Buttons"),
+        new("/menus", "Menus")
+    ];
+
+    private readonly HashSet<string> _expanded = ["arc42"];
+    private string? _selectedId;
+    private string? _lastAction;
+    private string? _treeError;
+    private bool _contextOpen;
+    private double _contextX;
+    private double _contextY;
+
+    // A row with children is a disclosure; a leaf is a selection. One click
+    // handler covers both because the tree reports the node, not the intent.
+    private void OnNodeSelected(TreeNode node)
+    {
+        if (node.HasChildren && !_expanded.Add(node.Id))
+        {
+            _expanded.Remove(node.Id);
+        }
+
+        _selectedId = node.Id;
+        _lastAction = $"Tree: {node.Label}";
+    }
+
+    private void OpenContextMenu(MouseEventArgs e)
+    {
+        _contextX = e.ClientX;
+        _contextY = e.ClientY;
+        _contextOpen = true;
+    }
+
+    private void OnOpenFolder(TreeNode node) => _lastAction = $"Open folder: {node.Label}";
+
+    private void OnMenuItemSelected(MenuItem item) => _lastAction = $"Menu: {item.Label}";
+
+    private void OnContextItemSelected(MenuItem item) => _lastAction = $"Context: {item.Label}";
+
+    private void ToggleTreeError() =>
+        _treeError = _treeError is null ? "The folder could not be opened." : null;
+
+    private const string TreeCode = """
+        <TreeView Nodes="Nodes"
+                  IsNodeSelected="node => node.Id == _selectedId"
+                  IsNodeExpanded="node => _expanded.Contains(node.Id)"
+                  OnNodeSelected="OnNodeSelected" />
+        """;
+
+    private const string MenuCode = """
+        <MenuList Items="MenuItems" AriaLabel="Entry actions" OnItemSelected="OnSelected" />
+        """;
+
+    private const string ContextCode = """
+        <div @oncontextmenu="OpenContextMenu" @oncontextmenu:preventDefault="true">...</div>
+        <ContextMenu Open="_open" OpenChanged="v => _open = v" X="_x" Y="_y" Items="MenuItems" />
+        """;
+
+    private const string NavCode = """
+        <NavList Items="NavItems" AriaLabel="Storybook pages" />
+        """;
+}

@@ -1,0 +1,58 @@
+@inherits LayoutComponentBase
+
+@*
+    Two columns: the page index on the left, one component group on the right.
+    The sidebar uses the library's own NavList so the storybook exercises the
+    component it navigates with.
+*@
+
+<div class="sb-shell">
+    <aside class="sb-sidebar">
+        <div class="sb-brand">
+            <span class="sb-brand__name">Backlog UI</span>
+            <span class="sb-brand__kind">storybook</span>
+        </div>
+
+        @foreach (var group in Groups)
+        {
+            <div class="sb-nav-group">
+                <p class="sb-nav-group__title">@group.Title</p>
+                <NavList Items="@group.Items" AriaLabel="@group.Title" />
+            </div>
+        }
+    </aside>
+
+    <main class="sb-content">
+        @Body
+    </main>
+</div>
+
+@code {
+    private sealed record NavGroup(string Title, IReadOnlyList<NavItem> Items);
+
+    // "Requested" first: these five groups are the ones the storybook was asked
+    // for, so they stay visually ahead of the rest of the library.
+    private static readonly IReadOnlyList<NavGroup> Groups =
+    [
+        new("Overview",
+        [
+            new NavItem("/", "Introduction", Match: true)
+        ]),
+        new("Requested",
+        [
+            new NavItem("/buttons", "Buttons"),
+            new NavItem("/markdown", "Markdown"),
+            new NavItem("/diagrams", "Diagrams"),
+            new NavItem("/menus", "Menus"),
+            new NavItem("/selects", "Selects")
+        ]),
+        new("Rest of the library",
+        [
+            new NavItem("/inputs", "Inputs"),
+            new NavItem("/badges", "Badges"),
+            new NavItem("/feedback", "Feedback"),
+            new NavItem("/overlays", "Overlays"),
+            new NavItem("/layout", "Layout")
+        ])
+    ];
+}

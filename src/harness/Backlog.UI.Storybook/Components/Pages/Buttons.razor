@@ -1,0 +1,141 @@
+@page "/buttons"
+
+<PageTitle>Buttons — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Buttons"
+           Summary="One button component with variants and sizes, plus the three shapes built on the same conventions.">
+
+    <Story Name="Variants and sizes"
+           Description="Variant and size are modifiers on the same button, so any combination is valid."
+           Code="@VariantCode">
+        <div class="sb-stack">
+            @foreach (var size in Sizes)
+            {
+                <div class="sb-row">
+                    <span class="sb-label">@size</span>
+                    @foreach (var variant in Variants)
+                    {
+                        <AppButton Variant="variant" Size="size" OnClick="Count">@variant.ToString()</AppButton>
+                    }
+                </div>
+            }
+        </div>
+        <p class="sb-state" data-testid="click-count">Clicks: @_clicks</p>
+    </Story>
+
+    <Story Name="Disabled and busy"
+           Description="Busy disables the button and swaps the label for a spinner, so a slow action cannot be fired twice."
+           Code="@BusyCode">
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Primary" Disabled="true">Disabled</AppButton>
+            <AppButton Variant="ButtonVariant.Primary" Busy="true" BusyLabel="Saving">Save</AppButton>
+            <AppButton Variant="ButtonVariant.Primary" Busy="_busy" OnClick="RunBusyAsync">
+                @(_busy ? "Working" : "Run for two seconds")
+            </AppButton>
+        </div>
+    </Story>
+
+    <Story Name="With an icon"
+           Description="Icon is a fragment rendered before the label, so it can be any glyph or inline SVG."
+           Code="@IconCode">
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Primary" OnClick="Count">
+                <Icon><span aria-hidden="true">+</span></Icon>
+                <ChildContent>New entry</ChildContent>
+            </AppButton>
+            <AppButton Variant="ButtonVariant.Danger" OnClick="Count">
+                <Icon><span aria-hidden="true">🗑</span></Icon>
+                <ChildContent>Delete</ChildContent>
+            </AppButton>
+        </div>
+    </Story>
+
+    <Story Name="IconButton"
+           Description="A button with no label needs an aria-label, so AppButton's icon-only cousin requires one."
+           Code="@IconButtonCode">
+        <div class="sb-row">
+            <IconButton AriaLabel="Add entry" Title="Add entry" OnClick="Count">+</IconButton>
+            <IconButton AriaLabel="Edit entry" Title="Edit entry" OnClick="Count">✎</IconButton>
+            <IconButton AriaLabel="Delete entry" Title="Delete entry" OnClick="Count">🗑</IconButton>
+            <IconButton AriaLabel="Unavailable action" Disabled="true">⨯</IconButton>
+        </div>
+        <p class="sb-state">Clicks: @_clicks</p>
+    </Story>
+
+    <Story Name="ButtonGroup"
+           Description="Related actions in one labelled group."
+           Code="@GroupCode">
+        <ButtonGroup AriaLabel="Entry actions">
+            <AppButton Variant="ButtonVariant.Primary" OnClick="Count">Save</AppButton>
+            <AppButton Variant="ButtonVariant.Secondary" OnClick="Count">Duplicate</AppButton>
+            <AppButton Variant="ButtonVariant.Ghost" OnClick="Count">Cancel</AppButton>
+        </ButtonGroup>
+    </Story>
+
+    <Story Name="ToggleButton"
+           Description="Two-way bound to page state — the pressed state below is the page's, not the button's."
+           Code="@ToggleCode">
+        <div class="sb-row">
+            <ToggleButton @bind-Pressed="_showDone" AriaLabel="Show completed entries">Show completed</ToggleButton>
+            <ToggleButton @bind-Pressed="_compact" AriaLabel="Compact rows">Compact rows</ToggleButton>
+            <ToggleButton Pressed="true" Disabled="true" AriaLabel="Locked filter">Locked on</ToggleButton>
+        </div>
+        <p class="sb-state" data-testid="toggle-state">
+            Show completed: @_showDone &nbsp;|&nbsp; Compact rows: @_compact
+        </p>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly ButtonVariant[] Variants =
+        [ButtonVariant.Primary, ButtonVariant.Secondary, ButtonVariant.Ghost, ButtonVariant.Danger];
+
+    private static readonly ButtonSize[] Sizes =
+        [ButtonSize.Small, ButtonSize.Medium];
+
+    private int _clicks;
+    private bool _busy;
+    private bool _showDone = true;
+    private bool _compact;
+
+    private void Count() => _clicks++;
+
+    private async Task RunBusyAsync()
+    {
+        _busy = true;
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        _busy = false;
+        _clicks++;
+    }
+
+    private const string VariantCode = """
+        <AppButton Variant="ButtonVariant.Primary" Size="ButtonSize.Medium" OnClick="Save">Save</AppButton>
+        """;
+
+    private const string BusyCode = """
+        <AppButton Variant="ButtonVariant.Primary" Busy="@_saving" BusyLabel="Saving">Save</AppButton>
+        """;
+
+    private const string IconCode = """
+        <AppButton Variant="ButtonVariant.Primary">
+            <Icon><span aria-hidden="true">+</span></Icon>
+            <ChildContent>New entry</ChildContent>
+        </AppButton>
+        """;
+
+    private const string IconButtonCode = """
+        <IconButton AriaLabel="Delete entry" Title="Delete entry" OnClick="Delete">🗑</IconButton>
+        """;
+
+    private const string GroupCode = """
+        <ButtonGroup AriaLabel="Entry actions">
+            <AppButton Variant="ButtonVariant.Primary">Save</AppButton>
+            <AppButton Variant="ButtonVariant.Ghost">Cancel</AppButton>
+        </ButtonGroup>
+        """;
+
+    private const string ToggleCode = """
+        <ToggleButton @bind-Pressed="_showDone" AriaLabel="Show completed entries">Show completed</ToggleButton>
+        """;
+}

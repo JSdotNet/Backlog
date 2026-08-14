@@ -74,5 +74,13 @@
         catch (JSException)
         {
         }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Disposed from a prerender, where interop is not available yet.
+            // There is nothing rendered to tear down in that case.
+        }
     }
 }
