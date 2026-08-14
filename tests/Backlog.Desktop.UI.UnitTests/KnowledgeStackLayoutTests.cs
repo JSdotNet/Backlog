@@ -42,6 +42,7 @@ public sealed class KnowledgeStackLayoutTests
         var nextRuleStart = css.IndexOf("\n.", ruleStart + 1, StringComparison.Ordinal);
         var rule = css[ruleStart..(nextRuleStart < 0 ? css.Length : nextRuleStart)];
 
+        Assert.Contains("width: min(36rem, 100%);", rule, StringComparison.Ordinal);
         Assert.Contains("margin-left: auto;", rule, StringComparison.Ordinal);
     }
 
