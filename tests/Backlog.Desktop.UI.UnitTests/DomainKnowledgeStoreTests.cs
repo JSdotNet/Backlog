@@ -58,6 +58,25 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task Reads_context_index_and_additional_markdown_documents()
+    {
+        var repo = TempDir();
+        WriteDomain(repo);
+        File.WriteAllText(Path.Combine(repo, ".domain", "inbox", "index.md"), "# Inbox overview");
+        File.WriteAllText(Path.Combine(repo, ".domain", "inbox", "config.md"), "# Inbox config");
+        var settings = ConfiguredSettings(repo);
+
+        var view = await new DomainKnowledgeStore(settings).LoadAsync("backlog");
+
+        var context = Assert.Single(view.Contexts);
+        Assert.Equal(
+            [".domain/inbox/domain.md", ".domain/inbox/index.md", ".domain/inbox/features.md", ".domain/inbox/model.md", ".domain/inbox/config.md"],
+            context.Documents.Select(document => document.Path));
+        Assert.Contains(context.Documents, document => document.Title == "Inbox overview" && document.Kind == DomainKnowledgeDocumentKind.Other);
+        Assert.Contains(context.Documents, document => document.Title == "Inbox config" && document.Kind == DomainKnowledgeDocumentKind.Other);
+    }
+
+    [Fact]
     public async Task Honors_repository_relative_domain_folder_override()
     {
         var repo = TempDir();

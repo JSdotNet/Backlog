@@ -22,7 +22,7 @@ public sealed class DomainKnowledgeStore
     private static readonly Regex Heading = new("^(#{1,6})[ \\t]+(.+?)\\s*$", RegexOptions.Compiled);
     private static readonly Regex Fence = new("^```(?<lang>[A-Za-z0-9_-]*)\\s*$", RegexOptions.Compiled);
     private static readonly Regex KnowledgeLink = new("\\.(?:domain|arc42|backlog|tech|design)/[^\\s)`>,]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly string[] ContextFiles = ["domain.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
+    private static readonly string[] PreferredContextFiles = ["domain.md", "index.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
 
 public Task<DomainKnowledgeView> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
@@ -66,10 +66,22 @@ public Task<DomainKnowledgeView> LoadAsync(string? repositoryAlias = null, Cance
 
     private static DomainKnowledgeContext ReadContext(string slug, string path, string root)
     {
-        var docs = ContextFiles.Select(file => Path.Combine(path, file)).Where(File.Exists).Select(p => ReadDocument(p, root, KindFromFile(Path.GetFileName(p)))).ToList();
+        var docs = EnumerateContextDocuments(path).Select(p => ReadDocument(p, root, KindFromFile(Path.GetFileName(p)))).ToList();
         var domain = docs.FirstOrDefault(d => d.Kind == DomainKnowledgeDocumentKind.Domain) ?? docs.FirstOrDefault();
         var name = domain?.Title.Replace("Domain: ", string.Empty, StringComparison.OrdinalIgnoreCase) ?? Humanize(slug);
         return new DomainKnowledgeContext(slug, name, domain?.Status ?? "none", docs);
+    }
+
+    private static IReadOnlyList<string> EnumerateContextDocuments(string path)
+    {
+        var preferredOrder = PreferredContextFiles
+            .Select((file, index) => new { file, index })
+            .ToDictionary(item => item.file, item => item.index, StringComparer.OrdinalIgnoreCase);
+
+        return [.. Directory.EnumerateFiles(path, "*.md", SearchOption.TopDirectoryOnly)
+            .Where(file => !Path.GetFileName(file).StartsWith('_'))
+            .OrderBy(file => preferredOrder.TryGetValue(Path.GetFileName(file), out var index) ? index : int.MaxValue)
+            .ThenBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)];
     }
 
     private static DomainKnowledgeDocument ReadDocument(string path, string root, DomainKnowledgeDocumentKind kind)
@@ -215,6 +227,7 @@ public Task<DomainKnowledgeView> LoadAsync(string? repositoryAlias = null, Cance
     private static DomainKnowledgeDocumentKind KindFromFile(string file) => file.ToLowerInvariant() switch
     {
         "domain.md" => DomainKnowledgeDocumentKind.Domain,
+        "index.md" => DomainKnowledgeDocumentKind.Other,
         "features.md" => DomainKnowledgeDocumentKind.Features,
         "model.md" => DomainKnowledgeDocumentKind.Model,
         "flow.md" => DomainKnowledgeDocumentKind.Flow,

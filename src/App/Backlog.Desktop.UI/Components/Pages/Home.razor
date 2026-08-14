@@ -1018,11 +1018,12 @@
         if (!node.Available || node.Kind == KnowledgeMenuNodeKind.Message) return;
 
         _selectedKnowledgeSection = node.AreaKey;
-        if (node.Kind == KnowledgeMenuNodeKind.File || !node.HasChildren)
+        if (IsSelectableKnowledgeMenuNode(node))
         {
             _selectedKnowledgeChapterPaths[node.AreaKey] = node.Path;
-            return;
         }
+
+        if (!node.HasChildren) return;
 
         var key = KnowledgeMenuNodeKey(node);
         if (!_expandedKnowledgeMenuNodes.Add(key))
@@ -1032,6 +1033,8 @@
     }
 
     private bool IsKnowledgeMenuNodeExpanded(KnowledgeMenuNode node) => _expandedKnowledgeMenuNodes.Contains(KnowledgeMenuNodeKey(node));
+
+    private static bool IsSelectableKnowledgeMenuNode(KnowledgeMenuNode node) => node.Kind == KnowledgeMenuNodeKind.File || node.Path.EndsWith(".md", StringComparison.OrdinalIgnoreCase);
 
     private static string KnowledgeMenuNodeKey(KnowledgeMenuNode node) => $"{node.AreaKey}:{node.Key}";
 
@@ -1171,7 +1174,7 @@
 
     private static KnowledgeMenuNode? FindSelectableChapter(KnowledgeMenuNode node, string path)
     {
-        if (node.Kind == KnowledgeMenuNodeKind.File && node.Available && string.Equals(node.Path, path, StringComparison.OrdinalIgnoreCase)) return node;
+        if (IsSelectableKnowledgeMenuNode(node) && node.Available && string.Equals(node.Path, path, StringComparison.OrdinalIgnoreCase)) return node;
 
         foreach (var child in node.Children)
         {
@@ -1184,7 +1187,7 @@
 
     private static KnowledgeMenuNode? FirstSelectableChapter(KnowledgeMenuNode node)
     {
-        if (node.Kind == KnowledgeMenuNodeKind.File && node.Available) return node;
+        if (IsSelectableKnowledgeMenuNode(node) && node.Available) return node;
 
         foreach (var child in node.Children)
         {
