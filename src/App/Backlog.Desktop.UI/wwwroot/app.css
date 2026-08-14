@@ -2868,6 +2868,12 @@ h1, h2, h3 {
     overflow: auto;
 }
 
+.side-pane-stack--full.side-pane-stack--right-docked {
+    width: min(36rem, 100%);
+    max-width: 100%;
+    margin-left: auto;
+}
+
 .backlog-workspace {
     min-height: 0;
     overflow: auto;
