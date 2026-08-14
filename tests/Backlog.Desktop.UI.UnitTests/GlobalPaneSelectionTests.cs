@@ -13,10 +13,11 @@ public sealed class GlobalPaneSelectionTests
         Assert.False(selection.IsEnabled(GlobalPane.Inbox));
         Assert.False(selection.IsEnabled(GlobalPane.Knowledge));
         Assert.Equal(1, selection.EnabledCount);
+        Assert.Equal(3, selection.Capacity);
     }
 
     [Fact]
-    public void Supports_one_two_or_all_three_global_panes()
+    public void Supports_one_two_or_all_three_global_panes_when_capacity_allows_it()
     {
         var selection = new GlobalPaneSelection();
 
@@ -39,6 +40,48 @@ public sealed class GlobalPaneSelectionTests
         Assert.False(selection.IsEnabled(GlobalPane.Inbox));
         Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
         Assert.Equal(1, selection.EnabledCount);
+    }
+
+    [Fact]
+    public void Single_pane_capacity_switches_to_the_requested_pane()
+    {
+        var selection = new GlobalPaneSelection();
+        selection.TrySetCapacity(1);
+
+        var changed = selection.Toggle(GlobalPane.Knowledge);
+
+        Assert.True(changed);
+        Assert.False(selection.IsEnabled(GlobalPane.Backlog));
+        Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.Equal(1, selection.EnabledCount);
+        Assert.True(selection.CanEnable(GlobalPane.Inbox));
+    }
+
+    [Fact]
+    public void Two_pane_capacity_refuses_to_open_a_third_pane_until_one_closes()
+    {
+        var selection = new GlobalPaneSelection();
+        selection.TrySetCapacity(2);
+        selection.Toggle(GlobalPane.Inbox);
+
+        Assert.False(selection.CanEnable(GlobalPane.Knowledge));
+        Assert.False(selection.TrySetEnabled(GlobalPane.Knowledge, enabled: true));
+        Assert.False(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.Equal(2, selection.EnabledCount);
+    }
+
+    [Fact]
+    public void Reducing_capacity_trims_enabled_panes_in_stable_priority_order()
+    {
+        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Backlog, GlobalPane.Knowledge);
+
+        var changed = selection.TrySetCapacity(2);
+
+        Assert.True(changed);
+        Assert.False(selection.IsEnabled(GlobalPane.Inbox));
+        Assert.True(selection.IsEnabled(GlobalPane.Backlog));
+        Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.Equal(2, selection.EnabledCount);
     }
 
     [Fact]
@@ -74,6 +117,7 @@ public sealed class GlobalPaneSelectionTests
         Assert.True(selection.IsEnabled(GlobalPane.Inbox));
         Assert.Equal(1, selection.EnabledCount);
     }
+
     [Fact]
     public void Unavailable_panes_cannot_be_enabled_or_toggled()
     {
@@ -98,5 +142,4 @@ public sealed class GlobalPaneSelectionTests
         Assert.True(selection.IsEnabled(GlobalPane.Backlog));
         Assert.Equal(1, selection.EnabledCount);
     }
-
 }

@@ -12,6 +12,7 @@ internal enum GlobalPane
 /// <summary>
 /// Tracks which of the shell's global panes are visible right now.
 /// At least one available pane always stays on-screen so the shell never renders empty.
+/// The viewport decides how many panes may be shown at the same time.
 /// </summary>
 internal sealed class GlobalPaneSelection
 {
@@ -20,6 +21,7 @@ internal sealed class GlobalPaneSelection
 
     private readonly HashSet<GlobalPane> _enabled;
     private readonly HashSet<GlobalPane> _available = [.. KnownPanes];
+    private int _capacity = KnownPaneOrder.Length;
 
     public GlobalPaneSelection()
         : this(GlobalPane.Backlog)
@@ -30,7 +32,10 @@ internal sealed class GlobalPaneSelection
     {
         _enabled = [.. enabled.Where(IsKnownPane).Distinct()];
         EnsureAtLeastOneAvailablePaneEnabled();
+        TrimToCapacity();
     }
+
+    public int Capacity => _capacity;
 
     public int EnabledCount => _enabled.Count;
 
@@ -42,6 +47,30 @@ internal sealed class GlobalPaneSelection
 
     public bool CanDisable(GlobalPane pane) => IsEnabled(pane) && EnabledAvailableCount > 1;
 
+    public bool CanEnable(GlobalPane pane)
+    {
+        if (!IsKnownPane(pane) || !_available.Contains(pane))
+        {
+            return false;
+        }
+
+        return IsEnabled(pane) || EnabledAvailableCount < _capacity || _capacity == 1;
+    }
+
+    public bool TrySetCapacity(int capacity)
+    {
+        var clamped = Math.Clamp(capacity, 1, KnownPaneOrder.Length);
+        if (clamped == _capacity)
+        {
+            return false;
+        }
+
+        _capacity = clamped;
+        TrimToCapacity();
+        EnsureAtLeastOneAvailablePaneEnabled();
+        return true;
+    }
+
     public bool TrySetEnabled(GlobalPane pane, bool enabled)
     {
         if (!IsKnownPane(pane) || !_available.Contains(pane))
@@ -51,6 +80,23 @@ internal sealed class GlobalPaneSelection
 
         if (enabled)
         {
+            if (_enabled.Contains(pane))
+            {
+                return false;
+            }
+
+            if (_capacity == 1)
+            {
+                _enabled.Clear();
+                _enabled.Add(pane);
+                return true;
+            }
+
+            if (EnabledAvailableCount >= _capacity)
+            {
+                return false;
+            }
+
             return _enabled.Add(pane);
         }
 
@@ -82,6 +128,7 @@ internal sealed class GlobalPaneSelection
         }
 
         EnsureAtLeastOneAvailablePaneEnabled();
+        TrimToCapacity();
         return true;
     }
 
@@ -104,6 +151,18 @@ internal sealed class GlobalPaneSelection
         }
 
         _enabled.Add(DefaultPane());
+    }
+
+    private void TrimToCapacity()
+    {
+        while (EnabledAvailableCount > _capacity)
+        {
+            var paneToRemove = KnownPaneOrder.FirstOrDefault(_enabled.Contains);
+            if (!_enabled.Remove(paneToRemove))
+            {
+                break;
+            }
+        }
     }
 
     private GlobalPane DefaultPane()
