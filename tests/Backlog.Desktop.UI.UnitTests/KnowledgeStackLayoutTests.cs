@@ -32,6 +32,26 @@ public sealed class KnowledgeStackLayoutTests
     }
 
     [Fact]
+    public void Domain_and_architecture_panels_scroll_within_the_knowledge_pane()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var ruleStart = css.IndexOf(".knowledge-stack__section > .knowledge-pane--arc42,", StringComparison.Ordinal);
+
+        Assert.True(ruleStart >= 0, "Architecture and Domain panels should share a constrained scroll rule.");
+
+        var ruleEnd = css.IndexOf("}\n", ruleStart, StringComparison.Ordinal);
+        Assert.True(ruleEnd > ruleStart, "The constrained scroll rule should be complete.");
+
+        var rule = css[ruleStart..ruleEnd];
+
+        Assert.Contains(".knowledge-stack__section > .domain-knowledge", rule, StringComparison.Ordinal);
+        Assert.Contains("max-height: 100%;", rule, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", rule, StringComparison.Ordinal);
+        Assert.Contains("overflow: auto;", rule, StringComparison.Ordinal);
+        Assert.Contains("scrollbar-gutter: stable;", rule, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Tools_pane_stays_right_docked_when_it_is_the_only_side_pane()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
