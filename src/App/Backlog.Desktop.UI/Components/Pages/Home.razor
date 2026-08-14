@@ -1151,12 +1151,12 @@
         }
     </button>;
 
-    private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => @<>
+    private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => @<text>
         @if (_knowledgeFolderOpenErrors.TryGetValue(KnowledgeMenuNodeKey(node), out var error))
         {
             <p class="knowledge-menu__open-error" role="status">@error</p>
         }
-    </>;
+    </text>;
 
     private bool IsKnowledgeFolderOpening(KnowledgeMenuNode node) => _openingKnowledgeFolders.Contains(KnowledgeMenuNodeKey(node));
 

@@ -88,6 +88,28 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("app-version__hint", home, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void RenderKnowledgeFolderOpenError_uses_non_rendering_text_fragment()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        var methodIndex = home.IndexOf(
+            "private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) =>",
+            StringComparison.Ordinal);
+        Assert.True(methodIndex >= 0, "Could not locate RenderKnowledgeFolderOpenError in Home.razor.");
+
+        var terminatorIndex = home.IndexOf("</text>;", methodIndex, StringComparison.Ordinal);
+        var fallbackTerminatorIndex = home.IndexOf(";", methodIndex, StringComparison.Ordinal);
+        var endIndex = terminatorIndex >= 0 ? terminatorIndex + "</text>;".Length : fallbackTerminatorIndex + 1;
+
+        var methodBody = home.Substring(methodIndex, endIndex - methodIndex);
+
+        Assert.Contains("@<text>", methodBody, StringComparison.Ordinal);
+        Assert.Contains("</text>", methodBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("@<>", methodBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("</>", methodBody, StringComparison.Ordinal);
+    }
+
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
     private static string FindHomeRazor()
