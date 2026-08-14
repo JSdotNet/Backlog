@@ -1,20 +1,21 @@
 @inject GitHubIntegration GitHub
 @inject InstructionSourceDiscovery InstructionSources
+@inject BacklogStore Store
 
 <aside class="knowledge-pane instructions-knowledge" data-testid="instructions-knowledge-panel" aria-labelledby="instructions-knowledge-title">
     <header class="knowledge-pane__header">
         <p class="knowledge-pane__eyebrow">Knowledge base</p>
         <h2 id="instructions-knowledge-title">Instructions</h2>
         <p class="knowledge-pane__subtitle">
-            Agent guidance from GitHub Copilot, Claude Code, and shared <code>AGENTS.md</code> files in the configured repository.
+            Agent guidance from GitHub Copilot, Claude Code, and shared <code>AGENTS.md</code> files in the current repository or storage folder.
         </p>
     </header>
 
     @if (!_repositories.Any())
     {
         <div class="knowledge-empty" data-testid="instructions-empty-state" role="status">
-            <p>No repositories are configured.</p>
-            <a href="settings">Open repository settings</a>
+            <p>No instruction source is configured.</p>
+            <a href="settings">Open storage settings</a>
         </div>
     }
     else
@@ -43,7 +44,7 @@
                 }
                 else
                 {
-                    <div class="instructions-layout">
+                    <div class="instructions-layout @(string.IsNullOrWhiteSpace(SelectedPath) ? string.Empty : "instructions-layout--document-only")">
                         @if (string.IsNullOrWhiteSpace(SelectedPath))
                         {
                             <nav class="instructions-list" aria-label="Instruction documents">
@@ -71,7 +72,9 @@
                                     </div>
                                     <code>@selectedDocument.RelativePath</code>
                                 </header>
-                                <pre class="instruction-doc__content">@selectedDocument.Content</pre>
+                                <div class="instruction-doc__content">
+                                    <KnowledgeMarkdownView Blocks="@InstructionBlocks(selectedDocument)" />
+                                </div>
                             </section>
                         }
                     </div>
@@ -93,8 +96,9 @@
     public string? SelectedPath { get; set; }
 
     private InstructionRepositoryView? ActiveRepository =>
-        _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal))
-        ?? _repositories.FirstOrDefault();
+        string.IsNullOrWhiteSpace(RepositoryAlias)
+            ? _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, "storage", StringComparison.Ordinal))
+            : _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal));
 
     private InstructionDocument? SelectedDocument => ResolveSelectedDocument();
 
@@ -102,11 +106,19 @@
     {
         if (_repositories.Count == 0 || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
         {
-            _repositories = InstructionSources.Discover(GitHub.Repositories);
+            _repositories = string.IsNullOrWhiteSpace(RepositoryAlias)
+                ? InstructionSources.Discover([StorageInstructionRepository()])
+                : InstructionSources.Discover(GitHub.Repositories);
             _loadedRepositoryAlias = RepositoryAlias;
             _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
         }
     }
+
+    private GitHubRepositoryRef StorageInstructionRepository() => new("storage", "Storage", "Folder")
+    {
+        CloneDirectory = Store.RootDirectory,
+        KnowledgeFolders = [.. Store.KnowledgeFolders]
+    };
 
     private InstructionDocument? ResolveSelectedDocument()
     {
@@ -186,5 +198,27 @@
     private void SelectDocument(string relativePath) => _selectedDocumentPath = relativePath;
 
     private static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024d:0.#} KB";
+
+    private static IReadOnlyList<KnowledgeBlock> InstructionBlocks(InstructionDocument document) =>
+        KnowledgeMarkdownParser.Parse(document.RelativePath, StripFrontmatter(document.Content)).Blocks;
+
+    private static string StripFrontmatter(string content)
+    {
+        var normalized = content.Replace("\r\n", "\n").Replace('\r', '\n');
+        if (!normalized.StartsWith("---\n", StringComparison.Ordinal))
+        {
+            return content;
+        }
+
+        var end = normalized.IndexOf("\n---", 4, StringComparison.Ordinal);
+        if (end < 0)
+        {
+            return content;
+        }
+
+        var afterEnd = end + "\n---".Length;
+        if (afterEnd < normalized.Length && normalized[afterEnd] == '\n') afterEnd++;
+        return normalized[afterEnd..];
+    }
 }
 

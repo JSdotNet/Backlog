@@ -8,6 +8,7 @@
 @inject IAppUpdateService Updates
 @inject IAzureFoundryChatClient AzureFoundryChat
 @inject KnowledgeMenu KnowledgeMenu
+@inject BacklogStore Store
 
 @*
     One entry is one block of markdown. Not focused, it reads as a document;
@@ -19,6 +20,23 @@
     <header class="app-header">
         <h1>Backlog</h1>
 
+        @if (State.Repositories.Count > 0)
+        {
+            <div class="app-header__repository-scope" role="group" aria-label="Repository scope">
+                @foreach (var repository in State.Repositories)
+                {
+                    var selected = State.SelectedRepositoryAlias == repository.Alias;
+                    <button type="button"
+                            class="chip chip--scope @(selected ? "chip--active" : string.Empty)"
+                            data-testid="repository-filter-option"
+                            aria-pressed="@(selected ? "true" : "false")"
+                            title="@(selected ? $"Deselect {repository.FullName}" : repository.FullName)"
+                            @onclick="() => ToggleRepositoryScopeAsync(repository.Alias)">
+                        @repository.Alias
+                    </button>
+                }
+            </div>
+        }
         @* The version is the control: clicking it asks for a newer one. There is no
            separate button, and it stays clickable on heads that do not manage their
            own updates so the answer is a stated reason rather than nothing. *@
@@ -244,8 +262,8 @@
         {
             <section class="backlog-workspace" id="backlog-pane" data-testid="backlog-pane" aria-label="Backlog entries">
 
-    @* Areas on the left, because that is what you pick first — which pile am I
-       in. Status narrows what is already in view, so it sits on the right. *@
+    @* Areas are local piles/tags inside the selected repository scope. Status
+       narrows what is already in view, so it sits on the right. *@
     <div class="filter-bar">
         <div class="filter-group filter-group--areas" role="radiogroup" aria-label="Filter by area">
             @foreach (var area in State.AreaFilters)
@@ -671,7 +689,7 @@
     private readonly HashSet<string> _expandedKnowledgeMenuNodes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _selectedKnowledgeChapterPaths = new(StringComparer.Ordinal);
     private bool _knowledgeMenuLoading;
-    private string _selectedKnowledgeSection = KnowledgeAreas[0].Key;
+    private string _selectedKnowledgeSection = "instructions";
     private string? _loadedKnowledgeMenuRepositoryAlias;
     private string _loadedKnowledgeMenuVisibleKeyFingerprint = string.Empty;
     private string? _appUpdateMessage;
@@ -933,59 +951,24 @@
         {
             if (!IsFeatureEnabled(AppFeatureSettingsStore.KnowledgeSections)) return [];
 
-            return ActiveRepositoryInstructionsEnabled
-                ? KnowledgeAreas
-                : [.. KnowledgeAreas.Where(area => !string.Equals(area.Key, "instructions", StringComparison.Ordinal))];
+            return KnowledgeAreaCatalog.VisibleAreas(ActiveKnowledgeFolders);
         }
     }
 
-    // The repository's own work items are no longer a section here — they are
-    // entries in the backlog itself, filed under the repository's area.
-    private static readonly KnowledgeArea[] KnowledgeAreas =
-    [
-        new("instructions", "Instructions"),
-        new("domain", "Domain"),
-        new("arc42", "Architecture"),
-        new("tech", "Technology"),
-        new("design", "Design")
-    ];
 
-    /// <summary>The area filter above the backlog doubles as the repository
-    /// picker: filing entries under <c>`@alias`</c> is already how the app says
-    /// which repository something belongs to.</summary>
-    private GitHubRepositoryRef? ActiveKnowledgeRepository
-    {
-        get
-        {
-            if (!AdditionalRepositoriesEnabled)
-            {
-                return GitHub.Repositories.FirstOrDefault();
-            }
-
-            var area = State.SelectedArea;
-            if (area.Length == 0 || string.Equals(area, BacklogDesktopState.UnfiledArea, StringComparison.Ordinal))
-            {
-                return GitHub.Repositories.FirstOrDefault();
-            }
-
-            return GitHub.Settings.Current.Find(area);
-        }
-    }
+    /// <summary>The selected repository is a global scope for both the backlog
+    /// list and the knowledge pane. With no explicit scope, knowledge stays
+    /// unselected instead of silently reading the first configured repository.</summary>
+    private GitHubRepositoryRef? ActiveKnowledgeRepository =>
+        State.SelectedRepositoryAlias.Length == 0
+            ? null
+            : GitHub.Settings.Current.Find(State.SelectedRepositoryAlias);
 
     private string? ActiveKnowledgeRepositoryAlias => ActiveKnowledgeRepository?.Alias;
 
-    private bool ActiveRepositoryInstructionsEnabled
-    {
-        get
-        {
-            var repository = ActiveKnowledgeRepository;
-            if (repository is null) return true;
-
-            var instructions = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
-                .FirstOrDefault(folder => string.Equals(folder.Key, "instructions", StringComparison.OrdinalIgnoreCase));
-            return instructions?.Enabled != false;
-        }
-    }
+    private IReadOnlyList<KnowledgeFolderSetting> ActiveKnowledgeFolders => ActiveKnowledgeRepository is { } repository
+        ? repository.KnowledgeFolders
+        : Store.KnowledgeFolders;
 
     /// <summary>The section actually shown. A section can stop being available
     /// (instructions turned off for this repository), and a tab panel pointing at
@@ -1118,6 +1101,7 @@
             return;
         }
 
+
         await LoadKnowledgeMenuAsync(visibleKeys, repositoryAlias, fingerprint);
     }
 
@@ -1215,17 +1199,20 @@
         string.Equals(node.Path, selectedPath, StringComparison.OrdinalIgnoreCase)
         || node.Children.Any(child => ContainsPath(child, selectedPath));
 
-    private RenderFragment RenderActiveKnowledge() => EffectiveKnowledgeSection switch
+    private RenderFragment RenderActiveKnowledge()
     {
-        "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
-        "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
-        "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
-        "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
-        "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
-        _ => @<p class="knowledge-empty" role="status">Turn on knowledge sections in Settings to read repository knowledge here.</p>
-    };
 
-    private sealed record KnowledgeArea(string Key, string Label);
+        return EffectiveKnowledgeSection switch
+        {
+            "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
+            "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
+            "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
+            "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
+            "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
+            _ => @<p class="knowledge-empty" role="status">Turn on knowledge sections in Settings to read repository knowledge here.</p>
+        };
+    }
+
 
     private RenderFragment RenderInboxPane() =>
         @<section class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
@@ -1882,6 +1869,15 @@
         await State.EndSubItemEditAsync(row, position);
 
     private async Task OnDeleteEntryAsync(EntryRow row) => await State.DeleteRowAsync(row);
+
+    private async Task ToggleRepositoryScopeAsync(string repositoryAlias)
+    {
+        var nextAlias = string.Equals(State.SelectedRepositoryAlias, repositoryAlias, StringComparison.Ordinal)
+            ? string.Empty
+            : repositoryAlias;
+        State.SetRepositoryFilter(nextAlias);
+        await RefreshKnowledgeMenuForActiveRepositoryAsync();
+    }
 
     private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
 

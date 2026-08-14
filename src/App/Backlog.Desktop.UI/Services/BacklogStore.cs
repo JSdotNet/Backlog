@@ -53,6 +53,7 @@ public sealed class BacklogStore
         var settings = ReadSettings();
         RootDirectory = settings?.RootDirectory ?? DefaultRootDirectory;
         RootRepository = settings?.RootRepository?.ToRepository();
+        KnowledgeFolders = KnowledgeFolderSetting.Normalize(settings?.KnowledgeFolders?.Select(folder => folder.ToSetting()) ?? []);
         Repository = new FileBacklogRepository(RootDirectory);
     }
 
@@ -69,6 +70,9 @@ public sealed class BacklogStore
     /// <summary>Optional GitHub repository metadata for backing up the storage
     /// folder later. The folder remains the source of truth today.</summary>
     public GitHubRepositoryRef? RootRepository { get; private set; }
+
+    /// <summary>Knowledge folders resolved against the storage root when no repository scope is active.</summary>
+    public IReadOnlyList<KnowledgeFolderSetting> KnowledgeFolders { get; private set; }
 
     public bool IsDefaultRoot =>
         string.Equals(
@@ -163,6 +167,26 @@ public sealed class BacklogStore
         return SaveSettings("Repository cleared, but the choice couldn't be saved for next time.");
     }
 
+    public string? SetKnowledgeFolder(string key, bool enabled, string? path)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return "Choose a knowledge folder before saving.";
+
+        var folders = KnowledgeFolderSetting.Normalize(KnowledgeFolders).ToList();
+        var index = folders.FindIndex(folder => string.Equals(folder.Key, key, StringComparison.OrdinalIgnoreCase));
+        if (index < 0) return $"Unknown knowledge folder '{key}'.";
+
+        folders[index] = folders[index] with
+        {
+            Enabled = enabled,
+            Path = string.IsNullOrWhiteSpace(path) ? null : path.Trim()
+        };
+
+        KnowledgeFolders = KnowledgeFolderSetting.Normalize(folders);
+        var error = SaveSettings("Knowledge folders updated, but the choice couldn't be saved for next time.");
+        if (error is null) RootChanged?.Invoke();
+        return error;
+    }
+
     private string? SaveSettings(string saveFailureMessage)
     {
         try
@@ -177,7 +201,8 @@ public sealed class BacklogStore
                         Alias = RootRepository.Alias,
                         Owner = RootRepository.Owner,
                         Name = RootRepository.Name
-                    }
+                    },
+                KnowledgeFolders = KnowledgeFolders.Select(StoreKnowledgeFolderSettings.From).ToList()
             };
             File.WriteAllText(_settingsPath, JsonSerializer.Serialize(settings, JsonOptions));
             return null;
@@ -216,6 +241,37 @@ public sealed class BacklogStore
         public string? RootDirectory { get; init; }
 
         public StoreRepositorySettings? RootRepository { get; init; }
+
+        public List<StoreKnowledgeFolderSettings>? KnowledgeFolders { get; init; }
+    }
+
+    private sealed record StoreKnowledgeFolderSettings
+    {
+        public string? Key { get; init; }
+
+        public bool Enabled { get; init; } = true;
+
+        public string? Path { get; init; }
+
+        public KnowledgeFolderSetting ToSetting()
+        {
+            var folder = KnowledgeFolderSetting.Defaults()
+                .FirstOrDefault(defaultFolder => string.Equals(defaultFolder.Key, Key, StringComparison.OrdinalIgnoreCase))
+                ?? KnowledgeFolderSetting.Defaults().First(defaultFolder => defaultFolder.Key == ".backlog");
+
+            return folder with
+            {
+                Enabled = Enabled,
+                Path = Path
+            };
+        }
+
+        public static StoreKnowledgeFolderSettings From(KnowledgeFolderSetting folder) => new()
+        {
+            Key = folder.Key,
+            Enabled = folder.Enabled,
+            Path = folder.Path
+        };
     }
 
     private sealed record StoreRepositorySettings
