@@ -31,6 +31,28 @@ public sealed class KnowledgeStackLayoutTests
         Assert.Contains("align-items: flex-start;", navRule, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Active_repository_scope_chip_keeps_readable_brand_state()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var scopeRuleStart = css.IndexOf(".chip--scope {", StringComparison.Ordinal);
+        var activeScopeRuleStart = css.IndexOf(".chip--scope.chip--active {", StringComparison.Ordinal);
+
+        Assert.True(scopeRuleStart >= 0, "Repository scope chips should have their own base surface rule.");
+        Assert.True(activeScopeRuleStart > scopeRuleStart,
+            "The selected repository scope chip must override the base scope background so inverse text is not rendered on a dark surface.");
+
+        var activeScopeRuleEnd = css.IndexOf("}\n", activeScopeRuleStart, StringComparison.Ordinal);
+        Assert.True(activeScopeRuleEnd > activeScopeRuleStart, "The selected repository scope chip rule should be complete.");
+
+        var activeScopeRule = css[activeScopeRuleStart..activeScopeRuleEnd];
+
+        Assert.Contains("background: var(--color-primary);", activeScopeRule, StringComparison.Ordinal);
+        Assert.Contains("color: var(--color-text-inverse);", activeScopeRule, StringComparison.Ordinal);
+        Assert.Contains("border-color: var(--color-primary);", activeScopeRule, StringComparison.Ordinal);
+    }
+
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
     private static string FindAppCss()
