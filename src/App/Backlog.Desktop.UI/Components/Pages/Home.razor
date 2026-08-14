@@ -335,7 +335,7 @@
                 var oneLine = !editing && row.UsesOneLineLayout;
 
                 <li class="entry-group" @key="row.Key">
-                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(row.IsReadOnly ? "entry-doc--read-only" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
+                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
 
                     @RenderGrip(row, before: true, "top")
                     @RenderGrip(row, before: true, "left")
@@ -417,9 +417,7 @@
                                  data-testid="entry-read-view"
                                  role="group"
                                  tabindex="0"
-                                 aria-label="@(row.IsReadOnly
-                                     ? $"Read-only entry from {row.Origin!.RepositoryFullName}: {(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)}"
-                                     : $"Edit markdown for {(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)}")"
+                                 aria-label="Edit markdown for @(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)"
                                  @onclick="() => State.BeginEdit(row)"
                                  @onkeydown="e => OnReadViewKeyDown(row, e)">
 
@@ -428,13 +426,12 @@
                                     @if (row.HasExpandableContent)
                                     {
                                         <button type="button"
-                                                class="entry-doc__title-toggle"
+                                                class="entry-doc__title-button"
                                                 id="fold-entry-@row.Key"
-                                                data-testid="entry-fold-button"
+                                                data-testid="entry-title-button"
                                                 aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
                                                 aria-controls="entry-content-@row.Key"
                                                 aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
-                                                @onmousedown:preventDefault="true"
                                                 @onclick:stopPropagation="true"
                                                 @onclick="() => State.ToggleEntry(row)">
                                             @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
@@ -499,8 +496,8 @@
                                         id="subitem-grip-@row.Key-@position"
                                         data-testid="subitem-grip"
                                         data-drag-grip="@row.Key-@position"
-                                        draggable="@(!row.IsReadOnly)"
-                                        tabindex="@(row.IsReadOnly ? "-1" : "0")"
+                                        draggable="true"
+                                        tabindex="0"
                                         aria-label="Reorder sub-item — drag, or use the up and down arrow keys"
                                         @ondragstart="() => State.BeginSubItemDrag(row, position)"
                                         @ondragend="() => State.EndSubItemDrag()"
@@ -511,7 +508,7 @@
                                     <span class="subitem-card__grip-dots" aria-hidden="true"></span>
                                 </button>
 
-                                @if (editingSubItem && !row.IsReadOnly)
+                                @if (editingSubItem)
                                 {
                                     <div class="subitem-card__body subitem-card__body--editing">
                                         <div class="grow-wrap" data-replicated-value="@(State.SubItemEditText(row, position) + "\n")">
@@ -528,8 +525,8 @@
                                 {
                                     <div class="subitem-card__body"
                                          role="group"
-                                         tabindex="@(row.IsReadOnly ? "-1" : "0")"
-                                         aria-label="@(row.IsReadOnly ? "Read-only sub-item" : "Edit sub-item")"
+                                         tabindex="0"
+                                         aria-label="Edit sub-item"
                                          @onclick="() => State.BeginSubItemEdit(row, position)"
                                          @onkeydown="e => OnSubItemReadViewKeyDown(row, position, e)">
                                         <div class="subitem-card__title-row">
@@ -540,17 +537,32 @@
                                                         data-testid="subitem-checkbox"
                                                         aria-pressed="@(subItem.Done ? "true" : "false")"
                                                         aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
-                                                        disabled="@row.IsReadOnly"
-                                                        @onmousedown:preventDefault="true"
                                                         @onclick:stopPropagation="true"
                                                         @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "✔" : string.Empty)</button>
                                             }
-                                            <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
+                                            @if (subItem.Children.Count > 0)
+                                            {
+                                                <button type="button"
+                                                        class="subitem-card__title-button"
+                                                        data-testid="subitem-title-button"
+                                                        aria-expanded="@(row.IsSubItemCollapsed(position) ? "false" : "true")"
+                                                        aria-controls="subitem-content-@row.Key-@position"
+                                                        aria-label="@(row.IsSubItemCollapsed(position) ? "Show sub-item details" : "Collapse sub-item details")"
+                                                        @onclick:stopPropagation="true"
+                                                        @onclick="() => row.ToggleSubItemCollapsed(position)">
+                                                    <span class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</span>
+                                                    <span class="entry-doc__fold-chevron @(row.IsSubItemCollapsed(position) ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
+                                            }
                                         </div>
                                         @RenderSubItemMetadata(row, subItem, position)
-                                        @if (subItem.Children.Count > 0)
+                                        @if (subItem.Children.Count > 0 && !row.IsSubItemCollapsed(position))
                                         {
-                                            <div class="subitem-card__notes">
+                                            <div class="subitem-card__notes" id="subitem-content-@row.Key-@position">
                                                 <MarkdownView Blocks="subItem.Children" OnTaskItemToggled="index => State.ToggleTaskItemAsync(row, index)" />
                                             </div>
                                         }
@@ -1158,6 +1170,7 @@
             return;
         }
 
+
         builder.OpenElement(0, "p");
         builder.AddAttribute(1, "class", "knowledge-menu__open-error");
         builder.AddAttribute(2, "role", "status");
@@ -1439,7 +1452,7 @@
 
 
     private RenderFragment RenderEntryMetadata(EntryRow row, bool oneLine) =>
-        @<div class="entry-doc__meta" @onclick:stopPropagation="true">
+        @<div class="entry-doc__meta" @onmousedown:stopPropagation="true" @onclick:stopPropagation="true">
             <span class="entry-doc__meta-start">
                 <label class="metadata-editor metadata-editor--type badge badge--type" data-testid="type-badge">
                     <span class="sr-only">Change type</span>
@@ -1447,7 +1460,6 @@
                             value="@row.PreviewType"
                             aria-label="Change type"
                             title="Change type"
-                            disabled="@row.IsReadOnly"
                             @onchange="e => OnTypeChangedAsync(row, e)">
                         @foreach (var type in TypeOptions())
                         {
@@ -1456,38 +1468,19 @@
                     </select>
                 </label>
 
-                <label class="metadata-editor metadata-editor--priority badge badge--priority badge--priority-@row.PreviewPriority.ToString().ToLowerInvariant()" data-testid="priority-badge">
-                    <span class="sr-only">Change priority</span>
-                    <select class="metadata-editor__select"
-                            value="@row.PreviewPriority"
-                            aria-label="Change priority"
-                            title="Change priority"
-                            disabled="@row.IsReadOnly"
-                            @onchange="e => OnPriorityChangedAsync(row, e)">
-                        @foreach (var priority in PriorityOptions())
-                        {
-                            <option value="@priority">@Humanize(priority.ToString())</option>
-                        }
-                    </select>
-                </label>
+                <PrioritySelector CurrentValue="@row.PreviewPriority"
+                                  Options="@PriorityOptions()"
+                                  Label="Change priority"
+                                  TestId="priority-badge"
+                                  OnChanged="priority => State.ChangePriorityAsync(row, priority)" />
 
                 @if (KnowledgeRepositories.Count > 0)
                 {
-                    <label class="metadata-editor metadata-editor--repo badge badge--area" data-testid="area-badge">
-                        <span class="sr-only">Change repository</span>
-                        <select class="metadata-editor__select"
-                                value="@(RepositoryFor(row)?.Alias ?? string.Empty)"
-                                aria-label="Change repository"
-                                title="Change repository"
-                                disabled="@row.IsReadOnly"
-                                @onchange="e => OnRepositoryChangedAsync(row, e)">
-                            <option value="">No repo</option>
-                            @foreach (var repository in KnowledgeRepositories)
-                            {
-                                <option value="@repository.Alias">@repository.Alias</option>
-                            }
-                        </select>
-                    </label>
+                    <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                                        Options="@RepositoryOptions()"
+                                        Label="Change repository"
+                                        TestId="area-badge"
+                                        OnChanged="value => OnRepositoryChangedAsync(row, value)" />
                 }
             </span>
 
@@ -1531,7 +1524,7 @@
                 @if (row.Origin is { } origin)
                 {
                     <span class="badge badge--source" data-testid="entry-source-badge" title="@origin.RepositoryFullName · @origin.RelativePath">
-                        Read-only · <code>@origin.RelativePath</code>
+                        <code>@origin.RelativePath</code>
                     </span>
                 }
                 else if (!row.IsPersisted)
@@ -1539,20 +1532,11 @@
                     <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
                 }
 
-                <label class="status-editor badge badge--status badge--status-@row.PreviewStatus.ToString().ToLowerInvariant()" data-testid="status-badge">
-                    <span class="sr-only">Change status</span>
-                    <select class="status-editor__select"
-                            value="@row.PreviewStatus"
-                            aria-label="Change status"
-                            title="Change status"
-                            disabled="@row.IsReadOnly"
-                            @onchange="e => OnStatusChangedAsync(row, e)">
-                        @foreach (var status in StatusOptions())
-                        {
-                            <option value="@status">@Humanize(status.ToString())</option>
-                        }
-                    </select>
-                </label>
+                <StatusSelector CurrentValue="@row.PreviewStatus.ToString()"
+                                Options="@StatusSelectorOptions()"
+                                Label="Change status"
+                                TestId="status-badge"
+                                OnChanged="value => OnStatusChangedAsync(row, value)" />
 
                 <span class="entry-doc__actions" aria-label="Entry actions">
                     @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured)
@@ -1567,7 +1551,6 @@
                                     disabled="@row.GitHubBusy"
                                     title="Check this issue on GitHub"
                                     aria-label="Check this issue on GitHub"
-                                    @onmousedown:preventDefault="true"
                                     @onclick="() => State.RefreshGitHubAsync(row)">
                                 @if (row.GitHubBusy)
                                 {
@@ -1589,7 +1572,6 @@
                                     disabled="@row.GitHubBusy"
                                     title="Create an issue in @repository.FullName"
                                     aria-label="Create an issue in @repository.FullName"
-                                    @onmousedown:preventDefault="true"
                                     @onclick="() => State.PushToGitHubAsync(row, repository)">
                                 @if (row.GitHubBusy)
                                 {
@@ -1613,7 +1595,6 @@
                                 disabled="@row.CopilotBusy"
                                 title="Start GitHub Copilot CLI for this entry"
                                 aria-label="Start GitHub Copilot CLI for this entry"
-                                @onmousedown:preventDefault="true"
                                 @onclick="() => State.StartCopilotCliAsync(row)">
                             @if (row.CopilotBusy)
                             {
@@ -1634,7 +1615,6 @@
                                 data-testid="delete-entry-button"
                                 aria-label="Delete entry"
                                 title="Delete entry"
-                                @onmousedown:preventDefault="true"
                                 @onclick="() => OnDeleteEntryAsync(row)">×</button>
                     }
                 </span>
@@ -1642,7 +1622,7 @@
         </div>;
 
     private RenderFragment RenderSubItemMetadata(EntryRow row, MdSubItem subItem, int position) =>
-        @<div class="entry-doc__meta subitem-card__meta" aria-label="Sub-item metadata and actions" @onclick:stopPropagation="true">
+        @<div class="entry-doc__meta subitem-card__meta" aria-label="Sub-item metadata and actions" @onmousedown:stopPropagation="true" @onclick:stopPropagation="true">
             <span class="entry-doc__meta-start">
                 <label class="metadata-editor metadata-editor--type badge badge--type" data-testid="subitem-type-badge">
                     <span class="sr-only">Change sub-item type</span>
@@ -1658,25 +1638,19 @@
                     </select>
                 </label>
 
-                <label class="metadata-editor metadata-editor--priority badge badge--priority badge--priority-@((subItem.Priority ?? Priority.Medium).ToString().ToLowerInvariant())" data-testid="subitem-priority-badge">
-                    <span class="sr-only">Change sub-item priority</span>
-                    <select class="metadata-editor__select"
-                            value="@(subItem.Priority ?? Priority.Medium)"
-                            aria-label="Change sub-item priority"
-                            title="Change sub-item priority"
-                            @onchange="e => OnSubItemPriorityChangedAsync(row, position, e)">
-                        @foreach (var priority in PriorityOptions())
-                        {
-                            <option value="@priority">@Humanize(priority.ToString())</option>
-                        }
-                    </select>
-                </label>
+                <PrioritySelector CurrentValue="@(subItem.Priority ?? Priority.Medium)"
+                                  Options="@PriorityOptions()"
+                                  Label="Change sub-item priority"
+                                  TestId="subitem-priority-badge"
+                                  OnChanged="priority => State.ChangeSubItemPriorityAsync(row, position, priority)" />
 
-                @if (RepositoryFor(row) is { } repository)
+                @if (KnowledgeRepositories.Count > 0)
                 {
-                    <span class="metadata-editor metadata-editor--repo badge badge--area" data-testid="subitem-area-badge" title="Inherited from parent entry">
-                        @repository.Alias
-                    </span>
+                    <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                                        Options="@RepositoryOptions()"
+                                        Label="Change repository"
+                                        TestId="subitem-area-badge"
+                                        OnChanged="value => OnSubItemRepositoryChangedAsync(row, value)" />
                 }
             </span>
 
@@ -1685,19 +1659,11 @@
                     @RenderSubItemTagEditor(row, subItem, position)
                 </span>
 
-                <label class="status-editor badge badge--status badge--status-@((subItem.Status ?? (subItem.Done ? EntryStatus.Done : EntryStatus.Draft)).ToString().ToLowerInvariant())" data-testid="subitem-status-badge">
-                    <span class="sr-only">Change sub-item status</span>
-                    <select class="status-editor__select"
-                            value="@(subItem.Status ?? (subItem.Done ? EntryStatus.Done : EntryStatus.Draft))"
-                            aria-label="Change sub-item status"
-                            title="Change sub-item status"
-                            @onchange="e => OnSubItemStatusChangedAsync(row, position, e)">
-                        @foreach (var status in StatusOptions())
-                        {
-                            <option value="@status">@Humanize(status.ToString())</option>
-                        }
-                    </select>
-                </label>
+                <StatusSelector CurrentValue="@((subItem.Status ?? (subItem.Done ? EntryStatus.Done : EntryStatus.Draft)).ToString())"
+                                Options="@StatusSelectorOptions()"
+                                Label="Change sub-item status"
+                                TestId="subitem-status-badge"
+                                OnChanged="value => OnSubItemStatusChangedAsync(row, position, value)" />
 
                 <span class="entry-doc__actions" aria-label="Sub-item actions">
                     @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured && row.IsPersisted && RepositoryFor(row) is { } subItemRepository)
@@ -1708,7 +1674,6 @@
                                 disabled="@row.GitHubBusy"
                                 title="Create an issue in @subItemRepository.FullName"
                                 aria-label="Create an issue in @subItemRepository.FullName"
-                                @onmousedown:preventDefault="true"
                                 @onclick="() => State.PushSubItemToGitHubAsync(row, position, subItemRepository)">
                             @if (row.GitHubBusy)
                             {
@@ -1731,7 +1696,6 @@
                                 disabled="@row.CopilotBusy"
                                 title="Start GitHub Copilot CLI from the parent entry"
                                 aria-label="Start GitHub Copilot CLI from the parent entry"
-                                @onmousedown:preventDefault="true"
                                 @onclick="() => State.StartCopilotCliAsync(row)">
                             @if (row.CopilotBusy)
                             {
@@ -1768,8 +1732,7 @@
                    title="Edit tags"
                    list="entry-tags-options-@row.Key"
                    placeholder="Tags"
-                   readonly="@row.IsReadOnly"
-                   value="@TagsInputValue(row)"
+                                      value="@TagsInputValue(row)"
                    @onchange="e => OnTagsChangedAsync(row, e)" />
             <datalist id="entry-tags-options-@row.Key">
                 @foreach (var tag in TagOptions(row))
@@ -1788,9 +1751,9 @@
                  class="entry-doc__grip entry-doc__grip--@side"
                  data-testid="entry-grip-@side"
                  data-drag-grip="@row.Key"
-                 draggable="@(!row.IsReadOnly)"
-                 tabindex="@(side == "top" && !row.IsReadOnly ? "0" : "-1")"
-                 aria-hidden="@(side == "top" && !row.IsReadOnly ? "false" : "true")"
+                 draggable="true"
+                 tabindex="@(side == "top" ? "0" : "-1")"
+                 aria-hidden="@(side == "top" ? "false" : "true")"
                  aria-label="Reorder entry — drag, or use the up and down arrow keys"
                  @ondragstart="() => State.BeginDrag(row)"
                  @ondragend="() => State.EndDrag()"
@@ -2021,8 +1984,8 @@
         }
     }
 
-    private async Task OnRepositoryChangedAsync(EntryRow row, ChangeEventArgs e) =>
-        await State.ChangeAreaAsync(row, e.Value?.ToString());
+    private async Task OnRepositoryChangedAsync(EntryRow row, string? repositoryAlias) =>
+        await State.ChangeAreaAsync(row, repositoryAlias);
 
     private async Task OnSubItemTypeChangedAsync(EntryRow row, int subItemIndex, ChangeEventArgs e)
     {
@@ -2040,9 +2003,12 @@
         }
     }
 
-    private async Task OnSubItemStatusChangedAsync(EntryRow row, int subItemIndex, ChangeEventArgs e)
+    private async Task OnSubItemRepositoryChangedAsync(EntryRow row, string? repositoryAlias) =>
+        await State.ChangeAreaAsync(row, repositoryAlias);
+
+    private async Task OnSubItemStatusChangedAsync(EntryRow row, int subItemIndex, string value)
     {
-        if (Enum.TryParse<EntryStatus>(e.Value?.ToString(), out var status))
+        if (Enum.TryParse<EntryStatus>(value, out var status))
         {
             await State.ChangeSubItemStatusAsync(row, subItemIndex, status);
         }
@@ -2051,9 +2017,9 @@
     private async Task OnSubItemTagsChangedAsync(EntryRow row, int subItemIndex, ChangeEventArgs e) =>
         await State.ChangeSubItemTagsAsync(row, subItemIndex, e.Value?.ToString() ?? string.Empty);
 
-    private async Task OnStatusChangedAsync(EntryRow row, ChangeEventArgs e)
+    private async Task OnStatusChangedAsync(EntryRow row, string value)
     {
-        if (Enum.TryParse<EntryStatus>(e.Value?.ToString(), out var status))
+        if (Enum.TryParse<EntryStatus>(value, out var status))
         {
             await State.ChangeStatusAsync(row, status);
         }
@@ -2067,6 +2033,12 @@
     private static IReadOnlyList<Priority> PriorityOptions() => [Priority.Low, Priority.Medium, Priority.High];
 
     private static IReadOnlyList<EntryStatus> StatusOptions() => Enum.GetValues<EntryStatus>();
+
+    private IReadOnlyList<SelectorOption> RepositoryOptions() =>
+        [.. KnowledgeRepositories.Select(repository => new SelectorOption(repository.Alias, repository.Alias))];
+
+    private static IReadOnlyList<SelectorOption> StatusSelectorOptions() =>
+        [.. StatusOptions().Select(status => new SelectorOption(status.ToString(), Humanize(status.ToString())))];
 
     private void FocusTextEntry(EntryRow row)
     {
