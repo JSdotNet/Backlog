@@ -665,6 +665,10 @@
                         <nav class="knowledge-stack__menu" aria-label="Knowledge menu">
                         <div class="knowledge-stack__menu-heading">
                             <span>@(VisibleKnowledgeAreas.FirstOrDefault(area => IsKnowledgeSectionActive(area.Key))?.Label ?? "Knowledge")</span>
+                            @if (ActiveKnowledgeMenuRoot is { Kind: KnowledgeMenuNodeKind.Folder, Available: true } rootFolder)
+                            {
+                                @RenderOpenKnowledgeFolderButton(rootFolder)
+                            }
                         </div>
                         <AppErrorMessage Message="@_knowledgeFolderOpenError"
                                          TestId="knowledge-menu-open-error"
@@ -1110,10 +1114,6 @@
                     }
                     <span class="knowledge-menu__label">@node.Label</span>
                 </button>
-                @if (node.Kind == KnowledgeMenuNodeKind.Folder && node.Available && depth == 0)
-                {
-                    @RenderOpenKnowledgeFolderButton(node)
-                }
             </div>
             @if (node.HasChildren && IsKnowledgeMenuNodeExpanded(node))
             {

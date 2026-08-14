@@ -3,12 +3,13 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class KnowledgeMenuMarkupTests
 {
     [Fact]
-    public void Knowledge_menu_shows_open_in_vscode_button_only_for_root_folders()
+    public void Knowledge_menu_shows_open_in_vscode_button_only_for_active_root_heading()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("@if (node.Kind == KnowledgeMenuNodeKind.Folder && node.Available && depth == 0)", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("@RenderKnowledgeFolderOpenError(node)", home, StringComparison.Ordinal);
+        Assert.Contains("@if (ActiveKnowledgeMenuRoot is { Kind: KnowledgeMenuNodeKind.Folder, Available: true } rootFolder)", home, StringComparison.Ordinal);
+        Assert.Contains("@RenderOpenKnowledgeFolderButton(rootFolder)", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("@RenderOpenKnowledgeFolderButton(node)", home, StringComparison.Ordinal);
     }
 
     [Fact]
