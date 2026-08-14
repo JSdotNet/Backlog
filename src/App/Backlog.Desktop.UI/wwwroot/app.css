@@ -3420,7 +3420,34 @@ body.is-resizing-pane {
     padding: var(--spacing-md);
 }
 
+.knowledge-stack__section > .knowledge-pane--arc42,
+.knowledge-stack__section > .domain-knowledge {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .knowledge-stack__section > .tech-knowledge-pane {
+    max-height: 100%;
+    min-height: 0;
+    overflow: auto;
+    scrollbar-gutter: stable;
+}
+
+.knowledge-stack__section > .knowledge-pane--arc42 .arc42-knowledge-layout {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.knowledge-stack__section > .knowledge-pane--arc42 .knowledge-document,
+.knowledge-stack__section > .domain-knowledge > .domain-context,
+.knowledge-stack__section > .domain-knowledge > .domain-document {
+    flex: 1 1 auto;
     max-height: 100%;
     min-height: 0;
     overflow: auto;
@@ -3429,9 +3456,12 @@ body.is-resizing-pane {
 
 .knowledge-stack__body {
     display: grid;
+    flex: 1 1 auto;
     grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
     gap: var(--spacing-md);
-    align-items: start;
+    align-items: stretch;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .knowledge-stack__body--without-menu {
@@ -3448,6 +3478,8 @@ body.is-resizing-pane {
     position: sticky;
     top: 0;
     display: grid;
+    align-content: start;
+    grid-auto-rows: max-content;
     gap: var(--spacing-sm);
     max-height: calc(100vh - (var(--spacing-lg) * 3));
     overflow: auto;

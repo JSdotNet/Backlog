@@ -100,6 +100,29 @@ public sealed class GlobalPaneMarkupTests
     }
 
     [Fact]
+    public void RenderKnowledgeFolderOpenError_uses_explicit_builder_fragment()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        var methodIndex = home.IndexOf(
+            "private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => builder =>",
+            StringComparison.Ordinal);
+        Assert.True(methodIndex >= 0, "Could not locate RenderKnowledgeFolderOpenError in Home.razor.");
+
+        var terminatorIndex = home.IndexOf("    };", methodIndex, StringComparison.Ordinal);
+        Assert.True(terminatorIndex > methodIndex, "The RenderKnowledgeFolderOpenError method should be complete.");
+
+        var methodBody = home.Substring(methodIndex, terminatorIndex - methodIndex);
+
+        Assert.Contains("builder.OpenElement(0, \"p\");", methodBody, StringComparison.Ordinal);
+        Assert.Contains("builder.AddAttribute(1, \"class\", \"knowledge-menu__open-error\");", methodBody, StringComparison.Ordinal);
+        Assert.Contains("builder.AddAttribute(2, \"role\", \"status\");", methodBody, StringComparison.Ordinal);
+        Assert.Contains("builder.AddContent(3, error);", methodBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("@<>", methodBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("</>", methodBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Knowledge_folder_errors_do_not_use_empty_razor_fragment_tags()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
