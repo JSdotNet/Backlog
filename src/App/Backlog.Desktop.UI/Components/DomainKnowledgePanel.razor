@@ -257,7 +257,10 @@
         @foreach (var item in VisibleMetadata(metadata))
         {
             <span class="domain-metadata__item">
-                <strong>@item.Key</strong>
+                @if (KnowledgeMetadataDisplay.ShouldShowLabel(item.Key))
+                {
+                    <strong>@item.Key</strong>
+                }
                 @foreach (var value in MetadataValues(item.Value))
                 {
                     @RenderMetadataValue(item.Key, value)
@@ -266,7 +269,7 @@
         }
         @foreach (var link in links.Where(link => !MetadataContainsLink(metadata, link)).Take(4))
         {
-            <span class="domain-metadata__item domain-metadata__item--link"><strong>link</strong> @RenderKnowledgeLink(link)</span>
+            <span class="domain-metadata__item domain-metadata__item--link">@RenderKnowledgeLink(link)</span>
         }
     </div>;
 
