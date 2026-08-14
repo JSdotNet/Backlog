@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: release-desktop-${{ github.ref }}
@@ -26,6 +27,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -159,6 +161,7 @@ jobs:
         env:
           WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_SUBJECT: ${{ vars.WINDOWS_CERTIFICATE_SUBJECT || 'CN=Backlog Desktop Test Signing' }}
         run: |
           $ErrorActionPreference = 'Stop'
           if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64)) {
@@ -171,14 +174,34 @@ jobs:
           [System.IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64))
           $securePassword = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
           $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
-          $expectedSubject = 'CN=JSdotNet'
+          $expectedSubject = $env:WINDOWS_CERTIFICATE_SUBJECT
+          if ([string]::IsNullOrWhiteSpace($expectedSubject)) {
+            throw "Repository variable WINDOWS_CERTIFICATE_SUBJECT resolved to an empty value."
+          }
           if ($cert.Subject -ne $expectedSubject) {
-            throw "Imported signing certificate subject '$($cert.Subject)' does not match expected publisher '$expectedSubject'. Replace WINDOWS_CERTIFICATE_BASE64 with a code-signing certificate whose subject is $expectedSubject."
+            throw "Imported signing certificate subject '$($cert.Subject)' does not match expected package publisher '$expectedSubject'. Update WINDOWS_CERTIFICATE_SUBJECT or replace WINDOWS_CERTIFICATE_BASE64 so they match."
           }
           Remove-Item $pfxPath -Force
           "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
+          "subject=$($cert.Subject)" >> $env:GITHUB_OUTPUT
           Write-Output "Imported certificate with thumbprint $($cert.Thumbprint)."
-
+      - name: Align package publisher with signing certificate
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $manifestPath = 'src\App\Backlog.Desktop\Platforms\Windows\Package.appxmanifest'
+          [xml]$manifest = Get-Content -Raw -Path $manifestPath
+          $identity = $manifest.Package.Identity
+          $certificateSubject = '${{ steps.cert.outputs.subject }}'
+          if ([string]::IsNullOrWhiteSpace($certificateSubject)) {
+            throw 'Signing certificate subject output was empty.'
+          }
+          if ($identity.Publisher -ne $certificateSubject) {
+            Write-Output "Updating package publisher from '$($identity.Publisher)' to '$certificateSubject'."
+            $identity.Publisher = $certificateSubject
+            $manifest.Save((Resolve-Path $manifestPath).Path)
+          }
       - name: Publish packaged MSIX
         if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
         shell: pwsh
@@ -263,3 +286,39 @@ jobs:
           $url = gh release view $tag --json url --jq .url
           "### Published GitHub Release" >> $env:GITHUB_STEP_SUMMARY
           "[$tag]($url)" >> $env:GITHUB_STEP_SUMMARY
+      - name: Create issue for release failure
+        if: failure()
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ISSUE_TITLE: 'Release desktop failed: run #${{ github.run_number }}'
+          RELEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_ACTOR: ${{ github.actor }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bodyPath = Join-Path $env:RUNNER_TEMP 'release-failure-issue.md'
+          @(
+            'The desktop release workflow failed.'
+            ''
+            "- Run: $env:RELEASE_RUN_URL"
+            "- Event: $env:RELEASE_EVENT_NAME"
+            "- Ref: $env:RELEASE_REF_NAME"
+            "- Commit: $env:RELEASE_SHA"
+            "- Actor: $env:RELEASE_ACTOR"
+            ''
+            'Review the failed workflow logs and update this issue with the root cause and remediation.'
+          ) | Set-Content -Path $bodyPath -Encoding utf8
+
+          $existingIssue = gh issue list --state open --search "$env:RELEASE_ISSUE_TITLE in:title" --json number --jq '.[0].number'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not search for an existing release failure issue.' }
+
+          if ([string]::IsNullOrWhiteSpace($existingIssue) -or $existingIssue -eq 'null') {
+            gh issue create --title $env:RELEASE_ISSUE_TITLE --body-file $bodyPath
+          }
+          else {
+            gh issue comment $existingIssue --body-file $bodyPath
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create or update the release failure issue.' }
