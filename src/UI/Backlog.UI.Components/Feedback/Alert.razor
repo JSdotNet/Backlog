@@ -1,0 +1,27 @@
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <p class="@CssClassValue" data-testid="@TestId" role="@Role">@Message</p>
+}
+
+@code {
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public string Role { get; set; } = "alert";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The class every alert carries. Hosts that already ship their own
+    /// alert styling can point this at it instead of adopting ours.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "app-error-message";
+
+    private string CssClassValue => string.IsNullOrWhiteSpace(CssClass)
+        ? BaseClass
+        : $"{BaseClass} {CssClass}";
+}

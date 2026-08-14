@@ -1,50 +1,37 @@
-<nav class="knowledge-stack__menu" aria-label="Knowledge menu">
-    <div class="knowledge-stack__menu-heading" data-testid="knowledge-menu-heading">
-        <span>@HeadingLabel</span>
-        @if (RootFolder is { Kind: KnowledgeMenuNodeKind.Folder, Available: true } rootFolder)
-        {
-            <button type="button"
-                    class="knowledge-menu__open-vscode"
-                    data-testid="knowledge-open-vscode-button"
-                    disabled="@IsFolderOpening(rootFolder)"
-                    title="Open @rootFolder.Label in VS Code"
-                    aria-label="Open @rootFolder.Label in VS Code"
-                    @onclick="() => OnOpenFolder.InvokeAsync(rootFolder)"
-                    @onclick:stopPropagation="true">
-                @if (IsFolderOpening(rootFolder))
-                {
-                    <span aria-hidden="true">...</span>
-                }
-                else
-                {
-                    <span aria-hidden="true">VS</span>
-                }
-            </button>
-        }
-    </div>
-    <AppErrorMessage Message="@OpenErrorMessage"
-                     TestId="knowledge-menu-open-error"
-                     CssClass="knowledge-stack__menu-error" />
-    @if (IsLoading)
-    {
-        <p class="knowledge-stack__menu-message">Loading knowledge menu...</p>
-    }
-    else if (Nodes.Count == 0)
-    {
-        <p class="knowledge-stack__menu-message">No chapters are available for this area.</p>
-    }
-    else
-    {
-        <ul class="knowledge-menu" role="tree" aria-label="Knowledge chapters">
-            @foreach (var node in Nodes)
-            {
-                @RenderKnowledgeMenuNode(node, 0)
-            }
-        </ul>
-    }
-</nav>
+@*
+    The knowledge menu is the library's TreeView with this app's vocabulary
+    mapped onto it. KnowledgeMenuNode keys are only unique within a folder, so
+    the adapter numbers rows by their position in the tree and keeps the original
+    node behind that id — callers still receive the node they handed in.
+*@
+
+<TreeView ClassPrefix="knowledge-menu"
+          NavClass="knowledge-stack__menu"
+          HeadingClass="knowledge-stack__menu-heading"
+          MessageClass="knowledge-stack__menu-message"
+          OpenErrorClass="knowledge-stack__menu-error"
+          HeadingTestId="knowledge-menu-heading"
+          OpenButtonTestId="knowledge-open-vscode-button"
+          OpenErrorTestId="knowledge-menu-open-error"
+          NavAriaLabel="Knowledge menu"
+          TreeAriaLabel="Knowledge chapters"
+          LoadingMessage="Loading knowledge menu..."
+          EmptyMessage="No chapters are available for this area."
+          HeadingLabel="@HeadingLabel"
+          RootFolder="@RootTreeNode"
+          Nodes="@TreeNodes"
+          IsLoading="@IsLoading"
+          OpenErrorMessage="@OpenErrorMessage"
+          IsNodeSelected="node => IsNodeSelected(Original(node))"
+          IsNodeExpanded="node => IsNodeExpanded(Original(node))"
+          NodeClass="node => NodeClass(Original(node))"
+          IsFolderOpening="node => IsFolderOpening(Original(node))"
+          OnNodeSelected="node => OnNodeSelected.InvokeAsync(Original(node))"
+          OnOpenFolder="node => OnOpenFolder.InvokeAsync(Original(node))" />
 
 @code {
+    private readonly Dictionary<string, KnowledgeMenuNode> _originals = new(StringComparer.Ordinal);
+
     [Parameter]
     public string HeadingLabel { get; set; } = "Knowledge";
 
@@ -78,43 +65,37 @@
     [Parameter]
     public EventCallback<KnowledgeMenuNode> OnOpenFolder { get; set; }
 
-    private RenderFragment RenderKnowledgeMenuNode(KnowledgeMenuNode node, int depth) => @<li class="knowledge-menu__node" role="none">
-        @if (node.Kind == KnowledgeMenuNodeKind.Message)
-        {
-            <p class="knowledge-menu__message" role="treeitem" style="--knowledge-menu-depth: @depth">@node.Message</p>
-        }
-        else
-        {
-            <div class="knowledge-menu__row">
-                <button type="button"
-                        class="@NodeClass(node)"
-                        role="treeitem"
-                        aria-selected="@(IsNodeSelected(node) ? "true" : "false")"
-                        aria-expanded="@(node.HasChildren ? (IsNodeExpanded(node) ? "true" : "false") : null)"
-                        disabled="@(!node.Available)"
-                        title="@node.Message"
-                        style="--knowledge-menu-depth: @depth"
-                        @onclick="() => OnNodeSelected.InvokeAsync(node)">
-                    @if (node.HasChildren)
-                    {
-                        <span class="knowledge-menu__twisty" aria-hidden="true">@(IsNodeExpanded(node) ? "-" : "+")</span>
-                    }
-                    else
-                    {
-                        <span class="knowledge-menu__twisty" aria-hidden="true"></span>
-                    }
-                    <span class="knowledge-menu__label">@node.Label</span>
-                </button>
-            </div>
-            @if (node.HasChildren && IsNodeExpanded(node))
+    private TreeNode? RootTreeNode { get; set; }
+
+    private IReadOnlyList<TreeNode> TreeNodes { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        _originals.Clear();
+        RootTreeNode = RootFolder is null ? null : Map(RootFolder, "root");
+        TreeNodes = [.. Nodes.Select((node, index) => Map(node, index.ToString()))];
+    }
+
+    private TreeNode Map(KnowledgeMenuNode node, string id)
+    {
+        _originals[id] = node;
+
+        return new TreeNode(
+            id,
+            node.Label,
+            node.Kind switch
             {
-                <ul class="knowledge-menu__children" role="group">
-                    @foreach (var child in node.Children)
-                    {
-                        @RenderKnowledgeMenuNode(child, depth + 1)
-                    }
-                </ul>
-            }
-        }
-    </li>;
+                KnowledgeMenuNodeKind.Folder => TreeNodeKind.Folder,
+                KnowledgeMenuNodeKind.Message => TreeNodeKind.Message,
+                _ => TreeNodeKind.Item
+            },
+            node.Available,
+            node.Message,
+            [.. node.Children.Select((child, index) => Map(child, $"{id}/{index}"))]);
+    }
+
+    private KnowledgeMenuNode Original(TreeNode node) =>
+        _originals.TryGetValue(node.Id, out var original)
+            ? original
+            : new KnowledgeMenuNode(node.Id, node.Label, node.Id, KnowledgeMenuNodeKind.Message, string.Empty, [], node.Available, node.Message);
 }

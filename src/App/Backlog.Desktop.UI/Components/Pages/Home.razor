@@ -1531,7 +1531,7 @@
                 <label class="metadata-editor metadata-editor--type badge badge--type" data-testid="subitem-type-badge">
                     <span class="sr-only">Change sub-item type</span>
                     <select class="metadata-editor__select"
-                            value="@(subItem.Type ?? EntryType.Task)"
+                            value="@(subItem.EntryMetadata()?.Type ?? EntryType.Task)"
                             aria-label="Change sub-item type"
                             title="Change sub-item type"
                             @onchange="e => OnSubItemTypeChangedAsync(row, position, e)">
@@ -1542,7 +1542,7 @@
                     </select>
                 </label>
 
-                <PrioritySelector CurrentValue="@(subItem.Priority ?? Priority.Medium)"
+                <PrioritySelector CurrentValue="@(subItem.EntryMetadata()?.Priority ?? Priority.Medium)"
                                   Options="@PriorityOptions()"
                                   Label="Change sub-item priority"
                                   TestId="subitem-priority-badge"
@@ -1563,7 +1563,7 @@
                     @RenderSubItemTagEditor(row, subItem, position)
                 </span>
 
-                <StatusSelector CurrentValue="@((subItem.Status ?? (subItem.Done ? EntryStatus.Done : EntryStatus.Draft)).ToString())"
+                <StatusSelector CurrentValue="@((subItem.EntryMetadata()?.Status ?? (subItem.Done ? EntryStatus.Done : EntryStatus.Draft)).ToString())"
                                 Options="@StatusSelectorOptions()"
                                 Label="Change sub-item status"
                                 TestId="subitem-status-badge"
@@ -1977,7 +1977,7 @@
     private static string TagsInputValue(EntryRow row) => EntryTextParser.FormatTagsInput(row.PreviewMetadataTags);
 
     private static string TagsInputValue(MdSubItem subItem) =>
-        EntryTextParser.FormatTagsInput(subItem.MetadataTags ?? []);
+        EntryTextParser.FormatTagsInput(subItem.MetadataTags);
 
     [JSInvokable]
     public Task SetSidePaneWidthAsync(double widthRem)

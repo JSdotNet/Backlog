@@ -1,0 +1,63 @@
+@typeparam TEnum where TEnum : struct, Enum
+
+@*
+    A `<select>` over the members of an enum, wearing the badge of the value it
+    currently holds. Enum names are shown split into words, so `InProgress`
+    reads as "In Progress".
+*@
+
+<label class="@WrapperClass" data-testid="@TestId">
+    <span class="sr-only">@Label</span>
+    <select class="metadata-editor__select"
+            value="@CurrentValue"
+            aria-label="@Label"
+            title="@Label"
+            disabled="@Disabled"
+            @onchange="OnChange">
+        @foreach (var option in AvailableOptions)
+        {
+            <option value="@option">@Humanize(option.ToString())</option>
+        }
+    </select>
+</label>
+
+@code {
+    [Parameter]
+    public TEnum CurrentValue { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<TEnum>? Options { get; set; }
+
+    [Parameter]
+    public string Label { get; set; } = "Change value";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string BadgeKind { get; set; } = "priority";
+
+    /// <summary>Extra classes appended to the wrapper label, before the badge.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public EventCallback<TEnum> OnChanged { get; set; }
+
+    private IReadOnlyList<TEnum> AvailableOptions => Options is { Count: > 0 }
+        ? Options
+        : Enum.GetValues<TEnum>();
+
+    private string WrapperClass =>
+        $"metadata-editor{(string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass)} badge badge--{BadgeKind} badge--{BadgeKind}-{CurrentValue.ToString().ToLowerInvariant()}";
+
+    private Task OnChange(ChangeEventArgs e) =>
+        Enum.TryParse<TEnum>(e.Value?.ToString(), out var value)
+            ? OnChanged.InvokeAsync(value)
+            : Task.CompletedTask;
+
+    private static string Humanize(string value) => string.Concat(value.Select((ch, index) => index > 0 && char.IsUpper(ch) ? " " + ch : ch.ToString()));
+}

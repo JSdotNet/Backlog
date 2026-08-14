@@ -1,18 +1,17 @@
-<label class="status-editor badge badge--status badge--status-@StatusClassValue" data-testid="@TestId">
-    <span class="sr-only">@Label</span>
-    <select id="@Id"
-            class="status-editor__select"
-            value="@CurrentValue"
-            aria-label="@Label"
-            title="@Label"
-            disabled="@Disabled"
-            @onchange="OnChange">
-        @foreach (var option in Options)
-        {
-            <option value="@option.Value">@option.Label</option>
-        }
-    </select>
-</label>
+@*
+    The app's status badge, now a thin skin over the library's BadgeSelect. The
+    parameters and the rendered markup are unchanged.
+*@
+
+<BadgeSelect CurrentValue="@CurrentValue"
+             Options="@Options"
+             Label="@Label"
+             TestId="@TestId"
+             Id="@Id"
+             Disabled="@Disabled"
+             BadgeKind="status"
+             FallbackSlug="draft"
+             OnChanged="OnChanged" />
 
 @code {
     [Parameter]
@@ -35,10 +34,4 @@
 
     [Parameter]
     public EventCallback<string> OnChanged { get; set; }
-
-    private string StatusClassValue => string.IsNullOrWhiteSpace(CurrentValue)
-        ? "draft"
-        : new string(CurrentValue.Trim().ToLowerInvariant().Where(ch => char.IsLetterOrDigit(ch) || ch == '-').ToArray());
-
-    private Task OnChange(ChangeEventArgs e) => OnChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
 }

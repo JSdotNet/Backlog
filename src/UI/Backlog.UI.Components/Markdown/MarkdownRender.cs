@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Backlog.Desktop.UI.Services;
+namespace Backlog.UI.Components.Markdown;
 
 /// <summary>
 /// The inline half of the read view — emphasis, code spans, <c>#tags</c> and

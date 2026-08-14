@@ -1,0 +1,61 @@
+@*
+    A `<select>` that wears the badge of whatever it currently holds — status by
+    default. BadgeKind drives both the badge class and the per-value modifier, so
+    the same component can dress a priority, an area or anything else that has a
+    slug.
+*@
+
+<label class="@WrapperClass" data-testid="@TestId">
+    <span class="sr-only">@Label</span>
+    <select id="@Id"
+            class="@SelectClass"
+            value="@CurrentValue"
+            aria-label="@Label"
+            title="@Label"
+            disabled="@Disabled"
+            @onchange="OnChange">
+        @foreach (var option in Options)
+        {
+            <option value="@option.Value">@option.Label</option>
+        }
+    </select>
+</label>
+
+@code {
+    [Parameter]
+    public string CurrentValue { get; set; } = string.Empty;
+
+    [Parameter]
+    public IReadOnlyList<SelectorOption> Options { get; set; } = [];
+
+    [Parameter]
+    public string Label { get; set; } = "Change status";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string BadgeKind { get; set; } = "status";
+
+    [Parameter]
+    public string FallbackSlug { get; set; } = "draft";
+
+    [Parameter]
+    public EventCallback<string> OnChanged { get; set; }
+
+    private string Slug => string.IsNullOrWhiteSpace(CurrentValue)
+        ? FallbackSlug
+        : new string(CurrentValue.Trim().ToLowerInvariant().Where(ch => char.IsLetterOrDigit(ch) || ch == '-').ToArray());
+
+    private string WrapperClass => $"{BadgeKind}-editor badge badge--{BadgeKind} badge--{BadgeKind}-{Slug}";
+
+    private string SelectClass => $"{BadgeKind}-editor__select";
+
+    private Task OnChange(ChangeEventArgs e) => OnChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
+}

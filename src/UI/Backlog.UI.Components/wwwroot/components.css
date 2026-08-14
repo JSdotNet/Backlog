@@ -1,0 +1,6 @@
+/*
+    Styles owned by the shared component library, served from
+    _content/Backlog.UI.Components/components.css so a host only has to link it.
+    Empty on purpose: a later slice moves the component rules out of the app's
+    app.css into here, one block at a time, so the diff stays reviewable.
+*/

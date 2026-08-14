@@ -238,10 +238,10 @@ public sealed class EntryRowLayoutTests
 
         Assert.Equal(2, row.PreviewSubItems.Count);
         Assert.Equal(2, row.PreviewSubItems[0].Level);
-        Assert.Equal(EntryStatus.Ready, row.PreviewSubItems[0].Status);
+        Assert.Equal(EntryStatus.Ready, row.PreviewSubItems[0].EntryMetadata()?.Status);
         Assert.Equal(["parent"], row.PreviewSubItems[0].MetadataTags);
         Assert.Equal(3, row.PreviewSubItems[1].Level);
-        Assert.Equal(EntryStatus.Done, row.PreviewSubItems[1].Status);
+        Assert.Equal(EntryStatus.Done, row.PreviewSubItems[1].EntryMetadata()?.Status);
         Assert.Equal("repo", row.PreviewSubItems[1].Area);
         Assert.Equal(["child"], row.PreviewSubItems[1].MetadataTags);
     }

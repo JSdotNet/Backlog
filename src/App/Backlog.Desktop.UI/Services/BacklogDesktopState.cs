@@ -4,6 +4,8 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.FileSystem;
 
+using Backlog.UI.Components.Markdown;
+
 namespace Backlog.Desktop.UI.Services;
 
 /// <summary>
@@ -1471,7 +1473,7 @@ public sealed class EntryRow
 
         _renderedFrom = RawText;
         _parsed = EntryTextParser.Parse(RawText);
-        _blocks = MarkdownPreview.Parse(_parsed.Body, PreviewArea);
+        _blocks = MarkdownPreview.Parse(_parsed.Body, PreviewArea, EntryMarkdownMetadataReader.Instance);
         _bodyBlocks = [.. _blocks.TakeWhile(b => b is not MdSubItem)];
         _subItems = [.. _blocks.OfType<MdSubItem>()];
         _collapsedSubItems.RemoveWhere(index => index < 0 || index >= _subItems.Count);
