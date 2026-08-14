@@ -1,0 +1,22 @@
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <p class="@CssClassValue" data-testid="@TestId" role="@Role">@Message</p>
+}
+
+@code {
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public string Role { get; set; } = "alert";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    private string CssClassValue => string.IsNullOrWhiteSpace(CssClass)
+        ? "app-error-message"
+        : $"app-error-message {CssClass}";
+}

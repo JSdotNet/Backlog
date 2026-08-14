@@ -665,15 +665,10 @@
                         <nav class="knowledge-stack__menu" aria-label="Knowledge menu">
                         <div class="knowledge-stack__menu-heading">
                             <span>@(VisibleKnowledgeAreas.FirstOrDefault(area => IsKnowledgeSectionActive(area.Key))?.Label ?? "Knowledge")</span>
-                            @if (ActiveKnowledgeMenuRoot is { Available: true, Kind: KnowledgeMenuNodeKind.Folder } root)
-                            {
-                                @RenderOpenKnowledgeFolderButton(root)
-                            }
                         </div>
-                        @if (ActiveKnowledgeMenuRoot is { } menuRoot)
-                        {
-                            @RenderKnowledgeFolderOpenError(menuRoot)
-                        }
+                        <AppErrorMessage Message="@_knowledgeFolderOpenError"
+                                         TestId="knowledge-menu-open-error"
+                                         CssClass="knowledge-stack__menu-error" />
                         @if (_knowledgeMenuLoading)
                         {
                             <p class="knowledge-stack__menu-message">Loading knowledge menu...</p>
@@ -723,7 +718,7 @@
     private readonly HashSet<string> _expandedKnowledgeMenuNodes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _selectedKnowledgeChapterPaths = new(StringComparer.Ordinal);
     private readonly HashSet<string> _openingKnowledgeFolders = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _knowledgeFolderOpenErrors = new(StringComparer.Ordinal);
+    private string? _knowledgeFolderOpenError;
     private bool _knowledgeMenuLoading;
     private string _selectedKnowledgeSection = "instructions";
     private string? _loadedKnowledgeMenuRepositoryAlias;
@@ -1044,6 +1039,7 @@
     private void SelectKnowledgeSection(string key)
     {
         _selectedKnowledgeSection = key;
+        _knowledgeFolderOpenError = null;
         if (KnowledgeSectionUsesMenu)
         {
             EnsureSelectedKnowledgeChapter();
@@ -1114,12 +1110,11 @@
                     }
                     <span class="knowledge-menu__label">@node.Label</span>
                 </button>
-                @if (node.Kind == KnowledgeMenuNodeKind.Folder && node.Available)
+                @if (node.Kind == KnowledgeMenuNodeKind.Folder && node.Available && depth == 0)
                 {
                     @RenderOpenKnowledgeFolderButton(node)
                 }
             </div>
-            @RenderKnowledgeFolderOpenError(node)
             @if (node.HasChildren && IsKnowledgeMenuNodeExpanded(node))
             {
                 <ul class="knowledge-menu__children" role="group">
@@ -1151,13 +1146,6 @@
         }
     </button>;
 
-    private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => @<>
-        @if (_knowledgeFolderOpenErrors.TryGetValue(KnowledgeMenuNodeKey(node), out var error))
-        {
-            <p class="knowledge-menu__open-error" role="status">@error</p>
-        }
-    </>;
-
     private bool IsKnowledgeFolderOpening(KnowledgeMenuNode node) => _openingKnowledgeFolders.Contains(KnowledgeMenuNodeKey(node));
 
     private async Task OpenKnowledgeFolderAsync(KnowledgeMenuNode node)
@@ -1165,7 +1153,7 @@
         if (node.Kind != KnowledgeMenuNodeKind.Folder || !node.Available) return;
 
         var key = KnowledgeMenuNodeKey(node);
-        _knowledgeFolderOpenErrors.Remove(key);
+        _knowledgeFolderOpenError = null;
         _openingKnowledgeFolders.Add(key);
         try
         {
@@ -1173,17 +1161,19 @@
         }
         catch (KnowledgeFolderOpenException ex)
         {
-            _knowledgeFolderOpenErrors[key] = ex.Message;
+            _knowledgeFolderOpenError = BuildKnowledgeFolderOpenError(node.Label, ex.Message);
         }
         catch (InvalidOperationException ex)
         {
-            _knowledgeFolderOpenErrors[key] = ex.Message;
+            _knowledgeFolderOpenError = BuildKnowledgeFolderOpenError(node.Label, ex.Message);
         }
         finally
         {
             _openingKnowledgeFolders.Remove(key);
         }
     }
+
+    private static string BuildKnowledgeFolderOpenError(string label, string details) => $"Couldn't open {label} in VS Code. {details}";
 
     private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
         AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Repositories.FirstOrDefault();
