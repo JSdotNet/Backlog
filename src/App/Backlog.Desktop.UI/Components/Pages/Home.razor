@@ -8,6 +8,7 @@
 @inject IAppUpdateService Updates
 @inject IAzureFoundryChatClient AzureFoundryChat
 @inject KnowledgeMenu KnowledgeMenu
+@inject KnowledgeFolderOpenService KnowledgeFolderOpen
 @inject BacklogStore Store
 
 @*
@@ -662,7 +663,17 @@
                     @if (KnowledgeSectionUsesMenu)
                     {
                         <nav class="knowledge-stack__menu" aria-label="Knowledge menu">
-                        <div class="knowledge-stack__menu-heading">@(VisibleKnowledgeAreas.FirstOrDefault(area => IsKnowledgeSectionActive(area.Key))?.Label ?? "Knowledge")</div>
+                        <div class="knowledge-stack__menu-heading">
+                            <span>@(VisibleKnowledgeAreas.FirstOrDefault(area => IsKnowledgeSectionActive(area.Key))?.Label ?? "Knowledge")</span>
+                            @if (ActiveKnowledgeMenuRoot is { Available: true, Kind: KnowledgeMenuNodeKind.Folder } root)
+                            {
+                                @RenderOpenKnowledgeFolderButton(root)
+                            }
+                        </div>
+                        @if (ActiveKnowledgeMenuRoot is { } menuRoot)
+                        {
+                            @RenderKnowledgeFolderOpenError(menuRoot)
+                        }
                         @if (_knowledgeMenuLoading)
                         {
                             <p class="knowledge-stack__menu-message">Loading knowledge menu...</p>
@@ -711,6 +722,8 @@
     private KnowledgeMenuTree _knowledgeMenuTree = KnowledgeMenuTree.Empty;
     private readonly HashSet<string> _expandedKnowledgeMenuNodes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _selectedKnowledgeChapterPaths = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _openingKnowledgeFolders = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _knowledgeFolderOpenErrors = new(StringComparer.Ordinal);
     private bool _knowledgeMenuLoading;
     private string _selectedKnowledgeSection = "instructions";
     private string? _loadedKnowledgeMenuRepositoryAlias;
@@ -1081,25 +1094,32 @@
         else
         {
             var expanded = node.HasChildren ? IsKnowledgeMenuNodeExpanded(node) : (bool?)null;
-            <button type="button"
-                    class="@KnowledgeMenuNodeClass(node)"
-                    role="treeitem"
-                    aria-selected="@(IsKnowledgeMenuNodeSelected(node) ? "true" : "false")"
-                    aria-expanded="@(node.HasChildren ? (IsKnowledgeMenuNodeExpanded(node) ? "true" : "false") : null)"
-                    disabled="@(!node.Available)"
-                    title="@node.Message"
-                    style="--knowledge-menu-depth: @depth"
-                    @onclick="() => SelectKnowledgeMenuNode(node)">
-                @if (node.HasChildren)
+            <div class="knowledge-menu__row">
+                <button type="button"
+                        class="@KnowledgeMenuNodeClass(node)"
+                        role="treeitem"
+                        aria-selected="@(IsKnowledgeMenuNodeSelected(node) ? "true" : "false")"
+                        aria-expanded="@(node.HasChildren ? (IsKnowledgeMenuNodeExpanded(node) ? "true" : "false") : null)"
+                        disabled="@(!node.Available)"
+                        title="@node.Message"
+                        style="--knowledge-menu-depth: @depth"
+                        @onclick="() => SelectKnowledgeMenuNode(node)">
+                    @if (node.HasChildren)
+                    {
+                        <span class="knowledge-menu__twisty" aria-hidden="true">@(IsKnowledgeMenuNodeExpanded(node) ? "-" : "+")</span>
+                    }
+                    else
+                    {
+                        <span class="knowledge-menu__twisty" aria-hidden="true"></span>
+                    }
+                    <span class="knowledge-menu__label">@node.Label</span>
+                </button>
+                @if (node.Kind == KnowledgeMenuNodeKind.Folder && node.Available)
                 {
-                    <span class="knowledge-menu__twisty" aria-hidden="true">@(IsKnowledgeMenuNodeExpanded(node) ? "-" : "+")</span>
+                    @RenderOpenKnowledgeFolderButton(node)
                 }
-                else
-                {
-                    <span class="knowledge-menu__twisty" aria-hidden="true"></span>
-                }
-                <span class="knowledge-menu__label">@node.Label</span>
-            </button>
+            </div>
+            @RenderKnowledgeFolderOpenError(node)
             @if (node.HasChildren && IsKnowledgeMenuNodeExpanded(node))
             {
                 <ul class="knowledge-menu__children" role="group">
@@ -1111,6 +1131,59 @@
             }
         }
     </li>;
+
+
+    private RenderFragment RenderOpenKnowledgeFolderButton(KnowledgeMenuNode node) => @<button type="button"
+            class="knowledge-menu__open-vscode"
+            data-testid="knowledge-open-vscode-button"
+            disabled="@IsKnowledgeFolderOpening(node)"
+            title="Open @node.Label in VS Code"
+            aria-label="Open @node.Label in VS Code"
+            @onclick="() => OpenKnowledgeFolderAsync(node)"
+            @onclick:stopPropagation="true">
+        @if (IsKnowledgeFolderOpening(node))
+        {
+            <span aria-hidden="true">...</span>
+        }
+        else
+        {
+            <span aria-hidden="true">VS</span>
+        }
+    </button>;
+
+    private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => @<>
+        @if (_knowledgeFolderOpenErrors.TryGetValue(KnowledgeMenuNodeKey(node), out var error))
+        {
+            <p class="knowledge-menu__open-error" role="status">@error</p>
+        }
+    </>;
+
+    private bool IsKnowledgeFolderOpening(KnowledgeMenuNode node) => _openingKnowledgeFolders.Contains(KnowledgeMenuNodeKey(node));
+
+    private async Task OpenKnowledgeFolderAsync(KnowledgeMenuNode node)
+    {
+        if (node.Kind != KnowledgeMenuNodeKind.Folder || !node.Available) return;
+
+        var key = KnowledgeMenuNodeKey(node);
+        _knowledgeFolderOpenErrors.Remove(key);
+        _openingKnowledgeFolders.Add(key);
+        try
+        {
+            await KnowledgeFolderOpen.OpenAsync(node.AreaKey, node.Path, ActiveKnowledgeRepositoryAlias);
+        }
+        catch (KnowledgeFolderOpenException ex)
+        {
+            _knowledgeFolderOpenErrors[key] = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _knowledgeFolderOpenErrors[key] = ex.Message;
+        }
+        finally
+        {
+            _openingKnowledgeFolders.Remove(key);
+        }
+    }
 
     private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
         AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Repositories.FirstOrDefault();
@@ -1236,6 +1309,7 @@
             "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
             "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" />,
             "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveKnowledgeRepositoryAlias" SelectedPath="@SelectedKnowledgeChapterPath" />,
+            "backlog" => @<p class="knowledge-empty" role="status">Select a backlog folder in the knowledge menu, or open it in VS Code.</p>,
             _ => @<p class="knowledge-empty" role="status">Turn on knowledge sections in Settings to read repository knowledge here.</p>
         };
     }

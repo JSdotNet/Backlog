@@ -1,5 +1,6 @@
 @implements IDisposable
 @inject TechnologyKnowledgeService TechnologyKnowledge
+@inject KnowledgeFolderOpenService KnowledgeFolderOpen
 
 <aside class="knowledge-pane tech-knowledge-pane" data-testid="technology-knowledge-panel" aria-labelledby="technology-knowledge-title">
     @if (_view is null)
@@ -29,6 +30,19 @@
                     <code>@path</code>
                 }
             </p>
+            <button type="button"
+                    class="knowledge-folder-open"
+                    data-testid="technology-open-vscode-button"
+                    disabled="@_openingTechnologyFolder"
+                    title="Open Technology in VS Code"
+                    aria-label="Open Technology in VS Code"
+                    @onclick="OpenTechnologyFolderAsync">
+                @(_openingTechnologyFolder ? "..." : "Open in VS Code")
+            </button>
+            @if (_technologyFolderOpenError is not null)
+            {
+                <p class="knowledge-folder-open-error" role="status">@_technologyFolderOpenError</p>
+            }
         </header>
 
         <p class="knowledge-pane__subtitle">@_view.Summary</p>
@@ -145,6 +159,8 @@
     private TechnologyKnowledgeView? _view;
     private string? _activeLayerFile;
     private string? _loadedRepositoryAlias;
+    private bool _openingTechnologyFolder;
+    private string? _technologyFolderOpenError;
 
     [Parameter]
     public string? RepositoryAlias { get; set; }
@@ -219,6 +235,29 @@
             <span class="domain-knowledge__action-error" role="status">@error</span>
         }
     </span>;
+
+
+    private async Task OpenTechnologyFolderAsync()
+    {
+        _technologyFolderOpenError = null;
+        _openingTechnologyFolder = true;
+        try
+        {
+            await KnowledgeFolderOpen.OpenAsync("tech", ".tech", RepositoryAlias);
+        }
+        catch (KnowledgeFolderOpenException ex)
+        {
+            _technologyFolderOpenError = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _technologyFolderOpenError = ex.Message;
+        }
+        finally
+        {
+            _openingTechnologyFolder = false;
+        }
+    }
 
     private async Task ChangeKnowledgeStatusAsync(string itemPath, string currentStatus, string? status)
     {

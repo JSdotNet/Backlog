@@ -40,6 +40,8 @@ builder.Services.AddSingleton<TechnologyKnowledgeService>();
 builder.Services.AddSingleton<InstructionSourceDiscovery>();
 builder.Services.AddSingleton<KnowledgeMenu>();
 builder.Services.AddSingleton<Arc42KnowledgeStore>();
+builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
+builder.Services.AddSingleton<KnowledgeFolderOpenService>();
 builder.Services.AddSingleton(_ => CopilotCliIntegration.Unavailable);
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<KnowledgeFolderSource>()));
