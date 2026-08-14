@@ -17,6 +17,10 @@ mcp_servers:
   - name: jsdotnet-project-design
     command: jsdotnet-design-mcpserver
     tools: ["*"]
+  - name: aspire
+    command: aspire
+    args: ["agent", "mcp"]
+    tools: ["*"]
 
 # Mirrors .github/workflows/pull-request.yml. The MAUI heads in src/App require the
 # win-x64 / WindowsPackageType flags below; without them restore and build fail.
