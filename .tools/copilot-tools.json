@@ -180,6 +180,15 @@
       "enabled": true,
       "installedVersion": "0.9.0",
       "availableVersion": "1.1.0"
+    },
+    {
+      "name": "aspire",
+      "command": "aspire",
+      "args": [
+        "agent",
+        "mcp"
+      ],
+      "enabled": true
     }
   ]
 }
