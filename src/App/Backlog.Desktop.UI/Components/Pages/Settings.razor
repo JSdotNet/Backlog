@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject AppFeatureSettingsStore Features
 @inject AzureFoundrySettingsStore AzureFoundry
+@inject ILocalGitRepositoryService LocalGit
 @inject ClaudeSettingsStore Claude
 
 @*
@@ -490,16 +491,27 @@
                                @onchange="() => ApplyCloneDirectory(activeRepo.Alias)"
                                @onkeydown="e => OnClonePathKeyDown(e, activeRepo)" />
 
-                        <p class="setting__status" role="status">
-                            @if (string.IsNullOrWhiteSpace(activeRepo.CloneDirectory))
+                        <p class="setting__status" data-testid="repo-clone-status" role="status">
+                            @{ var cloneStatus = CloneStatus(activeRepo); }
+                            @if (cloneStatus.IsCloned)
                             {
-                                <span>No local clone directory configured yet.</span>
+                                <span>Local clone: <code>@cloneStatus.CloneDirectory</code></span>
                             }
                             else
                             {
-                                <span>Local clone: <code>@activeRepo.CloneDirectory</code></span>
+                                <span>@cloneStatus.Summary</span>
                             }
                         </p>
+
+                        <div class="setting__actions">
+                            <button type="button"
+                                    class="btn"
+                                    data-testid="repo-clone-button"
+                                    disabled="@(!CanClone(activeRepo))"
+                                    @onclick="() => CloneRepositoryAsync(activeRepo)">
+                                @CloneButtonText(activeRepo)
+                            </button>
+                        </div>
 
 
                         @if (Features.IsEnabled(AppFeatureSettingsStore.GitHubIntegration))
@@ -631,6 +643,7 @@
     private string? _usageEndpointsMessage;
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftKnowledgePaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _cloningRepositories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftTokens = new(StringComparer.Ordinal);
     private SettingsPage _activePage = SettingsPage.Features;
     private string? _activeRepositoryAlias;
@@ -954,6 +967,45 @@
         _draftCloneDirectories.TryGetValue(alias, out var value);
         _repoError = GitHub.Settings.SetCloneDirectory(alias, value);
         SyncRepositoryDrafts();
+    }
+
+    private LocalGitRepositoryStatus CloneStatus(GitHubRepositoryRef repository) =>
+        LocalGit.GetStatus(repository, CloneDirectoryDraft(repository));
+
+    private bool CanClone(GitHubRepositoryRef repository) =>
+        !_cloningRepositories.Contains(repository.Alias) && CloneStatus(repository).CanClone;
+
+    private string CloneButtonText(GitHubRepositoryRef repository)
+    {
+        if (_cloningRepositories.Contains(repository.Alias)) return "Cloning...";
+
+        var status = CloneStatus(repository);
+        return status.IsCloned ? "Already cloned" : "Clone repository";
+    }
+
+    private async Task CloneRepositoryAsync(GitHubRepositoryRef repository)
+    {
+        _cloningRepositories.Add(repository.Alias);
+        _repoError = null;
+
+        try
+        {
+            var result = await LocalGit.CloneAsync(repository, CloneDirectoryDraft(repository));
+            if (result.Success && result.CloneDirectory is not null)
+            {
+                _repoError = GitHub.Settings.SetCloneDirectory(repository.Alias, result.CloneDirectory);
+            }
+            else
+            {
+                _repoError = result.Message;
+            }
+
+            SyncRepositoryDrafts();
+        }
+        finally
+        {
+            _cloningRepositories.Remove(repository.Alias);
+        }
     }
 
     private void SetKnowledgeFolderEnabled(GitHubRepositoryRef repo, KnowledgeFolderSetting folder, ChangeEventArgs e)

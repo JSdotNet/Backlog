@@ -21,6 +21,7 @@ builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredServic
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
 builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<ICopilotUsageClient>(sp => new CopilotUsageClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 
@@ -175,4 +176,3 @@ static string? ResolveRepositoryRoot(string contentRootPath)
 
     return null;
 }
-

@@ -98,6 +98,7 @@ public sealed class SettingsAiUsageTests
         testContext.Services.AddSingleton(azureFoundry);
         testContext.Services.AddSingleton(claude);
         testContext.Services.AddSingleton(github);
+        testContext.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
 
         var component = testContext.Render<Settings>();
         return new SettingsRenderContext(root, testContext, component, claude, github);
