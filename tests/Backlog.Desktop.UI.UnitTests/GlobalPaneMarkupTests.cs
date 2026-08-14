@@ -17,7 +17,6 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("id=\"repository-knowledge-pane\"", home, StringComparison.Ordinal);
     }
 
-
     [Fact]
     public void Inbox_option_and_pane_are_guarded_by_feature_flag()
     {
@@ -86,6 +85,28 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("data-testid=\"check-for-updates\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"install-update\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("app-version__hint", home, StringComparison.Ordinal);
+    }
+
+
+    [Fact]
+    public void Knowledge_folder_errors_do_not_use_empty_razor_fragment_tags()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.DoesNotContain("@<>", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("</>", home, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Expandable_entry_title_remains_outside_fold_button()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        var titleIndex = home.IndexOf("data-testid=\"entry-title\"", StringComparison.Ordinal);
+        var foldButtonIndex = home.IndexOf("data-testid=\"entry-fold-button\"", StringComparison.Ordinal);
+
+        Assert.True(titleIndex >= 0);
+        Assert.True(foldButtonIndex > titleIndex);
     }
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");

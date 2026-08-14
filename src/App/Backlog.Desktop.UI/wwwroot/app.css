@@ -978,34 +978,24 @@ h1, h2, h3 {
 }
 
 /* --- Fold control -------------------------------------------------------- */
-/*
-  The title itself folds expandable entries. The arrow sits after the title text
-  so the whole title is the hit target without adding a separate button in front
-  of the reading order.
-*/
 
 .entry-doc__title-toggle {
-    display: inline-grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: inline-flex;
     align-items: center;
-    column-gap: var(--spacing-xs);
-    min-width: 0;
-    max-width: 100%;
-    width: fit-content;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.5rem;
+    height: 1.5rem;
     padding: 0;
     border: none;
+    border-radius: var(--border-radius-sm);
     background: transparent;
     color: inherit;
-    text-align: left;
     cursor: pointer;
     vertical-align: middle;
 }
 
-.entry-doc--one-line .entry-doc__title-toggle {
-    width: 100%;
-}
-
-.entry-doc__title-toggle:hover .entry-doc__title {
+.entry-doc__title-toggle:hover .entry-doc__fold-chevron {
     color: var(--color-primary);
 }
 
@@ -1182,22 +1172,22 @@ h1, h2, h3 {
 .entry-doc__title-line {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: var(--spacing-xs);
     min-width: 0;
     overflow: visible;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line {
-    align-items: flex-start;
+    align-items: center;
     margin-bottom: var(--spacing-sm);
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta {
-    flex: 1 1 22rem;
-    flex-wrap: wrap;
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
     justify-content: flex-end;
-    margin-left: var(--spacing-xs);
+    margin-left: auto;
     min-width: 0;
     padding-top: 1px;
 }
@@ -1217,17 +1207,15 @@ h1, h2, h3 {
     min-width: 0;
 }
 
-.entry-doc__title-toggle .entry-doc__title {
-    margin: 0;
-}
-
 .entry-doc__title-line .entry-doc__title {
+    flex: 1 1 auto;
     overflow-wrap: anywhere;
     text-overflow: clip;
     white-space: normal;
 }
 
 .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__title {
+    flex: 1 1 auto;
     overflow-wrap: anywhere;
     text-overflow: clip;
     white-space: normal;

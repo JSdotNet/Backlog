@@ -427,6 +427,14 @@
 
                                     @if (row.HasExpandableContent)
                                     {
+                                        @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
+                                        {
+                                            <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
+                                        }
+                                        else
+                                        {
+                                            <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
+                                        }
                                         <button type="button"
                                                 class="entry-doc__title-toggle"
                                                 id="fold-entry-@row.Key"
@@ -437,14 +445,6 @@
                                                 @onmousedown:preventDefault="true"
                                                 @onclick:stopPropagation="true"
                                                 @onclick="() => State.ToggleEntry(row)">
-                                            @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
-                                            {
-                                                <span class="entry-doc__title entry-doc__title--empty">Untitled</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</span>
-                                            }
                                             <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
                                         </button>
                                     }
@@ -1151,12 +1151,16 @@
         }
     </button>;
 
-    private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => @<>
-        @if (_knowledgeFolderOpenErrors.TryGetValue(KnowledgeMenuNodeKey(node), out var error))
-        {
-            <p class="knowledge-menu__open-error" role="status">@error</p>
-        }
-    </>;
+    private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => builder =>
+    {
+        if (!_knowledgeFolderOpenErrors.TryGetValue(KnowledgeMenuNodeKey(node), out var error)) return;
+
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "knowledge-menu__open-error");
+        builder.AddAttribute(2, "role", "status");
+        builder.AddContent(3, error);
+        builder.CloseElement();
+    };
 
     private bool IsKnowledgeFolderOpening(KnowledgeMenuNode node) => _openingKnowledgeFolders.Contains(KnowledgeMenuNodeKey(node));
 
