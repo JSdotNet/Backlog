@@ -216,20 +216,12 @@
 
     private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
     private RenderFragment RenderStatusSelect(string itemPath, string title, string status) => @<span class="knowledge-status-control">
-        <label class="status-editor badge badge--status badge--status-@status" data-testid="knowledge-state-select">
-            <span class="sr-only">State for @title</span>
-            <select id="@StateSelectId(itemPath)"
-                    class="status-editor__select"
-                    value="@status"
-                    aria-label="State for @title"
-                    title="State for @title"
-                    @onchange="e => ChangeKnowledgeStatusAsync(itemPath, status, e.Value?.ToString())">
-                @foreach (var option in StatusOptions(status))
-                {
-                    <option value="@option">@option</option>
-                }
-            </select>
-        </label>
+        <StatusSelector Id="@StateSelectId(itemPath)"
+                        CurrentValue="@status"
+                        Options="@StatusOptions(status)"
+                        Label="@($"State for {title}")"
+                        TestId="knowledge-state-select"
+                        OnChanged="value => ChangeKnowledgeStatusAsync(itemPath, status, value)" />
         @if (_statusErrors.TryGetValue(itemPath, out var error))
         {
             <span class="domain-knowledge__action-error" role="status">@error</span>
@@ -275,9 +267,13 @@
         }
     }
 
-    private static IReadOnlyList<string> StatusOptions(string status) => KnowledgeStatuses.Contains(status, StringComparer.OrdinalIgnoreCase)
-        ? KnowledgeStatuses
-        : [.. KnowledgeStatuses, status];
+    private static IReadOnlyList<SelectorOption> StatusOptions(string status)
+    {
+        var statuses = KnowledgeStatuses.Contains(status, StringComparer.OrdinalIgnoreCase)
+            ? KnowledgeStatuses
+            : [.. KnowledgeStatuses, status];
+        return [.. statuses.Select(value => new SelectorOption(value, value))];
+    }
 
     private static string LayerLabel(TechnologyLayer layer) => layer.Title.EndsWith(" Technologies", StringComparison.OrdinalIgnoreCase)
         ? layer.Title[..^" Technologies".Length]

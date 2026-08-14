@@ -225,8 +225,8 @@ public sealed class BacklogDesktopState : IDisposable
     /// <summary>Swaps a row from its rendered form to raw markdown.</summary>
     public void BeginEdit(EntryRow row)
     {
-        // A repository authored this one and committed it. Opening an editor
-        // over it would promise a save that must never happen.
+        // Reserved for future truly read-only sources; local and repository
+        // backlog rows are both editable.
         if (row.IsReadOnly) return;
         if (ReferenceEquals(EditingRow, row)) return;
         EditingSubItem = null;
@@ -260,7 +260,8 @@ public sealed class BacklogDesktopState : IDisposable
 
         // An entry someone opened and left untouched was never an entry. Drop
         // it rather than leaving an "Untitled" husk in the list.
-        if (!row.IsPersisted && row.IsUntouched)
+        // Repository-origin rows are always retained — they come from a file.
+        if (!row.IsPersisted && row.Origin is null && row.IsUntouched)
         {
             Rows.Remove(row);
             ApplyFilter();
@@ -273,7 +274,10 @@ public sealed class BacklogDesktopState : IDisposable
         // keystroke, so the caret never jumps mid-word.
         row.RawText = EnsureTitleHeading(row.RawText);
 
-        await SaveRowAsync(row, isFlush: true);
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: true);
 
         // What was just typed can change which area an entry belongs to, so the
         // area chips are rebuilt against the text as it now stands.
@@ -315,7 +319,11 @@ public sealed class BacklogDesktopState : IDisposable
             EditingSubItem = null;
         }
 
-        await SaveRowAsync(row, isFlush: true);
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: true);
+
         ApplyFilter();
         Changed?.Invoke();
     }
@@ -324,8 +332,6 @@ public sealed class BacklogDesktopState : IDisposable
     /// forbidden "Save" gesture, so it stays as a confirmed button.</summary>
     public async Task DeleteRowAsync(EntryRow row)
     {
-        // Deleting the local row would say nothing about the file it came from,
-        // and it would be back on the next reload.
         if (row.IsReadOnly) return;
 
         CancelDebounce(row);
@@ -347,9 +353,36 @@ public sealed class BacklogDesktopState : IDisposable
                 SetSaveState(AppSaveState.Error);
                 return;
             }
+
+            Rows.Remove(row);
+            await NormalizeOrderAsync();
+            ApplyFilter();
+            return;
         }
 
+        var removedIndex = Rows.IndexOf(row);
         Rows.Remove(row);
+
+        if (row.Origin is { } origin)
+        {
+            SetSaveState(AppSaveState.Saving);
+            try
+            {
+                RepositoryBacklogWriter.DeleteSegment(origin.FilePath, origin.SegmentIndex);
+                ReloadRepositoryFileRows(origin, row.PreviewArea, removedIndex);
+                SetSaveState(AppSaveState.Saved);
+            }
+            catch
+            {
+                Rows.Insert(Math.Max(removedIndex, 0), row);
+                SetSaveState(AppSaveState.Error);
+            }
+
+            ApplyFilter();
+            Changed?.Invoke();
+            return;
+        }
+
         await NormalizeOrderAsync();
         ApplyFilter();
     }
@@ -441,7 +474,12 @@ public sealed class BacklogDesktopState : IDisposable
 
         CancelDebounce(row);
         row.RawText = rewritten;
-        await SaveRowAsync(row, isFlush: true);
+
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: true);
+
         ApplyFilter();
         Changed?.Invoke();
     }
@@ -455,7 +493,12 @@ public sealed class BacklogDesktopState : IDisposable
 
         CancelDebounce(row);
         row.RawText = rewritten;
-        await SaveRowAsync(row, isFlush: true);
+
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: true);
+
         ApplyFilter();
         Changed?.Invoke();
     }
@@ -497,7 +540,16 @@ public sealed class BacklogDesktopState : IDisposable
 
         CancelDebounce(row);
         row.RawText = rewritten;
-        await SaveRowAsync(row, isFlush: true);
+
+        if (row.Origin is { } origin)
+        {
+            await SaveRepositoryRowAsync(row, origin);
+        }
+        else
+        {
+            await SaveRowAsync(row, isFlush: true);
+        }
+
         ApplyFilter();
         Changed?.Invoke();
     }
@@ -558,7 +610,11 @@ public sealed class BacklogDesktopState : IDisposable
 
         // A re-rank is a finished gesture, not a keystroke: save it now rather
         // than on a debounce that a drag never generates.
-        await SaveRowAsync(row, isFlush: true);
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: true);
+
         ApplyFilter();
         Changed?.Invoke();
     }
@@ -788,7 +844,12 @@ public sealed class BacklogDesktopState : IDisposable
     private async void OnDebounceElapsed(EntryRow row)
     {
         _debounceTimers.Remove(row.Key);
-        await SaveRowAsync(row, isFlush: false);
+
+        if (row.Origin is { } origin)
+            await SaveRepositoryRowAsync(row, origin);
+        else
+            await SaveRowAsync(row, isFlush: false);
+
         Changed?.Invoke();
     }
 
@@ -798,6 +859,32 @@ public sealed class BacklogDesktopState : IDisposable
         {
             timer.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Writes a repository-authored row back to its source <c>.backlog</c> file,
+    /// translating backlog sigils to knowledge meta vocabulary and preserving
+    /// non-status meta fields. Errors are surfaced through the save-state
+    /// indicator.</summary>
+    private Task SaveRepositoryRowAsync(EntryRow row, RepositoryBacklogOrigin origin)
+    {
+        SetSaveState(AppSaveState.Saving);
+        try
+        {
+            RepositoryBacklogWriter.SaveRowToSource(origin, row.RawText);
+            SetSaveState(AppSaveState.Saved);
+            FlashSaved(row);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or FileNotFoundException)
+        {
+            SetSaveState(AppSaveState.Error);
+        }
+        catch (Exception)
+        {
+            SetSaveState(AppSaveState.Error);
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -1011,18 +1098,40 @@ public sealed class BacklogDesktopState : IDisposable
         {
             foreach (var document in _repositoryBacklog.Load(repository.Alias))
             {
-                rows.Add(new EntryRow
-                {
-                    RawText = document.RawText,
-                    Area = document.Area,
-                    Status = document.Status ?? EntryStatus.Draft,
-                    Origin = new RepositoryBacklogOrigin(document.RepositoryFullName, document.RelativePath)
-                });
+                rows.Add(MapRepositoryRow(document));
             }
         }
 
         return rows;
     }
+
+    private void ReloadRepositoryFileRows(RepositoryBacklogOrigin origin, string? repositoryAlias, int insertAt)
+    {
+        if (_repositoryBacklog is null || string.IsNullOrWhiteSpace(repositoryAlias)) return;
+
+        Rows.RemoveAll(row => string.Equals(row.Origin?.FilePath, origin.FilePath, StringComparison.OrdinalIgnoreCase));
+
+        var reloaded = _repositoryBacklog.Load(repositoryAlias)
+            .Where(document => string.Equals(document.FilePath, origin.FilePath, StringComparison.OrdinalIgnoreCase))
+            .Select(MapRepositoryRow)
+            .ToList();
+
+        var normalizedInsertAt = insertAt < 0 ? Rows.Count : Math.Min(insertAt, Rows.Count);
+        Rows.InsertRange(normalizedInsertAt, reloaded);
+    }
+
+    private static EntryRow MapRepositoryRow(RepositoryBacklogDocument document) =>
+        new()
+        {
+            RawText = document.RawText,
+            Area = document.Area,
+            Status = document.Status ?? EntryStatus.Draft,
+            Origin = new RepositoryBacklogOrigin(
+                document.RepositoryFullName,
+                document.RelativePath,
+                document.FilePath,
+                document.SegmentIndex)
+        };
 
     /// <summary>A repository was added, pointed somewhere else, or had its
     /// knowledge folders turned on or off — which repository entries exist is
@@ -1147,6 +1256,7 @@ public sealed class EntryRow
     private IReadOnlyList<MdBlock> _blocks = [];
     private IReadOnlyList<MdBlock> _bodyBlocks = [];
     private IReadOnlyList<MdSubItem> _subItems = [];
+    private readonly HashSet<int> _collapsedSubItems = [];
     private EntryTextParser.ParsedEntry? _parsed;
 
     public Guid Key { get; } = Guid.NewGuid();
@@ -1199,10 +1309,10 @@ public sealed class EntryRow
     /// a repository's committed <c>.backlog</c> file.</summary>
     public RepositoryBacklogOrigin? Origin { get; set; }
 
-    /// <summary>True for rows the app only reads. They render exactly like every
-    /// other entry; what they refuse is being typed into, re-ranked, or
-    /// deleted.</summary>
-    public bool IsReadOnly => Origin is not null;
+    /// <summary>True for rows the app only reads. Local and repository-authored
+    /// entries are both editable; this property is reserved for future sources
+    /// that truly cannot be written back.</summary>
+    public bool IsReadOnly => false;
 
     /// <summary>True briefly after a successful save, driving the inline
     /// saved-confirmation flash on the whole entry.</summary>
@@ -1241,6 +1351,18 @@ public sealed class EntryRow
     /// folded away. Per row and in memory only — a fold is a way of looking at
     /// the list right now, not something worth writing into someone's markdown.</summary>
     public bool EntryCollapsed { get; set; }
+
+    public bool IsSubItemCollapsed(int subItemIndex) => _collapsedSubItems.Contains(subItemIndex);
+
+    public void ToggleSubItemCollapsed(int subItemIndex)
+    {
+        if (subItemIndex < 0 || subItemIndex >= PreviewSubItems.Count) return;
+
+        if (!_collapsedSubItems.Add(subItemIndex))
+        {
+            _collapsedSubItems.Remove(subItemIndex);
+        }
+    }
 
     public bool HasExpandableContent
     {
@@ -1352,5 +1474,6 @@ public sealed class EntryRow
         _blocks = MarkdownPreview.Parse(_parsed.Body, PreviewArea);
         _bodyBlocks = [.. _blocks.TakeWhile(b => b is not MdSubItem)];
         _subItems = [.. _blocks.OfType<MdSubItem>()];
+        _collapsedSubItems.RemoveWhere(index => index < 0 || index >= _subItems.Count);
     }
 }
