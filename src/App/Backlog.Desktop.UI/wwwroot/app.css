@@ -3550,11 +3550,19 @@ body.is-resizing-pane {
     opacity: 0.58;
 }
 
-.knowledge-menu__open-error,
-.knowledge-folder-open-error {
+.app-error-message {
     margin: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid color-mix(in srgb, var(--color-danger) 55%, transparent);
+    border-radius: var(--border-radius-md);
+    background: color-mix(in srgb, var(--color-danger) 14%, transparent);
     color: var(--color-danger);
     font-size: var(--font-size-xs);
+}
+
+.knowledge-stack__menu-error,
+.knowledge-folder-open-error {
+    margin: 0;
 }
 .knowledge-menu,
 .knowledge-menu__children {

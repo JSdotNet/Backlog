@@ -39,10 +39,9 @@
                     @onclick="OpenTechnologyFolderAsync">
                 @(_openingTechnologyFolder ? "..." : "Open in VS Code")
             </button>
-            @if (_technologyFolderOpenError is not null)
-            {
-                <p class="knowledge-folder-open-error" role="status">@_technologyFolderOpenError</p>
-            }
+            <AppErrorMessage Message="@_technologyFolderOpenError"
+                             TestId="technology-open-vscode-error"
+                             CssClass="knowledge-folder-open-error" />
         </header>
 
         <p class="knowledge-pane__subtitle">@_view.Summary</p>

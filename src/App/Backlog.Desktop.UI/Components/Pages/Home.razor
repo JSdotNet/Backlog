@@ -674,36 +674,17 @@
                 <div class="knowledge-stack__body @(KnowledgeSectionUsesMenu ? string.Empty : "knowledge-stack__body--without-menu")">
                     @if (KnowledgeSectionUsesMenu)
                     {
-                        <nav class="knowledge-stack__menu" aria-label="Knowledge menu">
-                        <div class="knowledge-stack__menu-heading">
-                            <span>@(VisibleKnowledgeAreas.FirstOrDefault(area => IsKnowledgeSectionActive(area.Key))?.Label ?? "Knowledge")</span>
-                            @if (ActiveKnowledgeMenuRoot is { Available: true, Kind: KnowledgeMenuNodeKind.Folder } root)
-                            {
-                                @RenderOpenKnowledgeFolderButton(root)
-                            }
-                        </div>
-                        @if (ActiveKnowledgeMenuRoot is { } menuRoot)
-                        {
-                            @RenderKnowledgeFolderOpenError(menuRoot)
-                        }
-                        @if (_knowledgeMenuLoading)
-                        {
-                            <p class="knowledge-stack__menu-message">Loading knowledge menu...</p>
-                        }
-                        else if (ActiveKnowledgeMenuNodes.Count == 0)
-                        {
-                            <p class="knowledge-stack__menu-message">No chapters are available for this area.</p>
-                        }
-                        else
-                        {
-                            <ul class="knowledge-menu" role="tree" aria-label="Knowledge chapters">
-                                @foreach (var node in ActiveKnowledgeMenuNodes)
-                                {
-                                    @RenderKnowledgeMenuNode(node, 0)
-                                }
-                            </ul>
-                        }
-                    </nav>
+                        <KnowledgeMenuTreeView HeadingLabel="@(VisibleKnowledgeAreas.FirstOrDefault(area => IsKnowledgeSectionActive(area.Key))?.Label ?? "Knowledge")"
+                                               RootFolder="ActiveKnowledgeMenuRoot"
+                                               Nodes="ActiveKnowledgeMenuNodes"
+                                               IsLoading="_knowledgeMenuLoading"
+                                               OpenErrorMessage="_knowledgeFolderOpenError"
+                                               IsNodeSelected="IsKnowledgeMenuNodeSelected"
+                                               IsNodeExpanded="IsKnowledgeMenuNodeExpanded"
+                                               NodeClass="KnowledgeMenuNodeClass"
+                                               IsFolderOpening="IsKnowledgeFolderOpening"
+                                               OnNodeSelected="SelectKnowledgeMenuNode"
+                                               OnOpenFolder="OpenKnowledgeFolderAsync" />
                     }
 
                     <div class="knowledge-stack__section" id="knowledge-active-section" role="tabpanel">
@@ -735,7 +716,7 @@
     private readonly HashSet<string> _expandedKnowledgeMenuNodes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _selectedKnowledgeChapterPaths = new(StringComparer.Ordinal);
     private readonly HashSet<string> _openingKnowledgeFolders = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _knowledgeFolderOpenErrors = new(StringComparer.Ordinal);
+    private string? _knowledgeFolderOpenError;
     private bool _knowledgeMenuLoading;
     private string _selectedKnowledgeSection = "instructions";
     private string? _loadedKnowledgeMenuRepositoryAlias;
@@ -1056,6 +1037,7 @@
     private void SelectKnowledgeSection(string key)
     {
         _selectedKnowledgeSection = key;
+        _knowledgeFolderOpenError = null;
         if (KnowledgeSectionUsesMenu)
         {
             EnsureSelectedKnowledgeChapter();
@@ -1098,86 +1080,6 @@
         !node.Available ? "knowledge-menu__item--unavailable" : null
     }.Where(value => value is not null));
 
-    private RenderFragment RenderKnowledgeMenuNode(KnowledgeMenuNode node, int depth) => @<li @key=@(KnowledgeMenuNodeKey(node)) class="knowledge-menu__node" role="none">
-        @if (node.Kind == KnowledgeMenuNodeKind.Message)
-        {
-            <p class="knowledge-menu__message" role="treeitem" style="--knowledge-menu-depth: @depth">@node.Message</p>
-        }
-        else
-        {
-            var expanded = node.HasChildren ? IsKnowledgeMenuNodeExpanded(node) : (bool?)null;
-            <div class="knowledge-menu__row">
-                <button type="button"
-                        class="@KnowledgeMenuNodeClass(node)"
-                        role="treeitem"
-                        aria-selected="@(IsKnowledgeMenuNodeSelected(node) ? "true" : "false")"
-                        aria-expanded="@(node.HasChildren ? (IsKnowledgeMenuNodeExpanded(node) ? "true" : "false") : null)"
-                        disabled="@(!node.Available)"
-                        title="@node.Message"
-                        style="--knowledge-menu-depth: @depth"
-                        @onclick="() => SelectKnowledgeMenuNode(node)">
-                    @if (node.HasChildren)
-                    {
-                        <span class="knowledge-menu__twisty" aria-hidden="true">@(IsKnowledgeMenuNodeExpanded(node) ? "-" : "+")</span>
-                    }
-                    else
-                    {
-                        <span class="knowledge-menu__twisty" aria-hidden="true"></span>
-                    }
-                    <span class="knowledge-menu__label">@node.Label</span>
-                </button>
-                @if (node.Kind == KnowledgeMenuNodeKind.Folder && node.Available)
-                {
-                    @RenderOpenKnowledgeFolderButton(node)
-                }
-            </div>
-            @RenderKnowledgeFolderOpenError(node)
-            @if (node.HasChildren && IsKnowledgeMenuNodeExpanded(node))
-            {
-                <ul class="knowledge-menu__children" role="group">
-                    @foreach (var child in node.Children)
-                    {
-                        @RenderKnowledgeMenuNode(child, depth + 1)
-                    }
-                </ul>
-            }
-        }
-    </li>;
-
-
-    private RenderFragment RenderOpenKnowledgeFolderButton(KnowledgeMenuNode node) => @<button type="button"
-            class="knowledge-menu__open-vscode"
-            data-testid="knowledge-open-vscode-button"
-            disabled="@IsKnowledgeFolderOpening(node)"
-            title="Open @node.Label in VS Code"
-            aria-label="Open @node.Label in VS Code"
-            @onclick="() => OpenKnowledgeFolderAsync(node)"
-            @onclick:stopPropagation="true">
-        @if (IsKnowledgeFolderOpening(node))
-        {
-            <span aria-hidden="true">...</span>
-        }
-        else
-        {
-            <span aria-hidden="true">VS</span>
-        }
-    </button>;
-
-    private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => builder =>
-    {
-        if (!_knowledgeFolderOpenErrors.TryGetValue(KnowledgeMenuNodeKey(node), out var error))
-        {
-            return;
-        }
-
-
-        builder.OpenElement(0, "p");
-        builder.AddAttribute(1, "class", "knowledge-menu__open-error");
-        builder.AddAttribute(2, "role", "status");
-        builder.AddContent(3, error);
-        builder.CloseElement();
-    };
-
     private bool IsKnowledgeFolderOpening(KnowledgeMenuNode node) => _openingKnowledgeFolders.Contains(KnowledgeMenuNodeKey(node));
 
     private async Task OpenKnowledgeFolderAsync(KnowledgeMenuNode node)
@@ -1185,7 +1087,7 @@
         if (node.Kind != KnowledgeMenuNodeKind.Folder || !node.Available) return;
 
         var key = KnowledgeMenuNodeKey(node);
-        _knowledgeFolderOpenErrors.Remove(key);
+        _knowledgeFolderOpenError = null;
         _openingKnowledgeFolders.Add(key);
         try
         {
@@ -1193,17 +1095,19 @@
         }
         catch (KnowledgeFolderOpenException ex)
         {
-            _knowledgeFolderOpenErrors[key] = ex.Message;
+            _knowledgeFolderOpenError = BuildKnowledgeFolderOpenError(node.Label, ex.Message);
         }
         catch (InvalidOperationException ex)
         {
-            _knowledgeFolderOpenErrors[key] = ex.Message;
+            _knowledgeFolderOpenError = BuildKnowledgeFolderOpenError(node.Label, ex.Message);
         }
         finally
         {
             _openingKnowledgeFolders.Remove(key);
         }
     }
+
+    private static string BuildKnowledgeFolderOpenError(string label, string details) => $"Couldn't open {label} in VS Code. {details}";
 
     private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
         AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Repositories.FirstOrDefault();
@@ -2171,8 +2075,3 @@
         _selfReference = null;
     }
 }
-
-
-
-
-
