@@ -249,21 +249,69 @@ function backlogStatusColor(status) {
     return '#38bdf8';
 }
 
-function backlogGroupTechnologyLayers(nodes) {
-    const layers = [];
-    const byLayer = new Map();
+function backlogGroupTechnologyBy(nodes, keySelector, labelSelector) {
+    const groups = [];
+    const byKey = new Map();
     for (const node of nodes) {
-        const layer = String(node.layer || 'Unassigned');
-        if (!byLayer.has(layer)) {
-            const group = { layer, nodes: [] };
-            byLayer.set(layer, group);
-            layers.push(group);
+        const key = keySelector(node);
+        if (!byKey.has(key)) {
+            const group = { key, label: labelSelector?.(node, key) ?? key, nodes: [] };
+            byKey.set(key, group);
+            groups.push(group);
         }
 
-        byLayer.get(layer).nodes.push(node);
+        byKey.get(key).nodes.push(node);
     }
 
-    return layers;
+    return groups;
+}
+
+function backlogGroupTechnologyLayers(nodes) {
+    return backlogGroupTechnologyBy(nodes, (node) => String(node.layer || 'Unassigned'));
+}
+
+function backlogNormalizeTechnologyStatus(status) {
+    const normalized = String(status ?? 'unknown').trim().toLowerCase();
+    if (normalized === 'accepted' || normalized === 'active') return 'adopted';
+    if (normalized === 'proposed' || normalized === 'draft') return 'candidate';
+    if (normalized === 'deprecated') return 'retired';
+    return normalized || 'unknown';
+}
+
+function backlogTechnologyStatusGroups(nodes) {
+    const statusDefinitions = [
+        { key: 'candidate', label: 'Candidate' },
+        { key: 'trial', label: 'Trial' },
+        { key: 'adopted', label: 'Adopted' },
+        { key: 'hold', label: 'Hold' },
+        { key: 'retired', label: 'Retired' }
+    ];
+    const groups = statusDefinitions.map((status) => ({ ...status, nodes: [] }));
+    const byKey = new Map(groups.map((group) => [group.key, group]));
+
+    for (const node of nodes) {
+        const key = backlogNormalizeTechnologyStatus(node.status);
+        if (!byKey.has(key)) {
+            const label = key ? key.replace(/(^|[-_\s])\w/g, (match) => match.toUpperCase()) : 'Unknown';
+            const group = { key, label, nodes: [] };
+            byKey.set(key, group);
+            groups.push(group);
+        }
+
+        byKey.get(key).nodes.push(node);
+    }
+
+    return groups;
+}
+
+function backlogTechnologyCloudCluster(node) {
+    const haystack = `${node.label ?? ''} ${node.layer ?? ''} ${node.kind ?? ''} ${node.description ?? ''}`.toLowerCase();
+    if (/azure|aws|cloud|container|docker|kubernetes|hosting|foundry|service bus|cosmos|storage/.test(haystack)) return 'Cloud platform';
+    if (/github|actions|repository|source|git|devops|deployment|ci|cd/.test(haystack)) return 'Delivery';
+    if (/telemetry|monitor|observability|logging|otel|application insights|metrics|traces/.test(haystack)) return 'Observability';
+    if (/database|data|sqlite|sql|markdown|file|storage/.test(haystack)) return 'Data and storage';
+    if (/desktop|maui|blazor|razor|webview|mobile|ide|ui|app/.test(haystack)) return 'Application surfaces';
+    return 'Shared foundations';
 }
 
 function backlogCreateRoadmapElement(tagName, className, text) {
@@ -298,7 +346,11 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
         outgoing.get(edge.target).push(edge.source);
     }
 
-    const roadmap = backlogCreateRoadmapElement('div', 'tech-roadmap');
+    const visualizer = backlogCreateRoadmapElement('div', 'tech-roadmap');
+    const toolbar = backlogCreateRoadmapElement('div', 'tech-roadmap__toolbar');
+    const tabs = backlogCreateRoadmapElement('div', 'tech-roadmap__tabs');
+    tabs.setAttribute('role', 'tablist');
+    tabs.setAttribute('aria-label', 'Technology visualizer views');
     const legend = backlogCreateRoadmapElement('div', 'tech-roadmap__legend');
     for (const item of ['candidate', 'trial', 'adopted', 'hold', 'retired']) {
         const swatch = backlogCreateRoadmapElement('span', `tech-roadmap__legend-item tech-roadmap__legend-item--${item}`);
@@ -306,139 +358,182 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
         legend.appendChild(swatch);
     }
 
-    const hint = backlogCreateRoadmapElement('p', 'tech-roadmap__hint', 'Select a card to spotlight its direct dependencies and dependents.');
-    const viewport = backlogCreateRoadmapElement('div', 'tech-roadmap__viewport');
-    const canvas = backlogCreateRoadmapElement('div', 'tech-roadmap__canvas');
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'tech-roadmap__edges');
-    svg.setAttribute('aria-hidden', 'true');
-    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-    marker.setAttribute('id', `${id}-arrow`);
-    marker.setAttribute('viewBox', '0 0 10 10');
-    marker.setAttribute('refX', '9');
-    marker.setAttribute('refY', '5');
-    marker.setAttribute('markerWidth', '7');
-    marker.setAttribute('markerHeight', '7');
-    marker.setAttribute('orient', 'auto-start-reverse');
-    const markerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    markerPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
-    marker.appendChild(markerPath);
-    defs.appendChild(marker);
-    svg.appendChild(defs);
-    canvas.appendChild(svg);
-
-    const cardById = new Map();
-    for (const group of backlogGroupTechnologyLayers(nodes)) {
-        const lane = backlogCreateRoadmapElement('section', 'tech-roadmap__lane');
-        lane.setAttribute('aria-label', group.layer);
-        const header = backlogCreateRoadmapElement('header', 'tech-roadmap__lane-header');
-        header.appendChild(backlogCreateRoadmapElement('h4', null, group.layer));
-        header.appendChild(backlogCreateRoadmapElement('span', 'tech-roadmap__lane-count', String(group.nodes.length)));
-        lane.appendChild(header);
-
-        for (const node of group.nodes) {
-            const dependencies = incoming.get(node.id) ?? [];
-            const dependents = outgoing.get(node.id) ?? [];
-            const card = backlogCreateRoadmapElement('button', `tech-roadmap__card tech-roadmap__card--${String(node.status || 'unknown').toLowerCase()}`);
-            card.type = 'button';
-            card.dataset.nodeId = node.id;
-            card.style.setProperty('--tech-roadmap-status-color', backlogStatusColor(node.status));
-            card.title = node.description || node.label;
-
-            const title = backlogCreateRoadmapElement('span', 'tech-roadmap__card-title', node.label);
-            const meta = backlogCreateRoadmapElement('span', 'tech-roadmap__card-meta');
-            meta.appendChild(backlogCreateRoadmapElement('span', 'tech-roadmap__pill', node.kind || 'technology'));
-            meta.appendChild(backlogCreateRoadmapElement('span', 'tech-roadmap__pill tech-roadmap__pill--status', node.status || 'unknown'));
-            const summary = backlogCreateRoadmapElement('span', 'tech-roadmap__card-summary', node.description || 'No summary yet.');
-            const relation = backlogCreateRoadmapElement('span', 'tech-roadmap__card-relations', `${dependencies.length} dependencies / ${dependents.length} dependents`);
-            card.append(title, meta, summary, relation);
-            lane.appendChild(card);
-            cardById.set(node.id, card);
-        }
-
-        canvas.appendChild(lane);
-    }
-
-    viewport.appendChild(canvas);
-    roadmap.append(legend, hint, viewport);
-    element.appendChild(roadmap);
-
+    const viewDefinitions = [
+        { id: 'board', label: 'Board', hint: 'Lifecycle board: lanes are technology states from candidate to retired.' },
+        { id: 'roadmap', label: 'Roadmap', hint: 'Area spine: technology areas form the central vertical line, with technologies branching around each area.' },
+        { id: 'cloud', label: 'Cloud', hint: 'Cloud view: clusters technologies by platform, delivery, observability, data, and application surface concerns.' }
+    ];
+    let activeView = 'roadmap';
     let selectedId = null;
+
+    const hint = backlogCreateRoadmapElement('p', 'tech-roadmap__hint');
+    const viewport = backlogCreateRoadmapElement('div', 'tech-roadmap__viewport');
+    const content = backlogCreateRoadmapElement('div', 'tech-roadmap__content');
+    viewport.appendChild(content);
+    toolbar.append(tabs, legend);
+    visualizer.append(toolbar, hint, viewport);
+    element.appendChild(visualizer);
+
+    const listeners = [];
+    const cardById = new Map();
     const relatedIds = () => new Set([
         selectedId,
         ...(incoming.get(selectedId) ?? []),
         ...(outgoing.get(selectedId) ?? [])
     ].filter(Boolean));
 
-    const drawEdges = () => {
-        const width = Math.max(canvas.scrollWidth, viewport.clientWidth);
-        const height = Math.max(canvas.scrollHeight, viewport.clientHeight);
-        svg.setAttribute('width', String(width));
-        svg.setAttribute('height', String(height));
-        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-        for (const edgePath of [...svg.querySelectorAll('path.tech-roadmap__edge')]) edgePath.remove();
-
-        const highlighted = selectedId ? relatedIds() : null;
-        for (const edge of edges) {
-            const source = cardById.get(edge.source);
-            const target = cardById.get(edge.target);
-            if (!source || !target) continue;
-
-            const sourceRect = source.getBoundingClientRect();
-            const targetRect = target.getBoundingClientRect();
-            const canvasRect = canvas.getBoundingClientRect();
-            const from = {
-                x: targetRect.right - canvasRect.left,
-                y: targetRect.top - canvasRect.top + targetRect.height / 2
-            };
-            const to = {
-                x: sourceRect.left - canvasRect.left,
-                y: sourceRect.top - canvasRect.top + sourceRect.height / 2
-            };
-            const direction = Math.max(80, Math.abs(to.x - from.x) * 0.45);
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('class', 'tech-roadmap__edge');
-            path.setAttribute('d', `M ${from.x} ${from.y} C ${from.x + direction} ${from.y}, ${to.x - direction} ${to.y}, ${to.x} ${to.y}`);
-            path.setAttribute('marker-end', `url(#${id}-arrow)`);
-            if (highlighted) {
-                path.classList.toggle('tech-roadmap__edge--active', highlighted.has(edge.source) && highlighted.has(edge.target));
-                path.classList.toggle('tech-roadmap__edge--muted', !(highlighted.has(edge.source) && highlighted.has(edge.target)));
-            }
-            svg.appendChild(path);
-        }
-    };
-
-    const applySelection = (nodeId) => {
-        selectedId = selectedId === nodeId ? null : nodeId;
+    const applySelectionState = () => {
         const highlighted = selectedId ? relatedIds() : null;
         for (const [cardId, card] of cardById) {
             card.classList.toggle('tech-roadmap__card--selected', cardId === selectedId);
             card.classList.toggle('tech-roadmap__card--muted', Boolean(highlighted) && !highlighted.has(cardId));
             card.setAttribute('aria-pressed', cardId === selectedId ? 'true' : 'false');
         }
-        drawEdges();
     };
 
-    const listeners = [];
-    for (const [nodeId, card] of cardById) {
-        const onClick = () => applySelection(nodeId);
+    const applySelection = (nodeId) => {
+        selectedId = selectedId === nodeId ? null : nodeId;
+        applySelectionState();
+    };
+
+    const makeCard = (node, density = 'normal') => {
+        const dependencies = incoming.get(node.id) ?? [];
+        const dependents = outgoing.get(node.id) ?? [];
+        const status = backlogNormalizeTechnologyStatus(node.status);
+        const card = backlogCreateRoadmapElement('button', `tech-roadmap__card tech-roadmap__card--${status} tech-roadmap__card--${density}`);
+        card.type = 'button';
+        card.dataset.nodeId = node.id;
+        card.style.setProperty('--tech-roadmap-status-color', backlogStatusColor(status));
+        card.title = node.description || node.label;
+        card.setAttribute('aria-pressed', node.id === selectedId ? 'true' : 'false');
+
+        const title = backlogCreateRoadmapElement('span', 'tech-roadmap__card-title', node.label);
+        const meta = backlogCreateRoadmapElement('span', 'tech-roadmap__card-meta');
+        meta.appendChild(backlogCreateRoadmapElement('span', 'tech-roadmap__pill', node.kind || 'technology'));
+        meta.appendChild(backlogCreateRoadmapElement('span', 'tech-roadmap__pill tech-roadmap__pill--status', status));
+        const summary = backlogCreateRoadmapElement('span', 'tech-roadmap__card-summary', node.description || 'No summary yet.');
+        const relation = backlogCreateRoadmapElement('span', 'tech-roadmap__card-relations', `${dependencies.length} dependencies / ${dependents.length} dependents`);
+        card.append(title, meta, summary, relation);
+
+        const onClick = () => applySelection(node.id);
         card.addEventListener('click', onClick);
         listeners.push(() => card.removeEventListener('click', onClick));
+        cardById.set(node.id, card);
+        return card;
+    };
+
+    const makeGroupHeader = (title, count) => {
+        const header = backlogCreateRoadmapElement('header', 'tech-roadmap__lane-header');
+        header.appendChild(backlogCreateRoadmapElement('h4', null, title));
+        header.appendChild(backlogCreateRoadmapElement('span', 'tech-roadmap__lane-count', String(count)));
+        return header;
+    };
+
+    const renderBoardView = () => {
+        const canvas = backlogCreateRoadmapElement('div', 'tech-roadmap__canvas tech-roadmap__canvas--board');
+        for (const group of backlogTechnologyStatusGroups(nodes)) {
+            const lane = backlogCreateRoadmapElement('section', 'tech-roadmap__lane');
+            lane.setAttribute('aria-label', `${group.label} technologies`);
+            lane.appendChild(makeGroupHeader(group.label, group.nodes.length));
+            for (const node of group.nodes) lane.appendChild(makeCard(node));
+            canvas.appendChild(lane);
+        }
+
+        return canvas;
+    };
+
+    const renderRoadmapView = () => {
+        const spine = backlogCreateRoadmapElement('div', 'tech-roadmap__spine');
+        const groups = backlogGroupTechnologyLayers(nodes);
+        groups.forEach((group, index) => {
+            const section = backlogCreateRoadmapElement('section', 'tech-roadmap__spine-section');
+            section.setAttribute('aria-label', group.label);
+            const left = backlogCreateRoadmapElement('div', 'tech-roadmap__branch tech-roadmap__branch--left');
+            const center = backlogCreateRoadmapElement('div', 'tech-roadmap__area-node');
+            center.style.setProperty('--tech-roadmap-status-color', backlogStatusColor(group.nodes[0]?.status));
+            center.appendChild(backlogCreateRoadmapElement('span', 'tech-roadmap__area-index', String(index + 1)));
+            center.appendChild(backlogCreateRoadmapElement('strong', null, group.label));
+            center.appendChild(backlogCreateRoadmapElement('span', null, `${group.nodes.length} technologies`));
+            const right = backlogCreateRoadmapElement('div', 'tech-roadmap__branch tech-roadmap__branch--right');
+
+            group.nodes.forEach((node, nodeIndex) => {
+                const card = makeCard(node, 'compact');
+                const branch = nodeIndex % 2 === 0 ? left : right;
+                branch.appendChild(card);
+            });
+
+            section.append(left, center, right);
+            spine.appendChild(section);
+        });
+
+        return spine;
+    };
+
+    const renderCloudView = () => {
+        const cloud = backlogCreateRoadmapElement('div', 'tech-roadmap__cloud');
+        const groups = backlogGroupTechnologyBy(nodes, backlogTechnologyCloudCluster);
+        const order = ['Cloud platform', 'Delivery', 'Observability', 'Data and storage', 'Application surfaces', 'Shared foundations'];
+        groups.sort((left, right) => order.indexOf(left.key) - order.indexOf(right.key));
+
+        for (const group of groups) {
+            const cluster = backlogCreateRoadmapElement('section', 'tech-roadmap__cloud-cluster');
+            cluster.setAttribute('aria-label', group.label);
+            cluster.appendChild(makeGroupHeader(group.label, group.nodes.length));
+            const cards = backlogCreateRoadmapElement('div', 'tech-roadmap__cloud-cards');
+            for (const node of group.nodes) cards.appendChild(makeCard(node, 'compact'));
+            cluster.appendChild(cards);
+            cloud.appendChild(cluster);
+        }
+
+        return cloud;
+    };
+
+    const removeCardListeners = () => {
+        while (listeners.length > viewDefinitions.length) listeners.pop()?.();
+    };
+
+    const renderActiveView = () => {
+        removeCardListeners();
+        cardById.clear();
+        content.replaceChildren();
+        const definition = viewDefinitions.find((view) => view.id === activeView) ?? viewDefinitions[0];
+        hint.textContent = `${definition.hint} Select a card to spotlight direct dependencies and dependents.`;
+        content.id = `${id}-${definition.id}-view`;
+        content.dataset.view = definition.id;
+        content.appendChild(
+            definition.id === 'board'
+                ? renderBoardView()
+                : definition.id === 'cloud'
+                    ? renderCloudView()
+                    : renderRoadmapView()
+        );
+        applySelectionState();
+    };
+
+    for (const view of viewDefinitions) {
+        const tab = backlogCreateRoadmapElement('button', 'tech-roadmap__tab', view.label);
+        tab.type = 'button';
+        tab.dataset.view = view.id;
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-controls', `${id}-${view.id}-view`);
+        const onClick = () => {
+            activeView = view.id;
+            for (const button of tabs.querySelectorAll('.tech-roadmap__tab')) {
+                const isSelected = button.dataset.view === activeView;
+                button.classList.toggle('tech-roadmap__tab--active', isSelected);
+                button.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+            }
+            renderActiveView();
+        };
+        tab.addEventListener('click', onClick);
+        listeners.push(() => tab.removeEventListener('click', onClick));
+        tabs.appendChild(tab);
     }
 
-    const onViewportChange = () => window.requestAnimationFrame(drawEdges);
-    viewport.addEventListener('scroll', onViewportChange, { passive: true });
-    window.addEventListener('resize', onViewportChange);
-    listeners.push(() => viewport.removeEventListener('scroll', onViewportChange));
-    listeners.push(() => window.removeEventListener('resize', onViewportChange));
-
-    let resizeObserver;
-    if (window.ResizeObserver) {
-        resizeObserver = new ResizeObserver(onViewportChange);
-        resizeObserver.observe(canvas);
-        listeners.push(() => resizeObserver.disconnect());
-    }
+    const selectedTab = tabs.querySelector(`[data-view="${activeView}"]`);
+    selectedTab?.classList.add('tech-roadmap__tab--active');
+    selectedTab?.setAttribute('aria-selected', 'true');
+    for (const tab of tabs.querySelectorAll('.tech-roadmap__tab:not(.tech-roadmap__tab--active)')) tab.setAttribute('aria-selected', 'false');
 
     backlogDiagramInstances.set(id, {
         destroy() {
@@ -446,8 +541,9 @@ function backlogRenderTechnologyRoadmap(element, graph, id) {
         }
     });
 
-    window.requestAnimationFrame(drawEdges);
+    renderActiveView();
 }
+
 window.backlogDiagrams = {
     async render(element, id, language, source) {
         const normalized = String(language ?? '').trim().toLowerCase();
