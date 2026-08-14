@@ -3432,8 +3432,33 @@ body.is-resizing-pane {
 }
 
 .knowledge-stack__section > .knowledge-pane--arc42,
-.knowledge-stack__section > .domain-knowledge,
+.knowledge-stack__section > .domain-knowledge {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .knowledge-stack__section > .tech-knowledge-pane {
+    max-height: 100%;
+    min-height: 0;
+    overflow: auto;
+    scrollbar-gutter: stable;
+}
+
+.knowledge-stack__section > .knowledge-pane--arc42 .arc42-knowledge-layout {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.knowledge-stack__section > .knowledge-pane--arc42 .knowledge-document,
+.knowledge-stack__section > .domain-knowledge > .domain-context,
+.knowledge-stack__section > .domain-knowledge > .domain-document {
+    flex: 1 1 auto;
     max-height: 100%;
     min-height: 0;
     overflow: auto;

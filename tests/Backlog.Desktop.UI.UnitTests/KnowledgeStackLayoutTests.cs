@@ -32,19 +32,40 @@ public sealed class KnowledgeStackLayoutTests
     }
 
     [Fact]
-    public void Domain_and_architecture_panels_scroll_within_the_knowledge_pane()
+    public void Domain_and_architecture_outer_panels_clip_instead_of_owning_the_scrollbar()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
         var ruleStart = css.IndexOf(".knowledge-stack__section > .knowledge-pane--arc42,", StringComparison.Ordinal);
 
-        Assert.True(ruleStart >= 0, "Architecture and Domain panels should share a constrained scroll rule.");
+        Assert.True(ruleStart >= 0, "Architecture and Domain panels should share an outer containment rule.");
 
         var ruleEnd = css.IndexOf("}\n", ruleStart, StringComparison.Ordinal);
-        Assert.True(ruleEnd > ruleStart, "The constrained scroll rule should be complete.");
+        Assert.True(ruleEnd > ruleStart, "The outer containment rule should be complete.");
 
         var rule = css[ruleStart..ruleEnd];
 
         Assert.Contains(".knowledge-stack__section > .domain-knowledge", rule, StringComparison.Ordinal);
+        Assert.Contains("max-height: 100%;", rule, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", rule, StringComparison.Ordinal);
+        Assert.Contains("overflow: hidden;", rule, StringComparison.Ordinal);
+        Assert.DoesNotContain("overflow: auto;", rule, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Domain_and_architecture_documents_own_the_knowledge_scrollbar()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var ruleStart = css.IndexOf(".knowledge-stack__section > .knowledge-pane--arc42 .knowledge-document,", StringComparison.Ordinal);
+
+        Assert.True(ruleStart >= 0, "Architecture and Domain documents should share the scroll container rule.");
+
+        var ruleEnd = css.IndexOf("}\n", ruleStart, StringComparison.Ordinal);
+        Assert.True(ruleEnd > ruleStart, "The document scroll rule should be complete.");
+
+        var rule = css[ruleStart..ruleEnd];
+
+        Assert.Contains(".knowledge-stack__section > .domain-knowledge > .domain-document", rule, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 auto;", rule, StringComparison.Ordinal);
         Assert.Contains("max-height: 100%;", rule, StringComparison.Ordinal);
         Assert.Contains("min-height: 0;", rule, StringComparison.Ordinal);
         Assert.Contains("overflow: auto;", rule, StringComparison.Ordinal);
