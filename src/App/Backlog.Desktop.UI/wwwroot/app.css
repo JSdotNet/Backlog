@@ -3489,6 +3489,8 @@ body.is-resizing-pane {
     position: sticky;
     top: 0;
     display: grid;
+    align-content: start;
+    grid-auto-rows: max-content;
     gap: var(--spacing-sm);
     max-height: calc(100vh - (var(--spacing-lg) * 3));
     overflow: auto;

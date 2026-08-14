@@ -94,6 +94,23 @@ public sealed class KnowledgeStackLayoutTests
     }
 
     [Fact]
+    public void Knowledge_menu_content_aligns_to_the_top()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var ruleStart = css.IndexOf(".knowledge-stack__menu {", StringComparison.Ordinal);
+
+        Assert.True(ruleStart >= 0, "The Knowledge menu rule should exist.");
+
+        var ruleEnd = css.IndexOf("}\n", ruleStart, StringComparison.Ordinal);
+        Assert.True(ruleEnd > ruleStart, "The Knowledge menu rule should be complete.");
+
+        var rule = css[ruleStart..ruleEnd];
+
+        Assert.Contains("display: grid;", rule, StringComparison.Ordinal);
+        Assert.Contains("align-content: start;", rule, StringComparison.Ordinal);
+        Assert.Contains("grid-auto-rows: max-content;", rule, StringComparison.Ordinal);
+    }
+    [Fact]
     public void Tools_pane_stays_right_docked_when_it_is_the_only_side_pane()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
