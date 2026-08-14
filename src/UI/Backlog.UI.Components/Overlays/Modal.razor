@@ -3,37 +3,17 @@
     all, so nothing behind it is reachable through a hidden node. Escape is
     handled on the container rather than on the document, which means it works
     without a document-wide listener and cannot outlive the dialog.
+
+    The dialog element is written through the render tree because a host that
+    already renders its dialog as a `section` should not have to give that up to
+    gain the focus and Escape handling, and the class hooks replace the defaults
+    so a host keeps its own naming.
 *@
 
 @if (Open)
 {
-    <div class="modal-backdrop" @onclick="BackdropClickedAsync">
-        <div @ref="_dialog"
-             class="@ClassValue"
-             role="dialog"
-             aria-modal="true"
-             aria-labelledby="@(string.IsNullOrWhiteSpace(Title) ? null : TitleId)"
-             aria-label="@(string.IsNullOrWhiteSpace(Title) ? AriaLabel : null)"
-             data-testid="@TestId"
-             tabindex="-1"
-             @onkeydown="OnKeyDownAsync"
-             @onclick:stopPropagation="true"
-             @attributes="AdditionalAttributes">
-            @if (!string.IsNullOrWhiteSpace(Title))
-            {
-                <header class="modal__header">
-                    <h2 id="@TitleId" class="modal__title">@Title</h2>
-                    <IconButton AriaLabel="@CloseLabel" CssClass="modal__close" OnClick="CloseAsync">x</IconButton>
-                </header>
-            }
-
-            <div class="modal__body">@ChildContent</div>
-
-            @if (Footer is not null)
-            {
-                <footer class="modal__footer">@Footer</footer>
-            }
-        </div>
+    <div class="@BackdropClassValue" data-testid="@BackdropTestId" role="@BackdropRole" @onclick="BackdropClickedAsync">
+        @DialogFragment
     </div>
 }
 
@@ -50,6 +30,10 @@
 
     [Parameter]
     public string? Title { get; set; }
+
+    /// <summary>Replaces the default title header entirely.</summary>
+    [Parameter]
+    public RenderFragment? Header { get; set; }
 
     [Parameter]
     public string? AriaLabel { get; set; }
@@ -75,15 +59,108 @@
     [Parameter]
     public string? CssClass { get; set; }
 
+    /// <summary>The element the dialog is rendered as.</summary>
+    [Parameter]
+    public string Element { get; set; } = "div";
+
+    /// <summary>Replaces <c>modal</c> on the dialog.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "modal";
+
+    /// <summary>Replaces <c>modal-backdrop</c> on the backdrop.</summary>
+    [Parameter]
+    public string? BackdropCssClass { get; set; }
+
+    /// <summary>Replaces <c>modal__header</c> on the default header.</summary>
+    [Parameter]
+    public string? HeaderCssClass { get; set; }
+
+    /// <summary>Replaces <c>modal__body</c> on the body wrapper.</summary>
+    [Parameter]
+    public string? BodyCssClass { get; set; }
+
+    /// <summary>Replaces <c>modal__footer</c> on the footer.</summary>
+    [Parameter]
+    public string? FooterCssClass { get; set; }
+
+    /// <summary>Wraps the content in a body element. Hosts whose dialog styling
+    /// lays out its children directly turn this off.</summary>
+    [Parameter]
+    public bool UseBodyWrapper { get; set; } = true;
+
+    [Parameter]
+    public string? BackdropRole { get; set; }
+
     [Parameter]
     public string? TestId { get; set; }
+
+    [Parameter]
+    public string? BackdropTestId { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string TitleId => _id + "-title";
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "modal" : $"modal {CssClass}";
+    private bool HasTitle => !string.IsNullOrWhiteSpace(Title);
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    private string BackdropClassValue =>
+        string.IsNullOrWhiteSpace(BackdropCssClass) ? "modal-backdrop" : BackdropCssClass;
+
+    private string HeaderClassValue => string.IsNullOrWhiteSpace(HeaderCssClass) ? "modal__header" : HeaderCssClass;
+
+    private string BodyClassValue => string.IsNullOrWhiteSpace(BodyCssClass) ? "modal__body" : BodyCssClass;
+
+    private string FooterClassValue => string.IsNullOrWhiteSpace(FooterCssClass) ? "modal__footer" : FooterCssClass;
+
+    private RenderFragment DialogFragment => builder =>
+    {
+        builder.OpenElement(0, Element);
+        builder.AddAttribute(1, "class", ClassValue);
+        builder.AddAttribute(2, "role", "dialog");
+        builder.AddAttribute(3, "aria-modal", "true");
+        builder.AddAttribute(4, "aria-labelledby", HasTitle ? TitleId : null);
+        builder.AddAttribute(5, "aria-label", HasTitle ? null : AriaLabel);
+        builder.AddAttribute(6, "data-testid", TestId);
+        builder.AddAttribute(7, "tabindex", "-1");
+        builder.AddAttribute(8, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, OnKeyDownAsync));
+        builder.AddEventStopPropagationAttribute(9, "onclick", true);
+        builder.AddMultipleAttributes(10, AdditionalAttributes);
+        builder.AddElementReferenceCapture(11, reference => _dialog = reference);
+        builder.AddContent(12, DialogContent);
+        builder.CloseElement();
+    };
+
+    private RenderFragment DialogContent =>
+        @<text>
+            @if (Header is not null)
+            {
+                @Header
+            }
+            else if (HasTitle)
+            {
+                <header class="@HeaderClassValue">
+                    <h2 id="@TitleId" class="modal__title">@Title</h2>
+                    <IconButton AriaLabel="@CloseLabel" CssClass="modal__close" OnClick="CloseAsync">x</IconButton>
+                </header>
+            }
+
+            @if (UseBodyWrapper)
+            {
+                <div class="@BodyClassValue">@ChildContent</div>
+            }
+            else
+            {
+                @ChildContent
+            }
+
+            @if (Footer is not null)
+            {
+                <footer class="@FooterClassValue">@Footer</footer>
+            }
+        </text>;
 
     protected override void OnParametersSet()
     {

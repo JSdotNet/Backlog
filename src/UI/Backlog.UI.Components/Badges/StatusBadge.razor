@@ -1,4 +1,4 @@
-<Badge Kind="status" Slug="@Slug" TestId="@TestId" CssClass="@CssClass" Title="@Title" @attributes="AdditionalAttributes">@Label</Badge>
+<Badge Kind="@Kind" Slug="@Slug" BaseClass="@BaseClass" TestId="@TestId" CssClass="@CssClass" Title="@Title" @attributes="AdditionalAttributes">@Label</Badge>
 
 @code {
     [Parameter]
@@ -10,6 +10,14 @@
 
     [Parameter]
     public string FallbackSlug { get; set; } = "draft";
+
+    /// <summary>The badge dimension. Empty collapses the modifier to
+    /// <c>&lt;base&gt;--&lt;slug&gt;</c>.</summary>
+    [Parameter]
+    public string Kind { get; set; } = "status";
+
+    [Parameter]
+    public string BaseClass { get; set; } = "badge";
 
     [Parameter]
     public string? Title { get; set; }

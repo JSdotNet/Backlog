@@ -41,6 +41,34 @@
         </div>
     </Story>
 
+    <Story Name="EmptyState wearing a host's own classes"
+           Description="Each class is a parameter with the default as its value, so a host can replace it or pass null to get the bare element. A null ActionCssClass drops the action wrapper, and DescriptionContent covers the case where the description is more than text."
+           Code="@EmptyClassCode">
+        <div class="sb-stack">
+            <EmptyState BaseClass="knowledge-empty"
+                        Title="No arc42 folder here yet."
+                        TitleCssClass="knowledge-empty__title"
+                        DescriptionCssClass="@(null)"
+                        TestId="empty-host-classes"
+                        role="status">
+                <DescriptionContent>
+                    Point storage at a repository root that contains <code>.arc42</code> to browse architecture chapters.
+                </DescriptionContent>
+            </EmptyState>
+
+            <EmptyState BaseClass="knowledge-empty"
+                        Title="No instruction source is configured."
+                        TitleCssClass="@(null)"
+                        ActionCssClass="@(null)"
+                        TestId="empty-bare-action"
+                        role="status">
+                <Action>
+                    <a href="/">Open storage settings</a>
+                </Action>
+            </EmptyState>
+        </div>
+    </Story>
+
     <Story Name="Spinner"
            Description="Three sizes; the label is what a screen reader hears."
            Code="@SpinnerCode">
@@ -161,6 +189,18 @@
     private const string EmptyCode = """
         <EmptyState Title="No entries yet" Description="Everything you capture will show up here.">
             <Action><AppButton Variant="ButtonVariant.Primary">New entry</AppButton></Action>
+        </EmptyState>
+        """;
+
+    private const string EmptyClassCode = """
+        <EmptyState BaseClass="knowledge-empty"
+                    Title="No arc42 folder here yet."
+                    TitleCssClass="knowledge-empty__title"
+                    DescriptionCssClass="@(null)"
+                    role="status">
+            <DescriptionContent>
+                Point storage at a repository root that contains <code>.arc42</code>.
+            </DescriptionContent>
         </EmptyState>
         """;
 

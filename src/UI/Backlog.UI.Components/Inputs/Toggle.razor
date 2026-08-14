@@ -1,30 +1,46 @@
 @*
-    The settings feature-flag control. A native checkbox would announce
-    "checkbox"; this is a switch, so it is a button with `role="switch"` and the
-    label sits beside it as a real label, not a title.
+    Two shapes, one control. The default is a switch: a native checkbox would
+    announce "checkbox", so this is a button with `role="switch"` and the label
+    sits beside it as a real label, not a title.
+
+    `NativeCheckbox` is for hosts that need form semantics - a settings row where
+    the whole row is clickable. That shape is a `<label>` wrapping phrasing
+    content, so the text block and its parts are spans, and the text comes first
+    with the box on the trailing edge. The on-state modifier is only emitted for
+    the switch; a real checkbox already carries `:checked` in the DOM.
 *@
 
-<div class="@ClassValue" data-testid="@TestId">
-    <button type="button"
-            id="@FieldId"
-            class="toggle__track"
-            role="switch"
-            aria-checked="@(Checked ? "true" : "false")"
-            aria-labelledby="@LabelId"
-            aria-describedby="@(string.IsNullOrWhiteSpace(Description) ? null : DescriptionId)"
-            disabled="@Disabled"
-            @onclick="ToggleAsync"
-            @attributes="AdditionalAttributes">
-        <span class="toggle__thumb" aria-hidden="true"></span>
-    </button>
-    <div class="toggle__text">
-        <span id="@LabelId" class="toggle__label">@Label</span>
-        @if (!string.IsNullOrWhiteSpace(Description))
-        {
-            <span id="@DescriptionId" class="toggle__description">@Description</span>
-        }
+@if (NativeCheckbox)
+{
+    <label class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+        @SpanTextBlock
+        <input type="checkbox"
+               id="@FieldId"
+               class="@ControlCssClass"
+               checked="@Checked"
+               disabled="@Disabled"
+               aria-labelledby="@LabelId"
+               aria-describedby="@(string.IsNullOrWhiteSpace(Description) ? null : DescriptionId)"
+               @onchange="OnNativeChangedAsync" />
+    </label>
+}
+else
+{
+    <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+        <button type="button"
+                id="@FieldId"
+                class="@TrackClassValue"
+                role="switch"
+                aria-checked="@(Checked ? "true" : "false")"
+                aria-labelledby="@LabelId"
+                aria-describedby="@(string.IsNullOrWhiteSpace(Description) ? null : DescriptionId)"
+                disabled="@Disabled"
+                @onclick="ToggleAsync">
+            <span class="toggle__thumb" aria-hidden="true"></span>
+        </button>
+        @DivTextBlock
     </div>
-</div>
+}
 
 @code {
     private readonly string _id = "toggle-" + Guid.NewGuid().ToString("N");
@@ -41,6 +57,10 @@
     [Parameter]
     public string? Description { get; set; }
 
+    /// <summary>Extra text inside the text block, under the description.</summary>
+    [Parameter]
+    public RenderFragment? TextContent { get; set; }
+
     [Parameter]
     public bool Disabled { get; set; }
 
@@ -49,6 +69,32 @@
 
     [Parameter]
     public string? CssClass { get; set; }
+
+    /// <summary>Renders a real <c>input type="checkbox"</c> instead of the
+    /// switch, for hosts that need form semantics.</summary>
+    [Parameter]
+    public bool NativeCheckbox { get; set; }
+
+    /// <summary>Replaces <c>toggle</c> on the outer element.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "toggle";
+
+    /// <summary>Replaces <c>toggle__text</c> on the text block.</summary>
+    [Parameter]
+    public string? TextCssClass { get; set; }
+
+    /// <summary>Replaces <c>toggle__label</c> on the label.</summary>
+    [Parameter]
+    public string? LabelCssClass { get; set; }
+
+    /// <summary>Replaces <c>toggle__description</c> on the description.</summary>
+    [Parameter]
+    public string? DescriptionCssClass { get; set; }
+
+    /// <summary>Replaces <c>toggle__track</c> on the switch. A native checkbox
+    /// carries no class unless one is given.</summary>
+    [Parameter]
+    public string? ControlCssClass { get; set; }
 
     [Parameter]
     public string? TestId { get; set; }
@@ -62,21 +108,53 @@
 
     private string DescriptionId => FieldId + "-description";
 
+    private string TrackClassValue => string.IsNullOrWhiteSpace(ControlCssClass) ? "toggle__track" : ControlCssClass;
+
+    private string TextClassValue => string.IsNullOrWhiteSpace(TextCssClass) ? "toggle__text" : TextCssClass;
+
+    private string LabelClassValue => string.IsNullOrWhiteSpace(LabelCssClass) ? "toggle__label" : LabelCssClass;
+
+    private string DescriptionClassValue =>
+        string.IsNullOrWhiteSpace(DescriptionCssClass) ? "toggle__description" : DescriptionCssClass;
+
     private string ClassValue
     {
         get
         {
-            var state = Checked ? " toggle--on" : string.Empty;
+            var state = !NativeCheckbox && Checked ? $" {BaseClass}--on" : string.Empty;
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
-            return $"toggle{state}{extra}";
+
+            return $"{BaseClass}{state}{extra}";
         }
     }
+
+    private RenderFragment SpanTextBlock =>
+        @<span class="@TextClassValue">@TextParts</span>;
+
+    private RenderFragment DivTextBlock =>
+        @<div class="@TextClassValue">@TextParts</div>;
+
+    private RenderFragment TextParts =>
+        @<text>
+            <span id="@LabelId" class="@LabelClassValue">@Label</span>
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <span id="@DescriptionId" class="@DescriptionClassValue">@Description</span>
+            }
+            @TextContent
+        </text>;
 
     private Task ToggleAsync()
     {
         if (Disabled) return Task.CompletedTask;
 
         Checked = !Checked;
+        return CheckedChanged.InvokeAsync(Checked);
+    }
+
+    private Task OnNativeChangedAsync(ChangeEventArgs e)
+    {
+        Checked = e.Value is bool value && value;
         return CheckedChanged.InvokeAsync(Checked);
     }
 }

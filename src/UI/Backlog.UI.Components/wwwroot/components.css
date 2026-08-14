@@ -1507,6 +1507,53 @@ button.tag-chip__label {
     }
 }
 
+/* The flag-row variant of Toggle: `NativeCheckbox` in a `<label>`, text first
+   and the box on the trailing edge. The host supplies these class names through
+   Toggle's class hooks; the look belongs here rather than in an app stylesheet. */
+
+.feature-flag {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    color: var(--color-text-primary);
+    background: var(--color-background);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+}
+
+.feature-flag--locked {
+    color: var(--color-text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.feature-flag__content {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.feature-flag__title {
+    font-weight: 700;
+}
+
+.feature-flag__description,
+.feature-flag__status {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.feature-flag input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    accent-color: var(--color-primary);
+}
+
+.feature-flag input[type="checkbox"]:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
 .checkbox {
     display: inline-flex;
     align-items: center;

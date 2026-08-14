@@ -2,6 +2,10 @@
     A badge is `badge` plus the kind it belongs to, and optionally the value it
     holds — `badge badge--status badge--status-ready`. StatusBadge and
     PriorityBadge are this component with the slug already worked out.
+
+    A host with its own badge naming replaces `badge` through `BaseClass`; with
+    no kind the modifier collapses to `<base>--<slug>`, which is what a plain
+    one-dimensional badge looks like.
 *@
 
 <span class="@ClassValue" data-testid="@TestId" title="@Title" @attributes="AdditionalAttributes">@ChildContent</span>
@@ -22,6 +26,10 @@
     [Parameter]
     public string? CssClass { get; set; }
 
+    /// <summary>Replaces <c>badge</c> as the class every badge carries.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "badge";
+
     [Parameter]
     public string? TestId { get; set; }
 
@@ -32,13 +40,15 @@
     {
         get
         {
-            var kind = string.IsNullOrWhiteSpace(Kind) ? string.Empty : $" badge--{Kind}";
-            var slug = string.IsNullOrWhiteSpace(Kind) || string.IsNullOrWhiteSpace(Slug)
+            var kind = string.IsNullOrWhiteSpace(Kind) ? string.Empty : $" {BaseClass}--{Kind}";
+            var slug = string.IsNullOrWhiteSpace(Slug)
                 ? string.Empty
-                : $" badge--{Kind}-{Slug}";
+                : string.IsNullOrWhiteSpace(Kind)
+                    ? $" {BaseClass}--{Slug}"
+                    : $" {BaseClass}--{Kind}-{Slug}";
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
 
-            return $"badge{kind}{slug}{extra}";
+            return $"{BaseClass}{kind}{slug}{extra}";
         }
     }
 }

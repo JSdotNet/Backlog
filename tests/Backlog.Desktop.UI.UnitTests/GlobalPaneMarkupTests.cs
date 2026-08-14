@@ -95,7 +95,10 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("data-testid=\"app-version\"", home, StringComparison.Ordinal);
         Assert.Contains("@onclick=\"OpenUpdateWindow\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"app-update-dialog\"", home, StringComparison.Ordinal);
+        // The dialog shell is now the shared Modal component, so the test id
+        // reaches the DOM through its TestId parameter instead of a literal
+        // attribute.
+        Assert.Contains("TestId=\"app-update-dialog\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"check-for-updates\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"install-update\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("app-version__hint", home, StringComparison.Ordinal);

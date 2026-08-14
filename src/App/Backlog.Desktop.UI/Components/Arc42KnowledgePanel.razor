@@ -19,17 +19,27 @@
     }
     else if (_catalog is null || !_catalog.Exists)
     {
-        <div class="knowledge-empty" role="status">
-            <p class="knowledge-empty__title">No arc42 folder here yet.</p>
-            <p>Point storage at a repository root that contains <code>.arc42</code> to browse architecture chapters beside the backlog.</p>
-        </div>
+        <EmptyState BaseClass="knowledge-empty"
+                    Title="No arc42 folder here yet."
+                    TitleCssClass="knowledge-empty__title"
+                    DescriptionCssClass="@(null)"
+                    role="status">
+            <DescriptionContent>
+                Point storage at a repository root that contains <code>.arc42</code> to browse architecture chapters beside the backlog.
+            </DescriptionContent>
+        </EmptyState>
     }
     else if (_selected is null)
     {
-        <div class="knowledge-empty" role="status">
-            <p class="knowledge-empty__title">No architecture chapters found.</p>
-            <p>The <code>.arc42</code> folder exists, but it does not contain readable Markdown chapters.</p>
-        </div>
+        <EmptyState BaseClass="knowledge-empty"
+                    Title="No architecture chapters found."
+                    TitleCssClass="knowledge-empty__title"
+                    DescriptionCssClass="@(null)"
+                    role="status">
+            <DescriptionContent>
+                The <code>.arc42</code> folder exists, but it does not contain readable Markdown chapters.
+            </DescriptionContent>
+        </EmptyState>
     }
     else
     {
@@ -52,7 +62,7 @@
                                     @onclick="() => Select(chapter)">
                                 <span class="knowledge-chapter__title">@chapter.Title</span>
                                 <span class="knowledge-chapter__meta">
-                                    <span class="knowledge-status knowledge-status--@chapter.Status">@chapter.Status</span>
+                                    <StatusBadge BaseClass="knowledge-status" Kind="" Status="@chapter.Status" />
                                     @if (chapter.DiagramCount > 0)
                                     {
                                         <span>@chapter.DiagramCount diagram@(chapter.DiagramCount == 1 ? string.Empty : "s")</span>

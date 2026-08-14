@@ -118,6 +118,41 @@
         </div>
     </Story>
 
+    <Story Name="Toggle as a feature-flag row"
+           Description="NativeCheckbox renders a real checkbox inside a label, so the whole row is clickable and the control has form semantics. The class hooks let a host name every part, and the flag-row look ships with the library."
+           Code="@FlagToggleCode">
+        <div class="feature-flags" role="list" aria-label="Feature flags">
+            <Toggle NativeCheckbox="true"
+                    BaseClass="feature-flag"
+                    TextCssClass="feature-flag__content"
+                    LabelCssClass="feature-flag__title"
+                    DescriptionCssClass="feature-flag__description"
+                    Label="GitHub integration"
+                    Description="Push entries to issues and read their state back."
+                    Checked="_githubFlag"
+                    CheckedChanged="v => _githubFlag = v"
+                    TestId="flag-github"
+                    role="listitem" />
+            <Toggle NativeCheckbox="true"
+                    BaseClass="feature-flag"
+                    CssClass="feature-flag--locked"
+                    TextCssClass="feature-flag__content"
+                    LabelCssClass="feature-flag__title"
+                    DescriptionCssClass="feature-flag__description"
+                    Label="Backlog"
+                    Description="The one thing this app is for."
+                    Checked="true"
+                    Disabled="true"
+                    TestId="flag-backlog"
+                    role="listitem">
+                <TextContent>
+                    <span class="feature-flag__status">Always available</span>
+                </TextContent>
+            </Toggle>
+        </div>
+        <p class="sb-state" data-testid="input-flag-value">GitHub integration: @_githubFlag</p>
+    </Story>
+
     <Story Name="Checkbox"
            Description="The 'all' box is indeterminate whenever some — but not all — of the children are checked, which is state the browser cannot derive on its own."
            Code="@CheckboxCode">
@@ -153,6 +188,7 @@
     private string _query = string.Empty;
     private bool _syncEnabled = true;
     private bool _showArchived;
+    private bool _githubFlag = true;
     private readonly HashSet<string> _checked = ["Product"];
 
     private string? AliasError => _alias.Any(char.IsUpper) ? "Use lowercase letters only." : null;
@@ -200,6 +236,18 @@
 
     private const string ToggleCode = """
         <Toggle Checked="_syncEnabled" CheckedChanged="v => _syncEnabled = v" Label="Sync with the cloud" />
+        """;
+
+    private const string FlagToggleCode = """
+        <Toggle NativeCheckbox="true"
+                BaseClass="feature-flag"
+                TextCssClass="feature-flag__content"
+                LabelCssClass="feature-flag__title"
+                DescriptionCssClass="feature-flag__description"
+                Label="GitHub integration"
+                Description="Push entries to issues and read their state back."
+                Checked="_githubFlag"
+                CheckedChanged="v => _githubFlag = v" />
         """;
 
     private const string CheckboxCode = """

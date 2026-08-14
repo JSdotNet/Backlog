@@ -28,6 +28,48 @@
         <p class="sb-state" data-testid="tabs-state">Active tab: @_activeTab</p>
     </Story>
 
+    <Story Name="Tabs wearing a host's own classes"
+           Description="Every class hook replaces ours instead of adding to it, so a host that already ships a pill strip keeps its own names. Bare drops the wrappers as well, for a host whose layout already places the strip and the panels; the arrow keys still work."
+           Code="@PillTabsCode">
+        <Tabs Bare="true"
+              ListElement="nav"
+              ListCssClass="sb-pill-strip"
+              ListTestId="pill-tabs-list"
+              TabCssClass="sb-pill"
+              ActiveTabCssClass="sb-pill sb-pill--active"
+              AriaLabel="Repository pages"
+              ActiveId="@_activePill"
+              ActiveIdChanged="id => _activePill = id">
+            <TabPanel Id="backlog"
+                      Element="section"
+                      BaseClass="sb-surface"
+                      TabTestId="pill-tab"
+                      TestId="pill-panel-backlog">
+                <TitleContent>
+                    <span>JSdotNet/Backlog</span>
+                    <span class="sb-pill__count">12</span>
+                </TitleContent>
+                <ChildContent>
+                    <p>The tab label is a fragment here, so it can carry a count beside the name.</p>
+                </ChildContent>
+            </TabPanel>
+            <TabPanel Id="docs"
+                      Element="section"
+                      BaseClass="sb-surface"
+                      TabTestId="pill-tab"
+                      TestId="pill-panel-docs">
+                <TitleContent>
+                    <span>JSdotNet/Backlog-docs</span>
+                    <span class="sb-pill__count">3</span>
+                </TitleContent>
+                <ChildContent>
+                    <p>The panel is a section rather than a div, because the host's stylesheet says so.</p>
+                </ChildContent>
+            </TabPanel>
+        </Tabs>
+        <p class="sb-state" data-testid="pill-tabs-state">Active subpage: @_activePill</p>
+    </Story>
+
     <Story Name="Card"
            Description="A titled surface with an optional action area, and a compact variant for dense lists."
            Code="@CardCode">
@@ -117,6 +159,7 @@
 
 @code {
     private string _activeTab = "read";
+    private string _activePill = "backlog";
     private string _body = "The editor and the read view are two tabs over the same text.";
     private bool _foldOpen = true;
     private double _startWidth = 20;
@@ -125,6 +168,18 @@
         <Tabs ActiveId="@_activeTab" ActiveIdChanged="id => _activeTab = id" AriaLabel="Entry views">
             <TabPanel Id="read" Title="Read">...</TabPanel>
             <TabPanel Id="edit" Title="Edit">...</TabPanel>
+        </Tabs>
+        """;
+
+    private const string PillTabsCode = """
+        <Tabs Bare="true" ListElement="nav"
+              ListCssClass="settings-tabs" TabCssClass="settings-tab"
+              ActiveTabCssClass="settings-tab settings-tab--active"
+              ActiveId="@_active" ActiveIdChanged="id => _active = id">
+            <TabPanel Id="backlog" Element="section" BaseClass="setting" TabTestId="pill-tab">
+                <TitleContent><span>JSdotNet/Backlog</span></TitleContent>
+                <ChildContent>...</ChildContent>
+            </TabPanel>
         </Tabs>
         """;
 

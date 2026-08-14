@@ -47,6 +47,45 @@
         </Modal>
     </Story>
 
+    <Story Name="Modal as a host's own dialog"
+           Description="Element, BaseClass and the part class hooks let a host keep its existing dialog markup and still get the focus move, the Escape handling and the open/close wiring. Header replaces the default title bar; UseBodyWrapper turns off the body element for a dialog whose styling lays out its children directly."
+           Code="@SectionModalCode">
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _sectionOpen = true" TestId="open-section-modal">
+                Open the section dialog
+            </AppButton>
+        </div>
+
+        <Modal Open="_sectionOpen"
+               OpenChanged="v => _sectionOpen = v"
+               Element="section"
+               BaseClass="sb-dialog"
+               BackdropCssClass="sb-backdrop"
+               BackdropRole="presentation"
+               BackdropTestId="section-modal-backdrop"
+               FooterCssClass="sb-dialog__actions"
+               UseBodyWrapper="false"
+               CloseOnBackdropClick="false"
+               TestId="section-modal"
+               aria-labelledby="section-modal-title">
+            <Header>
+                <header class="sb-dialog__header">
+                    <div>
+                        <p class="sb-dialog__eyebrow">Application updates</p>
+                        <h2 id="section-modal-title">Update Backlog</h2>
+                    </div>
+                    <IconButton AriaLabel="Close the section dialog" CssClass="btn--ghost" OnClick="() => _sectionOpen = false">x</IconButton>
+                </header>
+            </Header>
+            <ChildContent>
+                <p class="sb-dialog__description">No body wrapper: this paragraph is a direct child of the dialog, which is what the host's stylesheet expects.</p>
+            </ChildContent>
+            <Footer>
+                <AppButton Variant="ButtonVariant.Ghost" OnClick="() => _sectionOpen = false">Close</AppButton>
+            </Footer>
+        </Modal>
+    </Story>
+
     <Story Name="ConfirmDialog"
            Description="One question, two answers, and the outcome recorded below so it is visible which callback ran."
            Code="@ConfirmCode">
@@ -89,6 +128,7 @@
 @code {
     private bool _modalOpen;
     private bool _noBackdropOpen;
+    private bool _sectionOpen;
     private bool _confirmOpen;
     private bool _destructiveOpen;
     private string _title = "Storybook for Backlog.UI.Components";
@@ -129,6 +169,21 @@
         <Modal Open="_open" OpenChanged="v => _open = v" Title="Rename entry">
             <ChildContent><TextField Label="Title" @bind-Value="_title" /></ChildContent>
             <Footer><AppButton Variant="ButtonVariant.Primary" OnClick="Save">Save</AppButton></Footer>
+        </Modal>
+        """;
+
+    private const string SectionModalCode = """
+        <Modal Open="_open" OpenChanged="v => _open = v"
+               Element="section" BaseClass="app-update-dialog"
+               BackdropCssClass="app-update-backdrop" UseBodyWrapper="false"
+               aria-labelledby="app-update-title">
+            <Header>
+                <header class="app-update-dialog__header">
+                    <p class="app-update-dialog__eyebrow">Application updates</p>
+                    <h2 id="app-update-title">Update Backlog</h2>
+                </header>
+            </Header>
+            <ChildContent><p class="app-update-dialog__description">...</p></ChildContent>
         </Modal>
         """;
 

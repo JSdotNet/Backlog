@@ -13,10 +13,16 @@
 
     @if (!_repositories.Any())
     {
-        <div class="knowledge-empty" data-testid="instructions-empty-state" role="status">
-            <p>No instruction source is configured.</p>
-            <a href="settings">Open storage settings</a>
-        </div>
+        <EmptyState BaseClass="knowledge-empty"
+                    TestId="instructions-empty-state"
+                    Title="No instruction source is configured."
+                    TitleCssClass="@(null)"
+                    ActionCssClass="@(null)"
+                    role="status">
+            <Action>
+                <a href="settings">Open storage settings</a>
+            </Action>
+        </EmptyState>
     }
     else
     {
@@ -37,10 +43,13 @@
 
                 @if (activeRepository.Message is not null && SelectedDocument is null)
                 {
-                    <div class="knowledge-empty" data-testid="instructions-repository-empty" role="status">
-                        <p>No instruction content to show.</p>
-                        <p>@activeRepository.Message</p>
-                    </div>
+                    <EmptyState BaseClass="knowledge-empty"
+                                TestId="instructions-repository-empty"
+                                Title="No instruction content to show."
+                                TitleCssClass="@(null)"
+                                Description="@activeRepository.Message"
+                                DescriptionCssClass="@(null)"
+                                role="status" />
                 }
                 else
                 {
