@@ -79,19 +79,27 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
     private const string ToolFolderName = ".tools";
     private const string CatalogFileName = "copilot-tools.json";
 
-    public static CopilotToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null)
+    public static CopilotToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null, string? storageRootDirectory = null)
     {
-        var localRepositoryRoot = FindRepositoryRoot(startPath ?? AppContext.BaseDirectory)
-            ?? FindRepositoryRoot(Environment.CurrentDirectory);
+        if (!string.IsNullOrWhiteSpace(storageRootDirectory))
+        {
+            return FromStorageRoot(storageRootDirectory, machineName);
+        }
 
-        return localRepositoryRoot is null
-            ? FromRepositoryRoot(DefaultRepositoryRoot, machineName)
-            : FromRepositoryRoot(localRepositoryRoot, machineName);
+        var localCatalogRoot = FindCatalogRoot(startPath ?? AppContext.BaseDirectory)
+            ?? FindCatalogRoot(Environment.CurrentDirectory);
+
+        return localCatalogRoot is null
+            ? FromStorageRoot(DefaultRepositoryRoot, machineName)
+            : FromStorageRoot(localCatalogRoot, machineName);
     }
 
     public static CopilotToolConfigurationPaths FromRepositoryRoot(string repositoryRoot, string? machineName = null)
+        => FromStorageRoot(repositoryRoot, machineName);
+
+    public static CopilotToolConfigurationPaths FromStorageRoot(string storageRoot, string? machineName = null)
     {
-        var expandedRoot = Environment.ExpandEnvironmentVariables(repositoryRoot);
+        var expandedRoot = Environment.ExpandEnvironmentVariables(storageRoot);
         var pcName = NormalizeMachineName(machineName ?? Environment.MachineName);
 
         return new CopilotToolConfigurationPaths(
@@ -110,7 +118,7 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
             Path.Combine(toolRoot, pcName, CatalogFileName));
     }
 
-    private static string? FindRepositoryRoot(string startPath)
+    private static string? FindCatalogRoot(string startPath)
     {
         var directory = Directory.Exists(startPath)
             ? new DirectoryInfo(startPath)

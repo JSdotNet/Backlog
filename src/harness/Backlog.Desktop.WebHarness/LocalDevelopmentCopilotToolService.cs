@@ -5,21 +5,22 @@ namespace Backlog.Desktop.WebHarness;
 
 internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
 {
-    private readonly CopilotToolConfigurationPaths _paths;
+    private readonly BacklogStore _store;
 
-    public LocalDevelopmentCopilotToolService(IWebHostEnvironment environment)
+    public LocalDevelopmentCopilotToolService(BacklogStore store)
     {
-        _paths = CopilotToolConfigurationPaths.CreateDefault(startPath: environment.ContentRootPath);
+        _store = store;
     }
 
     public async Task<CopilotToolCatalog> ListAsync(CancellationToken ct = default)
     {
-        if (!File.Exists(_paths.CatalogPath))
+        var paths = Paths;
+        if (!File.Exists(paths.CatalogPath))
         {
-            return new CopilotToolCatalog([], $"Tool catalog was not found at {_paths.CatalogPath}.");
+            return new CopilotToolCatalog([], $"Tool catalog was not found at {paths.CatalogPath}.");
         }
 
-        var config = await CopilotToolConfiguration.ReadAsync(_paths, ct).ConfigureAwait(false);
+        var config = await CopilotToolConfiguration.ReadAsync(paths, ct).ConfigureAwait(false);
         var tools = new List<CopilotToolInfo>();
 
         foreach (var plugin in GetArray(config.Root, "plugins"))
@@ -98,9 +99,11 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
 
     private async Task<CopilotToolActionResult> SetEnabledAsync(string key, bool enabled, CancellationToken ct)
     {
-        await CopilotToolConfiguration.WriteEnabledOverrideAsync(_paths, key, enabled, ct).ConfigureAwait(false);
+        await CopilotToolConfiguration.WriteEnabledOverrideAsync(Paths, key, enabled, ct).ConfigureAwait(false);
         return CopilotToolActionResult.Ok($"{key} was {(enabled ? "enabled" : "disabled")} in the local PC config.");
     }
+
+    private CopilotToolConfigurationPaths Paths => CopilotToolConfigurationPaths.FromStorageRoot(_store.RootDirectory);
 
     private static IEnumerable<JsonNode> GetArray(JsonNode root, string name) =>
         root[name]?.AsArray().Where(node => node is not null).Cast<JsonNode>() ?? [];
