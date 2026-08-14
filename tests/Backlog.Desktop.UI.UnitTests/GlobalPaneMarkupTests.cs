@@ -17,7 +17,6 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("id=\"repository-knowledge-pane\"", home, StringComparison.Ordinal);
     }
 
-
     [Fact]
     public void Inbox_option_and_pane_are_guarded_by_feature_flag()
     {
@@ -29,7 +28,7 @@ public sealed class GlobalPaneMarkupTests
     }
 
     [Fact]
-    public void Pane_multiselect_uses_selected_state_and_never_zero_selection_affordance()
+    public void Pane_multiselect_uses_selected_state_and_capacity_aware_disabling()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
@@ -37,9 +36,9 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("aria-pressed=\"@(BacklogPaneVisible ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
         Assert.Contains("aria-pressed=\"@(KnowledgePaneVisible ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
 
-        Assert.Contains("disabled=\"@PaneToggleDisabled(GlobalPane.Inbox)\"", home, StringComparison.Ordinal);
-        Assert.Contains("disabled=\"@PaneToggleDisabled(GlobalPane.Backlog)\"", home, StringComparison.Ordinal);
-        Assert.Contains("disabled=\"@PaneToggleDisabled(GlobalPane.Knowledge)\"", home, StringComparison.Ordinal);
+        Assert.Contains("if (_globalPanes.IsEnabled(pane))", home, StringComparison.Ordinal);
+        Assert.Contains("return !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
+        Assert.Contains("return !_globalPanes.CanEnable(pane);", home, StringComparison.Ordinal);
 
         Assert.DoesNotContain("Show inbox", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Hide inbox", home, StringComparison.Ordinal);
@@ -47,6 +46,18 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("Hide backlog", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Show knowledge", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Hide knowledge", home, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Home_receives_viewport_pane_capacity_from_javascript()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var appJs = NormalizeLineEndings(File.ReadAllText(FindAppJs()));
+
+        Assert.Contains("public Task SetGlobalPaneCapacityAsync(int capacity)", home, StringComparison.Ordinal);
+        Assert.Contains("backlogPaneOwner.invokeMethodAsync('SetGlobalPaneCapacityAsync', backlogPaneCapacity());", appJs, StringComparison.Ordinal);
+        Assert.Contains("const BACKLOG_SINGLE_PANE_MAX_REM = 72;", appJs, StringComparison.Ordinal);
+        Assert.Contains("const BACKLOG_THREE_PANE_MIN_REM = 96;", appJs, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -69,7 +80,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("knowledge-layout--inbox-before-backlog", home, StringComparison.Ordinal);
 
         var inboxGuardIndex = home.IndexOf("@if (InboxBeforeBacklogVisible)", StringComparison.Ordinal);
-        var backlogPaneIndex = home.IndexOf("<section class=\"backlog-workspace\"", StringComparison.Ordinal);
+        var backlogPaneIndex = home.IndexOf("<section @key=@(\"backlog-pane\") class=\"backlog-workspace\"", StringComparison.Ordinal);
 
         Assert.True(inboxGuardIndex >= 0);
         Assert.True(backlogPaneIndex > inboxGuardIndex);
@@ -90,20 +101,17 @@ public sealed class GlobalPaneMarkupTests
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
-    private static string FindHomeRazor()
+    private static string FindHomeRazor() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "Components", "Pages", "Home.razor"));
+
+    private static string FindAppJs() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.js"));
+
+    private static string FindProjectFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
         while (directory is not null)
         {
-            var candidate = Path.Combine(
-                directory.FullName,
-                "src",
-                "App",
-                "Backlog.Desktop.UI",
-                "Components",
-                "Pages",
-                "Home.razor");
+            var candidate = Path.Combine(directory.FullName, relativePath);
 
             if (File.Exists(candidate))
             {
@@ -113,7 +121,6 @@ public sealed class GlobalPaneMarkupTests
             directory = directory.Parent;
         }
 
-        throw new FileNotFoundException("Could not locate src\\App\\Backlog.Desktop.UI\\Components\\Pages\\Home.razor from the test output directory.");
+        throw new FileNotFoundException($"Could not locate {relativePath} from the test output directory.");
     }
 }
-

@@ -68,6 +68,8 @@ window.backlogFocus = (id) => {
 // costs one interop call instead of one per frame.
 const BACKLOG_PANE_MIN_REM = 24;
 const BACKLOG_PANE_ABSOLUTE_MAX_REM = 200;
+const BACKLOG_SINGLE_PANE_MAX_REM = 72;
+const BACKLOG_THREE_PANE_MIN_REM = 96;
 let backlogPaneOwner = null;
 
 function backlogRootFontSize() {
@@ -95,11 +97,23 @@ function backlogPaneWidthAt(layout, clientX) {
     return Math.min(backlogPaneMaxRem(layout), Math.max(BACKLOG_PANE_MIN_REM, Math.round(rem * 2) / 2));
 }
 
+function backlogViewportWidthRem() {
+    return (document.documentElement.clientWidth || window.innerWidth || 0) / backlogRootFontSize();
+}
+
+function backlogPaneCapacity() {
+    const viewportWidthRem = backlogViewportWidthRem();
+    if (viewportWidthRem <= BACKLOG_SINGLE_PANE_MAX_REM) return 1;
+    if (viewportWidthRem >= BACKLOG_THREE_PANE_MIN_REM) return 3;
+    return 2;
+}
+
 function backlogReportPaneBounds() {
     const layout = backlogPaneLayout();
     if (!layout || !backlogPaneOwner) return;
 
     backlogPaneOwner.invokeMethodAsync('SetSidePaneMaxWidthAsync', backlogPaneMaxRem(layout));
+    backlogPaneOwner.invokeMethodAsync('SetGlobalPaneCapacityAsync', backlogPaneCapacity());
 }
 
 window.backlogPaneResizer = {

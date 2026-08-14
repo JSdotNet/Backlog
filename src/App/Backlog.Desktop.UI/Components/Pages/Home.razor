@@ -284,7 +284,7 @@
 
         @if (BacklogPaneVisible)
         {
-            <section class="backlog-workspace" id="backlog-pane" data-testid="backlog-pane" aria-label="Backlog entries">
+            <section @key=@("backlog-pane") class="backlog-workspace" id="backlog-pane" data-testid="backlog-pane" aria-label="Backlog entries">
 
     @* Areas are local piles/tags inside the selected repository scope. Status
        narrows what is already in view, so it sits on the right. *@
@@ -622,7 +622,7 @@
                 </div>
             }
 
-            <aside class="side-pane-stack @(BacklogPaneVisible ? string.Empty : "side-pane-stack--full") @(ToolsVisible ? "side-pane-stack--right-docked" : string.Empty)" data-testid="side-pane-stack" aria-label="Backlog side panes">
+            <aside @key=@("side-pane-stack") class="side-pane-stack @(BacklogPaneVisible ? string.Empty : "side-pane-stack--full") @(ToolsVisible ? "side-pane-stack--right-docked" : string.Empty)" data-testid="side-pane-stack" aria-label="Backlog side panes">
                 @if (!BacklogPaneVisible && InboxPaneVisible)
                 {
                     @RenderInboxPane()
@@ -635,7 +635,7 @@
 
                 @if (KnowledgePaneVisible)
                 {
-                    <section class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
+                    <section @key=@("knowledge-pane") class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
                         @* Which repository is being read is not a second choice to
                            make here: it follows the area filter above the backlog,
                            so the knowledge beside an entry is the knowledge of the
@@ -1086,7 +1086,7 @@
         !node.Available ? "knowledge-menu__item--unavailable" : null
     }.Where(value => value is not null));
 
-    private RenderFragment RenderKnowledgeMenuNode(KnowledgeMenuNode node, int depth) => @<li class="knowledge-menu__node" role="none">
+    private RenderFragment RenderKnowledgeMenuNode(KnowledgeMenuNode node, int depth) => @<li @key=@(KnowledgeMenuNodeKey(node)) class="knowledge-menu__node" role="none">
         @if (node.Kind == KnowledgeMenuNodeKind.Message)
         {
             <p class="knowledge-menu__message" role="treeitem" style="--knowledge-menu-depth: @depth">@node.Message</p>
@@ -1151,12 +1151,19 @@
         }
     </button>;
 
-    private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => @<>
-        @if (_knowledgeFolderOpenErrors.TryGetValue(KnowledgeMenuNodeKey(node), out var error))
+    private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => builder =>
+    {
+        if (!_knowledgeFolderOpenErrors.TryGetValue(KnowledgeMenuNodeKey(node), out var error))
         {
-            <p class="knowledge-menu__open-error" role="status">@error</p>
+            return;
         }
-    </>;
+
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "knowledge-menu__open-error");
+        builder.AddAttribute(2, "role", "status");
+        builder.AddContent(3, error);
+        builder.CloseElement();
+    };
 
     private bool IsKnowledgeFolderOpening(KnowledgeMenuNode node) => _openingKnowledgeFolders.Contains(KnowledgeMenuNodeKey(node));
 
@@ -1292,7 +1299,7 @@
             if (selected is not null) return selected;
         }
 
-        return node.Available && node.Kind != KnowledgeMenuNodeKind.Message ? node : null;
+        return null;
     }
 
     private static bool ContainsPath(KnowledgeMenuNode node, string selectedPath) =>
@@ -1316,7 +1323,7 @@
 
 
     private RenderFragment RenderInboxPane() =>
-        @<section class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
+        @<section @key=@("inbox-pane") class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
             <header class="inbox-pane__header">
                 <div>
                     <p class="inbox-pane__eyebrow">Global pane</p>
@@ -1349,7 +1356,7 @@
         </section>;
 
     private RenderFragment RenderToolsPane() =>
-        @<section class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
+        @<section @key=@("tools-pane") class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
             <header class="tools-panel__header">
                 <div>
                     <p class="tools-panel__eyebrow">System tools</p>
@@ -1952,7 +1959,15 @@
         _globalPanes.TrySetAvailable(GlobalPane.Knowledge, KnowledgePaneOptionVisible);
     }
 
-    private bool PaneToggleDisabled(GlobalPane pane) => !_globalPanes.CanDisable(pane) && _globalPanes.IsEnabled(pane);
+    private bool PaneToggleDisabled(GlobalPane pane)
+    {
+        if (_globalPanes.IsEnabled(pane))
+        {
+            return !_globalPanes.CanDisable(pane);
+        }
+
+        return !_globalPanes.CanEnable(pane);
+    }
 
     private void ToggleInboxPane() => _globalPanes.Toggle(GlobalPane.Inbox);
 
@@ -2113,6 +2128,18 @@
 
         _maxSidePaneWidthRem = clamped;
         _knowledgePanelWidthRem = width;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task SetGlobalPaneCapacityAsync(int capacity)
+    {
+        if (!_globalPanes.TrySetCapacity(capacity))
+        {
+            return Task.CompletedTask;
+        }
+
         StateHasChanged();
         return Task.CompletedTask;
     }
