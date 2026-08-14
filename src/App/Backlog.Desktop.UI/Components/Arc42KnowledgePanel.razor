@@ -165,8 +165,7 @@
         var candidatePath = NormalizePath(candidate);
         var selected = NormalizePath(selectedPath);
         return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
-            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(Path.GetFileName(candidatePath), Path.GetFileName(selected), StringComparison.OrdinalIgnoreCase);
+            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');

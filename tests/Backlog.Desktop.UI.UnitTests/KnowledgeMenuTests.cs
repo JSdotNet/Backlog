@@ -36,6 +36,27 @@ public sealed class KnowledgeMenuTests : IDisposable
     }
 
     [Fact]
+    public async Task Uses_folder_index_as_group_target_without_showing_index_child()
+    {
+        var repo = TempDir();
+        Directory.CreateDirectory(Path.Combine(repo, ".domain", "localization"));
+        File.WriteAllText(Path.Combine(repo, ".domain", "context-map.md"), "# Context map");
+        File.WriteAllText(Path.Combine(repo, ".domain", "localization", "index.md"), "# Localization");
+        File.WriteAllText(Path.Combine(repo, ".domain", "localization", "config.md"), "# Config");
+
+        var settings = NewSettingsStore();
+        ConfigureRepository(settings, repo);
+
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["domain"]);
+
+        var domain = Assert.Single(tree.Roots);
+        var localization = Assert.Single(domain.Children, node => node.Kind == KnowledgeMenuNodeKind.Folder && node.Label == "Localization");
+        Assert.Equal("localization/index.md", localization.Path);
+        Assert.DoesNotContain(localization.Children, node => string.Equals(node.Label, "Index", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(localization.Children, node => node.Kind == KnowledgeMenuNodeKind.File && node.Path == "localization/config.md");
+    }
+
+    [Fact]
     public async Task Marks_missing_configured_folders_unavailable_without_throwing()
     {
         var repo = TempDir();

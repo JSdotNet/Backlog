@@ -126,6 +126,20 @@ public class CopilotToolTests
         Assert.Equal(Path.Combine(root, ".tools", "dev-pc", "copilot-tools.json"), paths.PcConfigPath);
     }
 
+    [Fact]
+    public void Default_paths_use_the_configured_storage_root_for_tools()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        var repositoryRoot = CreateTempToolConfigRoot();
+        var nestedStartPath = Path.Combine(repositoryRoot, "src", "App", "Backlog.Desktop", "bin", "Debug");
+        Directory.CreateDirectory(nestedStartPath);
+
+        var paths = CopilotToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath, storageRoot);
+
+        Assert.Equal(Path.Combine(storageRoot, ".tools", "copilot-tools.json"), paths.CatalogPath);
+        Assert.Equal(Path.Combine(storageRoot, ".tools", "dev-pc", "copilot-tools.json"), paths.PcConfigPath);
+    }
+
     private static string CreateTempToolConfigRoot()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));

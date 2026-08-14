@@ -10,25 +10,36 @@ namespace Backlog.Desktop.Services;
 
 public sealed partial class CopilotToolService : ICopilotToolService
 {
-    private readonly CopilotToolConfigurationPaths _configPaths;
+    private readonly BacklogStore? _store;
+    private readonly string? _configPath;
     private readonly ILogger<CopilotToolService>? _logger;
 
     public CopilotToolService(ILogger<CopilotToolService>? logger = null, string? configPath = null)
+        : this(null, logger, configPath)
     {
+    }
+
+    public CopilotToolService(BacklogStore store, ILogger<CopilotToolService>? logger = null)
+        : this(store, logger, null)
+    {
+    }
+
+    private CopilotToolService(BacklogStore? store, ILogger<CopilotToolService>? logger, string? configPath)
+    {
+        _store = store;
         _logger = logger;
-        _configPaths = configPath is null
-            ? CopilotToolConfigurationPaths.CreateDefault()
-            : CopilotToolConfigurationPaths.FromCatalogPath(configPath);
+        _configPath = configPath;
     }
 
     public async Task<CopilotToolCatalog> ListAsync(CancellationToken ct = default)
     {
-        if (!File.Exists(_configPaths.CatalogPath))
+        var configPaths = ConfigurationPaths;
+        if (!File.Exists(configPaths.CatalogPath))
         {
-            return new CopilotToolCatalog([], $"Tool catalog was not found at {_configPaths.CatalogPath}.");
+            return new CopilotToolCatalog([], $"Tool catalog was not found at {configPaths.CatalogPath}.");
         }
 
-        var config = await CopilotToolConfiguration.ReadAsync(_configPaths, ct).ConfigureAwait(false);
+        var config = await CopilotToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
         var root = config.Root;
         var messages = new List<string>();
         var installedPlugins = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -154,12 +165,13 @@ public sealed partial class CopilotToolService : ICopilotToolService
 
     private async Task<CopilotToolActionResult> ApplyAsync(string key, bool? enabled, CancellationToken ct)
     {
-        if (!File.Exists(_configPaths.CatalogPath))
+        var configPaths = ConfigurationPaths;
+        if (!File.Exists(configPaths.CatalogPath))
         {
-            return CopilotToolActionResult.Failed($"Tool catalog was not found at {_configPaths.CatalogPath}.");
+            return CopilotToolActionResult.Failed($"Tool catalog was not found at {configPaths.CatalogPath}.");
         }
 
-        var config = await CopilotToolConfiguration.ReadAsync(_configPaths, ct).ConfigureAwait(false);
+        var config = await CopilotToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
         var root = config.Root;
         var node = FindToolNode(root, key);
         if (node is null)
@@ -169,8 +181,8 @@ public sealed partial class CopilotToolService : ICopilotToolService
 
         if (enabled is not null)
         {
-            await CopilotToolConfiguration.WriteEnabledOverrideAsync(_configPaths, key, enabled.Value, ct).ConfigureAwait(false);
-            root = (await CopilotToolConfiguration.ReadAsync(_configPaths, ct).ConfigureAwait(false)).Root;
+            await CopilotToolConfiguration.WriteEnabledOverrideAsync(configPaths, key, enabled.Value, ct).ConfigureAwait(false);
+            root = (await CopilotToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false)).Root;
             node = FindToolNode(root, key) ?? throw new InvalidOperationException("That tool is no longer in the config.");
         }
 
@@ -186,6 +198,10 @@ public sealed partial class CopilotToolService : ICopilotToolService
             return CopilotToolActionResult.Failed($"{ToolDisplayName(node)} could not be changed: {ex.Message}");
         }
     }
+
+    private CopilotToolConfigurationPaths ConfigurationPaths => _configPath is null
+        ? CopilotToolConfigurationPaths.CreateDefault(storageRootDirectory: _store?.RootDirectory)
+        : CopilotToolConfigurationPaths.FromCatalogPath(_configPath);
 
     private async Task<CopilotToolActionResult> ApplyPluginAsync(JsonNode plugin, CancellationToken ct)
     {

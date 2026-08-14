@@ -125,7 +125,7 @@ public sealed class KnowledgeMenu(KnowledgeFolderSource source)
                 .Select(path => new KnowledgeMenuNode(
                     Key(root, path),
                     Humanize(Path.GetFileName(path)),
-                    RelativePath(root, path),
+                    DirectoryNodePath(root, path),
                     KnowledgeMenuNodeKind.Folder,
                     areaKey,
                     EnumerateChildren(root, path, areaKey, cancellationToken, includeAllFiles),
@@ -133,6 +133,7 @@ public sealed class KnowledgeMenu(KnowledgeFolderSource source)
 
             var files = Directory.EnumerateFiles(directory, includeAllFiles ? "*" : "*.md", SearchOption.TopDirectoryOnly)
                 .Where(path => !Path.GetFileName(path).StartsWith('_'))
+                .Where(path => !IsIndexMarkdown(path) || string.Equals(root, directory, StringComparison.OrdinalIgnoreCase))
                 .Select(path => new KnowledgeMenuNode(
                     Key(root, path),
                     FileLabel(path),
@@ -196,6 +197,27 @@ public sealed class KnowledgeMenu(KnowledgeFolderSource source)
 
         return node.Path;
     }
+
+    private static string DirectoryNodePath(string root, string directory)
+    {
+        var indexPath = IndexMarkdownPath(directory);
+        return indexPath is null ? RelativePath(root, directory) : RelativePath(root, indexPath);
+    }
+
+    private static string? IndexMarkdownPath(string directory)
+    {
+        try
+        {
+            return Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault(IsIndexMarkdown);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsIndexMarkdown(string path) => string.Equals(Path.GetFileName(path), "index.md", StringComparison.OrdinalIgnoreCase);
 
     private static string Key(string root, string path) => RelativePath(root, path).Replace('\\', '/').ToLowerInvariant();
 

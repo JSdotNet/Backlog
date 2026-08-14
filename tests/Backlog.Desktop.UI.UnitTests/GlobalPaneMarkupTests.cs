@@ -75,6 +75,19 @@ public sealed class GlobalPaneMarkupTests
         Assert.True(backlogPaneIndex > inboxGuardIndex);
     }
 
+    [Fact]
+    public void App_version_opens_a_separate_update_window()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("data-testid=\"app-version\"", home, StringComparison.Ordinal);
+        Assert.Contains("@onclick=\"OpenUpdateWindow\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"app-update-dialog\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"check-for-updates\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"install-update\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("app-version__hint", home, StringComparison.Ordinal);
+    }
+
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
     private static string FindHomeRazor()
