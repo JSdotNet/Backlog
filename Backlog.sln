@@ -75,6 +75,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.UI.Components", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.UI.Storybook", "src\harness\Backlog.UI.Storybook\Backlog.UI.Storybook.csproj", "{19A512EA-2E8E-4941-B1B8-8602DE540183}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.UI.Components.UnitTests", "tests\Backlog.UI.Components.UnitTests\Backlog.UI.Components.UnitTests.csproj", "{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -385,6 +387,18 @@ Global
 		{19A512EA-2E8E-4941-B1B8-8602DE540183}.Release|x64.Build.0 = Release|Any CPU
 		{19A512EA-2E8E-4941-B1B8-8602DE540183}.Release|x86.ActiveCfg = Release|Any CPU
 		{19A512EA-2E8E-4941-B1B8-8602DE540183}.Release|x86.Build.0 = Release|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Debug|x64.Build.0 = Debug|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Debug|x86.Build.0 = Debug|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Release|x64.ActiveCfg = Release|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Release|x64.Build.0 = Release|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Release|x86.ActiveCfg = Release|Any CPU
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -424,5 +438,6 @@ Global
 		{BBB7B94B-6E11-D9F1-7BA6-9ECA82DB22BF} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{24E89C7F-71E3-4982-A1B5-36B4EC3F23D8} = {BBB7B94B-6E11-D9F1-7BA6-9ECA82DB22BF}
 		{19A512EA-2E8E-4941-B1B8-8602DE540183} = {D5AE8E2F-FCCF-FC4C-7CA1-EC37A83192A6}
+		{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

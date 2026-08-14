@@ -1,0 +1,38 @@
+@* Tabs and TabPanel are one feature split over two components — the panels
+   register themselves with the strip — so they are exercised together. *@
+
+<Tabs ActiveId="@ActiveId"
+      ActiveIdChanged="OnActiveIdChangedAsync"
+      AriaLabel="Sections"
+      ListCssClass="@ListCssClass"
+      TabCssClass="@TabCssClass"
+      ActiveTabCssClass="@ActiveTabCssClass">
+    <TabPanel Id="one" Title="One">First body</TabPanel>
+    <TabPanel Id="two" Title="Two">Second body</TabPanel>
+    <TabPanel Id="three" Title="Three">Third body</TabPanel>
+</Tabs>
+
+@code {
+    [Parameter]
+    public string ActiveId { get; set; } = "one";
+
+    [Parameter]
+    public string? ListCssClass { get; set; }
+
+    [Parameter]
+    public string? TabCssClass { get; set; }
+
+    [Parameter]
+    public string? ActiveTabCssClass { get; set; }
+
+    /// <summary>The last id the strip reported, so a test can see the two-way
+    /// binding fire as well as the rendered state change.</summary>
+    public string? LastActiveId { get; private set; }
+
+    private Task OnActiveIdChangedAsync(string id)
+    {
+        LastActiveId = id;
+        ActiveId = id;
+        return Task.CompletedTask;
+    }
+}
