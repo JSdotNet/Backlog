@@ -1,0 +1,120 @@
+<nav class="knowledge-stack__menu" aria-label="Knowledge menu">
+    <div class="knowledge-stack__menu-heading" data-testid="knowledge-menu-heading">
+        <span>@HeadingLabel</span>
+        @if (RootFolder is { Kind: KnowledgeMenuNodeKind.Folder, Available: true } rootFolder)
+        {
+            <button type="button"
+                    class="knowledge-menu__open-vscode"
+                    data-testid="knowledge-open-vscode-button"
+                    disabled="@IsFolderOpening(rootFolder)"
+                    title="Open @rootFolder.Label in VS Code"
+                    aria-label="Open @rootFolder.Label in VS Code"
+                    @onclick="() => OnOpenFolder.InvokeAsync(rootFolder)"
+                    @onclick:stopPropagation="true">
+                @if (IsFolderOpening(rootFolder))
+                {
+                    <span aria-hidden="true">...</span>
+                }
+                else
+                {
+                    <span aria-hidden="true">VS</span>
+                }
+            </button>
+        }
+    </div>
+    <AppErrorMessage Message="@OpenErrorMessage"
+                     TestId="knowledge-menu-open-error"
+                     CssClass="knowledge-stack__menu-error" />
+    @if (IsLoading)
+    {
+        <p class="knowledge-stack__menu-message">Loading knowledge menu...</p>
+    }
+    else if (Nodes.Count == 0)
+    {
+        <p class="knowledge-stack__menu-message">No chapters are available for this area.</p>
+    }
+    else
+    {
+        <ul class="knowledge-menu" role="tree" aria-label="Knowledge chapters">
+            @foreach (var node in Nodes)
+            {
+                @RenderKnowledgeMenuNode(node, 0)
+            }
+        </ul>
+    }
+</nav>
+
+@code {
+    [Parameter]
+    public string HeadingLabel { get; set; } = "Knowledge";
+
+    [Parameter]
+    public KnowledgeMenuNode? RootFolder { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<KnowledgeMenuNode> Nodes { get; set; } = [];
+
+    [Parameter]
+    public bool IsLoading { get; set; }
+
+    [Parameter]
+    public string? OpenErrorMessage { get; set; }
+
+    [Parameter]
+    public Func<KnowledgeMenuNode, bool> IsNodeSelected { get; set; } = static _ => false;
+
+    [Parameter]
+    public Func<KnowledgeMenuNode, bool> IsNodeExpanded { get; set; } = static _ => false;
+
+    [Parameter]
+    public Func<KnowledgeMenuNode, string> NodeClass { get; set; } = static _ => "knowledge-menu__item";
+
+    [Parameter]
+    public Func<KnowledgeMenuNode, bool> IsFolderOpening { get; set; } = static _ => false;
+
+    [Parameter]
+    public EventCallback<KnowledgeMenuNode> OnNodeSelected { get; set; }
+
+    [Parameter]
+    public EventCallback<KnowledgeMenuNode> OnOpenFolder { get; set; }
+
+    private RenderFragment RenderKnowledgeMenuNode(KnowledgeMenuNode node, int depth) => @<li class="knowledge-menu__node" role="none">
+        @if (node.Kind == KnowledgeMenuNodeKind.Message)
+        {
+            <p class="knowledge-menu__message" role="treeitem" style="--knowledge-menu-depth: @depth">@node.Message</p>
+        }
+        else
+        {
+            <div class="knowledge-menu__row">
+                <button type="button"
+                        class="@NodeClass(node)"
+                        role="treeitem"
+                        aria-selected="@(IsNodeSelected(node) ? "true" : "false")"
+                        aria-expanded="@(node.HasChildren ? (IsNodeExpanded(node) ? "true" : "false") : null)"
+                        disabled="@(!node.Available)"
+                        title="@node.Message"
+                        style="--knowledge-menu-depth: @depth"
+                        @onclick="() => OnNodeSelected.InvokeAsync(node)">
+                    @if (node.HasChildren)
+                    {
+                        <span class="knowledge-menu__twisty" aria-hidden="true">@(IsNodeExpanded(node) ? "-" : "+")</span>
+                    }
+                    else
+                    {
+                        <span class="knowledge-menu__twisty" aria-hidden="true"></span>
+                    }
+                    <span class="knowledge-menu__label">@node.Label</span>
+                </button>
+            </div>
+            @if (node.HasChildren && IsNodeExpanded(node))
+            {
+                <ul class="knowledge-menu__children" role="group">
+                    @foreach (var child in node.Children)
+                    {
+                        @RenderKnowledgeMenuNode(child, depth + 1)
+                    }
+                </ul>
+            }
+        }
+    </li>;
+}
