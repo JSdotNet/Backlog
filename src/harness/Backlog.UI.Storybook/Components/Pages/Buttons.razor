@@ -23,6 +23,16 @@
         <p class="sb-state" data-testid="click-count">Clicks: @_clicks</p>
     </Story>
 
+    <Story Name="Unmodified"
+           Description="ButtonVariant.None and ButtonSize.None emit no modifier at all — the escape hatch for a host that already dresses plain `.btn` itself and would be restyled by a modifier it never asked for."
+           Code="@NoneCode">
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.None" OnClick="Count">Plain btn</AppButton>
+            <AppButton Variant="ButtonVariant.None" Size="ButtonSize.Small" OnClick="Count">Plain btn, small</AppButton>
+            <AppButton Variant="ButtonVariant.Secondary" Size="ButtonSize.None" OnClick="Count">Secondary, no size</AppButton>
+        </div>
+    </Story>
+
     <Story Name="Disabled and busy"
            Description="Busy disables the button and swaps the label for a spinner, so a slow action cannot be fired twice."
            Code="@BusyCode">
@@ -92,7 +102,7 @@
         [ButtonVariant.Primary, ButtonVariant.Secondary, ButtonVariant.Ghost, ButtonVariant.Danger];
 
     private static readonly ButtonSize[] Sizes =
-        [ButtonSize.Small, ButtonSize.Medium];
+        [ButtonSize.None, ButtonSize.Small, ButtonSize.Medium];
 
     private int _clicks;
     private bool _busy;
@@ -111,6 +121,10 @@
 
     private const string VariantCode = """
         <AppButton Variant="ButtonVariant.Primary" Size="ButtonSize.Medium" OnClick="Save">Save</AppButton>
+        """;
+
+    private const string NoneCode = """
+        <AppButton Variant="ButtonVariant.None" Size="ButtonSize.None">Plain btn</AppButton>
         """;
 
     private const string BusyCode = """

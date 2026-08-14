@@ -228,13 +228,12 @@
                     </p>
 
                     <div class="setting__actions">
-                        <button type="button"
-                                class="btn"
-                                data-testid="azure-foundry-clear-key-button"
-                                disabled="@(AzureFoundry.Current.ApiKey is null)"
-                                @onclick="ClearAzureFoundryApiKey">
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="azure-foundry-clear-key-button"
+                                   Disabled="@(AzureFoundry.Current.ApiKey is null)"
+                                   OnClick="ClearAzureFoundryApiKey">
                             Forget API key
-                        </button>
+                        </AppButton>
                     </div>
 
                     <p class="setting__note">
@@ -283,13 +282,12 @@
             </p>
 
             <div class="setting__actions">
-                <button type="button"
-                        class="btn"
-                        data-testid="reset-storage-path"
-                        disabled="@Store.IsDefaultRoot"
-                        @onclick="ResetAsync">
+                <AppButton Variant="ButtonVariant.None"
+                           data-testid="reset-storage-path"
+                           Disabled="@Store.IsDefaultRoot"
+                           OnClick="ResetAsync">
                     Use the default folder
-                </button>
+                </AppButton>
             </div>
 
             <p class="setting__note">
@@ -377,13 +375,12 @@
                 </p>
 
                 <div class="setting__actions">
-                    <button type="button"
-                            class="btn"
-                            data-testid="clear-storage-repository-button"
-                            disabled="@(Store.RootRepository is null)"
-                            @onclick="ClearStorageRepository">
+                    <AppButton Variant="ButtonVariant.None"
+                               data-testid="clear-storage-repository-button"
+                               Disabled="@(Store.RootRepository is null)"
+                               OnClick="ClearStorageRepository">
                         Clear backup repository
-                    </button>
+                    </AppButton>
                 </div>
             </div>
         </section>
@@ -436,12 +433,11 @@
             </p>
 
             <div class="setting__actions">
-                <button type="button"
-                        class="btn"
-                        data-testid="add-repository-button"
-                        @onclick="AddRepositoryDraft">
+                <AppButton Variant="ButtonVariant.None"
+                           data-testid="add-repository-button"
+                           OnClick="AddRepositoryDraft">
                     Add repository
-                </button>
+                </AppButton>
             </div>
             @if (VisibleRepositories.Any())
             {
@@ -470,12 +466,11 @@
                                 </p>
                             </div>
 
-                            <button type="button"
-                                    class="btn"
-                                    data-testid="remove-repository-button"
-                                    @onclick="() => RemoveRepository(activeRepo)">
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="remove-repository-button"
+                                       OnClick="() => RemoveRepository(activeRepo)">
                                 Remove repository
-                            </button>
+                            </AppButton>
                         </header>
 
                         <label class="setting__label" for="clone-@activeRepo.Alias">Local clone directory</label>
@@ -504,13 +499,12 @@
                         </p>
 
                         <div class="setting__actions">
-                            <button type="button"
-                                    class="btn"
-                                    data-testid="repo-clone-button"
-                                    disabled="@(!CanClone(activeRepo))"
-                                    @onclick="() => CloneRepositoryAsync(activeRepo)">
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="repo-clone-button"
+                                       Disabled="@(!CanClone(activeRepo))"
+                                       OnClick="() => CloneRepositoryAsync(activeRepo)">
                                 @CloneButtonText(activeRepo)
-                            </button>
+                            </AppButton>
                         </div>
 
 
@@ -537,19 +531,17 @@
                                        @onchange="() => ApplyRepositoryTokenAsync(activeRepo)"
                                        @onkeydown="e => OnRepositoryTokenKeyDownAsync(e, activeRepo)" />
                                 <div class="setting__actions">
-                                    <button type="button"
-                                            class="btn"
-                                            data-testid="github-recheck-button"
-                                            @onclick="CheckConnectionAsync">
+                                    <AppButton Variant="ButtonVariant.None"
+                                               data-testid="github-recheck-button"
+                                               OnClick="CheckConnectionAsync">
                                         Check the connection
-                                    </button>
-                                    <button type="button"
-                                            class="btn"
-                                            data-testid="github-clear-token-button"
-                                            disabled="@(activeRepo.Token is null)"
-                                            @onclick="() => ClearRepositoryTokenAsync(activeRepo)">
+                                    </AppButton>
+                                    <AppButton Variant="ButtonVariant.None"
+                                               data-testid="github-clear-token-button"
+                                               Disabled="@(activeRepo.Token is null)"
+                                               OnClick="() => ClearRepositoryTokenAsync(activeRepo)">
                                         Forget this repository token
-                                    </button>
+                                    </AppButton>
                                 </div>
                                 <p class="setting__note">
                                     Tokens are kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately outside the backlog folder, so they are never synced or committed with entries.

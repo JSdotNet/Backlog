@@ -69,16 +69,23 @@
         {
             var variant = Variant switch
             {
-                ButtonVariant.Primary => "btn--primary",
-                ButtonVariant.Ghost => "btn--ghost",
-                ButtonVariant.Danger => "btn--danger",
-                _ => "btn--secondary"
+                ButtonVariant.Primary => " btn--primary",
+                ButtonVariant.Ghost => " btn--ghost",
+                ButtonVariant.Danger => " btn--danger",
+                ButtonVariant.None => string.Empty,
+                _ => " btn--secondary"
             };
 
-            var size = Size == ButtonSize.Small ? "btn--small" : "btn--medium";
+            var size = Size switch
+            {
+                ButtonSize.Small => " btn--small",
+                ButtonSize.Medium => " btn--medium",
+                _ => string.Empty
+            };
+
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
 
-            return $"btn {variant} {size}{extra}";
+            return $"btn{variant}{size}{extra}";
         }
     }
 }

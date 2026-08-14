@@ -20,10 +20,9 @@
 
     @if (!GitHub.Repositories.Any())
     {
-        <div class="empty-state" data-testid="instructions-empty-state">
-            <p class="empty-state__title">No repositories configured.</p>
-            <p class="empty-state__body">Add a repository and local clone directory in Settings to read its instruction files.</p>
-        </div>
+        <EmptyState Title="No repositories configured."
+                    Description="Add a repository and local clone directory in Settings to read its instruction files."
+                    data-testid="instructions-empty-state" />
     }
     else
     {
@@ -63,10 +62,9 @@
 
                 @if (activeRepository.Message is not null)
                 {
-                    <div class="empty-state" data-testid="instructions-repository-empty">
-                        <p class="empty-state__title">No instruction content to show.</p>
-                        <p class="empty-state__body">@activeRepository.Message</p>
-                    </div>
+                    <EmptyState Title="No instruction content to show."
+                                Description="@activeRepository.Message"
+                                data-testid="instructions-repository-empty" />
                 }
                 else
                 {
