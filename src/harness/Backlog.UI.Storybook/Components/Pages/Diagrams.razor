@@ -5,6 +5,12 @@
 <StoryPage Title="Diagrams"
            Summary="DiagramView renders mermaid in the browser and shows the source for everything else. GraphView hands arbitrary node/edge data to a JS renderer.">
 
+    <Story Name="Flow diagram with decisions"
+           Description="A process with branches, which is what most entries draw. Mermaid runs on theme 'base' with themeVariables read from the live tokens, so nodes carry the brand colour instead of mermaid's own grey-and-lavender dark theme — a diagram should look like it belongs to this product, not like a screenshot pasted into it."
+           Code="@FlowCode">
+        <DiagramView Title="Entry lifecycle" Language="mermaid" Source="@FlowWithDecisions" />
+    </Story>
+
     <Story Name="Mermaid flowchart"
            Description="Rendered by backlogDiagrams.render, which loads mermaid on first use. The source stays available under the diagram."
            Code="@FlowchartCode">
@@ -38,6 +44,21 @@
 </StoryPage>
 
 @code {
+    // Decision diamonds, a loop back and a terminal state: the shapes a flow
+    // diagram has that a dependency graph does not.
+    private const string FlowWithDecisions = """
+        flowchart LR
+            Start([Captured]) --> Triage{Ready to work?}
+            Triage -- no --> Refine[Refine]
+            Refine --> Triage
+            Triage -- yes --> Active[In progress]
+            Active --> Review{Review passes?}
+            Review -- no --> Active
+            Review -- yes --> Done([Done])
+            Active -.blocked.-> Blocked[Blocked]
+            Blocked --> Active
+        """;
+
     private const string Flowchart = """
         flowchart TD
             A[Desktop UI] --> B[Backlog.UI.Components]
@@ -90,6 +111,14 @@
             new { source = "storybook", target = "servicedefaults" }
         }
     };
+
+    private const string FlowCode = """
+        <DiagramView Title="Entry lifecycle" Language="mermaid" Source="@source" />
+
+        flowchart LR
+            Start([Captured]) --> Triage{Ready to work?}
+            Triage -- yes --> Active[In progress]
+        """;
 
     private const string FlowchartCode = """
         <DiagramView Title="Slice flow" Language="mermaid" Source="@source" />

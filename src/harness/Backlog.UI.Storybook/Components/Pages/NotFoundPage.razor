@@ -1,0 +1,28 @@
+@page "/not-found"
+
+@*
+    Reached two ways, and it has to handle both. A link inside the storybook to
+    a route that does not exist is caught by the Router's NotFound template,
+    which renders this component. A typed or bookmarked URL never reaches the
+    Router at all — ASP.NET routing 404s it first — so Program.cs re-executes
+    the request onto this page. Without that half, a stale bookmark rendered an
+    entirely blank document.
+*@
+
+<PageTitle>Not found — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="No such page"
+           Summary="This storybook has no page at that address.">
+
+    <Story Name="Where to go instead"
+           Description="Every component group is listed in the sidebar, and the introduction describes each one in a sentence.">
+        <EmptyState Title="Nothing here"
+                    Description="The address may be from an older version of the storybook, when the pages were grouped differently."
+                    TestId="not-found">
+            <Action>
+                <a class="btn btn--primary" href="">Back to the introduction</a>
+            </Action>
+        </EmptyState>
+    </Story>
+
+</StoryPage>

@@ -2,8 +2,13 @@
 
 @*
     Two columns: the page index on the left, one component group on the right.
-    The sidebar uses the library's own NavList so the storybook exercises the
-    component it navigates with.
+    The sidebar uses the library's own NavList and SearchBox, so the storybook
+    navigates with the components it is documenting.
+
+    The list of pages lives in StorybookIndex, shared with the introduction.
+    Below the narrow breakpoint the sidebar stops being a column and becomes a
+    band above the content, because the library also ships to a phone-sized head
+    and a fixed 15rem gutter left the examples about a hundred pixels wide.
 *@
 
 <div class="sb-shell">
@@ -13,12 +18,26 @@
             <span class="sb-brand__kind">storybook</span>
         </div>
 
-        @foreach (var group in Groups)
+        <div class="sb-filter">
+            <SearchBox Value="@_filter"
+                       ValueChanged="v => _filter = v"
+                       Placeholder="Filter pages"
+                       AriaLabel="Filter storybook pages"
+                       DebounceMilliseconds="150"
+                       TestId="page-filter" />
+        </div>
+
+        @foreach (var group in Matches)
         {
             <div class="sb-nav-group">
                 <p class="sb-nav-group__title">@group.Title</p>
-                <NavList Items="@group.Items" AriaLabel="@group.Title" />
+                <NavList Items="@StorybookIndex.NavItemsFor(group)" AriaLabel="@group.Title" />
             </div>
+        }
+
+        @if (Matches.Count == 0)
+        {
+            <p class="sb-nav-empty" data-testid="page-filter-empty">No page matches “@_filter”.</p>
         }
     </aside>
 
@@ -28,32 +47,35 @@
 </div>
 
 @code {
-    private sealed record NavGroup(string Title, IReadOnlyList<NavItem> Items);
+    private string _filter = string.Empty;
 
-    // "Requested" first: these five groups are the ones the storybook was asked
-    // for, so they stay visually ahead of the rest of the library.
-    private static readonly IReadOnlyList<NavGroup> Groups =
-    [
-        new("Overview",
-        [
-            new NavItem("/", "Introduction", Match: true)
-        ]),
-        new("Requested",
-        [
-            new NavItem("/buttons", "Buttons"),
-            new NavItem("/markdown", "Markdown"),
-            new NavItem("/diagrams", "Diagrams"),
-            new NavItem("/graph-explorer", "Graph explorer"),
-            new NavItem("/menus", "Menus"),
-            new NavItem("/selects", "Selects")
-        ]),
-        new("Rest of the library",
-        [
-            new NavItem("/inputs", "Inputs"),
-            new NavItem("/badges", "Badges"),
-            new NavItem("/feedback", "Feedback"),
-            new NavItem("/overlays", "Overlays"),
-            new NavItem("/layout", "Layout")
-        ])
-    ];
+    /// <summary>
+    /// Groups that still have something in them. A group whose own title matches
+    /// keeps all its pages, so typing "feedback" finds the group as well as the
+    /// page — the sidebar is the only index of the library there is.
+    /// </summary>
+    private IReadOnlyList<StorybookIndex.Group> Matches
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_filter)) return StorybookIndex.Groups;
+
+            var query = _filter.Trim();
+
+            return
+            [
+                .. StorybookIndex.Groups
+                    .Select(group => Contains(group.Title, query)
+                        ? group
+                        : group with { Pages = [.. group.Pages.Where(page => Matched(page, query))] })
+                    .Where(group => group.Pages.Count > 0)
+            ];
+        }
+    }
+
+    private static bool Matched(StorybookIndex.Page page, string query) =>
+        Contains(page.Title, query) || Contains(page.Summary, query);
+
+    private static bool Contains(string value, string query) =>
+        value.Contains(query, StringComparison.OrdinalIgnoreCase);
 }

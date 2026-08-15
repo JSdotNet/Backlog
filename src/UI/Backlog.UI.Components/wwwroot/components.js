@@ -43,15 +43,31 @@
     function backlogPaneMaxRem(layout) {
         const rem = backlogRootFontSize();
         const styles = getComputedStyle(layout);
-        const workspaceMinRem = parseFloat(styles.getPropertyValue('--workspace-min-width')) || 22;
+        const companionMinRem = parseFloat(styles.getPropertyValue('--pane-min-width')) || 22;
         const gapRem = ((parseFloat(styles.columnGap) || 0) * 2) / rem;
-        const available = (layout.clientWidth / rem) - workspaceMinRem - gapRem - 1;
+        const available = (layout.clientWidth / rem) - companionMinRem - gapRem - 1;
 
         return Math.min(BACKLOG_PANE_ABSOLUTE_MAX_REM, Math.max(BACKLOG_PANE_MIN_REM, Math.round(available * 2) / 2));
     }
 
+    /**
+     * Which edge the resized pane is anchored to.
+     *
+     * The app's knowledge panel sits on the right, so its width is the distance
+     * from the pointer to the layout's right edge. SplitPane's bound value is the
+     * *start* pane, on the left, whose width is the distance from the left edge.
+     * Measuring both the same way made the library's separator run backwards:
+     * dragging right narrowed the pane it was supposed to widen.
+     */
+    function backlogPaneAnchor(layout) {
+        return layout.getAttribute('data-pane-anchor') === 'start' ? 'start' : 'end';
+    }
+
     function backlogPaneWidthAt(layout, clientX) {
-        const rem = (layout.getBoundingClientRect().right - clientX) / backlogRootFontSize();
+        const box = layout.getBoundingClientRect();
+        const distance = backlogPaneAnchor(layout) === 'start' ? clientX - box.left : box.right - clientX;
+        const rem = distance / backlogRootFontSize();
+
         return Math.min(backlogPaneMaxRem(layout), Math.max(BACKLOG_PANE_MIN_REM, Math.round(rem * 2) / 2));
     }
 
@@ -124,15 +140,20 @@
     });
 
     const backlogDiagramInstances = new Map();
+
+    // The drawing libraries are large and are not needed until a diagram is on
+    // screen, so they load from a CDN on demand rather than shipping with the
+    // library. A host that must work offline sets window.backlogDiagramLibrarySources
+    // before components.js runs, pointing each name at a local copy it serves
+    // itself; the entries below are the fallback, tried in order.
+    //
+    // Earlier versions listed a '/vendor/...' path first. No host has ever served
+    // that path, so every diagram cost a guaranteed 404 before reaching the CDN.
+    // The hook is now opt-in and silent when unused.
     const backlogDiagramLibrarySources = {
-        mermaid: [
-            '/vendor/mermaid/mermaid.esm.min.mjs',
-            'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'
-        ],
-        g6: [
-            '/vendor/g6/g6.min.js',
-            'https://unpkg.com/@antv/g6@5/dist/g6.min.js'
-        ]
+        mermaid: ['https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'],
+        g6: ['https://unpkg.com/@antv/g6@5/dist/g6.min.js'],
+        ...(window.backlogDiagramLibrarySources ?? {})
     };
 
     let backlogMermaidPromise;
@@ -161,6 +182,71 @@
         });
     }
 
+    /**
+     * Mermaid's palette, expressed in the product's tokens.
+     *
+     * Read off the live document rather than hard-coded, so a change to
+     * components.css moves the diagrams with it and there is no second copy of
+     * the palette to keep in step. Mermaid needs concrete colours — it cannot
+     * take var() — so the values are resolved once, at initialize time.
+     */
+    function backlogMermaidTheme() {
+        const styles = getComputedStyle(document.documentElement);
+        const token = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+
+        const primary = token('--color-primary', '#F2C14E');
+        const surface = token('--color-background-alt', '#0F172A');
+        const raised = token('--color-background-raised', '#1E293B');
+        const ink = token('--color-text-primary', '#F8F9FA');
+        const inverse = token('--color-text-inverse', '#212529');
+        const line = token('--color-border-strong', '#94A3B8');
+
+        return {
+            darkMode: true,
+            background: token('--color-background', '#020617'),
+            fontFamily: token('--font-family-base', 'sans-serif'),
+
+            // Nodes carry the brand colour rather than mermaid's washed lavender,
+            // which is what made the diagrams recede into the page.
+            primaryColor: primary,
+            primaryTextColor: inverse,
+            primaryBorderColor: token('--color-primary-dark', '#D4A72C'),
+
+            secondaryColor: raised,
+            secondaryTextColor: ink,
+            secondaryBorderColor: line,
+            tertiaryColor: surface,
+            tertiaryTextColor: ink,
+            tertiaryBorderColor: line,
+
+            mainBkg: primary,
+            secondBkg: raised,
+            lineColor: line,
+            textColor: ink,
+            nodeBorder: token('--color-primary-dark', '#D4A72C'),
+            clusterBkg: surface,
+            clusterBorder: token('--color-border', '#64748B'),
+            titleColor: ink,
+            edgeLabelBackground: surface,
+
+            // Sequence diagrams name almost everything separately.
+            actorBkg: primary,
+            actorBorder: token('--color-primary-dark', '#D4A72C'),
+            actorTextColor: inverse,
+            actorLineColor: line,
+            signalColor: ink,
+            signalTextColor: ink,
+            labelBoxBkgColor: raised,
+            labelBoxBorderColor: line,
+            labelTextColor: ink,
+            loopTextColor: ink,
+            noteBkgColor: token('--color-info-surface', '#0A2C31'),
+            noteTextColor: ink,
+            noteBorderColor: token('--color-info', '#38BDF8'),
+            sequenceNumberColor: inverse
+        };
+    }
+
     async function backlogLoadMermaid() {
         if (window.mermaid) return window.mermaid;
         if (!backlogMermaidPromise) {
@@ -172,7 +258,13 @@
                         if (mermaid) {
                             mermaid.initialize({
                                 startOnLoad: false,
-                                theme: 'dark',
+                                // 'base' plus themeVariables, not 'dark'. The dark
+                                // theme is mermaid's own grey-and-lavender palette,
+                                // which made every diagram look like a screenshot
+                                // from another product dropped into the page. Base
+                                // is the only theme that takes overrides.
+                                theme: 'base',
+                                themeVariables: backlogMermaidTheme(),
                                 securityLevel: 'strict',
                                 deterministicIds: true,
                                 // We report parse failures ourselves through the

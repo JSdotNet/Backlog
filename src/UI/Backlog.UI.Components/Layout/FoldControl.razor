@@ -1,23 +1,44 @@
 @*
-    The fold affordance the entry cards use: the whole title line is the button,
-    and the chevron only rotates. `aria-expanded` is the state — the chevron
-    glyph is decoration and stays hidden from assistive tech.
+    A disclosure: a trigger that folds a region away.
+
+    ChildContent is the region, not the label. It used to be the label — the
+    trigger rendered `ChildContent ?? Label` and nothing else — so passing a body
+    to fold silently replaced the title with it, put whatever was passed inside
+    the <button>, and clicking toggled aria-expanded over a region that was never
+    rendered. It looked broken because it was: the control folded nothing.
+
+    A host that already renders its own region still can: leave ChildContent null
+    and point `Controls` at the element it owns, and only the trigger is emitted.
 *@
 
-<button type="button"
-        class="@ClassValue"
-        data-testid="@TestId"
-        aria-expanded="@(Expanded ? "true" : "false")"
-        aria-controls="@Controls"
-        aria-label="@AriaLabel"
-        disabled="@Disabled"
-        @onclick="ToggleAsync"
-        @attributes="AdditionalAttributes">
-    <span class="@ChevronClass" aria-hidden="true">&#9656;</span>
-    <span class="fold__label">@(ChildContent ?? DefaultLabel)</span>
-</button>
+<div class="@ClassValue">
+    <button type="button"
+            class="fold__trigger"
+            id="@TriggerId"
+            data-testid="@TestId"
+            aria-expanded="@(Expanded ? "true" : "false")"
+            aria-controls="@RegionId"
+            aria-label="@AriaLabel"
+            disabled="@Disabled"
+            @onclick="ToggleAsync"
+            @attributes="AdditionalAttributes">
+        <span class="@ChevronClass" aria-hidden="true">&#9656;</span>
+        <span class="fold__label">@(LabelContent ?? DefaultLabel)</span>
+    </button>
+
+    @if (ChildContent is not null)
+    {
+        @* Kept in the DOM and hidden, rather than removed, so a host that
+           measures or anchors into the region does not lose it on every fold. *@
+        <div class="fold__region" id="@RegionId" role="region" aria-labelledby="@TriggerId" hidden="@(!Expanded)">
+            @ChildContent
+        </div>
+    }
+</div>
 
 @code {
+    private readonly string _id = "fold-" + Guid.NewGuid().ToString("N");
+
     [Parameter]
     public bool Expanded { get; set; }
 
@@ -27,10 +48,21 @@
     [Parameter]
     public string? Label { get; set; }
 
+    /// <summary>The trigger's text when it is more than a string.</summary>
+    [Parameter]
+    public RenderFragment? LabelContent { get; set; }
+
     [Parameter]
     public string? AriaLabel { get; set; }
 
-    /// <summary>Id of the region this control folds, for `aria-controls`.</summary>
+    /// <summary>The region this control folds. Null leaves the host to render and
+    /// own it, in which case set <see cref="Controls"/>.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Id of a region the host renders itself, for <c>aria-controls</c>.
+    /// Ignored when <see cref="ChildContent"/> is set, because then the control
+    /// owns the region and names it.</summary>
     [Parameter]
     public string? Controls { get; set; }
 
@@ -38,10 +70,11 @@
     public bool Disabled { get; set; }
 
     [Parameter]
-    public RenderFragment? ChildContent { get; set; }
-
-    [Parameter]
     public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>fold</c> as the class the wrapper carries.</summary>
+    [Parameter]
+    public string? BaseClass { get; set; } = "fold";
 
     [Parameter]
     public string? TestId { get; set; }
@@ -49,19 +82,23 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
+    private string TriggerId => _id + "-trigger";
+
+    private string? RegionId => ChildContent is not null ? _id + "-region" : Controls;
+
     private RenderFragment DefaultLabel => builder => builder.AddContent(0, Label);
 
-    private string ChevronClass => Expanded
-        ? "fold__chevron entry-doc__fold-chevron entry-doc__fold-chevron--open"
-        : "fold__chevron entry-doc__fold-chevron";
+    private string ChevronClass => Expanded ? "fold__chevron fold__chevron--open" : "fold__chevron";
 
     private string ClassValue
     {
         get
         {
             var state = Expanded ? " fold--open" : string.Empty;
+            var root = string.IsNullOrWhiteSpace(BaseClass) ? "fold" : BaseClass;
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
-            return $"fold entry-doc__title-button{state}{extra}";
+
+            return $"{root}{state}{extra}";
         }
     }
 

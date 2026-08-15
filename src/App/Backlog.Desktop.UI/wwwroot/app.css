@@ -1,77 +1,24 @@
 /*
-  Design tokens sourced from the jsdotnet-project-design MCP style guide
+  The design tokens live in the component library, in
+  _content/Backlog.UI.Components/components.css, which every host links before
+  this file. They used to be repeated here as well, identical value for
+  identical value, with nothing to notice when the two copies drifted.
+
+  Tokens sourced from the jsdotnet-project-design MCP style guide
   (01-color-palette, 02-typography, 03-spacing-and-layout, 04-motion-and-interaction),
   materialized for this dark-mode-only product in .design/color-scheme.md,
   .design/typography-and-layout.md, and .design/interaction-guidelines.md.
   Dark is the only theme: there is no light palette or toggle.
+
+  What stays here is what is about this app rather than about the design system.
 */
 :root {
-    /* Color */
-    --color-primary: #F2C14E;
-    --color-primary-light: #FFD166;
-    --color-primary-dark: #D4A72C;
-    --color-secondary: #ADB5BD;
-
-    --color-success: #1A3A22;
-    --color-warning: #3D2E00;
-    --color-error: #3D0A0D;
-    --color-info: #0A2C31;
-
-    --color-text-primary: #F8F9FA;
-    --color-text-secondary: #CED4DA;
-    --color-text-disabled: #6C757D;
-    --color-text-inverse: #212529;
-    --color-text-link: #F2C14E;
-
-    --color-background: #020617;
-    --color-background-alt: #0F172A;
-    --color-background-raised: #1E293B;
-    --color-background-overlay: rgba(0, 0, 0, 0.60);
-
-    --color-border: #64748B;
-    --color-border-strong: #94A3B8;
-    --color-border-focus: #F2C14E;
-
-    /* Typography */
-    --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-family-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-family-mono: 'Fira Code', 'Courier New', monospace;
-
-    --font-size-xs: 0.75rem;
-    --font-size-sm: 0.875rem;
-    --font-size-base: 1rem;
-    --font-size-lg: 1.125rem;
-    --font-size-xl: 1.25rem;
-    --font-size-2xl: 1.5rem;
-    --font-size-4xl: 2.25rem;
-
-    --line-height-tight: 1.25;
-    --line-height-normal: 1.5;
-
-    /* Spacing (4px base scale) */
-    --spacing-xs: 0.25rem;
-    --spacing-sm: 0.5rem;
-    --spacing-md: 1rem;
-    --spacing-lg: 1.5rem;
-    --spacing-xl: 2rem;
-
-    /* Radius / border / shadow */
-    --border-radius-sm: 0.25rem;
-    --border-radius-md: 0.5rem;
-    --border-radius-lg: 1rem;
-    --border-width: 1px;
-    --border-width-2: 2px;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.11);
-
-    /* Motion */
-    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-base: 250ms cubic-bezier(0, 0, 0.2, 1);
-    --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
-    /* How little of the backlog the side pane is allowed to leave standing. */
+    /* How little of the backlog the side pane is allowed to leave standing.
+       The library's pane resizer reads --pane-min-width; the two are the same
+       measurement under two names, so it is aliased rather than repeated. */
     --workspace-min-width: 22rem;
+    --pane-min-width: var(--workspace-min-width);
+
     /* Saved-confirmation flash uses a smooth ease-out rather than the org
        style guide's ease-bounce token, per explicit product decision. */
     --ease-saved-flash: cubic-bezier(0, 0, 0.2, 1);

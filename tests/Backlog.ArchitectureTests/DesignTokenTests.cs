@@ -1,0 +1,146 @@
+using System.Text.RegularExpressions;
+
+namespace Backlog.ArchitectureTests;
+
+/// <summary>
+/// Rules for the design tokens.
+///
+/// <para>There is one palette, one type scale and one spacing scale, and they
+/// live in the component library's <c>components.css</c>. Every host used to
+/// repeat some or all of them in its own stylesheet at identical values, which
+/// works right up until one copy is edited. These tests make the single
+/// definition safe to rely on: the library's stylesheet has to be linked first
+/// everywhere, and no host may redeclare a token the library already owns.</para>
+/// </summary>
+public class DesignTokenTests
+{
+    private const string LibraryStylesheet = "_content/Backlog.UI.Components/components.css";
+
+    /// <summary>Tokens an application may declare for itself: names the library
+    /// has no definition for, describing something about that app rather than
+    /// about the design system.</summary>
+    private static readonly HashSet<string> AppOwnedTokens =
+    [
+        "--workspace-min-width",
+        "--ease-saved-flash",
+        // Aliased onto the app's own name for the same measurement.
+        "--pane-min-width"
+    ];
+
+    [Fact]
+    public void Every_host_links_the_library_stylesheet_before_its_own()
+    {
+        var hosts = HostDocuments().ToList();
+
+        Assert.NotEmpty(hosts);
+
+        foreach (var host in hosts)
+        {
+            var markup = File.ReadAllText(host.FullName);
+
+            var links = Regex.Matches(markup, @"<link[^>]*href=""([^""]+\.css)""")
+                .Select(match => match.Groups[1].Value)
+                .ToList();
+
+            if (links.Count == 0) continue;
+
+            var libraryAt = links.FindIndex(href => href.Contains(LibraryStylesheet, StringComparison.OrdinalIgnoreCase));
+
+            Assert.True(
+                libraryAt >= 0,
+                $"{Relative(host)} does not link {LibraryStylesheet}. The tokens and the component "
+                + "styling both come from there, so the page would render unstyled.");
+
+            // A third-party base may legitimately load first — the mobile head
+            // puts bootstrap ahead of everything so the design system overrides
+            // it. What must not happen is one of ours loading first, because it
+            // would be extending tokens that have not been declared yet.
+            var ourStylesheetsBefore = links.Take(libraryAt)
+                .Where(href => !IsVendored(href))
+                .ToList();
+
+            Assert.True(
+                ourStylesheetsBefore.Count == 0,
+                $"{Relative(host)} links {string.Join(", ", ourStylesheetsBefore)} before {LibraryStylesheet}. "
+                + "The library has to come first: our stylesheets extend it, and cannot extend what has not "
+                + "been declared yet.");
+        }
+    }
+
+    /// <summary>Third-party CSS, which lands under <c>lib/</c> by convention.</summary>
+    private static bool IsVendored(string href) =>
+        href.Contains("lib/", StringComparison.OrdinalIgnoreCase);
+
+    [Fact]
+    public void No_application_stylesheet_redeclares_a_library_token()
+    {
+        var libraryTokens = DeclaredTokens(
+            Path.Combine(Repository.Root.FullName, "src", "UI", "Backlog.UI.Components", "wwwroot", "components.css"));
+
+        Assert.NotEmpty(libraryTokens);
+
+        foreach (var stylesheet in ApplicationStylesheets())
+        {
+            var repeated = DeclaredTokens(stylesheet.FullName)
+                .Where(libraryTokens.Contains)
+                .Where(token => !AppOwnedTokens.Contains(token))
+                .OrderBy(token => token)
+                .ToList();
+
+            Assert.True(
+                repeated.Count == 0,
+                $"{Relative(stylesheet)} redeclares tokens the library already owns, so the two can drift "
+                + $"apart silently: {string.Join(", ", repeated)}");
+        }
+    }
+
+    /// <summary>Custom properties declared on <c>:root</c>.</summary>
+    private static HashSet<string> DeclaredTokens(string path)
+    {
+        if (!File.Exists(path)) return [];
+
+        var css = File.ReadAllText(path);
+
+        return
+        [
+            .. Regex.Matches(css, @":root\s*\{(?<body>[^}]*)\}", RegexOptions.Singleline)
+                .SelectMany(match => Regex.Matches(match.Groups["body"].Value, @"(--[a-z0-9-]+)\s*:")
+                    .Select(token => token.Groups[1].Value))
+        ];
+    }
+
+    /// <summary>The root documents that decide stylesheet order: the MAUI heads'
+    /// index.html and each harness's App.razor.</summary>
+    private static IEnumerable<FileInfo> HostDocuments()
+    {
+        foreach (var folder in new[] { "App", "harness" })
+        {
+            var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", folder));
+            if (!root.Exists) continue;
+
+            var candidates = root.EnumerateFiles("index.html", SearchOption.AllDirectories)
+                .Concat(root.EnumerateFiles("App.razor", SearchOption.AllDirectories));
+
+            foreach (var file in candidates.Where(NotBuildOutput))
+            {
+                yield return file;
+            }
+        }
+    }
+
+    private static IEnumerable<FileInfo> ApplicationStylesheets()
+    {
+        var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", "App"));
+
+        return root.Exists
+            ? root.EnumerateFiles("*.css", SearchOption.AllDirectories).Where(NotBuildOutput)
+            : [];
+    }
+
+    private static bool NotBuildOutput(FileInfo file) =>
+        !file.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+        && !file.FullName.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}");
+
+    private static string Relative(FileInfo file) =>
+        Path.GetRelativePath(Repository.Root.FullName, file.FullName).Replace('\\', '/');
+}

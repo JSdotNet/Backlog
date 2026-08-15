@@ -11,8 +11,7 @@
         <div class="sb-grid">
             <div>
                 <TextField Label="Title"
-                           Value="@_title"
-                           ValueChanged="v => _title = v"
+                           @bind-Value="_title"
                            Placeholder="What is this about?"
                            TestId="input-title" />
                 <p class="sb-state" data-testid="input-title-value">@Show(_title)</p>
@@ -61,8 +60,7 @@
             <div>
                 <p class="sb-label">AutoGrow = true (default)</p>
                 <TextArea Label="Notes"
-                          Value="@_notes"
-                          ValueChanged="v => _notes = v"
+                          @bind-Value="_notes"
                           Placeholder="Type several lines and watch it grow"
                           TestId="input-notes" />
             </div>
