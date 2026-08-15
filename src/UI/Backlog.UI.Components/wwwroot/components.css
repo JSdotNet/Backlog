@@ -920,14 +920,12 @@
 
 /* --- Diagram view -------------------------------------------------------- */
 
+/* No frame of its own: the diagram is the content, and whoever places it
+   decides whether it sits in a panel, a card, or bare markdown flow. */
 .diagram-view {
     display: grid;
     gap: var(--spacing-sm);
     margin: var(--spacing-md) 0;
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-lg);
-    background: var(--color-background-alt);
 }
 
 .diagram-view__caption {
@@ -960,24 +958,15 @@
     font-weight: 700;
 }
 
+/* The source block carries its own outline. It no longer sits on a surface the
+   diagram frame provided, so a background alone would vanish into whatever the
+   caller puts behind it. */
 .diagram-view__source {
     max-height: 12rem;
     overflow: auto;
     margin: 0;
     padding: var(--spacing-md);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-}
-
-/* The second pass darkens the surface; it comes after the block above on
-   purpose, exactly as it did in app.css. */
-.diagram-view__source {
-    overflow: auto;
-    margin: 0;
-    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
     background: var(--color-background);
     color: var(--color-text-secondary);
@@ -1001,19 +990,18 @@
     font-size: var(--font-size-xs);
 }
 
+/* Neither surface draws a frame: it renders straight onto whatever is behind
+   it. min-height only reserves room so the layout does not jump while the
+   renderer is still working. */
 .diagram-view__rendered,
 .tech-graph__canvas {
     min-height: 18rem;
     overflow: auto;
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
 }
 
 .diagram-view__rendered {
     display: grid;
     place-items: center;
-    padding: var(--spacing-md);
 }
 
 .diagram-view__rendered svg {
@@ -1044,13 +1032,11 @@
     cursor: pointer;
 }
 
+/* No frame of its own, for the same reason as .diagram-view: whoever places the
+   graph decides whether it sits in a panel. */
 .tech-graph {
     display: grid;
     gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-lg);
-    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
 }
 
 .tech-graph__header {
