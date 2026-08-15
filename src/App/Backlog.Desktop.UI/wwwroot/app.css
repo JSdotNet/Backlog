@@ -40,40 +40,8 @@
     box-sizing: border-box;
 }
 
-/*
-  Scrollbars are chrome, not content: slim, dark, and only as loud as the
-  border tokens. Firefox gets the standard properties, Chromium/WebView2 the
-  vendor pseudo-elements so the desktop shell never shows an OS-light bar.
-*/
-* {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border) transparent;
-}
-
-::-webkit-scrollbar {
-    width: 0.625rem;
-    height: 0.625rem;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    border: 2px solid transparent;
-    border-radius: 999px;
-    background: var(--color-border);
-    background-clip: padding-box;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--color-border-strong);
-    background-clip: padding-box;
-}
-
-::-webkit-scrollbar-corner {
-    background: transparent;
-}
+/* Scrollbar chrome moved to components.css: the scrolling regions it dresses are
+   the library's, and keeping it here left every other host on OS scrollbars. */
 
 html, body {
     height: 100%;
@@ -2939,7 +2907,10 @@ h1, h2, h3 {
     margin: 0;
     padding: var(--spacing-md);
     border-radius: var(--border-radius-md);
-    background: #020617;
+    /* One step up the ramp from the .knowledge-document card it sits in. This
+       was a raw #020617 — a step *below* the old base, inventing a fourth
+       surface the palette does not have. */
+    background: var(--color-background-alt);
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
     font-size: var(--font-size-sm);

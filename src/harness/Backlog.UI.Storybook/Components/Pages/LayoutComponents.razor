@@ -3,7 +3,7 @@
 <PageTitle>Layout — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Layout"
-           Summary="The containers: tabs, cards, section headers, a disclosure, and a two-pane split with a separator that answers to both the pointer and the keyboard.">
+           Summary="The containers: tabs, cards, section headers, a disclosure, and a two-pane split with a separator that answers to both the pointer and the keyboard — and the scrollbar all of them wear once their content outgrows them.">
 
     <Story Name="Tabs and TabPanel"
            Description="Panels register themselves with the strip, so the tab order comes from the markup. Arrow keys, Home and End move between tabs; the strip is one tab stop."
@@ -170,6 +170,31 @@
         <p class="sb-state" data-testid="split-state">Start width: @_startWidth.ToString("0.##") rem</p>
     </Story>
 
+    <Story Name="Scrollbar"
+           Description="Not a component but the chrome every overflowing region wears, and nothing opts into it. The thumb is --color-border and lifts to --color-border-strong on hover; track and corner stay transparent so a scrolling panel gains no second edge. Firefox reads scrollbar-width and scrollbar-color, Chromium and WebView2 the ::-webkit-scrollbar pseudo-elements. A region whose content must not jump sideways as the bar appears adds scrollbar-gutter: stable. Both boxes below take tab focus, because a region a mouse can scroll a keyboard has to be able to reach."
+           Code="@ScrollCode">
+        <div class="sb-columns">
+            <div class="sb-stack">
+                <p class="sb-label">Vertical</p>
+                <div class="sb-scroll" tabindex="0" role="region" aria-label="Vertical scroll example" data-testid="scroll-vertical">
+                    <p>An entry list is the usual reason a panel scrolls: the backlog is longer than the pane holding it, and the bar is the only chrome that says so.</p>
+                    <p>The thumb sits inside a transparent border, so it reads as a floating pill rather than a channel cut into the surface.</p>
+                    <p>Hover it and it brightens one step up the border ramp.</p>
+                </div>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Both axes</p>
+                <div class="sb-scroll" tabindex="0" role="region" aria-label="Two-axis scroll example" data-testid="scroll-both">
+                    <div class="sb-scroll__wide">
+                        <p>A code block or a wide table overflows in both directions at once, which is the only time the corner between the two bars is visible.</p>
+                        <p>It is transparent too, so the corner shows the surface underneath instead of a grey square.</p>
+                        <p>This paragraph is wider than the box on purpose.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -221,6 +246,14 @@
         <FoldControl Expanded="_open" ExpandedChanged="v => _open = v"
                      Label="Acceptance criteria" Controls="criteria" />
         <div id="criteria" hidden="@(!_open)">...</div>
+        """;
+
+    private const string ScrollCode = """
+        @* Nothing to opt into — components.css dresses every scrolling region. *@
+        <div class="entry-list" tabindex="0" role="region" aria-label="Entries">...</div>
+
+        /* app.css, where the content must not shift as the bar appears */
+        .entry-list { overflow: auto; scrollbar-gutter: stable; }
         """;
 
     private const string SplitCode = """

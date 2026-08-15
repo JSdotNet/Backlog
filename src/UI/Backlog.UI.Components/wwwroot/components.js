@@ -236,15 +236,15 @@
         const token = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
 
         const primary = token('--color-primary', '#F2C14E');
-        const surface = token('--color-background-alt', '#0F172A');
-        const raised = token('--color-background-raised', '#1E293B');
+        const surface = token('--color-background-alt', '#202023');
+        const raised = token('--color-background-raised', '#353539');
         const ink = token('--color-text-primary', '#F8F9FA');
         const inverse = token('--color-text-inverse', '#212529');
-        const line = token('--color-border-strong', '#94A3B8');
+        const line = token('--color-border-strong', '#737379');
 
         return {
             darkMode: true,
-            background: token('--color-background', '#020617'),
+            background: token('--color-background', '#121214'),
             fontFamily: token('--font-family-base', 'sans-serif'),
 
             // Nodes carry the brand colour rather than mermaid's washed lavender,
@@ -266,7 +266,7 @@
             textColor: ink,
             nodeBorder: token('--color-primary-dark', '#D4A72C'),
             clusterBkg: surface,
-            clusterBorder: token('--color-border', '#64748B'),
+            clusterBorder: token('--color-border', '#545459'),
             titleColor: ink,
             edgeLabelBackground: surface,
 
@@ -281,7 +281,7 @@
             labelBoxBorderColor: line,
             labelTextColor: ink,
             loopTextColor: ink,
-            noteBkgColor: token('--color-info-surface', '#0A2C31'),
+            noteBkgColor: token('--color-info', '#0A2C31'),
             noteTextColor: ink,
             noteBorderColor: token('--color-info', '#38BDF8'),
             sequenceNumberColor: inverse
