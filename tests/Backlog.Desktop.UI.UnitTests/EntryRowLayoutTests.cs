@@ -65,6 +65,22 @@ public sealed class EntryRowLayoutTests
     }
 
     [Fact]
+    public void Checklist_toggle_skips_a_checkbox_line_with_no_text()
+    {
+        // The read view renders `- [ ]` with nothing after it as a plain bullet,
+        // so it hands out no index for it. Counting it here would make every
+        // index after it name the line above the one that was clicked.
+        const string raw =
+            "- [ ] \n" +
+            "- [ ] Real task\n";
+
+        var toggled = EntryTextParser.ToggleChecklistItem(raw, 0);
+
+        Assert.Contains("- [ ] \n", toggled);
+        Assert.Contains("- [x] Real task", toggled);
+    }
+
+    [Fact]
     public void Sub_item_heading_checkboxes_toggle_in_the_raw_markdown()
     {
         const string raw =

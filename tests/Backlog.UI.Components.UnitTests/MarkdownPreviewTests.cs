@@ -55,6 +55,49 @@ public sealed class MarkdownPreviewTests
     }
 
     [Fact]
+    public void An_entry_folds_a_sub_item_heading_away_but_a_document_keeps_it()
+    {
+        const string body = "# Title\n\n## A section\n\nIts prose.\n";
+
+        // As an entry: the `##` and everything under it belongs to the host.
+        var entry = MarkdownPreview.Parse(body);
+        Assert.Equal(2, entry.Count);
+        Assert.IsType<MdHeading>(entry[0]);
+        Assert.IsType<MdSubItem>(entry[1]);
+
+        // As a document: a `##` is a heading, and nothing goes missing.
+        var document = MarkdownPreview.ParseDocument(body);
+        Assert.Equal(3, document.Count);
+        Assert.Equal(2, Assert.IsType<MdHeading>(document[1]).Level);
+        Assert.IsType<MdParagraph>(document[2]);
+        Assert.DoesNotContain(document, block => block is MdSubItem);
+    }
+
+    [Fact]
+    public void A_document_heading_keeps_a_bracket_it_was_written_with()
+    {
+        // `[x]` on a `##` is sub-item state in an entry and plain text in a
+        // file — a document read that stripped it would drop the content.
+        var document = MarkdownPreview.ParseDocument("## [x] Literal brackets\n");
+
+        var heading = Assert.IsType<MdHeading>(Assert.Single(document));
+        Assert.Null(heading.Done);
+        Assert.Equal("[x] Literal brackets", MarkdownRender.PlainText(heading.Content));
+    }
+
+    [Fact]
+    public void A_link_url_may_carry_brackets_of_its_own()
+    {
+        // Stopping at the first `)` truncated the URL and left the leftover
+        // bracket sitting in the prose.
+        var parts = MarkdownPreview.ParseInlines("see [C](https://en.wikipedia.org/wiki/C_(programming_language)) here");
+
+        var link = Assert.IsType<MdLink>(parts[1]);
+        Assert.Equal("https://en.wikipedia.org/wiki/C_(programming_language)", link.Url);
+        Assert.Equal(" here", Assert.IsType<MdText>(parts[2]).Text);
+    }
+
+    [Fact]
     public void Quotes_and_dividers_are_blocks_of_their_own()
     {
         var blocks = MarkdownPreview.Parse("> Worth remembering\n\n---\n");
