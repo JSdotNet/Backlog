@@ -103,6 +103,13 @@
           "path": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "title": "ADR 0001: Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3",
           "status": "accepted"
+        },
+        {
+          "type": "file",
+          "name": "0002-backlog-module-owns-the-entry-text-language.md",
+          "path": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "title": "ADR 0002: The Backlog module owns the entry text language",
+          "status": "accepted"
         }
       ]
     },
