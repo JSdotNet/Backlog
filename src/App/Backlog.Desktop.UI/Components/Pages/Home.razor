@@ -152,57 +152,78 @@
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
-    @if (_appUpdateWindowOpen)
-    {
-        <div class="app-update-backdrop" role="presentation">
-            <section class="app-update-dialog" role="dialog" aria-modal="true" aria-labelledby="app-update-title" aria-describedby="app-update-description" data-testid="app-update-dialog">
-                <header class="app-update-dialog__header">
-                    <div>
-                        <p class="app-update-dialog__eyebrow">Application updates</p>
-                        <h2 id="app-update-title">Update Backlog</h2>
-                    </div>
-                    <button type="button" class="btn btn--ghost btn--icon" aria-label="Close update window" disabled="@_updateBusy" @onclick="CloseUpdateWindow">x</button>
-                </header>
-                <p id="app-update-description" class="app-update-dialog__description">
-                    You are running Version <code>@Updates.CurrentVersion</code>. Check for a newer build here without crowding the header.
-                </p>
-                <div class="app-update-dialog__actions">
-                    <button type="button"
-                            class="btn btn--secondary"
-                            data-testid="check-for-updates"
-                            disabled="@_updateBusy"
-                            @onclick="CheckForUpdatesAsync">
-                        @AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)
-                    </button>
-                    @if (_appUpdateReady)
-                    {
-                        <button type="button"
-                                class="btn btn--primary"
-                                data-testid="install-update"
-                                disabled="@_updateBusy"
-                                @onclick="InstallUpdateAsync">
-                            @(_installingAppUpdate ? "Installing..." : "Install update")
-                        </button>
-                    }
+    @* The update and feedback shells are the shared Modal wearing their own
+       classes: same focus, Escape and open/close handling, same DOM. *@
+    <Modal Open="_appUpdateWindowOpen"
+           OpenChanged="value => { if (!value) CloseUpdateWindow(); }"
+           Element="section"
+           BaseClass="app-update-dialog"
+           BackdropCssClass="app-update-backdrop"
+           BackdropRole="presentation"
+           UseBodyWrapper="false"
+           CloseOnBackdropClick="false"
+           CloseOnEscape="@(!_updateBusy)"
+           TestId="app-update-dialog"
+           aria-labelledby="app-update-title"
+           aria-describedby="app-update-description">
+        <Header>
+            <header class="app-update-dialog__header">
+                <div>
+                    <p class="app-update-dialog__eyebrow">Application updates</p>
+                    <h2 id="app-update-title">Update Backlog</h2>
                 </div>
-                @if (_appUpdateMessage is not null)
+                <IconButton AriaLabel="Close update window" CssClass="btn--ghost" Disabled="@_updateBusy" OnClick="CloseUpdateWindow">x</IconButton>
+            </header>
+        </Header>
+        <ChildContent>
+            <p id="app-update-description" class="app-update-dialog__description">
+                You are running Version <code>@Updates.CurrentVersion</code>. Check for a newer build here without crowding the header.
+            </p>
+            <div class="app-update-dialog__actions">
+                <AppButton Variant="ButtonVariant.Secondary"
+                           data-testid="check-for-updates"
+                           Disabled="@_updateBusy"
+                           OnClick="CheckForUpdatesAsync">
+                    @AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)
+                </AppButton>
+                @if (_appUpdateReady)
                 {
-                    <p class="@_appUpdateStatusClass" data-testid="app-update-status" role="status">@_appUpdateMessage</p>
+                    <AppButton Variant="ButtonVariant.Primary"
+                               data-testid="install-update"
+                               Disabled="@_updateBusy"
+                               OnClick="InstallUpdateAsync">
+                        @(_installingAppUpdate ? "Installing..." : "Install update")
+                    </AppButton>
                 }
-            </section>
-        </div>
-    }
-    @if (IsFeatureEnabled(AppFeatureSettingsStore.FeedbackReporting) && _feedbackOpen)
+            </div>
+            <Alert Message="@_appUpdateMessage" BaseClass="@_appUpdateStatusClass" TestId="app-update-status" Role="status" />
+        </ChildContent>
+    </Modal>
+    @if (IsFeatureEnabled(AppFeatureSettingsStore.FeedbackReporting))
     {
-        <div class="feedback-backdrop" role="presentation">
-            <section class="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-title" aria-describedby="feedback-description" data-testid="feedback-dialog">
+        <Modal Open="_feedbackOpen"
+               OpenChanged="value => { if (!value) CloseFeedbackDialog(); }"
+               Element="section"
+               BaseClass="feedback-dialog"
+               BackdropCssClass="feedback-backdrop"
+               BackdropRole="presentation"
+               UseBodyWrapper="false"
+               CloseOnBackdropClick="false"
+               CloseOnEscape="@(!_feedbackSubmitting)"
+               TestId="feedback-dialog"
+               FooterCssClass="feedback-dialog__actions"
+               aria-labelledby="feedback-title"
+               aria-describedby="feedback-description">
+            <Header>
                 <header class="feedback-dialog__header">
                     <div>
                         <p class="feedback-dialog__eyebrow">GitHub feedback</p>
                         <h2 id="feedback-title">Report an issue</h2>
                     </div>
-                    <button type="button" class="btn btn--ghost btn--icon" aria-label="Close feedback dialog" disabled="@_feedbackSubmitting" @onclick="CloseFeedbackDialog">x</button>
+                    <IconButton AriaLabel="Close feedback dialog" CssClass="btn--ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">x</IconButton>
                 </header>
+            </Header>
+            <ChildContent>
                 <p id="feedback-description" class="feedback-dialog__description">Send a Desktop app issue to JSdotNet/Backlog. Add where on the current screen it happens; the app will ask which screen to capture when you submit.</p>
                 <label class="feedback-field" for="feedback-screen-area-input">
                     <span>Screen area</span>
@@ -218,19 +239,15 @@
                     <textarea id="feedback-details-input" data-testid="feedback-details-input" value="@_feedbackDetails" @oninput="OnFeedbackDetailsInput" rows="6" disabled="@_feedbackSubmitting"></textarea>
                 </label>
 
-                @if (_feedbackMessage is not null)
-                {
-                    <p class="@FeedbackStatusClass" role="@FeedbackStatusRole">@_feedbackMessage</p>
-                }
-
-                <footer class="feedback-dialog__actions">
-                    <button type="button" class="btn btn--ghost" disabled="@_feedbackSubmitting" @onclick="CloseFeedbackDialog">Cancel</button>
-                    <button type="button" class="btn btn--primary" data-testid="feedback-submit" disabled="@(_feedbackSubmitting || string.IsNullOrWhiteSpace(_feedbackTitle))" @onclick="SubmitFeedbackAsync">
-                        @(_feedbackSubmitting ? "Sending..." : "Create GitHub issue")
-                    </button>
-                </footer>
-            </section>
-        </div>
+                <Alert Message="@_feedbackMessage" BaseClass="@FeedbackStatusClass" Role="@FeedbackStatusRole" />
+            </ChildContent>
+            <Footer>
+                <AppButton Variant="ButtonVariant.Ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">Cancel</AppButton>
+                <AppButton Variant="ButtonVariant.Primary" data-testid="feedback-submit" Disabled="@(_feedbackSubmitting || string.IsNullOrWhiteSpace(_feedbackTitle))" OnClick="SubmitFeedbackAsync">
+                    @(_feedbackSubmitting ? "Sending..." : "Create GitHub issue")
+                </AppButton>
+            </Footer>
+        </Modal>
     }
 
     @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant) && _aiExpanded)
@@ -254,18 +271,14 @@
                       @oninput="e => _aiQuestion = e.Value?.ToString() ?? string.Empty"
                       @onkeydown="OnAiQuestionKeyDownAsync"></textarea>
             <div class="ai-panel__actions">
-                <button type="button"
-                        class="btn btn--secondary"
-                        data-testid="ai-ask-button"
-                        disabled="@_aiBusy"
-                        @onclick="AskAiAsync">
+                <AppButton Variant="ButtonVariant.Secondary"
+                           data-testid="ai-ask-button"
+                           Disabled="@_aiBusy"
+                           OnClick="AskAiAsync">
                     @(_aiBusy ? "Asking..." : "Ask")
-                </button>
+                </AppButton>
             </div>
-            @if (_aiError is not null)
-            {
-                <p class="ai-panel__error" data-testid="ai-error" role="alert">@_aiError</p>
-            }
+            <Alert Message="@_aiError" BaseClass="ai-panel__error" TestId="ai-error" />
             @if (_aiAnswer is not null)
             {
                 <article class="ai-panel__answer" data-testid="ai-answer">
@@ -321,10 +334,9 @@
 
     @if (State.FilteredRows.Count == 0)
     {
-        <div class="empty-state" data-testid="empty-state">
-            <p class="empty-state__title">Nothing here yet.</p>
-            <p class="empty-state__body">Write your first entry to start triaging the backlog.</p>
-        </div>
+        <EmptyState Title="Nothing here yet."
+                    Description="Write your first entry to start triaging the backlog."
+                    data-testid="empty-state" />
     }
     else
     {
@@ -368,14 +380,14 @@
                             @RenderEntryMetadata(row, oneLine)
                         }
 
-                        @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && row.GitHubError is not null)
+                        @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration))
                         {
-                            <p class="entry-doc__gh-error" data-testid="github-error" role="status">@row.GitHubError</p>
+                            <Alert Message="@row.GitHubError" BaseClass="entry-doc__gh-error" TestId="github-error" Role="status" />
                         }
 
-                        @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli) && row.CopilotError is not null)
+                        @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli))
                         {
-                            <p class="entry-doc__gh-error" data-testid="copilot-cli-error" role="status">@row.CopilotError</p>
+                            <Alert Message="@row.CopilotError" BaseClass="entry-doc__gh-error" TestId="copilot-cli-error" Role="status" />
                         }
                         @if (editing)
                         {
@@ -1264,7 +1276,7 @@
                                     <p class="inbox-pane__item-title">@(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle)</p>
                                     <p class="inbox-pane__item-meta">Draft · @(string.IsNullOrWhiteSpace(row.PreviewArea) ? "Unfiled" : row.PreviewArea)</p>
                                 </div>
-                                <button type="button" class="btn btn--ghost" @onclick="() => OpenInboxItem(row)">Open in backlog</button>
+                                <AppButton Variant="ButtonVariant.Ghost" OnClick="() => OpenInboxItem(row)">Open in backlog</AppButton>
                             </li>
                         }
                     </ul>
@@ -1282,7 +1294,7 @@
                 </div>
                 <div class="tools-panel__header-actions">
                     <span class="tools-panel__count">@(_tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools")</span>
-                    <button type="button" class="btn btn--ghost btn--icon" aria-label="Close tools pane" @onclick="OnToolsToggleAsync">✕</button>
+                    <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="OnToolsToggleAsync">✕</IconButton>
                 </div>
             </header>
 
@@ -1290,12 +1302,12 @@
                 <div class="tools-panel__toolbar">
                     <p class="tools-panel__message" role="status">@(_toolMessage ?? "Checking configured tools...")</p>
                     <div class="tools-panel__toolbar-actions">
-                        <button type="button" class="btn btn--secondary" disabled="@(_toolsLoading || ToolActionBusy)" @onclick="RefreshToolsAsync">
+                        <AppButton Variant="ButtonVariant.Secondary" Disabled="@(_toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync">
                             @(_toolsLoading ? "Checking..." : "Check for updates")
-                        </button>
-                        <button type="button" class="btn btn--primary" disabled="@(_toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" @onclick="UpdateAllToolsAsync">
+                        </AppButton>
+                        <AppButton Variant="ButtonVariant.Primary" Disabled="@(_toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
                             @(_toolActionKey == "__all__" ? "Updating..." : "Update all")
-                        </button>
+                        </AppButton>
                     </div>
                 </div>
 
@@ -1329,23 +1341,21 @@
                                 <div role="cell" class="tools-table__actions">
                                     @if (tool.CanUpdate)
                                     {
-                                        <button type="button"
-                                                class="btn btn--secondary"
-                                                disabled="@(_toolsLoading || ToolActionBusy)"
-                                                @onclick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
+                                        <AppButton Variant="ButtonVariant.Secondary"
+                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                   OnClick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
                                             Update
-                                        </button>
+                                        </AppButton>
                                     }
                                     else
                                     {
                                         <span class="tools-table__action-note">@(tool.ConfiguredEnabled ? "Up to date" : "Disabled")</span>
                                     }
-                                    <button type="button"
-                                            class="btn btn--ghost"
-                                            disabled="@(_toolsLoading || ToolActionBusy)"
-                                            @onclick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
+                                    <AppButton Variant="ButtonVariant.Ghost"
+                                               Disabled="@(_toolsLoading || ToolActionBusy)"
+                                               OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
                                         @(tool.ConfiguredEnabled ? "Disable" : "Enable")
-                                    </button>
+                                    </AppButton>
                                 </div>
                             </div>
                         }
@@ -1427,13 +1437,13 @@
 
                 @if (row.Origin is { } origin)
                 {
-                    <span class="badge badge--source" data-testid="entry-source-badge" title="@origin.RepositoryFullName · @origin.RelativePath">
+                    <Badge Kind="source" data-testid="entry-source-badge" Title="@($"{origin.RepositoryFullName} · {origin.RelativePath}")">
                         <code>@origin.RelativePath</code>
-                    </span>
+                    </Badge>
                 }
                 else if (!row.IsPersisted)
                 {
-                    <span class="badge badge--draft" data-testid="draft-hint">Unsaved — give it a title line</span>
+                    <Badge Kind="draft" data-testid="draft-hint">Unsaved — give it a title line</Badge>
                 }
 
                 <StatusSelector CurrentValue="@row.PreviewStatus.ToString()"
@@ -1531,7 +1541,7 @@
                 <label class="metadata-editor metadata-editor--type badge badge--type" data-testid="subitem-type-badge">
                     <span class="sr-only">Change sub-item type</span>
                     <select class="metadata-editor__select"
-                            value="@(subItem.Type ?? EntryType.Task)"
+                            value="@(subItem.EntryMetadata()?.Type ?? EntryType.Task)"
                             aria-label="Change sub-item type"
                             title="Change sub-item type"
                             @onchange="e => OnSubItemTypeChangedAsync(row, position, e)">
@@ -1542,7 +1552,7 @@
                     </select>
                 </label>
 
-                <PrioritySelector CurrentValue="@(subItem.Priority ?? Priority.Medium)"
+                <PrioritySelector CurrentValue="@(subItem.EntryMetadata()?.Priority ?? Priority.Medium)"
                                   Options="@PriorityOptions()"
                                   Label="Change sub-item priority"
                                   TestId="subitem-priority-badge"
@@ -1563,7 +1573,7 @@
                     @RenderSubItemTagEditor(row, subItem, position)
                 </span>
 
-                <StatusSelector CurrentValue="@((subItem.Status ?? (subItem.Done ? EntryStatus.Done : EntryStatus.Draft)).ToString())"
+                <StatusSelector CurrentValue="@((subItem.EntryMetadata()?.Status ?? (subItem.Done ? EntryStatus.Done : EntryStatus.Draft)).ToString())"
                                 Options="@StatusSelectorOptions()"
                                 Label="Change sub-item status"
                                 TestId="subitem-status-badge"
@@ -1977,7 +1987,7 @@
     private static string TagsInputValue(EntryRow row) => EntryTextParser.FormatTagsInput(row.PreviewMetadataTags);
 
     private static string TagsInputValue(MdSubItem subItem) =>
-        EntryTextParser.FormatTagsInput(subItem.MetadataTags ?? []);
+        EntryTextParser.FormatTagsInput(subItem.MetadataTags);
 
     [JSInvokable]
     public Task SetSidePaneWidthAsync(double widthRem)

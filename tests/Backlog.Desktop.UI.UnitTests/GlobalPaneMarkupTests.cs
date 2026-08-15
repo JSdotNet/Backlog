@@ -52,12 +52,14 @@ public sealed class GlobalPaneMarkupTests
     public void Home_receives_viewport_pane_capacity_from_javascript()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
-        var appJs = NormalizeLineEndings(File.ReadAllText(FindAppJs()));
+        // The resizer moved into the shared component library; Home still owns
+        // the callback it reports into.
+        var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
 
         Assert.Contains("public Task SetGlobalPaneCapacityAsync(int capacity)", home, StringComparison.Ordinal);
-        Assert.Contains("backlogPaneOwner.invokeMethodAsync('SetGlobalPaneCapacityAsync', backlogPaneCapacity());", appJs, StringComparison.Ordinal);
-        Assert.Contains("const BACKLOG_SINGLE_PANE_MAX_REM = 72;", appJs, StringComparison.Ordinal);
-        Assert.Contains("const BACKLOG_THREE_PANE_MIN_REM = 96;", appJs, StringComparison.Ordinal);
+        Assert.Contains("backlogPaneOwner.invokeMethodAsync('SetGlobalPaneCapacityAsync', backlogPaneCapacity());", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("const BACKLOG_SINGLE_PANE_MAX_REM = 72;", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("const BACKLOG_THREE_PANE_MIN_REM = 96;", componentsJs, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -93,7 +95,10 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("data-testid=\"app-version\"", home, StringComparison.Ordinal);
         Assert.Contains("@onclick=\"OpenUpdateWindow\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"app-update-dialog\"", home, StringComparison.Ordinal);
+        // The dialog shell is now the shared Modal component, so the test id
+        // reaches the DOM through its TestId parameter instead of a literal
+        // attribute.
+        Assert.Contains("TestId=\"app-update-dialog\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"check-for-updates\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"install-update\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("app-version__hint", home, StringComparison.Ordinal);
@@ -165,6 +170,8 @@ public sealed class GlobalPaneMarkupTests
     private static string FindHomeRazor() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "Components", "Pages", "Home.razor"));
 
     private static string FindAppJs() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.js"));
+
+    private static string FindComponentsJs() => FindProjectFile(Path.Combine("src", "UI", "Backlog.UI.Components", "wwwroot", "components.js"));
 
     private static string FindProjectFile(string relativePath)
     {

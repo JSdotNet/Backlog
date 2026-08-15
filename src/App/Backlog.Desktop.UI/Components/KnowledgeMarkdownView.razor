@@ -8,7 +8,7 @@
                 @if (heading.Metadata.Status != "draft" || heading.Metadata.Related.Count > 0)
                 {
                     <p class="knowledge-meta-line">
-                        <span class="knowledge-status knowledge-status--@heading.Metadata.Status">@heading.Metadata.Status</span>
+                        <StatusBadge BaseClass="knowledge-status" Kind="" Status="@heading.Metadata.Status" />
                         @foreach (var related in heading.Metadata.Related)
                         {
                             <a class="knowledge-relation" href="@KnowledgeHref(related)">@related</a>

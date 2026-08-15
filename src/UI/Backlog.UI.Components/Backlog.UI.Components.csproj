@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Backlog.UI.Components</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The markdown parser moved here together with the view that renders it, and
+         it is still worth testing directly rather than only through a component. -->
+    <InternalsVisibleTo Include="Backlog.UI.Components.UnitTests" />
+  </ItemGroup>
+
+</Project>

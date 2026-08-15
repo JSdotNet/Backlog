@@ -7,21 +7,21 @@
 <h1>Inbox</h1>
 
 <div class="capture">
-    <input @bind="_draft" @bind:event="oninput" placeholder="Quick capture…" aria-label="Quick capture" />
-    <button @onclick="CaptureAsync" disabled="@string.IsNullOrWhiteSpace(_draft)">Capture</button>
+    <TextField @bind-Value="_draft" AriaLabel="Quick capture" Placeholder="Quick capture…" CssClass="capture__field" />
+    <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(_draft)" OnClick="CaptureAsync">Capture</AppButton>
 </div>
 
 @if (_error is not null)
 {
-    <p class="error">Cloud sync unavailable: @_error</p>
+    <Alert Message="@($"Cloud sync unavailable: {_error}")" BaseClass="error" />
 }
 else if (_items is null)
 {
-    <p>Loading…</p>
+    <Spinner Label="Loading the inbox" />
 }
 else if (_items.Count == 0)
 {
-    <p>Inbox is empty.</p>
+    <EmptyState Title="Inbox is empty." />
 }
 else
 {
@@ -31,7 +31,7 @@ else
             <li>
                 <span class="title">@item.Title</span>
                 <span class="source">@item.Source</span>
-                <button @onclick="() => AcknowledgeAsync(item.Id)" aria-label="@($"Triage {item.Title}")">Triage</button>
+                <AppButton aria-label="@($"Triage {item.Title}")" OnClick="() => AcknowledgeAsync(item.Id)">Triage</AppButton>
             </li>
         }
     </ul>

@@ -1,0 +1,23 @@
+@using Backlog.UI.Storybook.Components
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backlog UI Storybook</title>
+    <base href="/" />
+    <link rel="stylesheet" href="_content/Backlog.UI.Components/components.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="Backlog.UI.Storybook.styles.css" />
+    <link rel="icon" href="data:,">
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+
+    <script src="_framework/blazor.web.js"></script>
+    <script src="_content/Backlog.UI.Components/components.js"></script>
+</body>
+
+</html>

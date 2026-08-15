@@ -1,0 +1,101 @@
+@page "/diagrams"
+
+<PageTitle>Diagrams — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Diagrams"
+           Summary="DiagramView renders mermaid in the browser and shows the source for everything else. GraphView hands arbitrary node/edge data to a JS renderer.">
+
+    <Story Name="Mermaid flowchart"
+           Description="Rendered by backlogDiagrams.render, which loads mermaid on first use. The source stays available under the diagram."
+           Code="@FlowchartCode">
+        <DiagramView Title="Slice flow" Language="mermaid" Source="@Flowchart" />
+    </Story>
+
+    <Story Name="Mermaid sequence diagram"
+           Description="Same component, different mermaid dialect — the language attribute is all that decides whether it renders.">
+        <DiagramView Title="Auto-save" Language="mermaid" Source="@Sequence" />
+    </Story>
+
+    <Story Name="A language that cannot be rendered"
+           Description="CanRender is false for plantuml, so the component shows the source instead of pretending it failed. Nothing is lost and nothing is loaded.">
+        <DiagramView Title="Component overview" Language="plantuml" Source="@PlantUml" />
+    </Story>
+
+    <Story Name="Broken mermaid source"
+           Description="Mermaid rejects the source, and the fallback says so while keeping the text readable — a half-typed diagram in an entry must not blank the page.">
+        <DiagramView Title="Broken on purpose" Language="mermaid" Source="@BrokenMermaid" />
+    </Story>
+
+    <Story Name="GraphView"
+           Description="A generic node/edge object through the default backlogDiagrams.renderGraph. The data is a plain anonymous object, so the component never learns the caller's model."
+           Code="@GraphCode">
+        <GraphView Title="Component library"
+                   Description="What the storybook references, and what it deliberately does not."
+                   BadgeText="demo"
+                   Data="GraphData" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private const string Flowchart = """
+        flowchart TD
+            A[Desktop UI] --> B[Backlog.UI.Components]
+            C[Mobile UI] --> B
+            D[Storybook] --> B
+            B --> E[components.css]
+            B --> F[components.js]
+        """;
+
+    private const string Sequence = """
+        sequenceDiagram
+            participant U as User
+            participant E as Editor
+            participant S as Store
+            U->>E: types
+            E->>S: save (debounced)
+            S-->>E: saved
+            E-->>U: SaveIndicator shows Saved
+        """;
+
+    private const string PlantUml = """
+        @startuml
+        package "Backlog.UI.Components" {
+          [Buttons]
+          [Inputs]
+          [Markdown]
+        }
+        @enduml
+        """;
+
+    // Deliberately invalid: "flowchart" with no direction and an unclosed node.
+    private const string BrokenMermaid = """
+        flowchart
+            A[Unclosed --> B]]]
+            -->
+        """;
+
+    private static readonly object GraphData = new
+    {
+        nodes = new object[]
+        {
+            new { id = "storybook", label = "Backlog.UI.Storybook" },
+            new { id = "components", label = "Backlog.UI.Components" },
+            new { id = "servicedefaults", label = "Backlog.Aspire.ServiceDefaults" },
+            new { id = "modules", label = "Backlog.Modules.* (not referenced)" }
+        },
+        edges = new object[]
+        {
+            new { source = "storybook", target = "components" },
+            new { source = "storybook", target = "servicedefaults" }
+        }
+    };
+
+    private const string FlowchartCode = """
+        <DiagramView Title="Slice flow" Language="mermaid" Source="@source" />
+        """;
+
+    private const string GraphCode = """
+        <GraphView Title="Component library" Data="new { nodes = ..., edges = ... }" />
+        """;
+}

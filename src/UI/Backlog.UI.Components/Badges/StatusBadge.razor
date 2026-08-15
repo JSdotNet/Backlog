@@ -1,0 +1,37 @@
+<Badge Kind="@Kind" Slug="@Slug" BaseClass="@BaseClass" TestId="@TestId" CssClass="@CssClass" Title="@Title" @attributes="AdditionalAttributes">@Label</Badge>
+
+@code {
+    [Parameter]
+    public string Status { get; set; } = string.Empty;
+
+    /// <summary>Overrides the visible text; the slug still comes from Status.</summary>
+    [Parameter]
+    public string? Text { get; set; }
+
+    [Parameter]
+    public string FallbackSlug { get; set; } = "draft";
+
+    /// <summary>The badge dimension. Empty collapses the modifier to
+    /// <c>&lt;base&gt;--&lt;slug&gt;</c>.</summary>
+    [Parameter]
+    public string Kind { get; set; } = "status";
+
+    [Parameter]
+    public string BaseClass { get; set; } = "badge";
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Slug => BadgeSlug.Of(Status, FallbackSlug);
+
+    private string Label => string.IsNullOrWhiteSpace(Text) ? Status : Text;
+}

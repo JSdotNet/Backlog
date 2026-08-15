@@ -1,0 +1,220 @@
+@page "/feedback"
+@implements IDisposable
+
+<PageTitle>Feedback — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Feedback"
+           Summary="What the UI says when something is loading, missing, saving, or worth announcing.">
+
+    <Story Name="Alert"
+           Description="Renders nothing at all when there is no message, so a host can bind it straight to a nullable error without guarding."
+           Code="@AlertCode">
+        <div class="sb-stack">
+            <Alert Message="The folder could not be opened." TestId="alert-error" />
+            <Alert Message="Sync finished with warnings." Role="status" TestId="alert-status" />
+            <Alert Message="@_alertMessage" TestId="alert-toggled" />
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="ToggleAlert">
+                    @(_alertMessage is null ? "Raise an alert" : "Clear the alert")
+                </AppButton>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="EmptyState"
+           Description="With an action when there is something to do about it, without one when there is not."
+           Code="@EmptyCode">
+        <div class="sb-stack">
+            <EmptyState Title="No entries yet"
+                        Description="Everything you capture will show up here."
+                        TestId="empty-with-action">
+                <Icon><span aria-hidden="true">📝</span></Icon>
+                <Action>
+                    <AppButton Variant="ButtonVariant.Primary" OnClick="() => _created++">New entry</AppButton>
+                </Action>
+            </EmptyState>
+            <p class="sb-state" data-testid="empty-created">Created: @_created</p>
+
+            <EmptyState Title="Nothing matches this filter"
+                        Description="Clear the search to see everything again."
+                        TestId="empty-no-action" />
+        </div>
+    </Story>
+
+    <Story Name="EmptyState wearing a host's own classes"
+           Description="Each class is a parameter with the default as its value, so a host can replace it or pass null to get the bare element. A null ActionCssClass drops the action wrapper, and DescriptionContent covers the case where the description is more than text."
+           Code="@EmptyClassCode">
+        <div class="sb-stack">
+            <EmptyState BaseClass="knowledge-empty"
+                        Title="No arc42 folder here yet."
+                        TitleCssClass="knowledge-empty__title"
+                        DescriptionCssClass="@(null)"
+                        TestId="empty-host-classes"
+                        role="status">
+                <DescriptionContent>
+                    Point storage at a repository root that contains <code>.arc42</code> to browse architecture chapters.
+                </DescriptionContent>
+            </EmptyState>
+
+            <EmptyState BaseClass="knowledge-empty"
+                        Title="No instruction source is configured."
+                        TitleCssClass="@(null)"
+                        ActionCssClass="@(null)"
+                        TestId="empty-bare-action"
+                        role="status">
+                <Action>
+                    <a href="/">Open storage settings</a>
+                </Action>
+            </EmptyState>
+        </div>
+    </Story>
+
+    <Story Name="Spinner"
+           Description="Three sizes; the label is what a screen reader hears."
+           Code="@SpinnerCode">
+        <div class="sb-row">
+            <Spinner Size="SpinnerSize.Small" Label="Loading small" />
+            <Spinner Size="SpinnerSize.Medium" Label="Loading medium" />
+            <Spinner Size="SpinnerSize.Large" Label="Loading large" />
+        </div>
+    </Story>
+
+    <Story Name="SaveIndicator"
+           Description="All four states, plus a run through the sequence the product actually produces: Idle, Saving, Saved."
+           Code="@SaveCode">
+        <div class="sb-stack">
+            @foreach (var state in SaveStates)
+            {
+                <div class="sb-row">
+                    <span class="sb-label">@state</span>
+                    <SaveIndicator State="state" />
+                </div>
+            }
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Primary" OnClick="RunSaveAsync">Run a save</AppButton>
+                <SaveIndicator State="_saveState" TestId="save-indicator-live" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Toast and ToastHost"
+           Description="One live region for the whole page; toasts come and go inside it. Each one dismisses itself after its duration, and can be dismissed sooner."
+           Code="@ToastCode">
+        <div class="sb-row">
+            @foreach (var severity in Severities)
+            {
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="() => Raise(severity)">
+                    @severity.ToString()
+                </AppButton>
+            }
+        </div>
+
+        <ToastHost TestId="toast-host">
+            @foreach (var toast in _toasts)
+            {
+                <Toast @key="toast.Id"
+                       Title="@toast.Severity.ToString()"
+                       Message="@toast.Message"
+                       Severity="toast.Severity"
+                       DurationMilliseconds="6000"
+                       TestId="@($"toast-{toast.Severity}".ToLowerInvariant())"
+                       OnDismissed="() => Dismiss(toast.Id)" />
+            }
+        </ToastHost>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly SaveState[] SaveStates =
+        [SaveState.Idle, SaveState.Saving, SaveState.Saved, SaveState.Failed];
+
+    private static readonly ToastSeverity[] Severities =
+        [ToastSeverity.Info, ToastSeverity.Success, ToastSeverity.Warning, ToastSeverity.Error];
+
+    private sealed record DemoToast(int Id, ToastSeverity Severity, string Message);
+
+    private readonly List<DemoToast> _toasts = [];
+    private int _nextToastId;
+    private int _created;
+    private string? _alertMessage;
+    private SaveState _saveState = SaveState.Idle;
+    private CancellationTokenSource? _saveRun;
+
+    private void ToggleAlert() =>
+        _alertMessage = _alertMessage is null ? "Something went wrong, and this line says what." : null;
+
+    private void Raise(ToastSeverity severity)
+    {
+        _toasts.Add(new DemoToast(_nextToastId++, severity, $"A {severity} notification, raised from the storybook."));
+    }
+
+    private void Dismiss(int id) => _toasts.RemoveAll(toast => toast.Id == id);
+
+    private async Task RunSaveAsync()
+    {
+        _saveRun?.Cancel();
+        _saveRun?.Dispose();
+        _saveRun = new CancellationTokenSource();
+        var token = _saveRun.Token;
+
+        _saveState = SaveState.Idle;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(300), token);
+            _saveState = SaveState.Saving;
+            StateHasChanged();
+
+            await Task.Delay(TimeSpan.FromMilliseconds(1200), token);
+            _saveState = SaveState.Saved;
+            StateHasChanged();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    public void Dispose()
+    {
+        _saveRun?.Cancel();
+        _saveRun?.Dispose();
+    }
+
+    private const string AlertCode = """
+        <Alert Message="@_error" />
+        """;
+
+    private const string EmptyCode = """
+        <EmptyState Title="No entries yet" Description="Everything you capture will show up here.">
+            <Action><AppButton Variant="ButtonVariant.Primary">New entry</AppButton></Action>
+        </EmptyState>
+        """;
+
+    private const string EmptyClassCode = """
+        <EmptyState BaseClass="knowledge-empty"
+                    Title="No arc42 folder here yet."
+                    TitleCssClass="knowledge-empty__title"
+                    DescriptionCssClass="@(null)"
+                    role="status">
+            <DescriptionContent>
+                Point storage at a repository root that contains <code>.arc42</code>.
+            </DescriptionContent>
+        </EmptyState>
+        """;
+
+    private const string SpinnerCode = """
+        <Spinner Size="SpinnerSize.Small" Label="Loading" />
+        """;
+
+    private const string SaveCode = """
+        <SaveIndicator State="_saveState" />
+        """;
+
+    private const string ToastCode = """
+        <ToastHost>
+            <Toast Message="@toast.Message" Severity="toast.Severity" OnDismissed="() => Dismiss(toast.Id)" />
+        </ToastHost>
+        """;
+}

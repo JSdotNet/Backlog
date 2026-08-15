@@ -1,0 +1,256 @@
+@page "/inputs"
+
+<PageTitle>Inputs — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Inputs"
+           Summary="Text, long text, search, and the two switches. Every one of them is two-way bound to the state shown underneath it.">
+
+    <Story Name="TextField"
+           Description="Label, help text and error message are all optional; when an error is set it replaces the help text and is announced."
+           Code="@TextFieldCode">
+        <div class="sb-grid">
+            <div>
+                <TextField Label="Title"
+                           Value="@_title"
+                           ValueChanged="v => _title = v"
+                           Placeholder="What is this about?"
+                           TestId="input-title" />
+                <p class="sb-state" data-testid="input-title-value">@Show(_title)</p>
+            </div>
+            <div>
+                <TextField Label="Repository URL"
+                           Type="url"
+                           Value="@_url"
+                           ValueChanged="v => _url = v"
+                           HelpText="Used only to build links; nothing is fetched."
+                           TestId="input-url" />
+                <p class="sb-state" data-testid="input-url-value">@Show(_url)</p>
+            </div>
+            <div>
+                <TextField Label="Estimate (hours)"
+                           Type="number"
+                           Value="@_estimate"
+                           ValueChanged="v => _estimate = v"
+                           TestId="input-estimate" />
+                <p class="sb-state" data-testid="input-estimate-value">@Show(_estimate)</p>
+            </div>
+            <div>
+                <TextField Label="Due date" Type="date" Value="@_due" ValueChanged="v => _due = v" />
+                <p class="sb-state">@Show(_due)</p>
+            </div>
+            <div>
+                <TextField Label="Alias"
+                           Value="@_alias"
+                           ValueChanged="v => _alias = v"
+                           ErrorMessage="@AliasError"
+                           HelpText="Lowercase letters and hyphens."
+                           TestId="input-alias" />
+                <p class="sb-state">Type a capital letter to see the error state.</p>
+            </div>
+            <div>
+                <TextField Label="Disabled" Value="Cannot be edited" Disabled="true" />
+                <TextField Label="Readonly" Value="Can be copied, not changed" Readonly="true" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="TextArea"
+           Description="AutoGrow is on by default: the box follows the text instead of introducing an inner scrollbar. The fixed one shows the difference."
+           Code="@TextAreaCode">
+        <div class="sb-columns">
+            <div>
+                <p class="sb-label">AutoGrow = true (default)</p>
+                <TextArea Label="Notes"
+                          Value="@_notes"
+                          ValueChanged="v => _notes = v"
+                          Placeholder="Type several lines and watch it grow"
+                          TestId="input-notes" />
+            </div>
+            <div>
+                <p class="sb-label">AutoGrow = false, Rows = 3</p>
+                <TextArea Label="Notes"
+                          Value="@_notes"
+                          ValueChanged="v => _notes = v"
+                          AutoGrow="false"
+                          Rows="3"
+                          HelpText="Same value, fixed height."
+                          TestId="input-notes-fixed" />
+            </div>
+        </div>
+        <TextArea Label="With an error"
+                  Value="@_notes"
+                  ValueChanged="v => _notes = v"
+                  ErrorMessage="A body is required." />
+        <p class="sb-state" data-testid="input-notes-value">@_notes.Length characters</p>
+    </Story>
+
+    <Story Name="SearchBox"
+           Description="The bound value lags the keystrokes by the debounce, which is the whole point: a filter runs once, when typing stops."
+           Code="@SearchCode">
+        <div class="sb-stack">
+            <SearchBox Value="@_query"
+                       ValueChanged="v => _query = v"
+                       Placeholder="Search entries"
+                       DebounceMilliseconds="300"
+                       TestId="input-search" />
+            <p class="sb-state" data-testid="input-search-value">Debounced value = @Show(_query)</p>
+            <SearchBox Value="" Placeholder="Disabled" Disabled="true" />
+        </div>
+    </Story>
+
+    <Story Name="Toggle"
+           Description="role=switch, so it is announced as on or off rather than as a checkbox."
+           Code="@ToggleCode">
+        <div class="sb-stack">
+            <Toggle Checked="_syncEnabled"
+                    CheckedChanged="v => _syncEnabled = v"
+                    Label="Sync with the cloud"
+                    Description="Entries are kept locally either way."
+                    TestId="input-sync" />
+            <Toggle Checked="_showArchived"
+                    CheckedChanged="v => _showArchived = v"
+                    Label="Show archived entries"
+                    TestId="input-archived" />
+            <Toggle Checked="true" Label="Locked on" Disabled="true" />
+            <p class="sb-state" data-testid="input-toggle-value">
+                Sync: @_syncEnabled &nbsp;|&nbsp; Archived: @_showArchived
+            </p>
+        </div>
+    </Story>
+
+    <Story Name="Toggle as a feature-flag row"
+           Description="NativeCheckbox renders a real checkbox inside a label, so the whole row is clickable and the control has form semantics. The class hooks let a host name every part, and the flag-row look ships with the library."
+           Code="@FlagToggleCode">
+        <div class="feature-flags" role="list" aria-label="Feature flags">
+            <Toggle NativeCheckbox="true"
+                    BaseClass="feature-flag"
+                    TextCssClass="feature-flag__content"
+                    LabelCssClass="feature-flag__title"
+                    DescriptionCssClass="feature-flag__description"
+                    Label="GitHub integration"
+                    Description="Push entries to issues and read their state back."
+                    Checked="_githubFlag"
+                    CheckedChanged="v => _githubFlag = v"
+                    TestId="flag-github"
+                    role="listitem" />
+            <Toggle NativeCheckbox="true"
+                    BaseClass="feature-flag"
+                    CssClass="feature-flag--locked"
+                    TextCssClass="feature-flag__content"
+                    LabelCssClass="feature-flag__title"
+                    DescriptionCssClass="feature-flag__description"
+                    Label="Backlog"
+                    Description="The one thing this app is for."
+                    Checked="true"
+                    Disabled="true"
+                    TestId="flag-backlog"
+                    role="listitem">
+                <TextContent>
+                    <span class="feature-flag__status">Always available</span>
+                </TextContent>
+            </Toggle>
+        </div>
+        <p class="sb-state" data-testid="input-flag-value">GitHub integration: @_githubFlag</p>
+    </Story>
+
+    <Story Name="Checkbox"
+           Description="The 'all' box is indeterminate whenever some — but not all — of the children are checked, which is state the browser cannot derive on its own."
+           Code="@CheckboxCode">
+        <div class="sb-stack">
+            <Checkbox Checked="AllChecked"
+                      CheckedChanged="SetAll"
+                      Indeterminate="SomeChecked"
+                      Label="All areas"
+                      TestId="check-all" />
+            @foreach (var area in Areas)
+            {
+                <Checkbox Checked="_checked.Contains(area)"
+                          CheckedChanged="v => SetArea(area, v)"
+                          Label="@area"
+                          TestId="@($"check-{area.ToLowerInvariant()}")" />
+            }
+            <Checkbox Checked="false" Label="Disabled" Disabled="true" />
+            <p class="sb-state" data-testid="input-checkbox-value">[@string.Join(", ", _checked)]</p>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly string[] Areas = ["Product", "Platform", "Design"];
+
+    private string _title = "Storybook for Backlog.UI.Components";
+    private string _url = "https://github.com/JSdotNet/Backlog";
+    private string _estimate = "3";
+    private string _due = "2026-08-31";
+    private string _alias = "backlog";
+    private string _notes = "The read view and the editor show the same text.\nAdd a line to see AutoGrow work.";
+    private string _query = string.Empty;
+    private bool _syncEnabled = true;
+    private bool _showArchived;
+    private bool _githubFlag = true;
+    private readonly HashSet<string> _checked = ["Product"];
+
+    private string? AliasError => _alias.Any(char.IsUpper) ? "Use lowercase letters only." : null;
+
+    private bool AllChecked => _checked.Count == Areas.Length;
+
+    private bool SomeChecked => _checked.Count > 0 && _checked.Count < Areas.Length;
+
+    private void SetAll(bool value)
+    {
+        _checked.Clear();
+        if (!value) return;
+
+        foreach (var area in Areas)
+        {
+            _checked.Add(area);
+        }
+    }
+
+    private void SetArea(string area, bool value)
+    {
+        if (value)
+        {
+            _checked.Add(area);
+        }
+        else
+        {
+            _checked.Remove(area);
+        }
+    }
+
+    private static string Show(string? value) => string.IsNullOrEmpty(value) ? "(empty)" : value;
+
+    private const string TextFieldCode = """
+        <TextField Label="Title" @bind-Value="_title" Placeholder="What is this about?" />
+        """;
+
+    private const string TextAreaCode = """
+        <TextArea Label="Notes" @bind-Value="_notes" />
+        """;
+
+    private const string SearchCode = """
+        <SearchBox Value="@_query" ValueChanged="v => _query = v" DebounceMilliseconds="300" />
+        """;
+
+    private const string ToggleCode = """
+        <Toggle Checked="_syncEnabled" CheckedChanged="v => _syncEnabled = v" Label="Sync with the cloud" />
+        """;
+
+    private const string FlagToggleCode = """
+        <Toggle NativeCheckbox="true"
+                BaseClass="feature-flag"
+                TextCssClass="feature-flag__content"
+                LabelCssClass="feature-flag__title"
+                DescriptionCssClass="feature-flag__description"
+                Label="GitHub integration"
+                Description="Push entries to issues and read their state back."
+                Checked="_githubFlag"
+                CheckedChanged="v => _githubFlag = v" />
+        """;
+
+    private const string CheckboxCode = """
+        <Checkbox Checked="AllChecked" CheckedChanged="SetAll" Indeterminate="SomeChecked" Label="All areas" />
+        """;
+}

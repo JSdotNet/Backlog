@@ -1,0 +1,73 @@
+@*
+    The fold affordance the entry cards use: the whole title line is the button,
+    and the chevron only rotates. `aria-expanded` is the state — the chevron
+    glyph is decoration and stays hidden from assistive tech.
+*@
+
+<button type="button"
+        class="@ClassValue"
+        data-testid="@TestId"
+        aria-expanded="@(Expanded ? "true" : "false")"
+        aria-controls="@Controls"
+        aria-label="@AriaLabel"
+        disabled="@Disabled"
+        @onclick="ToggleAsync"
+        @attributes="AdditionalAttributes">
+    <span class="@ChevronClass" aria-hidden="true">&#9656;</span>
+    <span class="fold__label">@(ChildContent ?? DefaultLabel)</span>
+</button>
+
+@code {
+    [Parameter]
+    public bool Expanded { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> ExpandedChanged { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>Id of the region this control folds, for `aria-controls`.</summary>
+    [Parameter]
+    public string? Controls { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private RenderFragment DefaultLabel => builder => builder.AddContent(0, Label);
+
+    private string ChevronClass => Expanded
+        ? "fold__chevron entry-doc__fold-chevron entry-doc__fold-chevron--open"
+        : "fold__chevron entry-doc__fold-chevron";
+
+    private string ClassValue
+    {
+        get
+        {
+            var state = Expanded ? " fold--open" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"fold entry-doc__title-button{state}{extra}";
+        }
+    }
+
+    private Task ToggleAsync()
+    {
+        Expanded = !Expanded;
+        return ExpandedChanged.InvokeAsync(Expanded);
+    }
+}

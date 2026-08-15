@@ -1,16 +1,15 @@
+@*
+    The strip itself is a shared component; all this file does is unpack the
+    app's DesignKnowledgeMeta into it. HasFields stays the gate here because
+    Status always reads back as "unknown" rather than empty.
+*@
+
 @if (Meta.HasFields)
 {
-    <div class="knowledge-meta" aria-label="Metadata">
-        <span class="knowledge-status knowledge-status--@Meta.Status">@Meta.Status</span>
-        @foreach (var related in Meta.Related)
-        {
-            <code class="knowledge-related">@related</code>
-        }
-    </div>
+    <MetadataBadge Status="@Meta.Status" Related="@Meta.Related" />
 }
 
 @code {
     [Parameter, EditorRequired]
     public DesignKnowledgeMeta Meta { get; set; } = DesignKnowledgeMeta.Empty;
 }
-

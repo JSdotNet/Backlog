@@ -1,0 +1,169 @@
+/*
+    Storybook chrome only: the page frame, the story cards and the code samples.
+    Nothing here restyles a component from Backlog.UI.Components — if it did,
+    this preview would stop being a truthful picture of the app.
+
+    Dark is the only theme, so there is no light palette here either.
+*/
+
+html, body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
+}
+
+.sb-page__header {
+    border-bottom: var(--border-width) solid var(--color-border);
+    padding-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.sb-page__header h1 {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-4xl);
+    margin: 0;
+}
+
+.sb-page__summary {
+    margin: var(--spacing-sm) 0 0;
+    max-width: 60rem;
+    color: var(--color-text-secondary);
+}
+
+.sb-stories {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.sb-story {
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background-color: var(--color-background-alt);
+    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+}
+
+.sb-story__header {
+    margin-bottom: var(--spacing-md);
+}
+
+.sb-story__name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    margin: 0;
+}
+
+.sb-story__description {
+    margin: var(--spacing-xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    max-width: 60rem;
+}
+
+/* The example area itself stays neutral: a story sits on the page background so
+   the component's own surfaces read the way they do in the app. */
+.sb-story__example {
+    background-color: var(--color-background);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-md);
+}
+
+.sb-story__code {
+    margin: var(--spacing-md) 0 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--color-background);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    overflow-x: auto;
+    white-space: pre;
+}
+
+/* Shared layout helpers the pages use to lay examples out. */
+.sb-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.sb-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.sb-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: var(--spacing-md);
+}
+
+.sb-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+}
+
+.sb-label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-disabled);
+}
+
+/* The "currently bound value" line under an interactive example. */
+.sb-state {
+    margin: var(--spacing-sm) 0 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-primary);
+}
+
+.sb-card-link {
+    display: block;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background-color: var(--color-background-alt);
+    padding: var(--spacing-md);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.sb-card-link:hover,
+.sb-card-link:focus-visible {
+    border-color: var(--color-border-focus);
+}
+
+.sb-card-link__title {
+    display: block;
+    font-family: var(--font-family-heading);
+    font-weight: 600;
+    margin-bottom: var(--spacing-xs);
+}
+
+.sb-card-link__text {
+    display: block;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* A surface a demo can be dropped on when the component needs somewhere with
+   size — the context menu target and the split pane, for example. */
+.sb-surface {
+    min-height: 8rem;
+    border: var(--border-width) dashed var(--color-border);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-md);
+    color: var(--color-text-secondary);
+}
+
+.sb-pane {
+    height: 16rem;
+}

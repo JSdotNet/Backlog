@@ -25,6 +25,11 @@ builder.AddProject("mobile-web-harness", "..\\..\\harness\\Backlog.Mobile.WebHar
     .WithReference(cloud)
     .WaitFor(cloud);
 
+// Component storybook: the shared Backlog.UI.Components library on its own, with
+// no application or cloud dependency, so the components can be reviewed and
+// Playwright-driven independently of the app.
+builder.AddProject("ui-storybook", "..\\..\\harness\\Backlog.UI.Storybook\\Backlog.UI.Storybook.csproj");
+
 // --- Shipped channels (src/App) ---------------------------------------------
 
 // Desktop channel — .NET MAUI Blazor Hybrid (Windows). Registered so it shows up in

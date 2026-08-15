@@ -1,0 +1,29 @@
+@*
+    Every page has the same shape: a title, one sentence about what the group is
+    for, and the stories under it.
+*@
+
+<article class="sb-page">
+    <header class="sb-page__header">
+        <h1>@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Summary))
+        {
+            <p class="sb-page__summary">@Summary</p>
+        }
+    </header>
+
+    <div class="sb-stories">
+        @ChildContent
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Summary { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

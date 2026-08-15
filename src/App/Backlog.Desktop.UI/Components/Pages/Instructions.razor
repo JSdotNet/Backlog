@@ -20,31 +20,35 @@
 
     @if (!GitHub.Repositories.Any())
     {
-        <div class="empty-state" data-testid="instructions-empty-state">
-            <p class="empty-state__title">No repositories configured.</p>
-            <p class="empty-state__body">Add a repository and local clone directory in Settings to read its instruction files.</p>
-        </div>
+        <EmptyState Title="No repositories configured."
+                    Description="Add a repository and local clone directory in Settings to read its instruction files."
+                    data-testid="instructions-empty-state" />
     }
     else
     {
-        <div class="repo-subpages" role="tablist" aria-label="Instruction repositories">
+        @* Same shared strip as Settings, wearing the repo-subpage classes. *@
+        <Tabs Bare="true"
+              ListCssClass="repo-subpages"
+              AriaLabel="Instruction repositories"
+              TabCssClass="repo-subpage"
+              ActiveTabCssClass="repo-subpage repo-subpage--active"
+              ActiveId="@ActiveRepository?.Repository.Alias"
+              ActiveIdChanged="SelectRepository">
             @foreach (var repositoryView in _repositories)
             {
-                <button type="button"
-                        class="@RepositoryTabClass(repositoryView)"
-                        data-testid="instructions-repository-tab"
-                        role="tab"
-                        aria-selected="@RepositoryTabSelected(repositoryView)"
-                        @onclick="() => SelectRepository(repositoryView.Repository.Alias)">
-                    <span>@repositoryView.Repository.FullName</span>
-                    <span class="repo-card__badge">@repositoryView.Documents.Count</span>
-                </button>
-            }
-        </div>
+                var activeRepository = repositoryView;
 
-        @if (ActiveRepository is { } activeRepository)
-        {
-            <article class="setting" data-testid="instructions-repository" aria-label="@($"{activeRepository.Repository.FullName} instructions")">
+                <TabPanel Id="@activeRepository.Repository.Alias"
+                          TabTestId="instructions-repository-tab"
+                          Element="article"
+                          BaseClass="setting"
+                          TestId="instructions-repository"
+                          aria-label="@($"{activeRepository.Repository.FullName} instructions")">
+                    <TitleContent>
+                        <span>@activeRepository.Repository.FullName</span>
+                        <span class="repo-card__badge">@activeRepository.Documents.Count</span>
+                    </TitleContent>
+                    <ChildContent>
                 <header class="instructions-repository__header">
                     <div>
                         <h2 class="setting__title">@activeRepository.Repository.FullName</h2>
@@ -63,10 +67,9 @@
 
                 @if (activeRepository.Message is not null)
                 {
-                    <div class="empty-state" data-testid="instructions-repository-empty">
-                        <p class="empty-state__title">No instruction content to show.</p>
-                        <p class="empty-state__body">@activeRepository.Message</p>
-                    </div>
+                    <EmptyState Title="No instruction content to show."
+                                Description="@activeRepository.Message"
+                                data-testid="instructions-repository-empty" />
                 }
                 else
                 {
@@ -100,8 +103,10 @@
                         }
                     </div>
                 }
-            </article>
-        }
+                    </ChildContent>
+                </TabPanel>
+            }
+        </Tabs>
     }
 </div>
 
@@ -124,14 +129,6 @@
         _selectedRepositoryAlias = _repositories.FirstOrDefault()?.Repository.Alias;
         _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
     }
-
-    private string RepositoryTabClass(InstructionRepositoryView repositoryView) =>
-        string.Equals(repositoryView.Repository.Alias, ActiveRepository?.Repository.Alias, StringComparison.Ordinal)
-            ? "repo-subpage repo-subpage--active"
-            : "repo-subpage";
-
-    private string RepositoryTabSelected(InstructionRepositoryView repositoryView) =>
-        string.Equals(repositoryView.Repository.Alias, ActiveRepository?.Repository.Alias, StringComparison.Ordinal) ? "true" : "false";
 
     private void SelectRepository(string alias)
     {

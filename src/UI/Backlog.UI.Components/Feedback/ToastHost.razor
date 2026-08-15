@@ -1,0 +1,24 @@
+@*
+    One live region for the whole app: toasts come and go inside it, so a screen
+    reader keeps a single announcement channel instead of one per message.
+*@
+
+<div class="@ClassValue" aria-live="polite" aria-atomic="false" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "toast-host" : $"toast-host {CssClass}";
+}

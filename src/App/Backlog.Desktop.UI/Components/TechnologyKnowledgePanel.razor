@@ -13,7 +13,15 @@
             <p class="knowledge-pane__eyebrow">Knowledge base</p>
             <h2 id="technology-knowledge-title">Technology</h2>
         </header>
-        <div class="knowledge-empty" role="status"><p>@_view.Summary</p><a href="settings">Open repository settings</a></div>
+        <EmptyState BaseClass="knowledge-empty"
+                    Title="@_view.Summary"
+                    TitleCssClass="@(null)"
+                    ActionCssClass="@(null)"
+                    role="status">
+            <Action>
+                <a href="settings">Open repository settings</a>
+            </Action>
+        </EmptyState>
     }
     else
     {

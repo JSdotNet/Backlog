@@ -1,0 +1,181 @@
+@*
+    A collapsible tree of rows with an optional "open this folder" action next to
+    the heading. Every class is derived from ClassPrefix so a host can keep the
+    names its stylesheet already knows.
+*@
+
+<nav class="@NavClassValue" aria-label="@NavAriaLabel">
+    <div class="@HeadingClassValue" data-testid="@HeadingTestId">
+        <span>@HeadingLabel</span>
+        @if (RootFolder is { Kind: TreeNodeKind.Folder, Available: true } rootFolder)
+        {
+            <button type="button"
+                    class="@OpenButtonClass"
+                    data-testid="@OpenButtonTestId"
+                    disabled="@IsFolderOpening(rootFolder)"
+                    title="@OpenButtonTitle(rootFolder)"
+                    aria-label="@OpenButtonTitle(rootFolder)"
+                    @onclick="() => OnOpenFolder.InvokeAsync(rootFolder)"
+                    @onclick:stopPropagation="true">
+                @if (IsFolderOpening(rootFolder))
+                {
+                    <span aria-hidden="true">...</span>
+                }
+                else
+                {
+                    <span aria-hidden="true">@OpenButtonLabel</span>
+                }
+            </button>
+        }
+    </div>
+    <Alert Message="@OpenErrorMessage"
+           TestId="@OpenErrorTestId"
+           CssClass="@OpenErrorClass" />
+    @if (IsLoading)
+    {
+        <p class="@MessageClassValue">@LoadingMessage</p>
+    }
+    else if (Nodes.Count == 0)
+    {
+        <p class="@MessageClassValue">@EmptyMessage</p>
+    }
+    else
+    {
+        <ul class="@ClassPrefix" role="tree" aria-label="@TreeAriaLabel">
+            @foreach (var node in Nodes)
+            {
+                @RenderTreeNode(node, 0)
+            }
+        </ul>
+    }
+</nav>
+
+@code {
+    /// <summary>The BEM block every row class is built from.</summary>
+    [Parameter]
+    public string ClassPrefix { get; set; } = "knowledge-menu";
+
+    [Parameter]
+    public string HeadingLabel { get; set; } = "Knowledge";
+
+    [Parameter]
+    public TreeNode? RootFolder { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<TreeNode> Nodes { get; set; } = [];
+
+    [Parameter]
+    public bool IsLoading { get; set; }
+
+    [Parameter]
+    public string LoadingMessage { get; set; } = "Loading knowledge menu...";
+
+    [Parameter]
+    public string EmptyMessage { get; set; } = "No chapters are available for this area.";
+
+    [Parameter]
+    public string? OpenErrorMessage { get; set; }
+
+    [Parameter]
+    public Func<TreeNode, bool> IsNodeSelected { get; set; } = static _ => false;
+
+    [Parameter]
+    public Func<TreeNode, bool> IsNodeExpanded { get; set; } = static _ => false;
+
+    [Parameter]
+    public Func<TreeNode, string>? NodeClass { get; set; }
+
+    [Parameter]
+    public Func<TreeNode, bool> IsFolderOpening { get; set; } = static _ => false;
+
+    [Parameter]
+    public EventCallback<TreeNode> OnNodeSelected { get; set; }
+
+    [Parameter]
+    public EventCallback<TreeNode> OnOpenFolder { get; set; }
+
+    [Parameter]
+    public string? NavClass { get; set; }
+
+    [Parameter]
+    public string? HeadingClass { get; set; }
+
+    [Parameter]
+    public string? MessageClass { get; set; }
+
+    [Parameter]
+    public string? OpenErrorClass { get; set; }
+
+    [Parameter]
+    public string OpenButtonLabel { get; set; } = "VS";
+
+    [Parameter]
+    public Func<TreeNode, string> OpenButtonTitle { get; set; } = static node => $"Open {node.Label} in VS Code";
+
+    [Parameter]
+    public string? NavAriaLabel { get; set; } = "Knowledge menu";
+
+    [Parameter]
+    public string? TreeAriaLabel { get; set; } = "Knowledge chapters";
+
+    [Parameter]
+    public string? HeadingTestId { get; set; }
+
+    [Parameter]
+    public string? OpenButtonTestId { get; set; }
+
+    [Parameter]
+    public string? OpenErrorTestId { get; set; }
+
+    private string OpenButtonClass => ClassPrefix + "__open-vscode";
+
+    private string NavClassValue => string.IsNullOrWhiteSpace(NavClass) ? ClassPrefix : NavClass;
+
+    private string HeadingClassValue => string.IsNullOrWhiteSpace(HeadingClass) ? ClassPrefix + "__heading" : HeadingClass;
+
+    private string MessageClassValue => string.IsNullOrWhiteSpace(MessageClass) ? ClassPrefix + "__empty" : MessageClass;
+
+    private string DepthVariable => "--" + ClassPrefix + "-depth";
+
+    private string NodeClassOf(TreeNode node) => NodeClass?.Invoke(node) ?? ClassPrefix + "__item";
+
+    private RenderFragment RenderTreeNode(TreeNode node, int depth) => @<li class="@(ClassPrefix)__node" role="none">
+        @if (node.Kind == TreeNodeKind.Message)
+        {
+            <p class="@(ClassPrefix)__message" role="treeitem" style="@DepthVariable: @depth">@node.Message</p>
+        }
+        else
+        {
+            <div class="@(ClassPrefix)__row">
+                <button type="button"
+                        class="@NodeClassOf(node)"
+                        role="treeitem"
+                        aria-selected="@(IsNodeSelected(node) ? "true" : "false")"
+                        aria-expanded="@(node.HasChildren ? (IsNodeExpanded(node) ? "true" : "false") : null)"
+                        disabled="@(!node.Available)"
+                        title="@node.Message"
+                        style="@DepthVariable: @depth"
+                        @onclick="() => OnNodeSelected.InvokeAsync(node)">
+                    @if (node.HasChildren)
+                    {
+                        <span class="@(ClassPrefix)__twisty" aria-hidden="true">@(IsNodeExpanded(node) ? "-" : "+")</span>
+                    }
+                    else
+                    {
+                        <span class="@(ClassPrefix)__twisty" aria-hidden="true"></span>
+                    }
+                    <span class="@(ClassPrefix)__label">@node.Label</span>
+                </button>
+            </div>
+            @if (node.HasChildren && IsNodeExpanded(node))
+            {
+                <ul class="@(ClassPrefix)__children" role="group">
+                    @foreach (var child in node.Children)
+                    {
+                        @RenderTreeNode(child, depth + 1)
+                    }
+                </ul>
+            }
+        }
+    </li>;
+}

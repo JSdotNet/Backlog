@@ -13,6 +13,13 @@ an Android emulator.
 |---|---|---|
 | `Backlog.Desktop.WebHarness` | `src/App/Backlog.Desktop.UI` | `desktop-web-harness` |
 | `Backlog.Mobile.WebHarness` | `src/App/Backlog.Mobile.UI` (phone width) | `mobile-web-harness` |
+| `Backlog.UI.Storybook` | `src/UI/Backlog.UI.Components` on its own | `ui-storybook` |
+
+`Backlog.UI.Storybook` is the odd one out: it hosts no app UI. It references the shared
+component library and `Backlog.Aspire.ServiceDefaults` and nothing else, so it renders every
+component with realistic content and no domain behind it. That missing reference is load-bearing
+— if a component ever grew a dependency on a module, the storybook would stop compiling.
+Use it to review a component, and to test one without starting the application.
 
 ## Rules
 

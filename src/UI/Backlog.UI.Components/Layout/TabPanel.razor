@@ -1,0 +1,94 @@
+@implements IDisposable
+
+@*
+    The panel registers itself with the strip above it, so the tab list is
+    whatever panels the caller wrote - there is no second list to keep in sync.
+
+    The element is written through the render tree rather than as markup because
+    a host that already renders its panels as `section` or `article` should not
+    have to give that up to gain the tab wiring.
+*@
+
+@if (Parent is not null)
+{
+    @PanelFragment
+}
+
+@code {
+    [CascadingParameter]
+    public Tabs? Parent { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>Renders the tab label when it is more than text.</summary>
+    [Parameter]
+    public RenderFragment? TitleContent { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>tabs__panel</c> on the panel.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "tabs__panel";
+
+    /// <summary>The element the panel is rendered as.</summary>
+    [Parameter]
+    public string Element { get; set; } = "div";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>The test id on this panel's tab in the strip above it.</summary>
+    [Parameter]
+    public string? TabTestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? ClassValue
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(BaseClass)) return string.IsNullOrWhiteSpace(CssClass) ? null : CssClass;
+
+            return string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+        }
+    }
+
+    private RenderFragment PanelFragment => builder =>
+    {
+        var parent = Parent!;
+        var active = parent.IsActive(Id);
+
+        builder.OpenElement(0, Element);
+        builder.AddAttribute(1, "id", parent.PanelId(Id));
+        builder.AddAttribute(2, "class", ClassValue);
+        builder.AddAttribute(3, "role", "tabpanel");
+        builder.AddAttribute(4, "aria-labelledby", parent.TabId(Id));
+        builder.AddAttribute(5, "hidden", !active);
+        builder.AddAttribute(6, "tabindex", "0");
+        builder.AddAttribute(7, "data-testid", TestId);
+        builder.AddMultipleAttributes(8, AdditionalAttributes);
+
+        if (active)
+        {
+            builder.AddContent(9, ChildContent);
+        }
+
+        builder.CloseElement();
+    };
+
+    protected override void OnInitialized() => Parent?.Register(this);
+
+    public void Dispose() => Parent?.Unregister(this);
+}

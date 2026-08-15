@@ -1,21 +1,17 @@
-<label class="metadata-editor metadata-editor--repo badge badge--area" data-testid="@TestId">
-    <span class="sr-only">@Label</span>
-    <select class="metadata-editor__select"
-            value="@CurrentValue"
-            aria-label="@Label"
-            title="@Label"
-            disabled="@Disabled"
-            @onchange="OnChange">
-        @if (IncludeEmptyOption)
-        {
-            <option value="">@EmptyLabel</option>
-        }
-        @foreach (var option in Options)
-        {
-            <option value="@option.Value">@option.Label</option>
-        }
-    </select>
-</label>
+@*
+    The app's repository picker, now a thin skin over the library's SelectField.
+    The parameters and the rendered markup are unchanged.
+*@
+
+<SelectField CurrentValue="@CurrentValue"
+             Options="@Options"
+             Label="@Label"
+             TestId="@TestId"
+             Disabled="@Disabled"
+             IncludeEmptyOption="@IncludeEmptyOption"
+             EmptyLabel="@EmptyLabel"
+             CssClass="metadata-editor--repo badge badge--area"
+             OnChanged="OnChanged" />
 
 @code {
     [Parameter]
@@ -41,6 +37,4 @@
 
     [Parameter]
     public EventCallback<string?> OnChanged { get; set; }
-
-    private Task OnChange(ChangeEventArgs e) => OnChanged.InvokeAsync(e.Value?.ToString());
 }

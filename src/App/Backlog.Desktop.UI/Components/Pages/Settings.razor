@@ -21,46 +21,18 @@
         <a class="icon-link" href="" data-testid="back-link" title="Back to the backlog" aria-label="Back to the backlog">←</a>
     </header>
 
-    <nav class="settings-tabs" aria-label="Settings pages" role="tablist">
-        <button type="button"
-                class="@SettingsTabClass(SettingsPage.Features)"
-                role="tab"
-                aria-selected="@SettingsTabSelected(SettingsPage.Features)"
-                @onclick="() => ShowSettingsPage(SettingsPage.Features)">
-            Features
-        </button>
-        @if (IsSettingsPageAvailable(SettingsPage.Ai))
-        {
-            <button type="button"
-                    class="@SettingsTabClass(SettingsPage.Ai)"
-                    role="tab"
-                    aria-selected="@SettingsTabSelected(SettingsPage.Ai)"
-                    @onclick="() => ShowSettingsPage(SettingsPage.Ai)">
-                AI
-            </button>
-        }
-        <button type="button"
-                class="@SettingsTabClass(SettingsPage.Storage)"
-                role="tab"
-                aria-selected="@SettingsTabSelected(SettingsPage.Storage)"
-                @onclick="() => ShowSettingsPage(SettingsPage.Storage)">
-            Storage
-        </button>
-        @if (IsSettingsPageAvailable(SettingsPage.Repositories))
-        {
-            <button type="button"
-                    class="@SettingsTabClass(SettingsPage.Repositories)"
-                    role="tab"
-                    aria-selected="@SettingsTabSelected(SettingsPage.Repositories)"
-                    @onclick="() => ShowSettingsPage(SettingsPage.Repositories)">
-                Repositories
-            </button>
-        }
-    </nav>
+    @* The pill strip is the shared Tabs component wearing this page's classes.
+       Arrow-key movement between the pills comes with it. *@
+    <Tabs Bare="true"
+          ListElement="nav"
+          ListCssClass="settings-tabs"
+          AriaLabel="Settings pages"
+          TabCssClass="settings-tab"
+          ActiveTabCssClass="settings-tab settings-tab--active"
+          ActiveId="@ActivePageId"
+          ActiveIdChanged="ShowSettingsPageById">
 
-    @if (_activePage == SettingsPage.Features)
-    {
-        <section class="setting" role="tabpanel" aria-label="Feature settings">
+        <TabPanel Id="features" Title="Features" Element="section" BaseClass="setting" aria-label="Feature settings">
             <h2 class="setting__title">Features</h2>
             <p class="setting__description">
                 Turn off parts of the app that are not ready yet. Backlog stays available.
@@ -68,21 +40,28 @@
             <div class="feature-flags" role="list" aria-label="Feature flags">
                 @foreach (var feature in AppFeatureSettingsStore.Features)
                 {
-                    <label class="@FeatureFlagClass(feature)" role="listitem">
-                        <span class="feature-flag__content">
-                            <span class="feature-flag__title">@feature.Name</span>
-                            <span class="feature-flag__description">@feature.Description</span>
+                    @* A flag row is the shared Toggle in its native-checkbox
+                       shape: the whole row is a label, so the box is reachable
+                       by clicking the text. *@
+                    <Toggle NativeCheckbox="true"
+                            BaseClass="feature-flag"
+                            CssClass="@(feature.AlwaysEnabled ? "feature-flag--locked" : null)"
+                            TextCssClass="feature-flag__content"
+                            LabelCssClass="feature-flag__title"
+                            DescriptionCssClass="feature-flag__description"
+                            Label="@feature.Name"
+                            Description="@feature.Description"
+                            Checked="@Features.IsEnabled(feature.Key)"
+                            CheckedChanged="enabled => SetFeatureEnabled(feature, enabled)"
+                            Disabled="@feature.AlwaysEnabled"
+                            role="listitem">
+                        <TextContent>
                             @if (feature.AlwaysEnabled)
                             {
                                 <span class="feature-flag__status">Always available</span>
                             }
-                        </span>
-                        <input type="checkbox"
-                               checked="@Features.IsEnabled(feature.Key)"
-                               disabled="@feature.AlwaysEnabled"
-                               aria-label="Enable @feature.Name"
-                               @onchange="eventArgs => SetFeatureEnabled(feature, eventArgs)" />
-                    </label>
+                        </TextContent>
+                    </Toggle>
 
                     @if (IsUsageMetricsFeature(feature) && UsageMetricsEnabled)
                     {
@@ -96,13 +75,11 @@
             {
                 <p class="setting__note" role="status">@_featureMessage</p>
             }
-        </section>
-    }
+        </TabPanel>
 
-
-    @if (_activePage == SettingsPage.Ai && IsSettingsPageAvailable(SettingsPage.Ai))
+    @if (IsSettingsPageAvailable(SettingsPage.Ai))
     {
-        <section class="setting" role="tabpanel" aria-label="AI settings">
+        <TabPanel Id="ai" Title="AI" Element="section" BaseClass="setting" aria-label="AI settings">
             @if (UsageMetricsEnabled)
             {
                 <section class="setting" data-testid="usage-api-endpoints-settings" aria-label="AI usage API settings">
@@ -228,13 +205,12 @@
                     </p>
 
                     <div class="setting__actions">
-                        <button type="button"
-                                class="btn"
-                                data-testid="azure-foundry-clear-key-button"
-                                disabled="@(AzureFoundry.Current.ApiKey is null)"
-                                @onclick="ClearAzureFoundryApiKey">
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="azure-foundry-clear-key-button"
+                                   Disabled="@(AzureFoundry.Current.ApiKey is null)"
+                                   OnClick="ClearAzureFoundryApiKey">
                             Forget API key
-                        </button>
+                        </AppButton>
                     </div>
 
                     <p class="setting__note">
@@ -242,11 +218,10 @@
                     </p>
                 </section>
             }
-        </section>
+        </TabPanel>
     }
-    @if (_activePage == SettingsPage.Storage)
-    {
-        <section class="setting" role="tabpanel" aria-label="Storage settings">
+
+        <TabPanel Id="storage" Title="Storage" Element="section" BaseClass="setting" aria-label="Storage settings">
             <h2 class="setting__title">Where the backlog is stored</h2>
             <p class="setting__body">
                 Every entry is a markdown file with YAML frontmatter, readable and editable
@@ -283,13 +258,12 @@
             </p>
 
             <div class="setting__actions">
-                <button type="button"
-                        class="btn"
-                        data-testid="reset-storage-path"
-                        disabled="@Store.IsDefaultRoot"
-                        @onclick="ResetAsync">
+                <AppButton Variant="ButtonVariant.None"
+                           data-testid="reset-storage-path"
+                           Disabled="@Store.IsDefaultRoot"
+                           OnClick="ResetAsync">
                     Use the default folder
-                </button>
+                </AppButton>
             </div>
 
             <p class="setting__note">
@@ -377,20 +351,22 @@
                 </p>
 
                 <div class="setting__actions">
-                    <button type="button"
-                            class="btn"
-                            data-testid="clear-storage-repository-button"
-                            disabled="@(Store.RootRepository is null)"
-                            @onclick="ClearStorageRepository">
+                    <AppButton Variant="ButtonVariant.None"
+                               data-testid="clear-storage-repository-button"
+                               Disabled="@(Store.RootRepository is null)"
+                               OnClick="ClearStorageRepository">
                         Clear backup repository
-                    </button>
+                    </AppButton>
                 </div>
             </div>
-        </section>
-    }
-    else if (_activePage == SettingsPage.Repositories)
-    {
-        <section class="setting" data-testid="github-settings" role="tabpanel" aria-label="Repository settings">
+        </TabPanel>
+
+        <TabPanel Id="repositories"
+                  Title="Repositories"
+                  Element="section"
+                  BaseClass="setting"
+                  TestId="github-settings"
+                  aria-label="Repository settings">
             <h2 class="setting__title">Repositories</h2>
             <p class="setting__body">
                 Configure zero or more repositories Backlog can work with. GitHub needs an
@@ -436,32 +412,38 @@
             </p>
 
             <div class="setting__actions">
-                <button type="button"
-                        class="btn"
-                        data-testid="add-repository-button"
-                        @onclick="AddRepositoryDraft">
+                <AppButton Variant="ButtonVariant.None"
+                           data-testid="add-repository-button"
+                           OnClick="AddRepositoryDraft">
                     Add repository
-                </button>
+                </AppButton>
             </div>
             @if (VisibleRepositories.Any())
             {
-                <div class="repo-subpages" data-testid="repo-subpages" role="tablist" aria-label="Repository pages">
+                @* One subpage per repository, same shared strip as the page tabs
+                   above - only the classes differ. *@
+                <Tabs Bare="true"
+                      ListCssClass="repo-subpages"
+                      ListTestId="repo-subpages"
+                      AriaLabel="Repository pages"
+                      TabCssClass="repo-subpage"
+                      ActiveTabCssClass="repo-subpage repo-subpage--active"
+                      ActiveId="@ActiveRepository?.Alias"
+                      ActiveIdChanged="ShowRepositoryPage">
                     @foreach (var repository in VisibleRepositories)
                     {
-                        <button type="button"
-                                class="@RepositoryPageClass(repository)"
-                                data-testid="repo-subpage-tab"
-                                role="tab"
-                                aria-selected="@RepositoryPageSelected(repository)"
-                                @onclick="() => ShowRepositoryPage(repository.Alias)">
-                            <span>@repository.FullName</span>
-                        </button>
-                    }
-                </div>
+                        var activeRepo = repository;
 
-                @if (ActiveRepository is { } activeRepo)
-                {
-                    <article class="repo-card" data-testid="github-repo-card" role="tabpanel" aria-label="@($"{activeRepo.FullName} repository settings")">
+                        <TabPanel Id="@activeRepo.Alias"
+                                  TabTestId="repo-subpage-tab"
+                                  Element="article"
+                                  BaseClass="repo-card"
+                                  TestId="github-repo-card"
+                                  aria-label="@($"{activeRepo.FullName} repository settings")">
+                            <TitleContent>
+                                <span>@activeRepo.FullName</span>
+                            </TitleContent>
+                            <ChildContent>
                         <header class="repo-card__header">
                             <div>
                                 <h3 class="repo-card__title">@activeRepo.FullName</h3>
@@ -470,12 +452,11 @@
                                 </p>
                             </div>
 
-                            <button type="button"
-                                    class="btn"
-                                    data-testid="remove-repository-button"
-                                    @onclick="() => RemoveRepository(activeRepo)">
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="remove-repository-button"
+                                       OnClick="() => RemoveRepository(activeRepo)">
                                 Remove repository
-                            </button>
+                            </AppButton>
                         </header>
 
                         <label class="setting__label" for="clone-@activeRepo.Alias">Local clone directory</label>
@@ -504,13 +485,12 @@
                         </p>
 
                         <div class="setting__actions">
-                            <button type="button"
-                                    class="btn"
-                                    data-testid="repo-clone-button"
-                                    disabled="@(!CanClone(activeRepo))"
-                                    @onclick="() => CloneRepositoryAsync(activeRepo)">
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="repo-clone-button"
+                                       Disabled="@(!CanClone(activeRepo))"
+                                       OnClick="() => CloneRepositoryAsync(activeRepo)">
                                 @CloneButtonText(activeRepo)
-                            </button>
+                            </AppButton>
                         </div>
 
 
@@ -537,19 +517,17 @@
                                        @onchange="() => ApplyRepositoryTokenAsync(activeRepo)"
                                        @onkeydown="e => OnRepositoryTokenKeyDownAsync(e, activeRepo)" />
                                 <div class="setting__actions">
-                                    <button type="button"
-                                            class="btn"
-                                            data-testid="github-recheck-button"
-                                            @onclick="CheckConnectionAsync">
+                                    <AppButton Variant="ButtonVariant.None"
+                                               data-testid="github-recheck-button"
+                                               OnClick="CheckConnectionAsync">
                                         Check the connection
-                                    </button>
-                                    <button type="button"
-                                            class="btn"
-                                            data-testid="github-clear-token-button"
-                                            disabled="@(activeRepo.Token is null)"
-                                            @onclick="() => ClearRepositoryTokenAsync(activeRepo)">
+                                    </AppButton>
+                                    <AppButton Variant="ButtonVariant.None"
+                                               data-testid="github-clear-token-button"
+                                               Disabled="@(activeRepo.Token is null)"
+                                               OnClick="() => ClearRepositoryTokenAsync(activeRepo)">
                                         Forget this repository token
-                                    </button>
+                                    </AppButton>
                                 </div>
                                 <p class="setting__note">
                                     Tokens are kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately outside the backlog folder, so they are never synced or committed with entries.
@@ -616,11 +594,13 @@
                                 </div>
                             }
                         </div>
-                    </article>
-                }
+                            </ChildContent>
+                        </TabPanel>
+                    }
+                </Tabs>
             }
-        </section>
-    }
+        </TabPanel>
+    </Tabs>
 </div>
 @code {
     private string _draftPath = string.Empty;
@@ -657,10 +637,15 @@
         Repositories,
     }
 
-    private string SettingsTabClass(SettingsPage page) =>
-        _activePage == page ? "settings-tab settings-tab--active" : "settings-tab";
+    // The strip speaks in ids; the page still thinks in the enum.
+    private static string PageId(SettingsPage page) => page.ToString().ToLowerInvariant();
 
-    private string SettingsTabSelected(SettingsPage page) => _activePage == page ? "true" : "false";
+    private string ActivePageId => PageId(_activePage);
+
+    private void ShowSettingsPageById(string id)
+    {
+        if (Enum.TryParse<SettingsPage>(id, ignoreCase: true, out var page)) ShowSettingsPage(page);
+    }
 
     private GitHubRepositoryRef? ActiveRepository => FindActiveRepository();
 
@@ -678,11 +663,6 @@
 
     private IReadOnlyList<GitHubRepositoryRef> VisibleRepositories => GitHub.Repositories;
 
-    private string RepositoryPageClass(GitHubRepositoryRef repo) =>
-        IsActiveRepository(repo) ? "repo-subpage repo-subpage--active" : "repo-subpage";
-
-    private string RepositoryPageSelected(GitHubRepositoryRef repo) => IsActiveRepository(repo) ? "true" : "false";
-
     private void ShowSettingsPage(SettingsPage page)
     {
         if (IsSettingsPageAvailable(page))
@@ -698,15 +678,11 @@
         _ => false
     };
 
-    private string FeatureFlagClass(AppFeatureDefinition feature) =>
-        feature.AlwaysEnabled ? "feature-flag feature-flag--locked" : "feature-flag";
-
     private static bool IsUsageMetricsFeature(AppFeatureDefinition feature) =>
         string.Equals(feature.Key, AppFeatureSettingsStore.UsageMetrics, StringComparison.OrdinalIgnoreCase);
 
-    private void SetFeatureEnabled(AppFeatureDefinition feature, ChangeEventArgs eventArgs)
+    private void SetFeatureEnabled(AppFeatureDefinition feature, bool enabled)
     {
-        var enabled = eventArgs.Value is bool value && value;
         var error = Features.SetEnabled(feature.Key, enabled);
         _featureMessage = error ?? (feature.AlwaysEnabled
             ? $"{feature.Name} is always available."

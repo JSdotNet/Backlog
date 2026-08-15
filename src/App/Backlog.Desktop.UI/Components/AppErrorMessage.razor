@@ -1,7 +1,9 @@
-@if (!string.IsNullOrWhiteSpace(Message))
-{
-    <p class="@CssClassValue" data-testid="@TestId" role="@Role">@Message</p>
-}
+@*
+    The app's error line, kept as its own component so existing call sites and
+    their markup do not change. The rendering now lives in the shared library.
+*@
+
+<Alert Message="@Message" Role="@Role" TestId="@TestId" CssClass="@CssClass" />
 
 @code {
     [Parameter]
@@ -15,8 +17,4 @@
 
     [Parameter]
     public string? CssClass { get; set; }
-
-    private string CssClassValue => string.IsNullOrWhiteSpace(CssClass)
-        ? "app-error-message"
-        : $"app-error-message {CssClass}";
 }

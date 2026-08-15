@@ -1,0 +1,64 @@
+@*
+    A labelled `<select>` over a list of options, optionally with an empty entry
+    at the top. The wrapper classes stay the caller's business through CssClass
+    so a host can keep whatever badge styling it already ships.
+*@
+
+<label class="@WrapperClass" data-testid="@TestId">
+    <span class="sr-only">@Label</span>
+    <select id="@Id"
+            class="metadata-editor__select"
+            value="@CurrentValue"
+            aria-label="@Label"
+            title="@Label"
+            disabled="@Disabled"
+            @onchange="OnChange">
+        @if (IncludeEmptyOption)
+        {
+            <option value="">@EmptyLabel</option>
+        }
+        @foreach (var option in Options)
+        {
+            <option value="@option.Value">@option.Label</option>
+        }
+    </select>
+</label>
+
+@code {
+    [Parameter]
+    public string? CurrentValue { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<SelectorOption> Options { get; set; } = [];
+
+    [Parameter]
+    public string Label { get; set; } = "Change value";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public bool IncludeEmptyOption { get; set; }
+
+    [Parameter]
+    public string EmptyLabel { get; set; } = "None";
+
+    /// <summary>Extra classes appended to the wrapper label.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> OnChanged { get; set; }
+
+    private string WrapperClass => string.IsNullOrWhiteSpace(CssClass)
+        ? "metadata-editor"
+        : $"metadata-editor {CssClass}";
+
+    private Task OnChange(ChangeEventArgs e) => OnChanged.InvokeAsync(e.Value?.ToString());
+}

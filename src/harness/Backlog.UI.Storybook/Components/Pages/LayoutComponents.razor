@@ -1,0 +1,208 @@
+@page "/layout"
+
+<PageTitle>Layout — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Layout"
+           Summary="The containers: tabs, cards, section headers, a disclosure, and a two-pane split with a separator that answers to both the pointer and the keyboard.">
+
+    <Story Name="Tabs and TabPanel"
+           Description="Panels register themselves with the strip, so the tab order comes from the markup. Arrow keys, Home and End move between tabs; the strip is one tab stop."
+           Code="@TabsCode">
+        <Tabs ActiveId="@_activeTab"
+              ActiveIdChanged="id => _activeTab = id"
+              AriaLabel="Entry views"
+              TestId="demo-tabs">
+            <TabPanel Id="read" Title="Read">
+                <p>The read view of an entry. This is where MarkdownView lives.</p>
+            </TabPanel>
+            <TabPanel Id="edit" Title="Edit">
+                <TextArea Label="Body" Value="@_body" ValueChanged="v => _body = v" Rows="4" AutoGrow="false" />
+            </TabPanel>
+            <TabPanel Id="history" Title="History">
+                <p>Nothing to show in a storybook, but the panel is real.</p>
+            </TabPanel>
+            <TabPanel Id="locked" Title="Locked" Disabled="true">
+                <p>Never reachable — a disabled tab is skipped by the arrows too.</p>
+            </TabPanel>
+        </Tabs>
+        <p class="sb-state" data-testid="tabs-state">Active tab: @_activeTab</p>
+    </Story>
+
+    <Story Name="Tabs wearing a host's own classes"
+           Description="Every class hook replaces ours instead of adding to it, so a host that already ships a pill strip keeps its own names. Bare drops the wrappers as well, for a host whose layout already places the strip and the panels; the arrow keys still work."
+           Code="@PillTabsCode">
+        <Tabs Bare="true"
+              ListElement="nav"
+              ListCssClass="sb-pill-strip"
+              ListTestId="pill-tabs-list"
+              TabCssClass="sb-pill"
+              ActiveTabCssClass="sb-pill sb-pill--active"
+              AriaLabel="Repository pages"
+              ActiveId="@_activePill"
+              ActiveIdChanged="id => _activePill = id">
+            <TabPanel Id="backlog"
+                      Element="section"
+                      BaseClass="sb-surface"
+                      TabTestId="pill-tab"
+                      TestId="pill-panel-backlog">
+                <TitleContent>
+                    <span>JSdotNet/Backlog</span>
+                    <span class="sb-pill__count">12</span>
+                </TitleContent>
+                <ChildContent>
+                    <p>The tab label is a fragment here, so it can carry a count beside the name.</p>
+                </ChildContent>
+            </TabPanel>
+            <TabPanel Id="docs"
+                      Element="section"
+                      BaseClass="sb-surface"
+                      TabTestId="pill-tab"
+                      TestId="pill-panel-docs">
+                <TitleContent>
+                    <span>JSdotNet/Backlog-docs</span>
+                    <span class="sb-pill__count">3</span>
+                </TitleContent>
+                <ChildContent>
+                    <p>The panel is a section rather than a div, because the host's stylesheet says so.</p>
+                </ChildContent>
+            </TabPanel>
+        </Tabs>
+        <p class="sb-state" data-testid="pill-tabs-state">Active subpage: @_activePill</p>
+    </Story>
+
+    <Story Name="Card"
+           Description="A titled surface with an optional action area, and a compact variant for dense lists."
+           Code="@CardCode">
+        <div class="sb-grid">
+            <Card Title="Entry" TestId="card-default">
+                <Actions>
+                    <IconButton AriaLabel="Entry actions" Title="Entry actions">⋯</IconButton>
+                </Actions>
+                <ChildContent>
+                    <p>A card holds one thing. The actions slot is where the buttons for that thing go.</p>
+                    <div class="sb-row">
+                        <StatusBadge Status="ready" />
+                        <PriorityBadge Priority="high" />
+                    </div>
+                </ChildContent>
+            </Card>
+            <Card Title="Compact" Compact="true" TestId="card-compact">
+                <p>Same card, less padding.</p>
+            </Card>
+            <Card AriaLabel="Untitled card">
+                <p>No title — the card is labelled for assistive technology instead.</p>
+            </Card>
+        </div>
+    </Story>
+
+    <Story Name="SectionHeader"
+           Description="A heading with its own level, so a page can nest sections without breaking the document outline."
+           Code="@SectionCode">
+        <div class="sb-stack">
+            <SectionHeader Title="Backlog" Level="2" Description="Everything captured, newest first.">
+                <Actions>
+                    <AppButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small">New</AppButton>
+                </Actions>
+            </SectionHeader>
+            <SectionHeader Title="Archived" Level="3" Description="Kept, but out of the way." />
+        </div>
+    </Story>
+
+    <Story Name="FoldControl"
+           Description="A disclosure bound to page state, so a host can remember what was open across navigations."
+           Code="@FoldCode">
+        <div class="sb-stack">
+            <FoldControl Expanded="_foldOpen"
+                         ExpandedChanged="v => _foldOpen = v"
+                         Label="Advanced settings"
+                         TestId="fold-demo">
+                <div class="sb-stack">
+                    <Toggle Checked="true" Label="Keep entries local" Disabled="true" />
+                    <TextField Label="Sync interval (minutes)" Type="number" Value="15" Readonly="true" />
+                </div>
+            </FoldControl>
+            <FoldControl Expanded="false" Label="Disabled disclosure" Disabled="true">
+                <p>Never reachable.</p>
+            </FoldControl>
+            <p class="sb-state" data-testid="fold-state">Expanded: @_foldOpen</p>
+        </div>
+    </Story>
+
+    <Story Name="SplitPane"
+           Description="Drag the separator, or focus it and use Left/Right, PageUp/PageDown, Home/End. Every drag in this product owes the keyboard an equivalent, and this is that equivalent."
+           Code="@SplitCode">
+        <SplitPane StartWidthRem="_startWidth"
+                   StartWidthRemChanged="v => _startWidth = v"
+                   MinRem="12"
+                   MaxRem="48"
+                   AriaLabel="Storybook pane width"
+                   CssClass="sb-pane"
+                   TestId="demo-split"
+                   SeparatorTestId="demo-split-separator">
+            <Start>
+                <div class="sb-surface">
+                    <p class="sb-label">Start pane</p>
+                    <p>Its width is the page's state, committed once the drag settles.</p>
+                </div>
+            </Start>
+            <End>
+                <div class="sb-surface">
+                    <p class="sb-label">End pane</p>
+                    <p>Takes whatever is left.</p>
+                </div>
+            </End>
+        </SplitPane>
+        <p class="sb-state" data-testid="split-state">Start width: @_startWidth.ToString("0.##") rem</p>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private string _activeTab = "read";
+    private string _activePill = "backlog";
+    private string _body = "The editor and the read view are two tabs over the same text.";
+    private bool _foldOpen = true;
+    private double _startWidth = 20;
+
+    private const string TabsCode = """
+        <Tabs ActiveId="@_activeTab" ActiveIdChanged="id => _activeTab = id" AriaLabel="Entry views">
+            <TabPanel Id="read" Title="Read">...</TabPanel>
+            <TabPanel Id="edit" Title="Edit">...</TabPanel>
+        </Tabs>
+        """;
+
+    private const string PillTabsCode = """
+        <Tabs Bare="true" ListElement="nav"
+              ListCssClass="settings-tabs" TabCssClass="settings-tab"
+              ActiveTabCssClass="settings-tab settings-tab--active"
+              ActiveId="@_active" ActiveIdChanged="id => _active = id">
+            <TabPanel Id="backlog" Element="section" BaseClass="setting" TabTestId="pill-tab">
+                <TitleContent><span>JSdotNet/Backlog</span></TitleContent>
+                <ChildContent>...</ChildContent>
+            </TabPanel>
+        </Tabs>
+        """;
+
+    private const string CardCode = """
+        <Card Title="Entry">
+            <Actions><IconButton AriaLabel="Entry actions">⋯</IconButton></Actions>
+            <ChildContent>...</ChildContent>
+        </Card>
+        """;
+
+    private const string SectionCode = """
+        <SectionHeader Title="Backlog" Level="2" Description="Everything captured, newest first." />
+        """;
+
+    private const string FoldCode = """
+        <FoldControl Expanded="_open" ExpandedChanged="v => _open = v" Label="Advanced settings">...</FoldControl>
+        """;
+
+    private const string SplitCode = """
+        <SplitPane StartWidthRem="_startWidth" StartWidthRemChanged="v => _startWidth = v"
+                   MinRem="12" MaxRem="48" AriaLabel="Storybook pane width">
+            <Start>...</Start>
+            <End>...</End>
+        </SplitPane>
+        """;
+}

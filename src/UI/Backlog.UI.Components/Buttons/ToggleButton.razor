@@ -1,0 +1,61 @@
+@*
+    A button that stays pressed. `aria-pressed` is the state; the `--pressed`
+    modifier only mirrors it for the eye.
+*@
+
+<button type="button"
+        class="@ClassValue"
+        data-testid="@TestId"
+        aria-pressed="@(Pressed ? "true" : "false")"
+        disabled="@Disabled"
+        title="@Title"
+        aria-label="@AriaLabel"
+        @onclick="TogglePressed"
+        @attributes="AdditionalAttributes">
+    @ChildContent
+</button>
+
+@code {
+    [Parameter]
+    public bool Pressed { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> PressedChanged { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue
+    {
+        get
+        {
+            var pressed = Pressed ? " btn--pressed" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"btn btn--toggle{pressed}{extra}";
+        }
+    }
+
+    private Task TogglePressed()
+    {
+        Pressed = !Pressed;
+        return PressedChanged.InvokeAsync(Pressed);
+    }
+}

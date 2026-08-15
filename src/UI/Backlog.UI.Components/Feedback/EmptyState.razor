@@ -1,0 +1,85 @@
+@*
+    Every class here is a parameter with the default as its value, so a host that
+    already has its own empty-state block can hand over the whole name - or pass
+    null to get the bare element, when its own stylesheet targets the wrapper
+    only. A null <c>ActionCssClass</c> drops the action wrapper entirely.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (Icon is not null)
+    {
+        <div class="empty-state__icon" aria-hidden="true">@Icon</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Title))
+    {
+        <p class="@TitleCssClass">@Title</p>
+    }
+    @if (DescriptionContent is not null)
+    {
+        <p class="@DescriptionCssClass">@DescriptionContent</p>
+    }
+    else if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <p class="@DescriptionCssClass">@Description</p>
+    }
+    @if (Action is not null)
+    {
+        @if (string.IsNullOrWhiteSpace(ActionCssClass))
+        {
+            @Action
+        }
+        else
+        {
+            <div class="@ActionCssClass">@Action</div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    /// <summary>Renders the description when it is more than text.</summary>
+    [Parameter]
+    public RenderFragment? DescriptionContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? Icon { get; set; }
+
+    [Parameter]
+    public RenderFragment? Action { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? BaseClass { get; set; } = "empty-state";
+
+    [Parameter]
+    public string? TitleCssClass { get; set; } = "empty-state__title";
+
+    [Parameter]
+    public string? DescriptionCssClass { get; set; } = "empty-state__body";
+
+    [Parameter]
+    public string? ActionCssClass { get; set; } = "empty-state__action";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? ClassValue
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(BaseClass)) return string.IsNullOrWhiteSpace(CssClass) ? null : CssClass;
+
+            return string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+        }
+    }
+}

@@ -1,7 +1,6 @@
-using Backlog.Modules.Backlog.DomainModels;
 using System.Text.RegularExpressions;
 
-namespace Backlog.Desktop.UI.Services;
+namespace Backlog.UI.Components.Markdown;
 
 /// <summary>
 /// Turns the body of an entry into a small block/inline tree for the read view —
@@ -27,7 +26,10 @@ public static class MarkdownPreview
         @"|(?<tag>(?<!\S)#[A-Za-z][\w-]*)",
         RegexOptions.Compiled);
 
-    public static IReadOnlyList<MdBlock> Parse(string? body, string? inheritedArea = null)
+    public static IReadOnlyList<MdBlock> Parse(
+        string? body,
+        string? inheritedArea = null,
+        IMarkdownMetadataReader? metadataReader = null)
     {
         var lines = (body ?? string.Empty).Replace("\r\n", "\n").Split('\n');
         var blocks = new List<MdBlock>();
@@ -98,10 +100,7 @@ public static class MarkdownPreview
                 var level = heading.Groups[1].Value.Length;
                 var text = heading.Groups[2].Value.Trim();
                 bool? done = null;
-                EntryType? type = null;
-                Priority? priority = null;
-                EntryStatus? status = null;
-                IReadOnlyList<string> metadataTags = [];
+                MarkdownMetadata? metadata = null;
 
                 if (level is 2 or 3)
                 {
@@ -113,17 +112,16 @@ public static class MarkdownPreview
                     }
                 }
 
-                if (level is 2 or 3 && i + 1 < lines.Length && EntryTextParser.IsMetadataLine(lines[i + 1]))
+                if (level is 2 or 3
+                    && metadataReader is not null
+                    && i + 1 < lines.Length
+                    && metadataReader.IsMetadataLine(lines[i + 1]))
                 {
-                    var metadata = EntryTextParser.Parse("# Metadata\n" + lines[i + 1]);
-                    type = metadata.Type;
-                    priority = metadata.Priority;
-                    status = metadata.Status;
-                    metadataTags = metadata.MetadataTags;
+                    metadata = metadataReader.Read(lines[i + 1]);
                     i++;
                 }
 
-                blocks.Add(new MdHeading(level, ParseInlines(text), done, type, priority, status, inheritedArea, metadataTags));
+                blocks.Add(new MdHeading(level, ParseInlines(text), done, metadata, inheritedArea));
                 continue;
             }
 
@@ -201,18 +199,14 @@ public static class MarkdownPreview
                 children.Add(blocks[index++]);
             }
 
-            var status = heading.Status ?? (heading.Done is true ? EntryStatus.Done : null);
             grouped.Add(new MdSubItem(
                 heading.Content,
-                status is EntryStatus.Done || heading.Done is true,
+                heading.Metadata?.Done is true || heading.Done is true,
                 heading.Done is not null,
                 children,
                 heading.Level,
-                heading.Type,
-                heading.Priority,
-                status,
-                heading.Area,
-                heading.MetadataTags));
+                heading.Metadata,
+                heading.Area));
         }
 
         return grouped;
@@ -249,6 +243,27 @@ public static class MarkdownPreview
     }
 }
 
+/// <summary>
+/// Reads the metadata line that may follow a sub-item heading. The shape of that
+/// metadata belongs to whoever is editing — this library only knows that a line
+/// can carry some, whether it means "done", and which tags it names — so the
+/// caller supplies the reader and gets its own value back in
+/// <see cref="MarkdownMetadata.Value"/>.
+/// </summary>
+public interface IMarkdownMetadataReader
+{
+    bool IsMetadataLine(string line);
+
+    MarkdownMetadata Read(string line);
+}
+
+/// <summary>What the parser keeps from a metadata line: an opaque caller-owned
+/// value, whether the sub-item counts as done, and the tags it named.</summary>
+public sealed record MarkdownMetadata(object? Value, bool Done, IReadOnlyList<string> Tags)
+{
+    public static MarkdownMetadata None { get; } = new(null, false, []);
+}
+
 public abstract record MdBlock;
 
 /// <summary>A heading. <see cref="Done"/> is non-null only for the level-2
@@ -257,11 +272,11 @@ public sealed record MdHeading(
     int Level,
     IReadOnlyList<MdInline> Content,
     bool? Done,
-    EntryType? Type = null,
-    Priority? Priority = null,
-    EntryStatus? Status = null,
-    string? Area = null,
-    IReadOnlyList<string>? MetadataTags = null) : MdBlock;
+    MarkdownMetadata? Metadata = null,
+    string? Area = null) : MdBlock
+{
+    public IReadOnlyList<string> MetadataTags => Metadata?.Tags ?? [];
+}
 
 /// <summary>A level-2 heading and everything written beneath it — the read
 /// view's rendering of a sub-item.</summary>
@@ -271,11 +286,11 @@ public sealed record MdSubItem(
     bool HasCheckbox,
     IReadOnlyList<MdBlock> Children,
     int Level = 2,
-    EntryType? Type = null,
-    Priority? Priority = null,
-    EntryStatus? Status = null,
-    string? Area = null,
-    IReadOnlyList<string>? MetadataTags = null) : MdBlock;
+    MarkdownMetadata? Metadata = null,
+    string? Area = null) : MdBlock
+{
+    public IReadOnlyList<string> MetadataTags => Metadata?.Tags ?? [];
+}
 
 public sealed record MdParagraph(IReadOnlyList<MdInline> Content) : MdBlock;
 

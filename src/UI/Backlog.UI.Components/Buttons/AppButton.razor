@@ -1,0 +1,91 @@
+@*
+    The one button. Variant and size are modifiers on `btn`, matching the class
+    conventions the app's stylesheet already uses, so a host can adopt this
+    without restyling anything.
+*@
+
+<button type="@TypeAttribute"
+        class="@ClassValue"
+        data-testid="@TestId"
+        disabled="@(Disabled || Busy)"
+        aria-busy="@(Busy ? "true" : null)"
+        @onclick="OnClick"
+        @attributes="AdditionalAttributes">
+    @if (Busy)
+    {
+        <Spinner Size="SpinnerSize.Small" Label="@BusyLabel" />
+    }
+    else if (Icon is not null)
+    {
+        <span class="btn__icon" aria-hidden="true">@Icon</span>
+    }
+    @ChildContent
+</button>
+
+@code {
+    [Parameter]
+    public ButtonVariant Variant { get; set; } = ButtonVariant.Secondary;
+
+    [Parameter]
+    public ButtonSize Size { get; set; } = ButtonSize.Medium;
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>Shows a spinner and blocks the click without removing the button
+    /// from the tab order, so focus survives the round trip.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public string BusyLabel { get; set; } = "Working";
+
+    [Parameter]
+    public string Type { get; set; } = "button";
+
+    [Parameter]
+    public RenderFragment? Icon { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string TypeAttribute => Type is "submit" ? "submit" : "button";
+
+    private string ClassValue
+    {
+        get
+        {
+            var variant = Variant switch
+            {
+                ButtonVariant.Primary => " btn--primary",
+                ButtonVariant.Ghost => " btn--ghost",
+                ButtonVariant.Danger => " btn--danger",
+                ButtonVariant.None => string.Empty,
+                _ => " btn--secondary"
+            };
+
+            var size = Size switch
+            {
+                ButtonSize.Small => " btn--small",
+                ButtonSize.Medium => " btn--medium",
+                _ => string.Empty
+            };
+
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"btn{variant}{size}{extra}";
+        }
+    }
+}

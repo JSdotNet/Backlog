@@ -32,7 +32,7 @@
                 {
                     <a href="#@FileAnchor(file)" class="design-knowledge__nav-link">
                         <span>@file.Title</span>
-                        <span class="knowledge-status knowledge-status--@file.Meta.Status">@file.Meta.Status</span>
+                        <StatusBadge BaseClass="knowledge-status" Kind="" Status="@file.Meta.Status" />
                     </a>
                 }
             </nav>
@@ -47,7 +47,7 @@
                             <p class="design-document__file">@file.FileName</p>
                             <h3>@file.Title</h3>
                         </div>
-                        <span class="knowledge-status knowledge-status--@file.Meta.Status">@file.Meta.Status</span>
+                        <StatusBadge BaseClass="knowledge-status" Kind="" Status="@file.Meta.Status" />
                     </header>
 
                     @if (!string.IsNullOrWhiteSpace(file.Summary))
@@ -78,7 +78,7 @@
                         <section class="design-section" id="@section.Anchor">
                             <header class="design-section__header">
                                 <h4>@section.Heading</h4>
-                                <span class="knowledge-status knowledge-status--@section.Meta.Status">@section.Meta.Status</span>
+                                <StatusBadge BaseClass="knowledge-status" Kind="" Status="@section.Meta.Status" />
                             </header>
                             <KnowledgeMetadata Meta="section.Meta" />
                             <KnowledgeBlocks Blocks="section.Blocks" DiagramTitle="@section.Heading" />

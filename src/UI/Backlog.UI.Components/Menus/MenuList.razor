@@ -1,0 +1,118 @@
+@*
+    A menu is one tab stop: arrows walk it, Enter and Space activate, and only
+    the item under the cursor is tabbable. Disabled items and separators are
+    skipped by the arrows rather than focused and refused.
+*@
+
+<ul class="@ClassValue" role="menu" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @for (var i = 0; i < Items.Count; i++)
+    {
+        var index = i;
+        var item = Items[index];
+
+        if (item.Separator)
+        {
+            <li class="menu-list__separator" role="separator"></li>
+            continue;
+        }
+
+        <li class="menu-list__row" role="none">
+            <button type="button"
+                    class="@ItemClass(item)"
+                    role="menuitem"
+                    data-testid="@($"{TestId}-{item.Id}")"
+                    disabled="@item.Disabled"
+                    tabindex="@(index == ActiveIndex ? 0 : -1)"
+                    @onclick="() => SelectAsync(item)"
+                    @onfocus="() => _activeIndex = index"
+                    @onkeydown="e => OnKeyDownAsync(e, index, item)"
+                    @onkeydown:preventDefault="_preventDefault">
+                @if (!string.IsNullOrWhiteSpace(item.Icon))
+                {
+                    <span class="menu-list__icon" aria-hidden="true">@item.Icon</span>
+                }
+                <span class="menu-list__label">@item.Label</span>
+            </button>
+        </li>
+    }
+</ul>
+
+@code {
+    private int _activeIndex = -1;
+    private bool _preventDefault;
+
+    [Parameter]
+    public IReadOnlyList<MenuItem> Items { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<MenuItem> OnItemSelected { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "menu-list" : $"menu-list {CssClass}";
+
+    private int ActiveIndex => _activeIndex >= 0 ? _activeIndex : FirstEnabled;
+
+    private int FirstEnabled
+    {
+        get
+        {
+            for (var i = 0; i < Items.Count; i++)
+            {
+                if (!Items[i].Separator && !Items[i].Disabled) return i;
+            }
+
+            return -1;
+        }
+    }
+
+    private string ItemClass(MenuItem item) => item.Destructive
+        ? "menu-list__item menu-list__item--destructive"
+        : "menu-list__item";
+
+    private Task SelectAsync(MenuItem item) =>
+        item.Disabled || item.Separator ? Task.CompletedTask : OnItemSelected.InvokeAsync(item);
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e, int index, MenuItem item)
+    {
+        _preventDefault = e.Key is "ArrowDown" or "ArrowUp" or "Home" or "End" or " " or "Enter";
+
+        if (e.Key is "Enter" or " ") return SelectAsync(item);
+
+        var target = e.Key switch
+        {
+            "ArrowDown" => Step(index, 1),
+            "ArrowUp" => Step(index, -1),
+            "Home" => Step(-1, 1),
+            "End" => Step(Items.Count, -1),
+            _ => -1
+        };
+
+        if (target >= 0) _activeIndex = target;
+
+        return Task.CompletedTask;
+    }
+
+    private int Step(int from, int direction)
+    {
+        if (Items.Count == 0) return -1;
+
+        for (var offset = 1; offset <= Items.Count; offset++)
+        {
+            var candidate = ((from + (direction * offset)) % Items.Count + Items.Count) % Items.Count;
+            if (!Items[candidate].Separator && !Items[candidate].Disabled) return candidate;
+        }
+
+        return -1;
+    }
+}

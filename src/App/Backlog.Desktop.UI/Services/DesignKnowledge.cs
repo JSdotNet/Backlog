@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 
+using Backlog.UI.Components.Markdown;
+
 namespace Backlog.Desktop.UI.Services;
 
 /// <summary>

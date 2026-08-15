@@ -1,0 +1,110 @@
+@*
+    Outside-click is a transparent full-screen backdrop, not a document
+    listener: the element disappears with the menu, so there is no listener left
+    behind to leak and no ordering puzzle about which handler runs first.
+
+    The backdrop has to take focus for that to work with the keyboard too. A
+    keydown is delivered to the focused element and bubbles from there, so
+    without the tabindex and the focus call an Escape press lands on whatever
+    was focused before the menu opened and never reaches this handler.
+*@
+
+@if (Open)
+{
+    <div class="context-menu__backdrop"
+         @ref="_backdrop"
+         tabindex="-1"
+         @onclick="CloseAsync"
+         @onkeydown="OnKeyDownAsync">
+        <div class="@ClassValue"
+             style="--context-menu-x: @Px(X); --context-menu-y: @Px(Y)"
+             data-testid="@TestId"
+             @onclick:stopPropagation="true"
+             @attributes="AdditionalAttributes">
+            <MenuList Items="@Items"
+                      AriaLabel="@AriaLabel"
+                      TestId="@($"{TestId}-item")"
+                      OnItemSelected="OnItemSelectedAsync" />
+        </div>
+    </div>
+}
+
+@code {
+    private ElementReference _backdrop;
+    private bool _focusPending;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    public double X { get; set; }
+
+    [Parameter]
+    public double Y { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<MenuItem> Items { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<MenuItem> OnItemSelected { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "context-menu" : $"context-menu {CssClass}";
+
+    protected override void OnParametersSet()
+    {
+        if (Open)
+        {
+            _focusPending = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusPending || !Open) return;
+
+        _focusPending = false;
+
+        try
+        {
+            await _backdrop.FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private static string Px(double value) =>
+        value.ToString(System.Globalization.CultureInfo.InvariantCulture) + "px";
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e) => e.Key == "Escape" ? CloseAsync() : Task.CompletedTask;
+
+    private async Task OnItemSelectedAsync(MenuItem item)
+    {
+        await OnItemSelected.InvokeAsync(item);
+        await CloseAsync();
+    }
+
+    private Task CloseAsync()
+    {
+        Open = false;
+        return OpenChanged.InvokeAsync(false);
+    }
+}

@@ -15,10 +15,12 @@ desktop, mobile, and IDE channels plus a thin cloud sync service.
 Solution: `Backlog.sln`. Product code lives under `src/`, including development-time hosts under `src/harness/`,
 and automated tests live under `tests/`.
 
-The two `src/harness/` projects are **test harnesses, not shipped channels**. They are Blazor
+The `src/harness/` projects are **test harnesses, not shipped channels**. They are Blazor
 Server hosts of the shared Razor components, and they exist specifically so the UI can be
 started by Aspire and driven by Playwright — the MAUI heads cannot be automated that way.
-Target them for UI validation.
+Target them for UI validation. `ui-storybook` is the exception in kind: it hosts the shared
+component library on its own, with no app or cloud reference, so a single component can be
+validated without the application around it.
 
 This repository also carries the checked-in knowledge folders (`.arc42/`, `.domain/`,
 `.backlog/`, `.tech/`, `.design/`) and generator tooling under `.github/tools/knowledge-meta/`.
@@ -49,10 +51,10 @@ dotnet build Backlog.sln
 dotnet test Backlog.sln
 ```
 
-Only `cloud`, `azure-foundry-test`, `desktop-web-harness`, and `mobile-web-harness` start
-automatically. The `desktop`, `mobile-android`, `ide-vscode-build`, and `ide-vscode-host`
-resources are registered with `WithExplicitStart()` and must be started deliberately from
-the dashboard — do not treat them as failed startups when they sit idle.
+Only `cloud`, `azure-foundry-test`, `desktop-web-harness`, `mobile-web-harness`, and
+`ui-storybook` start automatically. The `desktop`, `mobile-android`, `ide-vscode-build`, and
+`ide-vscode-host` resources are registered with `WithExplicitStart()` and must be started
+deliberately from the dashboard — do not treat them as failed startups when they sit idle.
 
 ## Base URLs
 
@@ -65,6 +67,7 @@ actual URLs from the Aspire dashboard or the AppHost startup output, then use th
 | Aspire dashboard | Entry point; lists every resource with its resolved URL |
 | `desktop-web-harness` | Desktop UI components in the browser — primary Playwright target |
 | `mobile-web-harness` | Same components at phone width — mobile Playwright target |
+| `ui-storybook` | Every shared component on its own, with no app behind it |
 | `cloud` | Thin sync service the harnesses reference |
 
 ## Test Credentials
@@ -94,11 +97,12 @@ and state that authoritative guidance could not be verified.
 ## Healthy Startup
 
 Startup is healthy when the Aspire dashboard is reachable and `cloud`,
-`desktop-web-harness`, and `mobile-web-harness` all reach **Running**. The four
-`WithExplicitStart()` resources staying `NotStarted` is expected, not a failure.
+`desktop-web-harness`, `mobile-web-harness`, and `ui-storybook` all reach **Running**. The
+four `WithExplicitStart()` resources staying `NotStarted` is expected, not a failure.
 
 `mobile-web-harness` has a `WaitFor(cloud)` dependency, so it starts after `cloud` becomes
-healthy — a brief wait there is normal.
+healthy — a brief wait there is normal. `ui-storybook` waits for nothing, because it
+references nothing.
 
 For changes confined to the knowledge folders, "healthy" instead means the repository-level
 checks pass:
