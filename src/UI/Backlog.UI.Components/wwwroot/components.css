@@ -53,6 +53,30 @@
     --color-border-focus: #F2C14E;
 
 
+    /* Syntax highlighting.
+       A theme, not a second semantic palette: these name what a run of code is,
+       never what a piece of UI means, and nothing outside a code block may use
+       them. .design/design-principles.md requires syntax themes to be authored
+       for dark surfaces rather than borrowed from a light editor, so each value
+       below is checked against --color-background, which is what a code block
+       sits on: every run of actual code is above 8.9:1, and the two deliberately
+       quiet ones — the comment grey at 5.9:1 and the line-number grey at 5.1:1 —
+       still clear AA rather than sliding under it.
+
+       Keywords take the brand colour because a keyword is the "key highlight"
+       the palette names it for; everything else is a hue the palette does not
+       otherwise spend, so no two kinds of run read as the same thing. */
+    --code-plain: var(--color-text-primary);
+    --code-keyword: var(--color-primary);
+    --code-type: #7FD1C1;
+    --code-string: #9BD17F;
+    --code-number: #F0A868;
+    --code-comment: #8595AD;
+    --code-operator: var(--color-text-secondary);
+    --code-tag: var(--color-primary-light);
+    --code-attribute: #7FD1C1;
+    --code-line-number: #7A8AA3;
+
     /* Typography */
     --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-family-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -772,6 +796,193 @@ button.md-check {
     color: var(--color-text-link);
 }
 
+/* --- Code view ----------------------------------------------------------- */
+/*
+   A code block is a figure: a caption naming it, the code itself, and a status
+   line for the copy button. The code sits on --color-background rather than on
+   the surface around it, the same inversion .md-code uses, so a block reads as
+   inset into the page instead of raised off it.
+
+   The header is a label on the block rather than a bar across it: no fill, no
+   rule under it and nothing in a pill. A filled toolbar made every snippet on a
+   page announce itself twice, and on the storybook's language gallery eleven of
+   them read as a stack of window chrome with some code trapped inside. What is
+   left is a caption and a language, both quiet, and the code is the loudest
+   thing in the figure again.
+*/
+
+.code-view {
+    margin: 0 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    overflow: hidden;
+}
+
+.code-view__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-height: 2rem;
+    padding: var(--spacing-xs) var(--spacing-xs) 0 var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.code-view__title {
+    font-family: var(--font-family-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Everything that is not the caption sits at the right, whether or not there
+   is a caption to sit beside. */
+.code-view__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: auto;
+}
+
+.code-view__language {
+    font-family: var(--font-family-mono);
+}
+
+/* Muted until it is wanted. The button is always there — a copy affordance that
+   only appears on hover cannot be found by touch or by keyboard — but it sits
+   at the header's own weight until it is hovered or focused. */
+.code-view__copy {
+    color: var(--color-text-secondary);
+}
+
+.code-view__copy:hover,
+.code-view__copy:focus-visible {
+    color: var(--color-text-primary);
+}
+
+.code-view__body {
+    margin: 0;
+    padding: var(--spacing-md);
+    max-height: 32rem;
+    overflow: auto;
+    color: var(--code-plain);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    white-space: pre;
+    tab-size: 4;
+}
+
+/* The header already leaves space above the code, so the block does not need a
+   full measure of its own on top of it. */
+.code-view__header + .code-view__body {
+    padding-top: var(--spacing-sm);
+}
+
+/* The block scrolls, so it takes focus, so it shows a focus ring — inset,
+   because an outline outside it would be clipped by the figure's rounding. */
+.code-view__body:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.code-view__code {
+    display: block;
+    font: inherit;
+    /* Lines are blocks, and a block is as wide as the viewport unless told
+       otherwise — without this a numbered gutter stops halfway through a line
+       that scrolls. */
+    min-width: max-content;
+}
+
+.code-view__line {
+    display: block;
+    /* An empty line is still a line. */
+    min-height: calc(1em * var(--line-height-normal));
+}
+
+.code-view--wrap .code-view__body {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.code-view--wrap .code-view__code {
+    min-width: 0;
+}
+
+/* The numbers are a counter rather than markup so that selecting the block and
+   copying it by hand does not put them in the clipboard. */
+.code-view--numbered .code-view__code {
+    counter-reset: code-view-line;
+}
+
+.code-view--numbered .code-view__line {
+    counter-increment: code-view-line;
+    padding-left: 3.5rem;
+}
+
+.code-view--numbered .code-view__line::before {
+    content: counter(code-view-line);
+    display: inline-block;
+    width: 2.5rem;
+    margin-left: -3.5rem;
+    padding-right: var(--spacing-md);
+    text-align: right;
+    color: var(--code-line-number);
+    user-select: none;
+}
+
+.code-view__status {
+    margin: 0;
+    padding: 0 var(--spacing-md) var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.code-view__status:empty {
+    display: none;
+}
+
+/* --- Syntax highlighting ------------------------------------------------- */
+/*
+   One rule per CodeTokenKind. Plain text is not in this list: it is emitted
+   without a span at all and inherits --code-plain from the block.
+*/
+
+.code-token--keyword {
+    color: var(--code-keyword);
+}
+
+.code-token--type {
+    color: var(--code-type);
+}
+
+.code-token--string {
+    color: var(--code-string);
+}
+
+.code-token--number {
+    color: var(--code-number);
+}
+
+.code-token--comment {
+    color: var(--code-comment);
+    font-style: italic;
+}
+
+.code-token--operator {
+    color: var(--code-operator);
+}
+
+.code-token--tag {
+    color: var(--code-tag);
+}
+
+.code-token--attribute {
+    color: var(--code-attribute);
+}
+
 /* --- Knowledge metadata -------------------------------------------------- */
 
 .knowledge-meta {
@@ -933,14 +1144,12 @@ button.md-check {
 
 /* --- Diagram view -------------------------------------------------------- */
 
+/* No frame of its own: the diagram is the content, and whoever places it
+   decides whether it sits in a panel, a card, or bare markdown flow. */
 .diagram-view {
     display: grid;
     gap: var(--spacing-sm);
     margin: var(--spacing-md) 0;
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-lg);
-    background: var(--color-background-alt);
 }
 
 .diagram-view__caption {
@@ -973,24 +1182,15 @@ button.md-check {
     font-weight: 700;
 }
 
+/* The source block carries its own outline. It no longer sits on a surface the
+   diagram frame provided, so a background alone would vanish into whatever the
+   caller puts behind it. */
 .diagram-view__source {
     max-height: 12rem;
     overflow: auto;
     margin: 0;
     padding: var(--spacing-md);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-}
-
-/* The second pass darkens the surface; it comes after the block above on
-   purpose, exactly as it did in app.css. */
-.diagram-view__source {
-    overflow: auto;
-    margin: 0;
-    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
     background: var(--color-background);
     color: var(--color-text-secondary);
@@ -1014,19 +1214,18 @@ button.md-check {
     font-size: var(--font-size-xs);
 }
 
+/* Neither surface draws a frame: it renders straight onto whatever is behind
+   it. min-height only reserves room so the layout does not jump while the
+   renderer is still working. */
 .diagram-view__rendered,
 .tech-graph__canvas {
     min-height: 18rem;
     overflow: auto;
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
 }
 
 .diagram-view__rendered {
     display: grid;
     place-items: center;
-    padding: var(--spacing-md);
 }
 
 .diagram-view__rendered svg {
@@ -1057,13 +1256,11 @@ button.md-check {
     cursor: pointer;
 }
 
+/* No frame of its own, for the same reason as .diagram-view: whoever places the
+   graph decides whether it sits in a panel. */
 .tech-graph {
     display: grid;
     gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-lg);
-    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
 }
 
 .tech-graph__header {

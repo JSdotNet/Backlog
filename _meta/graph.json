@@ -10,17 +10,17 @@
     ".design"
   ],
   "stats": {
-    "nodes": 474,
-    "edges": 831,
+    "nodes": 475,
+    "edges": 834,
     "nodesByFolder": {
-      "arc42": 58,
+      "arc42": 59,
       "domain": 287,
       "backlog": 4,
       "tech": 52,
       "design": 73
     },
     "nodesByType": {
-      "file": 89,
+      "file": 90,
       "chapter": 348,
       "heading": 37
     },
@@ -28,7 +28,7 @@
       "active": 118,
       "proposed": 1,
       "draft": 264,
-      "accepted": 1,
+      "accepted": 2,
       "idea": 1,
       "candidate": 32,
       "adopted": 20,
@@ -36,7 +36,7 @@
     },
     "edgesByType": {
       "contains": 385,
-      "related": 382,
+      "related": 385,
       "depends-on": 62,
       "implements": 2
     }
@@ -909,6 +909,21 @@
             ".arc42/04-solution-strategy.md",
             ".arc42/02-constraints.md",
             ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "label": "ADR 0002: The Backlog module owns the entry text language",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "status": "accepted",
+          "related": [
+            ".domain/backlog/domain.md",
+            ".domain/context-map.md",
+            ".arc42/05-building-block-view.md"
           ]
         }
       },
@@ -10583,6 +10598,30 @@
           "id": "related:.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md->.arc42/09-architecture-decisions.md",
           "source": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md->.domain/backlog/domain.md",
+          "source": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "target": ".domain/backlog/domain.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md->.domain/context-map.md",
+          "source": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "target": ".domain/context-map.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md->.arc42/05-building-block-view.md",
+          "source": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "target": ".arc42/05-building-block-view.md",
           "type": "related"
         }
       },

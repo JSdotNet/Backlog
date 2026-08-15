@@ -44,6 +44,7 @@ internal static class StorybookIndex
         [
             new("markdown", "Markdown", "The parser and the read view, side by side with an editor."),
             new("file-view", "File view", "FileView: a file's header and its markdown, with the body scrolling on its own."),
+            new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
             new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge."),
             new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model.")

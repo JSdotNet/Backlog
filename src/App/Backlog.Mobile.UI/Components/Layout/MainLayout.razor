@@ -1,17 +1,16 @@
 ﻿@inherits LayoutComponentBase
 
+@*
+    The shell is one page deep — Inbox is the only route — so there is no menu
+    to collapse and nothing for a sidebar to hold. What is left is a title bar:
+    the BlazorWebView fills the MAUI page edge to edge, so nothing else names
+    the app on screen.
+*@
+
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+    <header class="app-bar">Backlog</header>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
+    <main class="content">
+        @Body
     </main>
 </div>

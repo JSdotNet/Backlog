@@ -464,31 +464,66 @@ public static class EntryTextParser
         return spans;
     }
 
-    public static string GetParentText(string raw)
+    /// <summary>
+    /// The part of an entry that is the entry itself rather than one of its
+    /// sub-items — what the entry's own editor shows.
+    /// <para>
+    /// <paramref name="subItemCount"/> is how many sub-items the entry had when
+    /// that editor was opened, and it is what keeps typing a <c>##</c> heading
+    /// into the editor from being read straight back as a sub-item: the entry
+    /// keeps its last <paramref name="subItemCount"/> chapters and everything
+    /// written above them stays in hand. Pass <c>-1</c> when there is no editor
+    /// open and the first sub-item is the honest boundary.
+    /// </para>
+    /// </summary>
+    public static string GetParentText(string raw, int subItemCount = -1)
     {
-        var lines = Normalize(raw).Split('\n');
-        var firstSubItem = LocateSubItems(raw).FirstOrDefault();
-        if (firstSubItem is null) return raw ?? string.Empty;
+        var normalizedRaw = Normalize(raw);
+        var lines = normalizedRaw.Split('\n');
+        var start = ChildStartLine(LocateSubItems(normalizedRaw), subItemCount);
+        if (start < 0) return raw ?? string.Empty;
 
-        var end = firstSubItem.Start;
+        var end = start;
         while (end > 0 && string.IsNullOrWhiteSpace(lines[end - 1])) end--;
         return string.Join('\n', lines[..end]);
     }
 
-    public static string ReplaceParentText(string raw, string value)
+    /// <summary>Writes <paramref name="value"/> back as the entry's own text,
+    /// leaving its sub-items where they are. See <see cref="GetParentText"/> for
+    /// what <paramref name="subItemCount"/> is for — the two have to agree, or
+    /// the text an editor hands back is not the text it was given.</summary>
+    public static string ReplaceParentText(string raw, string value, int subItemCount = -1)
     {
         var normalizedRaw = Normalize(raw);
         var lines = normalizedRaw.Split('\n');
-        var firstSubItem = LocateSubItems(normalizedRaw).FirstOrDefault();
-        if (firstSubItem is null) return value ?? string.Empty;
+        var start = ChildStartLine(LocateSubItems(normalizedRaw), subItemCount);
+        if (start < 0) return value ?? string.Empty;
 
         var parent = Normalize(value).TrimEnd('\n');
-        var children = string.Join('\n', lines[firstSubItem.Start..]).TrimStart('\n');
+        var children = string.Join('\n', lines[start..]).TrimStart('\n');
         if (parent.Length == 0) return children;
         if (children.Length == 0) return parent;
 
         return parent + "\n\n" + children;
     }
+
+    /// <summary>How many sub-item chapters a block of entry text holds, counting
+    /// nested ones. This is the number <see cref="GetParentText"/> and
+    /// <see cref="ReplaceParentText"/> want.</summary>
+    public static int CountSubItems(string raw) => LocateSubItems(raw).Count;
+
+    /// <summary>Where an entry's sub-items begin, or -1 when it has none to
+    /// keep. Sub-items typed into the entry's own editor arrive above the ones
+    /// that were already there, so holding on to the last
+    /// <paramref name="subItemCount"/> of them is what tells the two apart.</summary>
+    private static int ChildStartLine(IReadOnlyList<SubItemSpan> spans, int subItemCount)
+    {
+        if (spans.Count == 0 || subItemCount == 0) return -1;
+        if (subItemCount < 0 || spans.Count <= subItemCount) return spans[0].Start;
+
+        return spans[spans.Count - subItemCount].Start;
+    }
+
     /// <summary>
     /// Rewrites raw entry text with the sub-item at <paramref name="from"/> moved
     /// to index <paramref name="to"/>. Reordering is done on the text itself
