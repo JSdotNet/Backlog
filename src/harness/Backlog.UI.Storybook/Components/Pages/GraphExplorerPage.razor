@@ -1,0 +1,184 @@
+@page "/graph-explorer"
+
+<PageTitle>Graph explorer — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Graph explorer"
+           Summary="GraphExplorer draws a node/edge model in one of three layouts — lanes, spine and cluster — with view tabs, zoom, panning and a legend around it. Every word on screen arrives in the model, so the stories below are a delivery team rather than anything the app happens to show.">
+
+    <Story Name="Three views over one model"
+           Description="One model, three views. The tabs switch layout, the zoom controls scale the viewport, and selecting a card spotlights its direct neighbours and mutes the rest."
+           Code="@ExplorerCode">
+        <GraphExplorer Title="Delivery crew"
+                       Description="People and the work they are on, drawn three ways."
+                       BadgeText="demo"
+                       Data="CrewModel"
+                       AriaLabel="Delivery crew explorer" />
+    </Story>
+
+    <Story Name="One group only"
+           Description="A model with a single group still gets a lane, a header and a count. Nothing collapses and nothing special-cases: one group is just the smallest interesting graph.">
+        <GraphExplorer Title="Single squad"
+                       Description="One lane, four people, no edges."
+                       Data="SingleGroupModel"
+                       AriaLabel="Single squad explorer" />
+    </Story>
+
+    <Story Name="Nothing to draw"
+           Description="An empty model is a sentence, not a blank frame. The message is the caller's, because only the caller knows what is missing.">
+        <GraphExplorer Title="Empty explorer"
+                       Description="No nodes were handed over."
+                       Data="EmptyModel"
+                       AriaLabel="Empty explorer" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private sealed record DemoNode(string Id, string Label, string Kind, string Status, string Description, string Squad, string Discipline);
+
+    private static readonly IReadOnlyList<DemoNode> Crew =
+    [
+        new("ada", "Ada", "person", "shipped", "Runs the checkout rewrite.", "Payments", "Engineering"),
+        new("bo", "Bo", "person", "building", "Owns the payment gateway swap.", "Payments", "Engineering"),
+        new("cleo", "Cleo", "person", "planned", "Joins once onboarding lands.", "Payments", "Design"),
+        new("dev", "Dev", "person", "building", "Pairs on the onboarding flow.", "Onboarding", "Engineering"),
+        new("eli", "Eli", "person", "paused", "On leave until the next cycle.", "Onboarding", "Design"),
+        new("fay", "Fay", "person", "shipped", "Shipped the welcome tour.", "Onboarding", "Research"),
+        new("gil", "Gil", "person", "planned", "Picks up reporting next.", "Insights", "Engineering"),
+        new("hana", "Hana", "person", "building", "Building the weekly digest.", "Insights", "Research")
+    ];
+
+    private static readonly IReadOnlyList<(string Source, string Target)> Pairings =
+    [
+        ("ada", "bo"),
+        ("bo", "dev"),
+        ("dev", "fay"),
+        ("fay", "hana"),
+        ("gil", "hana"),
+        ("cleo", "eli")
+    ];
+
+    // Declared before the models that use them: static field initializers run in
+    // textual order, so a model built above these would capture nulls.
+    private static readonly object Legend = new object[]
+    {
+        new { key = "planned", label = "planned", color = "#f59e0b" },
+        new { key = "building", label = "building", color = "#38bdf8" },
+        new { key = "shipped", label = "shipped", color = "#22c55e" },
+        new { key = "paused", label = "paused", color = "#ef4444" }
+    };
+
+    private static readonly object StatusColors = new
+    {
+        planned = "#f59e0b",
+        building = "#38bdf8",
+        shipped = "#22c55e",
+        paused = "#ef4444"
+    };
+
+    private static readonly object CrewModel = BuildModel(Crew, Pairings);
+
+    private static readonly object SingleGroupModel = new
+    {
+        nodes = Crew.Take(4).Select(ToNode).ToArray(),
+        edges = Array.Empty<object>(),
+        views = new object[]
+        {
+            new
+            {
+                id = "squad",
+                label = "Squad",
+                hint = "Everyone in one lane.",
+                layout = "lanes",
+                groups = new object[]
+                {
+                    new { key = "payments", label = "Payments", nodeIds = Crew.Take(4).Select(person => person.Id).ToArray() }
+                }
+            }
+        },
+        defaultViewId = "squad",
+        legend = Legend,
+        statusColors = StatusColors,
+        defaultStatusColor = "#38bdf8",
+        itemNoun = "people",
+        selectionHint = "Select a card to spotlight who it pairs with."
+    };
+
+    private static readonly object EmptyModel = new
+    {
+        nodes = Array.Empty<object>(),
+        edges = Array.Empty<object>(),
+        emptyMessage = "No crew members are on this board yet."
+    };
+
+    private static object ToNode(DemoNode person) => new
+    {
+        id = person.Id,
+        label = person.Label,
+        kind = person.Kind,
+        status = person.Status,
+        description = person.Description
+    };
+
+    private static object BuildModel(IReadOnlyList<DemoNode> people, IReadOnlyList<(string Source, string Target)> pairs) => new
+    {
+        nodes = people.Select(ToNode).ToArray(),
+        edges = pairs.Select(pair => new { source = pair.Source, target = pair.Target }).ToArray(),
+        views = new object[]
+        {
+            new
+            {
+                id = "board",
+                label = "Board",
+                hint = "Lanes are what each person's work is doing right now.",
+                layout = "lanes",
+                groups = GroupsBy(people, person => person.Status, Capitalize)
+            },
+            new
+            {
+                id = "squads",
+                label = "Squads",
+                hint = "The spine is the squad list, with its people branching off it.",
+                layout = "spine",
+                groups = GroupsBy(people, person => person.Squad, label => label)
+            },
+            new
+            {
+                id = "disciplines",
+                label = "Disciplines",
+                hint = "Clustered by discipline, with pairings drawn between people.",
+                layout = "cluster",
+                ariaLabel = "Clustered crew map with pairings. Drag the map to pan, or focus it and use arrow keys.",
+                groups = GroupsBy(people, person => person.Discipline, label => label)
+            }
+        },
+        defaultViewId = "squads",
+        legend = Legend,
+        statusColors = StatusColors,
+        defaultStatusColor = "#38bdf8",
+        itemNoun = "people",
+        selectionHint = "Select a card to spotlight who it pairs with."
+    };
+
+    private static object[] GroupsBy(
+        IReadOnlyList<DemoNode> people,
+        Func<DemoNode, string> keySelector,
+        Func<string, string> labelSelector) =>
+        people
+            .GroupBy(keySelector)
+            .Select(group => (object)new
+            {
+                key = group.Key,
+                label = labelSelector(group.Key),
+                nodeIds = group.Select(person => person.Id).ToArray()
+            })
+            .ToArray();
+
+    private static string Capitalize(string value) =>
+        string.IsNullOrEmpty(value) ? value : char.ToUpperInvariant(value[0]) + value[1..];
+
+    private const string ExplorerCode = """
+        <GraphExplorer Title="Delivery crew"
+                       Data="new { nodes = ..., edges = ..., views = [ { layout = "lanes" }, ... ] }" />
+        """;
+}

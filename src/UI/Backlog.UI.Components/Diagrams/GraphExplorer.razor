@@ -1,0 +1,93 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    A graph with more than one way to look at it: view tabs, zoom, panning and
+    a legend around a viewport the JS renderer fills. The model — nodes, edges,
+    the views and their groups, the legend and its colours — is the caller's,
+    so this component styles and hosts a picture it never interprets.
+*@
+
+<section class="tech-graph" aria-labelledby="@_headingId">
+    <header class="tech-graph__header">
+        <div>
+            <h3 id="@_headingId">@Title</h3>
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <p>@Description</p>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(BadgeText))
+        {
+            <span class="badge">@BadgeText</span>
+        }
+    </header>
+    <div @ref="_container" class="tech-graph__canvas" role="region" aria-label="@AriaLabel">
+        <p class="tech-graph__status" role="status">@StatusText</p>
+    </div>
+</section>
+
+@code {
+    // A page may show more than one explorer, so the heading id has to be unique
+    // or the aria-labelledby wiring points at whichever one rendered first.
+    private readonly string _headingId = "graph-explorer-title-" + Guid.NewGuid().ToString("N");
+    private readonly string _graphId = "graph-explorer-" + Guid.NewGuid().ToString("N");
+    private ElementReference _container;
+    private object? _renderedData;
+
+    [Parameter]
+    public string Title { get; set; } = "Graph";
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public string? BadgeText { get; set; }
+
+    [Parameter, EditorRequired]
+    public object Data { get; set; } = new();
+
+    [Parameter]
+    public string JsFunction { get; set; } = "backlogGraphExplorer.render";
+
+    [Parameter]
+    public string StatusText { get; set; } = "Rendering visualizer...";
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Graph explorer";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (ReferenceEquals(_renderedData, Data)) return;
+
+        _renderedData = Data;
+
+        try
+        {
+            await Js.InvokeVoidAsync(JsFunction, _container, _graphId, Data);
+        }
+        catch (JSException)
+        {
+            _renderedData = null;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDiagrams.dispose", _graphId);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Disposed from a prerender, where interop is not available yet.
+            // There is nothing rendered to tear down in that case.
+        }
+    }
+}

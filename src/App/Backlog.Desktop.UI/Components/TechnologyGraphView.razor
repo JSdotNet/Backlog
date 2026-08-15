@@ -1,15 +1,17 @@
 @*
-    The technology graph is the shared GraphView shell plus one app-specific
-    renderer: the node/edge shapes come from .tech metadata, so the drawing code
-    stays in app.js as backlogDiagrams.renderTechnologyGraph.
+    The technology graph is the shared GraphExplorer — board, roadmap and cloud
+    views, zoom and panning all live in the library — plus one app-specific
+    adapter: what a status means and which lanes and clusters exist comes from
+    .tech metadata, so backlogDiagrams.renderTechnologyGraph in app.js maps that
+    metadata into the explorer's model and hands it over.
 *@
-<GraphView Title="Technology graph"
-           Description="@Summary"
-           BadgeText="Embedded views"
-           Data="@Graph"
-           JsFunction="backlogDiagrams.renderTechnologyGraph"
-           StatusText="Rendering technology visualizer..."
-           AriaLabel="Technology dependency visualizer" />
+<GraphExplorer Title="Technology graph"
+               Description="@Summary"
+               BadgeText="Embedded views"
+               Data="@Graph"
+               JsFunction="backlogDiagrams.renderTechnologyGraph"
+               StatusText="Rendering technology visualizer..."
+               AriaLabel="Technology dependency visualizer" />
 
 @code {
     [Parameter, EditorRequired]

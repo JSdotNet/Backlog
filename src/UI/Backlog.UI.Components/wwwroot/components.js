@@ -267,6 +267,463 @@
             (edgeMarkup ? `<ul class="diagram-view__nodes">${edgeMarkup}</ul>` : '');
     }
 
+    /*
+        Graph explorer: a switchable, zoomable, pannable view over node/edge data.
+
+        Everything it knows arrives as data. It draws groups, it does not decide
+        what a group means: the caller names the views, orders the groups and
+        picks the colours, and the three layouts below only say where boxes go.
+        `lanes` is a column per group, `spine` is a central column of group nodes
+        with their members branching off it, and `cluster` scatters each group
+        around an anchor bubble and draws the edges between them.
+    */
+    const BACKLOG_GRAPH_ZOOM_LEVELS = [0.5, 0.67, 0.85, 1, 1.25, 1.5];
+    const BACKLOG_GRAPH_DEFAULT_ZOOM_INDEX = 3;
+    // Anchor positions for `cluster`, in percent of the map. A caller with more
+    // groups than anchors wraps around them, which is why they are spread out.
+    const BACKLOG_GRAPH_CLUSTER_ANCHORS = [
+        { x: 23, y: 30 },
+        { x: 56, y: 24 },
+        { x: 79, y: 54 },
+        { x: 50, y: 70 },
+        { x: 25, y: 70 },
+        { x: 44, y: 45 }
+    ];
+
+    function backlogGraphElement(tagName, className, text) {
+        const element = document.createElement(tagName);
+        if (className) element.className = className;
+        if (text !== undefined) element.textContent = text;
+        return element;
+    }
+
+    // Statuses are the caller's words, so they can be anything; a class name
+    // cannot. Only the modifier is slugged — the visible text stays as given.
+    function backlogGraphSlug(value) {
+        const slug = String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        return slug || 'unknown';
+    }
+
+    function backlogRenderGraphExplorer(element, id, model) {
+        const nodes = Array.isArray(model?.nodes) ? model.nodes : [];
+        const edges = Array.isArray(model?.edges) ? model.edges : [];
+
+        backlogDiagramInstances.get(id)?.destroy?.();
+        backlogDiagramInstances.delete(id);
+
+        if (nodes.length === 0) {
+            const message = model?.emptyMessage ?? 'No graph nodes are available.';
+            element.innerHTML = `<p class="tech-graph__status" role="status">${backlogEscapeHtml(message)}</p>`;
+            return;
+        }
+
+        element.replaceChildren();
+
+        const itemNoun = model?.itemNoun ?? 'items';
+        const noSummaryText = model?.noSummaryText ?? 'No summary yet.';
+        const selectionHint = model?.selectionHint ?? 'Select a card to spotlight direct neighbours.';
+        const statusColors = model?.statusColors ?? {};
+        const defaultStatusColor = model?.defaultStatusColor ?? null;
+        const statusColor = (status) => statusColors[String(status ?? '').trim().toLowerCase()] ?? defaultStatusColor;
+
+        const nodeById = new Map(nodes.map((node) => [node.id, node]));
+        const incoming = new Map();
+        const outgoing = new Map();
+        for (const node of nodes) {
+            incoming.set(node.id, []);
+            outgoing.set(node.id, []);
+        }
+
+        for (const edge of edges) {
+            if (!incoming.has(edge.source) || !outgoing.has(edge.target)) continue;
+            incoming.get(edge.source).push(edge.target);
+            outgoing.get(edge.target).push(edge.source);
+        }
+
+        // A caller that says nothing about views still gets one: every node in a
+        // single lane, which is the least surprising thing to draw.
+        const views = Array.isArray(model?.views) && model.views.length > 0
+            ? model.views
+            : [{ id: 'all', label: 'All', layout: 'lanes', groups: [{ key: 'all', label: 'All', nodeIds: nodes.map((node) => node.id) }] }];
+
+        const groupsOf = (view) => (Array.isArray(view?.groups) ? view.groups : []).map((group) => ({
+            ...group,
+            nodes: (Array.isArray(group.nodeIds) ? group.nodeIds : []).map((nodeId) => nodeById.get(nodeId)).filter(Boolean)
+        }));
+
+        const visualizer = backlogGraphElement('div', 'graph-explorer');
+        const toolbar = backlogGraphElement('div', 'graph-explorer__toolbar');
+        const tabs = backlogGraphElement('div', 'graph-explorer__tabs');
+        tabs.setAttribute('role', 'tablist');
+        tabs.setAttribute('aria-label', model?.viewsLabel ?? 'Graph views');
+        let zoomIndex = BACKLOG_GRAPH_DEFAULT_ZOOM_INDEX;
+
+        const legend = backlogGraphElement('div', 'graph-explorer__legend');
+        for (const item of Array.isArray(model?.legend) ? model.legend : []) {
+            const swatch = backlogGraphElement('span', `graph-explorer__legend-item graph-explorer__legend-item--${backlogGraphSlug(item.key)}`);
+            swatch.textContent = item.label ?? item.key ?? '';
+            const color = item.color ?? statusColor(item.key);
+            if (color) swatch.style.setProperty('--graph-explorer-legend-color', color);
+            legend.appendChild(swatch);
+        }
+
+        let activeView = views.some((view) => view.id === model?.defaultViewId) ? model.defaultViewId : views[0].id;
+        let selectedId = null;
+
+        const hint = backlogGraphElement('p', 'graph-explorer__hint');
+        const viewport = backlogGraphElement('div', 'graph-explorer__viewport');
+        const content = backlogGraphElement('div', 'graph-explorer__content');
+        const zoomControls = backlogGraphElement('div', 'graph-explorer__zoom');
+        zoomControls.setAttribute('aria-label', model?.zoomLabel ?? 'Zoom graph');
+        viewport.appendChild(content);
+        toolbar.append(tabs, zoomControls, legend);
+        visualizer.append(toolbar, hint, viewport);
+        element.appendChild(visualizer);
+
+        const listeners = [];
+        const viewListeners = [];
+        const cardById = new Map();
+        const relatedIds = () => new Set([
+            selectedId,
+            ...(incoming.get(selectedId) ?? []),
+            ...(outgoing.get(selectedId) ?? [])
+        ].filter(Boolean));
+
+        const applySelectionState = () => {
+            const highlighted = selectedId ? relatedIds() : null;
+            for (const [cardId, card] of cardById) {
+                card.classList.toggle('graph-explorer__card--selected', cardId === selectedId);
+                card.classList.toggle('graph-explorer__card--muted', Boolean(highlighted) && !highlighted.has(cardId));
+                card.setAttribute('aria-pressed', cardId === selectedId ? 'true' : 'false');
+            }
+        };
+
+        const applySelection = (nodeId) => {
+            selectedId = selectedId === nodeId ? null : nodeId;
+            applySelectionState();
+        };
+
+        const relationText = (node) => {
+            const dependencies = typeof node.dependencies === 'number' ? node.dependencies : (incoming.get(node.id) ?? []).length;
+            const dependents = typeof node.dependents === 'number' ? node.dependents : (outgoing.get(node.id) ?? []).length;
+            return `${dependencies} dependencies / ${dependents} dependents`;
+        };
+
+        const makeCard = (node, density = 'normal') => {
+            const status = node.status ?? '';
+            const card = backlogGraphElement('button', `graph-explorer__card graph-explorer__card--${backlogGraphSlug(status)} graph-explorer__card--${density}`);
+            card.type = 'button';
+            card.dataset.nodeId = node.id;
+            const color = statusColor(status);
+            if (color) card.style.setProperty('--graph-explorer-status-color', color);
+            card.title = node.description || node.label;
+            card.setAttribute('aria-pressed', node.id === selectedId ? 'true' : 'false');
+
+            const title = backlogGraphElement('span', 'graph-explorer__card-title', node.label);
+            const meta = backlogGraphElement('span', 'graph-explorer__card-meta');
+            if (node.kind) meta.appendChild(backlogGraphElement('span', 'graph-explorer__pill', node.kind));
+            if (status) meta.appendChild(backlogGraphElement('span', 'graph-explorer__pill graph-explorer__pill--status', status));
+            const summary = backlogGraphElement('span', 'graph-explorer__card-summary', node.description || noSummaryText);
+            const relation = backlogGraphElement('span', 'graph-explorer__card-relations', relationText(node));
+            card.append(title, meta, summary, relation);
+
+            const onClick = () => applySelection(node.id);
+            card.addEventListener('click', onClick);
+            viewListeners.push(() => card.removeEventListener('click', onClick));
+            cardById.set(node.id, card);
+            return card;
+        };
+
+        const makeGroupHeader = (title, count) => {
+            const header = backlogGraphElement('header', 'graph-explorer__lane-header');
+            header.appendChild(backlogGraphElement('h4', null, title));
+            header.appendChild(backlogGraphElement('span', 'graph-explorer__lane-count', String(count)));
+            return header;
+        };
+
+        const renderLanesLayout = (view) => {
+            const canvas = backlogGraphElement('div', 'graph-explorer__canvas graph-explorer__canvas--lanes');
+            for (const group of groupsOf(view)) {
+                const lane = backlogGraphElement('section', 'graph-explorer__lane');
+                lane.setAttribute('aria-label', `${group.label} ${itemNoun}`);
+                lane.appendChild(makeGroupHeader(group.label, group.nodes.length));
+                for (const node of group.nodes) lane.appendChild(makeCard(node));
+                canvas.appendChild(lane);
+            }
+
+            return canvas;
+        };
+
+        const renderSpineLayout = (view) => {
+            const spine = backlogGraphElement('div', 'graph-explorer__spine');
+            groupsOf(view).forEach((group, index) => {
+                const section = backlogGraphElement('section', 'graph-explorer__spine-section');
+                section.setAttribute('aria-label', group.label);
+                const left = backlogGraphElement('div', 'graph-explorer__branch graph-explorer__branch--left');
+                const center = backlogGraphElement('div', 'graph-explorer__area-node');
+                const color = statusColor(group.nodes[0]?.status);
+                if (color) center.style.setProperty('--graph-explorer-status-color', color);
+                center.appendChild(backlogGraphElement('span', 'graph-explorer__area-index', String(index + 1)));
+                center.appendChild(backlogGraphElement('strong', null, group.label));
+                center.appendChild(backlogGraphElement('span', null, `${group.nodes.length} ${itemNoun}`));
+                const right = backlogGraphElement('div', 'graph-explorer__branch graph-explorer__branch--right');
+
+                group.nodes.forEach((node, nodeIndex) => {
+                    const card = makeCard(node, 'compact');
+                    const branch = nodeIndex % 2 === 0 ? left : right;
+                    branch.appendChild(card);
+                });
+
+                section.append(left, center, right);
+                spine.appendChild(section);
+            });
+
+            return spine;
+        };
+
+        const makeClusterNode = (node, x, y) => {
+            const status = node.status ?? '';
+            const nodeButton = backlogGraphElement('button', `graph-explorer__cloud-node graph-explorer__card--${backlogGraphSlug(status)}`);
+            nodeButton.type = 'button';
+            nodeButton.dataset.nodeId = node.id;
+            nodeButton.style.left = `${x}%`;
+            nodeButton.style.top = `${y}%`;
+            const color = statusColor(status);
+            if (color) nodeButton.style.setProperty('--graph-explorer-status-color', color);
+            nodeButton.title = `${node.label}: ${node.description || noSummaryText}`;
+            nodeButton.setAttribute('aria-label', [node.label, status, node.kind].filter(Boolean).join(', '));
+            nodeButton.setAttribute('aria-pressed', node.id === selectedId ? 'true' : 'false');
+            nodeButton.appendChild(backlogGraphElement('span', null, node.label));
+
+            const onClick = () => applySelection(node.id);
+            nodeButton.addEventListener('click', onClick);
+            viewListeners.push(() => nodeButton.removeEventListener('click', onClick));
+            cardById.set(node.id, nodeButton);
+            return nodeButton;
+        };
+
+        const renderClusterLayout = (view) => {
+            const cloud = backlogGraphElement('div', 'graph-explorer__cloud-map');
+            cloud.setAttribute('role', 'group');
+            cloud.setAttribute('aria-label', view.ariaLabel ?? 'Clustered map with links. Drag the map to pan, or focus it and use arrow keys.');
+            cloud.tabIndex = 0;
+            const scene = backlogGraphElement('div', 'graph-explorer__cloud-scene');
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'graph-explorer__cloud-links');
+            svg.setAttribute('viewBox', '0 0 100 100');
+            svg.setAttribute('preserveAspectRatio', 'none');
+            const nodeLayer = backlogGraphElement('div', 'graph-explorer__cloud-nodes');
+            const pan = { x: 0, y: 0, dragging: false, pointerId: null, startX: 0, startY: 0, originX: 0, originY: 0 };
+            const applyCloudPan = () => {
+                scene.style.transform = `translate(${pan.x}px, ${pan.y}px)`;
+            };
+            const moveCloudPan = (deltaX, deltaY) => {
+                pan.x += deltaX;
+                pan.y += deltaY;
+                applyCloudPan();
+            };
+            const groups = groupsOf(view);
+            const anchors = Array.isArray(view.anchors) && view.anchors.length > 0 ? view.anchors : BACKLOG_GRAPH_CLUSTER_ANCHORS;
+            const positions = new Map();
+
+            const addLine = (className, x1, y1, x2, y2) => {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('class', className);
+                line.setAttribute('x1', x1.toFixed(2));
+                line.setAttribute('y1', y1.toFixed(2));
+                line.setAttribute('x2', x2.toFixed(2));
+                line.setAttribute('y2', y2.toFixed(2));
+                svg.appendChild(line);
+            };
+
+            groups.forEach((group, groupIndex) => {
+                const center = anchors[groupIndex % anchors.length];
+                const hub = backlogGraphElement('div', 'graph-explorer__cloud-hub');
+                hub.style.left = `${center.x}%`;
+                hub.style.top = `${center.y}%`;
+                hub.textContent = group.label;
+                nodeLayer.appendChild(hub);
+
+                group.nodes.forEach((node, nodeIndex) => {
+                    const angle = (Math.PI * 2 * nodeIndex / Math.max(group.nodes.length, 1)) + (groupIndex * 0.45);
+                    const radius = 9 + Math.min(12, group.nodes.length * 0.42) + ((nodeIndex % 3) * 2.2);
+                    const x = Math.min(96, Math.max(4, center.x + Math.cos(angle) * radius));
+                    const y = Math.min(94, Math.max(6, center.y + Math.sin(angle) * radius));
+                    positions.set(node.id, { x, y });
+                    addLine('graph-explorer__cloud-link graph-explorer__cloud-link--spoke', center.x, center.y, x, y);
+                    nodeLayer.appendChild(makeClusterNode(node, x, y));
+                });
+            });
+
+            for (const edge of edges) {
+                const source = positions.get(edge.source);
+                const target = positions.get(edge.target);
+                if (!source || !target) continue;
+                addLine('graph-explorer__cloud-link graph-explorer__cloud-link--dependency', source.x, source.y, target.x, target.y);
+            }
+
+            const onPointerDown = (event) => {
+                if (event.button !== 0 || event.target.closest('.graph-explorer__cloud-node')) return;
+                pan.dragging = true;
+                pan.pointerId = event.pointerId;
+                pan.startX = event.clientX;
+                pan.startY = event.clientY;
+                pan.originX = pan.x;
+                pan.originY = pan.y;
+                cloud.classList.add('graph-explorer__cloud-map--dragging');
+                cloud.setPointerCapture(event.pointerId);
+                event.preventDefault();
+            };
+            const onPointerMove = (event) => {
+                if (!pan.dragging || event.pointerId !== pan.pointerId) return;
+                pan.x = pan.originX + event.clientX - pan.startX;
+                pan.y = pan.originY + event.clientY - pan.startY;
+                applyCloudPan();
+            };
+            const endDrag = (event) => {
+                if (!pan.dragging || event.pointerId !== pan.pointerId) return;
+                pan.dragging = false;
+                pan.pointerId = null;
+                cloud.classList.remove('graph-explorer__cloud-map--dragging');
+                if (cloud.hasPointerCapture(event.pointerId)) cloud.releasePointerCapture(event.pointerId);
+            };
+            const onKeyDown = (event) => {
+                const panStep = event.shiftKey ? 72 : 24;
+                if (event.key === 'ArrowLeft') moveCloudPan(panStep, 0);
+                else if (event.key === 'ArrowRight') moveCloudPan(-panStep, 0);
+                else if (event.key === 'ArrowUp') moveCloudPan(0, panStep);
+                else if (event.key === 'ArrowDown') moveCloudPan(0, -panStep);
+                else if (event.key === 'Home') {
+                    pan.x = 0;
+                    pan.y = 0;
+                    applyCloudPan();
+                }
+                else return;
+                event.preventDefault();
+            };
+            for (const [eventName, handler] of [['pointerdown', onPointerDown], ['pointermove', onPointerMove], ['pointerup', endDrag], ['pointercancel', endDrag], ['keydown', onKeyDown]]) {
+                cloud.addEventListener(eventName, handler);
+                viewListeners.push(() => cloud.removeEventListener(eventName, handler));
+            }
+
+            scene.append(svg, nodeLayer);
+            cloud.appendChild(scene);
+            return cloud;
+        };
+
+        const removeCardListeners = () => {
+            while (viewListeners.length > 0) viewListeners.pop()?.();
+        };
+
+        const applyZoomState = () => {
+            const zoom = BACKLOG_GRAPH_ZOOM_LEVELS[zoomIndex];
+            content.style.transform = `scale(${zoom})`;
+            content.style.transformOrigin = 'top left';
+            content.style.marginRight = `${Math.round((zoom - 1) * 100)}%`;
+            content.style.marginBottom = `${Math.round((zoom - 1) * 100)}%`;
+            for (const button of zoomControls.querySelectorAll('[data-zoom-action]')) {
+                button.disabled = (button.dataset.zoomAction === 'out' && zoomIndex === 0) || (button.dataset.zoomAction === 'in' && zoomIndex === BACKLOG_GRAPH_ZOOM_LEVELS.length - 1);
+            }
+            const value = zoomControls.querySelector('.graph-explorer__zoom-value');
+            if (value) value.textContent = `${Math.round(zoom * 100)}%`;
+        };
+
+        const changeZoom = (action) => {
+            if (action === 'out') zoomIndex = Math.max(0, zoomIndex - 1);
+            if (action === 'in') zoomIndex = Math.min(BACKLOG_GRAPH_ZOOM_LEVELS.length - 1, zoomIndex + 1);
+            if (action === 'reset') zoomIndex = BACKLOG_GRAPH_DEFAULT_ZOOM_INDEX;
+            applyZoomState();
+        };
+
+        const renderActiveView = () => {
+            removeCardListeners();
+            cardById.clear();
+            content.replaceChildren();
+            const definition = views.find((view) => view.id === activeView) ?? views[0];
+            hint.textContent = [definition.hint, selectionHint].filter(Boolean).join(' ');
+            content.id = `${id}-${definition.id}-view`;
+            content.dataset.view = definition.id;
+            content.dataset.layout = definition.layout ?? 'lanes';
+            content.appendChild(
+                definition.layout === 'cluster'
+                    ? renderClusterLayout(definition)
+                    : definition.layout === 'spine'
+                        ? renderSpineLayout(definition)
+                        : renderLanesLayout(definition)
+            );
+            applySelectionState();
+            applyZoomState();
+        };
+
+        const zoomOut = backlogGraphElement('button', 'graph-explorer__zoom-button', '-');
+        zoomOut.type = 'button';
+        zoomOut.dataset.zoomAction = 'out';
+        zoomOut.setAttribute('aria-label', 'Zoom out');
+        const zoomValue = backlogGraphElement('span', 'graph-explorer__zoom-value', '100%');
+        const zoomReset = backlogGraphElement('button', 'graph-explorer__zoom-button', 'Reset');
+        zoomReset.type = 'button';
+        zoomReset.dataset.zoomAction = 'reset';
+        zoomReset.setAttribute('aria-label', 'Reset zoom');
+        const zoomIn = backlogGraphElement('button', 'graph-explorer__zoom-button', '+');
+        zoomIn.type = 'button';
+        zoomIn.dataset.zoomAction = 'in';
+        zoomIn.setAttribute('aria-label', 'Zoom in');
+        zoomControls.append(zoomOut, zoomValue, zoomReset, zoomIn);
+        for (const button of [zoomOut, zoomReset, zoomIn]) {
+            const onClick = () => changeZoom(button.dataset.zoomAction);
+            button.addEventListener('click', onClick);
+            listeners.push(() => button.removeEventListener('click', onClick));
+        }
+
+        for (const view of views) {
+            const tab = backlogGraphElement('button', 'graph-explorer__tab', view.label ?? view.id);
+            tab.type = 'button';
+            tab.dataset.view = view.id;
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-controls', `${id}-${view.id}-view`);
+            const onClick = () => {
+                activeView = view.id;
+                for (const button of tabs.querySelectorAll('.graph-explorer__tab')) {
+                    const isSelected = button.dataset.view === activeView;
+                    button.classList.toggle('graph-explorer__tab--active', isSelected);
+                    button.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+                }
+                renderActiveView();
+            };
+            tab.addEventListener('click', onClick);
+            listeners.push(() => tab.removeEventListener('click', onClick));
+            tabs.appendChild(tab);
+        }
+
+        const selectedTab = tabs.querySelector(`[data-view="${activeView}"]`);
+        selectedTab?.classList.add('graph-explorer__tab--active');
+        selectedTab?.setAttribute('aria-selected', 'true');
+        for (const tab of tabs.querySelectorAll('.graph-explorer__tab:not(.graph-explorer__tab--active)')) tab.setAttribute('aria-selected', 'false');
+
+        // Registered in the diagram registry so `backlogDiagrams.dispose` — the one
+        // teardown call every diagram component makes — finds this too.
+        backlogDiagramInstances.set(id, {
+            destroy() {
+                removeCardListeners();
+                for (const remove of listeners) remove();
+            }
+        });
+
+        renderActiveView();
+    }
+
+    window.backlogGraphExplorer = {
+        render(element, id, model) {
+            backlogRenderGraphExplorer(element, id, model);
+        },
+
+        dispose(id) {
+            const instance = backlogDiagramInstances.get(id);
+            instance?.destroy?.();
+            backlogDiagramInstances.delete(id);
+        }
+    };
+
     window.backlogDiagrams = {
         // Exposed so a host's own renderer can register a teardown against the
         // same id `dispose` is called with, and reuse the loaders and escaping.
