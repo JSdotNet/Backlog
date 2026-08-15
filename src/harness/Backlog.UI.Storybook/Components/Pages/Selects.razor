@@ -76,7 +76,7 @@
     </Story>
 
     <Story Name="StatusSelector"
-           Description="BadgeSelect with the status vocabulary already applied. String-in, string-out on purpose — a backlog entry and an arc42 chapter both show a status this way and neither agrees on what the states are called."
+           Description="BadgeSelect with the status badge already chosen, and 'draft' as the fallback slug for a value the caller's vocabulary does not cover. String-in, string-out: the caller names the states."
            Code="@StatusSelectorCode">
         <div class="sb-row">
             <StatusSelector CurrentValue="@_entryStatus"
@@ -85,14 +85,14 @@
                             OnChanged="v => _entryStatus = v" />
             <StatusSelector CurrentValue="done"
                             Options="Statuses"
-                            Label="Frozen example"
+                            Label="Read-only example"
                             Disabled="true" />
         </div>
         <p class="sb-state" data-testid="selector-status-value">Status = @Show(_entryStatus)</p>
     </Story>
 
     <Story Name="PrioritySelector"
-           Description="EnumSelect pinned to the priority badge. Generic over the enum, so the calling context keeps its own vocabulary while the badge stays the same everywhere."
+           Description="EnumSelect with the priority badge already chosen. Generic over the enum, so each context brings its own priority vocabulary and the library stays domain-free."
            Code="@PrioritySelectorCode">
         <div class="sb-row">
             <PrioritySelector TEnum="DemoPriority"
@@ -109,19 +109,20 @@
     </Story>
 
     <Story Name="RepositorySelector"
-           Description="SelectField over repository aliases. Which repositories exist is a workspace question, so it takes options rather than reading a registry — and 'no repo' is expressible by default."
+           Description="SelectField over repository aliases. Optional by default — 'No repo' is a real answer — and the options come from the caller, because which repositories exist is a workspace question."
            Code="@RepositorySelectorCode">
         <div class="sb-row">
             <RepositorySelector CurrentValue="@_repository"
                                 Options="Repositories"
-                                TestId="selector-repo"
+                                TestId="selector-repository"
                                 OnChanged="v => _repository = v" />
             <RepositorySelector CurrentValue="@_repository"
                                 Options="Repositories"
                                 Label="Required — no empty option"
-                                IncludeEmptyOption="false" />
+                                IncludeEmptyOption="false"
+                                OnChanged="v => _repository = v" />
         </div>
-        <p class="sb-state" data-testid="selector-repo-value">Repository = @Show(_repository)</p>
+        <p class="sb-state" data-testid="selector-repository-value">Repository = @Show(_repository)</p>
     </Story>
 
     <Story Name="TagMultiSelect"
@@ -207,9 +208,9 @@
 
     private static readonly IReadOnlyList<SelectorOption> Repositories =
     [
-        new("backlog", "backlog"),
-        new("backlog-docs", "backlog-docs"),
-        new("aspire-samples", "aspire-samples")
+        new("backlog", "Backlog"),
+        new("knowledge-base", "Knowledge base"),
+        new("aspire-harness", "Aspire harness")
     ];
 
     private static readonly IReadOnlyList<SelectorOption> Tags =
@@ -237,7 +238,7 @@
     private string _status = "ready";
     private DemoPriority _priority = DemoPriority.High;
     private string _entryStatus = "active";
-    private DemoPriority _entryPriority = DemoPriority.Highest;
+    private DemoPriority _entryPriority = DemoPriority.Medium;
     private string? _repository = "backlog";
     private IReadOnlyList<string> _openTags = ["ui", "markdown"];
     private IReadOnlyList<string> _closedTags = ["aspire"];
