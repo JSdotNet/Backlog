@@ -10,22 +10,22 @@
     ".design"
   ],
   "stats": {
-    "nodes": 475,
-    "edges": 834,
+    "nodes": 476,
+    "edges": 837,
     "nodesByFolder": {
       "arc42": 59,
       "domain": 287,
       "backlog": 4,
       "tech": 52,
-      "design": 73
+      "design": 74
     },
     "nodesByType": {
       "file": 90,
-      "chapter": 348,
+      "chapter": 349,
       "heading": 37
     },
     "nodesByStatus": {
-      "active": 118,
+      "active": 119,
       "proposed": 1,
       "draft": 264,
       "accepted": 2,
@@ -35,8 +35,8 @@
       "none": 37
     },
     "edgesByType": {
-      "contains": 385,
-      "related": 385,
+      "contains": 386,
+      "related": 387,
       "depends-on": 62,
       "implements": 2
     }
@@ -6034,7 +6034,7 @@
           "path": ".design/color-scheme.md",
           "slug": "provenance",
           "level": 2,
-          "line": 16,
+          "line": 19,
           "status": "active"
         }
       },
@@ -6047,9 +6047,26 @@
           "path": ".design/color-scheme.md",
           "slug": "dark-palette",
           "level": 2,
-          "line": 30,
+          "line": 36,
           "status": "active",
           "related": [
+            ".design/design-principles.md#dark-mode-only"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#surface-and-border-deviation",
+          "label": "Surface and Border Deviation",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "surface-and-border-deviation",
+          "level": 2,
+          "line": 95,
+          "status": "active",
+          "related": [
+            ".design/accessibility.md#contrast",
             ".design/design-principles.md#dark-mode-only"
           ]
         }
@@ -6063,7 +6080,7 @@
           "path": ".design/color-scheme.md",
           "slug": "full-token-reference",
           "level": 2,
-          "line": 89,
+          "line": 150,
           "status": "active"
         }
       },
@@ -6076,7 +6093,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 120,
+          "line": 181,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -6092,7 +6109,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 147,
+          "line": 208,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -6108,7 +6125,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 174,
+          "line": 235,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -9678,6 +9695,14 @@
           "id": "contains:.design/color-scheme.md->.design/color-scheme.md#dark-palette",
           "source": ".design/color-scheme.md",
           "target": ".design/color-scheme.md#dark-palette",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#surface-and-border-deviation",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#surface-and-border-deviation",
           "type": "contains"
         }
       },
@@ -13413,6 +13438,22 @@
         "data": {
           "id": "related:.design/color-scheme.md#dark-palette->.design/design-principles.md#dark-mode-only",
           "source": ".design/color-scheme.md#dark-palette",
+          "target": ".design/design-principles.md#dark-mode-only",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#surface-and-border-deviation->.design/accessibility.md#contrast",
+          "source": ".design/color-scheme.md#surface-and-border-deviation",
+          "target": ".design/accessibility.md#contrast",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#surface-and-border-deviation->.design/design-principles.md#dark-mode-only",
+          "source": ".design/color-scheme.md#surface-and-border-deviation",
           "target": ".design/design-principles.md#dark-mode-only",
           "type": "related"
         }
