@@ -114,6 +114,21 @@ public sealed class ContextMenuTests
         Assert.False(open);
     }
 
+    // bUnit dispatches keydown straight at the element, so it cannot notice that
+    // a real browser delivers the key to the focused element instead. The
+    // backdrop must therefore be focusable for Escape to ever reach it.
+    [Fact]
+    public void Context_menu_backdrop_is_focusable_so_escape_reaches_it()
+    {
+        using var context = new BunitContext();
+
+        var menu = context.Render<ContextMenu>(parameters => parameters
+            .Add(m => m.Open, true)
+            .Add(m => m.Items, Items));
+
+        Assert.Equal("-1", menu.Find(".context-menu__backdrop").GetAttribute("tabindex"));
+    }
+
     [Fact]
     public void Choosing_an_item_reports_it_and_closes_the_menu()
     {

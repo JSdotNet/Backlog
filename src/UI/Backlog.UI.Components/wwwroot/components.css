@@ -1737,6 +1737,12 @@ button.tag-chip__label {
     background: transparent;
 }
 
+/* The backdrop only takes focus so it can hear Escape; it is not a control, so
+   it must not draw a focus ring across the whole screen. */
+.context-menu__backdrop:focus {
+    outline: none;
+}
+
 .context-menu {
     position: fixed;
     top: var(--context-menu-y, 0);
