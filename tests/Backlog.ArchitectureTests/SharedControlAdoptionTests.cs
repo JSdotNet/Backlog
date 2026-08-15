@@ -32,12 +32,7 @@ public class SharedControlAdoptionTests
     /// editing surface;</item>
     /// <item>the reorder grips are drop targets, and the
     /// <c>ondragover:preventDefault</c> they need is a directive attribute that
-    /// cannot be written on a component at all;</item>
-    /// <item>the mobile nav toggler is Blazor template scaffolding, sitting
-    /// beside the template's Counter and Weather pages. It is a bare checkbox
-    /// on purpose — the template's CSS opens the menu through a sibling
-    /// <c>:checked</c> selector, which a wrapped component would break. It goes
-    /// when those pages do.</item>
+    /// cannot be written on a component at all.</item>
     /// </list>
     ///
     /// <para>Adding an entry here is a claim that the library has nothing to
@@ -50,8 +45,7 @@ public class SharedControlAdoptionTests
         "entry-doc__editor",
         "subitem-card__editor",
         "entry-doc__grip",
-        "subitem-card__grip",
-        "navbar-toggler"
+        "subitem-card__grip"
     ];
 
     [Fact]

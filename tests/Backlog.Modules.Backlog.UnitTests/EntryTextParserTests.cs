@@ -241,6 +241,38 @@ public class EntryTextParserTests
         Assert.Contains("### Level three\nNested notes.", rewritten);
     }
 
+    /// <summary>
+    /// An editor writes back what it is holding on every keystroke, so replacing
+    /// the parent text has to land in the same place twice. Told how many
+    /// sub-items the entry started with, it does — including once the text being
+    /// written in has grown a <c>##</c> heading of its own, which is otherwise
+    /// mistaken for the first existing chapter and hands the real one back again.
+    /// </summary>
+    [Fact]
+    public void Replacing_parent_text_is_repeatable_once_it_holds_a_new_sub_item()
+    {
+        const string raw =
+            "# Parent\n" +
+            "`task` `*medium` `!draft`\n\n" +
+            "## Existing\n" +
+            "Child notes.\n";
+
+        var subItems = EntryTextParser.CountSubItems(raw);
+        Assert.Equal(1, subItems);
+
+        var editorText = EntryTextParser.GetParentText(raw, subItems) + "\n\n## Added\nNew notes.\n";
+
+        var once = EntryTextParser.ReplaceParentText(raw, editorText, subItems);
+        var twice = EntryTextParser.ReplaceParentText(once, editorText, subItems);
+
+        Assert.Equal(once, twice);
+        Assert.Equal(2, EntryTextParser.CountSubItems(once));
+
+        // And the editor keeps showing what was written into it, rather than
+        // dropping the new heading the moment it is recognised.
+        Assert.Contains("## Added", EntryTextParser.GetParentText(once, subItems));
+    }
+
     [Fact]
     public void Replacing_sub_item_text_changes_only_that_chapter()
     {

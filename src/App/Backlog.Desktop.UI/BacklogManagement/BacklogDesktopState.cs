@@ -56,6 +56,11 @@ public sealed class BacklogDesktopState : IDisposable
     private readonly Dictionary<Guid, BacklogEntryDto> _entries = new();
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
 
+    /// <summary>How many sub-items <see cref="EditingRow"/> had when its editor
+    /// opened, or -1 when no entry is being written in. See
+    /// <see cref="BeginEdit"/>.</summary>
+    private int _editingSubItemCount = -1;
+
     public BacklogDesktopState(
         BacklogStore store,
         IBacklogEntries entryUseCases,
@@ -175,9 +180,20 @@ public sealed class BacklogDesktopState : IDisposable
         return string.Join('\n', lines);
     }
 
+    /// <summary>Loads the backlog for a freshly opened view.
+    /// <para>
+    /// The load is announced like any other, because the list is not the
+    /// component that starts it: the shell does, and the list is a
+    /// parameterless child that Blazor will not re-render just because its
+    /// parent did. Reading an empty store happens to finish before the first
+    /// render and would paper over that; reading a store with anything in it
+    /// does not, and the list would sit on "Nothing here yet." over a backlog
+    /// that was already in memory.
+    /// </para></summary>
     public async Task InitializeAsync()
     {
         await ReloadRowsAsync();
+        Changed?.Invoke();
     }
 
     public void SetStatusFilter(string? wire)
@@ -243,17 +259,26 @@ public sealed class BacklogDesktopState : IDisposable
         if (ReferenceEquals(EditingRow, row)) return;
         EditingSubItem = null;
         EditingRow = row;
+
+        // The editor shows the entry without its sub-items, so it has to be
+        // agreed up front which chapters those are. Working it out afresh from
+        // the text on every keystroke means a `##` heading somebody has just
+        // typed counts as one, and the chapter below it is handed back a second
+        // time — once per keystroke.
+        _editingSubItemCount = EntryTextParser.CountSubItems(row.RawText);
         FocusPending = true;
     }
 
     public string EntryEditText(EntryRow row) =>
-        ReferenceEquals(EditingRow, row) ? EntryTextParser.GetParentText(row.RawText) : row.RawText;
+        ReferenceEquals(EditingRow, row)
+            ? EntryTextParser.GetParentText(row.RawText, _editingSubItemCount)
+            : row.RawText;
 
     /// <summary>Called on every keystroke; schedules a debounced parse+save.</summary>
     public void OnRawTextInput(EntryRow row, string value)
     {
         row.RawText = ReferenceEquals(EditingRow, row)
-            ? EntryTextParser.ReplaceParentText(row.RawText, value)
+            ? EntryTextParser.ReplaceParentText(row.RawText, value, _editingSubItemCount)
             : value;
         ScheduleDebouncedSave(row);
     }
@@ -268,6 +293,7 @@ public sealed class BacklogDesktopState : IDisposable
         if (ReferenceEquals(EditingRow, row))
         {
             EditingRow = null;
+            _editingSubItemCount = -1;
         }
 
         // An entry someone opened and left untouched was never an entry. Drop
@@ -309,6 +335,7 @@ public sealed class BacklogDesktopState : IDisposable
         if (subItemIndex < 0 || subItemIndex >= row.PreviewSubItems.Count) return;
 
         EditingRow = null;
+        _editingSubItemCount = -1;
         EditingSubItem = new EditingSubItem(row, subItemIndex);
         FocusPending = true;
         Changed?.Invoke();
@@ -348,7 +375,12 @@ public sealed class BacklogDesktopState : IDisposable
 
         CancelDebounce(row);
 
-        if (ReferenceEquals(EditingRow, row)) EditingRow = null;
+        if (ReferenceEquals(EditingRow, row))
+        {
+            EditingRow = null;
+            _editingSubItemCount = -1;
+        }
+
         if (EditingSubItem is { } editing && ReferenceEquals(editing.Row, row)) EditingSubItem = null;
 
         if (row.Id is { } id)
@@ -845,6 +877,7 @@ public sealed class BacklogDesktopState : IDisposable
     private async void OnRootChanged()
     {
         EditingRow = null;
+        _editingSubItemCount = -1;
         EditingSubItem = null;
         DraggedRow = null;
         EndSubItemDrag();
