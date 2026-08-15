@@ -174,7 +174,11 @@
                                 startOnLoad: false,
                                 theme: 'dark',
                                 securityLevel: 'strict',
-                                deterministicIds: true
+                                deterministicIds: true,
+                                // We report parse failures ourselves through the
+                                // source fallback; mermaid's own error graphic would
+                                // be a second, uglier answer to the same question.
+                                suppressErrorRendering: true
                             });
                             return mermaid;
                         }
@@ -212,6 +216,23 @@
 
     function backlogRenderDiagramError(element, message) {
         element.innerHTML = `<div class="diagram-view__fallback" role="note">${backlogEscapeHtml(message)} Source is available below.</div>`;
+    }
+
+    // mermaid.render() works in a scratch element it appends to <body>. It removes
+    // that element on success, but on a parse error it draws its own "Syntax error"
+    // graphic there and leaves it behind. Without this cleanup a half-typed diagram
+    // in an entry parks a bomb icon at the bottom of the page, next to our own
+    // fallback that already reported the error properly.
+    //
+    // The rendered SVG carries `${id}-svg` too, so anything still inside our own
+    // container is the real diagram and must survive; only strays outside it go.
+    function backlogRemoveMermaidScratchNodes(element, id) {
+        for (const candidate of [`d${id}-svg`, `${id}-svg`]) {
+            const node = document.getElementById(candidate);
+            if (node && !element.contains(node)) {
+                node.remove();
+            }
+        }
     }
 
     // GraphView's default renderer. It knows nothing about any particular graph:
@@ -270,6 +291,8 @@
                 result.bindFunctions?.(element);
             } catch (error) {
                 backlogRenderDiagramError(element, error instanceof Error ? error.message : 'Mermaid rendering failed.');
+            } finally {
+                backlogRemoveMermaidScratchNodes(element, id);
             }
         },
 
