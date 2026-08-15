@@ -19,6 +19,47 @@
         if (element) element.focus();
     };
 
+    // Copying is the browser's job, and the browser is allowed to refuse: the
+    // async clipboard needs a secure context and a permission the host WebView
+    // may not have granted. The execCommand path is the fallback for exactly
+    // that case — deprecated, but it is what still works in a WebView2 without
+    // clipboard-write. Either way the caller is told whether it worked, so the
+    // UI can say so instead of claiming a copy that never happened.
+    window.backlogClipboard = {
+        copy: async (text) => {
+            const value = text ?? '';
+
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(value);
+                    return true;
+                } catch {
+                    // Fall through to the legacy path.
+                }
+            }
+
+            const staging = document.createElement('textarea');
+            staging.value = value;
+            // Off-screen rather than hidden: the selection has to be real, and
+            // display:none elements cannot be selected.
+            staging.setAttribute('readonly', '');
+            staging.setAttribute('aria-hidden', 'true');
+            staging.style.position = 'fixed';
+            staging.style.top = '-1000px';
+            staging.style.opacity = '0';
+            document.body.appendChild(staging);
+
+            try {
+                staging.select();
+                return document.execCommand('copy');
+            } catch {
+                return false;
+            } finally {
+                staging.remove();
+            }
+        }
+    };
+
     // The side pane is resized by dragging its edge. Pointer capture and the live
     // width both belong in the browser; C# only hears the settled value, so a drag
     // costs one interop call instead of one per frame.

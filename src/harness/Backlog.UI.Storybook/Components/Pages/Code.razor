@@ -1,0 +1,255 @@
+@page "/code"
+
+<PageTitle>Code — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Code"
+           Summary="CodeView shows a snippet the way a snippet is read: coloured by CodeHighlighter, optionally numbered, and copyable in one click. The colouring is done in C#, so a block renders the same in the app, on a server and in a unit test.">
+
+    <Story Name="A code block"
+           Description="The default: a caption naming where the code came from, the language, and a copy button — all three quiet, because the code is the thing worth looking at. The status line under the block says whether the copy worked; a WebView is allowed to refuse, and claiming a copy that never happened loses whatever the reader had before."
+           Code="@BasicCode">
+        <CodeView Source="@CSharpSample" Language="csharp" Title="MarkdownPreview.cs" />
+    </Story>
+
+    <Story Name="Line numbers"
+           Description="The numbers are a CSS counter rather than markup, so selecting the block and copying it by hand gives you the code without a column of digits down the left."
+           Code="@NumberedCode">
+        <CodeView Source="@TypeScriptSample" Language="typescript" Title="push.ts" ShowLineNumbers="true" />
+    </Story>
+
+    <Story Name="Long lines scroll, or wrap if you ask"
+           Description="Code is written in lines, so by default a long one scrolls and the line stays one line. Wrap is for the places where horizontal scrolling is worse than a line that reads as two — a narrow pane, or a phone.">
+        <div class="sb-columns">
+            <div class="sb-stack">
+                <p class="sb-label">Scrolling (default)</p>
+                <CodeView Source="@LongLineSample" Language="csharp" AllowCopy="false" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Wrapping</p>
+                <CodeView Source="@LongLineSample" Language="csharp" Wrap="true" AllowCopy="false" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Nothing to say in the header"
+           Description="With no title, no language and no copy button there is no header at all — the block is just the code. This is the shape to use inside a card that already says what it is showing."
+           Code="@BareCode">
+        <CodeView Source="@BareSample" AllowCopy="false" />
+    </Story>
+
+    <Story Name="Every language it colours"
+           Description="The list is deliberately the set this product is written in and its entries are pasted from. It is not an IDE: a grammar nobody reads here is a grammar nobody maintains. Mermaid is on it for the source rather than the picture — a mermaid fence inside an entry is drawn by DiagramView, and this is the same text while it is still being written.">
+        <div class="sb-stack" data-testid="code-languages">
+            @foreach (var language in CodeLanguages.All)
+            {
+                <CodeView Source="@Samples[language.Id]" Language="@language.Id" />
+            }
+        </div>
+    </Story>
+
+    <Story Name="A language it does not know"
+           Description="Nothing is lost and nothing fails: the badge keeps the name the fence used and the block renders in one colour. An unknown language costs a snippet its colour, never its content."
+           Code="@UnknownCode">
+        <CodeView Source="@ClojureSample" Language="clojure" />
+    </Story>
+
+    <Story Name="The kinds a run can be"
+           Description="Nine kinds, and no more — these are the distinctions a reader makes at a glance, not the ones a compiler draws. The colours are the --code-* tokens, a syntax theme authored for this dark surface rather than borrowed from a light editor: every run of code clears 8.9:1 on the block's background, and the two deliberately quiet greys, comments and line numbers, still clear AA.">
+        <dl class="sb-grid" data-testid="code-token-kinds">
+            @foreach (var kind in Enum.GetValues<CodeTokenKind>())
+            {
+                <div>
+                    <dt class="sb-label">@kind</dt>
+                    <dd class="sb-story__code"><span class="@CssClassFor(kind)">@SampleFor(kind)</span></dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private const string CSharpSample = """
+        public static IReadOnlyList<MdBlock> Parse(string? body)
+        {
+            // Deliberately partial: anything the parser does not recognise
+            // falls through as readable prose.
+            var lines = (body ?? string.Empty).Replace("\r\n", "\n").Split('\n');
+            var blocks = new List<MdBlock>(capacity: 16);
+
+            foreach (var line in lines)
+            {
+                if (line.TrimStart().StartsWith("```", StringComparison.Ordinal)) continue;
+                blocks.Add(new MdParagraph(ParseInlines(line)));
+            }
+
+            return blocks;
+        }
+        """;
+
+    private const string TypeScriptSample = """
+        export async function push(entry: Entry): Promise<Result> {
+            const response = await fetch(`/api/entries/${entry.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(entry)
+            });
+
+            return response.ok
+                ? { ok: true, status: 200 }
+                : { ok: false, status: response.status };
+        }
+        """;
+
+    // One line well past any sensible width, so the difference between
+    // scrolling and wrapping is the thing the story is actually showing.
+    private const string LongLineSample = """
+        var summary = string.Join(", ", entries.Where(entry => entry.Status is not Status.Archived).OrderByDescending(entry => entry.UpdatedAt).Select(entry => $"{entry.Title} ({entry.Status})"));
+        """;
+
+    private const string BareSample = """
+        dotnet run --project src/harness/Backlog.UI.Storybook
+        """;
+
+    private const string ClojureSample = """
+        (defn open? [entry]
+          (not (contains? #{:done :archived} (:status entry))))
+        """;
+
+    /// <summary>One snippet per language on the list, each chosen to hit the
+    /// parts of its grammar that carry colour — a comment, a string, a number
+    /// and whatever that language calls a name.</summary>
+    private static readonly IReadOnlyDictionary<string, string> Samples = new Dictionary<string, string>
+    {
+        ["csharp"] = CSharpSample,
+
+        ["typescript"] = TypeScriptSample,
+
+        ["javascript"] = """
+            window.backlogClipboard = {
+                copy: async (text) => {
+                    // The browser is allowed to refuse, so say which it did.
+                    await navigator.clipboard.writeText(text ?? '');
+                    return true;
+                }
+            };
+            """,
+
+        ["json"] = """
+            {
+              "id": "entry-42",
+              "title": "Give every component a story",
+              "tags": ["ui", "storybook"],
+              "done": false
+            }
+            """,
+
+        ["yaml"] = """
+            ---
+            title: Give every component a story
+            status: in-progress   # one of draft, ready, in-progress, done
+            tags:
+              - ui
+              - storybook
+            done: false
+            ---
+            """,
+
+        ["css"] = """
+            /* The block sits on the page colour, not on the surface around it. */
+            .code-view__body {
+                padding: var(--spacing-md);
+                color: var(--code-plain);
+                font-size: var(--font-size-sm);
+                white-space: pre;
+            }
+            """,
+
+        ["html"] = """
+            <figure class="code-view">
+                <figcaption class="code-view__header">Program.cs</figcaption>
+                <!-- The block scrolls, so it is focusable and named. -->
+                <pre class="code-view__body" tabindex="0" role="region"></pre>
+            </figure>
+            """,
+
+        ["xml"] = """
+            <Project Sdk="Microsoft.NET.Sdk.Razor">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """,
+
+        ["sql"] = """
+            -- Open entries, busiest first.
+            SELECT e.id, e.title, count(s.id) AS sub_items
+            FROM entries e
+            LEFT JOIN sub_items s ON s.entry_id = e.id
+            WHERE e.status <> 'archived'
+            GROUP BY e.id, e.title
+            ORDER BY sub_items DESC;
+            """,
+
+        ["bash"] = """
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            for entry in "$BACKLOG_DIR"/*.md; do
+              echo "checking ${entry##*/}"
+            done
+            """,
+
+        ["powershell"] = """
+            param([string]$Path = ".backlog")
+
+            # Every entry file, with how big it is.
+            Get-ChildItem -Path $Path -Filter *.md | ForEach-Object {
+                Write-Output "$($_.Name) is $($_.Length) bytes"
+            }
+            """,
+
+        ["mermaid"] = """
+            %% The source, not the picture — DiagramView draws this one.
+            flowchart LR
+                Start([Captured]) --> Triage{Ready to work?}
+                Triage -- no --> Refine[Refine]
+                Triage -- yes --> Active[In progress]
+                Active --> Done([Done])
+            """
+    };
+
+    /// <summary>The class the view would put on a run of this kind. Asked of
+    /// the token rather than written out here, so the legend cannot drift from
+    /// what the component actually renders.</summary>
+    private static string CssClassFor(CodeTokenKind kind) => new CodeToken(kind, string.Empty).CssClass;
+
+    private static string SampleFor(CodeTokenKind kind) => kind switch
+    {
+        CodeTokenKind.Keyword => "public",
+        CodeTokenKind.Type => "BacklogEntry",
+        CodeTokenKind.String => "\"ready\"",
+        CodeTokenKind.Number => "42",
+        CodeTokenKind.Comment => "// why it is here",
+        CodeTokenKind.Operator => "=>",
+        CodeTokenKind.Tag => "<section",
+        CodeTokenKind.Attribute => "class",
+        _ => "entry"
+    };
+
+    private const string BasicCode = """
+        <CodeView Source="@source" Language="csharp" Title="MarkdownPreview.cs" />
+        """;
+
+    private const string NumberedCode = """
+        <CodeView Source="@source" Language="typescript" Title="push.ts" ShowLineNumbers="true" />
+        """;
+
+    private const string BareCode = """
+        <CodeView Source="@source" AllowCopy="false" />
+        """;
+
+    private const string UnknownCode = """
+        <CodeView Source="@source" Language="clojure" />
+        """;
+}
