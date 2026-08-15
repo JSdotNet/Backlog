@@ -21,7 +21,12 @@ public sealed class MarkdownViewTests
         var view = Render(context, "- [ ] Book the room\n- Just a bullet\n");
 
         Assert.Single(view.FindAll("[data-testid='entry-checkbox']"));
-        Assert.Contains("md-list--tasks", view.Find("ul").ClassList);
+
+        // The task modifier is per item, not per list: the plain bullet in the
+        // same list keeps its marker instead of reading as stray prose.
+        var items = view.FindAll("li");
+        Assert.Contains("md-item--task", items[0].ClassList);
+        Assert.DoesNotContain("md-item--task", items[1].ClassList);
     }
 
     [Fact]
@@ -40,15 +45,84 @@ public sealed class MarkdownViewTests
     }
 
     [Fact]
-    public void A_done_task_reads_as_pressed_and_offers_the_opposite_action()
+    public void A_checkbox_is_named_after_the_item_it_ticks()
+    {
+        // Every checkbox used to announce itself as "Mark done", so a screen
+        // reader on a four-item checklist heard four identical buttons.
+        using var context = new BunitContext();
+
+        var view = Render(context, "- [x] Book the room\n- [ ] Send the agenda\n");
+        var checkboxes = view.FindAll("[data-testid='entry-checkbox']");
+
+        Assert.Equal("checkbox", checkboxes[0].GetAttribute("role"));
+        Assert.Equal("true", checkboxes[0].GetAttribute("aria-checked"));
+        Assert.Equal("Book the room", checkboxes[0].GetAttribute("aria-label"));
+
+        Assert.Equal("false", checkboxes[1].GetAttribute("aria-checked"));
+        Assert.Equal("Send the agenda", checkboxes[1].GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void Without_a_toggle_handler_a_checkbox_is_state_and_not_a_control()
+    {
+        // A button that does nothing still takes focus, so a read-only body used
+        // to hand a keyboard user one dead tab stop per checklist item.
+        using var context = new BunitContext();
+
+        var view = context.Render<MarkdownView>(parameters => parameters
+            .Add(v => v.Blocks, MarkdownPreview.Parse("- [x] Book the room\n")));
+
+        var checkbox = view.Find("[data-testid='entry-checkbox']");
+
+        Assert.Empty(view.FindAll("button"));
+        Assert.Equal("img", checkbox.GetAttribute("role"));
+        Assert.Equal("Done", checkbox.GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void A_heading_carries_its_level_to_a_screen_reader()
+    {
+        // The level used to live in a CSS class alone, so heading navigation —
+        // the way you move through a long body — had nothing to move between.
+        using var context = new BunitContext();
+
+        var view = Render(context, "# Prepare review\n\n#### A detail\n");
+        var headings = view.FindAll(".md-heading");
+
+        Assert.Equal("heading", headings[0].GetAttribute("role"));
+        Assert.Equal("1", headings[0].GetAttribute("aria-level"));
+        Assert.Equal("4", headings[1].GetAttribute("aria-level"));
+    }
+
+    [Theory]
+    [InlineData("javascript:doEvil")]
+    [InlineData("JaVaScRiPt:doEvil")]
+    [InlineData("data:text/html,<b>hi</b>")]
+    public void A_link_we_will_not_navigate_to_renders_as_text(string url)
+    {
+        // Escaping keeps typed markup out of the document; an href is the other
+        // door, and this one opens in the app's own origin under WebView2.
+        using var context = new BunitContext();
+
+        var view = Render(context, $"A [click me]({url}) line");
+
+        Assert.Empty(view.FindAll("a"));
+        Assert.Equal("click me", view.Find(".md-link--inert").TextContent);
+    }
+
+    [Theory]
+    [InlineData("https://example.com/x")]
+    [InlineData("http://example.com/x")]
+    [InlineData("mailto:someone@example.com")]
+    [InlineData("notes/entry.md")]
+    [InlineData("notes/10:30.md")]
+    public void A_link_we_will_navigate_to_stays_a_link(string url)
     {
         using var context = new BunitContext();
 
-        var view = Render(context, "- [x] Book the room\n");
-        var checkbox = view.Find("[data-testid='entry-checkbox']");
+        var view = Render(context, $"A [click me]({url}) line");
 
-        Assert.Equal("true", checkbox.GetAttribute("aria-pressed"));
-        Assert.Equal("Mark not done", checkbox.GetAttribute("aria-label"));
+        Assert.Equal(url, view.Find("a.md-link").GetAttribute("href"));
     }
 
     [Fact]

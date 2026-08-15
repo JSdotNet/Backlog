@@ -25,6 +25,7 @@
     <Using Include="Microsoft.AspNetCore.Components.Web" />
     <Using Include="Backlog.UI.Components.Badges" />
     <Using Include="Backlog.UI.Components.Buttons" />
+    <Using Include="Backlog.UI.Components.Code" />
     <Using Include="Backlog.UI.Components.Diagrams" />
     <Using Include="Backlog.UI.Components.Feedback" />
     <Using Include="Backlog.UI.Components.Inputs" />

@@ -3,35 +3,23 @@
     whose ::after replica carries the same text and the same font metrics sets
     the grid track, and the textarea stretches to fill it. No JS, no resize
     observer, no flicker on the first paint.
+
+    `Bare` drops the outer wrapper for a host that already lays the label and the
+    box out itself, the same way TextField does. The grow wrapper is not part of
+    that bargain: it carries the border and sets the height, so removing it would
+    remove auto-grow. Turn AutoGrow off instead and it becomes a plain div.
 *@
 
-<div class="@ClassValue" data-testid="@TestId">
-    @if (!string.IsNullOrWhiteSpace(Label))
-    {
-        <label class="field__label" for="@FieldId">@Label</label>
-    }
-    <div class="@WrapClass" data-replicated-value="@Value">
-        <textarea id="@FieldId"
-                  class="field__input"
-                  rows="@Rows"
-                  placeholder="@Placeholder"
-                  disabled="@Disabled"
-                  readonly="@Readonly"
-                  aria-invalid="@(HasError ? "true" : null)"
-                  aria-describedby="@DescribedBy"
-                  aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
-                  @oninput="OnInput"
-                  @attributes="AdditionalAttributes">@Value</textarea>
+@if (Bare)
+{
+    @FieldParts
+}
+else
+{
+    <div class="@ClassValue" data-testid="@TestId">
+        @FieldParts
     </div>
-    @if (!string.IsNullOrWhiteSpace(HelpText))
-    {
-        <p id="@HelpId" class="field__help">@HelpText</p>
-    }
-    @if (HasError)
-    {
-        <Alert Message="@ErrorMessage" CssClass="field__error" Id="@ErrorId" />
-    }
-</div>
+}
 
 @code {
     private readonly string _id = "field-" + Guid.NewGuid().ToString("N");
@@ -75,6 +63,32 @@
     [Parameter]
     public string? CssClass { get; set; }
 
+    /// <summary>Renders the label, box, help and error without the wrapping
+    /// <c>field</c> element, for hosts whose own layout already places them.</summary>
+    [Parameter]
+    public bool Bare { get; set; }
+
+    /// <summary>Replaces <c>field</c> on the wrapper, and the stem its invalid
+    /// modifier is built on. Ignored when <see cref="Bare"/> is set.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "field";
+
+    /// <summary>Replaces <c>field__label</c> on the label.</summary>
+    [Parameter]
+    public string LabelCssClass { get; set; } = "field__label";
+
+    /// <summary>Replaces <c>field__input</c> on the textarea. A host with an
+    /// error style of its own puts it here, because the <c>field--invalid</c>
+    /// modifier lives on a wrapper <see cref="Bare"/> does not render.</summary>
+    [Parameter]
+    public string InputCssClass { get; set; } = "field__input";
+
+    /// <summary>Replaces <c>field__grow</c> on the element around the textarea.
+    /// That element carries the border, so a host whose textarea is already
+    /// bordered passes an empty string rather than doubling it up.</summary>
+    [Parameter]
+    public string GrowCssClass { get; set; } = "field__grow";
+
     [Parameter]
     public string? TestId { get; set; }
 
@@ -89,7 +103,14 @@
 
     private bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
-    private string WrapClass => AutoGrow ? "grow-wrap field__grow" : "field__grow";
+    private string? WrapClass
+    {
+        get
+        {
+            var grow = AutoGrow ? ("grow-wrap " + GrowCssClass).TrimEnd() : GrowCssClass;
+            return string.IsNullOrWhiteSpace(grow) ? null : grow;
+        }
+    }
 
     private string? DescribedBy
     {
@@ -107,11 +128,40 @@
     {
         get
         {
-            var error = HasError ? " field--invalid" : string.Empty;
+            var error = HasError ? $" {BaseClass}--invalid" : string.Empty;
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
-            return $"field field--textarea{error}{extra}";
+            return $"{BaseClass} {BaseClass}--textarea{error}{extra}";
         }
     }
+
+    private RenderFragment FieldParts =>
+        @<text>
+            @if (!string.IsNullOrWhiteSpace(Label))
+            {
+                <label class="@LabelCssClass" for="@FieldId">@Label</label>
+            }
+            <div class="@WrapClass" data-replicated-value="@Value">
+                <textarea id="@FieldId"
+                          class="@InputCssClass"
+                          rows="@Rows"
+                          placeholder="@Placeholder"
+                          disabled="@Disabled"
+                          readonly="@Readonly"
+                          aria-invalid="@(HasError ? "true" : null)"
+                          aria-describedby="@DescribedBy"
+                          aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
+                          @oninput="OnInput"
+                          @attributes="AdditionalAttributes">@Value</textarea>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(HelpText))
+            {
+                <p id="@HelpId" class="field__help">@HelpText</p>
+            }
+            @if (HasError)
+            {
+                <Alert Message="@ErrorMessage" CssClass="field__error" Id="@ErrorId" />
+            }
+        </text>;
 
     private Task OnInput(ChangeEventArgs e)
     {

@@ -1,5 +1,4 @@
 @page "/markdown"
-@using System.Text.RegularExpressions
 @implements IDisposable
 
 <PageTitle>Markdown — Backlog UI Storybook</PageTitle>
@@ -8,7 +7,7 @@
            Summary="MarkdownPreview parses the source, MarkdownView renders it. Editing and reading are the same text seen two ways.">
 
     <Story Name="Edit and read"
-           Description="Source on the left, read view on the right. There is no save button on purpose: the product auto-saves, so the indicator under the editor goes Saving then Saved as you type — it renders nothing at all while idle. The checkboxes in the read view write back into the source."
+           Description="Source on the left, read view on the right. There is no save button on purpose: the product auto-saves, so the indicator under the editor goes Saving then Saved as you type — it renders nothing at all while idle. Ticking a checkbox writes back into the source and saves at once, with no debounce, because a toggle is a discrete change and there is nothing more to wait for. Try ticking one while the source has a code fence in it: the `- [ ]` inside the fence is a code sample, not a task, and MarkdownPreview.ToggleTask skips it the same way the parser did."
            Code="@EditCode">
         <div class="sb-columns">
             <div class="sb-stack">
@@ -24,24 +23,39 @@
             <div class="sb-stack">
                 <p class="sb-label">Read view</p>
                 <div data-testid="markdown-preview">
-                    <MarkdownView Blocks="Blocks" OnTaskItemToggled="ToggleTaskAsync" />
+                    <MarkdownView Blocks="_blocks" OnTaskItemToggled="ToggleTask" />
                 </div>
             </div>
         </div>
     </Story>
 
     <Story Name="Read-only view"
-           Description="The same component with fixed content and no toggle handler — how a body renders when it is not being edited."
+           Description="The same component with fixed content and no toggle handler — how a body renders when it is not being edited. The checkboxes here are state, not controls: no delegate means no button, so Tab walks past them instead of stopping on something that would do nothing."
            Code="@ReadOnlyCode">
         <div data-testid="markdown-readonly">
-            <MarkdownView Blocks="@MarkdownPreview.Parse(FixedSample)" />
+            <MarkdownView Blocks="FixedBlocks" />
+        </div>
+    </Story>
+
+    <Story Name="Tasks and bullets in one list"
+           Description="A list may mix the two. Only the checklist items drop their marker — a plain bullet between them keeps its own, or it reads as a stray line of prose."
+           Code="@MixedCode">
+        <div data-testid="markdown-mixed">
+            <MarkdownView Blocks="MixedBlocks" />
+        </div>
+    </Story>
+
+    <Story Name="Links we will not follow"
+           Description="A link is only rendered as one when its scheme is http, https, mailto, or a relative path. Anything else — `javascript:`, `data:` — stays as the text the author typed, because the read view is a webview and an href is the one place typed text could still become behaviour.">
+        <div data-testid="markdown-links">
+            <MarkdownView Blocks="LinkBlocks" />
         </div>
     </Story>
 
     <Story Name="Blocks the parser produces"
            Description="What MarkdownPreview made of the source in the first story — useful when a line renders as prose and you want to know why.">
         <ul class="sb-stack" data-testid="markdown-blocks">
-            @foreach (var block in Blocks)
+            @foreach (var block in _blocks)
             {
                 <li><code>@block.GetType().Name</code></li>
             }
@@ -58,7 +72,7 @@
             <div>
                 <p class="sb-label">Read view</p>
                 <div data-testid="markdown-subitems">
-                    <MarkdownView Blocks="@MarkdownPreview.Parse(SubItemSample)" />
+                    <MarkdownView Blocks="SubItemBlocks" />
                 </div>
             </div>
         </div>
@@ -67,10 +81,6 @@
 </StoryPage>
 
 @code {
-    // The task index MarkdownView reports counts `- [ ]` lines in document order,
-    // so writing a toggle back means finding the nth such line in the source.
-    private static readonly Regex TaskLineRegex = new(@"^(\s*[-*]\s+\[)( |x|X)(\]\s)", RegexOptions.Compiled);
-
     private const string InitialSource = """
         # Storybook entry
 
@@ -114,6 +124,20 @@
         > A quote, and a #tag.
         """;
 
+    private const string MixedSample = """
+        - [x] A task
+        - A plain bullet in the same list
+        - [ ] Another task
+        """;
+
+    private const string LinkSample = """
+        A [normal link](https://learn.microsoft.com/aspnet/core/blazor), a
+        [relative one](notes/entry.md), and one whose URL has brackets of its own
+        — [the C article](https://en.wikipedia.org/wiki/C_(programming_language)).
+
+        A [script URL](javascript:doEvil) and a [data URL](data:text/html,hi) do not.
+        """;
+
     // A `##` heading is a sub-item: the parser folds everything under it into an
     // MdSubItem, and MarkdownView deliberately does not render those because the
     // host lays each one out as its own card. Nothing on this page uses `##`, or
@@ -133,33 +157,39 @@
     private SaveState _saveState = SaveState.Idle;
     private CancellationTokenSource? _saveDelay;
 
-    private IReadOnlyList<MdBlock> Blocks => MarkdownPreview.Parse(_source);
+    // Parsed once per change rather than once per read: the page re-renders on
+    // every keystroke, and all but the first of these never change at all.
+    private IReadOnlyList<MdBlock> _blocks = MarkdownPreview.Parse(InitialSource);
+    private static readonly IReadOnlyList<MdBlock> FixedBlocks = MarkdownPreview.Parse(FixedSample);
+    private static readonly IReadOnlyList<MdBlock> MixedBlocks = MarkdownPreview.Parse(MixedSample);
+    private static readonly IReadOnlyList<MdBlock> LinkBlocks = MarkdownPreview.Parse(LinkSample);
+    private static readonly IReadOnlyList<MdBlock> SubItemBlocks = MarkdownPreview.Parse(SubItemSample);
 
     private async Task OnSourceChangedAsync(string value)
     {
         _source = value;
+        _blocks = MarkdownPreview.Parse(_source);
         await MarkSavingAsync();
     }
 
-    private async Task ToggleTaskAsync(int taskIndex)
+    /// <summary>The read view reports which task was clicked; the source stays
+    /// the truth, so the click is a text rewrite. MarkdownPreview.ToggleTask
+    /// does the counting, because only the code that assigned the index knows
+    /// which lines it skipped.</summary>
+    private void ToggleTask(int taskIndex)
     {
-        var lines = _source.Replace("\r\n", "\n").Split('\n');
-        var seen = 0;
+        _source = MarkdownPreview.ToggleTask(_source, taskIndex);
+        _blocks = MarkdownPreview.Parse(_source);
+        MarkSaved();
+    }
 
-        for (var i = 0; i < lines.Length; i++)
-        {
-            var match = TaskLineRegex.Match(lines[i]);
-            if (!match.Success) continue;
-
-            if (seen++ != taskIndex) continue;
-
-            var flipped = match.Groups[2].Value == " " ? "x" : " ";
-            lines[i] = match.Groups[1].Value + flipped + match.Groups[3].Value + lines[i][match.Length..];
-            break;
-        }
-
-        _source = string.Join('\n', lines);
-        await MarkSavingAsync();
+    /// <summary>A toggle is a discrete change, not a stream of keystrokes: there
+    /// is nothing to wait for, so it lands as Saved immediately and cancels any
+    /// typing debounce still in flight.</summary>
+    private void MarkSaved()
+    {
+        _saveDelay?.Cancel();
+        _saveState = SaveState.Saved;
     }
 
     /// <summary>Stands in for the real auto-save: Saving while the keystrokes are
@@ -194,13 +224,31 @@
     }
 
     private const string EditCode = """
-        <TextArea Value="@_source" ValueChanged="OnSourceChangedAsync" Rows="18" />
+        <TextArea Value="@_source" ValueChanged="OnSourceChangedAsync" AriaLabel="Markdown source" Rows="18" />
         <SaveIndicator State="_saveState" />
 
-        <MarkdownView Blocks="@MarkdownPreview.Parse(_source)" OnTaskItemToggled="ToggleTaskAsync" />
+        <MarkdownView Blocks="_blocks" OnTaskItemToggled="ToggleTask" />
+
+        @code {
+            private void ToggleTask(int taskIndex)
+            {
+                // Never count the checkboxes yourself: the index came from the
+                // parser, and only the parser knows which lines it skipped.
+                _source = MarkdownPreview.ToggleTask(_source, taskIndex);
+                _blocks = MarkdownPreview.Parse(_source);
+                MarkSaved();   // discrete change — no debounce
+            }
+        }
         """;
 
     private const string ReadOnlyCode = """
+        @* No OnTaskItemToggled: the checkboxes render as state, not buttons. *@
         <MarkdownView Blocks="@MarkdownPreview.Parse(body)" />
+        """;
+
+    private const string MixedCode = """
+        - [x] A task
+        - A plain bullet in the same list
+        - [ ] Another task
         """;
 }

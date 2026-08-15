@@ -14,7 +14,7 @@ public static class MarkdownPreview
 {
     private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.*)$", RegexOptions.Compiled);
     private static readonly Regex CheckboxPrefixRegex = new(@"^\[( |x|X)\][ \t]+", RegexOptions.Compiled);
-    private static readonly Regex TaskItemRegex = new(@"^[ \t]*[-*][ \t]+\[( |x|X)\][ \t]+(.*)$", RegexOptions.Compiled);
+    private static readonly Regex TaskItemRegex = new(@"^[ \t]*[-*][ \t]+\[(?<marker> |x|X)\][ \t]+(?<text>.*)$", RegexOptions.Compiled);
     private static readonly Regex BulletRegex = new(@"^[ \t]*[-*][ \t]+(.*)$", RegexOptions.Compiled);
     private static readonly Regex OrderedRegex = new(@"^[ \t]*\d+[.)][ \t]+(.*)$", RegexOptions.Compiled);
 
@@ -22,14 +22,42 @@ public static class MarkdownPreview
         @"(?<code>`[^`\n]+`)" +
         @"|(?<bold>\*\*[^*\n]+\*\*)" +
         @"|(?<em>(?<!\*)\*[^*\n]+\*(?!\*))" +
-        @"|(?<link>\[[^\]\n]+\]\([^)\s]+\))" +
+        // The URL may contain one level of balanced brackets — Wikipedia article
+        // titles do — so stopping at the first `)` would truncate the link and
+        // leave a stray bracket in the text.
+        @"|(?<link>\[[^\]\n]+\]\((?:[^()\s]|\([^()\s]*\))+\))" +
         @"|(?<tag>(?<!\S)#[A-Za-z][\w-]*)",
         RegexOptions.Compiled);
 
+    /// <summary>
+    /// Reads a body as an <em>entry</em>: a <c>##</c> heading is a sub-item, and
+    /// it and everything under it is folded into an <see cref="MdSubItem"/> for
+    /// the host to lay out as its own card.
+    /// </summary>
     public static IReadOnlyList<MdBlock> Parse(
         string? body,
         string? inheritedArea = null,
-        IMarkdownMetadataReader? metadataReader = null)
+        IMarkdownMetadataReader? metadataReader = null) =>
+        Parse(body, inheritedArea, metadataReader, asEntry: true);
+
+    /// <summary>
+    /// Reads a body as a plain markdown <em>document</em>: a <c>##</c> is a
+    /// heading and nothing more.
+    /// <para>
+    /// This is the reading a file wants. <see cref="Parse"/> hands sub-items to
+    /// the host and renders nothing for them itself, which is right for an entry
+    /// and silently swallows most of a real file — where <c>##</c> is just how
+    /// people write sections.
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<MdBlock> ParseDocument(string? body) =>
+        Parse(body, inheritedArea: null, metadataReader: null, asEntry: false);
+
+    private static IReadOnlyList<MdBlock> Parse(
+        string? body,
+        string? inheritedArea,
+        IMarkdownMetadataReader? metadataReader,
+        bool asEntry)
     {
         var lines = (body ?? string.Empty).Replace("\r\n", "\n").Split('\n');
         var blocks = new List<MdBlock>();
@@ -102,7 +130,10 @@ public static class MarkdownPreview
                 bool? done = null;
                 MarkdownMetadata? metadata = null;
 
-                if (level is 2 or 3)
+                // Only an entry has sub-item state on a heading. In a document a
+                // leading `[x]` is text the author typed, and stripping it would
+                // drop content the view has nowhere else to show.
+                if (asEntry && level is 2 or 3)
                 {
                     var box = CheckboxPrefixRegex.Match(text);
                     if (box.Success)
@@ -112,7 +143,8 @@ public static class MarkdownPreview
                     }
                 }
 
-                if (level is 2 or 3
+                if (asEntry
+                    && level is 2 or 3
                     && metadataReader is not null
                     && i + 1 < lines.Length
                     && metadataReader.IsMetadataLine(lines[i + 1]))
@@ -138,7 +170,7 @@ public static class MarkdownPreview
                 FlushParagraph();
                 if (ordered is true) FlushList();
                 ordered = false;
-                items.Add(new MdListItem(task.Groups[1].Value is "x" or "X", ParseInlines(task.Groups[2].Value), taskIndex++));
+                items.Add(new MdListItem(task.Groups["marker"].Value is "x" or "X", ParseInlines(task.Groups["text"].Value), taskIndex++));
                 continue;
             }
 
@@ -167,7 +199,64 @@ public static class MarkdownPreview
         }
 
         FlushAll();
-        return GroupSubItems(blocks);
+        return asEntry ? GroupSubItems(blocks) : blocks;
+    }
+
+    /// <summary>
+    /// True when the line is one <see cref="Parse"/> would turn into a checklist
+    /// item — the same test, so anyone counting checkboxes counts the same ones
+    /// the read view rendered.
+    /// </summary>
+    public static bool IsTaskLine(string? line) => line is not null && TaskItemRegex.IsMatch(line.TrimEnd());
+
+    /// <summary>
+    /// Flips the nth checklist item in <paramref name="source"/>, where n is the
+    /// <see cref="MdListItem.TaskIndex"/> the read view reported.
+    /// <para>
+    /// This lives beside <see cref="Parse"/> on purpose. The index only means
+    /// anything if the rewriter walks the text exactly the way the parser did —
+    /// same idea of what a task line is, and the same blindness to fenced code,
+    /// where a <c>- [ ]</c> is a code sample and never got an index. Counting
+    /// those would shift every real task by one and rewrite the wrong line.
+    /// </para>
+    /// <para>
+    /// Returns the source untouched when the index names no task, rather than
+    /// normalizing line endings on a rewrite that did not happen.
+    /// </para>
+    /// </summary>
+    public static string ToggleTask(string? source, int taskIndex)
+    {
+        if (source is null) return string.Empty;
+        if (taskIndex < 0) return source;
+
+        var lines = source.Replace("\r\n", "\n").Split('\n');
+        var inFence = false;
+        var seen = 0;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence) continue;
+
+            // Matched against the trimmed line so the test is IsTaskLine's, but
+            // spliced into the original: the marker sits before any trailing
+            // whitespace, so its index carries over unchanged.
+            var task = TaskItemRegex.Match(lines[i].TrimEnd());
+            if (!task.Success) continue;
+            if (seen++ != taskIndex) continue;
+
+            var marker = task.Groups["marker"];
+            var flipped = marker.Value is "x" or "X" ? " " : "x";
+            lines[i] = lines[i][..marker.Index] + flipped + lines[i][(marker.Index + marker.Length)..];
+            return string.Join('\n', lines);
+        }
+
+        return source;
     }
 
     /// <summary>

@@ -1,6 +1,10 @@
 @*
     An icon on its own says nothing to a screen reader, so AriaLabel and Title
     are required rather than optional.
+
+    BaseClass hands the whole class name to a host that already dresses its own
+    icon buttons. `.btn--icon` carries a 2rem minimum, so appending it to a
+    tighter row action would grow the row rather than adopt the component.
 *@
 
 <button type="button"
@@ -33,6 +37,10 @@
     [Parameter]
     public string? CssClass { get; set; }
 
+    /// <summary>Replaces <c>btn btn--icon</c> entirely.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "btn btn--icon";
+
     [Parameter]
     public string? TestId { get; set; }
 
@@ -42,6 +50,6 @@
     private string TitleValue => string.IsNullOrWhiteSpace(Title) ? AriaLabel : Title;
 
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass)
-        ? "btn btn--icon"
-        : $"btn btn--icon {CssClass}";
+        ? BaseClass
+        : $"{BaseClass} {CssClass}";
 }

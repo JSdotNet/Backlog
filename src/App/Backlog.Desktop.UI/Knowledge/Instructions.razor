@@ -77,14 +77,14 @@
                         <nav class="instructions-list" aria-label="Instruction documents">
                             @foreach (var document in activeRepository.Documents)
                             {
-                                <button type="button"
-                                        class="@DocumentButtonClass(document)"
-                                        data-testid="instructions-document-button"
-                                        aria-pressed="@DocumentSelected(document)"
-                                        @onclick="() => SelectDocument(document.RelativePath)">
+                                <ToggleButton BaseClass="instructions-list__item"
+                                              PressedCssClass="instructions-list__item--active"
+                                              Pressed="@IsDocumentSelected(document)"
+                                              TestId="instructions-document-button"
+                                              PressedChanged="() => SelectDocument(document.RelativePath)">
                                     <span class="instructions-list__title">@document.RelativePath</span>
                                     <span class="instructions-list__meta">@document.Agent - @document.Scope</span>
-                                </button>
+                                </ToggleButton>
                             }
                         </nav>
 
@@ -136,13 +136,8 @@
         _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
     }
 
-    private string DocumentButtonClass(InstructionDocument document) =>
-        string.Equals(document.RelativePath, SelectedDocument?.RelativePath, StringComparison.OrdinalIgnoreCase)
-            ? "instructions-list__item instructions-list__item--active"
-            : "instructions-list__item";
-
-    private string DocumentSelected(InstructionDocument document) =>
-        string.Equals(document.RelativePath, SelectedDocument?.RelativePath, StringComparison.OrdinalIgnoreCase) ? "true" : "false";
+    private bool IsDocumentSelected(InstructionDocument document) =>
+        string.Equals(document.RelativePath, SelectedDocument?.RelativePath, StringComparison.OrdinalIgnoreCase);
 
     private void SelectDocument(string relativePath) => _selectedDocumentPath = relativePath;
 

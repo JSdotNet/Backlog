@@ -267,13 +267,13 @@
         """;
 
     private const string StatusSelectorCode = """
-        <StatusSelector CurrentValue="@_status" Options="Statuses"
-                        OnChanged="v => _status = v" />
+        <StatusSelector CurrentValue="@_entryStatus" Options="Statuses"
+                        OnChanged="v => _entryStatus = v" />
         """;
 
     private const string PrioritySelectorCode = """
-        <PrioritySelector TEnum="DemoPriority" CurrentValue="_priority"
-                          OnChanged="v => _priority = v" />
+        <PrioritySelector TEnum="DemoPriority" CurrentValue="_entryPriority"
+                          OnChanged="v => _entryPriority = v" />
         """;
 
     private const string RepositorySelectorCode = """

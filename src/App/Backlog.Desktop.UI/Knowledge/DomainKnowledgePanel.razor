@@ -29,10 +29,16 @@
         @if (string.IsNullOrWhiteSpace(SelectedPath))
         {
             <nav class="domain-knowledge__contexts" aria-label="Bounded contexts">
-                <button type="button" class="domain-context-tab @ContextTabClass(null)" aria-pressed="@ContextTabSelected(null)" @onclick="() => SelectContext(null)">Context map</button>
+                <ToggleButton BaseClass="domain-context-tab"
+                              PressedCssClass="domain-context-tab--active"
+                              Pressed="@IsContextSelected(null)"
+                              PressedChanged="() => SelectContext(null)">Context map</ToggleButton>
                 @foreach (var context in _view.Contexts)
                 {
-                    <button type="button" class="domain-context-tab @ContextTabClass(context)" aria-pressed="@ContextTabSelected(context)" @onclick="() => SelectContext(context)">@context.DisplayName</button>
+                    <ToggleButton BaseClass="domain-context-tab"
+                                  PressedCssClass="domain-context-tab--active"
+                                  Pressed="@IsContextSelected(context)"
+                                  PressedChanged="() => SelectContext(context)">@context.DisplayName</ToggleButton>
                 }
             </nav>
         }
@@ -127,8 +133,11 @@
     }
 
     private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
-    private string ContextTabClass(DomainKnowledgeContext? context) => string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal) ? "domain-context-tab--active" : string.Empty;
-    private string ContextTabSelected(DomainKnowledgeContext? context) => string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal) ? "true" : "false";
+    /// <summary>The class and the aria-pressed value used to be derived
+    /// separately from this same comparison, which is two chances to disagree.
+    /// ToggleButton derives both from the one answer.</summary>
+    private bool IsContextSelected(DomainKnowledgeContext? context) =>
+        string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal);
 
     private static IReadOnlyList<SelectorOption> KnowledgeStatusOptions() =>
         [.. KnowledgeStatuses.Select(status => new SelectorOption(status, status))];
@@ -218,22 +227,21 @@
 
         @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli))
         {
-            <button type="button"
-                    class="entry-doc__icon-action entry-doc__icon-action--copilot"
-                    data-testid="knowledge-copilot-cli-button"
-                    disabled="@IsCopilotBusy(item)"
-                    title="Start GitHub Copilot CLI for this knowledge item"
-                    aria-label="Start GitHub Copilot CLI for @item.Title"
-                    @onclick="() => StartKnowledgeCopilotAsync(item)">
+            <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--copilot"
+                        TestId="knowledge-copilot-cli-button"
+                        Disabled="@IsCopilotBusy(item)"
+                        Title="Start GitHub Copilot CLI for this knowledge item"
+                        AriaLabel="@($"Start GitHub Copilot CLI for {item.Title}")"
+                        OnClick="() => StartKnowledgeCopilotAsync(item)">
                 @if (IsCopilotBusy(item))
                 {
-                    <span aria-hidden="true">...</span>
+                    <span>...</span>
                 }
                 else
                 {
-                    <span class="entry-doc__cli-mark" aria-hidden="true">gh</span>
+                    <span class="entry-doc__cli-mark">gh</span>
                 }
-            </button>
+            </IconButton>
         }
 
         @if (_statusErrors.TryGetValue(item.Path, out var statusError))
@@ -277,7 +285,8 @@
         builder.AddContent(0, value);
     };
 
-    private RenderFragment RenderKnowledgeLink(string link) => @<button type="button" class="domain-metadata__link" @onclick="() => NavigateKnowledgeLink(link)">@link</button>;
+    private RenderFragment RenderKnowledgeLink(string link) =>
+        @<AppButton BaseClass="domain-metadata__link" Variant="ButtonVariant.None" OnClick="() => NavigateKnowledgeLink(link)">@link</AppButton>;
 
     private async Task ChangeKnowledgeStatusAsync(KnowledgeActionItem item, string? status)
     {

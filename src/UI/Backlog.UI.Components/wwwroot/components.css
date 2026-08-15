@@ -70,6 +70,30 @@
     --color-border-focus: #F2C14E;
 
 
+    /* Syntax highlighting.
+       A theme, not a second semantic palette: these name what a run of code is,
+       never what a piece of UI means, and nothing outside a code block may use
+       them. .design/design-principles.md requires syntax themes to be authored
+       for dark surfaces rather than borrowed from a light editor, so each value
+       below is checked against --color-background, which is what a code block
+       sits on: every run of actual code is above 8.9:1, and the two deliberately
+       quiet ones — the comment grey at 5.9:1 and the line-number grey at 5.1:1 —
+       still clear AA rather than sliding under it.
+
+       Keywords take the brand colour because a keyword is the "key highlight"
+       the palette names it for; everything else is a hue the palette does not
+       otherwise spend, so no two kinds of run read as the same thing. */
+    --code-plain: var(--color-text-primary);
+    --code-keyword: var(--color-primary);
+    --code-type: #7FD1C1;
+    --code-string: #9BD17F;
+    --code-number: #F0A868;
+    --code-comment: #8595AD;
+    --code-operator: var(--color-text-secondary);
+    --code-tag: var(--color-primary-light);
+    --code-attribute: #7FD1C1;
+    --code-line-number: #7A8AA3;
+
     /* Typography */
     --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-family-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -716,8 +740,13 @@
     line-height: var(--line-height-tight);
 }
 
+/* Levels 2 and 3 were unstyled and unreachable while the only caller read every
+   body as an entry, where a `##` is a sub-item the host draws. A document read
+   (MarkdownPreview.ParseDocument) puts them back on screen, so the ramp has to
+   be whole. */
 .md-heading--1 { font-size: var(--font-size-lg); }
-.md-heading--3 { font-size: var(--font-size-base); }
+.md-heading--2 { font-size: var(--font-size-base); }
+.md-heading--3 { font-size: var(--font-size-sm); }
 .md-heading--4,
 .md-heading--5,
 .md-heading--6 {
@@ -743,6 +772,10 @@
     font-size: 10px;
     line-height: 1;
     color: transparent;
+}
+
+/* Only the one you can actually click says so. */
+button.md-check {
     cursor: pointer;
 }
 
@@ -764,7 +797,12 @@
 
 .md-item--done .md-check--done {
     text-decoration: none;
-    cursor: pointer;
+}
+
+/* A link whose scheme we refused to navigate to: still readable, not clickable. */
+.md-link--inert {
+    color: var(--color-text-secondary);
+    text-decoration: underline dotted;
 }
 
 .md-list {
@@ -773,15 +811,14 @@
     color: var(--color-text-secondary);
 }
 
-.md-list--tasks {
-    list-style: none;
-    padding-left: var(--spacing-xs);
-}
-
-.md-list--tasks li {
+/* Only the checklist items lose their marker — a plain bullet in the same list
+   keeps looking like a bullet instead of reading as stray prose. */
+.md-item--task {
     display: flex;
     align-items: flex-start;
     gap: var(--spacing-sm);
+    list-style: none;
+    margin-left: calc(var(--spacing-lg) * -1 + var(--spacing-xs));
 }
 
 .md-quote {
@@ -820,6 +857,193 @@
 
 .md-link {
     color: var(--color-text-link);
+}
+
+/* --- Code view ----------------------------------------------------------- */
+/*
+   A code block is a figure: a caption naming it, the code itself, and a status
+   line for the copy button. The code sits on --color-background rather than on
+   the surface around it, the same inversion .md-code uses, so a block reads as
+   inset into the page instead of raised off it.
+
+   The header is a label on the block rather than a bar across it: no fill, no
+   rule under it and nothing in a pill. A filled toolbar made every snippet on a
+   page announce itself twice, and on the storybook's language gallery eleven of
+   them read as a stack of window chrome with some code trapped inside. What is
+   left is a caption and a language, both quiet, and the code is the loudest
+   thing in the figure again.
+*/
+
+.code-view {
+    margin: 0 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    overflow: hidden;
+}
+
+.code-view__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-height: 2rem;
+    padding: var(--spacing-xs) var(--spacing-xs) 0 var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.code-view__title {
+    font-family: var(--font-family-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Everything that is not the caption sits at the right, whether or not there
+   is a caption to sit beside. */
+.code-view__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: auto;
+}
+
+.code-view__language {
+    font-family: var(--font-family-mono);
+}
+
+/* Muted until it is wanted. The button is always there — a copy affordance that
+   only appears on hover cannot be found by touch or by keyboard — but it sits
+   at the header's own weight until it is hovered or focused. */
+.code-view__copy {
+    color: var(--color-text-secondary);
+}
+
+.code-view__copy:hover,
+.code-view__copy:focus-visible {
+    color: var(--color-text-primary);
+}
+
+.code-view__body {
+    margin: 0;
+    padding: var(--spacing-md);
+    max-height: 32rem;
+    overflow: auto;
+    color: var(--code-plain);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    white-space: pre;
+    tab-size: 4;
+}
+
+/* The header already leaves space above the code, so the block does not need a
+   full measure of its own on top of it. */
+.code-view__header + .code-view__body {
+    padding-top: var(--spacing-sm);
+}
+
+/* The block scrolls, so it takes focus, so it shows a focus ring — inset,
+   because an outline outside it would be clipped by the figure's rounding. */
+.code-view__body:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.code-view__code {
+    display: block;
+    font: inherit;
+    /* Lines are blocks, and a block is as wide as the viewport unless told
+       otherwise — without this a numbered gutter stops halfway through a line
+       that scrolls. */
+    min-width: max-content;
+}
+
+.code-view__line {
+    display: block;
+    /* An empty line is still a line. */
+    min-height: calc(1em * var(--line-height-normal));
+}
+
+.code-view--wrap .code-view__body {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.code-view--wrap .code-view__code {
+    min-width: 0;
+}
+
+/* The numbers are a counter rather than markup so that selecting the block and
+   copying it by hand does not put them in the clipboard. */
+.code-view--numbered .code-view__code {
+    counter-reset: code-view-line;
+}
+
+.code-view--numbered .code-view__line {
+    counter-increment: code-view-line;
+    padding-left: 3.5rem;
+}
+
+.code-view--numbered .code-view__line::before {
+    content: counter(code-view-line);
+    display: inline-block;
+    width: 2.5rem;
+    margin-left: -3.5rem;
+    padding-right: var(--spacing-md);
+    text-align: right;
+    color: var(--code-line-number);
+    user-select: none;
+}
+
+.code-view__status {
+    margin: 0;
+    padding: 0 var(--spacing-md) var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.code-view__status:empty {
+    display: none;
+}
+
+/* --- Syntax highlighting ------------------------------------------------- */
+/*
+   One rule per CodeTokenKind. Plain text is not in this list: it is emitted
+   without a span at all and inherits --code-plain from the block.
+*/
+
+.code-token--keyword {
+    color: var(--code-keyword);
+}
+
+.code-token--type {
+    color: var(--code-type);
+}
+
+.code-token--string {
+    color: var(--code-string);
+}
+
+.code-token--number {
+    color: var(--code-number);
+}
+
+.code-token--comment {
+    color: var(--code-comment);
+    font-style: italic;
+}
+
+.code-token--operator {
+    color: var(--code-operator);
+}
+
+.code-token--tag {
+    color: var(--code-tag);
+}
+
+.code-token--attribute {
+    color: var(--code-attribute);
 }
 
 /* --- Knowledge metadata -------------------------------------------------- */
@@ -1231,35 +1455,10 @@ body.is-resizing-pane {
     color: var(--color-text-secondary);
 }
 
-.feedback-field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-}
-
-.feedback-field input,
-.feedback-field textarea {
-    width: 100%;
-    color: var(--color-text-primary);
-    background: var(--color-background-alt);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    padding: var(--spacing-sm);
-    font: inherit;
-}
-
-.feedback-field textarea {
-    resize: vertical;
-}
-
-.feedback-field input:focus,
-.feedback-field textarea:focus {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
+/* `.feedback-field` used to live here: a label-over-input shape with the same
+   gap, padding, border and focus ring as `.field` further down, written twice
+   because the dialog hand-rolled its markup instead of using TextField. The
+   dialog uses the component now, so this is the one shape again. */
 
 .feedback-status {
     margin: 0;
@@ -2103,6 +2302,141 @@ button.tag-chip__label {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
+}
+
+/* --- File view ----------------------------------------------------------- */
+
+/* The deep surface, not the raised one: a file is the thing being read, so it
+   sits at the back of the stack and lets the app's own chrome come forward. */
+.file-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    overflow: hidden;
+}
+
+/* Fill mode: the host decides how tall this is, and the body takes whatever is
+   left under the header. min-height:0 is what lets a flex child actually shrink
+   below its content and scroll instead of pushing the card open. */
+.file-view--fill {
+    height: 100%;
+}
+
+.file-view--fill .file-view__body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* One surface, one rule. The header and the body share the card's background —
+   a shade under the header drew the boundary twice — but the rule stays: the
+   header is fixed and the body scrolls under it, and that needs a line. */
+.file-view__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.file-view__identity {
+    min-width: 0;
+}
+
+.file-view__name {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.file-view__meta {
+    margin: var(--spacing-xs) 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* The path earns the monospace: it is a machine string, and the reader is
+   usually checking one segment of it rather than reading it as prose. It is the
+   first thing to give up room when the header is narrow — the name beside it
+   still identifies the file, and the text stays whole in the DOM. */
+.file-view__path {
+    flex: 0 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-disabled);
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Scrollbars are chrome, not content. app.css says the same thing globally for
+   the desktop shell, but the library has to stand on its own — the storybook
+   loads no app stylesheet, and a component that only looks right inside one host
+   is not a component. */
+.file-view__body {
+    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+    overflow: auto;
+    /* Reserve the track so the content does not shift sideways the moment a
+       file grows past the fold. */
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+}
+
+.file-view__body::-webkit-scrollbar {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.file-view__body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.file-view__body::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border);
+    background-clip: padding-box;
+}
+
+.file-view__body::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-strong);
+    background-clip: padding-box;
+}
+
+.file-view__body::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* The body is a tab stop because it scrolls, so it has to show focus like one. */
+.file-view__body:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(var(--border-width-2) * -1);
+}
+
+/* The last block in a file should not leave a double gap above the border. */
+.file-view__body > :last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 40rem) {
+    .file-view__header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-xs);
+    }
+
+    .file-view__path {
+        text-align: left;
+    }
 }
 
 .section-header {

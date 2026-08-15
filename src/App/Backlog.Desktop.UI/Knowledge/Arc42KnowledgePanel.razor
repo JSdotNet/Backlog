@@ -56,10 +56,10 @@
                     @foreach (var chapter in _catalog.Documents)
                     {
                         <div class="knowledge-chapter @(ReferenceEquals(chapter, _selected) ? "knowledge-chapter--active" : string.Empty)" data-testid="arc42-chapter-option">
-                            <button type="button"
-                                    class="knowledge-chapter__button"
-                                    aria-current="@(ReferenceEquals(chapter, _selected) ? "page" : null)"
-                                    @onclick="() => Select(chapter)">
+                            <AppButton BaseClass="knowledge-chapter__button"
+                                       Variant="ButtonVariant.None"
+                                       aria-current="@(ReferenceEquals(chapter, _selected) ? "page" : null)"
+                                       OnClick="() => Select(chapter)">
                                 <span class="knowledge-chapter__title">@chapter.Title</span>
                                 <span class="knowledge-chapter__meta">
                                     <StatusBadge BaseClass="knowledge-status" Kind="" Status="@chapter.Status" />
@@ -68,7 +68,7 @@
                                         <span>@chapter.DiagramCount diagram@(chapter.DiagramCount == 1 ? string.Empty : "s")</span>
                                     }
                                 </span>
-                            </button>
+                            </AppButton>
                         </div>
                     }
                 </nav>

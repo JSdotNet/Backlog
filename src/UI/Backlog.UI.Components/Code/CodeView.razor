@@ -1,0 +1,206 @@
+@implements IDisposable
+@inject IJSRuntime Js
+
+@*
+    A snippet, shown the way a snippet is read: coloured by CodeHighlighter,
+    optionally numbered, and copyable without selecting it by hand.
+
+    The colouring happens in C# rather than by handing the block to a JS
+    highlighter, so a code block renders on the server, in a WebView with no
+    network, and in a unit test — the same three places every other component in
+    this library already works.
+
+    The block scrolls, so it is focusable and named: a keyboard user has to be
+    able to reach a scroll container to scroll it.
+*@
+
+<figure class="@RootClass" data-testid="@TestId">
+    @if (HasHeader)
+    {
+        <figcaption class="code-view__header">
+            @if (!string.IsNullOrWhiteSpace(Title))
+            {
+                <span class="code-view__title">@Title</span>
+            }
+            <span class="code-view__meta">
+                @if (LanguageLabel.Length > 0)
+                {
+                    <span class="code-view__language" data-testid="code-view-language">@LanguageLabel</span>
+                }
+                @if (AllowCopy)
+                {
+                    <IconButton CssClass="code-view__copy"
+                                AriaLabel="@CopyLabel"
+                                OnClick="CopyAsync"
+                                TestId="code-view-copy">
+                        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                            <rect x="5.75" y="5.75" width="7.5" height="7.5" rx="1.5" />
+                            <path d="M10.25 5.75V4.25a1.5 1.5 0 0 0-1.5-1.5h-4.5a1.5 1.5 0 0 0-1.5 1.5v4.5a1.5 1.5 0 0 0 1.5 1.5h1.5" />
+                        </svg>
+                    </IconButton>
+                }
+            </span>
+        </figcaption>
+    }
+
+    <pre class="code-view__body" tabindex="0" role="region" aria-label="@AriaLabelValue"><code class="code-view__code">@CodeRender.Lines(_lines)</code></pre>
+
+    <p class="code-view__status" role="status" data-testid="code-view-status">@_status</p>
+</figure>
+
+@code {
+    private const string Copied = "Copied";
+    private const string CopyFailed = "Could not copy — select the code and copy it by hand.";
+
+    private IReadOnlyList<CodeLine> _lines = [];
+    private string? _lastSource;
+    private string? _lastLanguage;
+    private string? _status;
+    private CancellationTokenSource? _statusDelay;
+
+    /// <summary>The snippet, verbatim. Whitespace is content here: nothing is
+    /// trimmed, reflowed or re-indented.</summary>
+    [Parameter, EditorRequired]
+    public string Source { get; set; } = string.Empty;
+
+    /// <summary>What the snippet is written in, by the name a fenced code block
+    /// would use — <c>csharp</c>, <c>cs</c> and <c>c#</c> all land in the same
+    /// place. A language the highlighter does not know still renders, in one
+    /// colour, with its name on the badge.</summary>
+    [Parameter]
+    public string? Language { get; set; }
+
+    /// <summary>A caption for the block — usually the file it came from.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public bool ShowLineNumbers { get; set; }
+
+    /// <summary>Whether long lines wrap instead of scrolling sideways. Off by
+    /// default: code is written in lines, and a wrapped line reads as two.</summary>
+    [Parameter]
+    public bool Wrap { get; set; }
+
+    [Parameter]
+    public bool AllowCopy { get; set; } = true;
+
+    /// <summary>What a screen reader calls the block. Defaults to the title and
+    /// the language, which is what a sighted reader gets from the header.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string LanguageLabel => CodeLanguages.Label(Language);
+
+    private bool HasHeader => AllowCopy || LanguageLabel.Length > 0 || !string.IsNullOrWhiteSpace(Title);
+
+    private string CopyLabel => string.IsNullOrWhiteSpace(Title) ? "Copy code" : $"Copy {Title}";
+
+    private string AriaLabelValue
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(AriaLabel)) return AriaLabel;
+
+            var kind = LanguageLabel.Length > 0 ? $"{LanguageLabel} code" : "Code";
+
+            return string.IsNullOrWhiteSpace(Title) ? kind : $"{Title}, {kind}";
+        }
+    }
+
+    private string RootClass => string.Join(' ', new[]
+    {
+        "code-view",
+        ShowLineNumbers ? "code-view--numbered" : null,
+        Wrap ? "code-view--wrap" : null,
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>Tokenizing is the expensive part, so it happens when the source
+    /// changes rather than on every render — the copy status alone re-renders
+    /// this component twice.</summary>
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(_lastSource, Source, StringComparison.Ordinal)
+            && string.Equals(_lastLanguage, Language, StringComparison.Ordinal)) return;
+
+        _lastSource = Source;
+        _lastLanguage = Language;
+        _lines = CodeHighlighter.HighlightLines(Source, Language);
+    }
+
+    /// <summary>
+    /// The clipboard belongs to the browser, and it is allowed to say no — a
+    /// WebView without permission, or a page served over plain http, both fail
+    /// the same way. The result is reported either way rather than assumed.
+    /// </summary>
+    private async Task CopyAsync()
+    {
+        try
+        {
+            ShowStatus(await Js.InvokeAsync<bool>("backlogClipboard.copy", Source) ? Copied : CopyFailed);
+        }
+        catch (JSException)
+        {
+            ShowStatus(CopyFailed);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: there is no browser to copy to yet.
+        }
+    }
+
+    /// <summary>
+    /// A confirmation that gets out of the way on its own. It is a
+    /// <c>role="status"</c> line rather than a change of the button's label, so
+    /// the button keeps saying what it does.
+    /// <para>
+    /// The timer is deliberately not awaited by the click handler: the copy is
+    /// finished the moment the clipboard call returns, and holding the handler
+    /// open for three seconds would leave the button looking busy long after the
+    /// work was done.
+    /// </para>
+    /// </summary>
+    private void ShowStatus(string message)
+    {
+        _statusDelay?.Cancel();
+        _statusDelay?.Dispose();
+        _statusDelay = new CancellationTokenSource();
+
+        _status = message;
+        _ = ClearStatusAsync(_statusDelay.Token);
+    }
+
+    private async Task ClearStatusAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3), token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        if (token.IsCancellationRequested) return;
+
+        _status = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _statusDelay?.Cancel();
+        _statusDelay?.Dispose();
+    }
+}

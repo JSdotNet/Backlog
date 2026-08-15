@@ -25,6 +25,14 @@ Use it to review a component, and to test one without starting the application.
 
 - A harness may reference shipping projects under `src/`. **No shipping project may reference a
   harness.** `tests/Backlog.ArchitectureTests` fails the build if that is violated.
+- **A control the storybook documents is the control the application renders.** Referencing
+  `Backlog.UI.Components` is not the same as using it: a screen can take the dependency and
+  still hand-roll a button, and then the storybook shows a component nobody renders while the
+  app ships a second one nobody reviewed. When a component cannot wear a screen's existing
+  classes, the answer is a class hook on the component, not a second implementation.
+  `tests/Backlog.ArchitectureTests/SharedControlAdoptionTests.cs` fails the build on a raw
+  `button`, `input`, `select` or `textarea` in an application UI project, and carries the short
+  list of elements that are genuinely not components — each with the reason.
 - No feature may live here. A harness contains only hosting glue: `Program.cs`,
   a root `App.razor`, and configuration. If behaviour is worth testing, it belongs
   in the component library or the module.

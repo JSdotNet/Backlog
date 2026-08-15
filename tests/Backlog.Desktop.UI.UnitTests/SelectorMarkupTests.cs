@@ -68,8 +68,11 @@ public sealed class SelectorMarkupTests
     public void Entry_and_sub_item_titles_use_integrated_collapse_buttons()
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
-        Assert.Contains("data-testid=\"entry-title-button\"", pane, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"subitem-title-button\"", pane, StringComparison.Ordinal);
+
+        // Both titles are the shared AppButton now, so the test id reaches the
+        // DOM through its TestId parameter rather than a literal attribute.
+        Assert.Contains("TestId=\"entry-title-button\"", pane, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"subitem-title-button\"", pane, StringComparison.Ordinal);
     }
 
     private static string FindRepoDirectory(params string[] relativePath)

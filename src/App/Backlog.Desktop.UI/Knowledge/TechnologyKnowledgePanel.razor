@@ -38,15 +38,15 @@
                     <code>@path</code>
                 }
             </p>
-            <button type="button"
-                    class="knowledge-folder-open"
-                    data-testid="technology-open-vscode-button"
-                    disabled="@_openingTechnologyFolder"
-                    title="Open Technology in VS Code"
-                    aria-label="Open Technology in VS Code"
-                    @onclick="OpenTechnologyFolderAsync">
+            <AppButton BaseClass="knowledge-folder-open"
+                       Variant="ButtonVariant.None"
+                       TestId="technology-open-vscode-button"
+                       Disabled="@_openingTechnologyFolder"
+                       title="Open Technology in VS Code"
+                       aria-label="Open Technology in VS Code"
+                       OnClick="OpenTechnologyFolderAsync">
                 @(_openingTechnologyFolder ? "..." : "Open in VS Code")
-            </button>
+            </AppButton>
             <Alert Message="@_technologyFolderOpenError"
                    TestId="technology-open-vscode-error"
                    CssClass="knowledge-folder-open-error" />
@@ -84,13 +84,13 @@
             <section class="tech-layer-tabs" aria-label="Technology layers">
                 @foreach (var layer in _view.Layers)
                 {
-                    <button type="button"
-                            class="tech-layer-tab @(ReferenceEquals(layer, ActiveLayer) ? "tech-layer-tab--active" : string.Empty)"
-                            aria-pressed="@(ReferenceEquals(layer, ActiveLayer) ? "true" : "false")"
-                            @onclick="() => _activeLayerFile = layer.FileName">
+                    <ToggleButton BaseClass="tech-layer-tab"
+                                  PressedCssClass="tech-layer-tab--active"
+                                  Pressed="@(ReferenceEquals(layer, ActiveLayer))"
+                                  PressedChanged="() => _activeLayerFile = layer.FileName">
                         <span>@LayerLabel(layer)</span>
                         <span class="tech-layer-tab__count">@layer.Nodes.Count</span>
-                    </button>
+                    </ToggleButton>
                 }
             </section>
         }

@@ -98,12 +98,14 @@ html, body {
 }
 
 /* The example area itself stays neutral: a story sits on the page background so
-   the component's own surfaces read the way they do in the app. */
+   the component's own surfaces read the way they do in the app. No frame of its
+   own either — a component that draws its own border was getting two, and the
+   outer one belonged to the harness rather than to anything being reviewed. */
+/* No padding either: the header's margin-bottom and the code block's margin-top
+   already space this on both sides, and the example's own padding was doubling
+   them — and quietly shrinking any example that sizes itself to this box. */
 .sb-story__example {
     background-color: var(--color-background);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    padding: var(--spacing-md);
 }
 
 .sb-story__code {
@@ -148,11 +150,70 @@ html, body {
 /* --color-text-disabled is 4.30:1 on the page and 3.81:1 on a raised surface.
    These labels are 12px uppercase, which needs 4.5:1, so they use secondary. The
    disabled token stays what it is named for: text that is genuinely inert. */
+/* Squeezes one example into a narrow column, for the stories that are about what
+   a component does when it runs out of room. */
+.sb-narrow {
+    max-width: 28rem;
+}
+
+/* Gives an example a definite height to fill. A component that sizes itself to
+   its container has nothing to show inside a box that just grows to fit it. */
+.sb-tall {
+    height: 32rem;
+}
+
 .sb-label {
     font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--color-text-secondary);
+}
+
+/* A pretend host style, for the stories that show a component wearing classes
+   the library does not own. Deliberately unlike `.btn`, so a BaseClass that
+   failed to replace `btn` would be visible rather than merely untested. */
+.sb-chip {
+    font: inherit;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+
+.sb-chip--on {
+    border-style: solid;
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+/* A pretend host input style, for the bare-field story. Same reasoning as
+   .sb-chip: it has to look unlike `.field__input` to prove the replacement. */
+.sb-host-input {
+    width: 100%;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-sm);
+    color: var(--color-text-primary);
+    background: var(--color-background);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: 0;
+}
+
+/* A clickable region, for the StopPropagation story. */
+.sb-clickable {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    cursor: pointer;
 }
 
 /* The "currently bound value" line under an interactive example. */

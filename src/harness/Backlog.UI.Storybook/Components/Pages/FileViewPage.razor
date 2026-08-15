@@ -1,0 +1,167 @@
+@page "/file-view"
+
+<PageTitle>File view — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="File view"
+           Summary="FileView shows one file: what it is in the header, what it says in the body. The body scrolls on its own so the header never leaves the screen.">
+
+    <Story Name="A file with more content than fits"
+           Description="Fill takes the whole height the host gives it — here a 32rem example area — and scrolls the body under a header that stays put. How tall a file gets is the layout's business, so a pane or a column decides it rather than the component carrying a number. The track is always reserved, so the text does not jump sideways the moment a file grows past the fold. Tab into the body and the arrow keys scroll it: a scroll container is a control whether or not it looks like one, so it takes focus and shows it."
+           Code="@LongCode">
+        <div class="sb-tall" data-testid="file-view-long">
+            <FileView Name="context-loading.instructions.md"
+                      Path=".github\instructions\context-loading.instructions.md"
+                      Source="GitHub Copilot"
+                      Kind="Path-specific instructions"
+                      SizeInBytes="5837"
+                      Body="@LongBody"
+                      Fill="true"
+                      TestId="file-view-instructions" />
+        </div>
+    </Story>
+
+    <Story Name="A file that fits"
+           Description="Same component, short file. The body only scrolls when there is something to scroll to, so a small file gets no track and no empty space under it."
+           Code="@ShortCode">
+        <div data-testid="file-view-short">
+            <FileView Name="README.md"
+                      Path="src\harness\README.md"
+                      Kind="Markdown"
+                      SizeInBytes="412"
+                      Body="@ShortBody"
+                      TestId="file-view-readme" />
+        </div>
+    </Story>
+
+    <Story Name="Only what is known"
+           Description="Every part of the header except the name is optional, and an absent fact is left out rather than filled in. A file with no recorded source, kind or size shows a name and nothing else on that line.">
+        <div data-testid="file-view-sparse">
+            <FileView Name="scratch.md" Body="@ShortBody" MaxHeight="10rem" />
+        </div>
+    </Story>
+
+    <Story Name="A path longer than the header"
+           Description="The path gives up room first: the name beside it already says which file this is, and the whole path stays in the DOM, so a screen reader reads what the ellipsis hides. Narrow the window and the header stacks instead."
+           Code="@LongPathCode">
+        <div class="sb-narrow" data-testid="file-view-long-path">
+            <FileView Name="0002-backlog-module-owns-the-entry-text-language.md"
+                      Path=".arc42\adr\0002-backlog-module-owns-the-entry-text-language.md"
+                      Source="Repository"
+                      Kind="Architecture decision record"
+                      SizeInBytes="2048"
+                      Body="@ShortBody"
+                      MaxHeight="12rem" />
+        </div>
+    </Story>
+
+    <Story Name="Checklists are state, not controls"
+           Description="Nothing here writes back to disk, so FileView passes MarkdownView no toggle handler and the checkboxes render as state. Tab goes from the body straight past them — a checkbox that silently does nothing is worse than no checkbox.">
+        <div data-testid="file-view-checklist">
+            <FileView Name="release-checklist.md"
+                      Path="docs\release-checklist.md"
+                      Kind="Markdown"
+                      SizeInBytes="196"
+                      Body="@ChecklistBody"
+                      MaxHeight="12rem" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private const string ShortBody = """
+        # Harness projects
+
+        Neither project here is deployed. They exist so a component can be looked
+        at without starting the application.
+
+        - `Backlog.UI.Storybook` — every shared component, on its own
+        - `Backlog.Desktop.WebHarness` — the desktop UI in a browser
+        """;
+
+    private const string ChecklistBody = """
+        # Before tagging
+
+        - [x] Tests green on main
+        - [x] Storybook reviewed
+        - [ ] Release notes written
+        - [ ] Version bumped
+        """;
+
+    // The file from the request that prompted this component, kept long enough
+    // that the story actually scrolls.
+    private const string LongBody = """
+        # Repository orchestration and context policy
+
+        General orchestration routing — which `orch-*` skill or specialist agent
+        handles which task category, and its fallbacks — is delivered globally by
+        the `copilot-app` plugin and is no longer restated in this repository.
+
+        This file covers only what is specific to Backlog: **the gate that forces
+        code changes through an orchestration skill**, and **which checked-in
+        knowledge folders a given workflow may read, and how much of them.**
+
+        ## The gate
+
+        Before the first `edit` or `create` to any file under `src/` or `tests/`,
+        you must invoke the matching `orch-*` skill through the orchestrator
+        agent. Exploration first is expected and does not consume the gate; the
+        trigger is the first write, not the first action.
+
+        Apply the gate literally:
+
+        - **Size is not a criterion.** A one-control UI tweak and a multi-service
+          feature route the same way.
+        - **A missing specification is not an exemption.** Ad-hoc requests still
+          route through `orch-feature` or `orch-bug`.
+        - **Unmet preconditions are not an exemption.** Invoke the skill anyway
+          and say so.
+        - **No match means `orch-fallback`**, not direct implementation.
+
+        ## Context loading
+
+        > Treat the knowledge folders as task-scoped context, not baseline
+        > context.
+
+        1. Architecture workflows may load `.arc42/`, one chapter at a time.
+        2. Domain workflows may load `.domain/`, one bounded context at a time.
+        3. UI workflows should consult `.design/` when the change touches visual
+           design, interaction, content editing or accessibility.
+
+        ```csharp
+        var blocks = MarkdownPreview.Parse(File.ReadAllText(path));
+        ```
+
+        ---
+
+        Startup and QA expectations live alongside this file, and per-category
+        model overrides live beside those.
+        """;
+
+    private const string LongCode = """
+        @* Fill needs a container with a height to fill — in a flex or grid
+           layout that is whatever track the file lands in. *@
+        <div style="height: 32rem">
+            <FileView Name="context-loading.instructions.md"
+                      Path=".github\instructions\context-loading.instructions.md"
+                      Source="GitHub Copilot"
+                      Kind="Path-specific instructions"
+                      SizeInBytes="5837"
+                      Body="@body"
+                      Fill="true" />
+        </div>
+        """;
+
+    private const string ShortCode = """
+        <FileView Name="README.md" Path="src\harness\README.md"
+                  Kind="Markdown" SizeInBytes="412" Body="@body" />
+        """;
+
+    private const string LongPathCode = """
+        @* MaxHeight takes any CSS length; pass null to let the body grow instead. *@
+        <FileView Name="0002-backlog-module-owns-the-entry-text-language.md"
+                  Path=".arc42\adr\0002-backlog-module-owns-the-entry-text-language.md"
+                  Body="@body"
+                  MaxHeight="12rem" />
+        """;
+}
