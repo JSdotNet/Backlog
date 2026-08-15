@@ -2,6 +2,12 @@
     The one button. Variant and size are modifiers on `btn`, matching the class
     conventions the app's stylesheet already uses, so a host can adopt this
     without restyling anything.
+
+    A host that already ships a button of its own - a chip, a pill, a toolbar
+    toggle - hands over the whole name through BaseClass instead. The modifiers
+    are derived from it, so nothing of ours is left on the element: `btn` brings
+    padding, a weight and a transition with it, and appending that to a `.chip`
+    restyles the chip rather than adopting the component.
 *@
 
 <button type="@TypeAttribute"
@@ -10,6 +16,7 @@
         disabled="@(Disabled || Busy)"
         aria-busy="@(Busy ? "true" : null)"
         @onclick="OnClick"
+        @onclick:stopPropagation="StopPropagation"
         @attributes="AdditionalAttributes">
     @if (Busy)
     {
@@ -52,8 +59,21 @@
     [Parameter]
     public EventCallback<MouseEventArgs> OnClick { get; set; }
 
+    /// <summary>Stops the click reaching a clickable region around the button.
+    /// It is a parameter and not something a host can splat: `@onclick:stopPropagation`
+    /// is a directive attribute on an element, and writing it on a component is
+    /// a compile error - so without this, a button inside a click-to-edit card
+    /// could not be one of ours.</summary>
+    [Parameter]
+    public bool StopPropagation { get; set; }
+
     [Parameter]
     public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>btn</c>, and with it the stem every variant and size
+    /// modifier is built on.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "btn";
 
     [Parameter]
     public string? TestId { get; set; }
@@ -69,18 +89,18 @@
         {
             var variant = Variant switch
             {
-                ButtonVariant.Primary => " btn--primary",
-                ButtonVariant.Ghost => " btn--ghost",
-                ButtonVariant.Danger => " btn--danger",
+                ButtonVariant.Primary => $" {BaseClass}--primary",
+                ButtonVariant.Ghost => $" {BaseClass}--ghost",
+                ButtonVariant.Danger => $" {BaseClass}--danger",
                 ButtonVariant.None => string.Empty,
-                _ => " btn--secondary"
+                _ => $" {BaseClass}--secondary"
             };
 
-            var size = Size is ButtonSize.Small ? " btn--small" : string.Empty;
+            var size = Size is ButtonSize.Small ? $" {BaseClass}--small" : string.Empty;
 
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
 
-            return $"btn{variant}{size}{extra}";
+            return $"{BaseClass}{variant}{size}{extra}";
         }
     }
 }

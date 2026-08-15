@@ -75,6 +75,34 @@
         <p class="sb-state" data-testid="select-priority-value">Priority = @_priority</p>
     </Story>
 
+    @* The three named selectors had no story at all, so the shapes the app
+       actually renders beside an entry could not be reviewed here — only the
+       BadgeSelect and EnumSelect they are built from. *@
+    <Story Name="The named selectors"
+           Description="StatusSelector, PrioritySelector and RepositorySelector: the three pickers an entry row carries. Each is one of the selects above with its badge kind and classes already chosen, so a caller supplies the vocabulary and nothing else."
+           Code="@NamedSelectorCode">
+        <div class="sb-row">
+            <StatusSelector CurrentValue="@_status"
+                            Options="Statuses"
+                            Label="Change status"
+                            TestId="select-status-named"
+                            OnChanged="v => _status = v" />
+            <PrioritySelector TEnum="DemoPriority"
+                              CurrentValue="_priority"
+                              Label="Change priority"
+                              TestId="select-priority-named"
+                              OnChanged="v => _priority = v" />
+            <RepositorySelector CurrentValue="@_repository"
+                                Options="Repositories"
+                                Label="Change repository"
+                                TestId="select-repository-named"
+                                OnChanged="v => _repository = v" />
+        </div>
+        <p class="sb-state" data-testid="select-named-value">
+            @Show(_status) / @_priority / @Show(_repository)
+        </p>
+    </Story>
+
     <Story Name="TagMultiSelect"
            Description="Many values from a list. With AllowCreate the typed text becomes a new tag; without it, only known options can be picked."
            Code="@TagCode">
@@ -156,6 +184,13 @@
         new("done", "Done")
     ];
 
+    private static readonly IReadOnlyList<SelectorOption> Repositories =
+    [
+        new("backlog", "backlog"),
+        new("infra", "infra"),
+        new("docs", "docs")
+    ];
+
     private static readonly IReadOnlyList<SelectorOption> Tags =
     [
         new("ui", "ui"),
@@ -179,6 +214,7 @@
     private string _area = "product";
     private string? _owner;
     private string _status = "ready";
+    private string? _repository = "backlog";
     private DemoPriority _priority = DemoPriority.High;
     private IReadOnlyList<string> _openTags = ["ui", "markdown"];
     private IReadOnlyList<string> _closedTags = ["aspire"];
@@ -204,6 +240,15 @@
     private const string EnumSelectCode = """
         <EnumSelect TEnum="DemoPriority" CurrentValue="_priority"
                     Label="Change priority" OnChanged="v => _priority = v" />
+        """;
+
+    private const string NamedSelectorCode = """
+        <StatusSelector CurrentValue="@_status" Options="Statuses"
+                        Label="Change status" OnChanged="v => _status = v" />
+        <PrioritySelector TEnum="DemoPriority" CurrentValue="_priority"
+                          Label="Change priority" OnChanged="v => _priority = v" />
+        <RepositorySelector CurrentValue="@_repository" Options="Repositories"
+                            Label="Change repository" OnChanged="v => _repository = v" />
         """;
 
     private const string TagCode = """

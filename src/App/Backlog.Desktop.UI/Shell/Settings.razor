@@ -88,29 +88,37 @@
                         Configure the API roots Backlog uses for organization-scoped Claude and GitHub Copilot usage metrics.
                     </p>
 
-                    <label class="setting__label" for="claude-usage-endpoint">Claude organization API endpoint</label>
-                    <input class="setting__input"
-                           id="claude-usage-endpoint"
-                           data-testid="claude-usage-endpoint-input"
-                           type="url"
-                           spellcheck="false"
-                           autocomplete="off"
-                           value="@_draftClaudeUsageEndpoint"
-                           @oninput="e => _draftClaudeUsageEndpoint = e.Value?.ToString() ?? string.Empty"
-                           @onchange="ApplyUsageEndpoints"
-                           @onkeydown="OnUsageEndpointKeyDown" />
+                    @* Every field on this page is the shared TextField wearing
+                       the page's own label and input classes. Bare, because a
+                       settings section lays its label and box out itself, and a
+                       grid wrapper between them would move the spacing. *@
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Claude organization API endpoint"
+                               Id="claude-usage-endpoint"
+                               data-testid="claude-usage-endpoint-input"
+                               Type="url"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Value="@_draftClaudeUsageEndpoint"
+                               ValueChanged="value => _draftClaudeUsageEndpoint = value"
+                               @onchange="ApplyUsageEndpoints"
+                               @onkeydown="OnUsageEndpointKeyDown" />
 
-                    <label class="setting__label" for="github-usage-endpoint">GitHub organization API endpoint</label>
-                    <input class="setting__input"
-                           id="github-usage-endpoint"
-                           data-testid="github-usage-endpoint-input"
-                           type="url"
-                           spellcheck="false"
-                           autocomplete="off"
-                           value="@_draftGitHubUsageEndpoint"
-                           @oninput="e => _draftGitHubUsageEndpoint = e.Value?.ToString() ?? string.Empty"
-                           @onchange="ApplyUsageEndpoints"
-                           @onkeydown="OnUsageEndpointKeyDown" />
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="GitHub organization API endpoint"
+                               Id="github-usage-endpoint"
+                               data-testid="github-usage-endpoint-input"
+                               Type="url"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Value="@_draftGitHubUsageEndpoint"
+                               ValueChanged="value => _draftGitHubUsageEndpoint = value"
+                               @onchange="ApplyUsageEndpoints"
+                               @onkeydown="OnUsageEndpointKeyDown" />
 
                     <p class="setting__status" data-testid="usage-api-endpoints-status" role="status">
                         @if (_usageEndpointsMessage is not null)
@@ -138,56 +146,65 @@
                         you ask.
                     </p>
 
-                    <label class="setting__label" for="azure-foundry-endpoint">Endpoint</label>
-                    <input class="setting__input"
-                           id="azure-foundry-endpoint"
-                           data-testid="azure-foundry-endpoint-input"
-                           type="url"
-                           spellcheck="false"
-                           autocomplete="off"
-                           placeholder="https://your-resource.openai.azure.com"
-                           value="@_draftAzureFoundryEndpoint"
-                           @oninput="e => _draftAzureFoundryEndpoint = e.Value?.ToString() ?? string.Empty"
-                           @onchange="ApplyAzureFoundryConnection"
-                           @onkeydown="OnAzureFoundryKeyDown" />
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Endpoint"
+                               Id="azure-foundry-endpoint"
+                               data-testid="azure-foundry-endpoint-input"
+                               Type="url"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="https://your-resource.openai.azure.com"
+                               Value="@_draftAzureFoundryEndpoint"
+                               ValueChanged="value => _draftAzureFoundryEndpoint = value"
+                               @onchange="ApplyAzureFoundryConnection"
+                               @onkeydown="OnAzureFoundryKeyDown" />
 
-                    <label class="setting__label" for="azure-foundry-deployment">Deployment</label>
-                    <input class="setting__input"
-                           id="azure-foundry-deployment"
-                           data-testid="azure-foundry-deployment-input"
-                           type="text"
-                           spellcheck="false"
-                           autocomplete="off"
-                           placeholder="gpt-5.4"
-                           value="@_draftAzureFoundryDeployment"
-                           @oninput="e => _draftAzureFoundryDeployment = e.Value?.ToString() ?? string.Empty"
-                           @onchange="ApplyAzureFoundryConnection"
-                           @onkeydown="OnAzureFoundryKeyDown" />
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Deployment"
+                               Id="azure-foundry-deployment"
+                               data-testid="azure-foundry-deployment-input"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="gpt-5.4"
+                               Value="@_draftAzureFoundryDeployment"
+                               ValueChanged="value => _draftAzureFoundryDeployment = value"
+                               @onchange="ApplyAzureFoundryConnection"
+                               @onkeydown="OnAzureFoundryKeyDown" />
 
-                    <label class="setting__label" for="azure-foundry-api-version">API version</label>
-                    <input class="setting__input"
-                           id="azure-foundry-api-version"
-                           data-testid="azure-foundry-api-version-input"
-                           type="text"
-                           spellcheck="false"
-                           autocomplete="off"
-                           value="@_draftAzureFoundryApiVersion"
-                           @oninput="e => _draftAzureFoundryApiVersion = e.Value?.ToString() ?? string.Empty"
-                           @onchange="ApplyAzureFoundryConnection"
-                           @onkeydown="OnAzureFoundryKeyDown" />
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="API version"
+                               Id="azure-foundry-api-version"
+                               data-testid="azure-foundry-api-version-input"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Value="@_draftAzureFoundryApiVersion"
+                               ValueChanged="value => _draftAzureFoundryApiVersion = value"
+                               @onchange="ApplyAzureFoundryConnection"
+                               @onkeydown="OnAzureFoundryKeyDown" />
 
-                    <label class="setting__label" for="azure-foundry-api-key">API key</label>
-                    <input class="setting__input"
-                           id="azure-foundry-api-key"
-                           data-testid="azure-foundry-api-key-input"
-                           type="password"
-                           spellcheck="false"
-                           autocomplete="off"
-                           placeholder="@(AzureFoundry.Current.ApiKey is null ? "key" : "stored - hidden")"
-                           value="@_draftAzureFoundryApiKey"
-                           @oninput="e => _draftAzureFoundryApiKey = e.Value?.ToString() ?? string.Empty"
-                           @onchange="ApplyAzureFoundryApiKey"
-                           @onkeydown="OnAzureFoundryApiKeyDown" />
+                    @* type="password" is not one of TextField's four, so it is
+                       splatted rather than passed as Type: the component would
+                       fall back to text and show the key. *@
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="API key"
+                               Id="azure-foundry-api-key"
+                               data-testid="azure-foundry-api-key-input"
+                               type="password"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="@(AzureFoundry.Current.ApiKey is null ? "key" : "stored - hidden")"
+                               Value="@_draftAzureFoundryApiKey"
+                               ValueChanged="value => _draftAzureFoundryApiKey = value"
+                               @onchange="ApplyAzureFoundryApiKey"
+                               @onkeydown="OnAzureFoundryApiKeyDown" />
 
                     <p class="setting__status" data-testid="azure-foundry-status" role="status">
                         @if (_azureFoundryMessage is not null)
@@ -229,18 +246,22 @@
                 backlog travels with it.
             </p>
 
-            <label class="setting__label" for="storage-path">Folder</label>
-            <input class="setting__input @(_error is null ? string.Empty : "setting__input--error")"
-                   id="storage-path"
-                   data-testid="storage-path-input"
-                   type="text"
-                   spellcheck="false"
-                   autocomplete="off"
-                   aria-describedby="storage-path-status"
-                   value="@_draftPath"
-                   @oninput="e => _draftPath = e.Value?.ToString() ?? string.Empty"
-                   @onchange="ApplyAsync"
-                   @onkeydown="OnKeyDownAsync" />
+            @* The error class goes on InputCssClass, not ErrorMessage: this
+               page reports the reason in its own status paragraph below, and
+               ErrorMessage would render a second one as an Alert. *@
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="@SettingInputClass(_error)"
+                       Label="Folder"
+                       Id="storage-path"
+                       data-testid="storage-path-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       aria-describedby="storage-path-status"
+                       Value="@_draftPath"
+                       ValueChanged="value => _draftPath = value"
+                       @onchange="ApplyAsync"
+                       @onkeydown="OnKeyDownAsync" />
 
             <p class="setting__status" id="storage-path-status" data-testid="storage-path-status" role="status">
                 @if (_error is not null)
@@ -285,28 +306,32 @@
                     var knowledgeInputId = $"storage-knowledge-{folder.Key.TrimStart('.')}";
 
                     <div class="knowledge-folder" data-testid="storage-knowledge-folder-row">
-                        <label class="knowledge-folder__toggle">
-                            <input type="checkbox"
-                                   data-testid="storage-knowledge-folder-enabled"
-                                   checked="@folder.Enabled"
-                                   @onchange="e => SetStorageKnowledgeFolderEnabled(folder, e)" />
-                            <span>@folder.DisplayName</span>
+                        @* Checkbox rather than Toggle: Toggle's native shape puts
+                           the box after the text, and on these rows it leads.
+                           The row's own class comes after the component's, so
+                           the tighter gap and the code styling still win. *@
+                        <Checkbox CssClass="knowledge-folder__toggle"
+                                  Label="@folder.DisplayName"
+                                  Checked="@folder.Enabled"
+                                  CheckedChanged="enabled => SetStorageKnowledgeFolderEnabled(folder, enabled)"
+                                  data-testid="storage-knowledge-folder-enabled">
                             <code>@folder.Key</code>
-                        </label>
+                        </Checkbox>
 
                         @if (folder.SupportsPathOverride)
                         {
-                            <input class="setting__input"
-                                   id="@knowledgeInputId"
-                                   data-testid="storage-knowledge-folder-path-input"
-                                   type="text"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   placeholder="@folder.DefaultRelativePath"
-                                   value="@StorageKnowledgePathDraft(folder)"
-                                   @oninput="e => _draftKnowledgePaths[KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key)] = e.Value?.ToString() ?? string.Empty"
-                                   @onchange="() => ApplyStorageKnowledgeFolderPath(folder)"
-                                   @onkeydown="e => OnStorageKnowledgePathKeyDown(e, folder)" />
+                            <TextField Bare="true"
+                                       InputCssClass="setting__input"
+                                       AriaLabel="@($"{folder.DisplayName} folder path")"
+                                       Id="@knowledgeInputId"
+                                       data-testid="storage-knowledge-folder-path-input"
+                                       spellcheck="false"
+                                       autocomplete="off"
+                                       Placeholder="@folder.DefaultRelativePath"
+                                       Value="@StorageKnowledgePathDraft(folder)"
+                                       ValueChanged="value => _draftKnowledgePaths[KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key)] = value"
+                                       @onchange="() => ApplyStorageKnowledgeFolderPath(folder)"
+                                       @onkeydown="e => OnStorageKnowledgePathKeyDown(e, folder)" />
                         }
                         else
                         {
@@ -321,19 +346,20 @@
                     Optional GitHub repository metadata for future backup. The folder above remains the place entries are written today.
                 </p>
 
-                <label class="setting__label" for="storage-repository">Repository</label>
-                <input class="setting__input @(_storageRepositoryError is null ? string.Empty : "setting__input--error")"
-                       id="storage-repository"
-                       data-testid="storage-repository-input"
-                       type="text"
-                       spellcheck="false"
-                       autocomplete="off"
-                       placeholder="owner/repo"
-                       aria-describedby="storage-repository-status"
-                       value="@_draftStorageRepository"
-                       @oninput="e => _draftStorageRepository = e.Value?.ToString() ?? string.Empty"
-                       @onchange="ApplyStorageRepository"
-                       @onkeydown="OnStorageRepositoryKeyDown" />
+                <TextField Bare="true"
+                           LabelCssClass="setting__label"
+                           InputCssClass="@SettingInputClass(_storageRepositoryError)"
+                           Label="Repository"
+                           Id="storage-repository"
+                           data-testid="storage-repository-input"
+                           spellcheck="false"
+                           autocomplete="off"
+                           Placeholder="owner/repo"
+                           aria-describedby="storage-repository-status"
+                           Value="@_draftStorageRepository"
+                           ValueChanged="value => _draftStorageRepository = value"
+                           @onchange="ApplyStorageRepository"
+                           @onkeydown="OnStorageRepositoryKeyDown" />
 
                 <p class="setting__status" id="storage-repository-status" data-testid="storage-repository-status" role="status">
                     @if (_storageRepositoryError is not null)
@@ -374,17 +400,25 @@
                 need the clone directory on this machine.
             </p>
 
-            <label class="setting__label" for="github-repos">@RepositoryInputLabel</label>
-            <textarea class="setting__input setting__input--multiline @(_repoError is null ? string.Empty : "setting__input--error")"
-                      id="github-repos"
+            @* The box carries its own border through `setting__input`, so the
+               library's grow wrapper is emitted without one and auto-grow stays
+               off - the rows count is what sizes this field. *@
+            <TextArea Bare="true"
+                      AutoGrow="false"
+                      GrowCssClass=""
+                      LabelCssClass="setting__label"
+                      InputCssClass="@($"{SettingInputClass(_repoError)} setting__input--multiline")"
+                      Label="@RepositoryInputLabel"
+                      Id="github-repos"
                       data-testid="github-repos-input"
-                      rows="@RepositoryInputRows"
+                      Rows="@RepositoryInputRows"
                       spellcheck="false"
                       autocomplete="off"
                       aria-describedby="github-repos-status"
-                      placeholder="@RepositoryInputPlaceholder"
-                      @oninput="e => _draftRepos = e.Value?.ToString() ?? string.Empty"
-                      @onchange="ApplyRepositories">@_draftRepos</textarea>
+                      Placeholder="@RepositoryInputPlaceholder"
+                      Value="@_draftRepos"
+                      ValueChanged="value => _draftRepos = value"
+                      @onchange="ApplyRepositories" />
 
             <p class="setting__status" id="github-repos-status" data-testid="github-repos-status" role="status">
                 @if (_repoError is not null)
@@ -459,18 +493,19 @@
                             </AppButton>
                         </header>
 
-                        <label class="setting__label" for="clone-@activeRepo.Alias">Local clone directory</label>
-                        <input class="setting__input"
-                               id="clone-@activeRepo.Alias"
-                               data-testid="repo-clone-directory-input"
-                               type="text"
-                               spellcheck="false"
-                               autocomplete="off"
-                               placeholder="@($"C:\\Repos\\{activeRepo.Name}")"
-                               value="@CloneDirectoryDraft(activeRepo)"
-                               @oninput="e => _draftCloneDirectories[activeRepo.Alias] = e.Value?.ToString() ?? string.Empty"
-                               @onchange="() => ApplyCloneDirectory(activeRepo.Alias)"
-                               @onkeydown="e => OnClonePathKeyDown(e, activeRepo)" />
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Local clone directory"
+                                   Id="@($"clone-{activeRepo.Alias}")"
+                                   data-testid="repo-clone-directory-input"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Placeholder="@($"C:\\Repos\\{activeRepo.Name}")"
+                                   Value="@CloneDirectoryDraft(activeRepo)"
+                                   ValueChanged="value => _draftCloneDirectories[activeRepo.Alias] = value"
+                                   @onchange="() => ApplyCloneDirectory(activeRepo.Alias)"
+                                   @onkeydown="e => OnClonePathKeyDown(e, activeRepo)" />
 
                         <p class="setting__status" data-testid="repo-clone-status" role="status">
                             @{ var cloneStatus = CloneStatus(activeRepo); }
@@ -504,18 +539,20 @@
                                 <p class="setting__status" data-testid="github-connection-status" role="status">
                                     @(_connection?.Summary ?? "Checking how this machine can reach GitHub...")
                                 </p>
-                                <label class="setting__label" for="github-token-@activeRepo.Alias">Personal access token</label>
-                                <input class="setting__input"
-                                       id="github-token-@activeRepo.Alias"
-                                       data-testid="github-token-input"
-                                       type="password"
-                                       spellcheck="false"
-                                       autocomplete="off"
-                                       placeholder="@(activeRepo.Token is null ? "ghp_..." : "stored - hidden")"
-                                       value="@RepositoryTokenDraft(activeRepo)"
-                                       @oninput="e => _draftTokens[activeRepo.Alias] = e.Value?.ToString() ?? string.Empty"
-                                       @onchange="() => ApplyRepositoryTokenAsync(activeRepo)"
-                                       @onkeydown="e => OnRepositoryTokenKeyDownAsync(e, activeRepo)" />
+                                <TextField Bare="true"
+                                           LabelCssClass="setting__label"
+                                           InputCssClass="setting__input"
+                                           Label="Personal access token"
+                                           Id="@($"github-token-{activeRepo.Alias}")"
+                                           data-testid="github-token-input"
+                                           type="password"
+                                           spellcheck="false"
+                                           autocomplete="off"
+                                           Placeholder="@(activeRepo.Token is null ? "ghp_..." : "stored - hidden")"
+                                           Value="@RepositoryTokenDraft(activeRepo)"
+                                           ValueChanged="value => _draftTokens[activeRepo.Alias] = value"
+                                           @onchange="() => ApplyRepositoryTokenAsync(activeRepo)"
+                                           @onkeydown="e => OnRepositoryTokenKeyDownAsync(e, activeRepo)" />
                                 <div class="setting__actions">
                                     <AppButton Variant="ButtonVariant.None"
                                                data-testid="github-recheck-button"
@@ -547,30 +584,29 @@
                                 var knowledgeInputId = $"knowledge-{activeRepo.Alias}-{folder.Key.TrimStart('.')}";
 
                                 <div class="knowledge-folder" data-testid="knowledge-folder-row">
-                                    <label class="knowledge-folder__toggle">
-                                        <input type="checkbox"
-                                               data-testid="knowledge-folder-enabled"
-                                               checked="@folder.Enabled"
-                                               @onchange="e => SetKnowledgeFolderEnabled(activeRepo, folder, e)" />
-                                        <span>@folder.DisplayName</span>
+                                    <Checkbox CssClass="knowledge-folder__toggle"
+                                              Label="@folder.DisplayName"
+                                              Checked="@folder.Enabled"
+                                              CheckedChanged="enabled => SetKnowledgeFolderEnabled(activeRepo, folder, enabled)"
+                                              data-testid="knowledge-folder-enabled">
                                         <code>@folder.Key</code>
-                                    </label>
+                                    </Checkbox>
 
                                     @if (folder.SupportsPathOverride)
                                     {
-                                        <input class="setting__input"
-                                               id="@knowledgeInputId"
-                                               data-testid="knowledge-folder-path-input"
-                                               type="text"
-                                               spellcheck="false"
-                                               autocomplete="off"
-                                               disabled="@(!folder.Enabled)"
-                                               placeholder="@folder.DefaultRelativePath"
-                                               aria-label="@($"{activeRepo.FullName} {folder.DisplayName} folder path")"
-                                               value="@KnowledgePathDraft(activeRepo, folder)"
-                                               @oninput="e => _draftKnowledgePaths[KnowledgeDraftKey(activeRepo.Alias, folder.Key)] = e.Value?.ToString() ?? string.Empty"
-                                               @onchange="() => ApplyKnowledgeFolderPath(activeRepo, folder)"
-                                               @onkeydown="e => OnKnowledgePathKeyDown(e, activeRepo, folder)" />
+                                        <TextField Bare="true"
+                                                   InputCssClass="setting__input"
+                                                   Id="@knowledgeInputId"
+                                                   data-testid="knowledge-folder-path-input"
+                                                   spellcheck="false"
+                                                   autocomplete="off"
+                                                   Disabled="@(!folder.Enabled)"
+                                                   Placeholder="@folder.DefaultRelativePath"
+                                                   AriaLabel="@($"{activeRepo.FullName} {folder.DisplayName} folder path")"
+                                                   Value="@KnowledgePathDraft(activeRepo, folder)"
+                                                   ValueChanged="value => _draftKnowledgePaths[KnowledgeDraftKey(activeRepo.Alias, folder.Key)] = value"
+                                                   @onchange="() => ApplyKnowledgeFolderPath(activeRepo, folder)"
+                                                   @onkeydown="e => OnKnowledgePathKeyDown(e, activeRepo, folder)" />
                                     }
 
                                     <p class="knowledge-folder__status">
@@ -842,6 +878,11 @@
         else if (e.Key == "Escape") _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
     }
 
+    /// <summary>The input's classes for a field whose rejection is reported in
+    /// the status line beside it rather than by the component.</summary>
+    private static string SettingInputClass(string? error) =>
+        error is null ? "setting__input" : "setting__input setting__input--error";
+
     private string StorageKnowledgePathDraft(KnowledgeFolderSetting folder)
     {
         var key = KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key);
@@ -854,11 +895,11 @@
         return draft;
     }
 
-    private void SetStorageKnowledgeFolderEnabled(KnowledgeFolderSetting folder, ChangeEventArgs e)
+    private void SetStorageKnowledgeFolderEnabled(KnowledgeFolderSetting folder, bool enabled)
     {
         _error = Store.SetKnowledgeFolder(
             folder.Key,
-            e.Value is bool enabled && enabled,
+            enabled,
             StorageKnowledgePathDraft(folder));
         SyncStorageKnowledgeDrafts();
     }
@@ -984,12 +1025,12 @@
         }
     }
 
-    private void SetKnowledgeFolderEnabled(GitHubRepositoryRef repo, KnowledgeFolderSetting folder, ChangeEventArgs e)
+    private void SetKnowledgeFolderEnabled(GitHubRepositoryRef repo, KnowledgeFolderSetting folder, bool enabled)
     {
         _repoError = GitHub.Settings.SetKnowledgeFolder(
             repo.Alias,
             folder.Key,
-            e.Value is bool enabled && enabled,
+            enabled,
             KnowledgePathDraft(repo, folder));
         SyncRepositoryDrafts();
     }
