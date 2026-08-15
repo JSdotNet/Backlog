@@ -38,18 +38,35 @@
     --color-text-inverse: #212529;
     --color-text-link: #F2C14E;
 
-    /* Values from the org guide 01-color-palette, dark column.
-       The product had drifted a step darker than the guide: background was
-       #020617, a value the guide does not contain, and each surface below it
-       took the name of the one above. The border pair had shifted the same way,
-       inventing #94A3B8 and dropping #475569. Four greys for a ramp of three. */
-    --color-background: #0F172A;
-    --color-background-alt: #1E293B;
-    --color-background-raised: #334155;
+    /* Surfaces and borders are a deliberate deviation from the org guide.
+       05-customization-guide lists color-background-* and color-border-* as
+       non-overridable, on the grounds that their contrast pairs are validated
+       for the default palette. The guide's dark column is the slate ramp
+       (#0F172A / #1E293B / #334155, borders #475569 / #64748B), which carries a
+       blue cast that reads as tinted rather than neutral behind the gold brand.
+
+       What replaces it is a neutral grey at the same rhythm: each surface is
+       ~2.4x the luminance of the one below, exactly the spacing slate had, so
+       elevation-by-colour still reads. The base is ~30% darker than the guide's.
+       Every pair the guide validates was re-measured and every one improved:
+
+         text-primary   on background        17.75:1  (was 16.94:1)
+         text-secondary on background-alt    10.87:1  (was  9.79:1)
+         text-primary   on background-raised 11.59:1  (was  9.82:1)
+         primary        on background        11.15:1  (was 10.64:1)
+         border-strong  on background         3.97:1  (was  3.75:1)
+         border         on background         2.48:1  (was  2.36:1)
+
+       color-border still misses the 3:1 the contrast rules ask of component
+       boundaries. It missed it before this change too — #475569 on the slate
+       base was 2.36:1 — so the deviation neither caused nor fixed it. */
+    --color-background: #121214;
+    --color-background-alt: #202023;
+    --color-background-raised: #353539;
     --color-background-overlay: rgba(0, 0, 0, 0.60);
 
-    --color-border: #475569;
-    --color-border-strong: #64748B;
+    --color-border: #545459;
+    --color-border-strong: #737379;
     --color-border-focus: #F2C14E;
 
 
@@ -121,6 +138,52 @@
 
 * {
     box-sizing: border-box;
+}
+
+/*
+  Scrollbars are chrome, not content: slim, dark, and only as loud as the border
+  tokens. Firefox reads the standard properties, Chromium and WebView2 the vendor
+  pseudo-elements, so no host shows an OS-light bar on a dark page.
+
+  This belongs to the library because the regions it dresses do: TreeView,
+  MenuList, the markdown pane and every other `overflow: auto` below are declared
+  in this file. It used to live in Backlog.Desktop.UI/app.css, which meant the
+  desktop had product scrollbars while mobile, the three harnesses and the
+  storybook were left with the operating system's.
+
+  The thumb is --color-border, which is 2.49:1 on the base surface — under the
+  3:1 the contrast rules ask of component boundaries. That is the known gap
+  recorded in .design/color-scheme.md, inherited from the org palette rather than
+  chosen here; hover lifts the thumb to --color-border-strong at 3.97:1.
+*/
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--color-border);
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-strong);
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 /* --- Buttons ------------------------------------------------------------- */

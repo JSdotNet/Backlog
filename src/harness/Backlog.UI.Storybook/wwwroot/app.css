@@ -205,6 +205,29 @@ html, body {
     height: 16rem;
 }
 
+/* Deliberately undersized, so the scrollbar components.css styles has somewhere
+   to appear on a page whose examples otherwise all fit. */
+.sb-scroll {
+    max-height: 9rem;
+    overflow: auto;
+    border: var(--border-width) dashed var(--color-border);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-md);
+    color: var(--color-text-secondary);
+}
+
+.sb-scroll:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+}
+
+/* Wider than its container, to bring out the horizontal bar and the corner.
+   A percentage rather than a fixed rem width, so it overflows at every viewport
+   size instead of only the narrow ones — at 34rem it fit inside the column and
+   the horizontal bar never appeared. */
+.sb-scroll__wide {
+    width: 150%;
+}
+
 /* --- Foundations specimens ----------------------------------------------- */
 /*
    These draw the tokens themselves. The values are never written here: each
