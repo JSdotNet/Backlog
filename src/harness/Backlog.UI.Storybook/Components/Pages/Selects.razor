@@ -3,7 +3,7 @@
 <PageTitle>Selects — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Selects"
-           Summary="Everything that picks a value: a plain select, a select that renders as a badge, a select over an enum, a tag picker, and the search box that filters a list.">
+           Summary="Everything that picks a value: a plain select, a select that renders as a badge, a select over an enum, the three named selectors built on top of them, a tag picker, and the search box that filters a list.">
 
     <Story Name="SelectField"
            Description="A labelled select over string options. Without an empty option the first value is always chosen; with one, 'nothing selected' is expressible."
@@ -73,6 +73,56 @@
                         OnChanged="v => _priority = v" />
         </div>
         <p class="sb-state" data-testid="select-priority-value">Priority = @_priority</p>
+    </Story>
+
+    <Story Name="StatusSelector"
+           Description="BadgeSelect with the status badge already chosen, and 'draft' as the fallback slug for a value the caller's vocabulary does not cover. String-in, string-out: the caller names the states."
+           Code="@StatusSelectorCode">
+        <div class="sb-row">
+            <StatusSelector CurrentValue="@_entryStatus"
+                            Options="Statuses"
+                            TestId="selector-status"
+                            OnChanged="v => _entryStatus = v" />
+            <StatusSelector CurrentValue="done"
+                            Options="Statuses"
+                            Label="Read-only example"
+                            Disabled="true" />
+        </div>
+        <p class="sb-state" data-testid="selector-status-value">Status = @Show(_entryStatus)</p>
+    </Story>
+
+    <Story Name="PrioritySelector"
+           Description="EnumSelect with the priority badge already chosen. Generic over the enum, so each context brings its own priority vocabulary and the library stays domain-free."
+           Code="@PrioritySelectorCode">
+        <div class="sb-row">
+            <PrioritySelector TEnum="DemoPriority"
+                              CurrentValue="_entryPriority"
+                              TestId="selector-priority"
+                              OnChanged="v => _entryPriority = v" />
+            <PrioritySelector TEnum="DemoPriority"
+                              CurrentValue="_entryPriority"
+                              Options="ShortList"
+                              Label="Only the top three"
+                              OnChanged="v => _entryPriority = v" />
+        </div>
+        <p class="sb-state" data-testid="selector-priority-value">Priority = @_entryPriority</p>
+    </Story>
+
+    <Story Name="RepositorySelector"
+           Description="SelectField over repository aliases. Optional by default — 'No repo' is a real answer — and the options come from the caller, because which repositories exist is a workspace question."
+           Code="@RepositorySelectorCode">
+        <div class="sb-row">
+            <RepositorySelector CurrentValue="@_repository"
+                                Options="Repositories"
+                                TestId="selector-repository"
+                                OnChanged="v => _repository = v" />
+            <RepositorySelector CurrentValue="@_repository"
+                                Options="Repositories"
+                                Label="Required — no empty option"
+                                IncludeEmptyOption="false"
+                                OnChanged="v => _repository = v" />
+        </div>
+        <p class="sb-state" data-testid="selector-repository-value">Repository = @Show(_repository)</p>
     </Story>
 
     <Story Name="TagMultiSelect"
@@ -156,6 +206,13 @@
         new("done", "Done")
     ];
 
+    private static readonly IReadOnlyList<SelectorOption> Repositories =
+    [
+        new("backlog", "Backlog"),
+        new("knowledge-base", "Knowledge base"),
+        new("aspire-harness", "Aspire harness")
+    ];
+
     private static readonly IReadOnlyList<SelectorOption> Tags =
     [
         new("ui", "ui"),
@@ -180,6 +237,9 @@
     private string? _owner;
     private string _status = "ready";
     private DemoPriority _priority = DemoPriority.High;
+    private string _entryStatus = "active";
+    private DemoPriority _entryPriority = DemoPriority.Medium;
+    private string? _repository = "backlog";
     private IReadOnlyList<string> _openTags = ["ui", "markdown"];
     private IReadOnlyList<string> _closedTags = ["aspire"];
     private string _query = string.Empty;
@@ -204,6 +264,21 @@
     private const string EnumSelectCode = """
         <EnumSelect TEnum="DemoPriority" CurrentValue="_priority"
                     Label="Change priority" OnChanged="v => _priority = v" />
+        """;
+
+    private const string StatusSelectorCode = """
+        <StatusSelector CurrentValue="@_status" Options="Statuses"
+                        OnChanged="v => _status = v" />
+        """;
+
+    private const string PrioritySelectorCode = """
+        <PrioritySelector TEnum="DemoPriority" CurrentValue="_priority"
+                          OnChanged="v => _priority = v" />
+        """;
+
+    private const string RepositorySelectorCode = """
+        <RepositorySelector CurrentValue="@_repository" Options="Repositories"
+                            OnChanged="v => _repository = v" />
         """;
 
     private const string TagCode = """

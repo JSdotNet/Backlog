@@ -6,27 +6,27 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 73,
-    "edges": 116,
+    "nodes": 75,
+    "edges": 119,
     "nodesByFolder": {
-      "arc42": 58,
-      "domain": 13,
+      "arc42": 59,
+      "domain": 14,
       "tech": 2
     },
     "nodesByType": {
-      "file": 14,
+      "file": 16,
       "chapter": 59
     },
     "nodesByStatus": {
       "active": 49,
       "proposed": 1,
-      "draft": 20,
-      "accepted": 1,
+      "draft": 21,
+      "accepted": 2,
       "adopted": 2
     },
     "edgesByType": {
       "contains": 45,
-      "related": 71
+      "related": 74
     }
   },
   "problems": [],
@@ -902,6 +902,21 @@
       },
       {
         "data": {
+          "id": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "label": "ADR 0002: The Backlog module owns the entry text language",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "status": "accepted",
+          "related": [
+            ".domain/backlog/domain.md",
+            ".domain/context-map.md",
+            ".arc42/05-building-block-view.md"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/context-map.md",
           "label": "Context Map: Backlog",
           "type": "file",
@@ -1168,6 +1183,17 @@
             ".domain/repository-management/domain.md#aggregate-repository-registry",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/domain.md",
+          "label": "Domain: Backlog Management",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "status": "draft",
           "outOfScope": true
         }
       }
@@ -2098,6 +2124,30 @@
           "id": "related:.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md->.arc42/09-architecture-decisions.md",
           "source": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md->.domain/backlog/domain.md",
+          "source": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "target": ".domain/backlog/domain.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md->.domain/context-map.md",
+          "source": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "target": ".domain/context-map.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md->.arc42/05-building-block-view.md",
+          "source": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "target": ".arc42/05-building-block-view.md",
           "type": "related"
         }
       }
