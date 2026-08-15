@@ -1,0 +1,157 @@
+@*
+    One file, shown: what it is across the header, what it says in the body.
+
+    The header carries the identity a reader needs before trusting the content —
+    the name, where it came from, and the path it came from — and the body is the
+    file's markdown, rendered by the same MarkdownView the rest of the product
+    reads with. The body scrolls on its own so the header stays put: a long file
+    should not push the thing that tells you which file it is off the screen.
+
+    Read-only by design. MarkdownView is given no toggle handler, so a checklist
+    in the file renders as state rather than as controls — nothing here writes
+    back, and offering a checkbox that silently does nothing would be a lie.
+*@
+
+<article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <header class="file-view__header">
+        <div class="file-view__identity">
+            <h3 class="file-view__name">@Name</h3>
+            @if (Details.Count > 0)
+            {
+                <p class="file-view__meta">@string.Join(" · ", Details)</p>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Path))
+        {
+            @* Truncated visually when the header is narrow, never in the DOM, so
+               a screen reader still reads the whole path. *@
+            <p class="file-view__path">@Path</p>
+        }
+    </header>
+
+    @* A scroll container is an interactive element even though it is a div:
+       without tabindex a keyboard user cannot reach the overflow in Chromium at
+       all (.design/accessibility.md, "Non-native controls"). role + name keep it
+       from being an unlabelled tab stop. *@
+    <div class="file-view__body"
+         role="region"
+         tabindex="0"
+         aria-label="@Name"
+         style="@BodyStyle"
+         data-testid="@BodyTestId">
+        <MarkdownView Blocks="_blocks" />
+    </div>
+</article>
+
+@code {
+    /// <summary>The file's name — the title, and the name of the scroll region.</summary>
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>The full path, shown opposite the name.</summary>
+    [Parameter]
+    public string? Path { get; set; }
+
+    /// <summary>Who or what the file comes from, e.g. "GitHub Copilot".</summary>
+    [Parameter]
+    public string? Source { get; set; }
+
+    /// <summary>What kind of file it is, e.g. "Path-specific instructions".</summary>
+    [Parameter]
+    public string? Kind { get; set; }
+
+    /// <summary>Size on disk. Null when the caller does not know it — better an
+    /// absent fact than a fabricated zero.</summary>
+    [Parameter]
+    public long? SizeInBytes { get; set; }
+
+    /// <summary>The file's markdown.</summary>
+    [Parameter]
+    public string? Body { get; set; }
+
+    /// <summary>How tall the body may grow before it scrolls. Any CSS length;
+    /// pass null to let the body size to its content and never scroll. Ignored
+    /// when <see cref="Fill"/> is set.</summary>
+    [Parameter]
+    public string? MaxHeight { get; set; } = "24rem";
+
+    /// <summary>Take the full height the host gives this, and scroll the body
+    /// inside it. For a file that lives in a pane or a column, where how tall it
+    /// gets is the layout's business and not a number this component should be
+    /// told.</summary>
+    [Parameter]
+    public bool Fill { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    // Parsed when the body changes rather than on every render: a file is long,
+    // and the host re-renders for reasons that have nothing to do with it.
+    private IReadOnlyList<MdBlock> _blocks = [];
+    private string? _parsedBody;
+    private bool _parsed;
+
+    protected override void OnParametersSet()
+    {
+        if (_parsed && _parsedBody == Body) return;
+
+        // ParseDocument, not Parse: in a file a `##` is a heading, not a
+        // sub-item the host will lay out elsewhere. Parse would fold everything
+        // from the first `##` down into an MdSubItem that MarkdownView renders
+        // nothing for, which is most of any real file.
+        _blocks = MarkdownPreview.ParseDocument(Body);
+        _parsedBody = Body;
+        _parsed = true;
+    }
+
+    private string ClassValue
+    {
+        get
+        {
+            var fill = Fill ? " file-view--fill" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"file-view{fill}{extra}";
+        }
+    }
+
+    private string? BodyTestId => TestId is null ? null : $"{TestId}-body";
+
+    // In fill mode the flex box decides the height, so a max-height here would
+    // only fight it.
+    private string? BodyStyle =>
+        Fill || string.IsNullOrWhiteSpace(MaxHeight) ? null : $"max-height: {MaxHeight}";
+
+    /// <summary>The middle line of the header: everything known about the file
+    /// that is not its name or its path, in the order a reader asks for it.</summary>
+    private IReadOnlyList<string> Details =>
+    [
+        .. new[] { Source, Kind, SizeInBytes is { } bytes ? FormatSize(bytes) : null }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => part!)
+    ];
+
+    /// <summary>Bytes as the reader would say them. Formatted in the current
+    /// culture, so the decimal separator is the one the rest of the app uses.</summary>
+    internal static string FormatSize(long bytes)
+    {
+        const long Kb = 1024;
+        const long Mb = Kb * 1024;
+        const long Gb = Mb * 1024;
+
+        if (bytes < 0) return string.Empty;
+
+        return bytes switch
+        {
+            < Kb => $"{bytes} B",
+            < Mb => $"{bytes / (double)Kb:0.#} KB",
+            < Gb => $"{bytes / (double)Mb:0.#} MB",
+            _ => $"{bytes / (double)Gb:0.#} GB"
+        };
+    }
+}

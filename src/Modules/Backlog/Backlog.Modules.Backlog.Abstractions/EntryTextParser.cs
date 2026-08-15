@@ -43,7 +43,12 @@ public static class EntryTextParser
     private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.*)$", RegexOptions.Compiled);
     private static readonly Regex CheckboxPrefixRegex = new(@"^\[( |x|X)\][ \t]+", RegexOptions.Compiled);
     private static readonly Regex HeadingCheckboxMarkerRegex = new(@"^(?<prefix>[ \t]*#{2,3}[ \t]+)\[(?<marker> |x|X)\](?<suffix>[ \t]+.*)$", RegexOptions.Compiled);
-    private static readonly Regex ChecklistRegex = new(@"^[ \t]*[-*][ \t]+\[( |x|X)\][ \t]+(.+?)[ \t]*$", RegexOptions.Compiled);
+    // The trailing `\S` is what keeps this in step with the read view's parser
+    // (MarkdownPreview.TaskItemRegex, which trims the line end first): a line of
+    // `- [ ]` followed by nothing but spaces is not a checklist item there, so it
+    // must not be one here either, or the nth item each side counts is a
+    // different line.
+    private static readonly Regex ChecklistRegex = new(@"^[ \t]*[-*][ \t]+\[( |x|X)\][ \t]+(.*\S)[ \t]*$", RegexOptions.Compiled);
 
     private static readonly Dictionary<string, EntryType> TypeTokens = new()
     {

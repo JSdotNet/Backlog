@@ -677,8 +677,13 @@
     line-height: var(--line-height-tight);
 }
 
+/* Levels 2 and 3 were unstyled and unreachable while the only caller read every
+   body as an entry, where a `##` is a sub-item the host draws. A document read
+   (MarkdownPreview.ParseDocument) puts them back on screen, so the ramp has to
+   be whole. */
 .md-heading--1 { font-size: var(--font-size-lg); }
-.md-heading--3 { font-size: var(--font-size-base); }
+.md-heading--2 { font-size: var(--font-size-base); }
+.md-heading--3 { font-size: var(--font-size-sm); }
 .md-heading--4,
 .md-heading--5,
 .md-heading--6 {
@@ -704,6 +709,10 @@
     font-size: 10px;
     line-height: 1;
     color: transparent;
+}
+
+/* Only the one you can actually click says so. */
+button.md-check {
     cursor: pointer;
 }
 
@@ -725,7 +734,12 @@
 
 .md-item--done .md-check--done {
     text-decoration: none;
-    cursor: pointer;
+}
+
+/* A link whose scheme we refused to navigate to: still readable, not clickable. */
+.md-link--inert {
+    color: var(--color-text-secondary);
+    text-decoration: underline dotted;
 }
 
 .md-list {
@@ -734,15 +748,14 @@
     color: var(--color-text-secondary);
 }
 
-.md-list--tasks {
-    list-style: none;
-    padding-left: var(--spacing-xs);
-}
-
-.md-list--tasks li {
+/* Only the checklist items lose their marker — a plain bullet in the same list
+   keeps looking like a bullet instead of reading as stray prose. */
+.md-item--task {
     display: flex;
     align-items: flex-start;
     gap: var(--spacing-sm);
+    list-style: none;
+    margin-left: calc(var(--spacing-lg) * -1 + var(--spacing-xs));
 }
 
 .md-quote {
@@ -2226,6 +2239,141 @@ button.tag-chip__label {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
+}
+
+/* --- File view ----------------------------------------------------------- */
+
+/* The deep surface, not the raised one: a file is the thing being read, so it
+   sits at the back of the stack and lets the app's own chrome come forward. */
+.file-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    overflow: hidden;
+}
+
+/* Fill mode: the host decides how tall this is, and the body takes whatever is
+   left under the header. min-height:0 is what lets a flex child actually shrink
+   below its content and scroll instead of pushing the card open. */
+.file-view--fill {
+    height: 100%;
+}
+
+.file-view--fill .file-view__body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* One surface, one rule. The header and the body share the card's background —
+   a shade under the header drew the boundary twice — but the rule stays: the
+   header is fixed and the body scrolls under it, and that needs a line. */
+.file-view__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.file-view__identity {
+    min-width: 0;
+}
+
+.file-view__name {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.file-view__meta {
+    margin: var(--spacing-xs) 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* The path earns the monospace: it is a machine string, and the reader is
+   usually checking one segment of it rather than reading it as prose. It is the
+   first thing to give up room when the header is narrow — the name beside it
+   still identifies the file, and the text stays whole in the DOM. */
+.file-view__path {
+    flex: 0 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-disabled);
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Scrollbars are chrome, not content. app.css says the same thing globally for
+   the desktop shell, but the library has to stand on its own — the storybook
+   loads no app stylesheet, and a component that only looks right inside one host
+   is not a component. */
+.file-view__body {
+    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+    overflow: auto;
+    /* Reserve the track so the content does not shift sideways the moment a
+       file grows past the fold. */
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+}
+
+.file-view__body::-webkit-scrollbar {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.file-view__body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.file-view__body::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border);
+    background-clip: padding-box;
+}
+
+.file-view__body::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-strong);
+    background-clip: padding-box;
+}
+
+.file-view__body::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* The body is a tab stop because it scrolls, so it has to show focus like one. */
+.file-view__body:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(var(--border-width-2) * -1);
+}
+
+/* The last block in a file should not leave a double gap above the border. */
+.file-view__body > :last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 40rem) {
+    .file-view__header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-xs);
+    }
+
+    .file-view__path {
+        text-align: left;
+    }
 }
 
 .section-header {

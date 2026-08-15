@@ -98,12 +98,14 @@ html, body {
 }
 
 /* The example area itself stays neutral: a story sits on the page background so
-   the component's own surfaces read the way they do in the app. */
+   the component's own surfaces read the way they do in the app. No frame of its
+   own either — a component that draws its own border was getting two, and the
+   outer one belonged to the harness rather than to anything being reviewed. */
+/* No padding either: the header's margin-bottom and the code block's margin-top
+   already space this on both sides, and the example's own padding was doubling
+   them — and quietly shrinking any example that sizes itself to this box. */
 .sb-story__example {
     background-color: var(--color-background);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    padding: var(--spacing-md);
 }
 
 .sb-story__code {
@@ -148,6 +150,18 @@ html, body {
 /* --color-text-disabled is 4.30:1 on the page and 3.81:1 on a raised surface.
    These labels are 12px uppercase, which needs 4.5:1, so they use secondary. The
    disabled token stays what it is named for: text that is genuinely inert. */
+/* Squeezes one example into a narrow column, for the stories that are about what
+   a component does when it runs out of room. */
+.sb-narrow {
+    max-width: 28rem;
+}
+
+/* Gives an example a definite height to fill. A component that sizes itself to
+   its container has nothing to show inside a box that just grows to fit it. */
+.sb-tall {
+    height: 32rem;
+}
+
 .sb-label {
     font-size: var(--font-size-xs);
     text-transform: uppercase;
