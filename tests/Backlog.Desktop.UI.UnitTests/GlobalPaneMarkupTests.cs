@@ -8,9 +8,12 @@ public sealed class GlobalPaneMarkupTests
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
         Assert.Contains("data-testid=\"global-pane-multiselect\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"inbox-pane-option\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"backlog-pane-option\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"knowledge-pane-option\"", home, StringComparison.Ordinal);
+
+        // The three options are the shared ToggleButton, so their test ids reach
+        // the DOM through its TestId parameter rather than literal attributes.
+        Assert.Contains("TestId=\"inbox-pane-option\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"backlog-pane-option\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"knowledge-pane-option\"", home, StringComparison.Ordinal);
 
         // Each pane carries its own landmark id from its own folder; the shell
         // only points the multiselect's aria-controls at them.
@@ -34,9 +37,11 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("aria-pressed=\"@(InboxPaneVisible ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
-        Assert.Contains("aria-pressed=\"@(BacklogPaneVisible ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
-        Assert.Contains("aria-pressed=\"@(KnowledgePaneVisible ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
+        // ToggleButton derives aria-pressed from Pressed, so the visibility of a
+        // pane is stated once and the attribute cannot drift away from it.
+        Assert.Contains("Pressed=\"InboxPaneVisible\"", home, StringComparison.Ordinal);
+        Assert.Contains("Pressed=\"BacklogPaneVisible\"", home, StringComparison.Ordinal);
+        Assert.Contains("Pressed=\"KnowledgePaneVisible\"", home, StringComparison.Ordinal);
 
         Assert.Contains("if (_globalPanes.IsEnabled(pane))", home, StringComparison.Ordinal);
         Assert.Contains("return !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
@@ -95,8 +100,8 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("data-testid=\"app-version\"", home, StringComparison.Ordinal);
-        Assert.Contains("@onclick=\"OpenUpdateWindow\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"app-version\"", home, StringComparison.Ordinal);
+        Assert.Contains("OnClick=\"OpenUpdateWindow\"", home, StringComparison.Ordinal);
         // The dialog shell is now the shared Modal component, so the test id
         // reaches the DOM through its TestId parameter instead of a literal
         // attribute.
@@ -120,8 +125,8 @@ public sealed class GlobalPaneMarkupTests
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        Assert.Contains("data-testid=\"entry-title-button\"", pane, StringComparison.Ordinal);
-        Assert.DoesNotContain("data-testid=\"entry-fold-button\"", pane, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"entry-title-button\"", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("entry-fold-button", pane, StringComparison.Ordinal);
     }
 
     [Fact]

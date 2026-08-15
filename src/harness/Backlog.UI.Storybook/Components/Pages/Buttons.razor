@@ -121,6 +121,34 @@
         </p>
     </Story>
 
+    <Story Name="Wearing the host's classes"
+           Description="BaseClass replaces `btn` and every modifier built on it, so an application that already ships chips, pills or toolbar toggles can adopt the component without inheriting a padding, a weight and a transition it never asked for. ToggleButton names the pressed state separately, because a host that has chips almost never calls it `--pressed`."
+           Code="@BaseClassCode">
+        <div class="sb-row">
+            <AppButton BaseClass="sb-chip" Variant="ButtonVariant.None" OnClick="Count">Plain host chip</AppButton>
+            <ToggleButton BaseClass="sb-chip"
+                          PressedCssClass="sb-chip--on"
+                          Pressed="_scoped"
+                          PressedChanged="v => _scoped = v"
+                          TestId="host-toggle">Scoped</ToggleButton>
+            <IconButton BaseClass="sb-chip" AriaLabel="Dismiss" OnClick="Count">x</IconButton>
+        </div>
+        <p class="sb-state" data-testid="host-toggle-value">Pressed = @_scoped</p>
+    </Story>
+
+    <Story Name="Inside something clickable"
+           Description="StopPropagation keeps the click off the region around the button. It has to be a parameter, because the onclick:stopPropagation directive attribute only works on an element — writing it on a component is a compile error, so without this a button inside a click-to-edit card could not be one of these."
+           Code="@StopPropagationCode">
+        <div class="sb-stack">
+            <div class="sb-clickable" @onclick="() => _regionClicks++">
+                Clicking this card counts a region click.
+                <AppButton Variant="ButtonVariant.Secondary" StopPropagation="true" OnClick="Count">Does not</AppButton>
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="Count">Does</AppButton>
+            </div>
+        </div>
+        <p class="sb-state" data-testid="region-clicks">Region clicks: @_regionClicks — button clicks: @_clicks</p>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -141,6 +169,8 @@
     ];
 
     private string? _invoked;
+    private bool _scoped = true;
+    private int _regionClicks;
 
     private void Invoke(Tool tool)
     {
@@ -211,7 +241,7 @@
     }
 
     private const string VariantCode = """
-        <AppButton Variant="ButtonVariant.Primary" Size="ButtonSize.Medium" OnClick="Save">Save</AppButton>
+        <AppButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small" OnClick="Save">Save</AppButton>
         """;
 
     private const string NoneCode = """
@@ -249,5 +279,17 @@
 
     private const string ToggleCode = """
         <ToggleButton @bind-Pressed="_showDone" AriaLabel="Show completed entries">Show completed</ToggleButton>
+        """;
+
+    private const string BaseClassCode = """
+        <AppButton BaseClass="chip" Variant="ButtonVariant.None">Plain host chip</AppButton>
+        <ToggleButton BaseClass="chip" PressedCssClass="chip--active"
+                      Pressed="_scoped" PressedChanged="v => _scoped = v">Scoped</ToggleButton>
+        """;
+
+    private const string StopPropagationCode = """
+        <div @onclick="BeginEdit">
+            <AppButton StopPropagation="true" OnClick="Delete">Delete</AppButton>
+        </div>
         """;
 }

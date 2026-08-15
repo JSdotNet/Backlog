@@ -16,40 +16,55 @@
         <p class="knowledge-stack__repository" data-testid="knowledge-repository">@knowledgeRepository.FullName</p>
     }
 
-    <nav class="knowledge-stack__nav" aria-label="Knowledge sections" role="tablist">
-        @foreach (var area in VisibleAreas)
-        {
-            <button type="button"
-                    class="knowledge-stack__nav-item @(IsSectionActive(area.Key) ? "knowledge-stack__nav-item--active" : string.Empty)"
-                    role="tab"
-                    aria-selected="@(IsSectionActive(area.Key) ? "true" : "false")"
-                    aria-controls="knowledge-active-section"
-                    @onclick="() => SelectSection(area.Key)">
-                @area.Label
-            </button>
-        }
-    </nav>
+    @* The section strip is the shared Tabs component wearing this pane's
+       classes. It used to be a hand-rolled row of role="tab" buttons: correct
+       roles, but every one of them its own tab stop and no arrow-key movement,
+       which is the half of a tablist the component brings. The panels sit inside
+       the body next to the menu, so the strip is rendered bare. *@
+    <Tabs Bare="true"
+          ListElement="nav"
+          ListCssClass="knowledge-stack__nav"
+          AriaLabel="Knowledge sections"
+          TabCssClass="knowledge-stack__nav-item"
+          ActiveTabCssClass="knowledge-stack__nav-item knowledge-stack__nav-item--active"
+          ActiveId="@EffectiveSection"
+          ActiveIdChanged="SelectSection">
 
-    <div class="knowledge-stack__body @(SectionUsesMenu ? string.Empty : "knowledge-stack__body--without-menu")">
-        @if (SectionUsesMenu)
-        {
-            <KnowledgeMenuTreeView HeadingLabel="@(VisibleAreas.FirstOrDefault(area => IsSectionActive(area.Key))?.Label ?? "Knowledge")"
-                                   RootFolder="ActiveMenuRoot"
-                                   Nodes="ActiveMenuNodes"
-                                   IsLoading="_menuLoading"
-                                   OpenErrorMessage="_folderOpenError"
-                                   IsNodeSelected="IsMenuNodeSelected"
-                                   IsNodeExpanded="IsMenuNodeExpanded"
-                                   NodeClass="MenuNodeClass"
-                                   IsFolderOpening="IsFolderOpening"
-                                   OnNodeSelected="SelectMenuNode"
-                                   OnOpenFolder="OpenFolderAsync" />
-        }
+        <div class="knowledge-stack__body @(SectionUsesMenu ? string.Empty : "knowledge-stack__body--without-menu")">
+            @if (SectionUsesMenu)
+            {
+                <KnowledgeMenuTreeView HeadingLabel="@(VisibleAreas.FirstOrDefault(area => IsSectionActive(area.Key))?.Label ?? "Knowledge")"
+                                       RootFolder="ActiveMenuRoot"
+                                       Nodes="ActiveMenuNodes"
+                                       IsLoading="_menuLoading"
+                                       OpenErrorMessage="_folderOpenError"
+                                       IsNodeSelected="IsMenuNodeSelected"
+                                       IsNodeExpanded="IsMenuNodeExpanded"
+                                       NodeClass="MenuNodeClass"
+                                       IsFolderOpening="IsFolderOpening"
+                                       OnNodeSelected="SelectMenuNode"
+                                       OnOpenFolder="OpenFolderAsync" />
+            }
 
-        <div class="knowledge-stack__section" id="knowledge-active-section" role="tabpanel">
-            @RenderActiveSection()
+            @if (VisibleAreas.Count == 0)
+            {
+                @* No areas means no tabs, so there is no panel to carry the
+                   message that explains why the pane is empty. *@
+                <div class="knowledge-stack__section">
+                    @RenderSection(string.Empty)
+                </div>
+            }
+            else
+            {
+                @foreach (var area in VisibleAreas)
+                {
+                    <TabPanel Id="@area.Key" Title="@area.Label" BaseClass="knowledge-stack__section">
+                        @RenderSection(area.Key)
+                    </TabPanel>
+                }
+            }
         </div>
-    </div>
+    </Tabs>
 </section>
 
 @code {
@@ -289,9 +304,9 @@
         string.Equals(node.Path, selectedPath, StringComparison.OrdinalIgnoreCase)
         || node.Children.Any(child => ContainsPath(child, selectedPath));
 
-    private RenderFragment RenderActiveSection()
+    private RenderFragment RenderSection(string section)
     {
-        return EffectiveSection switch
+        return section switch
         {
             "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
             "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,

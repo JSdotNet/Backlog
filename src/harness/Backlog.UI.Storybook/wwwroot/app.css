@@ -155,6 +155,53 @@ html, body {
     color: var(--color-text-secondary);
 }
 
+/* A pretend host style, for the stories that show a component wearing classes
+   the library does not own. Deliberately unlike `.btn`, so a BaseClass that
+   failed to replace `btn` would be visible rather than merely untested. */
+.sb-chip {
+    font: inherit;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+
+.sb-chip--on {
+    border-style: solid;
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+/* A pretend host input style, for the bare-field story. Same reasoning as
+   .sb-chip: it has to look unlike `.field__input` to prove the replacement. */
+.sb-host-input {
+    width: 100%;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-sm);
+    color: var(--color-text-primary);
+    background: var(--color-background);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: 0;
+}
+
+/* A clickable region, for the StopPropagation story. */
+.sb-clickable {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    cursor: pointer;
+}
+
 /* The "currently bound value" line under an interactive example. */
 .sb-state {
     margin: var(--spacing-sm) 0 0;

@@ -1379,35 +1379,10 @@ body.is-resizing-pane {
     color: var(--color-text-secondary);
 }
 
-.feedback-field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-}
-
-.feedback-field input,
-.feedback-field textarea {
-    width: 100%;
-    color: var(--color-text-primary);
-    background: var(--color-background-alt);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    padding: var(--spacing-sm);
-    font: inherit;
-}
-
-.feedback-field textarea {
-    resize: vertical;
-}
-
-.feedback-field input:focus,
-.feedback-field textarea:focus {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
+/* `.feedback-field` used to live here: a label-over-input shape with the same
+   gap, padding, border and focus ring as `.field` further down, written twice
+   because the dialog hand-rolled its markup instead of using TextField. The
+   dialog uses the component now, so this is the one shape again. */
 
 .feedback-status {
     margin: 0;

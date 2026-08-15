@@ -22,29 +22,34 @@
         <div class="filter-group filter-group--areas" role="radiogroup" aria-label="Filter by area">
             @foreach (var area in State.AreaFilters)
             {
-                <button type="button"
-                        class="chip chip--filter @(State.SelectedArea == area.Value ? "chip--active" : string.Empty)"
-                        data-testid="area-filter-option"
-                        role="radio"
-                        aria-checked="@(State.SelectedArea == area.Value ? "true" : "false")"
-                        @onclick="() => State.SetAreaFilter(area.Value)">
+                @* A radio in a radiogroup, so aria-checked rather than the
+                   aria-pressed ToggleButton would bring: these chips pick one
+                   of a set, they do not each hold a state of their own. *@
+                <AppButton BaseClass="chip chip--filter"
+                           Variant="ButtonVariant.None"
+                           CssClass="@(State.SelectedArea == area.Value ? "chip--active" : null)"
+                           TestId="area-filter-option"
+                           role="radio"
+                           aria-checked="@(State.SelectedArea == area.Value ? "true" : "false")"
+                           OnClick="() => State.SetAreaFilter(area.Value)">
                     @area.Label<span class="chip__count">@area.Count</span>
-                </button>
+                </AppButton>
             }
         </div>
 
         <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
             @foreach (var filter in State.StatusFilters)
             {
-                <button type="button"
-                        class="chip chip--filter @(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : string.Empty)"
-                        id="status-filter-@(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)"
-                        data-testid="status-filter-option"
-                        role="radio"
-                        aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
-                        @onclick="() => OnFilterChanged(filter.Wire)">
+                <AppButton BaseClass="chip chip--filter"
+                           Variant="ButtonVariant.None"
+                           CssClass="@(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : null)"
+                           id="@($"status-filter-{(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)}")"
+                           TestId="status-filter-option"
+                           role="radio"
+                           aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
+                           OnClick="() => OnFilterChanged(filter.Wire)">
                     @filter.Label
-                </button>
+                </AppButton>
             }
         </div>
     </div>
@@ -106,6 +111,12 @@
                         {
                             <Alert Message="@row.CopilotError" BaseClass="entry-doc__gh-error" TestId="copilot-cli-error" Role="status" />
                         }
+                        @* Not TextArea, and deliberately. The grow wrapper here
+                           holds the reading line as well as the box, replicates
+                           the text plus a trailing newline so the last line has
+                           somewhere to go, and the element itself is focused
+                           through _editor after a state change. TextArea shapes
+                           a labelled field; this is the editing surface. *@
                         @if (editing)
                         {
                             <div class="grow-wrap" data-replicated-value="@(State.EntryEditText(row) + "\n")">
@@ -154,15 +165,15 @@
 
                                     @if (row.HasExpandableContent)
                                     {
-                                        <button type="button"
-                                                class="entry-doc__title-button"
-                                                id="fold-entry-@row.Key"
-                                                data-testid="entry-title-button"
-                                                aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
-                                                aria-controls="entry-content-@row.Key"
-                                                aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
-                                                @onclick:stopPropagation="true"
-                                                @onclick="() => State.ToggleEntry(row)">
+                                        <AppButton BaseClass="entry-doc__title-button"
+                                                   Variant="ButtonVariant.None"
+                                                   id="@($"fold-entry-{row.Key}")"
+                                                   TestId="entry-title-button"
+                                                   aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
+                                                   aria-controls="@($"entry-content-{row.Key}")"
+                                                   aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
+                                                   StopPropagation="true"
+                                                   OnClick="() => State.ToggleEntry(row)">
                                             @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
                                             {
                                                 <span class="entry-doc__title entry-doc__title--empty">Untitled</span>
@@ -172,7 +183,7 @@
                                                 <span class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</span>
                                             }
                                             <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
-                                        </button>
+                                        </AppButton>
                                     }
                                     else if (string.IsNullOrWhiteSpace(row.PreviewTitle))
                                     {
@@ -220,6 +231,12 @@
                                 @key="position"
                                 data-testid="entry-subitem">
 
+                                @* The grip stays a raw button: `@ondragenter:preventDefault`
+                                   and `@ondragover:preventDefault` are directive
+                                   attributes, and like stopPropagation they cannot be
+                                   written on a component. A drop target is not a
+                                   button shape the library has, so there is nothing
+                                   to adopt here rather than a hook missing. *@
                                 <button type="button"
                                         class="subitem-card__grip"
                                         id="subitem-grip-@row.Key-@position"
@@ -239,6 +256,8 @@
 
                                 @if (editingSubItem)
                                 {
+                                    @* Same editing surface as the entry above,
+                                       same reason it is not TextArea. *@
                                     <div class="subitem-card__body subitem-card__body--editing">
                                         <div class="grow-wrap" data-replicated-value="@(State.SubItemEditText(row, position) + "\n")">
                                             <textarea class="entry-doc__editor subitem-card__editor"
@@ -261,27 +280,27 @@
                                         <div class="subitem-card__title-row">
                                             @if (subItem.HasCheckbox)
                                             {
-                                                <button type="button"
-                                                        class="md-check subitem-card__check @(subItem.Done ? "md-check--done" : string.Empty)"
-                                                        data-testid="subitem-checkbox"
-                                                        aria-pressed="@(subItem.Done ? "true" : "false")"
-                                                        aria-label="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
-                                                        @onclick:stopPropagation="true"
-                                                        @onclick="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "✔" : string.Empty)</button>
+                                                <ToggleButton BaseClass="md-check subitem-card__check"
+                                                              PressedCssClass="md-check--done"
+                                                              Pressed="@subItem.Done"
+                                                              TestId="subitem-checkbox"
+                                                              AriaLabel="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                                              StopPropagation="true"
+                                                              PressedChanged="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "✔" : string.Empty)</ToggleButton>
                                             }
                                             @if (subItem.Children.Count > 0)
                                             {
-                                                <button type="button"
-                                                        class="subitem-card__title-button"
-                                                        data-testid="subitem-title-button"
-                                                        aria-expanded="@(row.IsSubItemCollapsed(position) ? "false" : "true")"
-                                                        aria-controls="subitem-content-@row.Key-@position"
-                                                        aria-label="@(row.IsSubItemCollapsed(position) ? "Show sub-item details" : "Collapse sub-item details")"
-                                                        @onclick:stopPropagation="true"
-                                                        @onclick="() => row.ToggleSubItemCollapsed(position)">
+                                                <AppButton BaseClass="subitem-card__title-button"
+                                                           Variant="ButtonVariant.None"
+                                                           TestId="subitem-title-button"
+                                                           aria-expanded="@(row.IsSubItemCollapsed(position) ? "false" : "true")"
+                                                           aria-controls="@($"subitem-content-{row.Key}-{position}")"
+                                                           aria-label="@(row.IsSubItemCollapsed(position) ? "Show sub-item details" : "Collapse sub-item details")"
+                                                           StopPropagation="true"
+                                                           OnClick="() => row.ToggleSubItemCollapsed(position)">
                                                     <span class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</span>
                                                     <span class="entry-doc__fold-chevron @(row.IsSubItemCollapsed(position) ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
-                                                </button>
+                                                </AppButton>
                                             }
                                             else
                                             {
@@ -329,14 +348,16 @@
     @* Creating an entry is the same gesture as writing in one, so the control
        sits where the next entry will actually appear rather than up in the
        chrome. *@
-    <button type="button"
-            class="entry-add"
-            id="new-entry-button"
-            data-testid="new-entry-button"
-            @onclick="OnNewEntry">
+    <AppButton BaseClass="entry-add"
+               Variant="ButtonVariant.None"
+               id="new-entry-button"
+               TestId="new-entry-button"
+               OnClick="OnNewEntry">
+        @* Not the Icon slot: that wraps what it is given in a `btn__icon` span,
+           and this row already has its own plus. *@
         <span class="entry-add__plus" aria-hidden="true">+</span>
         New entry
-    </button>
+    </AppButton>
 </section>
 
 @code {
@@ -410,19 +431,16 @@
     private RenderFragment RenderEntryMetadata(EntryRow row, bool oneLine) =>
         @<div class="entry-doc__meta" @onmousedown:stopPropagation="true" @onclick:stopPropagation="true">
             <span class="entry-doc__meta-start">
-                <label class="metadata-editor metadata-editor--type badge badge--type" data-testid="type-badge">
-                    <span class="sr-only">Change type</span>
-                    <select class="metadata-editor__select"
-                            value="@row.PreviewType"
-                            aria-label="Change type"
-                            title="Change type"
-                            @onchange="e => OnTypeChangedAsync(row, e)">
-                        @foreach (var type in TypeOptions())
-                        {
-                            <option value="@type">@Humanize(type.ToString())</option>
-                        }
-                    </select>
-                </label>
+                @* SelectField rather than EnumSelect: EnumSelect titles its own
+                   labels ("In Progress"), and every other badge on this row
+                   reads lowercase. The options come from here so the vocabulary
+                   stays the app's. *@
+                <SelectField CurrentValue="@row.PreviewType.ToString()"
+                             Options="@TypeSelectorOptions()"
+                             Label="Change type"
+                             TestId="type-badge"
+                             CssClass="metadata-editor--type badge badge--type"
+                             OnChanged="value => OnTypeChangedAsync(row, value)" />
 
                 <PrioritySelector TEnum="Priority" CurrentValue="@row.PreviewPriority"
                                   Options="@PriorityOptions()"
@@ -501,13 +519,11 @@
 
                         @if (row.IssueLink is not null)
                         {
-                            <button type="button"
-                                    class="entry-doc__icon-action"
-                                    data-testid="github-refresh-button"
-                                    disabled="@row.GitHubBusy"
-                                    title="Check this issue on GitHub"
-                                    aria-label="Check this issue on GitHub"
-                                    @onclick="() => State.RefreshGitHubAsync(row)">
+                            <IconButton BaseClass="entry-doc__icon-action"
+                                        TestId="github-refresh-button"
+                                        Disabled="@row.GitHubBusy"
+                                        AriaLabel="Check this issue on GitHub"
+                                        OnClick="() => State.RefreshGitHubAsync(row)">
                                 @if (row.GitHubBusy)
                                 {
                                     <span aria-hidden="true">…</span>
@@ -518,17 +534,15 @@
                                         <path d="M1.705 8a6.303 6.303 0 0 1 10.848-4.365L11.318 4.87a.75.75 0 0 0 .53 1.281h3.329a.75.75 0 0 0 .75-.75V2.073a.75.75 0 0 0-1.28-.53l-1.018 1.018A7.804 7.804 0 0 0 .204 8a.75.75 0 0 0 1.501 0Zm14.091 0a.75.75 0 0 0-1.501 0 6.303 6.303 0 0 1-10.848 4.365l1.235-1.235a.75.75 0 0 0-.53-1.281H.823a.75.75 0 0 0-.75.75v3.328a.75.75 0 0 0 1.28.53l1.018-1.018A7.804 7.804 0 0 0 15.796 8Z" />
                                     </svg>
                                 }
-                            </button>
+                            </IconButton>
                         }
                         else if (repository is not null && row.IsPersisted)
                         {
-                            <button type="button"
-                                    class="entry-doc__icon-action entry-doc__icon-action--push"
-                                    data-testid="github-push-button"
-                                    disabled="@row.GitHubBusy"
-                                    title="Create an issue in @repository.FullName"
-                                    aria-label="Create an issue in @repository.FullName"
-                                    @onclick="() => State.PushToGitHubAsync(row, repository)">
+                            <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--push"
+                                        TestId="github-push-button"
+                                        Disabled="@row.GitHubBusy"
+                                        AriaLabel="@($"Create an issue in {repository.FullName}")"
+                                        OnClick="() => State.PushToGitHubAsync(row, repository)">
                                 @if (row.GitHubBusy)
                                 {
                                     <span aria-hidden="true">…</span>
@@ -539,19 +553,17 @@
                                         <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
                                     </svg>
                                 }
-                            </button>
+                            </IconButton>
                         }
                     }
 
                     @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli) && row.IsPersisted)
                     {
-                        <button type="button"
-                                class="entry-doc__icon-action entry-doc__icon-action--copilot"
-                                data-testid="copilot-cli-button"
-                                disabled="@row.CopilotBusy"
-                                title="Start GitHub Copilot CLI for this entry"
-                                aria-label="Start GitHub Copilot CLI for this entry"
-                                @onclick="() => State.StartCopilotCliAsync(row)">
+                        <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--copilot"
+                                    TestId="copilot-cli-button"
+                                    Disabled="@row.CopilotBusy"
+                                    AriaLabel="Start GitHub Copilot CLI for this entry"
+                                    OnClick="() => State.StartCopilotCliAsync(row)">
                             @if (row.CopilotBusy)
                             {
                                 <span aria-hidden="true">…</span>
@@ -560,18 +572,16 @@
                             {
                                 <span class="entry-doc__cli-mark" aria-hidden="true">gh</span>
                             }
-                        </button>
+                        </IconButton>
                     }
 
                     @if (ReferenceEquals(State.EditingRow, row) && IsTextEntryFocused(row))
                     {
-                        <button type="button"
-                                class="entry-doc__delete"
-                                id="delete-entry-@row.Key"
-                                data-testid="delete-entry-button"
-                                aria-label="Delete entry"
-                                title="Delete entry"
-                                @onclick="() => OnDeleteEntryAsync(row)">×</button>
+                        <IconButton BaseClass="entry-doc__delete"
+                                    id="@($"delete-entry-{row.Key}")"
+                                    TestId="delete-entry-button"
+                                    AriaLabel="Delete entry"
+                                    OnClick="() => OnDeleteEntryAsync(row)">×</IconButton>
                     }
                 </span>
             </span>
@@ -580,19 +590,12 @@
     private RenderFragment RenderSubItemMetadata(EntryRow row, MdSubItem subItem, int position) =>
         @<div class="entry-doc__meta subitem-card__meta" aria-label="Sub-item metadata and actions" @onmousedown:stopPropagation="true" @onclick:stopPropagation="true">
             <span class="entry-doc__meta-start">
-                <label class="metadata-editor metadata-editor--type badge badge--type" data-testid="subitem-type-badge">
-                    <span class="sr-only">Change sub-item type</span>
-                    <select class="metadata-editor__select"
-                            value="@(subItem.EntryMetadata()?.Type ?? EntryType.Task)"
-                            aria-label="Change sub-item type"
-                            title="Change sub-item type"
-                            @onchange="e => OnSubItemTypeChangedAsync(row, position, e)">
-                        @foreach (var type in TypeOptions())
-                        {
-                            <option value="@type">@Humanize(type.ToString())</option>
-                        }
-                    </select>
-                </label>
+                <SelectField CurrentValue="@((subItem.EntryMetadata()?.Type ?? EntryType.Task).ToString())"
+                             Options="@TypeSelectorOptions()"
+                             Label="Change sub-item type"
+                             TestId="subitem-type-badge"
+                             CssClass="metadata-editor--type badge badge--type"
+                             OnChanged="value => OnSubItemTypeChangedAsync(row, position, value)" />
 
                 <PrioritySelector TEnum="Priority" CurrentValue="@(subItem.EntryMetadata()?.Priority ?? Priority.Medium)"
                                   Options="@PriorityOptions()"
@@ -624,13 +627,11 @@
                 <span class="entry-doc__actions" aria-label="Sub-item actions">
                     @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured && row.IsPersisted && RepositoryFor(row) is { } subItemRepository)
                     {
-                        <button type="button"
-                                class="entry-doc__icon-action entry-doc__icon-action--push"
-                                data-testid="subitem-github-push-button"
-                                disabled="@row.GitHubBusy"
-                                title="Create an issue in @subItemRepository.FullName"
-                                aria-label="Create an issue in @subItemRepository.FullName"
-                                @onclick="() => State.PushSubItemToGitHubAsync(row, position, subItemRepository)">
+                        <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--push"
+                                    TestId="subitem-github-push-button"
+                                    Disabled="@row.GitHubBusy"
+                                    AriaLabel="@($"Create an issue in {subItemRepository.FullName}")"
+                                    OnClick="() => State.PushSubItemToGitHubAsync(row, position, subItemRepository)">
                             @if (row.GitHubBusy)
                             {
                                 <span aria-hidden="true">…</span>
@@ -641,18 +642,16 @@
                                     <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
                                 </svg>
                             }
-                        </button>
+                        </IconButton>
                     }
 
                     @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli) && row.IsPersisted)
                     {
-                        <button type="button"
-                                class="entry-doc__icon-action entry-doc__icon-action--copilot"
-                                data-testid="subitem-copilot-cli-button"
-                                disabled="@row.CopilotBusy"
-                                title="Start GitHub Copilot CLI from the parent entry"
-                                aria-label="Start GitHub Copilot CLI from the parent entry"
-                                @onclick="() => State.StartCopilotCliAsync(row)">
+                        <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--copilot"
+                                    TestId="subitem-copilot-cli-button"
+                                    Disabled="@row.CopilotBusy"
+                                    AriaLabel="Start GitHub Copilot CLI from the parent entry"
+                                    OnClick="() => State.StartCopilotCliAsync(row)">
                             @if (row.CopilotBusy)
                             {
                                 <span aria-hidden="true">…</span>
@@ -661,7 +660,7 @@
                             {
                                 <span class="entry-doc__cli-mark" aria-hidden="true">gh</span>
                             }
-                        </button>
+                        </IconButton>
                     }
                 </span>
             </span>
@@ -670,26 +669,31 @@
     private RenderFragment RenderSubItemTagEditor(EntryRow row, MdSubItem subItem, int position) =>
         @<label class="entry-doc__tag-picker">
             <span class="sr-only">Edit sub-item tags</span>
-            <input class="entry-doc__tag-input"
-                   data-testid="subitem-tags-input"
-                   aria-label="Edit sub-item tags"
-                   title="Edit sub-item tags"
-                   list="entry-tags-options-@row.Key"
-                   placeholder="Tags"
-                   value="@TagsInputValue(subItem)"
-                   @onchange="e => OnSubItemTagsChangedAsync(row, position, e)" />
+            @* Bare, because the picker label around it is the layout. Tags
+               commit on change, not per keystroke, so the value goes through
+               the splatted @onchange rather than ValueChanged. *@
+            <TextField Bare="true"
+                       InputCssClass="entry-doc__tag-input"
+                       AriaLabel="Edit sub-item tags"
+                       data-testid="subitem-tags-input"
+                       title="Edit sub-item tags"
+                       list="@($"entry-tags-options-{row.Key}")"
+                       Placeholder="Tags"
+                       Value="@TagsInputValue(subItem)"
+                       @onchange="(ChangeEventArgs e) => OnSubItemTagsChangedAsync(row, position, e)" />
         </label>;
     private RenderFragment RenderTagEditor(EntryRow row) =>
         @<label class="entry-doc__tag-picker">
             <span class="sr-only">Edit tags</span>
-            <input class="entry-doc__tag-input"
-                   data-testid="entry-tags-input"
-                   aria-label="Edit tags"
-                   title="Edit tags"
-                   list="entry-tags-options-@row.Key"
-                   placeholder="Tags"
-                                      value="@TagsInputValue(row)"
-                   @onchange="e => OnTagsChangedAsync(row, e)" />
+            <TextField Bare="true"
+                       InputCssClass="entry-doc__tag-input"
+                       AriaLabel="Edit tags"
+                       data-testid="entry-tags-input"
+                       title="Edit tags"
+                       list="@($"entry-tags-options-{row.Key}")"
+                       Placeholder="Tags"
+                       Value="@TagsInputValue(row)"
+                       @onchange="(ChangeEventArgs e) => OnTagsChangedAsync(row, e)" />
             <datalist id="entry-tags-options-@row.Key">
                 @foreach (var tag in TagOptions(row))
                 {
@@ -703,6 +707,9 @@
     /// carries the arrow-key reorder that every drag needs an equivalent
     /// for.</summary>
     private RenderFragment RenderGrip(EntryRow row, bool before, string side) =>
+        @* A drop target, not a button the library ships, and the
+           `@ondragover:preventDefault` it needs is a directive attribute that
+           cannot be written on a component. *@
         @<button type="button"
                  class="entry-doc__grip entry-doc__grip--@side"
                  data-testid="entry-grip-@side"
@@ -734,9 +741,9 @@
 
     private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
 
-    private async Task OnTypeChangedAsync(EntryRow row, ChangeEventArgs e)
+    private async Task OnTypeChangedAsync(EntryRow row, string? value)
     {
-        if (Enum.TryParse<EntryType>(e.Value?.ToString(), out var type))
+        if (Enum.TryParse<EntryType>(value, out var type))
         {
             await State.ChangeTypeAsync(row, type);
         }
@@ -745,9 +752,9 @@
     private async Task OnRepositoryChangedAsync(EntryRow row, string? repositoryAlias) =>
         await State.ChangeAreaAsync(row, repositoryAlias);
 
-    private async Task OnSubItemTypeChangedAsync(EntryRow row, int subItemIndex, ChangeEventArgs e)
+    private async Task OnSubItemTypeChangedAsync(EntryRow row, int subItemIndex, string? value)
     {
-        if (Enum.TryParse<EntryType>(e.Value?.ToString(), out var type))
+        if (Enum.TryParse<EntryType>(value, out var type))
         {
             await State.ChangeSubItemTypeAsync(row, subItemIndex, type);
         }
@@ -778,7 +785,8 @@
     private async Task OnTagsChangedAsync(EntryRow row, ChangeEventArgs e) =>
         await State.ChangeTagsAsync(row, e.Value?.ToString() ?? string.Empty);
 
-    private static IReadOnlyList<EntryType> TypeOptions() => Enum.GetValues<EntryType>();
+    private static IReadOnlyList<SelectorOption> TypeSelectorOptions() =>
+        [.. Enum.GetValues<EntryType>().Select(type => new SelectorOption(type.ToString(), Humanize(type.ToString())))];
 
     private static IReadOnlyList<Priority> PriorityOptions() => [Priority.Low, Priority.Medium, Priority.High];
 

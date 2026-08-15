@@ -170,6 +170,48 @@
             <Checkbox Checked="false" Label="Disabled" Disabled="true" />
             <p class="sb-state" data-testid="input-checkbox-value">[@string.Join(", ", _checked)]</p>
         </div>
+
+        <p class="sb-label" style="margin-top: 1rem">With trailing content</p>
+        <Checkbox Checked="_folderEnabled"
+                  CheckedChanged="v => _folderEnabled = v"
+                  Label="Architecture"
+                  TestId="check-trailing">
+            <code>.arc42</code>
+        </Checkbox>
+    </Story>
+
+    <Story Name="Fields without their wrapper"
+           Description="Bare emits the label, the control and the messages as siblings, for a form whose own layout already places them — the same escape hatch Tabs offers. The part classes come with it: a host that has its own field styling replaces `field__label` and `field__input` rather than styling against ours as well as its own. A textarea's grow wrapper carries the border, so a host whose box is already bordered clears GrowCssClass instead of doubling it up."
+           Code="@BareCode">
+        <div class="sb-columns">
+            <div>
+                <p class="sb-label">Default</p>
+                <TextField Label="Folder" Value="@_folder" ValueChanged="v => _folder = v" TestId="input-wrapped" />
+            </div>
+            <div>
+                <p class="sb-label">Bare, wearing host classes</p>
+                <TextField Bare="true"
+                           LabelCssClass="sb-label"
+                           InputCssClass="sb-host-input"
+                           Label="Folder"
+                           Value="@_folder"
+                           ValueChanged="v => _folder = v"
+                           data-testid="input-bare" />
+            </div>
+        </div>
+        <p class="sb-state" data-testid="input-bare-value">Folder = @_folder</p>
+
+        <p class="sb-label" style="margin-top: 1rem">Bare textarea, host border, no grow wrapper</p>
+        <TextArea Bare="true"
+                  AutoGrow="false"
+                  GrowCssClass=""
+                  LabelCssClass="sb-label"
+                  InputCssClass="sb-host-input"
+                  Label="Repositories"
+                  Rows="3"
+                  Value="@_repos"
+                  ValueChanged="v => _repos = v"
+                  data-testid="input-bare-textarea" />
     </Story>
 
 </StoryPage>
@@ -184,6 +226,9 @@
     private string _alias = "backlog";
     private string _notes = "The read view and the editor show the same text.\nAdd a line to see AutoGrow work.";
     private string _query = string.Empty;
+    private string _folder = @"C:\Repos\Backlog";
+    private string _repos = "JSdotNet/Backlog\nJSdotNet/Infra";
+    private bool _folderEnabled = true;
     private bool _syncEnabled = true;
     private bool _showArchived;
     private bool _githubFlag = true;
@@ -250,5 +295,19 @@
 
     private const string CheckboxCode = """
         <Checkbox Checked="AllChecked" CheckedChanged="SetAll" Indeterminate="SomeChecked" Label="All areas" />
+        <Checkbox Checked="_enabled" CheckedChanged="v => _enabled = v" Label="Architecture">
+            <code>.arc42</code>
+        </Checkbox>
+        """;
+
+    private const string BareCode = """
+        <TextField Bare="true"
+                   LabelCssClass="setting__label"
+                   InputCssClass="setting__input"
+                   Label="Folder" Value="@_folder" ValueChanged="v => _folder = v" />
+
+        <TextArea Bare="true" AutoGrow="false" GrowCssClass=""
+                  LabelCssClass="setting__label" InputCssClass="setting__input"
+                  Label="Repositories" Rows="3" Value="@_repos" ValueChanged="v => _repos = v" />
         """;
 }

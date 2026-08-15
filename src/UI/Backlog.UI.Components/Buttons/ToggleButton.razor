@@ -1,6 +1,11 @@
 @*
     A button that stays pressed. `aria-pressed` is the state; the `--pressed`
     modifier only mirrors it for the eye.
+
+    Both class names are hooks, and they are separate ones on purpose: a host
+    that already ships pressable chips almost never calls the pressed state
+    `--pressed`. It is `chip--active` here and `--selected` there, and a base
+    class alone could not express that.
 *@
 
 <button type="button"
@@ -11,6 +16,7 @@
         title="@Title"
         aria-label="@AriaLabel"
         @onclick="TogglePressed"
+        @onclick:stopPropagation="StopPropagation"
         @attributes="AdditionalAttributes">
     @ChildContent
 </button>
@@ -34,8 +40,22 @@
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
+    /// <summary>Stops the click reaching a clickable region around the button;
+    /// see <see cref="AppButton.StopPropagation"/> for why it cannot be splatted.</summary>
+    [Parameter]
+    public bool StopPropagation { get; set; }
+
     [Parameter]
     public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>btn btn--toggle</c> entirely.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "btn btn--toggle";
+
+    /// <summary>Replaces <c>btn--pressed</c>, the class added while
+    /// <see cref="Pressed"/> is set.</summary>
+    [Parameter]
+    public string PressedCssClass { get; set; } = "btn--pressed";
 
     [Parameter]
     public string? TestId { get; set; }
@@ -47,15 +67,19 @@
     {
         get
         {
-            var pressed = Pressed ? " btn--pressed" : string.Empty;
+            var pressed = Pressed && !string.IsNullOrWhiteSpace(PressedCssClass) ? " " + PressedCssClass : string.Empty;
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
-            return $"btn btn--toggle{pressed}{extra}";
+            return $"{BaseClass}{pressed}{extra}";
         }
     }
 
     private Task TogglePressed()
     {
-        Pressed = !Pressed;
-        return PressedChanged.InvokeAsync(Pressed);
+        // The new state is announced rather than kept: a host driving a
+        // one-of-many strip sets Pressed from its own selection on the next
+        // render, and pressing the pressed one there must not unpress it.
+        var pressed = !Pressed;
+        Pressed = pressed;
+        return PressedChanged.InvokeAsync(pressed);
     }
 }

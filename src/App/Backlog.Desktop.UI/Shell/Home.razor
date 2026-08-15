@@ -30,28 +30,28 @@
                 @foreach (var repository in State.Repositories)
                 {
                     var selected = State.SelectedRepositoryAlias == repository.Alias;
-                    <button type="button"
-                            class="chip chip--scope @(selected ? "chip--active" : string.Empty)"
-                            data-testid="repository-filter-option"
-                            aria-pressed="@(selected ? "true" : "false")"
-                            title="@(selected ? $"Deselect {repository.FullName}" : repository.FullName)"
-                            @onclick="() => ToggleRepositoryScopeAsync(repository.Alias)">
+                    <ToggleButton BaseClass="chip chip--scope"
+                                  PressedCssClass="chip--active"
+                                  Pressed="selected"
+                                  TestId="repository-filter-option"
+                                  Title="@(selected ? $"Deselect {repository.FullName}" : repository.FullName)"
+                                  PressedChanged="() => ToggleRepositoryScopeAsync(repository.Alias)">
                         @repository.Alias
-                    </button>
+                    </ToggleButton>
                 }
             </div>
         }
         @* The header keeps the current version visible. Checking and installing updates
            happen in the separate update window opened from this control. *@
         <div class="app-header__version">
-            <button type="button"
-                    class="app-version"
-                    data-testid="app-version"
-                    title="Open update window"
-                    aria-label="@AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)"
-                    @onclick="OpenUpdateWindow">
+            <AppButton BaseClass="app-version"
+                       Variant="ButtonVariant.None"
+                       TestId="app-version"
+                       title="Open update window"
+                       aria-label="@AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)"
+                       OnClick="OpenUpdateWindow">
                 Version <code>@Updates.CurrentVersion</code>
-            </button>
+            </AppButton>
         </div>
         <div class="save-indicator save-indicator--@State.SaveState.ToString().ToLowerInvariant()" id="save-state-indicator" data-testid="save-state-indicator" role="status">
             <span class="save-indicator__dot" aria-hidden="true"></span>
@@ -63,93 +63,93 @@
            somebody asks it to. *@
         @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
         {
-            <button type="button"
-                    class="icon-link"
-                    id="github-sync-button"
-                    data-testid="github-sync-button"
-                    disabled="@State.GitHubSyncing"
-                    title="Check GitHub for issue and pull request updates"
-                    aria-label="Check GitHub for issue and pull request updates"
-                    @onclick="() => State.SyncGitHubAsync()">
+            <IconButton BaseClass="icon-link"
+                        id="github-sync-button"
+                        TestId="github-sync-button"
+                        Disabled="@State.GitHubSyncing"
+                        AriaLabel="Check GitHub for issue and pull request updates"
+                        OnClick="() => State.SyncGitHubAsync()">
                 @(State.GitHubSyncing ? "…" : "⟳")
-            </button>
+            </IconButton>
         }
 
         <div class="pane-multiselect" role="group" aria-label="Visible panes" data-testid="global-pane-multiselect">
             @if (InboxPaneOptionVisible)
             {
-                <button type="button"
-                        class="pane-multiselect__option @(InboxPaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
-                        id="inbox-pane-option"
-                        data-testid="inbox-pane-option"
-                        aria-controls="inbox-pane"
-                        aria-pressed="@(InboxPaneVisible ? "true" : "false")"
-                        disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
-                        @onclick="ToggleInboxPane">
+                <ToggleButton BaseClass="pane-multiselect__option"
+                              PressedCssClass="pane-multiselect__option--selected"
+                              Pressed="InboxPaneVisible"
+                              id="inbox-pane-option"
+                              TestId="inbox-pane-option"
+                              aria-controls="inbox-pane"
+                              Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
+                              PressedChanged="ToggleInboxPane">
                     Inbox
-                </button>
+                </ToggleButton>
             }
 
-            <button type="button"
-                    class="pane-multiselect__option @(BacklogPaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
-                    id="backlog-pane-option"
-                    data-testid="backlog-pane-option"
-                    aria-controls="backlog-pane"
-                    aria-pressed="@(BacklogPaneVisible ? "true" : "false")"
-                    disabled="@PaneToggleDisabled(GlobalPane.Backlog)"
-                    @onclick="ToggleBacklogPane">
+            <ToggleButton BaseClass="pane-multiselect__option"
+                          PressedCssClass="pane-multiselect__option--selected"
+                          Pressed="BacklogPaneVisible"
+                          id="backlog-pane-option"
+                          TestId="backlog-pane-option"
+                          aria-controls="backlog-pane"
+                          Disabled="@PaneToggleDisabled(GlobalPane.Backlog)"
+                          PressedChanged="ToggleBacklogPane">
                 Backlog
-            </button>
+            </ToggleButton>
 
             @if (KnowledgePaneOptionVisible)
             {
-                <button type="button"
-                        class="pane-multiselect__option @(KnowledgePaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
-                        id="knowledge-pane-option"
-                        data-testid="knowledge-pane-option"
-                        aria-controls="repository-knowledge-pane"
-                        aria-pressed="@(KnowledgePaneVisible ? "true" : "false")"
-                        disabled="@PaneToggleDisabled(GlobalPane.Knowledge)"
-                        @onclick="ToggleKnowledgePane">
+                <ToggleButton BaseClass="pane-multiselect__option"
+                              PressedCssClass="pane-multiselect__option--selected"
+                              Pressed="KnowledgePaneVisible"
+                              id="knowledge-pane-option"
+                              TestId="knowledge-pane-option"
+                              aria-controls="repository-knowledge-pane"
+                              Disabled="@PaneToggleDisabled(GlobalPane.Knowledge)"
+                              PressedChanged="ToggleKnowledgePane">
                     Knowledge
-                </button>
+                </ToggleButton>
             }
         </div>
         @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant))
         {
-            <button type="button"
-                    class="header-tool-toggle"
-                    id="ai-toggle-button"
-                    data-testid="ai-toggle-button"
-                    aria-controls="ai-assistant-panel"
-                    aria-expanded="@_aiExpanded"
-                    @onclick="ToggleAiPanel">
+            @* A disclosure, not a pressed state: these open a panel, so they
+               carry aria-expanded and stay AppButton rather than ToggleButton. *@
+            <AppButton BaseClass="header-tool-toggle"
+                       Variant="ButtonVariant.None"
+                       id="ai-toggle-button"
+                       TestId="ai-toggle-button"
+                       aria-controls="ai-assistant-panel"
+                       aria-expanded="@_aiExpanded"
+                       OnClick="ToggleAiPanel">
                 Ask AI
-            </button>
+            </AppButton>
         }
         @if (IsFeatureEnabled(AppFeatureSettingsStore.SystemTools))
         {
-            <button type="button"
-                    class="header-tool-toggle"
-                    id="tools-toggle-button"
-                    data-testid="tools-toggle-button"
-                    aria-controls="tools-pane"
-                    aria-expanded="@(ToolsVisible ? "true" : "false")"
-                    @onclick="OnToolsToggleAsync">
+            <AppButton BaseClass="header-tool-toggle"
+                       Variant="ButtonVariant.None"
+                       id="tools-toggle-button"
+                       TestId="tools-toggle-button"
+                       aria-controls="tools-pane"
+                       aria-expanded="@(ToolsVisible ? "true" : "false")"
+                       OnClick="OnToolsToggleAsync">
                 Tools
-            </button>
+            </AppButton>
         }
 
         @if (IsFeatureEnabled(AppFeatureSettingsStore.FeedbackReporting))
         {
-            <button type="button"
-                    class="header-tool-toggle"
-                    id="feedback-button"
-                    data-testid="feedback-button"
-                    aria-haspopup="dialog"
-                    @onclick="OpenFeedbackDialog">
+            <AppButton BaseClass="header-tool-toggle"
+                       Variant="ButtonVariant.None"
+                       id="feedback-button"
+                       TestId="feedback-button"
+                       aria-haspopup="dialog"
+                       OnClick="OpenFeedbackDialog">
                 Report issue
-            </button>
+            </AppButton>
         }
 
         <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
@@ -228,19 +228,32 @@
             </Header>
             <ChildContent>
                 <p id="feedback-description" class="feedback-dialog__description">Send a Desktop app issue to JSdotNet/Backlog. Add where on the current screen it happens; the app will ask which screen to capture when you submit.</p>
-                <label class="feedback-field" for="feedback-screen-area-input">
-                    <span>Screen area</span>
-                    <input id="feedback-screen-area-input" data-testid="feedback-screen-area-input" value="@_feedbackScreenArea" @oninput="OnFeedbackScreenAreaInput" maxlength="120" placeholder="For example: header, backlog list, settings repositories" disabled="@_feedbackSubmitting" />
-                </label>
-                <label class="feedback-field" for="feedback-title-input">
-                    <span>Title</span>
-                    <input id="feedback-title-input" data-testid="feedback-title-input" value="@_feedbackTitle" @oninput="OnFeedbackTitleInput" maxlength="120" disabled="@_feedbackSubmitting" />
-                </label>
+                @* Plain library fields. `.feedback-field` used to hand-roll the
+                   label-over-input shape the library already ships, down to the
+                   same padding and border, so the classes went with the markup. *@
+                <TextField Label="Screen area"
+                           Id="feedback-screen-area-input"
+                           data-testid="feedback-screen-area-input"
+                           Value="@_feedbackScreenArea"
+                           ValueChanged="OnFeedbackScreenAreaInput"
+                           maxlength="120"
+                           Placeholder="For example: header, backlog list, settings repositories"
+                           Disabled="@_feedbackSubmitting" />
+                <TextField Label="Title"
+                           Id="feedback-title-input"
+                           data-testid="feedback-title-input"
+                           Value="@_feedbackTitle"
+                           ValueChanged="OnFeedbackTitleInput"
+                           maxlength="120"
+                           Disabled="@_feedbackSubmitting" />
 
-                <label class="feedback-field" for="feedback-details-input">
-                    <span>Details</span>
-                    <textarea id="feedback-details-input" data-testid="feedback-details-input" value="@_feedbackDetails" @oninput="OnFeedbackDetailsInput" rows="6" disabled="@_feedbackSubmitting"></textarea>
-                </label>
+                <TextArea Label="Details"
+                          Id="feedback-details-input"
+                          data-testid="feedback-details-input"
+                          Value="@_feedbackDetails"
+                          ValueChanged="OnFeedbackDetailsInput"
+                          Rows="6"
+                          Disabled="@_feedbackSubmitting" />
 
                 <Alert Message="@_feedbackMessage" BaseClass="@FeedbackStatusClass" Role="@FeedbackStatusRole" />
             </ChildContent>
@@ -266,13 +279,19 @@
             <p class="ai-panel__body">
                 The question is answered from the entries currently in view and loaded backlog knowledge.
             </p>
-            <textarea class="ai-panel__question"
+            @* The box keeps its own class and its own border, so the library's
+               grow wrapper is emitted without one. *@
+            <TextArea Bare="true"
+                      AutoGrow="false"
+                      GrowCssClass=""
+                      InputCssClass="ai-panel__question"
+                      AriaLabel="Ask about this content"
                       data-testid="ai-question-input"
-                      rows="3"
-                      placeholder="What should I focus on next?"
-                      value="@_aiQuestion"
-                      @oninput="e => _aiQuestion = e.Value?.ToString() ?? string.Empty"
-                      @onkeydown="OnAiQuestionKeyDownAsync"></textarea>
+                      Rows="3"
+                      Placeholder="What should I focus on next?"
+                      Value="@_aiQuestion"
+                      ValueChanged="value => _aiQuestion = value"
+                      @onkeydown="OnAiQuestionKeyDownAsync" />
             <div class="ai-panel__actions">
                 <AppButton Variant="ButtonVariant.Secondary"
                            data-testid="ai-ask-button"
@@ -499,23 +518,23 @@
         _feedbackMessage = null;
     }
 
-    private void OnFeedbackTitleInput(ChangeEventArgs e)
+    private void OnFeedbackTitleInput(string value)
     {
-        _feedbackTitle = e.Value?.ToString() ?? string.Empty;
+        _feedbackTitle = value;
         _feedbackSucceeded = false;
         _feedbackMessage = null;
     }
 
-    private void OnFeedbackDetailsInput(ChangeEventArgs e)
+    private void OnFeedbackDetailsInput(string value)
     {
-        _feedbackDetails = e.Value?.ToString() ?? string.Empty;
+        _feedbackDetails = value;
         _feedbackSucceeded = false;
         _feedbackMessage = null;
     }
 
-    private void OnFeedbackScreenAreaInput(ChangeEventArgs e)
+    private void OnFeedbackScreenAreaInput(string value)
     {
-        _feedbackScreenArea = e.Value?.ToString() ?? string.Empty;
+        _feedbackScreenArea = value;
         _feedbackSucceeded = false;
         _feedbackMessage = null;
     }

@@ -96,6 +96,141 @@ public sealed class ClassHookTests
     }
 
     [Fact]
+    public void A_button_wearing_a_hosts_base_class_keeps_none_of_ours()
+    {
+        using var context = new BunitContext();
+
+        var button = context.Render<AppButton>(parameters => parameters
+            .Add(b => b.BaseClass, "chip")
+            .Add(b => b.Variant, ButtonVariant.Primary)
+            .Add(b => b.Size, ButtonSize.Small)
+            .Add(b => b.CssClass, "chip--filter"));
+
+        // Every modifier is built on the stem it was given. `btn` brings a
+        // padding, a weight and a transition, so leaving it on would restyle
+        // the chip rather than adopt the component.
+        Assert.Equal("chip chip--primary chip--small chip--filter", button.Find("button").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void An_icon_button_takes_the_whole_class_name_because_it_has_no_modifiers()
+    {
+        using var context = new BunitContext();
+
+        var button = context.Render<IconButton>(parameters => parameters
+            .Add(b => b.BaseClass, "entry-doc__icon-action")
+            .Add(b => b.CssClass, "entry-doc__icon-action--push")
+            .Add(b => b.AriaLabel, "Create an issue"));
+
+        Assert.Equal(
+            "entry-doc__icon-action entry-doc__icon-action--push",
+            button.Find("button").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void A_toggle_button_names_its_pressed_state_separately_from_its_base()
+    {
+        using var context = new BunitContext();
+
+        var button = context.Render<ToggleButton>(parameters => parameters
+            .Add(b => b.BaseClass, "chip chip--scope")
+            .Add(b => b.PressedCssClass, "chip--active")
+            .Add(b => b.Pressed, true));
+
+        var element = button.Find("button");
+
+        // A host with chips calls the pressed state something of its own, so it
+        // cannot be derived from the base the way a variant modifier is.
+        Assert.Equal("chip chip--scope chip--active", element.GetAttribute("class"));
+        Assert.Equal("true", element.GetAttribute("aria-pressed"));
+    }
+
+    [Fact]
+    public void An_unpressed_toggle_button_carries_no_pressed_class_at_all()
+    {
+        using var context = new BunitContext();
+
+        var button = context.Render<ToggleButton>(parameters => parameters
+            .Add(b => b.BaseClass, "chip")
+            .Add(b => b.PressedCssClass, "chip--active"));
+
+        Assert.Equal("chip", button.Find("button").GetAttribute("class"));
+    }
+
+    /// <summary>
+    /// A one-of-many strip drives Pressed from its own selection, so pressing
+    /// the already-pressed option must announce the flip without the component
+    /// deciding the answer for it.
+    /// </summary>
+    [Fact]
+    public void A_toggle_button_announces_the_flipped_state_it_was_clicked_into()
+    {
+        using var context = new BunitContext();
+
+        bool? announced = null;
+
+        var button = context.Render<ToggleButton>(parameters => parameters
+            .Add(b => b.Pressed, true)
+            .Add(b => b.PressedChanged, (bool pressed) => announced = pressed));
+
+        button.Find("button").Click();
+
+        Assert.False(announced);
+    }
+
+    [Fact]
+    public void A_bare_field_emits_the_parts_without_a_wrapper()
+    {
+        using var context = new BunitContext();
+
+        var field = context.Render<TextField>(parameters => parameters
+            .Add(f => f.Bare, true)
+            .Add(f => f.LabelCssClass, "setting__label")
+            .Add(f => f.InputCssClass, "setting__input setting__input--error")
+            .Add(f => f.Label, "Folder"));
+
+        Assert.Empty(field.FindAll(".field"));
+        Assert.Equal("setting__label", field.Find("label").GetAttribute("class"));
+        Assert.Equal("setting__input setting__input--error", field.Find("input").GetAttribute("class"));
+
+        // The label still points at the input it labels; dropping the wrapper
+        // must not drop the pairing with it.
+        Assert.Equal(field.Find("input").Id, field.Find("label").GetAttribute("for"));
+    }
+
+    [Fact]
+    public void A_textarea_with_no_grow_class_leaves_the_border_to_its_host()
+    {
+        using var context = new BunitContext();
+
+        var field = context.Render<TextArea>(parameters => parameters
+            .Add(f => f.Bare, true)
+            .Add(f => f.AutoGrow, false)
+            .Add(f => f.GrowCssClass, string.Empty)
+            .Add(f => f.InputCssClass, "setting__input"));
+
+        // The grow wrapper is what carries the border, so a host whose box is
+        // already bordered would otherwise show two.
+        Assert.Empty(field.FindAll(".field__grow"));
+        Assert.Empty(field.FindAll(".grow-wrap"));
+        Assert.Null(field.Find("div").GetAttribute("class"));
+        Assert.Equal("setting__input", field.Find("textarea").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void A_checkbox_keeps_trailing_content_inside_the_label()
+    {
+        using var context = new BunitContext();
+
+        var checkbox = context.Render<Checkbox>(parameters => parameters
+            .Add(c => c.Label, "Architecture")
+            .Add(c => c.ChildContent, "<code>.arc42</code>"));
+
+        // Inside the label, so the whole row stays one click target.
+        Assert.NotNull(checkbox.Find("label > code"));
+    }
+
+    [Fact]
     public void An_alert_with_nothing_to_say_renders_nothing()
     {
         using var context = new BunitContext();
