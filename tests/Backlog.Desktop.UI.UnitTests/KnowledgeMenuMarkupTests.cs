@@ -1,7 +1,5 @@
 using AngleSharp.Dom;
 using Bunit;
-using Backlog.Desktop.UI.Components;
-using Backlog.Desktop.UI.Services;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

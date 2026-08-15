@@ -1,4 +1,3 @@
-using Backlog.Desktop.UI.Services;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

@@ -1,4 +1,3 @@
-using Backlog.Desktop.UI.Services;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.DomainModels;
@@ -122,7 +121,7 @@ public sealed class RepositoryBacklogRowsTests : IDisposable
         var repositoryBacklog = new RepositoryBacklogSource(new KnowledgeFolderSource(settings));
 
         return new Harness(
-            new BacklogDesktopState(store, integration, copilot: null, repositoryBacklog),
+            BacklogTestHost.StateFor(store, integration, copilot: null, repositoryBacklog: repositoryBacklog),
             backlogFile);
     }
 
@@ -150,7 +149,7 @@ public sealed class RepositoryBacklogRowsTests : IDisposable
         var repositoryBacklog = new RepositoryBacklogSource(new KnowledgeFolderSource(settings));
 
         return new Harness(
-            new BacklogDesktopState(store, integration, copilot: null, repositoryBacklog),
+            BacklogTestHost.StateFor(store, integration, copilot: null, repositoryBacklog: repositoryBacklog),
             Path.Combine(root, "clone-" + repositories[0].Alias, ".backlog", "plan.md"));
     }
 

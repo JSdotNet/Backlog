@@ -1,3 +1,4 @@
+using Backlog.Modules.Backlog.Abstractions;
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.DomainModels;
 using Backlog.Infrastructure.FileSystem;

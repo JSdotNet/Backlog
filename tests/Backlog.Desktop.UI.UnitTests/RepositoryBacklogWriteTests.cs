@@ -1,4 +1,3 @@
-using Backlog.Desktop.UI.Services;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.DomainModels;
@@ -323,7 +322,7 @@ public sealed class RepositoryBacklogWriteTests : IDisposable
         var repositoryBacklog = new RepositoryBacklogSource(new KnowledgeFolderSource(settings));
 
         return new Harness(
-            new BacklogDesktopState(store, integration, copilot: null, repositoryBacklog),
+            BacklogTestHost.StateFor(store, integration, copilot: null, repositoryBacklog: repositoryBacklog),
             backlogFile,
             root);
     }
@@ -338,7 +337,7 @@ public sealed class RepositoryBacklogWriteTests : IDisposable
             var settings = new GitHubSettingsStore(Path.Combine(Root, "github.json"));
             var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe());
             var repositoryBacklog = new RepositoryBacklogSource(new KnowledgeFolderSource(settings));
-            return new BacklogDesktopState(store, integration, copilot: null, repositoryBacklog);
+            return BacklogTestHost.StateFor(store, integration, copilot: null, repositoryBacklog: repositoryBacklog);
         }
     }
 

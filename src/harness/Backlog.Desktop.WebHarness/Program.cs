@@ -1,8 +1,13 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Desktop.UI.Components;
-using Backlog.Desktop.UI.Services;
+using Backlog.Infrastructure.Copilot;
+using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Knowledge;
+using Backlog.Desktop.UI.Shell;
+using Backlog.Desktop.UI.Workspace;
+using Backlog.Modules.Backlog;
+using Backlog.Modules.Backlog.Extensions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
@@ -15,6 +20,13 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton<BacklogStore>();
+
+// Composition: the Backlog module brings its own use cases, and the host decides
+// which adapter is behind them. The repository follows the storage folder rather
+// than being pinned to wherever it was at startup.
+builder.Services.AddSingleton<IBacklogRepository>(sp =>
+    new RootedFileBacklogRepository(() => sp.GetRequiredService<BacklogStore>().RootDirectory));
+builder.Services.AddBacklogModule();
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
@@ -42,7 +54,9 @@ builder.Services.AddSingleton<KnowledgeMenu>();
 builder.Services.AddSingleton<Arc42KnowledgeStore>();
 builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
 builder.Services.AddSingleton<KnowledgeFolderOpenService>();
-builder.Services.AddSingleton(_ => CopilotCliIntegration.Unavailable);
+builder.Services.AddSingleton(_ => BacklogCopilotCli.Unavailable);
+builder.Services.AddSingleton(_ => new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
+builder.Services.AddSingleton<KnowledgeScope>();
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<KnowledgeFolderSource>()));
 

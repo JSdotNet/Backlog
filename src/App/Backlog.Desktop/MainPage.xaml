@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:components="clr-namespace:Backlog.Desktop.UI.Components;assembly=Backlog.Desktop.UI"
+             xmlns:components="clr-namespace:Backlog.Desktop.UI.Shell;assembly=Backlog.Desktop.UI"
              x:Class="Backlog.Desktop.MainPage">
 
     <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">

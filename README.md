@@ -84,6 +84,7 @@ Development-time hosts live under `src/harness/` so runnable project hosts stay 
 | `src/Aspire/Backlog.Aspire.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
 | `src/Shared/Backlog.SharedKernel` | Shared kernel — `Result`, `Result<T>`, and `Error` primitives used by every module |
 | `src/Modules/Backlog/Backlog.Modules.Backlog` | Backlog module — domain model (entries, sub-items, lifecycle rules), ports, and vertical-slice features |
+| `src/Modules/Backlog/Backlog.Modules.Backlog.Abstractions` | The Backlog module's published surface — DTOs, the entry text format, and `IBacklogEntries` |
 | `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — Markdown + JSON file storage (canonical local data) |
 | `src/Infrastructure/Backlog.Infrastructure.GitHub` | Cross-cutting adapter — GitHub issue projection |
 | `src/App/Backlog.Desktop.UI` | Shared Razor components for the desktop channel |
@@ -97,7 +98,40 @@ Development-time hosts live under `src/harness/` so runnable project hosts stay 
 | `tests/Backlog.Modules.Backlog.UnitTests` | Unit tests for the Backlog module domain |
 | `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the file storage adapter |
 | `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services and GitHub integration |
-| `tests/Backlog.ArchitectureTests` | Executable structure rules — module boundaries and "harness is never shipped" |
+| `tests/Backlog.ArchitectureTests` | Executable structure rules — module boundaries, desktop context boundaries, and "harness is never shipped" |
+
+### Inside `Backlog.Desktop.UI`
+
+The desktop client is one project but several bounded contexts, so its folders
+are the contexts from [`.domain/context-map.md`](.domain/context-map.md) rather
+than layers:
+
+| Folder | Bounded context / role |
+|---|---|
+| `Inbox/` | Inbox — what has been captured but not decided on. Publishes `InboxItem`; reads nothing back |
+| `BacklogManagement/` | Backlog Management — the entry list, its markdown parser, and its GitHub and Copilot CLI projections |
+| `Knowledge/` | Second Brain — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
+| `Workspace/` | Not a context — where the data lives, which repositories are configured, which features are on. Everything may read it; it reads nothing back |
+| `Shell/` | Not a context — app chrome and the composition root. The one place allowed to see all three at once |
+
+The client is a client: it dispatches use cases and holds DTOs. Deciding what a
+backlog entry is belongs to `Backlog.Modules.Backlog`, which the UI reaches only
+through its Abstractions project — see
+[ADR 0002](.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md).
+Anything the contexts genuinely share — the status, priority and repository
+selectors, the GitHub connection — lives in the shared component library or in
+`Workspace/`, never in whichever context happened to need it first.
+
+The project-wide `_Imports.razor` deliberately imports none of them: each folder
+carries its own, so a component can only reach into another context by saying so
+in writing. `DesktopDomainBoundaryTests` fails the build if it does.
+
+The folder is `BacklogManagement/`, not `Backlog/`, because the root namespace
+already starts with `Backlog`: a `Backlog.Desktop.UI.Backlog` namespace shadows
+the outer `Backlog` for every Razor file in the assembly, and `@using
+Backlog.Modules.Backlog` stops resolving project-wide. `BacklogManagement` is
+also the context's name in the context map, so the constraint and the domain
+language agree.
 
 Everything under `src/harness/` is a development-time host. It ships nothing to a
 user; it exists so the shared Razor components can be started by the Aspire

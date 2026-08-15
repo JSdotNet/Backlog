@@ -1,6 +1,4 @@
 using Bunit;
-using Backlog.Desktop.UI.Components;
-using Backlog.Desktop.UI.Services;
 using Backlog.Infrastructure.GitHub;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -37,11 +35,9 @@ public sealed class InstructionsKnowledgePanelTests
 
         Assert.Null(gitHubSettings.SetRepositories([configuredRepository]));
 
-        var integration = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
-
         var context = new BunitContext();
         context.Services.AddSingleton(store);
-        context.Services.AddSingleton(integration);
+        context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(new InstructionSourceDiscovery());
 
         return new Harness(root, context);
@@ -77,33 +73,6 @@ public sealed class InstructionsKnowledgePanelTests
             catch (IOException)
             {
             }
-        }
-    }
-
-    private sealed class StubGitHubClient : IGitHubClient
-    {
-        public Task<GitHubIssue> CreateIssueAsync(
-            GitHubRepositoryRef repository,
-            string title,
-            string? body,
-            IEnumerable<string>? labels = null,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<GitHubIssueSnapshot> GetIssueAsync(
-            GitHubRepositoryRef repository,
-            int number,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class StubProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
         }
     }
 }

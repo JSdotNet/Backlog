@@ -3,7 +3,10 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Backlog.Desktop.UI.Services;
+using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Knowledge;
+using Backlog.Desktop.UI.Shell;
+using Backlog.Desktop.UI.Workspace;
 using Microsoft.Extensions.Logging;
 
 namespace Backlog.Desktop.Services;

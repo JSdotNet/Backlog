@@ -1,5 +1,3 @@
-using Backlog.Desktop.UI.Components;
-using Backlog.Desktop.UI.Services;
 using Backlog.Infrastructure.GitHub;
 using Backlog.UI.Components.Diagrams;
 

@@ -1,5 +1,10 @@
 using Backlog.Desktop.Services;
-using Backlog.Desktop.UI.Services;
+using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Knowledge;
+using Backlog.Desktop.UI.Shell;
+using Backlog.Desktop.UI.Workspace;
+using Backlog.Modules.Backlog;
+using Backlog.Modules.Backlog.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -28,6 +33,14 @@ public static class MauiProgram
         builder.Services.AddMauiBlazorWebView();
         builder.AddServiceDefaults();
         builder.Services.AddSingleton<BacklogStore>();
+
+        // Composition: the Backlog module brings its own use cases, and the host
+        // decides which adapter is behind them. The repository follows the
+        // storage folder rather than being pinned to wherever it was at startup,
+        // because somebody can move their backlog while the app is open.
+        builder.Services.AddSingleton<IBacklogRepository>(sp =>
+            new RootedFileBacklogRepository(() => sp.GetRequiredService<BacklogStore>().RootDirectory));
+        builder.Services.AddBacklogModule();
         builder.Services.AddSingleton<GitHubSettingsStore>();
         builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
@@ -54,7 +67,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<InstructionSourceDiscovery>();
         builder.Services.AddSingleton<KnowledgeMenu>();
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
-        builder.Services.AddSingleton<CopilotCliIntegration>();
+        builder.Services.AddSingleton<BacklogCopilotCli>();
+        builder.Services.AddSingleton<KnowledgeCopilotCli>();
+        builder.Services.AddSingleton<KnowledgeScope>();
         builder.Services.AddSingleton<BacklogDesktopState>();
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
         builder.Services.AddSingleton<KnowledgeFolderOpenService>();

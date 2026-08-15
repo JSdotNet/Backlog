@@ -1,4 +1,3 @@
-using Backlog.Desktop.UI.Services;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -39,7 +38,7 @@ public sealed class BacklogStoreTests : IDisposable
 
         Assert.False(string.IsNullOrWhiteSpace(store.RootDirectory));
         Assert.True(Directory.Exists(store.EntriesDirectory));
-        Assert.NotNull(store.Repository);
+        Assert.True(Directory.Exists(store.RootDirectory));
         Assert.True(Directory.Exists(store.InboxDirectory));
     }
 
@@ -69,14 +68,16 @@ public sealed class BacklogStoreTests : IDisposable
     }
 
     [Fact]
-    public void Moving_hands_out_a_repository_pointed_at_the_new_folder()
+    public void Moving_points_the_store_at_the_new_folder()
     {
         var store = Store();
-        var before = store.Repository;
+        var target = TempDir();
 
-        Assert.Null(store.TryUseRoot(TempDir()));
+        Assert.Null(store.TryUseRoot(target));
 
-        Assert.NotSame(before, store.Repository);
+        // Which repository reads that folder is not the store's business — it
+        // owns the pointer, and RootedFileBacklogRepository follows it.
+        Assert.Equal(target, store.RootDirectory);
     }
 
     [Fact]
@@ -100,12 +101,11 @@ public sealed class BacklogStoreTests : IDisposable
 
         var announced = 0;
         store.RootChanged += () => announced++;
-        var repository = store.Repository;
 
         Assert.Null(store.TryUseRoot(target));
 
         Assert.Equal(0, announced);
-        Assert.Same(repository, store.Repository);
+        Assert.Equal(target, store.RootDirectory);
     }
 
     [Fact]
@@ -163,14 +163,14 @@ public sealed class BacklogStoreTests : IDisposable
     }
 
     [Fact]
-    public void A_rejected_path_leaves_the_working_repository_alone()
+    public void A_rejected_path_leaves_the_working_folder_alone()
     {
         var store = Store();
-        var repository = store.Repository;
+        var before = store.RootDirectory;
 
         store.TryUseRoot("   ");
 
-        Assert.Same(repository, store.Repository);
+        Assert.Equal(before, store.RootDirectory);
     }
 
     [Fact]

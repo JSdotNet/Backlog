@@ -1,0 +1,38 @@
+@typeparam TEnum where TEnum : struct, Enum
+
+@*
+    A priority badge you can change. Generic over the enum on purpose: the badge,
+    the classes and the behaviour are the same wherever priority is shown, while
+    what counts as a priority is the calling context's vocabulary — the library
+    stays domain-free either way.
+*@
+
+<EnumSelect TEnum="TEnum"
+            CurrentValue="@CurrentValue"
+            Options="@Options"
+            Label="@Label"
+            TestId="@TestId"
+            Disabled="@Disabled"
+            BadgeKind="priority"
+            CssClass="metadata-editor--priority"
+            OnChanged="OnChanged" />
+
+@code {
+    [Parameter]
+    public TEnum CurrentValue { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<TEnum>? Options { get; set; }
+
+    [Parameter]
+    public string Label { get; set; } = "Change priority";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback<TEnum> OnChanged { get; set; }
+}

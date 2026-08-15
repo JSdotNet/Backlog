@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Backlog.Desktop.UI.Services;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

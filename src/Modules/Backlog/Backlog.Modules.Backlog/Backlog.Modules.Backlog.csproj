@@ -8,7 +8,9 @@
       Services/      domain services shared by more than one slice
       Extensions/    AddBacklogModule() composition root for hosts
     Ports such as IBacklogRepository live here; adapters live in src/Infrastructure.
-    This project may reference the shared kernel and nothing else in the solution.
+    This project may reference the shared kernel and its own Abstractions, and
+    nothing else in the solution. Hosts go the other way: they call the handlers
+    and hold the DTOs, never the aggregate.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -19,6 +21,17 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Shared\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Backlog.Abstractions\Backlog.Modules.Backlog.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddBacklogModule(); the domain and the handlers know nothing
+         about the container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Backlog.UnitTests" />
   </ItemGroup>
 
 </Project>

@@ -2,53 +2,96 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class SelectorMarkupTests
 {
+    /// <summary>
+    /// A status badge looks the same whether it is on a backlog entry or an
+    /// arc42 chapter; only the words differ, and those arrive as options. So the
+    /// selectors belong to the shared library, not to whichever context happened
+    /// to need one first.
+    /// </summary>
     [Fact]
-    public void Shared_selector_component_files_exist()
+    public void The_selectors_live_in_the_shared_component_library()
     {
-        Assert.True(File.Exists(FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "StatusSelector.razor")));
-        Assert.True(File.Exists(FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "PrioritySelector.razor")));
-        Assert.True(File.Exists(FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "RepositorySelector.razor")));
+        Assert.True(File.Exists(FindRepoFile("src", "UI", "Backlog.UI.Components", "Selects", "StatusSelector.razor")));
+        Assert.True(File.Exists(FindRepoFile("src", "UI", "Backlog.UI.Components", "Selects", "PrioritySelector.razor")));
+        Assert.True(File.Exists(FindRepoFile("src", "UI", "Backlog.UI.Components", "Selects", "RepositorySelector.razor")));
+
+        Assert.False(Directory.EnumerateFiles(
+                FindRepoDirectory("src", "App", "Backlog.Desktop.UI", "BacklogManagement"), "*Selector.razor")
+            .Any());
     }
 
     [Fact]
-    public void Home_and_knowledge_panels_use_the_shared_selector_components()
+    public void The_backlog_pane_uses_the_shared_selector_components()
     {
-        var home = NormalizeLineEndings(File.ReadAllText(FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "Pages", "Home.razor")));
-        var arc42 = NormalizeLineEndings(File.ReadAllText(FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "Arc42KnowledgePanel.razor")));
-        var domain = NormalizeLineEndings(File.ReadAllText(FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "DomainKnowledgePanel.razor")));
-        var technology = NormalizeLineEndings(File.ReadAllText(FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "TechnologyKnowledgePanel.razor")));
+        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        Assert.Contains("<PrioritySelector", home, StringComparison.Ordinal);
-        Assert.Contains("<RepositorySelector", home, StringComparison.Ordinal);
-        Assert.Contains("<StatusSelector", home, StringComparison.Ordinal);
-        Assert.Contains("<StatusSelector", arc42, StringComparison.Ordinal);
-        Assert.Contains("<StatusSelector", domain, StringComparison.Ordinal);
-        Assert.Contains("<StatusSelector", technology, StringComparison.Ordinal);
+        Assert.Contains("<PrioritySelector", pane, StringComparison.Ordinal);
+        Assert.Contains("<RepositorySelector", pane, StringComparison.Ordinal);
+        Assert.Contains("<StatusSelector", pane, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Second Brain shows a status too, with its own vocabulary. It reaches the
+    /// same shared selector the backlog does — through the library, not through
+    /// the backlog folder.
+    /// </summary>
+    [Fact]
+    public void Knowledge_panels_use_the_same_shared_status_selector()
+    {
+        foreach (var panel in new[] { "Arc42KnowledgePanel.razor", "DomainKnowledgePanel.razor", "TechnologyKnowledgePanel.razor" })
+        {
+            var markup = NormalizeLineEndings(File.ReadAllText(
+                FindRepoFile("src", "App", "Backlog.Desktop.UI", "Knowledge", panel)));
+
+            Assert.Contains("<StatusSelector", markup, StringComparison.Ordinal);
+            Assert.DoesNotContain("Backlog.Desktop.UI.BacklogManagement", markup, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
     public void Sub_item_repository_metadata_uses_an_interactive_repository_selector()
     {
-        var home = NormalizeLineEndings(File.ReadAllText(FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "Pages", "Home.razor")));
+        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        Assert.True(CountOccurrences(home, "<RepositorySelector") >= 2);
-        Assert.Contains("OnSubItemRepositoryChangedAsync", home, StringComparison.Ordinal);
+        Assert.True(CountOccurrences(pane, "<RepositorySelector") >= 2);
+        Assert.Contains("OnSubItemRepositoryChangedAsync", pane, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Home_markup_no_longer_branches_on_is_read_only()
+    public void Backlog_markup_no_longer_branches_on_is_read_only()
     {
-        var home = NormalizeLineEndings(File.ReadAllText(FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "Pages", "Home.razor")));
-        Assert.DoesNotContain("row.IsReadOnly", home, StringComparison.Ordinal);
+        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+        Assert.DoesNotContain("row.IsReadOnly", pane, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Entry_and_sub_item_titles_use_integrated_collapse_buttons()
     {
-        var home = NormalizeLineEndings(File.ReadAllText(FindRepoFile("src", "App", "Backlog.Desktop.UI", "Components", "Pages", "Home.razor")));
-        Assert.Contains("data-testid=\"entry-title-button\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"subitem-title-button\"", home, StringComparison.Ordinal);
+        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+        Assert.Contains("data-testid=\"entry-title-button\"", pane, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"subitem-title-button\"", pane, StringComparison.Ordinal);
     }
+
+    private static string FindRepoDirectory(params string[] relativePath)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(new[] { directory.FullName }.Concat(relativePath).ToArray());
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException($"Could not locate {Path.Combine(relativePath)}.");
+    }
+
+    private static string FindBacklogPane() =>
+        FindRepoFile("src", "App", "Backlog.Desktop.UI", "BacklogManagement", "BacklogPane.razor");
 
     private static int CountOccurrences(string text, string value)
     {

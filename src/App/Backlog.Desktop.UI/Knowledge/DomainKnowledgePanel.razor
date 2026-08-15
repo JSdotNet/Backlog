@@ -1,0 +1,355 @@
+@using Backlog.Infrastructure.Copilot
+@inject DomainKnowledgeStore DomainKnowledge
+@inject KnowledgeCopilotCli KnowledgeCopilot
+@inject AppFeatureSettingsStore Features
+
+<section class="domain-knowledge @(Compact ? "domain-knowledge--compact" : string.Empty)" data-testid="domain-knowledge-panel" aria-labelledby="domain-knowledge-title">
+    @if (_view is null)
+    {
+        <p class="domain-knowledge__state" role="status">Loading domain knowledge...</p>
+    }
+    else if (_view.Error is not null)
+    {
+        <div class="domain-knowledge__empty" role="status">
+            <h2 id="domain-knowledge-title">Domain knowledge</h2>
+            <p>@_view.Error</p>
+            <a class="md-link" href="settings">Configure repository knowledge folders</a>
+        </div>
+    }
+    else
+    {
+        <header class="domain-knowledge__header">
+            <div>
+                <p class="domain-knowledge__eyebrow">Knowledge base</p>
+                <h2 id="domain-knowledge-title">Domain model</h2>
+                <p class="domain-knowledge__source">@_view.RepositoryLabel - <code>@_view.RootPath</code></p>
+            </div>
+        </header>
+
+        @if (string.IsNullOrWhiteSpace(SelectedPath))
+        {
+            <nav class="domain-knowledge__contexts" aria-label="Bounded contexts">
+                <button type="button" class="domain-context-tab @ContextTabClass(null)" aria-pressed="@ContextTabSelected(null)" @onclick="() => SelectContext(null)">Context map</button>
+                @foreach (var context in _view.Contexts)
+                {
+                    <button type="button" class="domain-context-tab @ContextTabClass(context)" aria-pressed="@ContextTabSelected(context)" @onclick="() => SelectContext(context)">@context.DisplayName</button>
+                }
+            </nav>
+        }
+
+        @if (SelectedDocument is { } selectedDocument)
+        {
+            @RenderDocument(selectedDocument, DocumentClass(selectedDocument))
+        }
+        else if (SelectedContext is null)
+        {
+            @RenderDocument(_view.ContextMap, "domain-document--context-map")
+        }
+        else
+        {
+            <article class="domain-context" data-testid="domain-context">
+                <header class="domain-context__header">
+                    <div>
+                        <p class="domain-knowledge__eyebrow">Bounded context</p>
+                        <h3>@SelectedContext.DisplayName</h3>
+                    </div>
+                    <span class="badge badge--domain-status badge--domain-status-@SelectedContext.Status">@SelectedContext.Status</span>
+                </header>
+
+                <div class="domain-context__documents">
+                    @foreach (var document in SelectedContext.Documents)
+                    {
+                        @RenderDocument(document, DocumentClass(document))
+                    }
+                </div>
+            </article>
+        }
+    }
+</section>
+
+@code {
+    private static readonly string[] KnowledgeStatuses = ["draft", "candidate", "accepted", "active", "adopted"];
+    private static readonly HashSet<string> HeaderMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "status", "knowledge-issue", "github-issue", "issue" };
+    private static readonly HashSet<string> NavigableMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "implements", "implemented-by", "related", "depends-on", "refines", "supersedes" };
+
+    private readonly HashSet<string> _copilotBusy = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _copilotErrors = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
+    private DomainKnowledgeView? _view;
+    private string? _selectedContextSlug;
+    private string? _loadedRepositoryAlias;
+
+    [Parameter]
+    public bool Compact { get; set; }
+
+    [Parameter]
+    public DomainKnowledgeView? View { get; set; }
+
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    private DomainKnowledgeContext? SelectedContext => _view?.Contexts.FirstOrDefault(c => c.Slug == _selectedContextSlug);
+
+    private DomainKnowledgeDocument? SelectedDocument => string.IsNullOrWhiteSpace(SelectedPath) || _view is null
+        ? null
+        : new[] { _view.ContextMap }
+            .Concat(_view.Contexts.SelectMany(context => context.Documents))
+            .FirstOrDefault(document => PathMatches(document.Path, SelectedPath));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (View is not null)
+        {
+            _view = View;
+        }
+        else if (_view is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
+        {
+            _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
+            _loadedRepositoryAlias = RepositoryAlias;
+        }
+        if (_selectedContextSlug is null || !_view.Contexts.Any(c => c.Slug == _selectedContextSlug))
+        {
+            _selectedContextSlug = Compact ? _view.Contexts.FirstOrDefault()?.Slug : null;
+        }
+    }
+
+    private void SelectContext(DomainKnowledgeContext? context) => _selectedContextSlug = context?.Slug;
+
+    private static bool PathMatches(string candidate, string selectedPath)
+    {
+        var candidatePath = NormalizePath(candidate);
+        var selected = NormalizePath(selectedPath);
+        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
+            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
+    private string ContextTabClass(DomainKnowledgeContext? context) => string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal) ? "domain-context-tab--active" : string.Empty;
+    private string ContextTabSelected(DomainKnowledgeContext? context) => string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal) ? "true" : "false";
+
+    private static IReadOnlyList<SelectorOption> KnowledgeStatusOptions() =>
+        [.. KnowledgeStatuses.Select(status => new SelectorOption(status, status))];
+
+    private static string DocumentClass(DomainKnowledgeDocument document) => document.Kind switch
+    {
+        DomainKnowledgeDocumentKind.Domain => "domain-document--domain",
+        DomainKnowledgeDocumentKind.Features => "domain-document--features",
+        DomainKnowledgeDocumentKind.Model => "domain-document--model",
+        DomainKnowledgeDocumentKind.Flow => "domain-document--flow",
+        DomainKnowledgeDocumentKind.Dependencies => "domain-document--dependencies",
+        DomainKnowledgeDocumentKind.Naming => "domain-document--naming",
+        _ => string.Empty
+    };
+
+    private RenderFragment RenderDocument(DomainKnowledgeDocument document, string cssClass) => @<article class="domain-document @cssClass" id="@ElementId(document.Path)" data-testid="domain-document">
+        <header class="domain-document__header">
+            <div>
+                <p class="domain-document__kind">@document.KindLabel</p>
+                <h3>@document.Title</h3>
+                <p class="domain-document__path"><code>@document.Path</code></p>
+            </div>
+            @RenderKnowledgeActions(new KnowledgeActionItem(document.Title, document.KindLabel, document.Path, document.Metadata, document.Summary))
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(document.Summary))
+        {
+            <p class="domain-document__summary">@document.Summary</p>
+        }
+
+        @if (HasVisibleMetadata(document.Metadata, document.Links))
+        {
+            @RenderMetadata(document.Metadata, document.Links, "Document metadata")
+        }
+
+        @foreach (var diagram in document.Diagrams)
+        {
+            <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
+        }
+
+        <div class="domain-sections">
+            @foreach (var section in document.Sections.Take(Compact ? 4 : 12))
+            {
+                <section class="domain-section" id="@ElementId(section.Anchor)">
+                    <header class="domain-section__header">
+                        <h4>@section.Title</h4>
+                        @RenderKnowledgeActions(new KnowledgeActionItem(section.Title, $"{document.KindLabel} section", section.Anchor, section.Metadata, section.Excerpt))
+                    </header>
+                    @if (HasVisibleMetadata(section.Metadata, section.Links))
+                    {
+                        @RenderMetadata(section.Metadata, section.Links, "Section metadata")
+                    }
+                    @if (!string.IsNullOrWhiteSpace(section.Excerpt))
+                    {
+                        <p class="domain-section__excerpt">@section.Excerpt</p>
+                    }
+                    @foreach (var diagram in section.Diagrams)
+                    {
+                        <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
+                    }
+                </section>
+            }
+        </div>
+    </article>;
+
+    private RenderFragment RenderKnowledgeActions(KnowledgeActionItem item) => @<div class="domain-knowledge__actions" aria-label="Knowledge item actions">
+        @{ var status = KnowledgeActionMetadata.Status(item.Metadata); }
+        <StatusSelector Id="@StateSelectId(item)"
+                        CurrentValue="@status"
+                        Options="@KnowledgeStatusOptions()"
+                        Label="@($"State for {item.Title}")"
+                        TestId="knowledge-state-select"
+                        OnChanged="value => ChangeKnowledgeStatusAsync(item, value)" />
+
+        @if (KnowledgeActionMetadata.Issue(item.Metadata, _view?.RepositoryLabel) is { } issue)
+        {
+            <a class="badge badge--gh badge--gh-open"
+               data-testid="knowledge-issue-badge"
+               href="@issue.Url"
+               target="_blank"
+               rel="noopener"
+               title="Knowledge Issue @issue.Label in @issue.RepoFullName">
+                Knowledge Issue @issue.Label
+                <span class="badge__state">linked</span>
+            </a>
+        }
+
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.CopilotCli))
+        {
+            <button type="button"
+                    class="entry-doc__icon-action entry-doc__icon-action--copilot"
+                    data-testid="knowledge-copilot-cli-button"
+                    disabled="@IsCopilotBusy(item)"
+                    title="Start GitHub Copilot CLI for this knowledge item"
+                    aria-label="Start GitHub Copilot CLI for @item.Title"
+                    @onclick="() => StartKnowledgeCopilotAsync(item)">
+                @if (IsCopilotBusy(item))
+                {
+                    <span aria-hidden="true">...</span>
+                }
+                else
+                {
+                    <span class="entry-doc__cli-mark" aria-hidden="true">gh</span>
+                }
+            </button>
+        }
+
+        @if (_statusErrors.TryGetValue(item.Path, out var statusError))
+        {
+            <span class="domain-knowledge__action-error" role="status">@statusError</span>
+        }
+        @if (_copilotErrors.TryGetValue(item.Path, out var error))
+        {
+            <span class="domain-knowledge__action-error" role="status">@error</span>
+        }
+    </div>;
+
+    private RenderFragment RenderMetadata(IReadOnlyDictionary<string, string> metadata, IReadOnlyList<string> links, string label) => @<div class="domain-metadata" aria-label="@label">
+        @foreach (var item in VisibleMetadata(metadata))
+        {
+            <span class="domain-metadata__item">
+                @if (KnowledgeMetadataDisplay.ShouldShowLabel(item.Key))
+                {
+                    <strong>@item.Key</strong>
+                }
+                @foreach (var value in MetadataValues(item.Value))
+                {
+                    @RenderMetadataValue(item.Key, value)
+                }
+            </span>
+        }
+        @foreach (var link in links.Where(link => !MetadataContainsLink(metadata, link)).Take(4))
+        {
+            <span class="domain-metadata__item domain-metadata__item--link">@RenderKnowledgeLink(link)</span>
+        }
+    </div>;
+
+    private RenderFragment RenderMetadataValue(string key, string value) => builder =>
+    {
+        if (NavigableMetadataKeys.Contains(key) || IsKnowledgeLink(value))
+        {
+            RenderKnowledgeLink(value)(builder);
+            return;
+        }
+
+        builder.AddContent(0, value);
+    };
+
+    private RenderFragment RenderKnowledgeLink(string link) => @<button type="button" class="domain-metadata__link" @onclick="() => NavigateKnowledgeLink(link)">@link</button>;
+
+    private async Task ChangeKnowledgeStatusAsync(KnowledgeActionItem item, string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status) || string.Equals(status, KnowledgeActionMetadata.Status(item.Metadata), StringComparison.OrdinalIgnoreCase)) return;
+
+        _statusErrors.Remove(item.Path);
+        try
+        {
+            await DomainKnowledge.UpdateStatusAsync(RepositoryAlias, item.Path, status);
+            _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
+            _loadedRepositoryAlias = RepositoryAlias;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _statusErrors[item.Path] = ex.Message;
+        }
+    }
+
+    private void NavigateKnowledgeLink(string link)
+    {
+        var (path, _) = SplitKnowledgeLink(link);
+        if (!path.StartsWith(".domain/", StringComparison.OrdinalIgnoreCase)) return;
+
+        var remainder = path[".domain/".Length..];
+        var slash = remainder.IndexOf('/');
+        _selectedContextSlug = slash < 0 ? null : remainder[..slash];
+    }
+
+    private bool IsCopilotBusy(KnowledgeActionItem item) => _copilotBusy.Contains(item.Path);
+
+    private async Task StartKnowledgeCopilotAsync(KnowledgeActionItem item)
+    {
+        if (_view is null || !_copilotBusy.Add(item.Path)) return;
+
+        _copilotErrors.Remove(item.Path);
+        try
+        {
+            await KnowledgeCopilot.StartAsync(item, _view.RepositoryRoot);
+        }
+        catch (CopilotCliException ex)
+        {
+            _copilotErrors[item.Path] = ex.Message;
+        }
+        finally
+        {
+            _copilotBusy.Remove(item.Path);
+        }
+    }
+
+    private static bool HasVisibleMetadata(IReadOnlyDictionary<string, string> metadata, IReadOnlyList<string> links) =>
+        metadata.Any(pair => !HeaderMetadataKeys.Contains(pair.Key)) || links.Count > 0;
+
+    private static IEnumerable<KeyValuePair<string, string>> VisibleMetadata(IReadOnlyDictionary<string, string> metadata) =>
+        metadata.Where(pair => !HeaderMetadataKeys.Contains(pair.Key));
+
+    private static IReadOnlyList<string> MetadataValues(string value) =>
+        [.. value.Trim().Trim('[', ']').Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(v => v.Trim().Trim('"', '\'', '[', ']')).Where(v => v.Length > 0)];
+
+    private static bool MetadataContainsLink(IReadOnlyDictionary<string, string> metadata, string link) =>
+        metadata.Where(pair => !HeaderMetadataKeys.Contains(pair.Key)).SelectMany(pair => MetadataValues(pair.Value)).Any(value => string.Equals(value, link, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsKnowledgeLink(string value) => value.StartsWith(".", StringComparison.Ordinal) && value.Contains('/');
+
+    private static (string Path, string? Anchor) SplitKnowledgeLink(string link)
+    {
+        var parts = link.Split('#', 2, StringSplitOptions.TrimEntries);
+        return (parts[0], parts.Length == 2 ? parts[1] : null);
+    }
+
+    private static string ElementId(string path) => "knowledge-" + new string(path.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-');
+
+    private static string StateSelectId(KnowledgeActionItem item) => ElementId(item.Path) + "-state";
+
+    private bool IsFeatureEnabled(string key) => Features.IsEnabled(key);
+}

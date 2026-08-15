@@ -2,7 +2,6 @@ using System.Text.Json;
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.DomainModels;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Desktop.UI.Services;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -415,18 +414,15 @@ public sealed class GitHubLinkTests
     [Fact]
     public void An_unpushed_entry_has_no_link()
     {
-        var entry = new BacklogEntry("Add GitHub support", string.Empty, EntryType.Task);
-
-        Assert.Null(GitHubIntegration.FindLink(entry));
+        Assert.Null(BacklogIssues.FindLink(Entry()));
     }
 
     [Fact]
     public void A_pushed_entry_remembers_which_issue_it_became()
     {
-        var entry = new BacklogEntry("Add GitHub support", string.Empty, EntryType.Task);
-        entry.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", GitHubIntegration.IssueTargetType));
+        var entry = Entry(new EntryProjectionDto("JSdotNet/Backlog", "42", GitHubIntegration.IssueTargetType));
 
-        var link = GitHubIntegration.FindLink(entry);
+        var link = BacklogIssues.FindLink(entry);
 
         Assert.NotNull(link);
         Assert.Equal(42, link!.IssueNumber);
@@ -437,9 +433,22 @@ public sealed class GitHubLinkTests
     [Fact]
     public void A_projection_to_something_else_is_not_a_github_issue()
     {
-        var entry = new BacklogEntry("Add GitHub support", string.Empty, EntryType.Task);
-        entry.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "ADO-1", "work-item"));
+        var entry = Entry(new EntryProjectionDto("JSdotNet/Backlog", "ADO-1", "work-item"));
 
-        Assert.Null(GitHubIntegration.FindLink(entry));
+        Assert.Null(BacklogIssues.FindLink(entry));
     }
+
+    private static BacklogEntryDto Entry(params EntryProjectionDto[] projections) => new(
+        Guid.NewGuid(),
+        "Add GitHub support",
+        string.Empty,
+        EntryType.Task,
+        Priority.Medium,
+        EntryStatus.Draft,
+        Area: null,
+        Tags: [],
+        Order: 0,
+        TotalSubItems: 0,
+        CompletedSubItems: 0,
+        Projections: projections);
 }
