@@ -1,7 +1,10 @@
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Backlog.Desktop.UI.Services;
+using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Knowledge;
+using Backlog.Desktop.UI.Shell;
+using Backlog.Desktop.UI.Workspace;
 using Microsoft.Extensions.Logging;
 
 #if WINDOWS

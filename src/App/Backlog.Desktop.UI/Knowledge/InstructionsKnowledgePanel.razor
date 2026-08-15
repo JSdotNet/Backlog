@@ -1,0 +1,232 @@
+@inject GitHubSettingsStore Repositories
+@inject InstructionSourceDiscovery InstructionSources
+@inject BacklogStore Store
+
+<aside class="knowledge-pane instructions-knowledge" data-testid="instructions-knowledge-panel" aria-labelledby="instructions-knowledge-title">
+    <header class="knowledge-pane__header">
+        <p class="knowledge-pane__eyebrow">Knowledge base</p>
+        <h2 id="instructions-knowledge-title">Instructions</h2>
+        <p class="knowledge-pane__subtitle">
+            Agent guidance from GitHub Copilot, Claude Code, and shared <code>AGENTS.md</code> files in the current repository or storage folder.
+        </p>
+    </header>
+
+    @if (!_repositories.Any())
+    {
+        <EmptyState BaseClass="knowledge-empty"
+                    TestId="instructions-empty-state"
+                    Title="No instruction source is configured."
+                    TitleCssClass="@(null)"
+                    ActionCssClass="@(null)"
+                    role="status">
+            <Action>
+                <a href="settings">Open storage settings</a>
+            </Action>
+        </EmptyState>
+    }
+    else
+    {
+        @if (ActiveRepository is { } activeRepository)
+        {
+            <section data-testid="instructions-repository" aria-label="@($"{activeRepository.Repository.FullName} instructions")">
+                <div class="knowledge-pane__source">
+                    <span>@activeRepository.Repository.FullName</span>
+                    @if (activeRepository.LocalRoot is null)
+                    {
+                        <span>No local clone directory configured.</span>
+                    }
+                    else
+                    {
+                        <code>@activeRepository.LocalRoot</code>
+                    }
+                </div>
+
+                @if (activeRepository.Message is not null && SelectedDocument is null)
+                {
+                    <EmptyState BaseClass="knowledge-empty"
+                                TestId="instructions-repository-empty"
+                                Title="No instruction content to show."
+                                TitleCssClass="@(null)"
+                                Description="@activeRepository.Message"
+                                DescriptionCssClass="@(null)"
+                                role="status" />
+                }
+                else
+                {
+                    <div class="instructions-layout @(string.IsNullOrWhiteSpace(SelectedPath) ? string.Empty : "instructions-layout--document-only")">
+                        @if (string.IsNullOrWhiteSpace(SelectedPath))
+                        {
+                            <nav class="instructions-list" aria-label="Instruction documents">
+                                @foreach (var document in activeRepository.Documents)
+                                {
+                                    <button type="button"
+                                            class="@DocumentButtonClass(document)"
+                                            data-testid="instructions-document-button"
+                                            aria-pressed="@DocumentSelected(document)"
+                                            @onclick="() => SelectDocument(document.RelativePath)">
+                                        <span class="instructions-list__title">@document.RelativePath</span>
+                                        <span class="instructions-list__meta">@document.Agent - @document.Scope</span>
+                                    </button>
+                                }
+                            </nav>
+                        }
+
+                        @if (SelectedDocument is { } selectedDocument)
+                        {
+                            <section class="instruction-doc" data-testid="instructions-document" aria-labelledby="instruction-doc-title">
+                                <header class="instruction-doc__header">
+                                    <div>
+                                        <h3 id="instruction-doc-title" class="instruction-doc__title">@selectedDocument.Title</h3>
+                                        <p class="instruction-doc__meta">@selectedDocument.Agent - @selectedDocument.Scope - @FormatSize(selectedDocument.SizeBytes)</p>
+                                    </div>
+                                    <code>@selectedDocument.RelativePath</code>
+                                </header>
+                                <div class="instruction-doc__content">
+                                    <KnowledgeMarkdownView Blocks="@InstructionBlocks(selectedDocument)" />
+                                </div>
+                            </section>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    }
+</aside>
+
+@code {
+    private IReadOnlyList<InstructionRepositoryView> _repositories = [];
+    private string? _loadedRepositoryAlias;
+    private string? _selectedDocumentPath;
+
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    private InstructionRepositoryView? ActiveRepository =>
+        string.IsNullOrWhiteSpace(RepositoryAlias)
+            ? _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, "storage", StringComparison.Ordinal))
+            : _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal));
+
+    private InstructionDocument? SelectedDocument => ResolveSelectedDocument();
+
+    protected override void OnParametersSet()
+    {
+        if (_repositories.Count == 0 || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
+        {
+            _repositories = string.IsNullOrWhiteSpace(RepositoryAlias)
+                ? InstructionSources.Discover([StorageInstructionRepository()])
+                : InstructionSources.Discover(Repositories.Current.Repositories);
+            _loadedRepositoryAlias = RepositoryAlias;
+            _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
+        }
+    }
+
+    private GitHubRepositoryRef StorageInstructionRepository() => new("storage", "Storage", "Folder")
+    {
+        CloneDirectory = Store.RootDirectory,
+        KnowledgeFolders = [.. Store.KnowledgeFolders]
+    };
+
+    private InstructionDocument? ResolveSelectedDocument()
+    {
+        var repository = ActiveRepository;
+        if (repository is null) return null;
+
+        if (!string.IsNullOrWhiteSpace(SelectedPath))
+        {
+            return repository.Documents.FirstOrDefault(d => PathMatches(d.RelativePath, SelectedPath))
+                ?? TryReadSelectedInstructionFile(repository, SelectedPath);
+        }
+
+        return repository.Documents.FirstOrDefault(d => string.Equals(d.RelativePath, _selectedDocumentPath, StringComparison.OrdinalIgnoreCase))
+            ?? repository.Documents.FirstOrDefault();
+    }
+
+    private static InstructionDocument? TryReadSelectedInstructionFile(InstructionRepositoryView repository, string selectedPath)
+    {
+        if (string.IsNullOrWhiteSpace(repository.LocalRoot)) return null;
+
+        var relativePath = NormalizePath(selectedPath);
+        if (!IsInstructionRootPath(relativePath)) return null;
+
+        var root = Path.GetFullPath(repository.LocalRoot);
+        var fullPath = Path.GetFullPath(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+        if (!File.Exists(fullPath) && relativePath.StartsWith(".agent/", StringComparison.OrdinalIgnoreCase))
+        {
+            var fallbackPath = ".agents/" + relativePath[".agent/".Length..];
+            fullPath = Path.GetFullPath(Path.Combine(root, fallbackPath.Replace('/', Path.DirectorySeparatorChar)));
+        }
+
+        if (!fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath)) return null;
+
+        var info = new FileInfo(fullPath);
+        return new InstructionDocument(
+            Path.GetFileName(relativePath),
+            relativePath.Replace('/', Path.DirectorySeparatorChar),
+            InstructionAgent(relativePath),
+            "Repository file",
+            File.ReadAllText(fullPath),
+            info.Length,
+            info.LastWriteTimeUtc);
+    }
+
+    private static bool PathMatches(string candidate, string selectedPath)
+    {
+        var candidatePath = NormalizePath(candidate);
+        var selected = NormalizePath(selectedPath);
+        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
+            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsInstructionRootPath(string path) =>
+        path.StartsWith(".github/", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(".agent/", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(".agents/", StringComparison.OrdinalIgnoreCase);
+
+    private static string InstructionAgent(string path)
+    {
+        if (path.StartsWith(".github/", StringComparison.OrdinalIgnoreCase)) return "GitHub Copilot";
+        if (path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase)) return "Claude Code";
+        return "Agent instructions";
+    }
+
+    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/').Insert(0, path.TrimStart().StartsWith('.') ? "." : string.Empty);
+
+    private string DocumentButtonClass(InstructionDocument document) =>
+        string.Equals(document.RelativePath, SelectedDocument?.RelativePath, StringComparison.OrdinalIgnoreCase)
+            ? "instructions-list__item instructions-list__item--active"
+            : "instructions-list__item";
+
+    private string DocumentSelected(InstructionDocument document) =>
+        string.Equals(document.RelativePath, SelectedDocument?.RelativePath, StringComparison.OrdinalIgnoreCase) ? "true" : "false";
+
+    private void SelectDocument(string relativePath) => _selectedDocumentPath = relativePath;
+
+    private static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B" : $"{bytes / 1024d:0.#} KB";
+
+    private static IReadOnlyList<KnowledgeBlock> InstructionBlocks(InstructionDocument document) =>
+        KnowledgeMarkdownParser.Parse(document.RelativePath, StripFrontmatter(document.Content)).Blocks;
+
+    private static string StripFrontmatter(string content)
+    {
+        var normalized = content.Replace("\r\n", "\n").Replace('\r', '\n');
+        if (!normalized.StartsWith("---\n", StringComparison.Ordinal))
+        {
+            return content;
+        }
+
+        var end = normalized.IndexOf("\n---", 4, StringComparison.Ordinal);
+        if (end < 0)
+        {
+            return content;
+        }
+
+        var afterEnd = end + "\n---".Length;
+        if (afterEnd < normalized.Length && normalized[afterEnd] == '\n') afterEnd++;
+        return normalized[afterEnd..];
+    }
+}
+

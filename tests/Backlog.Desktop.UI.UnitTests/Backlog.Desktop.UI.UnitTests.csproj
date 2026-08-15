@@ -18,6 +18,18 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="Backlog.UI.Components.Markdown" />
+
+    <!-- The app is split by bounded context (Inbox, BacklogManagement,
+         Knowledge) over a shared Workspace and a composing Shell. Tests sit
+         outside that boundary and check all of it, so the four namespaces are
+         imported once here instead of per file. -->
+    <Using Include="Backlog.Modules.Backlog.Abstractions" />
+    <Using Include="Backlog.Modules.Backlog.Abstractions.DataTransferObjects" />
+    <Using Include="Backlog.Desktop.UI.Workspace" />
+    <Using Include="Backlog.Desktop.UI.Inbox" />
+    <Using Include="Backlog.Desktop.UI.BacklogManagement" />
+    <Using Include="Backlog.Desktop.UI.Knowledge" />
+    <Using Include="Backlog.Desktop.UI.Shell" />
   </ItemGroup>
 
   <ItemGroup>

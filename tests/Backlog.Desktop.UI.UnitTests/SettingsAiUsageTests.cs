@@ -1,6 +1,4 @@
 using Bunit;
-using Backlog.Desktop.UI.Components.Pages;
-using Backlog.Desktop.UI.Services;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;

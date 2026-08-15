@@ -1,0 +1,26 @@
+@* Deliberately free of the app's own domain namespaces. Each domain folder
+   (Inbox, BacklogManagement, Knowledge) carries its own _Imports.razor, so a
+   component can only reach into another context by saying so in writing. *@
+@using System.Net.Http
+@using System.IO
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using Microsoft.JSInterop
+@using Backlog.Modules.Backlog.Abstractions
+@using Backlog.Modules.Backlog.Abstractions.DataTransferObjects
+@using Backlog.Infrastructure.AzureFoundry
+@using Backlog.Infrastructure.GitHub
+@using Backlog.UI.Components.Markdown
+@using Backlog.UI.Components.Selects
+@using Backlog.UI.Components.Menus
+@using Backlog.UI.Components.Diagrams
+@using Backlog.UI.Components.Feedback
+@using Backlog.UI.Components.Badges
+@using Backlog.UI.Components.Buttons
+@using Backlog.UI.Components.Inputs
+@using Backlog.UI.Components.Layout
+@using Backlog.UI.Components.Overlays
+@inherits LayoutComponentBase

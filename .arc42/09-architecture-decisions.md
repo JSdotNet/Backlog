@@ -67,5 +67,9 @@ related: [".arc42/04-solution-strategy.md"]
   supersedes the original WinUI 3 desktop choice so the desktop client can be
   launched from an Aspire AppHost and tested end-to-end with Playwright, while
   preserving local-first storage and native background-worker constraints.
+- **[ADR 0002 — The Backlog module owns the entry text language](adr/0002-backlog-module-owns-the-entry-text-language.md)**:
+  moves the entry text format and every use case over an entry out of the desktop
+  client and into the module, behind a published Abstractions surface, so a second
+  client cannot reimplement the format and no caller can bypass an invariant.
 
 

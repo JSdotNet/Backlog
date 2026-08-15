@@ -1,6 +1,5 @@
+using Backlog.Infrastructure.Copilot;
 using Bunit;
-using Backlog.Desktop.UI.Components.Pages;
-using Backlog.Desktop.UI.Services;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.GitHub;
 using Microsoft.Extensions.DependencyInjection;
@@ -76,12 +75,14 @@ public sealed class HomeKnowledgePaneTests
         context.Services.AddSingleton<Arc42KnowledgeStore>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
+        context.Services.AddSingleton<KnowledgeScope>();
+        context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<KnowledgeFolderSource>()));
-        context.Services.AddScoped(sp => new BacklogDesktopState(
+        context.Services.AddScoped(sp => BacklogTestHost.StateFor(
             sp.GetRequiredService<BacklogStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
-            CopilotCliIntegration.Unavailable,
+            BacklogCopilotCli.Unavailable,
             sp.GetRequiredService<RepositoryBacklogSource>()));
 
         return new Harness(root, context);

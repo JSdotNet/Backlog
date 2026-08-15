@@ -1,5 +1,8 @@
 using System.Text.Json.Nodes;
-using Backlog.Desktop.UI.Services;
+using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Knowledge;
+using Backlog.Desktop.UI.Shell;
+using Backlog.Desktop.UI.Workspace;
 
 namespace Backlog.Desktop.WebHarness;
 

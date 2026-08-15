@@ -12,9 +12,11 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("data-testid=\"backlog-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"knowledge-pane-option\"", home, StringComparison.Ordinal);
 
-        Assert.Contains("id=\"inbox-pane\"", home, StringComparison.Ordinal);
-        Assert.Contains("id=\"backlog-pane\"", home, StringComparison.Ordinal);
-        Assert.Contains("id=\"repository-knowledge-pane\"", home, StringComparison.Ordinal);
+        // Each pane carries its own landmark id from its own folder; the shell
+        // only points the multiselect's aria-controls at them.
+        Assert.Contains("id=\"inbox-pane\"", NormalizeLineEndings(File.ReadAllText(FindInboxPane())), StringComparison.Ordinal);
+        Assert.Contains("id=\"backlog-pane\"", NormalizeLineEndings(File.ReadAllText(FindBacklogPane())), StringComparison.Ordinal);
+        Assert.Contains("id=\"repository-knowledge-pane\"", NormalizeLineEndings(File.ReadAllText(FindKnowledgePane())), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -82,7 +84,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("knowledge-layout--inbox-before-backlog", home, StringComparison.Ordinal);
 
         var inboxGuardIndex = home.IndexOf("@if (InboxBeforeBacklogVisible)", StringComparison.Ordinal);
-        var backlogPaneIndex = home.IndexOf("<section @key=@(\"backlog-pane\") class=\"backlog-workspace\"", StringComparison.Ordinal);
+        var backlogPaneIndex = home.IndexOf("<BacklogPane />", StringComparison.Ordinal);
 
         Assert.True(inboxGuardIndex >= 0);
         Assert.True(backlogPaneIndex > inboxGuardIndex);
@@ -105,29 +107,6 @@ public sealed class GlobalPaneMarkupTests
     }
 
     [Fact]
-    public void RenderKnowledgeFolderOpenError_uses_explicit_builder_fragment()
-    {
-        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
-
-        var methodIndex = home.IndexOf(
-            "private RenderFragment RenderKnowledgeFolderOpenError(KnowledgeMenuNode node) => builder =>",
-            StringComparison.Ordinal);
-        Assert.True(methodIndex >= 0, "Could not locate RenderKnowledgeFolderOpenError in Home.razor.");
-
-        var terminatorIndex = home.IndexOf("    };", methodIndex, StringComparison.Ordinal);
-        Assert.True(terminatorIndex > methodIndex, "The RenderKnowledgeFolderOpenError method should be complete.");
-
-        var methodBody = home.Substring(methodIndex, terminatorIndex - methodIndex);
-
-        Assert.Contains("builder.OpenElement(0, \"p\");", methodBody, StringComparison.Ordinal);
-        Assert.Contains("builder.AddAttribute(1, \"class\", \"knowledge-menu__open-error\");", methodBody, StringComparison.Ordinal);
-        Assert.Contains("builder.AddAttribute(2, \"role\", \"status\");", methodBody, StringComparison.Ordinal);
-        Assert.Contains("builder.AddContent(3, error);", methodBody, StringComparison.Ordinal);
-        Assert.DoesNotContain("@<>", methodBody, StringComparison.Ordinal);
-        Assert.DoesNotContain("</>", methodBody, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Knowledge_folder_errors_do_not_use_empty_razor_fragment_tags()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
@@ -139,19 +118,38 @@ public sealed class GlobalPaneMarkupTests
     [Fact]
     public void Expandable_entry_title_uses_an_integrated_collapse_button()
     {
-        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        Assert.Contains("data-testid=\"entry-title-button\"", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("data-testid=\"entry-fold-button\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"entry-title-button\"", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-testid=\"entry-fold-button\"", pane, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Entry_metadata_keeps_focus_events_out_of_read_view_editor()
     {
+        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+
+        Assert.Contains("class=\"entry-doc__meta\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", pane, StringComparison.Ordinal);
+        Assert.Contains("class=\"entry-doc__meta subitem-card__meta\" aria-label=\"Sub-item metadata and actions\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", pane, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The shell composes the three contexts; it does not render them. If a pane's
+    /// own markup starts leaking back into Home.razor, the folder split has
+    /// stopped meaning anything.
+    /// </summary>
+    [Fact]
+    public void The_shell_composes_the_panes_rather_than_rendering_them()
+    {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("class=\"entry-doc__meta\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", home, StringComparison.Ordinal);
-        Assert.Contains("class=\"entry-doc__meta subitem-card__meta\" aria-label=\"Sub-item metadata and actions\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", home, StringComparison.Ordinal);
+        Assert.Contains("<InboxPane Items=", home, StringComparison.Ordinal);
+        Assert.Contains("<BacklogPane />", home, StringComparison.Ordinal);
+        Assert.Contains("<KnowledgePane RepositoryAlias=", home, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("entry-doc__meta", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("inbox-pane__list", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("knowledge-stack__nav", home, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -167,7 +165,13 @@ public sealed class GlobalPaneMarkupTests
 
     private static string FindAppCss() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css"));
 
-    private static string FindHomeRazor() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "Components", "Pages", "Home.razor"));
+    private static string FindHomeRazor() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "Shell", "Home.razor"));
+
+    private static string FindInboxPane() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "Inbox", "InboxPane.razor"));
+
+    private static string FindBacklogPane() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "BacklogManagement", "BacklogPane.razor"));
+
+    private static string FindKnowledgePane() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "Knowledge", "KnowledgePane.razor"));
 
     private static string FindAppJs() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.js"));
 

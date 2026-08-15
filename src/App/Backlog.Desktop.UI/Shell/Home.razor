@@ -1,0 +1,907 @@
+@page "/"
+@implements IDisposable
+@inject BacklogDesktopState State
+@inject IJSRuntime JS
+@inject ICopilotToolService CopilotTools
+@inject GitHubIntegration GitHub
+@inject AppFeatureSettingsStore Features
+@inject IAppUpdateService Updates
+@inject IAzureFoundryChatClient AzureFoundryChat
+@inject KnowledgeScope Knowledge
+
+@*
+    The shell. It owns the app chrome — header, update and feedback windows, the
+    AI panel, the system tools pane — and decides which of the three global panes
+    is on screen.
+
+    What is inside a pane is not its business: Inbox, Backlog Management and
+    Second Brain each render themselves from their own folder, and the only thing
+    that crosses between them here is the repository scope handed to the
+    knowledge pane and the triaged item handed back from the inbox.
+*@
+
+<div class="shell shell--wide">
+    <header class="app-header">
+        <h1>Backlog</h1>
+
+        @if (State.Repositories.Count > 0)
+        {
+            <div class="app-header__repository-scope" role="group" aria-label="Repository scope">
+                @foreach (var repository in State.Repositories)
+                {
+                    var selected = State.SelectedRepositoryAlias == repository.Alias;
+                    <button type="button"
+                            class="chip chip--scope @(selected ? "chip--active" : string.Empty)"
+                            data-testid="repository-filter-option"
+                            aria-pressed="@(selected ? "true" : "false")"
+                            title="@(selected ? $"Deselect {repository.FullName}" : repository.FullName)"
+                            @onclick="() => ToggleRepositoryScopeAsync(repository.Alias)">
+                        @repository.Alias
+                    </button>
+                }
+            </div>
+        }
+        @* The header keeps the current version visible. Checking and installing updates
+           happen in the separate update window opened from this control. *@
+        <div class="app-header__version">
+            <button type="button"
+                    class="app-version"
+                    data-testid="app-version"
+                    title="Open update window"
+                    aria-label="@AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)"
+                    @onclick="OpenUpdateWindow">
+                Version <code>@Updates.CurrentVersion</code>
+            </button>
+        </div>
+        <div class="save-indicator save-indicator--@State.SaveState.ToString().ToLowerInvariant()" id="save-state-indicator" data-testid="save-state-indicator" role="status">
+            <span class="save-indicator__dot" aria-hidden="true"></span>
+            @State.SaveStateLabel
+        </div>
+
+        @* Monitoring is a deliberate act, not a background poll: the backlog has
+           to open instantly and offline, so nothing here waits on GitHub until
+           somebody asks it to. *@
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
+        {
+            <button type="button"
+                    class="icon-link"
+                    id="github-sync-button"
+                    data-testid="github-sync-button"
+                    disabled="@State.GitHubSyncing"
+                    title="Check GitHub for issue and pull request updates"
+                    aria-label="Check GitHub for issue and pull request updates"
+                    @onclick="() => State.SyncGitHubAsync()">
+                @(State.GitHubSyncing ? "…" : "⟳")
+            </button>
+        }
+
+        <div class="pane-multiselect" role="group" aria-label="Visible panes" data-testid="global-pane-multiselect">
+            @if (InboxPaneOptionVisible)
+            {
+                <button type="button"
+                        class="pane-multiselect__option @(InboxPaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
+                        id="inbox-pane-option"
+                        data-testid="inbox-pane-option"
+                        aria-controls="inbox-pane"
+                        aria-pressed="@(InboxPaneVisible ? "true" : "false")"
+                        disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
+                        @onclick="ToggleInboxPane">
+                    Inbox
+                </button>
+            }
+
+            <button type="button"
+                    class="pane-multiselect__option @(BacklogPaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
+                    id="backlog-pane-option"
+                    data-testid="backlog-pane-option"
+                    aria-controls="backlog-pane"
+                    aria-pressed="@(BacklogPaneVisible ? "true" : "false")"
+                    disabled="@PaneToggleDisabled(GlobalPane.Backlog)"
+                    @onclick="ToggleBacklogPane">
+                Backlog
+            </button>
+
+            @if (KnowledgePaneOptionVisible)
+            {
+                <button type="button"
+                        class="pane-multiselect__option @(KnowledgePaneVisible ? "pane-multiselect__option--selected" : string.Empty)"
+                        id="knowledge-pane-option"
+                        data-testid="knowledge-pane-option"
+                        aria-controls="repository-knowledge-pane"
+                        aria-pressed="@(KnowledgePaneVisible ? "true" : "false")"
+                        disabled="@PaneToggleDisabled(GlobalPane.Knowledge)"
+                        @onclick="ToggleKnowledgePane">
+                    Knowledge
+                </button>
+            }
+        </div>
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant))
+        {
+            <button type="button"
+                    class="header-tool-toggle"
+                    id="ai-toggle-button"
+                    data-testid="ai-toggle-button"
+                    aria-controls="ai-assistant-panel"
+                    aria-expanded="@_aiExpanded"
+                    @onclick="ToggleAiPanel">
+                Ask AI
+            </button>
+        }
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.SystemTools))
+        {
+            <button type="button"
+                    class="header-tool-toggle"
+                    id="tools-toggle-button"
+                    data-testid="tools-toggle-button"
+                    aria-controls="tools-pane"
+                    aria-expanded="@(ToolsVisible ? "true" : "false")"
+                    @onclick="OnToolsToggleAsync">
+                Tools
+            </button>
+        }
+
+        @if (IsFeatureEnabled(AppFeatureSettingsStore.FeedbackReporting))
+        {
+            <button type="button"
+                    class="header-tool-toggle"
+                    id="feedback-button"
+                    data-testid="feedback-button"
+                    aria-haspopup="dialog"
+                    @onclick="OpenFeedbackDialog">
+                Report issue
+            </button>
+        }
+
+        <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
+    </header>
+
+    @* The update and feedback shells are the shared Modal wearing their own
+       classes: same focus, Escape and open/close handling, same DOM. *@
+    <Modal Open="_appUpdateWindowOpen"
+           OpenChanged="value => { if (!value) CloseUpdateWindow(); }"
+           Element="section"
+           BaseClass="app-update-dialog"
+           BackdropCssClass="app-update-backdrop"
+           BackdropRole="presentation"
+           UseBodyWrapper="false"
+           CloseOnBackdropClick="false"
+           CloseOnEscape="@(!_updateBusy)"
+           TestId="app-update-dialog"
+           aria-labelledby="app-update-title"
+           aria-describedby="app-update-description">
+        <Header>
+            <header class="app-update-dialog__header">
+                <div>
+                    <p class="app-update-dialog__eyebrow">Application updates</p>
+                    <h2 id="app-update-title">Update Backlog</h2>
+                </div>
+                <IconButton AriaLabel="Close update window" CssClass="btn--ghost" Disabled="@_updateBusy" OnClick="CloseUpdateWindow">x</IconButton>
+            </header>
+        </Header>
+        <ChildContent>
+            <p id="app-update-description" class="app-update-dialog__description">
+                You are running Version <code>@Updates.CurrentVersion</code>. Check for a newer build here without crowding the header.
+            </p>
+            <div class="app-update-dialog__actions">
+                <AppButton Variant="ButtonVariant.Secondary"
+                           data-testid="check-for-updates"
+                           Disabled="@_updateBusy"
+                           OnClick="CheckForUpdatesAsync">
+                    @AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)
+                </AppButton>
+                @if (_appUpdateReady)
+                {
+                    <AppButton Variant="ButtonVariant.Primary"
+                               data-testid="install-update"
+                               Disabled="@_updateBusy"
+                               OnClick="InstallUpdateAsync">
+                        @(_installingAppUpdate ? "Installing..." : "Install update")
+                    </AppButton>
+                }
+            </div>
+            <Alert Message="@_appUpdateMessage" BaseClass="@_appUpdateStatusClass" TestId="app-update-status" Role="status" />
+        </ChildContent>
+    </Modal>
+    @if (IsFeatureEnabled(AppFeatureSettingsStore.FeedbackReporting))
+    {
+        <Modal Open="_feedbackOpen"
+               OpenChanged="value => { if (!value) CloseFeedbackDialog(); }"
+               Element="section"
+               BaseClass="feedback-dialog"
+               BackdropCssClass="feedback-backdrop"
+               BackdropRole="presentation"
+               UseBodyWrapper="false"
+               CloseOnBackdropClick="false"
+               CloseOnEscape="@(!_feedbackSubmitting)"
+               TestId="feedback-dialog"
+               FooterCssClass="feedback-dialog__actions"
+               aria-labelledby="feedback-title"
+               aria-describedby="feedback-description">
+            <Header>
+                <header class="feedback-dialog__header">
+                    <div>
+                        <p class="feedback-dialog__eyebrow">GitHub feedback</p>
+                        <h2 id="feedback-title">Report an issue</h2>
+                    </div>
+                    <IconButton AriaLabel="Close feedback dialog" CssClass="btn--ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">x</IconButton>
+                </header>
+            </Header>
+            <ChildContent>
+                <p id="feedback-description" class="feedback-dialog__description">Send a Desktop app issue to JSdotNet/Backlog. Add where on the current screen it happens; the app will ask which screen to capture when you submit.</p>
+                <label class="feedback-field" for="feedback-screen-area-input">
+                    <span>Screen area</span>
+                    <input id="feedback-screen-area-input" data-testid="feedback-screen-area-input" value="@_feedbackScreenArea" @oninput="OnFeedbackScreenAreaInput" maxlength="120" placeholder="For example: header, backlog list, settings repositories" disabled="@_feedbackSubmitting" />
+                </label>
+                <label class="feedback-field" for="feedback-title-input">
+                    <span>Title</span>
+                    <input id="feedback-title-input" data-testid="feedback-title-input" value="@_feedbackTitle" @oninput="OnFeedbackTitleInput" maxlength="120" disabled="@_feedbackSubmitting" />
+                </label>
+
+                <label class="feedback-field" for="feedback-details-input">
+                    <span>Details</span>
+                    <textarea id="feedback-details-input" data-testid="feedback-details-input" value="@_feedbackDetails" @oninput="OnFeedbackDetailsInput" rows="6" disabled="@_feedbackSubmitting"></textarea>
+                </label>
+
+                <Alert Message="@_feedbackMessage" BaseClass="@FeedbackStatusClass" Role="@FeedbackStatusRole" />
+            </ChildContent>
+            <Footer>
+                <AppButton Variant="ButtonVariant.Ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">Cancel</AppButton>
+                <AppButton Variant="ButtonVariant.Primary" data-testid="feedback-submit" Disabled="@(_feedbackSubmitting || string.IsNullOrWhiteSpace(_feedbackTitle))" OnClick="SubmitFeedbackAsync">
+                    @(_feedbackSubmitting ? "Sending..." : "Create GitHub issue")
+                </AppButton>
+            </Footer>
+        </Modal>
+    }
+
+    @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant) && _aiExpanded)
+    {
+        <section class="ai-panel" id="ai-assistant-panel" data-testid="ai-assistant-panel" aria-labelledby="ai-assistant-title">
+            <div class="ai-panel__header">
+                <div>
+                    <p class="ai-panel__eyebrow">Azure Foundry</p>
+                    <h2 id="ai-assistant-title">Ask about this content</h2>
+                </div>
+                <a class="ai-panel__settings" href="settings">Settings</a>
+            </div>
+            <p class="ai-panel__body">
+                The question is answered from the entries currently in view and loaded backlog knowledge.
+            </p>
+            <textarea class="ai-panel__question"
+                      data-testid="ai-question-input"
+                      rows="3"
+                      placeholder="What should I focus on next?"
+                      value="@_aiQuestion"
+                      @oninput="e => _aiQuestion = e.Value?.ToString() ?? string.Empty"
+                      @onkeydown="OnAiQuestionKeyDownAsync"></textarea>
+            <div class="ai-panel__actions">
+                <AppButton Variant="ButtonVariant.Secondary"
+                           data-testid="ai-ask-button"
+                           Disabled="@_aiBusy"
+                           OnClick="AskAiAsync">
+                    @(_aiBusy ? "Asking..." : "Ask")
+                </AppButton>
+            </div>
+            <Alert Message="@_aiError" BaseClass="ai-panel__error" TestId="ai-error" />
+            @if (_aiAnswer is not null)
+            {
+                <article class="ai-panel__answer" data-testid="ai-answer">
+                    <h3>Answer</h3>
+                    <p>@_aiAnswer</p>
+                </article>
+            }
+        </section>
+    }
+
+    <main class="knowledge-layout @((BacklogPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeBacklogVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
+        @if (InboxBeforeBacklogVisible)
+        {
+            <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" />
+        }
+
+        @if (BacklogPaneVisible)
+        {
+            <BacklogPane />
+        }
+
+        @if (RightSidePaneVisible)
+        {
+            @if (BacklogPaneVisible)
+            {
+                @* The pane edge is the handle. Dragging it is the obvious gesture, so
+                   the slider that used to sit inside the pane is gone; arrow keys on
+                   the same separator carry the keyboard equivalent. *@
+                <div class="pane-resizer"
+                     data-testid="side-pane-resizer"
+                     data-pane-resizer="true"
+                     role="separator"
+                     aria-orientation="vertical"
+                     aria-label="Side pane width"
+                     aria-valuemin="@MinSidePaneWidthRem"
+                     aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                     aria-valuenow="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                     tabindex="0"
+                     @onkeydown="OnResizerKeyDown"
+                     @onkeydown:preventDefault="true">
+                    <span class="pane-resizer__grip" aria-hidden="true"></span>
+                </div>
+            }
+
+            <aside @key=@("side-pane-stack") class="side-pane-stack @(BacklogPaneVisible ? string.Empty : "side-pane-stack--full") @(ToolsVisible ? "side-pane-stack--right-docked" : string.Empty)" data-testid="side-pane-stack" aria-label="Backlog side panes">
+                @if (!BacklogPaneVisible && InboxPaneVisible)
+                {
+                    <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" />
+                }
+
+                @if (ToolsVisible)
+                {
+                    @RenderToolsPane()
+                }
+
+                @if (KnowledgePaneVisible)
+                {
+                    <KnowledgePane RepositoryAlias="@State.SelectedRepositoryAlias" />
+                }
+            </aside>
+        }
+    </main>
+</div>
+
+@code {
+    private bool _toolsExpanded;
+    private bool _aiExpanded;
+    private readonly GlobalPaneSelection _globalPanes = new();
+    private double _knowledgePanelWidthRem = SidePaneWidth.DefaultRem;
+    private double _maxSidePaneWidthRem = SidePaneWidth.MaxRem;
+    private DotNetObjectReference<Home>? _selfReference;
+
+    private const double MinSidePaneWidthRem = SidePaneWidth.MinRem;
+    private bool _toolsLoading;
+    private string? _toolMessage;
+    private string? _toolActionKey;
+    private IReadOnlyList<CopilotToolInfo> _tools = [];
+    private string? _appUpdateMessage;
+    private string _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Unknown);
+    private bool _checkingForAppUpdate;
+    private bool _installingAppUpdate;
+    private bool _appUpdateReady;
+    private bool _appUpdateWindowOpen;
+    private bool _feedbackOpen;
+    private bool _feedbackSubmitting;
+    private bool _feedbackSucceeded;
+    private string _feedbackTitle = string.Empty;
+    private string _feedbackScreenArea = string.Empty;
+    private string _feedbackDetails = string.Empty;
+    private string? _feedbackMessage;
+    private string _aiQuestion = string.Empty;
+    private string? _aiAnswer;
+    private string? _aiError;
+    private bool _aiBusy;
+
+    private bool _updateBusy => _checkingForAppUpdate || _installingAppUpdate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.Changed += HandleStateChanged;
+        Features.Changed += HandleFeaturesChanged;
+        await State.InitializeAsync();
+        SynchronizePaneAvailability();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _selfReference = DotNetObjectReference.Create(this);
+        try
+        {
+            await JS.InvokeVoidAsync("backlogPaneResizer.initialize", _selfReference);
+        }
+        catch (Exception)
+        {
+            // Without the interop the separator still resizes by keyboard.
+        }
+    }
+
+    private bool ToolsVisible => IsFeatureEnabled(AppFeatureSettingsStore.SystemTools) && _toolsExpanded;
+
+    private void ToggleAiPanel() => _aiExpanded = !_aiExpanded;
+
+    private async Task AskAiAsync()
+    {
+        if (_aiBusy) return;
+
+        _aiBusy = true;
+        _aiError = null;
+        _aiAnswer = null;
+
+        try
+        {
+            var response = await AzureFoundryChat.AskAsync(new AzureFoundryChatRequest(BuildAiContent(), _aiQuestion));
+            _aiAnswer = response.Answer;
+        }
+        catch (AzureFoundryException ex)
+        {
+            _aiError = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _aiError = $"Azure Foundry could not be reached: {ex.Message}";
+        }
+        catch (TaskCanceledException)
+        {
+            _aiError = "Azure Foundry did not answer before the request timed out.";
+        }
+        finally
+        {
+            _aiBusy = false;
+        }
+    }
+
+    private Task OnAiQuestionKeyDownAsync(KeyboardEventArgs e) =>
+        e.Key == "Enter" && (e.CtrlKey || e.MetaKey) ? AskAiAsync() : Task.CompletedTask;
+
+    private string BuildAiContent()
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.AppendLine("Visible backlog entries:");
+        foreach (var row in State.FilteredRows.Where(row => !row.IsUntouched))
+        {
+            builder.AppendLine("---");
+            builder.AppendLine(row.RawText.Trim());
+        }
+
+        var content = builder.ToString().Trim();
+        return content.Length <= 12000 ? content : content[..12000];
+    }
+
+    private bool BacklogPaneVisible => _globalPanes.IsEnabled(GlobalPane.Backlog);
+
+    private bool InboxFeatureEnabled => IsFeatureEnabled(AppFeatureSettingsStore.InboxPane);
+
+    private bool InboxPaneOptionVisible => InboxFeatureEnabled;
+
+    private bool InboxPaneVisible => InboxPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Inbox);
+
+    /// <summary>Whether there is any knowledge to offer. The shell asks Second
+    /// Brain rather than working it out from folder settings itself.</summary>
+    private bool KnowledgePaneOptionVisible =>
+        IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge)
+        && Knowledge.VisibleAreas(State.SelectedRepositoryAlias).Count > 0;
+
+    private bool KnowledgePaneVisible => KnowledgePaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Knowledge);
+
+    private bool ToolActionBusy => _toolActionKey is not null;
+
+    private bool CanUpdateAnyTool => _tools.Any(tool => tool.CanUpdate);
+
+    private bool InboxBeforeBacklogVisible => BacklogPaneVisible && InboxPaneVisible;
+
+    private bool RightSidePaneVisible => ToolsVisible || KnowledgePaneVisible || (InboxPaneVisible && !BacklogPaneVisible);
+
+    private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
+    private string FeedbackStatusClass => $"feedback-status {(_feedbackSucceeded ? "feedback-status--ok" : "feedback-status--error")}";
+
+    private string FeedbackStatusRole => _feedbackSucceeded ? "status" : "alert";
+
+    private void OpenFeedbackDialog()
+    {
+        _feedbackOpen = true;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void CloseFeedbackDialog()
+    {
+        if (_feedbackSubmitting) return;
+
+        _feedbackOpen = false;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void OnFeedbackTitleInput(ChangeEventArgs e)
+    {
+        _feedbackTitle = e.Value?.ToString() ?? string.Empty;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void OnFeedbackDetailsInput(ChangeEventArgs e)
+    {
+        _feedbackDetails = e.Value?.ToString() ?? string.Empty;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void OnFeedbackScreenAreaInput(ChangeEventArgs e)
+    {
+        _feedbackScreenArea = e.Value?.ToString() ?? string.Empty;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private async Task SubmitFeedbackAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_feedbackTitle))
+        {
+            _feedbackSucceeded = false;
+            _feedbackMessage = "Add a short title before creating the issue.";
+            return;
+        }
+
+        _feedbackSubmitting = true;
+        _feedbackSucceeded = false;
+        _feedbackMessage = "Capturing a screenshot...";
+
+        GitHubFeedbackScreenshot? screenshot = null;
+        string? screenshotError = null;
+
+        try
+        {
+            screenshot = await JS.InvokeAsync<GitHubFeedbackScreenshot?>("backlogCaptureScreenshot");
+            if (screenshot is null)
+            {
+                screenshotError = "No screenshot was captured.";
+            }
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            screenshotError = ex.Message;
+        }
+
+        _feedbackMessage = "Creating the GitHub issue...";
+
+        try
+        {
+            var link = await GitHub.ReportFeedbackAsync(_feedbackTitle, _feedbackDetails, _feedbackScreenArea, screenshot, screenshotError);
+            _feedbackSucceeded = true;
+            _feedbackMessage = $"Created {link.RepoFullName}{link.Label}.";
+            _feedbackTitle = string.Empty;
+            _feedbackScreenArea = string.Empty;
+            _feedbackDetails = string.Empty;
+        }
+        catch (GitHubException ex)
+        {
+            _feedbackSucceeded = false;
+            _feedbackMessage = ex.Message;
+        }
+        finally
+        {
+            _feedbackSubmitting = false;
+        }
+    }
+
+    private RenderFragment RenderToolsPane() =>
+        @<section @key=@("tools-pane") class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
+            <header class="tools-panel__header">
+                <div>
+                    <p class="tools-panel__eyebrow">System tools</p>
+                    <h2 id="installed-tools-title" class="tools-panel__title">System tools</h2>
+                    <p class="tools-panel__subtitle">Configured and disabled Copilot plugins, repository tools, and MCP servers.</p>
+                </div>
+                <div class="tools-panel__header-actions">
+                    <span class="tools-panel__count">@(_tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools")</span>
+                    <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="OnToolsToggleAsync">✕</IconButton>
+                </div>
+            </header>
+
+            <div class="tools-panel__content" id="installed-tools-content">
+                <div class="tools-panel__toolbar">
+                    <p class="tools-panel__message" role="status">@(_toolMessage ?? "Checking configured tools...")</p>
+                    <div class="tools-panel__toolbar-actions">
+                        <AppButton Variant="ButtonVariant.Secondary" Disabled="@(_toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync">
+                            @(_toolsLoading ? "Checking..." : "Check for updates")
+                        </AppButton>
+                        <AppButton Variant="ButtonVariant.Primary" Disabled="@(_toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
+                            @(_toolActionKey == "__all__" ? "Updating..." : "Update all")
+                        </AppButton>
+                    </div>
+                </div>
+
+                @if (_toolsLoading && _tools.Count == 0)
+                {
+                    <p class="tools-panel__empty">Loading installed tool versions.</p>
+                }
+                else if (_tools.Count == 0)
+                {
+                    <p class="tools-panel__empty">No configured tools were found.</p>
+                }
+                else
+                {
+                    <div class="tools-table" role="table" aria-label="Configured Copilot tools">
+                        <div class="tools-table__row tools-table__row--head" role="row">
+                            <span role="columnheader">Tool</span>
+                            <span role="columnheader">Installed</span>
+                            <span role="columnheader">Available</span>
+                            <span role="columnheader">Actions</span>
+                        </div>
+
+                        @foreach (var tool in _tools)
+                        {
+                            <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" @key="tool.Key">
+                                <div role="cell" class="tools-table__tool">
+                                    <strong>@tool.Name</strong>
+                                    <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
+                                </div>
+                                <span role="cell" class="tools-table__version">@tool.InstalledVersion</span>
+                                <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
+                                <div role="cell" class="tools-table__actions">
+                                    @if (tool.CanUpdate)
+                                    {
+                                        <AppButton Variant="ButtonVariant.Secondary"
+                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                   OnClick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
+                                            Update
+                                        </AppButton>
+                                    }
+                                    else
+                                    {
+                                        <span class="tools-table__action-note">@(tool.ConfiguredEnabled ? "Up to date" : "Disabled")</span>
+                                    }
+                                    <AppButton Variant="ButtonVariant.Ghost"
+                                               Disabled="@(_toolsLoading || ToolActionBusy)"
+                                               OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
+                                        @(tool.ConfiguredEnabled ? "Disable" : "Enable")
+                                    </AppButton>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </section>;
+
+    private async Task OnToolsToggleAsync()
+    {
+        _toolsExpanded = !_toolsExpanded;
+        if (_toolsExpanded && _tools.Count == 0)
+        {
+            await RefreshToolsAsync();
+        }
+    }
+
+    private async Task RefreshToolsAsync()
+    {
+        _toolsLoading = true;
+        _toolMessage = null;
+        try
+        {
+            var catalog = await CopilotTools.ListAsync();
+            _tools = catalog.Tools;
+            _toolMessage = catalog.Message;
+        }
+        catch (Exception ex)
+        {
+            _toolMessage = $"Tools could not be checked: {ex.Message}";
+        }
+        finally
+        {
+            _toolsLoading = false;
+        }
+    }
+
+    private async Task UpdateAllToolsAsync()
+    {
+        _toolActionKey = "__all__";
+        try
+        {
+            var result = await CopilotTools.UpdateAllAsync();
+            _toolMessage = result.Message;
+            if (result.Succeeded)
+            {
+                await RefreshToolsAsync();
+            }
+        }
+        finally
+        {
+            _toolActionKey = null;
+        }
+    }
+
+    private async Task ApplyToolActionAsync(CopilotToolInfo tool, CopilotToolAction action)
+    {
+        _toolActionKey = tool.Key;
+        try
+        {
+            var result = action switch
+            {
+                CopilotToolAction.Update => await CopilotTools.UpdateAsync(tool.Key),
+                CopilotToolAction.Enable => await CopilotTools.EnableAsync(tool.Key),
+                CopilotToolAction.Disable => await CopilotTools.DisableAsync(tool.Key),
+                _ => CopilotToolActionResult.Failed("Unknown tool action.")
+            };
+
+            _toolMessage = result.Message;
+            if (result.Succeeded)
+            {
+                await RefreshToolsAsync();
+            }
+        }
+        finally
+        {
+            _toolActionKey = null;
+        }
+    }
+
+    private void HandleStateChanged() => _ = InvokeAsync(() =>
+    {
+        SynchronizePaneAvailability();
+        StateHasChanged();
+    });
+
+    private void HandleFeaturesChanged() => _ = InvokeAsync(() =>
+    {
+        SynchronizePaneAvailability();
+        StateHasChanged();
+    });
+
+    private void OpenUpdateWindow() => _appUpdateWindowOpen = true;
+
+    private void CloseUpdateWindow()
+    {
+        if (_updateBusy) return;
+
+        _appUpdateWindowOpen = false;
+    }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_updateBusy) return;
+
+        _checkingForAppUpdate = true;
+        _appUpdateMessage = null;
+        _appUpdateReady = false;
+
+        try
+        {
+            var result = await Updates.CheckForUpdateAsync();
+            _appUpdateReady = result.UpdateReady;
+            _appUpdateMessage = result.Message;
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(result.Availability);
+        }
+        catch
+        {
+            _appUpdateReady = false;
+            _appUpdateMessage = "The update check could not be completed.";
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
+        }
+        finally
+        {
+            _checkingForAppUpdate = false;
+        }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_updateBusy) return;
+
+        _installingAppUpdate = true;
+
+        try
+        {
+            var result = await Updates.StartUpdateAsync();
+            _appUpdateMessage = result.Message;
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(
+                result.Started ? AppUpdateAvailability.UpToDate : AppUpdateAvailability.Failed);
+            if (!result.Started) _appUpdateReady = false;
+        }
+        catch
+        {
+            _appUpdateMessage = "The update could not be installed.";
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
+        }
+        finally
+        {
+            _installingAppUpdate = false;
+        }
+    }
+
+    /// <summary>What the Inbox has to show, in the Inbox's own contract. The
+    /// shell only passes it along; the projection itself belongs to the context
+    /// that owns the entries.</summary>
+    private IReadOnlyList<InboxItem> InboxItems => BacklogDrafts.ForInbox(State.Rows);
+
+    private void SynchronizePaneAvailability()
+    {
+        _globalPanes.TrySetAvailable(GlobalPane.Backlog, available: true);
+        _globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);
+        _globalPanes.TrySetAvailable(GlobalPane.Knowledge, KnowledgePaneOptionVisible);
+    }
+
+    private bool PaneToggleDisabled(GlobalPane pane)
+    {
+        if (_globalPanes.IsEnabled(pane))
+        {
+            return !_globalPanes.CanDisable(pane);
+        }
+
+        return !_globalPanes.CanEnable(pane);
+    }
+
+    private void ToggleInboxPane() => _globalPanes.Toggle(GlobalPane.Inbox);
+
+    private void ToggleBacklogPane() => _globalPanes.Toggle(GlobalPane.Backlog);
+
+    private void ToggleKnowledgePane() => _globalPanes.Toggle(GlobalPane.Knowledge);
+
+    /// <summary>Triage: the Inbox hands back the item it was asked to open, and
+    /// the shell shows it where work actually happens.</summary>
+    private Task OpenInboxItemAsync(InboxItem item)
+    {
+        if (BacklogDrafts.Find(State.Rows, item) is not { } row) return Task.CompletedTask;
+
+        _globalPanes.TrySetEnabled(GlobalPane.Backlog, true);
+        State.BeginEdit(row);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The repository scope is global: it narrows the backlog list and,
+    /// through the alias handed to the pane, what knowledge is read beside it.</summary>
+    private void ToggleRepositoryScopeAsync(string repositoryAlias)
+    {
+        var nextAlias = string.Equals(State.SelectedRepositoryAlias, repositoryAlias, StringComparison.Ordinal)
+            ? string.Empty
+            : repositoryAlias;
+        State.SetRepositoryFilter(nextAlias);
+    }
+
+    [JSInvokable]
+    public Task SetSidePaneWidthAsync(double widthRem)
+    {
+        var clamped = SidePaneWidth.Clamp(widthRem, _maxSidePaneWidthRem);
+        if (Math.Abs(clamped - _knowledgePanelWidthRem) < 0.001) return Task.CompletedTask;
+
+        _knowledgePanelWidthRem = clamped;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    // How wide the pane may actually get depends on the window, which only the
+    // browser knows; without it the separator would keep counting past the edge.
+    [JSInvokable]
+    public Task SetSidePaneMaxWidthAsync(double maxRem)
+    {
+        var clamped = SidePaneWidth.Clamp(maxRem, SidePaneWidth.MaxRem);
+        var width = Math.Min(_knowledgePanelWidthRem, clamped);
+        if (Math.Abs(clamped - _maxSidePaneWidthRem) < 0.001 && Math.Abs(width - _knowledgePanelWidthRem) < 0.001)
+        {
+            return Task.CompletedTask;
+        }
+
+        _maxSidePaneWidthRem = clamped;
+        _knowledgePanelWidthRem = width;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task SetGlobalPaneCapacityAsync(int capacity)
+    {
+        if (!_globalPanes.TrySetCapacity(capacity))
+        {
+            return Task.CompletedTask;
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    // The drag lives in JavaScript because pointer capture does; the keyboard
+    // equivalent stays here so the separator has one clamped source of truth.
+    private void OnResizerKeyDown(KeyboardEventArgs e) =>
+        _knowledgePanelWidthRem = SidePaneWidth.Adjust(_knowledgePanelWidthRem, e.Key, _maxSidePaneWidthRem);
+
+    private static string Humanize(string enumName)
+    {
+        var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
+        return text.ToLowerInvariant();
+    }
+
+    public void Dispose()
+    {
+        State.Changed -= HandleStateChanged;
+        Features.Changed -= HandleFeaturesChanged;
+        _selfReference?.Dispose();
+        _selfReference = null;
+    }
+}

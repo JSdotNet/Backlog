@@ -1,0 +1,146 @@
+@inject DesignKnowledgeProvider DesignKnowledge
+
+<section class="design-knowledge" aria-labelledby="design-knowledge-title" data-testid="design-knowledge-view">
+    @if (_model is null)
+    {
+        <p class="design-knowledge__message" role="status">Loading design knowledge...</p>
+    }
+    else if (!_model.IsAvailable)
+    {
+        <header class="design-knowledge__header">
+            <p class="design-knowledge__eyebrow">Knowledge base</p>
+            <h2 id="design-knowledge-title">Design knowledge</h2>
+        </header>
+        <p class="design-knowledge__message" role="status">@_model.Message</p>
+        <a class="design-knowledge__settings" href="settings">Open repository settings</a>
+    }
+    else
+    {
+        <header class="design-knowledge__header">
+            <p class="design-knowledge__eyebrow">Knowledge base</p>
+            <h2 id="design-knowledge-title">Design knowledge</h2>
+            <p class="design-knowledge__source">
+                <span>@_model.RepositoryName</span>
+                <code>@_model.FolderPath</code>
+            </p>
+        </header>
+
+        @if (string.IsNullOrWhiteSpace(SelectedPath))
+        {
+            <nav class="design-knowledge__nav" aria-label="Design knowledge documents">
+                @foreach (var file in _model.Files)
+                {
+                    <a href="#@FileAnchor(file)" class="design-knowledge__nav-link">
+                        <span>@file.Title</span>
+                        <StatusBadge BaseClass="knowledge-status" Kind="" Status="@file.Meta.Status" />
+                    </a>
+                }
+            </nav>
+        }
+
+        <div class="design-knowledge__documents">
+            @foreach (var file in VisibleFiles())
+            {
+                <article class="design-document" id="@FileAnchor(file)">
+                    <header class="design-document__header">
+                        <div>
+                            <p class="design-document__file">@file.FileName</p>
+                            <h3>@file.Title</h3>
+                        </div>
+                        <StatusBadge BaseClass="knowledge-status" Kind="" Status="@file.Meta.Status" />
+                    </header>
+
+                    @if (!string.IsNullOrWhiteSpace(file.Summary))
+                    {
+                        <p class="design-document__summary">@file.Summary</p>
+                    }
+
+                    <DesignKnowledgeMetadata Meta="file.Meta" />
+
+                    @if (file.TokenTables.Any())
+                    {
+                        <section class="design-token-strip" aria-label="Design token highlights">
+                            @foreach (var table in file.TokenTables.Take(2))
+                            {
+                                @foreach (var row in table.Rows.Take(8))
+                                {
+                                    <div class="design-token" title="@TokenUsage(table, row)">
+                                        <span class="design-token__name">@TokenName(table, row)</span>
+                                        <span class="design-token__value">@TokenValue(table, row)</span>
+                                    </div>
+                                }
+                            }
+                        </section>
+                    }
+
+                    @foreach (var section in file.Sections)
+                    {
+                        <section class="design-section" id="@section.Anchor">
+                            <header class="design-section__header">
+                                <h4>@section.Heading</h4>
+                                <StatusBadge BaseClass="knowledge-status" Kind="" Status="@section.Meta.Status" />
+                            </header>
+                            <DesignKnowledgeMetadata Meta="section.Meta" />
+                            <KnowledgeBlocks Blocks="section.Blocks" DiagramTitle="@section.Heading" />
+                        </section>
+                    }
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private DesignKnowledgeModel? _model;
+    private string? _loadedRepositoryAlias;
+
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_model is not null && string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal)) return;
+
+        _model = await DesignKnowledge.LoadAsync(RepositoryAlias);
+        _loadedRepositoryAlias = RepositoryAlias;
+    }
+
+    private IReadOnlyList<DesignKnowledgeFile> VisibleFiles()
+    {
+        if (_model is null || string.IsNullOrWhiteSpace(SelectedPath)) return _model?.Files ?? [];
+
+        var selected = _model.Files.Where(file => PathMatches(file.FileName, SelectedPath)).ToArray();
+        return selected.Length == 0 ? _model.Files.Take(1).ToArray() : selected;
+    }
+
+    private static string FileAnchor(DesignKnowledgeFile file) =>
+        $"design-file-{Path.GetFileNameWithoutExtension(file.FileName).ToLowerInvariant()}";
+
+    private static bool PathMatches(string candidate, string selectedPath)
+    {
+        var candidatePath = NormalizePath(candidate);
+        var selected = NormalizePath(selectedPath);
+        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
+            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
+
+    private static string TokenName(DesignKnowledgeTable table, IReadOnlyList<string> row) =>
+        Cell(table, row, "Token") ?? row.FirstOrDefault() ?? string.Empty;
+
+    private static string TokenValue(DesignKnowledgeTable table, IReadOnlyList<string> row) =>
+        Cell(table, row, "Value") ?? Cell(table, row, "Value (dark)") ?? string.Empty;
+
+    private static string TokenUsage(DesignKnowledgeTable table, IReadOnlyList<string> row) =>
+        Cell(table, row, "Usage") ?? string.Empty;
+
+    private static string? Cell(DesignKnowledgeTable table, IReadOnlyList<string> row, string header)
+    {
+        var index = table.Headers.ToList().FindIndex(h => string.Equals(h, header, StringComparison.OrdinalIgnoreCase));
+        return index >= 0 && index < row.Count ? row[index] : null;
+    }
+}

@@ -1,3 +1,5 @@
+using Backlog.Modules.Backlog.Abstractions;
+
 namespace Backlog.Modules.Backlog.DomainModels;
 
 /// <summary>

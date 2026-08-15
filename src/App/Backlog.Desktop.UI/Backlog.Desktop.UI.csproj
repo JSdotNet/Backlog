@@ -21,7 +21,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\UI\Backlog.UI.Components\Backlog.UI.Components.csproj" />
-    <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+    <!-- The module's published surface only: DTOs, the entry text language, and
+         the IBacklogEntries port. The aggregate, its repository and the use-case
+         handlers stay behind that line — the host wires them up, the UI does not
+         see them. -->
+    <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog.Abstractions\Backlog.Modules.Backlog.Abstractions.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />

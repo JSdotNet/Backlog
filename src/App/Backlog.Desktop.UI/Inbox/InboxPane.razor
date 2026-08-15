@@ -1,0 +1,48 @@
+@*
+    The Inbox pane: what has been captured but not yet decided on. It renders
+    InboxItem and nothing else — the pane has no idea a backlog row exists, which
+    is what keeps triage a decision the Inbox owns rather than a view of someone
+    else's list.
+*@
+
+<section @key=@("inbox-pane") class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
+    <header class="inbox-pane__header">
+        <div>
+            <p class="inbox-pane__eyebrow">Global pane</p>
+            <h2 id="inbox-pane-title" class="inbox-pane__title">Inbox</h2>
+            <p class="inbox-pane__subtitle">Capture and triage drafts before they settle into the backlog and knowledge lanes.</p>
+        </div>
+    </header>
+
+    <div class="inbox-pane__content">
+        @if (Items.Count == 0)
+        {
+            <p class="inbox-pane__empty">Inbox is empty. New drafts appear here as soon as they are captured.</p>
+        }
+        else
+        {
+            <ul class="inbox-pane__list" data-testid="inbox-pane-list">
+                @foreach (var item in Items)
+                {
+                    <li class="inbox-pane__item" @key="item.Key">
+                        <div>
+                            <p class="inbox-pane__item-title">@(string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title)</p>
+                            <p class="inbox-pane__item-meta">Draft · @(string.IsNullOrWhiteSpace(item.Area) ? "Unfiled" : item.Area)</p>
+                        </div>
+                        <AppButton Variant="ButtonVariant.Ghost" OnClick="() => OnOpen.InvokeAsync(item)">Open in backlog</AppButton>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<InboxItem> Items { get; set; } = [];
+
+    /// <summary>Raised when somebody picks an item up. Where it goes next is the
+    /// receiving context's business, not the Inbox's.</summary>
+    [Parameter]
+    public EventCallback<InboxItem> OnOpen { get; set; }
+}

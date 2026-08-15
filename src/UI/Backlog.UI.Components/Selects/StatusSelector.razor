@@ -1,0 +1,39 @@
+@*
+    A status badge you can change. Deliberately string-in, string-out: a backlog
+    entry, an arc42 chapter and a domain document all show a status the same way,
+    but none of them agrees with the others on what the states are called. The
+    component owns the badge; the caller owns the vocabulary.
+*@
+
+<BadgeSelect CurrentValue="@CurrentValue"
+             Options="@Options"
+             Label="@Label"
+             TestId="@TestId"
+             Id="@Id"
+             Disabled="@Disabled"
+             BadgeKind="status"
+             FallbackSlug="draft"
+             OnChanged="OnChanged" />
+
+@code {
+    [Parameter]
+    public string CurrentValue { get; set; } = string.Empty;
+
+    [Parameter]
+    public IReadOnlyList<SelectorOption> Options { get; set; } = [];
+
+    [Parameter]
+    public string Label { get; set; } = "Change status";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnChanged { get; set; }
+}

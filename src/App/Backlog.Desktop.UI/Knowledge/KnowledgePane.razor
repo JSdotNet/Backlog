@@ -1,0 +1,305 @@
+@inject KnowledgeMenu KnowledgeMenu
+@inject KnowledgeFolderOpenService KnowledgeFolderOpen
+@inject KnowledgeScope Scope
+
+@*
+    The Second Brain pane. Everything it needs arrives as a repository alias:
+    which repository is being read follows the scope chosen above the backlog, so
+    the knowledge beside an entry is the knowledge of the repository that entry
+    belongs to — but the pane resolves that alias through KnowledgeScope rather
+    than reading backlog state, so nothing here knows an entry exists.
+*@
+
+<section @key=@("knowledge-pane") class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
+    @if (Scope.Repository(RepositoryAlias) is { } knowledgeRepository)
+    {
+        <p class="knowledge-stack__repository" data-testid="knowledge-repository">@knowledgeRepository.FullName</p>
+    }
+
+    <nav class="knowledge-stack__nav" aria-label="Knowledge sections" role="tablist">
+        @foreach (var area in VisibleAreas)
+        {
+            <button type="button"
+                    class="knowledge-stack__nav-item @(IsSectionActive(area.Key) ? "knowledge-stack__nav-item--active" : string.Empty)"
+                    role="tab"
+                    aria-selected="@(IsSectionActive(area.Key) ? "true" : "false")"
+                    aria-controls="knowledge-active-section"
+                    @onclick="() => SelectSection(area.Key)">
+                @area.Label
+            </button>
+        }
+    </nav>
+
+    <div class="knowledge-stack__body @(SectionUsesMenu ? string.Empty : "knowledge-stack__body--without-menu")">
+        @if (SectionUsesMenu)
+        {
+            <KnowledgeMenuTreeView HeadingLabel="@(VisibleAreas.FirstOrDefault(area => IsSectionActive(area.Key))?.Label ?? "Knowledge")"
+                                   RootFolder="ActiveMenuRoot"
+                                   Nodes="ActiveMenuNodes"
+                                   IsLoading="_menuLoading"
+                                   OpenErrorMessage="_folderOpenError"
+                                   IsNodeSelected="IsMenuNodeSelected"
+                                   IsNodeExpanded="IsMenuNodeExpanded"
+                                   NodeClass="MenuNodeClass"
+                                   IsFolderOpening="IsFolderOpening"
+                                   OnNodeSelected="SelectMenuNode"
+                                   OnOpenFolder="OpenFolderAsync" />
+        }
+
+        <div class="knowledge-stack__section" id="knowledge-active-section" role="tabpanel">
+            @RenderActiveSection()
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly HashSet<string> _expandedMenuNodes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _selectedChapterPaths = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _openingFolders = new(StringComparer.Ordinal);
+    private KnowledgeMenuTree _menuTree = KnowledgeMenuTree.Empty;
+    private string? _folderOpenError;
+    private bool _menuLoading;
+    private string _selectedSection = "instructions";
+    private string? _loadedMenuRepositoryAlias;
+    private string _loadedMenuVisibleKeyFingerprint = string.Empty;
+
+    /// <summary>The repository scope to read knowledge for, or empty/null for the
+    /// storage folder.</summary>
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    protected override async Task OnParametersSetAsync() => await RefreshMenuAsync();
+
+    private IReadOnlyList<KnowledgeArea> VisibleAreas => Scope.VisibleAreas(RepositoryAlias);
+
+    private string? ActiveRepositoryAlias => Scope.Repository(RepositoryAlias)?.Alias;
+
+    /// <summary>The section actually shown. A section can stop being available
+    /// (instructions turned off for this repository), and a tab panel pointing at
+    /// nothing is worse than one that has moved on to the next section.</summary>
+    private string EffectiveSection
+    {
+        get
+        {
+            var areas = VisibleAreas;
+            if (areas.Count == 0) return string.Empty;
+
+            return areas.Any(area => string.Equals(area.Key, _selectedSection, StringComparison.Ordinal))
+                ? _selectedSection
+                : areas[0].Key;
+        }
+    }
+
+    private bool IsSectionActive(string key) => string.Equals(EffectiveSection, key, StringComparison.Ordinal);
+
+    private IReadOnlyList<KnowledgeMenuNode> ActiveMenuNodes => ActiveMenuRoot switch
+    {
+        null => [],
+        { Children.Count: > 0 } root => root.Children,
+        var root => [root]
+    };
+
+    private KnowledgeMenuNode? ActiveMenuRoot =>
+        _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, EffectiveSection, StringComparison.Ordinal));
+
+    private bool SectionUsesMenu => !string.Equals(EffectiveSection, "tech", StringComparison.Ordinal);
+
+    private string? SelectedChapterPath =>
+        SectionUsesMenu && _selectedChapterPaths.TryGetValue(EffectiveSection, out var path) ? path : null;
+
+    private void SelectSection(string key)
+    {
+        _selectedSection = key;
+        _folderOpenError = null;
+        if (SectionUsesMenu)
+        {
+            EnsureSelectedChapter();
+        }
+    }
+
+    private void SelectMenuNode(KnowledgeMenuNode node)
+    {
+        if (!node.Available || node.Kind == KnowledgeMenuNodeKind.Message) return;
+
+        _selectedSection = node.AreaKey;
+        if (IsSelectableMenuNode(node))
+        {
+            _selectedChapterPaths[node.AreaKey] = node.Path;
+        }
+
+        if (!node.HasChildren) return;
+
+        var key = MenuNodeKey(node);
+        if (!_expandedMenuNodes.Add(key))
+        {
+            _expandedMenuNodes.Remove(key);
+        }
+    }
+
+    private bool IsMenuNodeExpanded(KnowledgeMenuNode node) => _expandedMenuNodes.Contains(MenuNodeKey(node));
+
+    private static bool IsSelectableMenuNode(KnowledgeMenuNode node) =>
+        node.Kind == KnowledgeMenuNodeKind.File || node.Path.EndsWith(".md", StringComparison.OrdinalIgnoreCase);
+
+    private static string MenuNodeKey(KnowledgeMenuNode node) => $"{node.AreaKey}:{node.Key}";
+
+    private bool IsMenuNodeSelected(KnowledgeMenuNode node) =>
+        string.Equals(SelectedChapterPath, node.Path, StringComparison.OrdinalIgnoreCase);
+
+    private string MenuNodeClass(KnowledgeMenuNode node) => string.Join(' ', new[]
+    {
+        "knowledge-menu__item",
+        node.Kind == KnowledgeMenuNodeKind.Folder ? "knowledge-menu__item--folder" : "knowledge-menu__item--file",
+        IsMenuNodeSelected(node) ? "knowledge-menu__item--active" : null,
+        !node.Available ? "knowledge-menu__item--unavailable" : null
+    }.Where(value => value is not null));
+
+    private bool IsFolderOpening(KnowledgeMenuNode node) => _openingFolders.Contains(MenuNodeKey(node));
+
+    private async Task OpenFolderAsync(KnowledgeMenuNode node)
+    {
+        if (node.Kind != KnowledgeMenuNodeKind.Folder || !node.Available) return;
+
+        var key = MenuNodeKey(node);
+        _folderOpenError = null;
+        _openingFolders.Add(key);
+        try
+        {
+            await KnowledgeFolderOpen.OpenAsync(node.AreaKey, node.Path, ActiveRepositoryAlias);
+        }
+        catch (KnowledgeFolderOpenException ex)
+        {
+            _folderOpenError = BuildFolderOpenError(node.Label, ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _folderOpenError = BuildFolderOpenError(node.Label, ex.Message);
+        }
+        finally
+        {
+            _openingFolders.Remove(key);
+        }
+    }
+
+    private static string BuildFolderOpenError(string label, string details) => $"Couldn't open {label} in VS Code. {details}";
+
+    /// <summary>Reloads the menu when the scope or the set of visible sections
+    /// has actually moved; re-reading the disk on every render would make a tab
+    /// click cost a folder walk.</summary>
+    private async Task RefreshMenuAsync()
+    {
+        var repositoryAlias = ActiveRepositoryAlias;
+        var visibleKeys = VisibleAreas.Select(area => area.Key).ToArray();
+        var fingerprint = string.Join("|", visibleKeys);
+        if (string.Equals(_loadedMenuRepositoryAlias, repositoryAlias, StringComparison.Ordinal)
+            && string.Equals(_loadedMenuVisibleKeyFingerprint, fingerprint, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _menuLoading = true;
+        try
+        {
+            _menuTree = await KnowledgeMenu.LoadAsync(visibleKeys, repositoryAlias);
+            _loadedMenuRepositoryAlias = repositoryAlias;
+            _loadedMenuVisibleKeyFingerprint = fingerprint;
+
+            var selectedVisible = visibleKeys.Contains(_selectedSection, StringComparer.Ordinal);
+            if (!selectedVisible && visibleKeys.Length > 0)
+            {
+                _selectedSection = visibleKeys[0];
+            }
+
+            foreach (var root in _menuTree.Roots)
+            {
+                _expandedMenuNodes.Add(MenuNodeKey(root));
+            }
+
+            EnsureSelectedChapter();
+        }
+        finally
+        {
+            _menuLoading = false;
+        }
+    }
+
+    private void EnsureSelectedChapter()
+    {
+        var root = ActiveMenuRoot;
+        if (root is null) return;
+
+        var selectedPath = SelectedChapterPath;
+        if (selectedPath is null || !ContainsPath(root, selectedPath))
+        {
+            var first = PreferredChapter(root) ?? FirstSelectableChapter(root);
+            if (first is not null)
+            {
+                _selectedChapterPaths[root.AreaKey] = first.Path;
+                selectedPath = first.Path;
+            }
+        }
+
+        ExpandAncestorsToSelected(root.Children, selectedPath);
+    }
+
+    private void ExpandAncestorsToSelected(IEnumerable<KnowledgeMenuNode> nodes, string? selectedPath)
+    {
+        if (string.IsNullOrWhiteSpace(selectedPath)) return;
+
+        foreach (var node in nodes.Where(node => node.HasChildren && ContainsPath(node, selectedPath)))
+        {
+            _expandedMenuNodes.Add(MenuNodeKey(node));
+            ExpandAncestorsToSelected(node.Children, selectedPath);
+        }
+    }
+
+    private static KnowledgeMenuNode? PreferredChapter(KnowledgeMenuNode root) => root.AreaKey switch
+    {
+        "domain" => FindSelectableChapter(root, "context-map.md"),
+        _ => null
+    };
+
+    private static KnowledgeMenuNode? FindSelectableChapter(KnowledgeMenuNode node, string path)
+    {
+        if (IsSelectableMenuNode(node) && node.Available && string.Equals(node.Path, path, StringComparison.OrdinalIgnoreCase)) return node;
+
+        foreach (var child in node.Children)
+        {
+            var selected = FindSelectableChapter(child, path);
+            if (selected is not null) return selected;
+        }
+
+        return null;
+    }
+
+    private static KnowledgeMenuNode? FirstSelectableChapter(KnowledgeMenuNode node)
+    {
+        if (IsSelectableMenuNode(node) && node.Available) return node;
+
+        foreach (var child in node.Children)
+        {
+            var selected = FirstSelectableChapter(child);
+            if (selected is not null) return selected;
+        }
+
+        return null;
+    }
+
+    private static bool ContainsPath(KnowledgeMenuNode node, string selectedPath) =>
+        string.Equals(node.Path, selectedPath, StringComparison.OrdinalIgnoreCase)
+        || node.Children.Any(child => ContainsPath(child, selectedPath));
+
+    private RenderFragment RenderActiveSection()
+    {
+        return EffectiveSection switch
+        {
+            "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
+            "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
+            "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
+            "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" />,
+            "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
+            "backlog" => @<p class="knowledge-empty" role="status">Select a backlog folder in the knowledge menu, or open it in VS Code.</p>,
+            _ => @<p class="knowledge-empty" role="status">Turn on knowledge sections in Settings to read repository knowledge here.</p>
+        };
+    }
+}

@@ -1,7 +1,6 @@
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.DomainModels;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Desktop.UI.Services;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -64,7 +63,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `@backlog`\n");
         await harness.State.PushToGitHubAsync(row);
 
-        var reloaded = new BacklogDesktopState(harness.Store, harness.Integration);
+        var reloaded = BacklogTestHost.StateFor(harness.Store, harness.Integration);
         await reloaded.InitializeAsync();
 
         var reloadedRow = Assert.Single(reloaded.Rows);
@@ -270,7 +269,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var client = new FakeGitHubClient();
         var integration = new GitHubIntegration(settings, client, new FakeProbe());
 
-        return new Harness(new BacklogDesktopState(store, integration), client, store, integration);
+        return new Harness(BacklogTestHost.StateFor(store, integration), client, store, integration);
     }
 
     private sealed record Harness(
