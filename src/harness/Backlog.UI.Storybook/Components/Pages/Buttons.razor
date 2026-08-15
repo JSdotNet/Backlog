@@ -3,10 +3,10 @@
 <PageTitle>Buttons — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Buttons"
-           Summary="One button component with variants and sizes, plus the three shapes built on the same conventions.">
+           Summary="One button component with four variants and two sizes, plus the three shapes built on the same conventions.">
 
     <Story Name="Variants and sizes"
-           Description="Variant and size are modifiers on the same button, so any combination is valid."
+           Description="Variant and size are modifiers on the same button, so any combination is valid. There are two sizes because the product uses two — an earlier third, Medium, emitted a .btn--medium class that no stylesheet defined, so it rendered identically to the default."
            Code="@VariantCode">
         <div class="sb-stack">
             @foreach (var size in Sizes)
@@ -24,12 +24,12 @@
     </Story>
 
     <Story Name="Unmodified"
-           Description="ButtonVariant.None and ButtonSize.None emit no modifier at all — the escape hatch for a host that already dresses plain `.btn` itself and would be restyled by a modifier it never asked for."
+           Description="ButtonVariant.None and ButtonSize.Default emit no modifier at all — the escape hatch for a host that already dresses plain `.btn` itself and would be restyled by a modifier it never asked for."
            Code="@NoneCode">
         <div class="sb-row">
             <AppButton Variant="ButtonVariant.None" OnClick="Count">Plain btn</AppButton>
             <AppButton Variant="ButtonVariant.None" Size="ButtonSize.Small" OnClick="Count">Plain btn, small</AppButton>
-            <AppButton Variant="ButtonVariant.Secondary" Size="ButtonSize.None" OnClick="Count">Secondary, no size</AppButton>
+            <AppButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Default" OnClick="Count">Secondary, default size</AppButton>
         </div>
     </Story>
 
@@ -72,6 +72,32 @@
         <p class="sb-state">Clicks: @_clicks</p>
     </Story>
 
+    <Story Name="IconButton with real tool icons"
+           Description="The icons an entry actually offers: open in an editor, hand the entry to an assistant, copy it, or run it through the gh CLI. Every glyph is inline SVG using currentColor, so it inherits the button's colour and its states, and nothing is fetched at runtime — the shipping heads are offline-capable."
+           Code="@ToolIconCode">
+        <div class="sb-row">
+            @foreach (var tool in Tools)
+            {
+                <IconButton AriaLabel="@tool.Label"
+                            Title="@tool.Label"
+                            TestId="@($"tool-{tool.Key}")"
+                            OnClick="() => Invoke(tool)">
+                    @ToolIcon(tool.Key)
+                </IconButton>
+            }
+        </div>
+        <div class="sb-row">
+            @foreach (var tool in Tools)
+            {
+                <AppButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" OnClick="() => Invoke(tool)">
+                    <Icon>@ToolIcon(tool.Key)</Icon>
+                    <ChildContent>@tool.Label</ChildContent>
+                </AppButton>
+            }
+        </div>
+        <p class="sb-state" data-testid="tool-invoked">@(_invoked is null ? "Nothing invoked yet." : $"Invoked: {_invoked}")</p>
+    </Story>
+
     <Story Name="ButtonGroup"
            Description="Related actions in one labelled group."
            Code="@GroupCode">
@@ -101,8 +127,73 @@
     private static readonly ButtonVariant[] Variants =
         [ButtonVariant.Primary, ButtonVariant.Secondary, ButtonVariant.Ghost, ButtonVariant.Danger];
 
-    private static readonly ButtonSize[] Sizes =
-        [ButtonSize.None, ButtonSize.Small, ButtonSize.Medium];
+    private static readonly ButtonSize[] Sizes = Enum.GetValues<ButtonSize>();
+
+    private sealed record Tool(string Key, string Label);
+
+    private static readonly IReadOnlyList<Tool> Tools =
+    [
+        new("vscode", "Open in VS Code"),
+        new("claude", "Ask Claude"),
+        new("copilot", "Ask GitHub Copilot"),
+        new("clipboard", "Copy to clipboard"),
+        new("gh", "Run with GitHub CLI")
+    ];
+
+    private string? _invoked;
+
+    private void Invoke(Tool tool)
+    {
+        _invoked = tool.Label;
+        _clicks++;
+    }
+
+    /// <summary>
+    /// Each mark is drawn from primitives rather than copied from a brand asset:
+    /// a storybook is the wrong place to vendor five companies' trademarked SVGs,
+    /// and stroke="currentColor" is what makes them inherit the button's hover,
+    /// focus and disabled colours instead of fighting them.
+    /// </summary>
+    private static RenderFragment ToolIcon(string key) => key switch
+    {
+        // Angled brackets around a caret: an editor.
+        "vscode" => @<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                          stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                         <path d="M5.5 4.5 2 8l3.5 3.5" />
+                         <path d="m10.5 2.5 3 1.4v8.2l-3 1.4-5-4.5z" />
+                     </svg>,
+
+        // Radiating spokes: the Claude burst.
+        "claude" => @<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                          stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false">
+                         <path d="M8 2v3.2M8 10.8V14M2 8h3.2M10.8 8H14" />
+                         <path d="m3.8 3.8 2.3 2.3M9.9 9.9l2.3 2.3M12.2 3.8 9.9 6.1M6.1 9.9l-2.3 2.3" />
+                     </svg>,
+
+        // Goggles: the Copilot face.
+        "copilot" => @<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                           stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false">
+                          <path d="M2.4 9.2c0-2 1.3-3.4 2.9-3.4 1.1 0 1.9.6 2.7.6s1.6-.6 2.7-.6c1.6 0 2.9 1.4 2.9 3.4 0 2.3-2.3 3.6-5.6 3.6S2.4 11.5 2.4 9.2Z" />
+                          <path d="M4.6 5.8C5 4.2 6 3.2 8 3.2s3 1 3.4 2.6" />
+                          <path d="M6.2 9.4v.9M9.8 9.4v.9" />
+                      </svg>,
+
+        // Two offset sheets.
+        "clipboard" => @<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                            <rect x="5.75" y="5.75" width="7.5" height="7.5" rx="1.5" />
+                            <path d="M10.25 5.75V4.25a1.5 1.5 0 0 0-1.5-1.5h-4.5a1.5 1.5 0 0 0-1.5 1.5v4.5a1.5 1.5 0 0 0 1.5 1.5h1.5" />
+                        </svg>,
+
+        // A terminal prompt: gh is the command line.
+        "gh" => @<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                      stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                     <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2" />
+                     <path d="m4.75 6.5 2 1.75-2 1.75M8.75 10.25h3" />
+                 </svg>,
+
+        _ => @<span aria-hidden="true">?</span>
+    };
 
     private int _clicks;
     private bool _busy;
@@ -124,7 +215,14 @@
         """;
 
     private const string NoneCode = """
-        <AppButton Variant="ButtonVariant.None" Size="ButtonSize.None">Plain btn</AppButton>
+        <AppButton Variant="ButtonVariant.None" Size="ButtonSize.Default">Plain btn</AppButton>
+        """;
+
+    private const string ToolIconCode = """
+        <IconButton AriaLabel="Open in VS Code" Title="Open in VS Code" OnClick="OpenInEditor">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                 stroke-width="1.6" aria-hidden="true" focusable="false">...</svg>
+        </IconButton>
         """;
 
     private const string BusyCode = """

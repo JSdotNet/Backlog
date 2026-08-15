@@ -2,11 +2,18 @@
     One live example. The test id is derived from the story name so Playwright
     can address a story by what it is called on screen, without the page having
     to invent and maintain a second set of identifiers.
+
+    The same slug is the element id, so every story has a permalink. Fifty-odd
+    stories is well past the point where "the third one down on the layout page"
+    is a usable way to point at one in review.
 *@
 
-<section class="sb-story" data-testid="@("story-" + Slug(Name))" aria-label="@Name">
+<section id="@Anchor" class="sb-story" data-testid="@("story-" + Anchor)" aria-label="@Name">
     <header class="sb-story__header">
-        <h2 class="sb-story__name">@Name</h2>
+        <h2 class="sb-story__name">
+            @Name
+            <a class="sb-story__anchor" href="@($"#{Anchor}")" aria-label="@($"Link to the {Name} story")">#</a>
+        </h2>
         @if (!string.IsNullOrWhiteSpace(Description))
         {
             <p class="sb-story__description">@Description</p>
@@ -37,6 +44,8 @@
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    private string Anchor => Slug(Name);
 
     internal static string Slug(string? value)
     {

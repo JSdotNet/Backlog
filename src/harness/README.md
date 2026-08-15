@@ -28,6 +28,13 @@ Use it to review a component, and to test one without starting the application.
 - No feature may live here. A harness contains only hosting glue: `Program.cs`,
   a root `App.razor`, and configuration. If behaviour is worth testing, it belongs
   in the component library or the module.
+- **`Backlog.UI.Storybook` is the one exception, and only for stories.** Its pages
+  *are* its hosting glue — a storybook with no stories hosts nothing. What it may
+  contain is examples, the chrome that frames them (`Story`, `StoryPage`,
+  `StorybookIndex`, `app.css`, `storybook.js`), and nothing else. Any logic worth
+  testing still belongs in the library: a story sets up a component and shows it,
+  and if a page starts needing behaviour of its own, that behaviour is a component
+  the library is missing.
 - `Directory.Build.props` in this folder marks every project `IsPublishable=false`,
   `IsPackable=false`, and `IsShippingAssembly=false`, so publishing one fails.
 - The release workflow only publishes from `src/App/`.

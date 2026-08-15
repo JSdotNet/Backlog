@@ -19,17 +19,31 @@ public sealed class AppButtonTests
     }
 
     [Fact]
-    public void None_variant_and_none_size_emit_no_modifier_at_all()
+    public void None_variant_and_default_size_emit_no_modifier_at_all()
     {
         // A host that already dresses plain `.btn` would be restyled by a
-        // modifier it never asked for, so None has to stay silent.
+        // modifier it never asked for, so both have to stay silent.
         using var context = new BunitContext();
 
         var button = context.Render<AppButton>(parameters => parameters
             .Add(b => b.Variant, ButtonVariant.None)
-            .Add(b => b.Size, ButtonSize.None));
+            .Add(b => b.Size, ButtonSize.Default));
 
         Assert.Equal("btn", button.Find("button").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void The_default_size_is_the_one_that_emits_nothing()
+    {
+        // There is no third size. `.btn` carries the default metrics, so the only
+        // size modifier that exists is the small one.
+        using var context = new BunitContext();
+
+        var button = context.Render<AppButton>(parameters => parameters
+            .Add(b => b.Variant, ButtonVariant.None));
+
+        Assert.Equal("btn", button.Find("button").GetAttribute("class"));
+        Assert.Equal([ButtonSize.Default, ButtonSize.Small], Enum.GetValues<ButtonSize>());
     }
 
     [Fact]

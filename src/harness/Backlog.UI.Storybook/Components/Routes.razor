@@ -1,6 +1,18 @@
+@using Backlog.UI.Storybook.Components.Pages
+
 <Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
         <RouteView RouteData="routeData" DefaultLayout="typeof(Backlog.UI.Storybook.Components.Layout.MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
+    @*
+        Covers navigation from inside the storybook. A URL typed straight into
+        the address bar is 404'd by ASP.NET before the Router runs, which
+        Program.cs re-executes onto the same page.
+    *@
+    <NotFound>
+        <LayoutView Layout="typeof(Backlog.UI.Storybook.Components.Layout.MainLayout)">
+            <NotFoundPage />
+        </LayoutView>
+    </NotFound>
 </Router>

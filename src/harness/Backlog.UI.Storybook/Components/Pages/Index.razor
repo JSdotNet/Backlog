@@ -35,17 +35,26 @@
                 Under the AppHost it is the <code>ui-storybook</code> resource. It starts
                 automatically and waits for nothing, because it depends on nothing.
             </p>
+            <p>
+                Standalone, Kestrel picks the port and prints it. Diagrams fetch mermaid and
+                G6 from a CDN on first use, so on a machine with no egress the
+                <a href="diagrams">Diagrams</a> and <a href="graph-explorer">Graph explorer</a>
+                pages fall back to showing their source instead of a picture. Everything else
+                renders offline.
+            </p>
         </div>
     </Story>
 
     <Story Name="Component groups"
-           Description="One page per folder in the library.">
+           Description="Grouped by what the components do. Foundations comes first: everything below is built from those tokens.">
+        @* The loop variable is not called "page": Razor reads @page.Href as the
+           @page directive and the file stops compiling. *@
         <div class="sb-grid">
-            @foreach (var link in Pages)
+            @foreach (var link in StorybookIndex.ComponentPages)
             {
                 <a class="sb-card-link" href="@link.Href">
                     <span class="sb-card-link__title">@link.Title</span>
-                    <span class="sb-card-link__text">@link.Text</span>
+                    <span class="sb-card-link__text">@link.Summary</span>
                 </a>
             }
         </div>
@@ -61,21 +70,4 @@
         # with everything else
         aspire run
         """;
-
-    private sealed record PageLink(string Href, string Title, string Text);
-
-    private static readonly IReadOnlyList<PageLink> Pages =
-    [
-        new("/buttons", "Buttons", "AppButton, IconButton, ButtonGroup, ToggleButton."),
-        new("/markdown", "Markdown", "The parser and the read view, side by side with an editor."),
-        new("/diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
-        new("/graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
-        new("/menus", "Menus", "TreeView, MenuList, ContextMenu, NavList."),
-        new("/selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect, SearchBox."),
-        new("/inputs", "Inputs", "TextField, TextArea, SearchBox, Toggle, Checkbox."),
-        new("/badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge."),
-        new("/feedback", "Feedback", "Alert, EmptyState, Spinner, SaveIndicator, Toast."),
-        new("/overlays", "Overlays", "Modal and ConfirmDialog."),
-        new("/layout", "Layout", "Tabs, Card, SectionHeader, FoldControl, SplitPane.")
-    ];
 }

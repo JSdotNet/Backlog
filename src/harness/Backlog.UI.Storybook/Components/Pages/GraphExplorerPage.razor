@@ -5,22 +5,42 @@
 <StoryPage Title="Graph explorer"
            Summary="GraphExplorer draws a node/edge model in one of three layouts — lanes, spine and cluster — with view tabs, zoom, panning and a legend around it. Every word on screen arrives in the model, so the stories below are a delivery team rather than anything the app happens to show.">
 
-    <Story Name="Three views over one model"
-           Description="One model, three views. The tabs switch layout, the zoom controls scale the viewport, and selecting a card spotlights its direct neighbours and mutes the rest."
-           Code="@ExplorerCode">
-        <GraphExplorer Title="Delivery crew"
-                       Description="People and the work they are on, drawn three ways."
-                       BadgeText="demo"
-                       Data="CrewModel"
-                       AriaLabel="Delivery crew explorer" />
+    @*
+        One story per layout. They used to share a single explorer whose tabs
+        switched between them, which meant only the default view was ever on
+        screen: reviewing the spine or the cluster took a click, and a screenshot
+        or a Playwright run only ever caught the one. Each story below opens on
+        its own layout, over the same model, so all three can be compared at once.
+    *@
+
+    <Story Name="Lanes"
+           Description="One column per group, cards stacked inside it. The layout for a board: what everything is doing right now, side by side."
+           Code="@LanesCode">
+        <GraphExplorer Title="Delivery crew — board"
+                       Description="Lanes by what each person's work is doing."
+                       BadgeText="lanes"
+                       Data="BoardModel"
+                       AriaLabel="Delivery crew board" />
     </Story>
 
-    <Story Name="One group only"
-           Description="A model with a single group still gets a lane, a header and a count. Nothing collapses and nothing special-cases: one group is just the smallest interesting graph.">
-        <GraphExplorer Title="Single squad"
-                       Description="One lane, four people, no edges."
-                       Data="SingleGroupModel"
-                       AriaLabel="Single squad explorer" />
+    <Story Name="Spine"
+           Description="A trunk with branches off it. The layout for a hierarchy: one list down the middle, its members hanging off either side."
+           Code="@SpineCode">
+        <GraphExplorer Title="Delivery crew — squads"
+                       Description="The squad list as a spine, with its people branching off."
+                       BadgeText="spine"
+                       Data="SpineModel"
+                       AriaLabel="Delivery crew squads" />
+    </Story>
+
+    <Story Name="Cluster"
+           Description="Free-placed groups with edges drawn between members. The layout for a network: who is connected to whom, rather than what belongs where. Drag to pan, or focus the map and use the arrow keys."
+           Code="@ClusterCode">
+        <GraphExplorer Title="Delivery crew — disciplines"
+                       Description="Clustered by discipline, with pairings drawn between people."
+                       BadgeText="cluster"
+                       Data="ClusterModel"
+                       AriaLabel="Delivery crew disciplines" />
     </Story>
 
     <Story Name="Nothing to draw"
@@ -60,49 +80,41 @@
 
     // Declared before the models that use them: static field initializers run in
     // textual order, so a model built above these would capture nulls.
+    // Status colours arrive as data — the library never learns what a status
+    // means — so these are literal hex rather than var(). They are palette
+    // values: primary-light, secondary, primary-dark and text-disabled. The demo
+    // used to carry its own amber, blue, green and red, which put four more hues
+    // on screen than the product has.
+    //
+    // Not the semantic four: those are dark surfaces meant to sit *behind* text,
+    // and here the colour is a thin status stripe on a card, which needs to be
+    // visible as a line rather than readable as a panel.
+    private const string StatusPlanned = "#FFD166";
+    private const string StatusBuilding = "#F2C14E";
+    private const string StatusShipped = "#ADB5BD";
+    private const string StatusPaused = "#6C757D";
+    private const string StatusFallback = "#64748B";
+
     private static readonly object Legend = new object[]
     {
-        new { key = "planned", label = "planned", color = "#f59e0b" },
-        new { key = "building", label = "building", color = "#38bdf8" },
-        new { key = "shipped", label = "shipped", color = "#22c55e" },
-        new { key = "paused", label = "paused", color = "#ef4444" }
+        new { key = "planned", label = "planned", color = StatusPlanned },
+        new { key = "building", label = "building", color = StatusBuilding },
+        new { key = "shipped", label = "shipped", color = StatusShipped },
+        new { key = "paused", label = "paused", color = StatusPaused }
     };
 
     private static readonly object StatusColors = new
     {
-        planned = "#f59e0b",
-        building = "#38bdf8",
-        shipped = "#22c55e",
-        paused = "#ef4444"
+        planned = StatusPlanned,
+        building = StatusBuilding,
+        shipped = StatusShipped,
+        paused = StatusPaused
     };
 
-    private static readonly object CrewModel = BuildModel(Crew, Pairings);
-
-    private static readonly object SingleGroupModel = new
-    {
-        nodes = Crew.Take(4).Select(ToNode).ToArray(),
-        edges = Array.Empty<object>(),
-        views = new object[]
-        {
-            new
-            {
-                id = "squad",
-                label = "Squad",
-                hint = "Everyone in one lane.",
-                layout = "lanes",
-                groups = new object[]
-                {
-                    new { key = "payments", label = "Payments", nodeIds = Crew.Take(4).Select(person => person.Id).ToArray() }
-                }
-            }
-        },
-        defaultViewId = "squad",
-        legend = Legend,
-        statusColors = StatusColors,
-        defaultStatusColor = "#38bdf8",
-        itemNoun = "people",
-        selectionHint = "Select a card to spotlight who it pairs with."
-    };
+    // One model per layout, each opening on itself.
+    private static readonly object BoardModel = SingleViewModel(Crew, Pairings, "board");
+    private static readonly object SpineModel = SingleViewModel(Crew, Pairings, "squads");
+    private static readonly object ClusterModel = SingleViewModel(Crew, Pairings, "disciplines");
 
     private static readonly object EmptyModel = new
     {
@@ -120,42 +132,51 @@
         description = person.Description
     };
 
-    private static object BuildModel(IReadOnlyList<DemoNode> people, IReadOnlyList<(string Source, string Target)> pairs) => new
+    /// <summary>The three views, each keyed by its id so a model can take all of
+    /// them or exactly one.</summary>
+    private static Dictionary<string, object> ViewsFor(IReadOnlyList<DemoNode> people) => new()
+    {
+        ["board"] = new
+        {
+            id = "board",
+            label = "Board",
+            hint = "Lanes are what each person's work is doing right now.",
+            layout = "lanes",
+            groups = GroupsBy(people, person => person.Status, Capitalize)
+        },
+        ["squads"] = new
+        {
+            id = "squads",
+            label = "Squads",
+            hint = "The spine is the squad list, with its people branching off it.",
+            layout = "spine",
+            groups = GroupsBy(people, person => person.Squad, label => label)
+        },
+        ["disciplines"] = new
+        {
+            id = "disciplines",
+            label = "Disciplines",
+            hint = "Clustered by discipline, with pairings drawn between people.",
+            layout = "cluster",
+            ariaLabel = "Clustered crew map with pairings. Drag the map to pan, or focus it and use arrow keys.",
+            groups = GroupsBy(people, person => person.Discipline, label => label)
+        }
+    };
+
+    /// <summary>The same crew with one view only, so a story opens straight onto
+    /// the layout it is about rather than behind a tab.</summary>
+    private static object SingleViewModel(
+        IReadOnlyList<DemoNode> people,
+        IReadOnlyList<(string Source, string Target)> pairs,
+        string viewId) => new
     {
         nodes = people.Select(ToNode).ToArray(),
         edges = pairs.Select(pair => new { source = pair.Source, target = pair.Target }).ToArray(),
-        views = new object[]
-        {
-            new
-            {
-                id = "board",
-                label = "Board",
-                hint = "Lanes are what each person's work is doing right now.",
-                layout = "lanes",
-                groups = GroupsBy(people, person => person.Status, Capitalize)
-            },
-            new
-            {
-                id = "squads",
-                label = "Squads",
-                hint = "The spine is the squad list, with its people branching off it.",
-                layout = "spine",
-                groups = GroupsBy(people, person => person.Squad, label => label)
-            },
-            new
-            {
-                id = "disciplines",
-                label = "Disciplines",
-                hint = "Clustered by discipline, with pairings drawn between people.",
-                layout = "cluster",
-                ariaLabel = "Clustered crew map with pairings. Drag the map to pan, or focus it and use arrow keys.",
-                groups = GroupsBy(people, person => person.Discipline, label => label)
-            }
-        },
-        defaultViewId = "squads",
+        views = new[] { ViewsFor(people)[viewId] },
+        defaultViewId = viewId,
         legend = Legend,
         statusColors = StatusColors,
-        defaultStatusColor = "#38bdf8",
+        defaultStatusColor = StatusFallback,
         itemNoun = "people",
         selectionHint = "Select a card to spotlight who it pairs with."
     };
@@ -177,8 +198,23 @@
     private static string Capitalize(string value) =>
         string.IsNullOrEmpty(value) ? value : char.ToUpperInvariant(value[0]) + value[1..];
 
-    private const string ExplorerCode = """
-        <GraphExplorer Title="Delivery crew"
-                       Data="new { nodes = ..., edges = ..., views = [ { layout = "lanes" }, ... ] }" />
+    private const string LanesCode = """
+        // One view, layout "lanes": a column per group.
+        views = new[] { new { id = "board", label = "Board", layout = "lanes", groups = ... } },
+        defaultViewId = "board"
         """;
+
+    private const string SpineCode = """
+        // layout "spine": a trunk of groups with members branching off it.
+        views = new[] { new { id = "squads", label = "Squads", layout = "spine", groups = ... } },
+        defaultViewId = "squads"
+        """;
+
+    private const string ClusterCode = """
+        // layout "cluster": free-placed groups, edges drawn between members.
+        views = new[] { new { id = "disciplines", label = "Disciplines", layout = "cluster", groups = ... } },
+        defaultViewId = "disciplines"
+        """;
+
+
 }

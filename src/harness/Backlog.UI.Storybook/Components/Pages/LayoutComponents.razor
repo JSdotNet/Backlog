@@ -109,7 +109,7 @@
     </Story>
 
     <Story Name="FoldControl"
-           Description="A disclosure bound to page state, so a host can remember what was open across navigations."
+           Description="ChildContent is the region that folds, and the trigger shows and hides it. It used to be the label instead, so this example rendered a Toggle and a TextField inside the <button> and clicking folded nothing — the control looked misaligned because form controls were being laid out inside a trigger, and looked dead because there was no region."
            Code="@FoldCode">
         <div class="sb-stack">
             <FoldControl Expanded="_foldOpen"
@@ -125,6 +125,21 @@
                 <p>Never reachable.</p>
             </FoldControl>
             <p class="sb-state" data-testid="fold-state">Expanded: @_foldOpen</p>
+        </div>
+    </Story>
+
+    <Story Name="FoldControl over a region the host owns"
+           Description="With no ChildContent only the trigger is emitted, and Controls points at an element the page renders itself — which is how a card folds a body it already lays out."
+           Code="@FoldHostCode">
+        <div class="sb-stack">
+            <FoldControl Expanded="_hostFoldOpen"
+                         ExpandedChanged="v => _hostFoldOpen = v"
+                         Label="Acceptance criteria"
+                         Controls="fold-host-region"
+                         TestId="fold-host" />
+            <div id="fold-host-region" class="sb-surface" hidden="@(!_hostFoldOpen)">
+                <p>Rendered and hidden by the page, not by the control.</p>
+            </div>
         </div>
     </Story>
 
@@ -162,6 +177,7 @@
     private string _activePill = "backlog";
     private string _body = "The editor and the read view are two tabs over the same text.";
     private bool _foldOpen = true;
+    private bool _hostFoldOpen;
     private double _startWidth = 20;
 
     private const string TabsCode = """
@@ -195,7 +211,16 @@
         """;
 
     private const string FoldCode = """
-        <FoldControl Expanded="_open" ExpandedChanged="v => _open = v" Label="Advanced settings">...</FoldControl>
+        <FoldControl Expanded="_open" ExpandedChanged="v => _open = v" Label="Advanced settings">
+            @* ChildContent is the region that folds, not the trigger's label. *@
+            <Toggle Checked="_local" CheckedChanged="v => _local = v" Label="Keep entries local" />
+        </FoldControl>
+        """;
+
+    private const string FoldHostCode = """
+        <FoldControl Expanded="_open" ExpandedChanged="v => _open = v"
+                     Label="Acceptance criteria" Controls="criteria" />
+        <div id="criteria" hidden="@(!_open)">...</div>
         """;
 
     private const string SplitCode = """

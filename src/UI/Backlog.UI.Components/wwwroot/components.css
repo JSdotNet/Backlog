@@ -18,6 +18,15 @@
     --color-primary-dark: #D4A72C;
     --color-secondary: #ADB5BD;
 
+    /* Semantic — soft surfaces, and only surfaces.
+       Values from the org guide 01-color-palette, which is explicit that these
+       are "surface/background tokens first" and that product code must not
+       "invent a second, stronger semantic palette".
+
+       That is what had happened: a brighter red, green and blue had grown up
+       beside these under other names, so the palette carried two reds and two
+       greens for the same two meanings. Anything that needs to be legible sits
+       *on* one of these as text-primary rather than being painted in it. */
     --color-success: #1A3A22;
     --color-warning: #3D2E00;
     --color-error: #3D0A0D;
@@ -29,14 +38,20 @@
     --color-text-inverse: #212529;
     --color-text-link: #F2C14E;
 
-    --color-background: #020617;
-    --color-background-alt: #0F172A;
-    --color-background-raised: #1E293B;
+    /* Values from the org guide 01-color-palette, dark column.
+       The product had drifted a step darker than the guide: background was
+       #020617, a value the guide does not contain, and each surface below it
+       took the name of the one above. The border pair had shifted the same way,
+       inventing #94A3B8 and dropping #475569. Four greys for a ramp of three. */
+    --color-background: #0F172A;
+    --color-background-alt: #1E293B;
+    --color-background-raised: #334155;
     --color-background-overlay: rgba(0, 0, 0, 0.60);
 
-    --color-border: #64748B;
-    --color-border-strong: #94A3B8;
+    --color-border: #475569;
+    --color-border-strong: #64748B;
     --color-border-focus: #F2C14E;
+
 
     /* Typography */
     --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -61,12 +76,19 @@
     --spacing-lg: 1.5rem;
     --spacing-xl: 2rem;
 
-    /* Radius / border / shadow */
+    /* Radius / border / shadow
+       Names and values from .design/typography-and-layout.md#border-radius-and-width.
+       The three below were in that table all along but had never been declared,
+       so they lived in the rules as raw literals — the pill was written 999px in
+       fourteen places and 9999px in one. */
+    --border-radius-none: 0;
     --border-radius-sm: 0.25rem;
     --border-radius-md: 0.5rem;
     --border-radius-lg: 1rem;
+    --border-radius-full: 9999px;
     --border-width: 1px;
     --border-width-2: 2px;
+    --border-width-4: 4px;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
@@ -76,11 +98,13 @@
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-base: 250ms cubic-bezier(0, 0, 0.2, 1);
     --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
-    /* How little of the backlog the side pane is allowed to leave standing. */
-    --workspace-min-width: 22rem;
-    /* Saved-confirmation flash uses a smooth ease-out rather than the org
-       style guide's ease-bounce token, per explicit product decision. */
-    --ease-saved-flash: cubic-bezier(0, 0, 0.2, 1);
+
+    /* Layout
+       How little room the pane resizer must leave the content beside it. Named
+       for the split, not for what a host puts in it: this file is not allowed to
+       know that the other side is a backlog. An app with its own name for the
+       same measurement points this at it — see app.css. */
+    --pane-min-width: 22rem;
 }
 
 .sr-only {
@@ -140,7 +164,7 @@
 }
 
 .btn--secondary:hover {
-    background: rgba(242, 193, 78, 0.1);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 .btn--ghost {
@@ -158,9 +182,39 @@
     color: var(--color-text-primary);
 }
 
+/*
+  An icon button had no background of its own, so it fell through to the user
+  agent's `buttonface` — a light grey slab in a dark product. And its glyph sat
+  on the text baseline, which pushed an inline SVG about 5px above centre. Both
+  read as "the icons are misaligned".
+
+  Centring is done here rather than per-icon so any glyph works: an SVG, an emoji
+  or a single character all land in the same place.
+*/
 .btn--icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: var(--spacing-xs);
-    min-width: 32px;
+    min-width: 2rem;
+    min-height: 2rem;
+    background: transparent;
+    color: inherit;
+    line-height: 1;
+}
+
+/* The wrapper IconButton puts around the glyph must not reintroduce a text box
+   of its own between the button and its icon. */
+.btn--icon > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* An inline SVG carries the line box's descender space with it; block does not. */
+.btn svg,
+.btn__icon svg {
+    display: block;
 }
 
 /* --- Badges & tag chips -------------------------------------------------- */
@@ -224,8 +278,21 @@
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 1px;
 }
+/*
+  One status vocabulary, one colour each. `active` and `inprogress` are two
+  spellings of the same state, and `blocked` had no rule at all — it fell
+  through to the plain badge and read as "no status", which is the one thing a
+  blocked item is not.
+
+  Work in flight is the brand colour, because it is the row you are meant to
+  look at. Blocked is the error surface: stopped, needing a decision. Done is
+  the success surface rather than the bright ink, so a finished item recedes
+  instead of competing with the item being worked on.
+*/
 .badge--status-ready { background: var(--color-info); }
+.badge--status-active,
 .badge--status-inprogress { background: var(--color-primary); color: var(--color-text-inverse); }
+.badge--status-blocked { background: var(--color-error); }
 .badge--status-done { background: var(--color-success); }
 .badge--status-archived { background: transparent; color: var(--color-text-disabled); border: var(--border-width) solid var(--color-border); }
 
@@ -293,7 +360,7 @@
 }
 
 .badge--priority-high { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
-.badge--priority-critical { border-color: #E4626F; color: #E4626F; }
+.badge--priority-critical { background: var(--color-error); border-color: var(--color-error); color: var(--color-text-primary); }
 .badge--priority-low { color: var(--color-text-disabled); }
 
 .badge--progress {
@@ -365,7 +432,7 @@
 
 .badge--gh-open { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
 .badge--gh-draft { color: var(--color-text-disabled); }
-.badge--gh-merged { border-color: #8B6FC4; color: #C0A9E8; }
+.badge--gh-merged { border-color: var(--color-border-strong); color: var(--color-text-primary); }
 .badge--gh-closed { color: var(--color-text-disabled); text-decoration: line-through; }
 .badge--gh-unknown { color: var(--color-text-disabled); border-style: dashed; }
 
@@ -394,7 +461,7 @@
 .save-indicator__dot {
     width: 8px;
     height: 8px;
-    border-radius: 9999px;
+    border-radius: var(--border-radius-full);
     background: var(--color-text-secondary);
 }
 
@@ -408,7 +475,8 @@
 }
 
 .save-indicator--error .save-indicator__dot {
-    background: #E4626F;
+    background: var(--color-text-primary);
+    box-shadow: 0 0 0 2px var(--color-error);
 }
 
 @keyframes pulse {
@@ -421,7 +489,7 @@
 .empty-state {
     text-align: center;
     padding: var(--spacing-xl);
-    border: 1px dashed var(--color-border);
+    border: var(--border-width) dashed var(--color-border);
     border-radius: var(--border-radius-lg);
     color: var(--color-text-secondary);
 }
@@ -438,7 +506,25 @@
 }
 
 /* --- Fold control -------------------------------------------------------- */
+/*
+  The library's names are .fold__*. The app hand-rolls the same disclosure in
+  Home.razor with .entry-doc__title-button and .subitem-card__title-button, so
+  those stay as aliases on every rule until that markup adopts FoldControl --
+  the styling is shared, and only the names differ.
+*/
 
+.fold {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.fold__region[hidden] {
+    display: none;
+}
+
+.fold__trigger,
 .entry-doc__title-button {
     display: inline-flex;
     align-items: center;
@@ -451,19 +537,33 @@
     color: inherit;
     cursor: pointer;
     text-align: left;
+    /* A <button> does not inherit the page font, so without this the trigger
+       sits at the browser's default size and its label rides high against the
+       chevron next to it. */
+    font: inherit;
 }
 
+/* The label takes the slack so the chevron stays put and the two stay on one
+   baseline however long the text is. */
+.fold__label {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.fold__trigger:hover .fold__chevron,
 .entry-doc__title-button:hover .entry-doc__fold-chevron,
 .subitem-card__title-button:hover .entry-doc__fold-chevron {
     color: var(--color-primary);
 }
 
+.fold__trigger:focus-visible,
 .entry-doc__title-button:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 3px;
     border-radius: var(--border-radius-sm);
 }
 
+.fold__chevron,
 .entry-doc__fold-chevron {
     display: inline-block;
     flex: 0 0 auto;
@@ -474,11 +574,13 @@
     transition: transform var(--transition-fast);
 }
 
+.fold__chevron--open,
 .entry-doc__fold-chevron--open {
     transform: rotate(90deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .fold__chevron,
     .entry-doc__fold-chevron {
         transition: none;
     }
@@ -534,7 +636,7 @@
 
 .entry-doc--editing {
     border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 var(--border-width-2) rgba(242, 193, 78, 0.18);
+    box-shadow: 0 0 0 var(--border-width-2) color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 /* --- Rendered markdown --------------------------------------------------- */
@@ -676,7 +778,7 @@
     max-width: 100%;
     padding: var(--spacing-xs) var(--spacing-sm);
     border: var(--border-width) solid var(--color-border);
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     background: var(--color-background-alt);
     font-size: var(--font-size-xs);
 }
@@ -699,7 +801,7 @@
     min-height: 1.5rem;
     padding: 0 var(--spacing-sm);
     border: var(--border-width) solid var(--color-border);
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     background: var(--color-background-alt);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
@@ -877,7 +979,7 @@
     margin: 0;
     padding: var(--spacing-md);
     border-radius: var(--border-radius-md);
-    background: #020617;
+    background: var(--color-background);
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
     font-size: var(--font-size-sm);
@@ -892,7 +994,7 @@
 
 .diagram-view__language {
     padding: 0 var(--spacing-sm);
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     background: var(--color-info);
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
@@ -905,7 +1007,7 @@
     overflow: auto;
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
-    background: color-mix(in srgb, var(--color-background) 88%, #020617);
+    background: var(--color-background);
 }
 
 .diagram-view__rendered {
@@ -995,7 +1097,7 @@
 .pane-resizer__grip {
     width: 4px;
     height: 100%;
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     background: var(--color-border);
     transform: scaleX(0.5);
     transition: background var(--transition-fast), transform var(--transition-fast);
@@ -1032,7 +1134,7 @@ body.is-resizing-pane {
     display: grid;
     place-items: center;
     padding: var(--spacing-lg);
-    background: rgba(0, 0, 0, 0.68);
+    background: var(--color-background-overlay);
 }
 
 .app-update-dialog,
@@ -1117,13 +1219,13 @@ body.is-resizing-pane {
 }
 
 .feedback-status--ok {
-    color: var(--color-success);
-    background: rgba(70, 211, 105, 0.1);
+    color: var(--color-text-primary);
+    background: var(--color-success);
 }
 
 .feedback-status--error {
-    color: var(--color-error);
-    background: rgba(255, 107, 107, 0.1);
+    color: var(--color-text-primary);
+    background: var(--color-error);
 }
 
 /* --- Buttons: sizes, danger and groups ----------------------------------- */
@@ -1139,14 +1241,13 @@ body.is-resizing-pane {
 }
 
 .btn--danger {
-    background: transparent;
-    border-color: color-mix(in srgb, #E4626F 60%, transparent);
-    color: #E4626F;
+    background: var(--color-error);
+    border-color: var(--color-error);
+    color: var(--color-text-primary);
 }
 
 .btn--danger:hover:not(:disabled) {
-    background: var(--color-error);
-    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
 }
 
 .btn:disabled {
@@ -1174,7 +1275,7 @@ body.is-resizing-pane {
 }
 
 .btn-group > .btn {
-    border-radius: 0;
+    border-radius: var(--border-radius-none);
 }
 
 .btn-group > .btn:first-child {
@@ -1204,14 +1305,32 @@ button.tag-chip__label {
     cursor: pointer;
 }
 
+/*
+  Sized to the chip rather than to a button. At the shared icon-button metrics it
+  was taller than the chip containing it and wore the user agent's grey button
+  face, so every tag ended in a pale blob roughly the size of its own label.
+*/
 .tag-chip__remove {
-    min-width: 1rem;
-    padding: 0 var(--spacing-xs);
+    min-width: 1.125rem;
+    min-height: 1.125rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    padding: 0;
+    margin-left: var(--spacing-xs);
+    border: 0;
+    border-radius: var(--border-radius-full);
+    background: transparent;
     color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
 .tag-chip__remove:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
     color: var(--color-text-primary);
+}
+
+.tag-chip__remove:disabled {
+    color: var(--color-text-disabled);
 }
 
 /* --- Spinner ------------------------------------------------------------- */
@@ -1228,7 +1347,7 @@ button.tag-chip__label {
     height: 1em;
     border: var(--border-width-2) solid color-mix(in srgb, var(--color-border-strong) 60%, transparent);
     border-top-color: var(--color-primary);
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     animation: spinner-turn 700ms linear infinite;
 }
 
@@ -1313,9 +1432,9 @@ button.tag-chip__label {
     margin-left: auto;
 }
 
-.toast--success { border-color: color-mix(in srgb, #46D369 55%, transparent); }
+.toast--success { background: var(--color-success); border-color: var(--color-border-strong); }
 .toast--warning { border-color: var(--color-primary-dark); }
-.toast--error { border-color: color-mix(in srgb, #E4626F 65%, transparent); }
+.toast--error { background: var(--color-error); border-color: var(--color-border-strong); }
 
 /* --- Fields: text, textarea, search -------------------------------------- */
 /*
@@ -1361,7 +1480,8 @@ button.tag-chip__label {
 }
 
 .field--invalid .field__input {
-    border-color: #E4626F;
+    border-color: var(--color-border-strong);
+    border-width: var(--border-width-2);
 }
 
 .field__help {
@@ -1380,7 +1500,8 @@ button.tag-chip__label {
 }
 
 .field--invalid .field__grow {
-    border-color: #E4626F;
+    border-color: var(--color-border-strong);
+    border-width: var(--border-width-2);
 }
 
 .field__grow > .field__input {
@@ -1445,7 +1566,7 @@ button.tag-chip__label {
     margin-top: 0.1rem;
     padding: 0;
     border: var(--border-width) solid var(--color-border);
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     background: var(--color-background-raised);
     cursor: pointer;
     transition: background var(--transition-fast), border-color var(--transition-fast);
@@ -1457,7 +1578,7 @@ button.tag-chip__label {
     left: 0.125rem;
     width: 1rem;
     height: 1rem;
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     background: var(--color-text-secondary);
     transform: translateY(-50%);
     transition: transform var(--transition-fast), background var(--transition-fast);
@@ -1525,7 +1646,7 @@ button.tag-chip__label {
 
 .feature-flag--locked {
     color: var(--color-text-secondary);
-    background: rgba(255, 255, 255, 0.03);
+    background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
 }
 
 .feature-flag__content {
@@ -1706,7 +1827,14 @@ button.tag-chip__label {
 }
 
 .menu-list__item--destructive {
-    color: #E4626F;
+    color: var(--color-text-primary);
+}
+
+/* The warning arrives where the pointer is, as a surface under readable text,
+   rather than as a red label the palette has no readable red for. */
+.menu-list__item--destructive:hover:not(:disabled),
+.menu-list__item--destructive:focus-visible {
+    background: var(--color-error);
 }
 
 .menu-list__icon {
@@ -2035,7 +2163,7 @@ button.tag-chip__label {
     display: inline-flex;
     gap: var(--spacing-xs);
     padding: var(--spacing-xs);
-    border: var(--border-width) solid rgba(148, 163, 184, 0.35);
+    border: var(--border-width) solid color-mix(in srgb, var(--color-border-strong) 35%, transparent);
     border-radius: var(--border-radius-lg);
     background: color-mix(in srgb, var(--color-background-raised) 58%, transparent);
 }
@@ -2129,9 +2257,9 @@ button.tag-chip__label {
     content: "";
     width: 0.65rem;
     height: 0.65rem;
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     background: var(--graph-explorer-legend-color, var(--color-border));
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }
 
 
@@ -2194,7 +2322,7 @@ button.tag-chip__label {
     gap: var(--spacing-sm);
     min-height: 2.5rem;
     padding: 0 var(--spacing-sm);
-    border-bottom: var(--border-width) solid rgba(148, 163, 184, 0.35);
+    border-bottom: var(--border-width) solid color-mix(in srgb, var(--color-border-strong) 35%, transparent);
 }
 
 .graph-explorer__lane-header h4 {
@@ -2210,7 +2338,7 @@ button.tag-chip__label {
     justify-content: center;
     min-width: 1.5rem;
     height: 1.5rem;
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     background: var(--color-background-raised);
     color: var(--color-primary);
     font-size: var(--font-size-xs);
@@ -2234,8 +2362,8 @@ button.tag-chip__label {
     bottom: var(--spacing-xl);
     left: 50%;
     width: var(--border-width-2);
-    border-radius: 999px;
-    background: linear-gradient(180deg, transparent, rgba(242, 193, 78, 0.72), rgba(56, 189, 248, 0.52), transparent);
+    border-radius: var(--border-radius-full);
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--color-primary) 72%, transparent), color-mix(in srgb, var(--color-info) 52%, transparent), transparent);
     transform: translateX(-50%);
 }
 
@@ -2287,7 +2415,7 @@ button.tag-chip__label {
     border: var(--border-width-2) solid color-mix(in srgb, var(--graph-explorer-status-color, var(--color-primary)) 65%, var(--color-border));
     border-radius: var(--border-radius-lg);
     background: color-mix(in srgb, var(--color-background-raised) 78%, var(--color-background));
-    box-shadow: 0 0 0 4px rgba(2, 6, 23, 0.84), var(--shadow-md);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-background) 84%, transparent), var(--shadow-md);
     text-align: center;
 }
 
@@ -2297,7 +2425,7 @@ button.tag-chip__label {
     justify-content: center;
     min-width: 1.75rem;
     height: 1.75rem;
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     background: var(--color-primary);
     color: var(--color-text-inverse);
     font-size: var(--font-size-xs);
@@ -2321,12 +2449,12 @@ button.tag-chip__label {
     height: 100%;
     min-height: 32rem;
     overflow: hidden;
-    border: var(--border-width) solid rgba(148, 163, 184, 0.24);
+    border: var(--border-width) solid color-mix(in srgb, var(--color-border-strong) 24%, transparent);
     border-radius: var(--border-radius-lg);
     background:
-        radial-gradient(circle at 22% 28%, rgba(242, 193, 78, 0.11), transparent 20%),
-        radial-gradient(circle at 75% 54%, rgba(56, 189, 248, 0.12), transparent 22%),
-        radial-gradient(circle at 50% 68%, rgba(217, 119, 177, 0.11), transparent 18%),
+        radial-gradient(circle at 22% 28%, color-mix(in srgb, var(--color-primary) 11%, transparent), transparent 20%),
+        radial-gradient(circle at 75% 54%, color-mix(in srgb, var(--color-info) 12%, transparent), transparent 22%),
+        radial-gradient(circle at 50% 68%, color-mix(in srgb, var(--color-secondary) 11%, transparent), transparent 18%),
         color-mix(in srgb, var(--color-background-raised) 36%, var(--color-background));
     cursor: grab;
     touch-action: none;
@@ -2365,12 +2493,12 @@ button.tag-chip__label {
 }
 
 .graph-explorer__cloud-link--spoke {
-    stroke: rgba(148, 163, 184, 0.38);
+    stroke: color-mix(in srgb, var(--color-border-strong) 38%, transparent);
     stroke-width: 0.16;
 }
 
 .graph-explorer__cloud-link--dependency {
-    stroke: rgba(226, 232, 240, 0.44);
+    stroke: color-mix(in srgb, var(--color-text-secondary) 44%, transparent);
     stroke-dasharray: 0.9 0.7;
     stroke-width: 0.1;
 }
@@ -2389,8 +2517,8 @@ button.tag-chip__label {
     width: 7rem;
     min-height: 3.1rem;
     padding: var(--spacing-xs) var(--spacing-sm);
-    border: var(--border-width-2) solid rgba(242, 193, 78, 0.58);
-    border-radius: 999px;
+    border: var(--border-width-2) solid color-mix(in srgb, var(--color-primary) 58%, transparent);
+    border-radius: var(--border-radius-full);
     background: color-mix(in srgb, var(--color-primary) 22%, var(--color-background-raised));
     color: var(--color-text-primary);
     font-family: var(--font-family-heading);
@@ -2398,7 +2526,7 @@ button.tag-chip__label {
     font-weight: 700;
     line-height: var(--line-height-tight);
     text-align: center;
-    box-shadow: 0 0 0 5px rgba(2, 6, 23, 0.58), var(--shadow-md);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-background) 58%, transparent), var(--shadow-md);
 }
 
 .graph-explorer__cloud-node {
@@ -2410,11 +2538,11 @@ button.tag-chip__label {
     height: 1.15rem;
     padding: 0;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--border-radius-full);
     background: var(--graph-explorer-status-color, var(--color-primary));
     color: transparent;
     cursor: pointer;
-    box-shadow: 0 0 0 2px rgba(2, 6, 23, 0.64), 0 0 0 4px color-mix(in srgb, var(--graph-explorer-status-color, var(--color-primary)) 20%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-background) 64%, transparent), 0 0 0 4px color-mix(in srgb, var(--graph-explorer-status-color, var(--color-primary)) 20%, transparent);
     transition: box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
@@ -2425,7 +2553,7 @@ button.tag-chip__label {
     max-width: 8rem;
     padding: 1px var(--spacing-xs);
     border-radius: var(--border-radius-sm);
-    background: rgba(2, 6, 23, 0.88);
+    background: color-mix(in srgb, var(--color-background) 88%, transparent);
     color: var(--color-text-primary);
     font-size: var(--font-size-xs);
     line-height: var(--line-height-tight);
@@ -2441,7 +2569,7 @@ button.tag-chip__label {
 .graph-explorer__cloud-node:focus-visible,
 .graph-explorer__cloud-node.graph-explorer__card--selected {
     transform: translate(-50%, -50%) scale(1.75);
-    box-shadow: 0 0 0 3px rgba(2, 6, 23, 0.74), 0 0 0 7px color-mix(in srgb, var(--graph-explorer-status-color, var(--color-primary)) 38%, transparent), var(--shadow-md);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-background) 74%, transparent), 0 0 0 7px color-mix(in srgb, var(--graph-explorer-status-color, var(--color-primary)) 38%, transparent), var(--shadow-md);
 }
 
 .graph-explorer__cloud-node:hover span,
@@ -2464,7 +2592,7 @@ button.tag-chip__label {
     min-height: 8rem;
     padding: var(--spacing-sm);
     border: var(--border-width) solid color-mix(in srgb, var(--graph-explorer-status-color) 65%, var(--color-border));
-    border-left: 4px solid var(--graph-explorer-status-color);
+    border-left: var(--border-width-4) solid var(--graph-explorer-status-color);
     border-radius: var(--border-radius-md);
     background: color-mix(in srgb, var(--color-background-raised) 72%, var(--color-background));
     color: var(--color-text-primary);
@@ -2483,7 +2611,7 @@ button.tag-chip__label {
 .graph-explorer__card:focus-visible,
 .graph-explorer__card--selected {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px rgba(242, 193, 78, 0.16), var(--shadow-md);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 16%, transparent), var(--shadow-md);
     transform: translateY(-1px);
 }
 
@@ -2512,8 +2640,8 @@ button.tag-chip__label {
     display: inline-flex;
     max-width: 100%;
     padding: 1px var(--spacing-xs);
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.14);
+    border-radius: var(--border-radius-full);
+    background: color-mix(in srgb, var(--color-border-strong) 14%, transparent);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     text-transform: uppercase;

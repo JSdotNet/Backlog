@@ -54,6 +54,40 @@ html, body {
     font-family: var(--font-family-heading);
     font-size: var(--font-size-xl);
     margin: 0;
+    scroll-margin-top: var(--spacing-md);
+}
+
+/* The permalink stays out of the way until the story is hovered, but never
+   out of the way of a keyboard: :focus-visible brings it back. */
+.sb-story__anchor {
+    margin-left: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.sb-story:hover .sb-story__anchor,
+.sb-story__anchor:focus-visible {
+    opacity: 1;
+}
+
+.sb-story__anchor:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+.sb-story:target {
+    border-color: var(--color-border-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sb-story__anchor {
+        transition: none;
+    }
 }
 
 .sb-story__description {
@@ -107,15 +141,18 @@ html, body {
 
 .sb-columns {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
     gap: var(--spacing-md);
 }
 
+/* --color-text-disabled is 4.30:1 on the page and 3.81:1 on a raised surface.
+   These labels are 12px uppercase, which needs 4.5:1, so they use secondary. The
+   disabled token stays what it is named for: text that is genuinely inert. */
 .sb-label {
     font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
 }
 
 /* The "currently bound value" line under an interactive example. */
@@ -166,4 +203,145 @@ html, body {
 
 .sb-pane {
     height: 16rem;
+}
+
+/* --- Foundations specimens ----------------------------------------------- */
+/*
+   These draw the tokens themselves. The values are never written here: each
+   specimen sets the property from var(--token) so what appears on screen is
+   whatever components.css currently says, and this page cannot go stale.
+*/
+
+.sb-token-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.sb-token-group .sb-label {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+}
+
+.sb-swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.sb-swatch {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    grid-template-areas:
+        "chip name"
+        "chip value"
+        "chip contrast";
+    align-items: center;
+    gap: 0 var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+}
+
+.sb-swatch__chip {
+    grid-area: chip;
+    align-self: stretch;
+    min-height: 3rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+}
+
+.sb-swatch__name {
+    grid-area: name;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.sb-swatch__value {
+    grid-area: value;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.sb-swatch__contrast {
+    grid-area: contrast;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/* The library's Alert is a one-line message; this widens it into a callout
+   without changing how the component itself renders anywhere else. */
+.sb-callout {
+    display: block;
+    margin-bottom: var(--spacing-sm);
+}
+
+.sb-type-sample {
+    padding: var(--spacing-sm) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.sb-type-sample__line {
+    margin: var(--spacing-xs) 0;
+    font-size: var(--font-size-2xl);
+}
+
+.sb-type-scale__row {
+    margin: 0;
+    line-height: var(--line-height-tight);
+}
+
+.sb-metric {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.sb-metric__name {
+    flex: 0 0 9rem;
+}
+
+.sb-metric__bar {
+    height: 0.75rem;
+    min-width: 1px;
+    background: var(--color-primary);
+    border-radius: var(--border-radius-sm);
+}
+
+.sb-specimen {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-background-alt);
+}
+
+.sb-specimen--raised {
+    background: var(--color-background-raised);
+    border-radius: var(--border-radius-md);
+}
+
+/* Wide enough that the transition is legible when it runs. */
+.sb-motion {
+    width: 3rem;
+    height: 0.75rem;
+    background: var(--color-primary);
+    border-radius: var(--border-radius-sm);
+}
+
+.sb-metric:hover .sb-motion {
+    transform: translateX(8rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sb-motion {
+        transition: none !important;
+    }
+
+    .sb-metric:hover .sb-motion {
+        transform: none;
+    }
 }

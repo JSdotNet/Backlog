@@ -1,0 +1,204 @@
+@page "/foundations"
+@inject IJSRuntime Js
+
+<PageTitle>Foundations — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Foundations"
+           Summary="The tokens in components.css. Every component on every other page is assembled out of these, so a change here is a change everywhere.">
+
+    @if (_tokens is null)
+    {
+        <Story Name="Reading the tokens"
+               Description="This page reports what the browser actually computed rather than repeating the stylesheet, so it cannot drift from it. That means waiting for the document.">
+            <Spinner Label="Reading the tokens from the live document" />
+        </Story>
+    }
+    else
+    {
+        <Story Name="Colour"
+               Description="Grouped by role. Each semantic is a pair — the ink that carries the meaning, and the surface it sits on — so success, information, warning and error read as one family rather than as eight unrelated values. Thresholds come from .design/color-scheme.md, not from plain WCAG: AAA (7:1) for primary body text, 4.5:1 for supporting text, 3:1 for focus rings and control edges. --color-text-disabled is exempt there, because signalling unavailability is the point of it.">
+            @foreach (var group in _tokens.ColorGroups)
+            {
+                <div class="sb-token-group">
+                    <p class="sb-label">@group.Title</p>
+                    <div class="sb-swatches">
+                        @foreach (var swatch in group.Tokens)
+                        {
+                            @Swatch(swatch)
+                        }
+                    </div>
+                </div>
+            }
+        </Story>
+
+        <Story Name="Typography"
+               Description="Three families are declared. Whether the browser actually has any of them is the interesting part, and it is measured rather than assumed.">
+            @if (_tokens.MissingFonts.Count > 0)
+            {
+                <Alert Message="@MissingFontMessage" CssClass="sb-callout" />
+                <div class="sb-stack">
+                    <p>
+                        Nothing in this repository loads @(_tokens.MissingFonts.Count == 1 ? "it" : "them"):
+                        there is no <code>@@font-face</code> rule and no webfont link in any host. Text falls
+                        through to the next family in the stack, so the product renders in the system UI font
+                        everywhere and the type tokens describe an intention rather than a fact.
+                    </p>
+                    <p>
+                        Closing the gap is a product decision rather than a styling one. The shipping heads are
+                        offline-capable MAUI apps, so a CDN is not an option: either the woff2 files ship from
+                        the library's own <code>wwwroot</code>, or the tokens are changed to name the system
+                        stack the product is really using.
+                    </p>
+                </div>
+            }
+
+            <div class="sb-stack sb-type-samples">
+                @foreach (var family in _tokens.Fonts)
+                {
+                    <div class="sb-type-sample" style="font-family: var(@family.Token)">
+                        <span class="sb-label">@family.Token — @(family.Loaded ? "loaded" : "not loaded, falling back")</span>
+                        <p class="sb-type-sample__line">The quick brown fox jumps over the lazy dog — 0123456789</p>
+                        <span class="sb-swatch__value">first family in the stack: @family.Declared</span>
+                    </div>
+                }
+            </div>
+
+            <div class="sb-stack sb-type-scale">
+                @foreach (var size in _tokens.FontSizes)
+                {
+                    <p class="sb-type-scale__row" style="font-size: var(@size.Name)">
+                        <span class="sb-label">@size.Name · @size.Value</span>
+                        Sphinx of black quartz, judge my vow
+                    </p>
+                }
+            </div>
+        </Story>
+
+        <Story Name="Spacing"
+               Description="A 4px base scale. Each bar is the token's own computed length, so a value edited in the stylesheet redraws this picture.">
+            <div class="sb-stack">
+                @foreach (var space in _tokens.Spacing)
+                {
+                    <div class="sb-metric">
+                        <span class="sb-label sb-metric__name">@space.Name</span>
+                        <span class="sb-metric__bar" style="width: var(@space.Name)"></span>
+                        <span class="sb-swatch__value">@space.Value</span>
+                    </div>
+                }
+            </div>
+        </Story>
+
+        <Story Name="Radius and elevation"
+               Description="The radii a surface can take, and the three shadows that lift one off the page.">
+            <div class="sb-grid">
+                @foreach (var radius in _tokens.Radii)
+                {
+                    <div class="sb-specimen" style="border-radius: var(@radius.Name)">
+                        <span class="sb-label">@radius.Name</span>
+                        <span class="sb-swatch__value">@radius.Value</span>
+                    </div>
+                }
+                @foreach (var shadow in _tokens.Shadows)
+                {
+                    <div class="sb-specimen sb-specimen--raised" style="box-shadow: var(@shadow.Name)">
+                        <span class="sb-label">@shadow.Name</span>
+                        <span class="sb-swatch__value">@shadow.Value</span>
+                    </div>
+                }
+            </div>
+        </Story>
+
+        <Story Name="Motion"
+               Description="Hover a bar to run its transition. Durations live in tokens so that one media query can stand them all down under prefers-reduced-motion.">
+            <div class="sb-stack">
+                @foreach (var motion in _tokens.Motion)
+                {
+                    <div class="sb-metric">
+                        <span class="sb-label sb-metric__name">@motion.Name</span>
+                        <span class="sb-motion" style="transition: transform var(@motion.Name)"></span>
+                        <span class="sb-swatch__value">@motion.Value</span>
+                    </div>
+                }
+            </div>
+        </Story>
+    }
+
+</StoryPage>
+
+@code {
+    private TokenReport? _tokens;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _tokens is not null) return;
+
+        try
+        {
+            _tokens = await Js.InvokeAsync<TokenReport>("backlogStorybookFoundations.read");
+            StateHasChanged();
+        }
+        catch (JSException)
+        {
+            // Prerender, or the chrome script has not landed yet. The spinner stays,
+            // which is the honest thing to show when the measurement has not happened.
+        }
+    }
+
+    private string MissingFontMessage =>
+        $"{string.Join(", ", _tokens!.MissingFonts)} {(_tokens.MissingFonts.Count == 1 ? "is" : "are")} named in the type tokens but never loaded.";
+
+    private RenderFragment Swatch(ColorToken swatch) =>
+        @<div class="sb-swatch" data-testid="@($"token-{swatch.Name.TrimStart('-')}")">
+            <span class="sb-swatch__chip" style="background: @swatch.Value"></span>
+            <span class="sb-swatch__name">@swatch.Name</span>
+            <span class="sb-swatch__value">@swatch.Value</span>
+            @if (swatch.Contrast is { } contrast && swatch.Threshold is { } threshold)
+            {
+                <span class="sb-swatch__contrast">
+                    @Ratio(contrast):1 on @swatch.Against
+                    <Badge Kind="status"
+                           Slug="@(Passes(swatch) ? "done" : "archived")"
+                           Title="@($"Needs {Ratio(threshold, 1)}:1")">
+                        @(Passes(swatch) ? "passes" : $"below {Ratio(threshold, 1)}:1")
+                    </Badge>
+                </span>
+            }
+            else
+            {
+                <span class="sb-swatch__contrast">
+                    <Badge Kind="status" Slug="draft" Title="color-scheme.md exempts this token">exempt from contrast</Badge>
+                </span>
+            }
+        </div>;
+
+    private static bool Passes(ColorToken token) => token.Contrast >= token.Threshold;
+
+    /// <summary>A contrast ratio is a technical figure, not a localised one:
+    /// on a machine with a comma decimal separator "12.02:1" was rendering as
+    /// "12,02:1", which reads as two numbers.</summary>
+    private static string Ratio(double value, int decimals = 2) =>
+        value.ToString(decimals == 1 ? "0.0" : "0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    private sealed record ColorToken(
+        string Name,
+        string Value,
+        string Against,
+        double? Threshold,
+        double? Contrast);
+
+    private sealed record ColorGroup(string Title, IReadOnlyList<ColorToken> Tokens);
+
+    private sealed record FontToken(string Token, string Declared, bool Loaded);
+
+    private sealed record ValueToken(string Name, string Value);
+
+    private sealed record TokenReport(
+        IReadOnlyList<ColorGroup> ColorGroups,
+        IReadOnlyList<FontToken> Fonts,
+        IReadOnlyList<string> MissingFonts,
+        IReadOnlyList<ValueToken> FontSizes,
+        IReadOnlyList<ValueToken> Spacing,
+        IReadOnlyList<ValueToken> Radii,
+        IReadOnlyList<ValueToken> Shadows,
+        IReadOnlyList<ValueToken> Motion);
+}

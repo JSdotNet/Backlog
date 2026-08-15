@@ -1,19 +1,21 @@
-:root {
-    --color-background: #020617;
-    --color-background-alt: #0F172A;
-    --color-border: #64748B;
-    --color-text-primary: #F8F9FA;
-    --color-text-secondary: #CED4DA;
-    --color-text-link: #F2C14E;
-    --color-border-focus: #F2C14E;
-}
+/*
+  The design tokens come from the component library, in
+  _content/Backlog.UI.Components/components.css, which index.html links before
+  this file. Seven of them used to be repeated here at the same values, so the
+  mobile head could drift from the palette without anything noticing.
+
+  The two rules below arrived with the MAUI Blazor template and quietly outrank
+  the design system where they overlap: the template's own font stack and its
+  bootstrap link blue. They are kept — something has to name a font and a link
+  colour — but pointed at the tokens.
+*/
 
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: var(--font-family-base);
 }
 
 a, .btn-link {
-    color: #006bb7;
+    color: var(--color-text-link);
 }
 
 .btn-primary {

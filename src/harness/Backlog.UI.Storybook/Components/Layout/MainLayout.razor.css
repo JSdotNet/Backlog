@@ -40,19 +40,75 @@
     color: var(--color-primary);
 }
 
+.sb-filter {
+    margin-bottom: var(--spacing-md);
+}
+
 .sb-nav-group {
     margin-bottom: var(--spacing-md);
 }
 
+.sb-nav-empty {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* --color-text-disabled is 3.81:1 on --color-background-alt, which 12px
+   uppercase text does not get to use. Secondary is 11.95:1 and still reads as
+   a quieter label than the links under it. */
 .sb-nav-group__title {
     margin: 0 0 var(--spacing-xs);
     font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
 }
 
 .sb-content {
     padding: var(--spacing-xl) var(--spacing-xl) 4rem;
     min-width: 0;
+}
+
+/* Below this the 15rem gutter costs more than the index is worth: the examples
+   were being squeezed to about a hundred pixels. The sidebar becomes a band
+   above the content and scrolls with the page instead of pinning itself. */
+@media (max-width: 60rem) {
+    .sb-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .sb-sidebar {
+        position: static;
+        max-height: none;
+        border-right: 0;
+        border-bottom: var(--border-width) solid var(--color-border);
+        padding: var(--spacing-md);
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+        gap: var(--spacing-sm) var(--spacing-md);
+        align-items: start;
+    }
+
+    .sb-brand {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        align-items: baseline;
+        gap: var(--spacing-sm);
+        margin-bottom: 0;
+    }
+
+    .sb-filter,
+    .sb-nav-empty {
+        grid-column: 1 / -1;
+        margin-bottom: 0;
+    }
+
+    .sb-nav-group {
+        margin-bottom: 0;
+    }
+
+    .sb-content {
+        padding: var(--spacing-lg) var(--spacing-md) 3rem;
+    }
 }

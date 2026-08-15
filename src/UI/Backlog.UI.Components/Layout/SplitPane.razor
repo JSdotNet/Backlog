@@ -9,9 +9,14 @@
     every drag in this product owes the keyboard an equivalent.
 *@
 
+@* data-pane-anchor tells the shared resizer that the value it is setting is the
+   width of the *leading* pane, so it measures from the left edge. Without it the
+   drag ran backwards: the resizer defaults to the trailing anchor the app's
+   right-hand knowledge panel needs. *@
 <div class="@ClassValue"
      data-testid="@TestId"
      data-pane-split="true"
+     data-pane-anchor="start"
      style="--split-pane-start: @Rem(StartWidthRem)rem"
      @attributes="AdditionalAttributes">
     <div class="split-pane__start">@Start</div>
@@ -115,7 +120,9 @@
 
     private Task OnKeyDownAsync(KeyboardEventArgs e) => e.Key switch
     {
-        // The separator moves left to widen the start pane, so Left grows it.
+        // Left drags the separator left, which narrows the start pane. (The
+        // comment here used to claim the opposite, describing the app's
+        // right-hand panel rather than this component's leading one.)
         "ArrowLeft" => CommitAsync(StartWidthRem - StepRem),
         "ArrowRight" => CommitAsync(StartWidthRem + StepRem),
         "PageUp" => CommitAsync(StartWidthRem - (StepRem * 3)),

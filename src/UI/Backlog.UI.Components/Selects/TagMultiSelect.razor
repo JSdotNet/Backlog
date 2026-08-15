@@ -42,6 +42,7 @@
                aria-label="@(string.IsNullOrWhiteSpace(Label) ? Placeholder : null)"
                @oninput="OnQueryInput"
                @onfocus="() => _open = true"
+               @onblur="OnBlur"
                @onkeydown="OnKeyDownAsync"
                @onkeydown:preventDefault="_preventDefault"
                @attributes="AdditionalAttributes" />
@@ -54,10 +55,13 @@
             {
                 var index = i;
                 var option = Matches[index];
+                @* preventDefault on mousedown keeps the focus in the input, so the
+                   blur that closes the popup cannot fire before this click lands. *@
                 <li id="@OptionId(index)"
                     class="@OptionClass(index)"
                     role="option"
                     aria-selected="@(index == _activeIndex ? "true" : "false")"
+                    @onmousedown:preventDefault="true"
                     @onclick="() => AddAsync(option.Value)">@option.Label</li>
             }
             @if (CanCreate)
@@ -66,6 +70,7 @@
                     class="@OptionClass(Matches.Count)"
                     role="option"
                     aria-selected="@(_activeIndex == Matches.Count ? "true" : "false")"
+                    @onmousedown:preventDefault="true"
                     @onclick="() => AddAsync(_query.Trim())">@CreateLabel</li>
             }
         </ul>
@@ -211,6 +216,20 @@
         }
     }
 
+    /// <summary>
+    /// Closes the popup when focus genuinely leaves the control.
+    ///
+    /// There was no way to dismiss it with a mouse at all: the list opened on
+    /// focus, stayed open after a pick, and only Escape closed it — so it sat
+    /// over the page covering whatever was underneath. Options preventDefault
+    /// their mousedown, so this only fires for a click outside or a Tab away.
+    /// </summary>
+    private void OnBlur()
+    {
+        _open = false;
+        _activeIndex = -1;
+    }
+
     private async Task AddAsync(string value)
     {
         if (Disabled || string.IsNullOrWhiteSpace(value)) return;
@@ -221,6 +240,9 @@
 
         _query = string.Empty;
         _activeIndex = -1;
+        // Taking an option answers the question the popup was asking. Typing or
+        // ArrowDown reopens it, so picking several in a row still costs one key.
+        _open = false;
 
         await CommitAsync(next);
     }

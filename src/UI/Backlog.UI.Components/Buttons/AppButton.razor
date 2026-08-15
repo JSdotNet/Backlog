@@ -27,7 +27,7 @@
     public ButtonVariant Variant { get; set; } = ButtonVariant.Secondary;
 
     [Parameter]
-    public ButtonSize Size { get; set; } = ButtonSize.Medium;
+    public ButtonSize Size { get; set; } = ButtonSize.Default;
 
     [Parameter]
     public bool Disabled { get; set; }
@@ -76,12 +76,7 @@
                 _ => " btn--secondary"
             };
 
-            var size = Size switch
-            {
-                ButtonSize.Small => " btn--small",
-                ButtonSize.Medium => " btn--medium",
-                _ => string.Empty
-            };
+            var size = Size is ButtonSize.Small ? " btn--small" : string.Empty;
 
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
 

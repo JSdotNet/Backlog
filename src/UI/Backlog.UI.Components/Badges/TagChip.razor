@@ -14,10 +14,12 @@
     }
     @if (Removable)
     {
+        @* A multiplication sign, not the letter x: the letter sits on the
+           baseline and reads as part of the tag's text. *@
         <IconButton AriaLabel="@($"Remove {Text}")"
                     CssClass="tag-chip__remove"
                     Disabled="@Disabled"
-                    OnClick="OnRemoveClicked">x</IconButton>
+                    OnClick="OnRemoveClicked">&#215;</IconButton>
     }
 </span>
 
