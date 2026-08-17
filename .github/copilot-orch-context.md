@@ -5,9 +5,11 @@ General orchestration routing and enforcement come from the `copilot-app` plugin
 Copilot) or the `claude-desktop` plugin (Claude Code); this file only supplies what is
 specific to this repository, and is read by both.
 
-The `claude-desktop` plugin looks for `.claude/orch-context.md` first and falls back to this
-path, so this file does not need to be duplicated. Everything below is toolchain-neutral
-runtime fact — AppHost path, how to run, base URLs, healthy startup, QA depth.
+The `claude-desktop` plugin reads `.claude/orch-context.md`, which carries the same facts in
+that plugin’s required schema; neither toolchain supports includes, so the two files are
+maintained side by side. **When the AppHost path, resource names, startup signals, or QA
+depth change, update both.** Everything below is toolchain-neutral runtime fact — AppHost
+path, how to run, base URLs, healthy startup, QA depth.
 
 ## Application
 
