@@ -25,12 +25,20 @@ Apply the gate literally:
   `orch-bug`; the skill derives the missing scope in its first stage.
 - **Unmet preconditions are not an exemption.** If the matched skill's stated inputs are
   absent, invoke it anyway and derive them inside it.
+- **No match means `orch-fallback`,** not direct implementation. It is the generic
+  entrypoint for categories no dedicated `orch-*` skill covers — a last resort, not an
+  escape hatch from a skill whose preconditions are inconvenient.
 - Never proceed straight from exploration to implementation.
 
 Routing (which category maps to which `orch-*` skill) comes from the `claude-desktop`
 plugin's `SessionStart` hook. If that routing context is not present in your session,
 treat this file as the source of the gate and pick the skill by category from
 `.github/instructions/context-loading.instructions.md`.
+
+This repository ships no repo-native `orch-*` skills. Every entrypoint is plugin-provided:
+the knowledge-folder orchestrations come from `knowledge-base`, and the rest — `orch-fallback`
+included — from `claude-desktop`. The only skill under `.github/skills/` is `pr-jsdotnet`,
+which is a pull-request workflow rather than an orchestration.
 
 Changes confined to `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, `.design/`, `.github/`,
 or `README.md` are documentation work and do not pass through the code gate. See
