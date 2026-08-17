@@ -8,10 +8,7 @@
     Playwright. Publishing flags come from src/Harness/Directory.Build.props.
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Backlog.Mobile.WebHarness</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,0 +1,31 @@
+<Project>
+
+  <!--
+    Shared build defaults for every project in the solution (modular solution
+    structure design). Projects only restate one of these when they genuinely
+    differ: the MAUI heads override TargetFramework with their platform TFM,
+    because MSBuild imports this file before the project body.
+
+    Package versions are not here — they live in Directory.Packages.props.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Company>JSdotNet</Company>
+    <Product>Backlog</Product>
+    <Copyright>Copyright © JSdotNet 2026</Copyright>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- The MAUI heads and Microsoft.Maui.Core in ServiceDefaults must move in
+         lockstep, so the workload version is a property rather than three
+         separately maintained package versions. -->
+    <MauiVersion>10.0.90</MauiVersion>
+  </PropertyGroup>
+
+</Project>
