@@ -89,8 +89,16 @@ Rules:
 | Small | `font-size-sm` | `font-weight-normal` | `line-height-normal` | `font-family-base` |
 | Code | `font-size-sm` | `font-weight-normal` | `line-height-relaxed` | `font-family-mono` |
 
-These heading defaults double as the **WYSIWYG rendering** of Markdown `#`–`######`
-headings in the rich text editor (see `content-editing.md`).
+These heading defaults are the **document/display** ramp: they apply to page and
+section headings and to a Markdown document rendered as a document.
+
+They are **not** what `MarkdownView` currently renders. Inside a list row or an
+entry card, a body is rendered on a deliberately compact ramp (`#` at
+`font-size-lg` down to `font-size-sm`, with `####`–`######` as uppercase
+secondary labels) because a 48 px `H1` inside a card is a layout, not a heading.
+Both ramps are legitimate; which one applies is a function of the surface, and a
+document surface MUST use the table above. See
+`content-editing.md#materialization`.
 
 ## Spacing Scale
 
@@ -240,3 +248,55 @@ Rules:
 - Standard status icons: `check-circle` (success), `alert-triangle` (warning),
   `x-circle` (error), `info` (info), `loader-2` (loading), `grip-vertical` (drag
   handle).
+
+## Materialization
+
+```meta
+status: active
+related: [".design/README.md#living-reference-the-ui-storybook", ".design/color-scheme.md#materialization"]
+```
+
+Declared in `src/UI/Backlog.UI.Components/wwwroot/components.css`; shown in the
+storybook's *Foundations* page, which measures each token in the live document
+rather than transcribing it.
+
+| Scale | Materialized | Not yet declared in code |
+|---|---|---|
+| Font families | all three | — |
+| Font sizes | `xs`–`2xl`, `4xl` | `3xl`, `5xl` |
+| Line heights | `tight`, `normal` | `none`, `relaxed` |
+| Weights, letter spacing | — (set inline where needed) | the whole set |
+| Spacing | `xs`–`xl` | `0`, `2xl`, `3xl`, `4xl` |
+| Border radius | `none`, `sm`, `md`, `lg`, `full` | `xl` |
+| Border width | all three | — |
+| Shadows | `sm`, `md`, `lg` | `none`, `xl`, `inner` |
+| Motion | `fast`, `base`, `slow` (duration and easing bundled into one token each) | `instant`, `page`; easing is not separately tokenized |
+| Z-index | — | the whole scale |
+| Icon sizes | — | the whole scale |
+
+Rules and known gaps:
+
+- A scale being **partly** declared is not a violation — the rule is that no size
+  outside the scale may be introduced. A component needing `font-size-3xl` adds
+  the token from the table above; it MUST NOT invent a value.
+- **Fonts are declared but not loaded.** Nothing in the repository ships Inter,
+  Poppins or Fira Code: there is no `@font-face` rule and no webfont link in any
+  host, so text falls through to the system stack and the type tokens describe an
+  intention rather than a fact. The storybook's **Typography** story measures this
+  and says so on the page. Closing it is a product decision — either the `woff2`
+  files ship from the library's own `wwwroot` (the shipping heads are
+  offline-capable MAUI apps, so a CDN is not an option), or these tokens are
+  rewritten to name the system stack actually in use. `[TODO: clarify]`
+- **The z-index scale is not materialized.** `components.css` uses small local
+  values (1–30) per stacking context instead. Those are not arbitrary in the
+  `9999` sense the rule was written against, but they are also not the scale:
+  until the tokens are declared and adopted, the "use only the scale" rule is
+  aspirational for the web surfaces.
+- **Shadow values in code are the dark-reduced ones.** `shadow-md` is declared at
+  `0.07` and `shadow-lg` at `0.11` — the table above lists the raw values and the
+  ~30% dark-mode reduction is already applied in the stylesheet. `shadow-sm` is
+  declared unreduced, being subtle enough that the reduction is not visible.
+- One layout token exists in code that is not a design-system token:
+  `--pane-min-width` (22 rem), how little room a pane resizer must leave the
+  content beside it. It is a component measurement, named for the split rather
+  than for what a host puts in it.
