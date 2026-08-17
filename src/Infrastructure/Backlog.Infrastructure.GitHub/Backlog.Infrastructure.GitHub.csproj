@@ -5,10 +5,7 @@
     Knows nothing about any module's domain model — callers map between the two.
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Backlog.Infrastructure.GitHub</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>

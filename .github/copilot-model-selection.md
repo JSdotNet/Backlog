@@ -1,6 +1,6 @@
 # Copilot Model Selection Overrides
 
-Backlog is a .NET Aspire product (`src/`, `src/harness/`, `tests/`) that also carries an
+Backlog is a .NET Aspire product (`src/`, `src/Harness/`, `tests/`) that also carries an
 unusually large checked-in knowledge base (`.arc42/`, `.domain/`, `.backlog/`,
 `.tech/`, `.design/`) driving what gets built. Configure orchestration and specialist
 runs from the Azure Foundry model catalog/deployment entries below.

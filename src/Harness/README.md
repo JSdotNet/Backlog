@@ -50,5 +50,5 @@ Use it to review a component, and to test one without starting the application.
 ## Why it is under `src/` but not `tests/`
 
 `tests/` holds projects that a test runner executes. A harness is a long-running
-host that other tools point a browser at, so it lives under `src/harness/` with the
+host that other tools point a browser at, so it lives under `src/Harness/` with the
 rest of the runnable development projects while remaining outside shipped app folders.

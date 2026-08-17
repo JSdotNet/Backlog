@@ -1,7 +1,14 @@
 <Project>
 
   <!--
-    Everything under src/harness/ is development-time only. These projects host the
+    MSBuild auto-imports only the nearest Directory.Build.props, so this one has
+    to pull in the repository root explicitly — otherwise the four harness
+    projects would lose TargetFramework, Nullable, ImplicitUsings and the rest.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    Everything under src/Harness/ is development-time only. These projects host the
     shared Razor components so the Aspire AppHost can start them and Playwright
     can drive them; the MAUI heads cannot be automated that way.
 

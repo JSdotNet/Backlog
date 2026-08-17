@@ -76,9 +76,10 @@
        them. .design/design-principles.md requires syntax themes to be authored
        for dark surfaces rather than borrowed from a light editor, so each value
        below is checked against --color-background, which is what a code block
-       sits on: every run of actual code is above 8.9:1, and the two deliberately
-       quiet ones — the comment grey at 5.9:1 and the line-number grey at 5.1:1 —
-       still clear AA rather than sliding under it.
+       sits on: every run of actual code is above 9.3:1, and the two deliberately
+       quiet ones — the comment grey at 6.1:1 and the line-number grey at 5.3:1 —
+       still clear AA rather than sliding under it. Re-measured against the
+       neutral base; every figure rose, because the base got darker.
 
        Keywords take the brand colour because a keyword is the "key highlight"
        the palette names it for; everything else is a hue the palette does not

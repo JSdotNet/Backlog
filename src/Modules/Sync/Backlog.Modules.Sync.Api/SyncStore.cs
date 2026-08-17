@@ -1,16 +1,16 @@
 using System.Collections.Concurrent;
 
-namespace Backlog.Cloud;
+namespace Backlog.Modules.Sync.Api;
 
-/// <summary>Capture pushed from a device into the cloud sync layer.</summary>
+/// <summary>Capture pushed from a device into the sync layer.</summary>
 public sealed record CaptureRequest(string Title, string Source);
 
 /// <summary>An unsynced capture awaiting pickup by the desktop.</summary>
 public sealed record InboxItem(Guid Id, string Title, string Source, DateTimeOffset CapturedAt);
 
 /// <summary>
-/// In-memory stand-in for the TTL-backed cloud store. The cloud layer holds only
-/// transient sync state; canonical data stays on the desktop.
+/// In-memory stand-in for the TTL-backed store behind the sync service. The sync
+/// layer holds only transient state; canonical data stays on the desktop.
 /// </summary>
 public sealed class SyncStore
 {

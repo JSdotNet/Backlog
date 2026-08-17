@@ -75,6 +75,12 @@ MAUI shell (WinUI 3 head) rendering its entire UI as Razor components in an
 embedded WebView2 — not native WinUI 3 XAML. This puts desktop on the same
 rendering technology as the IDE webviews.
 
+> **What was actually built is a first-party library, not one of the candidates
+> below.** `Backlog.UI.Components` is a Razor class library written for this
+> product, reviewed in the storybook. Read the recommendation in this section as
+> the option that remains open for the IDE channels, not as a description of the
+> desktop today — see `#materialization`.
+
 | Aspect | Recommendation |
 |---|---|
 | Base controls | **A web component library shared with the IDE webviews** (see IDE recommendation below), rendered via Razor/`BlazorWebView` — not native WinUI 3 XAML controls. |
@@ -208,4 +214,39 @@ status: active
 
 `[TODO: clarify]` final selection between **TipTap** vs **Milkdown** for the
 shared editor, and whether the token pipeline is delivered in the first release.
+
+## Materialization
+
+```meta
+status: active
+related: [".design/README.md#living-reference-the-ui-storybook"]
+```
+
+What the product actually uses today, against the recommendations above:
+
+| Layer | Recommended | In use |
+|---|---|---|
+| Desktop base controls | A shared web component library (`@vscode-elements`, Fluent Web Components) | **`Backlog.UI.Components`** — a first-party Razor class library with no domain in it, at `src/UI/Backlog.UI.Components`, rendered on its own in the storybook |
+| Design tokens | One logical set emitted per stack | One `:root` block in `components.css`, linked by every host. This is the shared layer working as intended — it is just hand-maintained, not generated |
+| Markdown editor | TipTap or Milkdown, hosted in the WebView2 | None. A text area over the source with a live read view beside it — see `content-editing.md#materialization` |
+| Reorder | dnd-kit | Hand-written HTML5 drag-and-drop with arrow-key equivalents, in the desktop app rather than in the library — see `interaction-guidelines.md#materialization` |
+| Diagrams | Mermaid | **Mermaid**, as recommended — `DiagramView`, storybook *Diagrams* |
+| Graphs | AntV G6 | **AntV G6**, as recommended — `GraphView` and `GraphExplorer`, storybook *Graph explorer* |
+| Charts | Apache ECharts | None yet |
+
+Notes:
+
+- Choosing a first-party library over a third-party one is a live decision, not
+  an oversight, and it buys exactly what the "tokens are the shared layer"
+  finding predicted: no library theme to fight, and every component under review
+  in one place. The cost is that everything — a11y semantics, keyboard support,
+  reorder — is the product's own work rather than inherited. The gaps listed in
+  `accessibility.md#materialization` are that cost.
+- **Mermaid and G6 are fetched from a CDN on first use** (`jsdelivr`, `unpkg`),
+  with the diagram source shown as the fallback when the fetch fails. That
+  matches the development-fallback allowance in `#risks-and-gaps` and violates
+  the local-first rule for production: both MUST be vendored into the library's
+  own `wwwroot` before the desktop app ships. On a machine with no egress today,
+  the storybook's *Diagrams* and *Graph explorer* pages show source instead of a
+  picture — which is the fallback behaving correctly.
 

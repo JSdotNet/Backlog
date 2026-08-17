@@ -187,3 +187,46 @@ related: [".design/component-libraries.md", ".arc42/04-solution-strategy.md#tech
 
 `[TODO: clarify]` whether a formal accessibility audit / VPAT is required per
 release, and which assistive technologies are in the supported test matrix.
+
+## Materialization
+
+```meta
+status: active
+related: [".design/README.md#living-reference-the-ui-storybook", ".design/interaction-guidelines.md#materialization"]
+```
+
+The storybook is the review surface: every component renders there in isolation
+with the semantics it ships with, so roles, labels, focus order and focus
+visibility can be checked one component at a time rather than only inside a
+screen.
+
+What holds today:
+
+| Rule | Materialized as |
+|---|---|
+| Names & roles | Composite widgets declare theirs — `role="tree"`/`treeitem` (TreeView), `role="tablist"`/`tab` (Tabs), `role="menu"`/`menuitem` (MenuList), `role="switch"` (Toggle, because a checkbox role would announce the wrong control), `role="separator"` (SplitPane resizer), `role="search"` (SearchBox), `role="region"` with a label (FileView, CodeView, GraphView) |
+| Live regions | `SaveIndicator` is `role="status"` + `aria-live="polite"`; `ToastHost` is one polite live region for the page, with warnings and errors raised to `role="alert"` inside it; `CodeView`'s copy result is a `role="status"` line rather than a changed button label |
+| Focus visibility | Every interactive component sets its own `:focus-visible` outline in `color-border-focus` at `border-width-2` with a 2 px offset — `outline`, never a shadow |
+| Non-native focus targets | Scrollable regions that take focus say so and show it (`FileView` body, `CodeView` body) |
+| Reduced motion | Honored per component: the fold chevron and toggle drop their transitions, the spinner stops turning and becomes an opacity-only pulse, graph cards keep colour transitions only |
+| Not by colour alone | Save state carries text, not just a dot; badges carry their label; the inert-link style is a dotted underline as well as a colour |
+
+Gaps, tracked rather than assumed:
+
+- **`color-border` misses the 3:1 this file asks of control boundaries** — it
+  measures 2.49:1 against the base surface. It failed under the org guide's own
+  values too (2.36:1), so it is inherited rather than introduced; the numbers and
+  a candidate replacement are in
+  `color-scheme.md#surface-and-border-deviation`.
+- **No reorder announcements.** There is no `aria-live` region anywhere in the
+  desktop app, so `#reorder-announcements` is entirely unimplemented. Keyboard
+  reorder works and each grip is labelled with how to use it; the position
+  feedback is the missing half.
+- **No icon set**, so `#iconography-accessibility` has almost nothing to govern
+  yet — the product draws its few glyphs in CSS or borrows an emoji. See
+  `typography-and-layout.md#materialization`.
+- **Target sizes are unverified.** The ≥ 44 × 44 px minimum is not asserted by
+  any test, and dense rows are exactly where it tends to fail.
+- **Only one channel exists.** Every rule above is checked in the web-rendered
+  surface. Mobile MAUI's `SemanticProperties` and the IDE webviews have no
+  implementation to check.

@@ -1,0 +1,49 @@
+<Project>
+
+  <!--
+    Central Package Management (org ADR 0002). Every package version in the
+    solution is declared here once; project files reference packages by name
+    only. A project-local Version attribute is an exception that has to be
+    justified with a comment in that project file, not a convenience.
+
+    $(MauiVersion) comes from the root Directory.Build.props, which
+    Microsoft.Common.props imports just before this file.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+
+    <!--
+      Transitive pinning is deliberately OFF. Turning it on rewrites versions the
+      solution never asked for: the AppHost's transitive YamlDotNet went 16.3.0 ->
+      18.1.0, OpenTelemetry 1.15.3 -> 1.17.0 and Microsoft.Extensions.* 10.0.8 ->
+      10.0.11, purely because those names appear below as direct versions. Adopting
+      CPM was meant to change where versions are declared, not which ones resolve.
+      Enable it as its own reviewed change if transitive governance is wanted.
+    -->
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.6" />
+    <PackageVersion Include="bunit" Version="2.9.0" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.9.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.9.0" />
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageVersion Include="Microsoft.Maui.Core" Version="$(MauiVersion)" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
+
+</Project>

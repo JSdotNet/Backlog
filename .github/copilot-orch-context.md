@@ -1,8 +1,13 @@
 # Copilot Orchestration Repo Context
 
 Repo-specific startup and QA context for `orch-*` orchestration runs in `JSdotNet/Backlog`.
-General orchestration routing and enforcement come from the `copilot-app` plugin; this file
-only supplies what is specific to this repository.
+General orchestration routing and enforcement come from the `copilot-app` plugin (GitHub
+Copilot) or the `claude-desktop` plugin (Claude Code); this file only supplies what is
+specific to this repository, and is read by both.
+
+The `claude-desktop` plugin looks for `.claude/orch-context.md` first and falls back to this
+path, so this file does not need to be duplicated. Everything below is toolchain-neutral
+runtime fact — AppHost path, how to run, base URLs, healthy startup, QA depth.
 
 ## Application
 
@@ -12,10 +17,10 @@ desktop, mobile, and IDE channels plus a thin cloud sync service.
 **AppHost project:** `src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj`
 (also declared in `aspire.config.json`).
 
-Solution: `Backlog.sln`. Product code lives under `src/`, including development-time hosts under `src/harness/`,
+Solution: `Backlog.sln`. Product code lives under `src/`, including development-time hosts under `src/Harness/`,
 and automated tests live under `tests/`.
 
-The `src/harness/` projects are **test harnesses, not shipped channels**. They are Blazor
+The `src/Harness/` projects are **test harnesses, not shipped channels**. They are Blazor
 Server hosts of the shared Razor components, and they exist specifically so the UI can be
 started by Aspire and driven by Playwright — the MAUI heads cannot be automated that way.
 Target them for UI validation. `ui-storybook` is the exception in kind: it hosts the shared
@@ -51,7 +56,7 @@ dotnet build Backlog.sln
 dotnet test Backlog.sln
 ```
 
-Only `cloud`, `azure-foundry-test`, `desktop-web-harness`, `mobile-web-harness`, and
+Only `sync`, `azure-foundry-test`, `desktop-web-harness`, `mobile-web-harness`, and
 `ui-storybook` start automatically. The `desktop`, `mobile-android`, `ide-vscode-build`, and
 `ide-vscode-host` resources are registered with `WithExplicitStart()` and must be started
 deliberately from the dashboard — do not treat them as failed startups when they sit idle.
@@ -68,7 +73,7 @@ actual URLs from the Aspire dashboard or the AppHost startup output, then use th
 | `desktop-web-harness` | Desktop UI components in the browser — primary Playwright target |
 | `mobile-web-harness` | Same components at phone width — mobile Playwright target |
 | `ui-storybook` | Every shared component on its own, with no app behind it |
-| `cloud` | Thin sync service the harnesses reference |
+| `sync` | Thin sync service the harnesses reference |
 
 ## Test Credentials
 
@@ -96,11 +101,11 @@ and state that authoritative guidance could not be verified.
 
 ## Healthy Startup
 
-Startup is healthy when the Aspire dashboard is reachable and `cloud`,
+Startup is healthy when the Aspire dashboard is reachable and `sync`,
 `desktop-web-harness`, `mobile-web-harness`, and `ui-storybook` all reach **Running**. The
 four `WithExplicitStart()` resources staying `NotStarted` is expected, not a failure.
 
-`mobile-web-harness` has a `WaitFor(cloud)` dependency, so it starts after `cloud` becomes
+`mobile-web-harness` has a `WaitFor(sync)` dependency, so it starts after `sync` becomes
 healthy — a brief wait there is normal. `ui-storybook` waits for nothing, because it
 references nothing.
 
@@ -131,15 +136,14 @@ Two standing exceptions:
   `dotnet test`; `targeted` depth is sufficient.
 
 
-## Repo-Native Orchestration Skills
+## Orchestration Skill Sources
 
-The knowledge-folder orchestrations (`orch-arc42-content`, `orch-domain`, `orch-backlog`,
-`orch-tech`, `orch-design`) are provided by the `knowledge-base` plugin, not by this
-repository. Only one skill under `.github/skills/` remains repo-native:
+This repository ships no repo-native `orch-*` skills. The knowledge-folder orchestrations
+(`orch-arc42-content`, `orch-domain`, `orch-backlog`, `orch-tech`, `orch-design`) come from
+the `knowledge-base` plugin; every other orchestration — including `orch-fallback`, the
+generic entrypoint for task categories with no dedicated `orch-*` skill — comes from the
+`copilot-app` plugin.
 
-- `orch-fallback` — generic entrypoint for any task category with no dedicated `orch-*` skill,
-  repo-native or plugin-provided.
-
-`pr-jsdotnet` also lives under `.github/skills/`, but it is a pull-request workflow rather
-than an orchestration; see `.github/copilot-instructions.md`.
+The only skill under `.github/skills/` is `pr-jsdotnet`, and it is a pull-request workflow
+rather than an orchestration; see `.github/copilot-instructions.md`.
 

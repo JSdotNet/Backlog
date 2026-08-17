@@ -13,8 +13,10 @@
     // text, 3:1 for focus rings and control boundaries, and explicitly exempts
     // --color-text-disabled, which signals unavailability on purpose.
     //
-    // `sanctioned` marks the nineteen tokens that file defines. The rest are
-    // declared in components.css but appear in no design document.
+    // These are the twenty colour tokens that file defines, which is also exactly
+    // what components.css declares — the code theme in
+    // .design/color-scheme.md#syntax-highlighting-tokens is the only other colour
+    // in the stylesheet, and it is scored where it is used, on a code block.
     // Grouped by role, in the order a reader needs them: what the brand is, what
     // a state means, what text does, what it sits on, and where the edges are.
     // Each semantic is an ink and the surface it sits on, kept adjacent so the

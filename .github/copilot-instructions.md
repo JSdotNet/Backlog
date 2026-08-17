@@ -10,7 +10,13 @@ See `.github/instructions/mcp-usage.instructions.md` for MCP server usage and au
 
 ## Agent usage
 
-Orchestration routing (which `orch-*` skill or specialist agent handles which task type) is delivered globally by the `copilot-app` plugin; it is not restated in this repository. See `.github/instructions/context-loading.instructions.md` for the Backlog-specific orchestration gate on code changes and the policy on which knowledge folders a workflow may load, plus the repo-native `orch-*` entrypoints.
+> **Claude Code reads `CLAUDE.md` at the repository root, not this file.** The rules below
+> are the GitHub Copilot form, naming the `copilot-app` plugin and its
+> `copilot-app:orchestrator` agent. `CLAUDE.md` carries the same gate in Claude Code terms
+> (`claude-desktop` plugin, `claude-desktop:orchestrator` agent). Keep the two in step when
+> changing the gate.
+
+Orchestration routing (which `orch-*` skill or specialist agent handles which task type) is delivered globally by the `copilot-app` plugin; it is not restated in this repository. See `.github/instructions/context-loading.instructions.md` for the Backlog-specific orchestration gate on code changes and the policy on which knowledge folders a workflow may load.
 
 **Orchestration gate.** Before the first `edit` or `create` to any file under `src/` or
 `tests/`, you MUST invoke the matching `orch-*` skill through the

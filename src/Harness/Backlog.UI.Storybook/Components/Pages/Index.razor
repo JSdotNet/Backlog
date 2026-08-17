@@ -24,6 +24,15 @@
                 they render in the app, because the storybook links the library stylesheet and
                 adds only page chrome of its own.
             </p>
+            <p>
+                The rules being reviewed are written down in the repository's <code>.design</code>
+                folder — <code>color-scheme.md</code> and <code>typography-and-layout.md</code> hold
+                the tokens <a href="foundations">Foundations</a> measures,
+                <code>interaction-guidelines.md</code> holds the save and reorder behaviour, and
+                <code>accessibility.md</code> holds the bar every component is expected to clear.
+                Each of those files names the pages here that show it, and says which of its rules
+                are not built yet, so the two are meant to be read together.
+            </p>
         </div>
     </Story>
 
@@ -65,7 +74,7 @@
 @code {
     private const string RunCode = """
         # standalone
-        dotnet run --project src/harness/Backlog.UI.Storybook
+        dotnet run --project src/Harness/Backlog.UI.Storybook
 
         # with everything else
         aspire run

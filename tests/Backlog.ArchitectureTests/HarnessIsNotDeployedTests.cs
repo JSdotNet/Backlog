@@ -9,7 +9,7 @@ namespace Backlog.ArchitectureTests;
 /// </summary>
 public class HarnessIsNotDeployedTests
 {
-    private static readonly string[] HarnessPath = ["src", "harness"];
+    private static readonly string[] HarnessPath = ["src", "Harness"];
 
     [Fact]
     public void No_shipped_project_references_a_harness()
@@ -50,7 +50,7 @@ public class HarnessIsNotDeployedTests
     {
         var harnessFolder = Path.Combine([Repository.Root.FullName, .. HarnessPath]);
 
-        Assert.True(Directory.Exists(harnessFolder), "Harness projects must live under src/harness/.");
+        Assert.True(Directory.Exists(harnessFolder), "Harness projects must live under src/Harness/.");
         Assert.DoesNotContain(
             Repository.ProjectsUnder("tests"),
             p => p.Name.Contains("Harness", StringComparison.OrdinalIgnoreCase));

@@ -340,6 +340,12 @@ related: [".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".arc42
 A thin sync and coordination layer — deliberately not the backbone. It coordinates
 device sync, receives and forwards GitHub webhooks, sends push notifications, and hosts a Remote PC registry / Wake-on-LAN relay. It stores minimal, mostly TTL-based state — never domain data or external credentials.
 
+"Cloud Service" names where this container runs; the code is named after what it
+does. It is implemented by `src/Modules/Sync/Backlog.Modules.Sync.Api` and appears
+in the Aspire app model as the `sync` resource. Only the Sync Service component
+below is implemented today — the webhook receiver, notification service, and PC
+registry are not built yet.
+
 ```mermaid
 flowchart TB
   subgraph "Cloud Service (thin sync layer)"

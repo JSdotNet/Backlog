@@ -9,6 +9,12 @@ General orchestration routing — which `orch-*` skill or specialist agent handl
 category, and its fallbacks — is delivered globally by the `copilot-app` plugin and is no
 longer restated in this repository.
 
+> **Toolchain note.** Agent and tool names below are the GitHub Copilot form. For Claude
+> Code the equivalents are the `claude-desktop` plugin, the `claude-desktop:orchestrator`
+> agent, and `mcp__plugin_claude-desktop_orch-dashboard__*` MCP tools instead of canvas
+> tools. Claude Code loads `CLAUDE.md` at the repository root, which restates the gate in
+> those terms — it does not read this file. Keep both in step when changing the gate.
+
 This file covers only what is specific to Backlog: **the gate that forces code changes
 through an orchestration skill**, and **which checked-in knowledge folders a given workflow
 may read, and how much of them.** Treat those folders as task-scoped context, not baseline
@@ -80,11 +86,12 @@ when no reproduction has been written up yet.
   touches visual design, interaction behavior, content editing, or accessibility —
   loading only the relevant guideline file(s), not the whole folder.
 
-## Repository-native orchestration entrypoints
+## Orchestration entrypoints
 
-The knowledge-folder orchestrations are provided by the `knowledge-base` plugin. The only
-repo-native orchestration entrypoint left is `orch-fallback`, for task categories with no
-dedicated `orch-*` skill from either source. See `.github/copilot-orch-context.md`.
+Every orchestration entrypoint is plugin-provided: the knowledge-folder orchestrations come
+from the `knowledge-base` plugin, and the rest — including `orch-fallback`, for task
+categories with no dedicated `orch-*` skill — come from the `copilot-app` plugin. This
+repository ships no repo-native `orch-*` skills. See `.github/copilot-orch-context.md`.
 
 ## Runtime and QA context
 

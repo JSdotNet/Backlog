@@ -1,18 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <!--
-    TEST HARNESS — not deployed. See src/harness/README.md.
+    TEST HARNESS — not deployed. See src/Harness/README.md.
     A storybook for Backlog.UI.Components: every shared component rendered on its
     own, with no module, infrastructure or app project in the graph. That missing
     reference is the point — it proves the component library carries no domain,
     and it lets a human or Playwright review the components without starting the
-    application. Publishing flags come from src/harness/Directory.Build.props.
+    application. Publishing flags come from src/Harness/Directory.Build.props.
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Backlog.UI.Storybook</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>

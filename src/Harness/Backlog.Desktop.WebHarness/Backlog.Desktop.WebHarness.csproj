@@ -1,17 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <!--
-    TEST HARNESS — not deployed. See src/harness/README.md.
+    TEST HARNESS — not deployed. See src/Harness/README.md.
     Blazor Server host of Backlog.Desktop.UI, the same Razor components the MAUI
     Blazor Hybrid desktop head renders in its WebView, so the desktop UI can be
     started by the Aspire AppHost ("desktop-web-harness") and driven by Playwright.
-    Publishing flags come from src/harness/Directory.Build.props.
+    Publishing flags come from src/Harness/Directory.Build.props.
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Backlog.Desktop.WebHarness</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>

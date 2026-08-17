@@ -13,10 +13,7 @@
     and hold the DTOs, never the aggregate.
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Backlog.Modules.Backlog</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,7 +24,7 @@
   <ItemGroup>
     <!-- Only for AddBacklogModule(); the domain and the handlers know nothing
          about the container. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

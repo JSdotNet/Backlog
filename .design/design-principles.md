@@ -138,3 +138,25 @@ though they use different component libraries.
 | Same vocabulary | Save-state, reorder, and editing vocabulary MUST be identical across channels (same words, same states). |
 | Platform-native input | Each channel MAY use platform-native controls, but MUST map them to the shared tokens and honor the principles above. |
 | No per-channel drift | A pattern defined here MUST NOT be re-invented differently per channel; deviations require an explicit, recorded decision. |
+
+## Materialization
+
+```meta
+status: active
+related: [".design/README.md#living-reference-the-ui-storybook"]
+```
+
+The storybook (`src/Harness/Backlog.UI.Storybook`) is where these principles are
+checked rather than asserted. It links the library stylesheet and adds page
+chrome only, so a principle that has quietly stopped holding shows up there
+first.
+
+| Principle | Standing |
+|---|---|
+| Dark mode only | **Held.** One `:root`, one palette, no light column and no toggle anywhere in the library, the desktop app, or the storybook. The syntax theme is authored for dark surfaces rather than borrowed (`color-scheme.md#syntax-highlighting-tokens`). |
+| No save buttons | **Held.** No save affordance exists; the storybook's *Markdown* page runs the real save sequence, and its *Feedback* page shows the indicator on its own. |
+| Local-first | **Held in the product; broken in one place** — Mermaid and G6 are fetched from a CDN (`component-libraries.md#materialization`). |
+| Keyboard-first | **Partly held.** Components are keyboard-operable and reorder has arrow-key equivalents, but there is no command palette and no slash surface, so "primary actions reachable through a command surface" has nothing behind it. |
+| Low-chrome, content-first | **Held in layout, inverted in colour** — the Markdown read view currently uses `color-text-secondary` for body text (`content-editing.md#materialization`). Scrollbars are treated as chrome and dressed in the border tokens by the library itself, so every host gets them rather than only the desktop. |
+| AI-first surfaces | **Partly held.** The desktop integrates the Copilot CLI, but there is no shared command surface to invoke it through, and AI-attributed content has no distinct rendering yet. |
+| Consistency across channels | **Untested.** Only the web-rendered channel exists; mobile MAUI and the IDE extensions have no UI to diverge yet. |
