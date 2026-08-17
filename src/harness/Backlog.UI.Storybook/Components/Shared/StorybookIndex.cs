@@ -17,8 +17,13 @@ namespace Backlog.UI.Storybook.Components.Shared;
 internal static class StorybookIndex
 {
     /// <summary>A page in the storybook. <paramref name="Summary"/> is the blurb
-    /// on the introduction's card; the sidebar shows the title alone.</summary>
-    internal sealed record Page(string Href, string Title, string Summary);
+    /// on the introduction's card; the sidebar shows the title alone.
+    /// <para>
+    /// <paramref name="Exact"/> is for a page that has a subpage under its own
+    /// path. The sidebar highlights on a prefix, so without it a parent stays lit
+    /// while you are reading its child and two rows claim to be the current page.
+    /// </para></summary>
+    internal sealed record Page(string Href, string Title, string Summary, bool Exact = false);
 
     internal sealed record Group(string Title, IReadOnlyList<Page> Pages);
 
@@ -33,7 +38,8 @@ internal static class StorybookIndex
         [
             new("buttons", "Buttons", "AppButton, IconButton, ButtonGroup, ToggleButton."),
             new("inputs", "Inputs", "TextField, TextArea, SearchBox, Toggle, Checkbox."),
-            new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect, SearchBox.")
+            new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect, SearchBox."),
+            new("task-list", "Task list", "TaskItem, TaskListView and TaskAction: the controls a list of things-to-do is made of.")
         ]),
         new("Structure and navigation",
         [
@@ -42,8 +48,12 @@ internal static class StorybookIndex
         ]),
         new("Content",
         [
-            new("markdown", "Markdown", "The parser and the read view, side by side with an editor."),
-            new("file-view", "File view", "FileView: a file's header and its markdown, with the body scrolling on its own."),
+            new("file-view", "File view", "FileView: a file's header, and its contents read as markdown or as code."),
+            new("folder-view", "Folder view", "FolderView: a folder's header, and what is in it as a tree — the knowledge menu with the vocabulary taken out."),
+            new("markdown", "Markdown", "MarkdownView: every block and inline the read view renders, and how each is styled.", Exact: true),
+            new("markdown/diagrams", "Diagrams in markdown", "What happens when a fenced block names a diagram language: MarkdownView hands it to DiagramView."),
+            new("markdown/rich-text", "Rich text editing", "MarkdownEditor: a formatting toolbar over the markdown source, and where it stops short of a WYSIWYG."),
+            new("entry-edit", "Entry edit", "The same markdown being written: source beside read view, auto-save, task toggling, sub-items."),
             new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
             new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge."),
             new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
@@ -64,9 +74,10 @@ internal static class StorybookIndex
     public static IReadOnlyList<Page> ComponentPages { get; } =
         [.. AllPages.Where(page => page.Href.Length > 0)];
 
-    /// <summary>The sidebar's links for one group. The introduction is the only
-    /// exact match: every other href is a whole path, so prefix matching is what
-    /// keeps the right row highlighted.</summary>
+    /// <summary>The sidebar's links for one group. Prefix matching is what keeps
+    /// the right row highlighted for a whole-path href; the introduction and any
+    /// page with a subpage under it are matched exactly instead, so a parent does
+    /// not stay lit while its child is the page being read.</summary>
     public static IReadOnlyList<NavItem> NavItemsFor(Group group) =>
-        [.. group.Pages.Select(page => new NavItem(page.Href, page.Title, Match: page.Href.Length == 0))];
+        [.. group.Pages.Select(page => new NavItem(page.Href, page.Title, Match: page.Href.Length == 0 || page.Exact))];
 }

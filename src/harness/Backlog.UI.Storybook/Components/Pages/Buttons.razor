@@ -149,9 +149,24 @@
         <p class="sb-state" data-testid="region-clicks">Region clicks: @_regionClicks — button clicks: @_clicks</p>
     </Story>
 
+    <Story Name="CopyButton"
+           Description="Put something on the clipboard, and say whether it worked. Those are one component rather than two, because the second half is the part that keeps being dropped: the clipboard belongs to the browser and the browser is allowed to refuse — a WebView without permission, a page over plain http — and a button that reported nothing would leave a reader believing they had copied something they had not, which is how you lose whatever was on the clipboard before.
+
+The confirmation is a role=&quot;status&quot; line beside the button rather than a change to its label, so the button goes on saying what it does, and it clears itself after a few seconds. It is used by the code block, the read view, the document bar and every row in a task list — four places that would otherwise each have grown their own."
+           Code="@CopyButtonCode">
+        <div class="sb-row">
+            <CopyButton Text="Copied from the storybook." Label="Copy the sample text" TestId="copy-sample" />
+            <CopyButton Text="Words instead of a glyph." Label="Copy with a label">Copy</CopyButton>
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
+    private const string CopyButtonCode = """
+        <CopyButton Text="@source" Label="Copy the release notes" />
+        """;
+
     private static readonly ButtonVariant[] Variants =
         [ButtonVariant.Primary, ButtonVariant.Secondary, ButtonVariant.Ghost, ButtonVariant.Danger];
 

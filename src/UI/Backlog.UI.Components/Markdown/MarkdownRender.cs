@@ -26,9 +26,16 @@ public static class MarkdownRender
         MdText text => text.Text,
         MdStrong strong => strong.Text,
         MdEm em => em.Text,
+        MdStrike strike => strike.Text,
         MdCodeSpan codeSpan => codeSpan.Text,
         MdTag tag => $"#{tag.Tag}",
         MdLink link => link.Text,
+        // The alt text is the whole of what an image says to something that
+        // cannot see it, which is exactly what this is for.
+        MdImage image => image.Alt,
+        // A label that names an item in a list somewhere below is noise in a
+        // label; the mark itself carries nothing a reader needs here.
+        MdFootnoteRef => string.Empty,
         _ => string.Empty
     }));
 
@@ -47,6 +54,9 @@ public static class MarkdownRender
                     break;
                 case MdEm em:
                     Wrap(builder, ref seq, "em", null, em.Text);
+                    break;
+                case MdStrike strike:
+                    Wrap(builder, ref seq, "s", null, strike.Text);
                     break;
                 case MdCodeSpan codeSpan:
                     Wrap(builder, ref seq, "code", "md-inline-code", codeSpan.Text);
@@ -67,6 +77,38 @@ public static class MarkdownRender
                     // Not a scheme we will navigate to. The text stays — the
                     // author wrote it — but it is not clickable.
                     Wrap(builder, ref seq, "span", "md-link--inert", link.Text);
+                    break;
+
+                case MdImage image when IsNavigable(image.Url):
+                    builder.OpenElement(seq++, "img");
+                    builder.AddAttribute(seq++, "class", "md-image");
+                    builder.AddAttribute(seq++, "src", image.Url);
+                    builder.AddAttribute(seq++, "alt", image.Alt);
+                    // Nothing here knows how big the picture is, and a body that
+                    // reflows when one arrives is worse than one that waits.
+                    builder.AddAttribute(seq++, "loading", "lazy");
+                    builder.CloseElement();
+                    break;
+
+                case MdImage image:
+                    // Same allow-list as a link, and for a stronger reason: a
+                    // `src` fetches on its own, with no click to consent to it.
+                    // The alt text is what the author meant, so it is what shows.
+                    Wrap(builder, ref seq, "span", "md-image--inert", image.Alt);
+                    break;
+
+                case MdFootnoteRef reference:
+                    // A real anchor, so the mark is reachable and announced, and
+                    // the note it points at is one keystroke away.
+                    builder.OpenElement(seq++, "sup");
+                    builder.AddAttribute(seq++, "class", "md-fnref");
+                    builder.AddAttribute(seq++, "id", $"fnref-{reference.Label}");
+                    builder.OpenElement(seq++, "a");
+                    builder.AddAttribute(seq++, "href", $"#fn-{reference.Label}");
+                    builder.AddAttribute(seq++, "aria-label", $"Footnote {reference.Number}");
+                    builder.AddContent(seq++, reference.Number);
+                    builder.CloseElement();
+                    builder.CloseElement();
                     break;
             }
         }

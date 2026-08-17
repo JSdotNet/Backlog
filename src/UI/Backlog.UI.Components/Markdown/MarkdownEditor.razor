@@ -1,0 +1,245 @@
+@inject IJSRuntime Js
+
+@*
+    A markdown editor with the affordances of a rich text one: select a word,
+    press bold, and the word is bold — without the reader having to know that
+    bold is two asterisks.
+
+    What it deliberately is not is a WYSIWYG surface. The text stays markdown and
+    the textarea stays the truth, because everything else in this product is
+    built on that being so: the source is what auto-saves, what a checkbox
+    rewrites, what a diff shows and what the parser reads. A contenteditable
+    surface would have to serialise back to markdown on every keystroke, and the
+    first body it could not round-trip — a half-typed fence, an unclosed
+    emphasis, a table mid-edit — is a body someone loses work in. A toolbar
+    button here is an edit the author could have typed by hand.
+
+    Selection belongs to the browser, so all of it lives in components.js. This
+    component owns the buttons, the text, and nothing in between.
+*@
+
+<div class="markdown-editor @CssClass" data-testid="@TestId">
+    <div class="markdown-editor__toolbar" role="toolbar" aria-label="@ToolbarLabel" aria-controls="@_surfaceId">
+        @foreach (var group in Actions)
+        {
+            <div class="markdown-editor__group" role="group">
+                @foreach (var action in group)
+                {
+                    <button type="button"
+                            class="markdown-editor__button"
+                            data-testid="@($"markdown-editor-{action.Id}")"
+                            title="@action.Title"
+                            aria-label="@action.Title"
+                            disabled="@Disabled"
+                            @onclick="() => ApplyAsync(action.Id)">
+                        <span class="@action.GlyphClass" aria-hidden="true">@action.Glyph</span>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+
+    <div @ref="_surface" class="markdown-editor__surface" id="@_surfaceId">
+        @* The highlight layer sits behind the textarea, in the same box with the
+           same metrics, and the text on top is transparent apart from its caret.
+           A textarea cannot colour its own content — that is the whole reason
+           this pattern exists — and the alternative, a contenteditable, is the
+           bargain the page next door explains why this does not take.
+
+           aria-hidden because it is the same text twice: a screen reader that
+           read both would read the body twice over. The textarea is the one
+           that is real. *@
+        <pre class="markdown-editor__highlight" aria-hidden="true"><code>@RenderHighlight</code></pre>
+
+        <TextArea Value="@Value"
+                  ValueChanged="OnTypedAsync"
+                  AriaLabel="@AriaLabel"
+                  Rows="@Rows"
+                  AutoGrow="@AutoGrow"
+                  Disabled="@Disabled"
+                  Bare="true"
+                  GrowCssClass="markdown-editor__grow"
+                  InputCssClass="markdown-editor__input"
+                  TestId="@SurfaceTestId" />
+    </div>
+</div>
+
+@implements IAsyncDisposable
+
+@code {
+    private readonly string _surfaceId = "markdown-editor-" + Guid.NewGuid().ToString("N");
+    private ElementReference _surface;
+    private bool _watching;
+
+    /// <summary>
+    /// The coloured copy of the text, one element per line.
+    /// <para>
+    /// A trailing newline per line rather than a block element per line: the
+    /// layer has to wrap exactly the way the textarea wraps, and a textarea wraps
+    /// one long stream of text rather than a stack of boxes. Give each line a box
+    /// and a wrapped line stops lining up the moment the box's own width rounds
+    /// differently.
+    /// </para>
+    /// </summary>
+    private RenderFragment RenderHighlight => builder =>
+    {
+        var seq = 0;
+
+        foreach (var line in MarkdownHighlighter.Highlight(Value))
+        {
+            foreach (var token in line.Tokens)
+            {
+                builder.OpenElement(seq++, "span");
+                builder.AddAttribute(seq++, "class", token.CssClass);
+                builder.AddContent(seq++, token.Text);
+                builder.CloseElement();
+            }
+
+            builder.AddContent(seq++, "\n");
+        }
+    };
+
+    /// <summary>One button: what it does, and what it looks like.</summary>
+    private sealed record EditorAction(string Id, string Title, string Glyph, string GlyphClass = "");
+
+    /// <summary>The markdown being edited.</summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; } = "Markdown source";
+
+    [Parameter]
+    public string ToolbarLabel { get; set; } = "Formatting";
+
+    [Parameter]
+    public int Rows { get; set; } = 14;
+
+    [Parameter]
+    public bool AutoGrow { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string? SurfaceTestId => TestId is null ? null : $"{TestId}-surface";
+
+    /// <summary>
+    /// The buttons, grouped by what they act on: the first group marks a run of
+    /// text, the second turns a line into something. Grouping them is not
+    /// decoration — a reader who wants a list is not scanning past bold to find
+    /// it.
+    /// </summary>
+    private static readonly IReadOnlyList<IReadOnlyList<EditorAction>> Actions =
+    [
+        [
+            new("bold", "Bold", "B", "markdown-editor__glyph--bold"),
+            new("italic", "Italic", "I", "markdown-editor__glyph--italic"),
+            new("strike", "Strikethrough", "S", "markdown-editor__glyph--strike"),
+            new("code", "Inline code", "<>", "markdown-editor__glyph--code"),
+            new("link", "Link", "🔗")
+        ],
+        [
+            new("heading", "Heading", "H"),
+            new("bullet", "Bulleted list", "•"),
+            new("ordered", "Numbered list", "1."),
+            new("task", "Task", "☑"),
+            new("quote", "Quote", "❝")
+        ]
+    ];
+
+    /// <summary>
+    /// The browser did the edit and already holds the result, so this stores the
+    /// same string rather than computing its own. Blazor's diff then finds the
+    /// textarea already correct and leaves it — and leaves the selection with
+    /// it, which is the whole point of doing the edit in the DOM.
+    /// </summary>
+    private async Task ApplyAsync(string action)
+    {
+        if (Disabled) return;
+
+        try
+        {
+            var updated = await Js.InvokeAsync<string?>("backlogMarkdownEditor.apply", _surface, action, null);
+            if (updated is null) return;
+
+            Value = updated;
+            await ValueChanged.InvokeAsync(updated);
+        }
+        catch (JSException)
+        {
+            // The toolbar is an accelerator, never the only way in: the author
+            // can still type the markdown. A failed interop leaves the text
+            // exactly as it was rather than half-applied.
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: there is no textarea to act on yet.
+        }
+    }
+
+    private async Task OnTypedAsync(string value)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+
+    /// <summary>
+    /// The layer does not scroll itself: it is told where the textarea got to.
+    /// Scrolling belongs to the element the reader is actually in, and two boxes
+    /// that scrolled independently would drift apart by exactly as much as the
+    /// reader scrolled.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _watching) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogMarkdownEditor.watch", _surface, _surfaceId);
+            _watching = true;
+        }
+        catch (JSException)
+        {
+            // The colours are a reading aid, not the text. Without the listener
+            // the layer simply stops following, and everything still types.
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: there is no element to listen to yet.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_watching) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogMarkdownEditor.unwatch", _surfaceId);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+}

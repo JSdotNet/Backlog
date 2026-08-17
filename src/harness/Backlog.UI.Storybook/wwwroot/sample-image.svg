@@ -1,0 +1,25 @@
+<!--
+    An example asset, for the Markdown chapter's image story.
+
+    A relative image is the realistic case — an entry pointing at a file next to
+    it in the repository — and the storybook has to render offline, so the story
+    needs something local to point at rather than a URL on the internet.
+
+    Referenced through `img src`, so the design tokens do not reach it: an SVG
+    loaded that way gets no stylesheet from the page. The colours are literals
+    chosen to read on both the light and the dark surface.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120" width="320" height="120" role="img" aria-label="Three boxes joined by arrows">
+    <rect x="8" y="34" width="84" height="52" rx="8" fill="#4c6ef5" />
+    <rect x="118" y="34" width="84" height="52" rx="8" fill="#7048e8" />
+    <rect x="228" y="34" width="84" height="52" rx="8" fill="#0ca678" />
+
+    <path d="M96 60h18" stroke="#868e96" stroke-width="3" stroke-linecap="round" />
+    <path d="M108 54l8 6-8 6" fill="none" stroke="#868e96" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M206 60h18" stroke="#868e96" stroke-width="3" stroke-linecap="round" />
+    <path d="M218 54l8 6-8 6" fill="none" stroke="#868e96" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+
+    <text x="50" y="65" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#ffffff">Parse</text>
+    <text x="160" y="65" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#ffffff">Blocks</text>
+    <text x="270" y="65" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#ffffff">Render</text>
+</svg>

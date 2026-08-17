@@ -1,0 +1,231 @@
+@*
+    A list of tasks that can be reordered.
+
+    The drag is the browser's, and everything about where a row would land is
+    held here — which row is moving, which one it is over — because a row cannot
+    know either on its own. The list raises one event when the move settles:
+    where the row went. Reordering the data is the host's, since the host is the
+    only thing that knows whether the order survives a reload.
+
+    Reordering is also on the keyboard, and that is not decoration. A drag is a
+    pointer gesture with no keyboard equivalent at all, so a list that only
+    dragged would be a list some people cannot reorder. Alt+Arrow moves the
+    focused row, and the focus goes with it — the row is a different element
+    after the list re-renders, so it is found again by id.
+*@
+
+<ul class="@ClassValue" data-testid="@TestId" aria-label="@AriaLabel">
+    @if (Tasks.Count == 0)
+    {
+        <li class="task-list__empty">@EmptyMessage</li>
+    }
+
+    @* Preview, not Tasks. While a drag is in flight the rows are shown in the
+       order they would end up in, so the gap the row would drop into is a gap
+       you can see rather than a line you have to interpret. @key is what makes
+       that work: the rows move rather than being rebuilt, so the one under the
+       pointer stays the one under the pointer. *@
+    @foreach (var task in Open)
+    {
+        @RenderRow(task)
+    }
+</ul>
+
+@* Finished work goes to the bottom, behind a count you can fold away. A list
+   whose done rows stay where they were becomes a list you have to read past to
+   find the work — and deleting them instead would throw away the record of what
+   was done. Folded by default: the reason to open this is to undo something. *@
+@if (GroupCompleted && Completed.Count > 0)
+{
+    <div class="task-list__completed" data-testid="@CompletedTestId">
+        <button type="button"
+                class="task-list__completed-header"
+                aria-expanded="@(_showCompleted ? "true" : "false")"
+                data-testid="@Suffix("completed-toggle")"
+                @onclick="() => _showCompleted = !_showCompleted">
+            <span class="task-list__twisty" aria-hidden="true">@(_showCompleted ? "⌄" : "›")</span>
+            <span>@CompletedLabel</span>
+            <span class="task-list__completed-count">@Completed.Count</span>
+        </button>
+
+        @if (_showCompleted)
+        {
+            <ul class="task-list" aria-label="@($"{CompletedLabel}, {AriaLabel}")">
+                @foreach (var task in Completed)
+                {
+                    @RenderRow(task)
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    private string? _dragging;
+    private string? _over;
+    private bool _showCompleted;
+
+    /// <summary>One row, wherever it is being drawn. Both lists render the same
+    /// thing — a done row is not a different kind of row, it is the same row
+    /// having been finished.</summary>
+    private RenderFragment RenderRow(TaskRow task) =>
+        @<TaskItem @key="task.Id"
+                   Task="task"
+                   Selected="@(string.Equals(SelectedId, task.Id, StringComparison.Ordinal))"
+                   OnToggle="OnToggle"
+                   OnSelected="OnSelected"
+                   OnRename="OnRename"
+                   AllowCopy="@AllowCopy"
+                   Draggable="@(Reorderable && !task.Done)"
+                   Dragging="@(string.Equals(_dragging, task.Id, StringComparison.Ordinal))"
+                   OnDragStart="StartDrag"
+                   OnDragOver="DragOver"
+                   OnDrop="Drop"
+                   OnDragEnd="EndDrag"
+                   TestId="@RowTestId(task)" />;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TaskRow> Tasks { get; set; } = [];
+
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnToggle { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnSelected { get; set; }
+
+    /// <summary>Whether rows offer to copy themselves.</summary>
+    [Parameter]
+    public bool AllowCopy { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<TaskRename> OnRename { get; set; }
+
+    /// <summary>Whether finished rows move to a section of their own at the
+    /// bottom. On by default: a list whose done rows stay in place is a list you
+    /// read past to find the work.</summary>
+    [Parameter]
+    public bool GroupCompleted { get; set; } = true;
+
+    [Parameter]
+    public string CompletedLabel { get; set; } = "Completed";
+
+    /// <summary>Where a row ended up: the row that moved, and the row it landed
+    /// on. Applying it is the host's, because only the host knows whether the
+    /// new order is saved anywhere.</summary>
+    [Parameter]
+    public EventCallback<TaskMove> OnReorder { get; set; }
+
+    /// <summary>Whether rows can be picked up at all. Off for a list whose order
+    /// is not the reader's to choose — one sorted by date, or a search result.</summary>
+    [Parameter]
+    public bool Reorderable { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Tasks";
+
+    [Parameter]
+    public string EmptyMessage { get; set; } = "Nothing here yet.";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "task-list",
+        // Lets the rows that are not moving pull in while one is in flight, so
+        // the list reads as having made room rather than as having a hole in it.
+        _dragging is not null ? "task-list--dragging" : null,
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>
+    /// The order to draw right now: the real one, or — while a row is being
+    /// dragged over another — the order the drop would produce.
+    /// <para>
+    /// Previewing rather than drawing an insertion line is the difference
+    /// between showing where a row would go and describing it. The reader is
+    /// already looking at the list; moving it is the cheapest possible answer to
+    /// "where would this land".
+    /// </para>
+    /// <para>
+    /// It is a view and nothing more. Tasks is untouched, and if the drag is
+    /// abandoned the preview simply stops being computed — there is no state to
+    /// roll back because nothing was changed.
+    /// </para>
+    /// </summary>
+    /// <summary>The rows in the top list: everything, or everything unfinished
+    /// when the done ones have somewhere of their own to go.</summary>
+    private IReadOnlyList<TaskRow> Open =>
+        GroupCompleted ? [.. Preview.Where(task => !task.Done)] : Preview;
+
+    /// <summary>The finished rows, in the order they were given. Not sorted by
+    /// when they were finished, because nothing here knows that.</summary>
+    private IReadOnlyList<TaskRow> Completed =>
+        GroupCompleted ? [.. Tasks.Where(task => task.Done)] : [];
+
+    private string? CompletedTestId => TestId is null ? null : $"{TestId}-completed";
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    private IReadOnlyList<TaskRow> Preview =>
+        _dragging is { } moved && _over is { } target && !string.Equals(moved, target, StringComparison.Ordinal)
+            ? new TaskMove(moved, target).ApplyTo(Tasks, task => task.Id)
+            : Tasks;
+
+    private string? RowTestId(TaskRow task) => TestId is null ? null : $"{TestId}-{task.Id}";
+
+    private void StartDrag(string id)
+    {
+        _dragging = id;
+        _over = id;
+    }
+
+    /// <summary>
+    /// Which row the pointer is over, and so where the drop would land.
+    /// <para>
+    /// Dragging over the moved row itself is ignored. In the previewed order
+    /// that row is already sitting where the pointer is, so honouring it would
+    /// mean "put it back", the preview would snap to the real order, the row
+    /// under the pointer would change, and the two would trade places for as
+    /// long as the reader held still.
+    /// </para>
+    /// </summary>
+    private void DragOver(string id)
+    {
+        if (_dragging is null || string.Equals(id, _dragging, StringComparison.Ordinal)) return;
+
+        _over = id;
+    }
+
+    private void EndDrag()
+    {
+        _dragging = null;
+        _over = null;
+    }
+
+    /// <summary>
+    /// Commits what the preview was already showing. The drop reports the row
+    /// the pointer was last over rather than whatever it technically landed on —
+    /// the reader has been looking at the answer for as long as they held the
+    /// row there, and anything else would move it somewhere they had not seen.
+    /// </summary>
+    private async Task Drop(string _)
+    {
+        var moved = _dragging;
+        var target = _over;
+        EndDrag();
+
+        // Never left the row it started on: a drag the reader thought better of,
+        // not a move. Raising it would put a no-op into whatever the host does
+        // with these, including its undo stack.
+        if (moved is null || target is null || string.Equals(moved, target, StringComparison.Ordinal)) return;
+
+        await OnReorder.InvokeAsync(new TaskMove(moved, target));
+    }
+}

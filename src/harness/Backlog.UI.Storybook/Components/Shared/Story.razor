@@ -14,9 +14,13 @@
             @Name
             <a class="sb-story__anchor" href="@($"#{Anchor}")" aria-label="@($"Link to the {Name} story")">#</a>
         </h2>
-        @if (!string.IsNullOrWhiteSpace(Description))
+        @* A blank line starts a new paragraph. Some of these descriptions explain
+           why a component is shaped the way it is, and that is more than one
+           paragraph's worth — run together in a single <p>, HTML collapses the
+           break and the reader gets a wall. *@
+        @foreach (var paragraph in Paragraphs)
         {
-            <p class="sb-story__description">@Description</p>
+            <p class="sb-story__description">@paragraph</p>
         }
     </header>
 
@@ -46,6 +50,16 @@
     public RenderFragment? ChildContent { get; set; }
 
     private string Anchor => Slug(Name);
+
+    /// <summary>The description split on blank lines. A description with no blank
+    /// line in it is one paragraph, which is what every story used to be.</summary>
+    private IEnumerable<string> Paragraphs =>
+        string.IsNullOrWhiteSpace(Description)
+            ? []
+            : Description.Replace("\r\n", "\n")
+                .Split("\n\n", StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => part.Trim())
+                .Where(part => part.Length > 0);
 
     internal static string Slug(string? value)
     {

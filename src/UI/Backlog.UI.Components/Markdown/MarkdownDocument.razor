@@ -1,0 +1,155 @@
+@*
+    A body you read, with a way into editing it.
+
+    Read is the resting state, and that is the decision this component is. A
+    surface that opens in an editor tells the reader they are here to write; this
+    product's bodies are read far more often than they are written, so the
+    default is the rendering and writing is a thing you ask for.
+
+    One text either way. Editing does not copy it somewhere and copy it back —
+    the same string is handed to the editor and to the parser — so there is no
+    moment where a body exists twice and the two can disagree.
+*@
+
+<div class="@ClassValue" data-testid="@TestId">
+    <div class="markdown-document__bar">
+        <span class="markdown-document__title">@Title</span>
+
+        <span class="markdown-document__actions">
+            @if (!Editing && AllowCopy)
+            {
+                <CopyButton Text="@(Value ?? string.Empty)"
+                            Label="@CopyLabel"
+                            ButtonCssClass="markdown-document__copy"
+                            StatusCssClass="markdown-document__status"
+                            ButtonTestId="@Suffix("copy")"
+                            StatusTestId="@Suffix("copy-status")" />
+            }
+
+            @if (CanEdit)
+            {
+                <AppButton Variant="ButtonVariant.Ghost"
+                           OnClick="ToggleAsync"
+                           TestId="@Suffix(Editing ? "done" : "edit")">
+                    @(Editing ? DoneLabel : EditLabel)
+                </AppButton>
+            }
+        </span>
+    </div>
+
+    @if (Editing)
+    {
+        <MarkdownEditor Value="@Value"
+                        ValueChanged="OnEditedAsync"
+                        AriaLabel="@($"{Title} source")"
+                        Rows="@Rows"
+                        TestId="@Suffix("editor")" />
+    }
+    else
+    {
+        <div class="markdown-document__read" data-testid="@Suffix("read")">
+            <MarkdownView Blocks="@_blocks"
+                          Comments="@Comments"
+                          OnAddComment="OnAddComment"
+                          OnResolveComment="OnResolveComment" />
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<MdBlock> _blocks = [];
+    private string? _parsed;
+    private bool _hasParsed;
+
+    /// <summary>The markdown, read or written.</summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>Which mode it is in. Two-way bindable, so a host that wants to
+    /// open something straight into editing can, and a host that does not care
+    /// need not hold it.</summary>
+    [Parameter]
+    public bool Editing { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> EditingChanged { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>Whether the edit button is offered at all. A body someone is
+    /// only allowed to read should not show a way in that refuses them.</summary>
+    [Parameter]
+    public bool CanEdit { get; set; } = true;
+
+    [Parameter]
+    public bool AllowCopy { get; set; } = true;
+
+    [Parameter]
+    public string EditLabel { get; set; } = "Edit";
+
+    [Parameter]
+    public string DoneLabel { get; set; } = "Done";
+
+    [Parameter]
+    public string CopyLabel { get; set; } = "Copy markdown";
+
+    [Parameter]
+    public int Rows { get; set; } = 14;
+
+    /// <summary>Comments against the read view's blocks. Not shown while
+    /// editing: the blocks they are anchored to do not exist in that mode, and a
+    /// comment beside a textarea would be pointing at nothing.</summary>
+    [Parameter]
+    public IReadOnlyList<MarkdownComment> Comments { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<int> OnAddComment { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnResolveComment { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "markdown-document",
+        Editing ? "markdown-document--editing" : null,
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    /// <summary>Parsed when the text changes rather than on every render — the
+    /// bar above it re-renders for reasons that have nothing to do with the
+    /// body.</summary>
+    protected override void OnParametersSet()
+    {
+        if (_hasParsed && _parsed == Value) return;
+
+        // ParseDocument, not Parse: a document's `##` is a heading. An entry
+        // wants the other reading, and hands its own blocks to MarkdownView.
+        _blocks = MarkdownPreview.ParseDocument(Value);
+        _parsed = Value;
+        _hasParsed = true;
+    }
+
+    private async Task ToggleAsync()
+    {
+        Editing = !Editing;
+        await EditingChanged.InvokeAsync(Editing);
+    }
+
+    private async Task OnEditedAsync(string value)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+}

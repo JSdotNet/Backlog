@@ -6,25 +6,35 @@
            Summary="A tree, a flat menu, the same menu at a pointer position, and the navigation list this storybook's own sidebar is built from.">
 
     <Story Name="TreeView"
-           Description="Expansion and selection live in the page, not the tree — the component asks two predicates and raises one event, so a host keeps whatever state model it already has."
+           Description="Expansion and selection live in the page, not the tree — the component asks two predicates and raises one event, so a host keeps whatever state model it already has.
+
+No open-in-VS-Code button here: a tree of rows is a tree of rows, and this one has nowhere on disk to open. The button belongs to something that knows it is a folder, which is the Folder view chapter."
            Code="@TreeCode">
         <TreeView Nodes="Nodes"
-                  RootFolder="Root"
-                  HeadingLabel="Knowledge"
+                  HeadingLabel="Chapters"
                   HeadingTestId="tree-heading"
-                  OpenButtonTestId="tree-open-folder"
+                  ShowOpenButton="false"
                   IsNodeSelected="node => node.Id == _selectedId"
                   IsNodeExpanded="node => _expanded.Contains(node.Id)"
-                  OnNodeSelected="OnNodeSelected"
-                  OnOpenFolder="OnOpenFolder"
-                  OpenErrorMessage="@_treeError" />
+                  OnNodeSelected="OnNodeSelected" />
         <p class="sb-state" data-testid="tree-state">
             Selected: @(_selectedId ?? "(none)") &nbsp;|&nbsp; Expanded: [@string.Join(", ", _expanded)]
         </p>
-        <div class="sb-row" style="margin-top: 0.5rem">
-            <AppButton Variant="ButtonVariant.Ghost" OnClick="ToggleTreeError">
-                Toggle the open-error line
-            </AppButton>
+    </Story>
+
+    <Story Name="OpenFolderButton"
+           Description="&quot;Open this in VS Code&quot;, as a control of its own. It is one button used in two headers — TreeView puts it beside its heading, FolderView puts it in its own because it hides that heading — and two implementations of the same thing is how they drift apart.
+
+The mark rather than the letters: &quot;VS&quot; in a 2rem box reads as an abbreviation of something the reader has to have been told, and the logo is what they already know from their own taskbar. The name is words either way — the icon is aria-hidden and the accessible name says which folder. The SVG is drawn here rather than fetched, because a button that needs the network to show itself does not work in a WebView with no egress.
+
+Busy keeps it in place and the same size instead of vanishing under the pointer that just hit it."
+           Code="@OpenButtonCode">
+        <div class="sb-row" data-testid="open-folder-states">
+            <OpenFolderButton Label="Open .arc42 in VS Code"
+                              OnClick="OnOpenFolder"
+                              TestId="open-folder-idle" />
+            <OpenFolderButton Label="Opening .design in VS Code" Busy="true" TestId="open-folder-busy" />
+            <OpenFolderButton Label="Open .tech in VS Code" Disabled="true" TestId="open-folder-disabled" />
         </div>
     </Story>
 
@@ -70,8 +80,6 @@
 </StoryPage>
 
 @code {
-    private static readonly TreeNode Root = new("root", "Knowledge", TreeNodeKind.Folder);
-
     private static readonly IReadOnlyList<TreeNode> Nodes =
     [
         new("arc42", "Architecture", TreeNodeKind.Folder, true, null,
@@ -114,7 +122,6 @@
     private readonly HashSet<string> _expanded = ["arc42"];
     private string? _selectedId;
     private string? _lastAction;
-    private string? _treeError;
     private bool _contextOpen;
     private double _contextX;
     private double _contextY;
@@ -139,20 +146,25 @@
         _contextOpen = true;
     }
 
-    private void OnOpenFolder(TreeNode node) => _lastAction = $"Open folder: {node.Label}";
+    private void OnOpenFolder() => _lastAction = "Open folder: .arc42";
 
     private void OnMenuItemSelected(MenuItem item) => _lastAction = $"Menu: {item.Label}";
 
     private void OnContextItemSelected(MenuItem item) => _lastAction = $"Context: {item.Label}";
-
-    private void ToggleTreeError() =>
-        _treeError = _treeError is null ? "The folder could not be opened." : null;
 
     private const string TreeCode = """
         <TreeView Nodes="Nodes"
                   IsNodeSelected="node => node.Id == _selectedId"
                   IsNodeExpanded="node => _expanded.Contains(node.Id)"
                   OnNodeSelected="OnNodeSelected" />
+        """;
+
+    private const string OpenButtonCode = """
+        <OpenFolderButton Label="Open .arc42 in VS Code" OnClick="OpenAsync" />
+
+        @* The same control, reached through the two components that host it. *@
+        <FolderView Name=".arc42" Entries="@entries" OnOpenFolder="OpenAsync" />
+        <TreeView Nodes="@nodes" RootFolder="@root" OnOpenFolder="OpenAsync" />
         """;
 
     private const string MenuCode = """

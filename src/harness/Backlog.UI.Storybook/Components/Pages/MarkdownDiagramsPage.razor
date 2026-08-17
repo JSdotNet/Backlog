@@ -1,0 +1,236 @@
+@page "/markdown/diagrams"
+
+<PageTitle>Diagrams in markdown — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Diagrams in markdown"
+           Summary="A subpage of Markdown, about one block: the fenced code block whose language names a diagram. MarkdownView hands those to DiagramView instead of rendering a code block, so a diagram is something you write in a body rather than something you attach to one. Everything else about fences — that nothing inside them is parsed, that a `- [ ]` in one is a sample — still holds.">
+
+    <Alert Message="@OfflineNotice" Role="note" CssClass="sb-callout" />
+
+    <Story Name="A fence that names a diagram becomes one"
+           Description="The whole of the integration is one line in MarkdownView: an MdCode whose language DiagramView recognises is handed to DiagramView, and everything else becomes a `pre.md-code`. The parser is not involved and does not need to be — it already captured the language off the opening fence, and a diagram is a code block that happens to be drawable.
+
+Nothing about the surrounding body changes. The prose above and below is parsed as prose, the diagram sits in the flow where it was written, and the block keeps the fence's own language on its header."
+           Code="@IntegrationCode">
+        <MarkdownStory Source="@FlowchartSample" TestId="markdown-diagram-flowchart" />
+    </Story>
+
+    <Story Name="Which fences are diagrams, and which of those can be drawn"
+           Description="Two questions, and they have different answers. IsDiagram decides whether a fence goes to DiagramView at all; CanRender decides whether DiagramView can draw it. Mermaid answers yes to both. PlantUML and Graphviz answer yes to the first and no to the second — they are recognised as diagrams, so they get the diagram frame and its caption, and then show their source because nothing here draws them. Anything else is not a diagram and renders as an ordinary code block.
+
+That middle case is deliberate. A `plantuml` fence is a diagram the author wrote and this product cannot yet draw, and framing it as one says so; rendering it as anonymous code would say the language went unrecognised, which is a different and less true thing.">
+        <div class="sb-stack" data-testid="markdown-diagram-languages">
+            @foreach (var language in Languages)
+            {
+                <div class="sb-stack">
+                    <p class="sb-label">@language.Fence — @language.Verdict</p>
+                    <MarkdownStory Source="@language.Source" TestId="@($"markdown-diagram-{language.Fence}")" />
+                </div>
+            }
+        </div>
+    </Story>
+
+    <Story Name="The source is always one disclosure away"
+           Description="A drawn diagram keeps a `Diagram source` disclosure under it. A picture is not always the thing a reader wants — reviewing a change to one means reading the text — and a diagram that renders is otherwise the one block in a body whose content you cannot select. The disclosure is closed by default, so it costs a reader who wanted the picture nothing."
+           Code="@SourceCode">
+        <MarkdownStory Source="@SequenceSample" TestId="markdown-diagram-sequence" />
+    </Story>
+
+    <Story Name="The kinds worth writing in an entry"
+           Description="Mermaid draws more than this, and this is the set that earns its place in a backlog body: how something flows, who talks to whom, what states a thing moves between, and how the pieces relate. Each is an ordinary fence in ordinary prose.">
+        <div class="sb-stack" data-testid="markdown-diagram-kinds">
+            @foreach (var kind in Kinds)
+            {
+                <div class="sb-stack">
+                    <p class="sb-label">@kind.Name</p>
+                    <MarkdownStory Source="@kind.Source" TestId="@($"markdown-diagram-kind-{kind.Slug}")" />
+                </div>
+            }
+        </div>
+    </Story>
+
+    <Story Name="A body that happens to contain a diagram"
+           Description="The realistic case, and the reason this integration is worth having: a decision record with prose, a table, a diagram and a footnote, where the diagram is a paragraph like any other rather than an attachment. This is one string, parsed once, rendered by one component."
+           Code="@DocumentCode">
+        <MarkdownStory Source="@DocumentSample" TestId="markdown-diagram-document" />
+    </Story>
+
+    <Story Name="When the renderer cannot start"
+           Description="Mermaid is fetched from a CDN on first use. In a WebView with no egress, or behind a proxy that refuses it, the import fails — and the block says so and shows the source rather than leaving an empty frame where a picture was promised. The same path covers a diagram whose syntax mermaid rejects: the message is the renderer's own, and the source is underneath it either way.
+
+A body is content that may have come from a repository file nobody here wrote, so a diagram that fails is an expected outcome and not an error state. Nothing about the surrounding prose is affected by it.">
+        <MarkdownStory Source="@BrokenSample" TestId="markdown-diagram-broken" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private const string OfflineNotice =
+        "Mermaid is fetched from a CDN the first time a diagram renders. On a machine with no egress "
+        + "every diagram on this page falls back to its source, which is what the last story is about — "
+        + "not a broken page.";
+
+    private sealed record LanguageCase(string Fence, string Verdict, string Source);
+
+    private sealed record DiagramKind(string Name, string Slug, string Source);
+
+    private const string FlowchartSample = """
+        The triage loop, written in the body it belongs to:
+
+        ```mermaid
+        flowchart LR
+            Captured([Captured]) --> Triage{Ready to work?}
+            Triage -- no --> Refine[Refine]
+            Refine --> Triage
+            Triage -- yes --> Active[In progress]
+            Active --> Done([Done])
+        ```
+
+        Everything after the closing fence is prose again.
+        """;
+
+    private const string SequenceSample = """
+        ```mermaid
+        sequenceDiagram
+            participant Desktop
+            participant Cloud
+            participant GitHub
+            Desktop->>Cloud: push entry
+            Cloud->>GitHub: commit file
+            GitHub-->>Cloud: sha
+            Cloud-->>Desktop: saved
+        ```
+        """;
+
+    private const string BrokenSample = """
+        A diagram mermaid will refuse, so the fallback is the thing on show:
+
+        ```mermaid
+        flowchart LR
+            A --> --> B[[[
+        ```
+
+        The prose around it is unaffected.
+        """;
+
+    private const string DocumentSample = """
+        # Sync runs through the cloud service
+
+        ## Status
+
+        Accepted.
+
+        ## Context
+
+        The desktop head cannot hold a GitHub token safely, and two heads writing
+        the same file need somewhere to agree.
+
+        | Option                | Token lives   | Conflicts resolved |
+        | :-------------------- | :------------ | :----------------- |
+        | Desktop writes direct | On the box    | Nowhere            |
+        | Cloud writes          | In the service| In one place       |
+
+        ## Decision
+
+        The desktop talks to the cloud service, and only the cloud service talks
+        to GitHub[^scope].
+
+        ```mermaid
+        flowchart LR
+            Desktop -->|entry| Cloud
+            Mobile -->|entry| Cloud
+            Cloud -->|commit| GitHub
+        ```
+
+        [^scope]: The IDE extension is out of scope until the protocol settles.
+        """;
+
+    /// <summary>The three answers a fence can get, one sample each.</summary>
+    private static readonly IReadOnlyList<LanguageCase> Languages =
+    [
+        new("mermaid", "a diagram, and one we draw", """
+            ```mermaid
+            flowchart LR
+                Written --> Drawn
+            ```
+            """),
+
+        new("plantuml", "a diagram we do not draw yet — framed as one, showing its source", """
+            ```plantuml
+            @startuml
+            Desktop -> Cloud : push entry
+            Cloud -> GitHub : commit
+            @enduml
+            ```
+            """),
+
+        new("csharp", "not a diagram — an ordinary code block", """
+            ```csharp
+            var blocks = MarkdownPreview.ParseDocument(source);
+            ```
+            """)
+    ];
+
+    private static readonly IReadOnlyList<DiagramKind> Kinds =
+    [
+        new("Flow — how something moves", "flow", """
+            ```mermaid
+            flowchart TD
+                Idea --> Refine --> Build --> Ship
+            ```
+            """),
+
+        new("Sequence — who talks to whom", "sequence", """
+            ```mermaid
+            sequenceDiagram
+                Desktop->>Cloud: push
+                Cloud-->>Desktop: saved
+            ```
+            """),
+
+        new("State — what a thing can be", "state", """
+            ```mermaid
+            stateDiagram-v2
+                [*] --> Captured
+                Captured --> Active
+                Active --> Done
+                Done --> [*]
+            ```
+            """),
+
+        new("Relationships — how the pieces fit", "class", """
+            ```mermaid
+            classDiagram
+                Entry "1" --> "*" SubItem
+                Entry : +string Title
+                SubItem : +bool Done
+            ```
+            """)
+    ];
+
+    private const string IntegrationCode = """
+        @* MarkdownView, on an MdCode block. The whole integration. *@
+        case MdCode codeBlock:
+            @if (DiagramView.IsDiagram(codeBlock.Language))
+            {
+                <DiagramView Source="@codeBlock.Text" Language="@codeBlock.Language" />
+            }
+            else
+            {
+                <pre class="md-code"><code>@codeBlock.Text</code></pre>
+            }
+            break;
+        """;
+
+    private const string SourceCode = """
+        <details class="diagram-view__details">
+            <summary>Diagram source</summary>
+            <pre class="diagram-view__source"><code>@Source</code></pre>
+        </details>
+        """;
+
+    private const string DocumentCode = """
+        @* One string, parsed once. The diagram is a block like any other. *@
+        <MarkdownView Blocks="@MarkdownPreview.ParseDocument(body)" />
+        """;
+}

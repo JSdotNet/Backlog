@@ -1,0 +1,393 @@
+@page "/task-list"
+
+<PageTitle>Task list — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Task list"
+           Summary="The controls a list of things-to-do is made of: a row with a circle and a copy button, a list that can be reordered, and the rows a detail pane is built from. Components only for now — nothing here decides what a task is, when a reminder fires, or what My Day means tomorrow. Those are decisions the product has not made yet, and a component that guessed them would be a component to unpick later.">
+
+    <Story Name="A task, as a row"
+           Description="A circle that completes it, the line itself, and a copy button at the end. The circle is round because that is this shape&#39;s one convention, and still a real checkbox to anything that is listening — round is not worth losing the semantics over. The copy button acts on the task&#39;s text rather than on its state, which is why it sits at the far end rather than beside the circle, and it stops the click before the row sees it: copying a task is not opening it.
+
+Everything the row knows about itself rides on one metadata line, in the order a reader asks for it: which list it came from, how far through it is, when it has to happen. Absent facts are left out rather than filled in."
+           Code="@RowCode">
+        <div class="sb-menu-wide" data-testid="task-list-rows">
+            <TaskListView Tasks="@Sample"
+                          OnToggle="Toggle"
+                          OnSelected="Select"
+                          OnRename="Rename"
+                          SelectedId="@_selectedId"
+                          AriaLabel="Sample tasks"
+                          TestId="task" />
+        </div>
+        <p class="sb-state" data-testid="task-list-selected">Selected: @(_selectedId ?? "(none)")</p>
+    </Story>
+
+    <Story Name="Renaming in place"
+           Description="The pencil turns the title into a field where the title was, so the row does not change height and nobody loses their place. Enter commits, Escape abandons, and clicking away commits — a rename is one short string, so a Save button beside it would be a second thing to reach for after the one that already finished the job.
+
+The draft is held in the row and reported only when it settles. A rename that raised every keystroke would put a save per character into whatever the host does with these, and would make Escape mean nothing because the change it was meant to abandon had already landed. An empty title and an unchanged one are both left unraised: neither is a rename."
+           Code="@RenameCode">
+        <div class="sb-menu-wide" data-testid="task-list-rename">
+            <TaskListView Tasks="@_renamable" OnToggle="_ => { }" OnRename="RenameOne" AriaLabel="Renamable tasks" TestId="rename" />
+        </div>
+        <p class="sb-state" data-testid="task-list-renamed">@(_lastRename ?? "nothing renamed yet")</p>
+    </Story>
+
+    <Story Name="Tags, dates, reminders and repeats"
+           Description="Each fact on the metadata line carries the glyph that says what kind of fact it is. “Friday” and “09:00” side by side are two dates until something says one is a deadline and the other an alarm — and a repeating task is a different thing again from either. The glyph is decoration on top of the words: a screen reader hears “Reminder 09:00”, never “alarm clock emoji”.
+
+Due and reminder come forward slightly, because they are what make a row urgent; repeats and steps stay quiet, because a shape is not a deadline. On a finished row the whole line goes quiet at once — its urgency is over.
+
+Tags are chips rather than more of that line. A tag is a thing you click to find its siblings; the rest of the line is text about this one task. They are set smaller here than a tag anywhere else in the product, so a chip cannot out-shout the title it belongs to."
+           Code="@TagCode">
+        <div class="sb-menu-wide" data-testid="task-list-facts">
+            <TaskListView Tasks="@Facts" OnToggle="_ => { }" AriaLabel="Tasks with facts" TestId="facts" />
+        </div>
+    </Story>
+
+    <Story Name="Done moves to Completed"
+           Description="A finished row leaves the list and joins a section of its own at the bottom, behind a count you can fold away. A list whose done rows stay where they were is a list you read past to find the work, and deleting them instead would throw away the record of what was done.
+
+Folded by default, because the reason to open it is usually to undo something. Tick a row above and watch the count go up; open the section and untick one to send it back. A completed row cannot be dragged — its place in the order stopped meaning anything when it left the list."
+           Code="@CompletedCode">
+        <div class="sb-menu-wide" data-testid="task-list-completed">
+            <TaskListView Tasks="@_completable"
+                          OnToggle="ToggleCompletable"
+                          Reorderable="true"
+                          OnReorder="ReorderCompletable"
+                          AriaLabel="With a completed section"
+                          TestId="done" />
+        </div>
+    </Story>
+
+    <Story Name="The row on its own"
+           Description="TaskItem without a list around it, for a host that has its own. It renders an `li`, so it wants a list element as its parent — the list it usually gets is TaskListView, which adds the reordering and nothing else. Everything a row does is its own: the circle, the copy button, the click on the line.
+
+Selected is the host's to set. The row does not decide it, because which row is open is a fact about the pane beside the list rather than about the row."
+           Code="@ItemCode">
+        <ul class="task-list sb-menu-wide" data-testid="task-list-single">
+            <TaskItem Task="@Single"
+                      OnToggle="_ => { }"
+
+                      OnSelected="_ => { }"
+                      TestId="single" />
+            <TaskItem Task="@SingleSelected" Selected="true" OnToggle="_ => { }" TestId="single-selected" />
+        </ul>
+    </Story>
+
+    <Story Name="Done, important, and in my day"
+           Description="Done is finished. My Day is a decision the reader made this morning — not a due date, and it expires on its own. Important is still on the model and no longer has a control: the row carries the flag, and whatever ends up setting it is a decision the product has not made.
+
+A finished task stays readable. It is struck through and quieter, but it is the record of what was done rather than something to hide."
+           Code="@StatesCode">
+        <div class="sb-menu-wide" data-testid="task-list-states">
+            <TaskListView Tasks="@States" OnToggle="_ => { }" AriaLabel="Task states" TestId="state" />
+        </div>
+    </Story>
+
+    <Story Name="Reordering, by pointer and by key"
+           Description="Drag a row onto another and it takes that row's place. The list holds which row is moving and which one it is over — a row cannot know either on its own — and raises one event when the move settles: what moved, and onto what. Applying it is the host's, because only the host knows whether the new order is saved anywhere. TaskMove.ApplyTo is offered for a host that has no opinion.
+
+While a row is in flight the list shows the order the drop would produce, rather than drawing a line between two rows. The reader is already looking at the list, so moving it is the cheapest possible answer to “where would this land” — the gap is a gap you can see instead of a line to interpret. The rows that are not moving pull in slightly, which is what says the list made room rather than that a row went missing. All of it is a view: Tasks is untouched, and abandoning the drag needs nothing rolled back because nothing changed.
+
+A drag is a pointer gesture with no keyboard equivalent, so a list that only dragged would be a list some people cannot reorder. The buttons under each row are that equivalent here; the real product would put them on Alt+Arrow with the focus following the row it moved."
+           Code="@ReorderCode">
+        <div class="sb-menu-wide" data-testid="task-list-reorder">
+            <TaskListView Tasks="@_ordered"
+                          Reorderable="true"
+                          OnToggle="ToggleOrdered"
+                          OnReorder="Reorder"
+                          AriaLabel="Reorderable tasks"
+                          TestId="reorder" />
+        </div>
+        <p class="sb-state" data-testid="task-list-order">@string.Join(" → ", _ordered.Select(t => t.Title))</p>
+        <div class="sb-row">
+            @foreach (var task in _ordered)
+            {
+                <AppButton Variant="ButtonVariant.Ghost" OnClick="() => MoveUp(task.Id)">Move “@task.Title” up</AppButton>
+            }
+        </div>
+    </Story>
+
+    <Story Name="Nothing to toggle, nothing to copy"
+           Description="A row with no OnToggle renders its circle as state rather than as a control — the same rule MarkdownView follows for a checklist, and for the same reason: a checkbox that silently does nothing is worse than no checkbox. Copying is the other way round: it is on by default, because a task&#39;s text is the thing people paste into a message or a commit, and AllowCopy is how a host that has nowhere to paste turns it off.">
+        <div class="sb-menu-wide" data-testid="task-list-readonly">
+            <TaskListView Tasks="@ReadOnlySample" AriaLabel="Read-only tasks" TestId="readonly" />
+        </div>
+    </Story>
+
+    <Story Name="An empty list"
+           Description="Empty is a state, not an error, and the message is the caller's — what to say when there is nothing here depends entirely on why there is nothing here.">
+        <div class="sb-columns" data-testid="task-list-empty">
+            <div class="sb-menu-wide">
+                <TaskListView Tasks="@(Array.Empty<TaskRow>())" AriaLabel="Empty" />
+            </div>
+            <div class="sb-menu-wide">
+                <TaskListView Tasks="@(Array.Empty<TaskRow>())"
+                              EmptyMessage="Nothing due today. Add something, or go and do something else."
+                              AriaLabel="Empty with a message" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="The detail pane's rows"
+           Description="Add a step, put it in My Day, remind me, give it a due date, repeat it. All of them are one shape — icon, label, sometimes a value and a way to clear it — so they are one component rather than five.
+
+That is not tidiness: a row that is set says what it is set to and offers an ✕, and a row that is not says what it would do. That difference is the whole state model, and it is why “Remind me” and “Reminder · Monday 09:00” are the same control rather than two. My Day toggles, so it has no ✕ — pressing it again is how it comes off. The others open a picker the product has not designed yet, so here they only show the two states they would land in."
+           Code="@ActionCode">
+        <div class="sb-menu-wide sb-surface" data-testid="task-actions">
+            <TaskAction Icon="+" Label="Add step" TestId="action-step" OnSet="() => { }" />
+
+            <TaskAction Icon="☀"
+                        Label="@(_inMyDay ? "Added to My Day" : "Add to My Day")"
+                        Set="@_inMyDay"
+                        Togglable="true"
+                        OnSet="() => _inMyDay = !_inMyDay"
+                        TestId="action-myday" />
+
+            <TaskAction Icon="⏰"
+                        Label="Remind me"
+                        Value="Monday · 09:00"
+                        Set="@_reminded"
+                        OnSet="() => _reminded = true"
+                        OnClear="() => _reminded = false"
+                        TestId="action-remind" />
+
+            <TaskAction Icon="🗓"
+                        Label="Due date"
+                        Value="Friday, 21 August"
+                        Set="@_due"
+                        OnSet="() => _due = true"
+                        OnClear="() => _due = false"
+                        TestId="action-due" />
+
+            <TaskAction Icon="🔁"
+                        Label="Repeat"
+                        Value="Weekly"
+                        Set="@_repeats"
+                        OnSet="() => _repeats = true"
+                        OnClear="() => _repeats = false"
+                        TestId="action-repeat" />
+
+            <TaskAction Icon="📎" Label="Add file" Disabled="true" TestId="action-file" />
+        </div>
+    </Story>
+
+    <Story Name="What is deliberately not here"
+           Description="The list of things a component would have had to guess, and which the product should decide first. Each of them is a parameter or a callback today rather than behaviour.">
+        <dl class="sb-grid" data-testid="task-list-open-questions">
+            @foreach (var question in OpenQuestions)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@question.Name</dt>
+                    <dd><p>@question.Detail</p></dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private sealed record OpenQuestion(string Name, string Detail);
+
+    private string? _selectedId;
+    private bool _inMyDay = true;
+    private bool _reminded = true;
+    private bool _due;
+    private bool _repeats;
+
+    private IReadOnlyList<TaskRow> _sample =
+    [
+        new("owners", "Code owners", Group: "Tasks"),
+        new("heerlen", "Heerlen features", Group: "Tasks", StepsDone: 0, StepCount: 7),
+        new("martijn", "Afstemmen met Martijn", Group: "Tasks", Due: "Today", StepsDone: 0, StepCount: 7, Important: true),
+        new("docs", "docs/src/content/docs", Group: "Tasks", Due: "Today", InMyDay: true),
+        new("spec", "Spec manager", Group: "Tasks", Due: "Today", StepsDone: 0, StepCount: 1),
+        new("deploy", "Deploy SpecManager", Group: "Tasks", Due: "Today", Reminder: "09:00")
+    ];
+
+    private IReadOnlyList<TaskRow> Sample => _sample;
+
+    private string? _lastRename;
+
+    private IReadOnlyList<TaskRow> _renamable =
+    [
+        new("r1", "Click the pencil to rename me", Group: "Tasks"),
+        new("r2", "Escape puts this one back", Group: "Tasks")
+    ];
+
+    private IReadOnlyList<TaskRow> _completable =
+    [
+        new("d1", "Tick me and I move down", Group: "Tasks"),
+        new("d2", "So do I", Group: "Tasks", Due: "Today"),
+        new("d3", "Already finished", Done: true, Group: "Tasks"),
+        new("d4", "Finished last week", Done: true, Group: "Tasks")
+    ];
+
+    private static readonly IReadOnlyList<TaskRow> Facts =
+    [
+        new("f1", "A due date, which is a deadline", Group: "Tasks", Due: "Friday, 21 August"),
+        new("f2", "A reminder, which is an alarm", Group: "Tasks", Reminder: "09:00"),
+        new("f3", "Both, which are not the same fact", Group: "Tasks", Due: "Friday", Reminder: "09:00"),
+        new("f4", "Recurring, which is a shape", Group: "Tasks", Repeats: true) { RepeatLabel = "Every weekday" },
+        new("f5", "Tagged", Group: "Tasks", Tags: ["ui", "storybook"]),
+        new("f6", "Everything at once", Group: "Tasks", Due: "Friday", Reminder: "09:00", Repeats: true, InMyDay: true, StepsDone: 2, StepCount: 5, Note: true, Tags: ["ui"]) { RepeatLabel = "Weekly" },
+        new("f7", "Finished, so nothing competes", Done: true, Group: "Tasks", Due: "Yesterday", Reminder: "08:00", Tags: ["ui"])
+    ];
+
+    private static readonly TaskRow Single =
+        new("single", "One row, no list around it", Group: "Tasks", Due: "Today");
+
+    private static readonly TaskRow SingleSelected =
+        new("single-selected", "The same row, open in a pane", Group: "Tasks", Important: true);
+
+    private static readonly IReadOnlyList<TaskRow> States =
+    [
+        new("plain", "An ordinary task", Group: "Tasks"),
+        new("done", "One that is finished", Done: true, Group: "Tasks"),
+        new("important", "One that matters", Important: true, Group: "Tasks"),
+        new("both", "Finished, and it mattered", Done: true, Important: true, Group: "Tasks"),
+        new("today", "Picked for today", InMyDay: true, Group: "Tasks", Due: "Tomorrow"),
+        new("everything", "Everything at once", Important: true, InMyDay: true, Group: "Tasks", Due: "Friday", Reminder: "09:00", Repeats: true, StepsDone: 2, StepCount: 5)
+    ];
+
+    private static readonly IReadOnlyList<TaskRow> ReadOnlySample =
+    [
+        new("r1", "Shown, not offered", Group: "Archive"),
+        new("r2", "Already finished", Done: true, Group: "Archive")
+    ];
+
+    private IReadOnlyList<TaskRow> _ordered =
+    [
+        new("a", "First", Group: "Tasks"),
+        new("b", "Second", Group: "Tasks"),
+        new("c", "Third", Group: "Tasks"),
+        new("d", "Fourth", Group: "Tasks")
+    ];
+
+    private static readonly IReadOnlyList<OpenQuestion> OpenQuestions =
+    [
+        new("What a reminder does",
+            "The row says one is set and offers to clear it. Whether it fires, where, and what happens when the app is not running is not a component's decision."),
+
+        new("When My Day expires",
+            "It is a decision the reader made this morning, so it has to expire — but on what clock, and in whose timezone, is the product's answer and not this one's."),
+
+        new("What a due date is said in",
+            "Value takes a formatted string. What tomorrow is called, and in what language, belongs to the host — a component that formatted dates would be a component with a culture in it."),
+
+        new("Where the order is kept",
+            "TaskListView reports the move and applies nothing. A component that reordered the list it was handed would be one whose result the host has to undo before saving what it actually keeps."),
+
+        new("What a step is",
+            "Add step is a row and nothing else here. Whether a step is a task, has its own steps, or is only a line of text is the model's question.")
+    ];
+
+    private void Select(string id) => _selectedId = id;
+
+    private void Toggle(string id) =>
+        _sample = [.. _sample.Select(t => t.Id == id ? t with { Done = !t.Done } : t)];
+
+
+    private void ToggleOrdered(string id) =>
+        _ordered = [.. _ordered.Select(t => t.Id == id ? t with { Done = !t.Done } : t)];
+
+    /// <summary>The host applying the move, which is the arrangement the
+    /// component is built for. ApplyTo is the library's offer for a host with no
+    /// opinion of its own.</summary>
+    private void Reorder(TaskMove move) => _ordered = move.ApplyTo(_ordered, t => t.Id);
+
+    /// <summary>The keyboard equivalent, stood in for by buttons here. A drag is
+    /// a pointer gesture and nothing else, so a list that only dragged would be a
+    /// list some people cannot reorder at all.</summary>
+    private void MoveUp(string id)
+    {
+        var index = _ordered.ToList().FindIndex(t => t.Id == id);
+        if (index <= 0) return;
+
+        _ordered = new TaskMove(id, _ordered[index - 1].Id).ApplyTo(_ordered, t => t.Id);
+    }
+
+    private const string RowCode = """
+        <TaskListView Tasks="@tasks"
+                      OnToggle="Toggle"
+                      OnSelected="Select"
+                      SelectedId="@_selectedId" />
+        """;
+
+    /// <summary>The host applies the rename, which is the arrangement every one
+    /// of these components is built for: the component reports what the reader
+    /// did and stores nothing.</summary>
+    private void Rename(TaskRename rename)
+    {
+        _sample = [.. _sample.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
+        _lastRename = $"renamed {rename.Id} to “{rename.Title}”";
+    }
+
+    private void RenameOne(TaskRename rename)
+    {
+        _renamable = [.. _renamable.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
+        _lastRename = $"renamed {rename.Id} to “{rename.Title}”";
+    }
+
+    private void ToggleCompletable(string id) =>
+        _completable = [.. _completable.Select(t => t.Id == id ? t with { Done = !t.Done } : t)];
+
+    private void ReorderCompletable(TaskMove move) =>
+        _completable = move.ApplyTo(_completable, t => t.Id);
+
+    private const string RenameCode = """
+        <TaskListView Tasks="@tasks" OnRename="Rename" />
+
+        @code {
+            // Reported once, when it settles — not once per keystroke.
+            private void Rename(TaskRename rename) =>
+                _tasks = [.. _tasks.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
+        }
+        """;
+
+    private const string TagCode = """
+        new TaskRow("id", "Everything at once",
+            Group: "Tasks", Due: "Friday", Reminder: "09:00",
+            Repeats: true, Tags: ["ui", "storybook"])
+        { RepeatLabel = "Weekly" }
+        """;
+
+    private const string CompletedCode = """
+        @* On by default. GroupCompleted="false" leaves done rows where they are. *@
+        <TaskListView Tasks="@tasks" OnToggle="Toggle" />
+        """;
+
+    private const string ItemCode = """
+        @* It renders an li, so it wants a list element around it. *@
+        <ul class="task-list">
+            <TaskItem Task="@row" OnToggle="Toggle" OnSelected="Open" />
+        </ul>
+        """;
+
+    private const string StatesCode = """
+        new TaskRow("id", "Everything at once",
+            Important: true, InMyDay: true,
+            Due: "Friday", Reminder: "09:00", StepsDone: 2, StepCount: 5)
+        """;
+
+    private const string ReorderCode = """
+        <TaskListView Tasks="@tasks" Reorderable="true" OnReorder="Reorder" />
+
+        @code {
+            // The host applies it: only the host knows where the order is kept.
+            private void Reorder(TaskMove move) => _tasks = move.ApplyTo(_tasks, t => t.Id);
+        }
+        """;
+
+    private const string ActionCode = """
+        @* Toggles, so no ✕ — pressing it again is how it comes off. *@
+        <TaskAction Icon="☀" Label="Add to My Day" Set="@_inMyDay" Togglable="true"
+                    OnSet="() => _inMyDay = !_inMyDay" />
+
+        @* Opens a picker, so it clears separately. *@
+        <TaskAction Icon="⏰" Label="Remind me" Value="Monday · 09:00"
+                    Set="@_reminded" OnSet="Pick" OnClear="Clear" />
+        """;
+}

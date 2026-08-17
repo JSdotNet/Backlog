@@ -3,13 +3,27 @@
 
     The header carries the identity a reader needs before trusting the content —
     the name, where it came from, and the path it came from — and the body is the
-    file's markdown, rendered by the same MarkdownView the rest of the product
-    reads with. The body scrolls on its own so the header stays put: a long file
-    should not push the thing that tells you which file it is off the screen.
+    file, read the way that kind of file is read. The body scrolls on its own so
+    the header stays put: a long file should not push the thing that tells you
+    which file it is off the screen.
 
-    Read-only by design. MarkdownView is given no toggle handler, so a checklist
-    in the file renders as state rather than as controls — nothing here writes
-    back, and offering a checkbox that silently does nothing would be a lie.
+    Which way that is comes from the file's own name, because that is what a
+    reader already knows about it. A name the highlighter has a grammar for is
+    shown as code, coloured, with its lines numbered. Everything else — `.md`,
+    `.txt`, a name with no extension at all — is shown as markdown, which is
+    also the right answer for a file that is simply prose. Running a `.cs` file
+    through the markdown parser was never a decision anyone made; it was what
+    happened when markdown was the only thing this could render.
+
+    Both shapes share one scroll region, the header above it and the name on it.
+    CodeView is given Bare for exactly that reason: a block with its own frame
+    and its own overflow would put a second scroll container and a second tab
+    stop inside the one the reader can see.
+
+    Read-only by design, in either shape. MarkdownView is given no toggle
+    handler, so a checklist in the file renders as state rather than as controls
+    — nothing here writes back, and offering a checkbox that silently does
+    nothing would be a lie.
 *@
 
 <article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -39,7 +53,21 @@
          aria-label="@Name"
          style="@BodyStyle"
          data-testid="@BodyTestId">
-        <MarkdownView Blocks="_blocks" />
+        @if (RendersMarkdown)
+        {
+            <MarkdownView Blocks="_blocks" />
+        }
+        else
+        {
+            @* Numbered because this is a file and not a snippet: the reason to
+               look at source in a pane like this is usually to say where in it
+               something is. *@
+            <CodeView Source="@Body"
+                      Language="@BodyLanguage"
+                      Bare="true"
+                      ShowLineNumbers="true"
+                      CssClass="file-view__code" />
+        }
     </div>
 </article>
 
@@ -65,9 +93,26 @@
     [Parameter]
     public long? SizeInBytes { get; set; }
 
-    /// <summary>The file's markdown.</summary>
+    /// <summary>The file's contents, verbatim.</summary>
     [Parameter]
     public string? Body { get; set; }
+
+    /// <summary>What the body is written in. Null — the default — reads it from
+    /// <see cref="Name"/>, which is what a reader goes on too.
+    /// <para>
+    /// Set it for a file whose name cannot say: a snippet with no name, a
+    /// <c>Dockerfile</c>, an extension this product spells its own way. Pass
+    /// <c>markdown</c> to ask for prose back from a file whose extension would
+    /// otherwise have made it code.
+    /// </para>
+    /// <para>
+    /// A language the highlighter has no grammar for still renders as code, in
+    /// one colour — the same bargain CodeView makes. Losing the colour is not a
+    /// reason to lose the line numbers and reflow the file as prose.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? Language { get; set; }
 
     /// <summary>How tall the body may grow before it scrolls. Any CSS length;
     /// pass null to let the body size to its content and never scroll. Ignored
@@ -99,6 +144,17 @@
 
     protected override void OnParametersSet()
     {
+        // A code file is never parsed as markdown. Beyond the wasted work on a
+        // body that can be long, the parser would find `#` comments and `*` in
+        // expressions and hand back headings and emphasis that are not there.
+        if (!RendersMarkdown)
+        {
+            _blocks = [];
+            _parsedBody = null;
+            _parsed = false;
+            return;
+        }
+
         if (_parsed && _parsedBody == Body) return;
 
         // ParseDocument, not Parse: in a file a `##` is a heading, not a
@@ -109,6 +165,20 @@
         _parsedBody = Body;
         _parsed = true;
     }
+
+    /// <summary>The language in play: what the caller named, or failing that
+    /// what the file is called.</summary>
+    private string? BodyLanguage => string.IsNullOrWhiteSpace(Language)
+        ? CodeLanguages.ForFileName(Name)
+        : Language.Trim();
+
+    /// <summary>Markdown is the fallback rather than an entry on the language
+    /// list, so it is what happens when nothing names a language at all — and
+    /// naming it is how a caller asks for prose back.</summary>
+    private bool RendersMarkdown =>
+        BodyLanguage is null
+        || BodyLanguage.Equals("md", StringComparison.OrdinalIgnoreCase)
+        || BodyLanguage.Equals("markdown", StringComparison.OrdinalIgnoreCase);
 
     private string ClassValue
     {
@@ -131,10 +201,19 @@
     /// that is not its name or its path, in the order a reader asks for it.</summary>
     private IReadOnlyList<string> Details =>
     [
-        .. new[] { Source, Kind, SizeInBytes is { } bytes ? FormatSize(bytes) : null }
+        .. new[] { Source, KindValue, SizeInBytes is { } bytes ? FormatSize(bytes) : null }
             .Where(part => !string.IsNullOrWhiteSpace(part))
             .Select(part => part!)
     ];
+
+    /// <summary>What kind of file this is. A code file that the caller did not
+    /// describe says what language it is, because going Bare took away the badge
+    /// CodeView would have shown — the header is the only place left that can
+    /// say it. A markdown file falls back to nothing: it is the default shape,
+    /// and labelling every file "Markdown" says nothing a reader did not already
+    /// get from the name.</summary>
+    private string? KindValue =>
+        Kind ?? (RendersMarkdown ? null : CodeLanguages.Label(BodyLanguage));
 
     /// <summary>Bytes as the reader would say them. Formatted in the current
     /// culture, so the decimal separator is the one the rest of the app uses.</summary>

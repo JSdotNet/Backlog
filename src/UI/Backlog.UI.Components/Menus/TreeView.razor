@@ -5,29 +5,20 @@
 *@
 
 <nav class="@NavClassValue" aria-label="@NavAriaLabel">
+    @if (ShowHeading)
+    {
     <div class="@HeadingClassValue" data-testid="@HeadingTestId">
         <span>@HeadingLabel</span>
-        @if (RootFolder is { Kind: TreeNodeKind.Folder, Available: true } rootFolder)
+        @if (ShowOpenButton && RootFolder is { Kind: TreeNodeKind.Folder, Available: true } rootFolder)
         {
-            <button type="button"
-                    class="@OpenButtonClass"
-                    data-testid="@OpenButtonTestId"
-                    disabled="@IsFolderOpening(rootFolder)"
-                    title="@OpenButtonTitle(rootFolder)"
-                    aria-label="@OpenButtonTitle(rootFolder)"
-                    @onclick="() => OnOpenFolder.InvokeAsync(rootFolder)"
-                    @onclick:stopPropagation="true">
-                @if (IsFolderOpening(rootFolder))
-                {
-                    <span aria-hidden="true">...</span>
-                }
-                else
-                {
-                    <span aria-hidden="true">@OpenButtonLabel</span>
-                }
-            </button>
+            <OpenFolderButton BaseClass="@OpenButtonClass"
+                              TestId="@OpenButtonTestId"
+                              Label="@OpenButtonTitle(rootFolder)"
+                              Busy="@IsFolderOpening(rootFolder)"
+                              OnClick="() => OnOpenFolder.InvokeAsync(rootFolder)" />
         }
     </div>
+    }
     <Alert Message="@OpenErrorMessage"
            TestId="@OpenErrorTestId"
            CssClass="@OpenErrorClass" />
@@ -57,6 +48,12 @@
 
     [Parameter]
     public string HeadingLabel { get; set; } = "Knowledge";
+
+    /// <summary>Whether the tree draws its own heading row. Off for a host that
+    /// already names the tree — FolderView has a header of its own, and two
+    /// titles stacked on one thing reads as two things.</summary>
+    [Parameter]
+    public bool ShowHeading { get; set; } = true;
 
     [Parameter]
     public TreeNode? RootFolder { get; set; }
@@ -106,8 +103,11 @@
     [Parameter]
     public string? OpenErrorClass { get; set; }
 
+    /// <summary>Whether the heading offers "open this folder". Off for a tree
+    /// that is only a tree — a menu of chapters has nowhere on disk to open, and
+    /// a button that would do nothing is worse than no button.</summary>
     [Parameter]
-    public string OpenButtonLabel { get; set; } = "VS";
+    public bool ShowOpenButton { get; set; } = true;
 
     [Parameter]
     public Func<TreeNode, string> OpenButtonTitle { get; set; } = static node => $"Open {node.Label} in VS Code";

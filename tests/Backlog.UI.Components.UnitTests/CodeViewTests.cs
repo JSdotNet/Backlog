@@ -59,6 +59,73 @@ public sealed class CodeViewTests
     }
 
     [Fact]
+    public void A_long_line_wraps_unless_the_caller_says_otherwise()
+    {
+        // Wrapping is the default, so the wrapped block is the one with no
+        // modifier on it: every surface here is narrower than the code written
+        // for it, and a line off the right edge is a line nobody reads.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters.Add(c => c.Source, "var a = 1;"));
+
+        Assert.DoesNotContain("code-view--nowrap", view.Find(".code-view").ClassList);
+    }
+
+    [Fact]
+    public void Turning_wrapping_off_keeps_the_line_one_line()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(c => c.Source, "var a = 1;")
+            .Add(c => c.Wrap, false));
+
+        Assert.Contains("code-view--nowrap", view.Find(".code-view").ClassList);
+    }
+
+    [Fact]
+    public void Bare_gives_up_the_frame_so_a_host_can_supply_its_own()
+    {
+        // The header, the copy button, the status line and the block's own
+        // scroll region all belong to the host in this shape — FileView already
+        // has a header that names the file and a body that scrolls it.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(c => c.Source, "var a = 1;")
+            .Add(c => c.Language, "csharp")
+            .Add(c => c.Title, "Program.cs")
+            .Add(c => c.Bare, true));
+
+        Assert.Empty(view.FindAll("figure"));
+        Assert.Empty(view.FindAll(".code-view__header"));
+        Assert.Empty(view.FindAll("[data-testid='code-view-copy']"));
+        Assert.Empty(view.FindAll("[tabindex]"));
+
+        // What it does still contribute is the coloured code.
+        Assert.Contains("code-view--bare", view.Find(".code-view").ClassList);
+        Assert.Equal("var", view.Find(".code-token--keyword").TextContent);
+    }
+
+    [Fact]
+    public void Bare_still_takes_the_line_numbers_and_the_wrapping()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(c => c.Source, "one\ntwo")
+            .Add(c => c.Bare, true)
+            .Add(c => c.ShowLineNumbers, true)
+            .Add(c => c.Wrap, false));
+
+        var root = view.Find(".code-view");
+
+        Assert.Contains("code-view--numbered", root.ClassList);
+        Assert.Contains("code-view--nowrap", root.ClassList);
+        Assert.Equal(2, view.FindAll(".code-view__line").Count);
+    }
+
+    [Fact]
     public void A_block_with_nothing_to_say_in_its_header_does_not_have_one()
     {
         using var context = new BunitContext();

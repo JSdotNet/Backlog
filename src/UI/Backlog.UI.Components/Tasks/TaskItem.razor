@@ -1,0 +1,293 @@
+@inject IJSRuntime Js
+
+@*
+    One task, as a row: a circle that completes it, the line itself, and the two
+    things you can do to its text — rename it in place, or copy it.
+
+    The circle is a real checkbox to a screen reader and a circle to everyone
+    else, because that is what it is — round rather than square is this shape's
+    one convention, and it is not worth losing the semantics over. The pencil and
+    the copy button both stop the click before the row sees it: renaming a task
+    is not opening it, and neither is copying one.
+
+    Read-only when nothing is listening. A row with no OnToggle renders its state
+    as an image rather than a control, the same rule MarkdownView follows for a
+    checklist — a checkbox that silently does nothing is worse than no checkbox.
+*@
+
+<li class="@ClassValue"
+    data-testid="@TestId"
+    draggable="@(Draggable ? "true" : null)"
+    aria-grabbed="@(Draggable ? (Dragging ? "true" : "false") : null)"
+    @ondragstart="() => OnDragStart.InvokeAsync(Task.Id)"
+    @ondragend="() => OnDragEnd.InvokeAsync()"
+    @ondragover:preventDefault="true"
+    @ondragenter:preventDefault="true"
+    @ondragover="() => OnDragOver.InvokeAsync(Task.Id)"
+    @ondrop="() => OnDrop.InvokeAsync(Task.Id)">
+
+    @if (Draggable)
+    {
+        @* A handle as well as the row: dragging the whole row is what a pointer
+           expects, and a handle is what says the row can be dragged at all. It
+           is aria-hidden because the keyboard path is the buttons below, not a
+           drag nobody can perform without a pointer. *@
+        <span class="task-item__grip" aria-hidden="true">⠿</span>
+    }
+
+    @if (CanToggle)
+    {
+        <button type="button"
+                class="task-item__check"
+                role="checkbox"
+                aria-checked="@(Task.Done ? "true" : "false")"
+                aria-label="@Task.Title"
+                data-testid="@Suffix("check")"
+                @onclick="() => OnToggle.InvokeAsync(Task.Id)"
+                @onclick:stopPropagation="true">
+            @if (Task.Done)
+            {
+                <span class="task-item__tick" aria-hidden="true">✓</span>
+            }
+        </button>
+    }
+    else
+    {
+        <span class="task-item__check"
+              role="img"
+              aria-label="@(Task.Done ? "Done" : "Not done")"
+              data-testid="@Suffix("check")">
+            @if (Task.Done)
+            {
+                <span class="task-item__tick" aria-hidden="true">✓</span>
+            }
+        </span>
+    }
+
+    @if (_editing)
+    {
+        @* Committed on Enter or on leaving, abandoned on Escape. A rename is one
+           short string, so a Save button beside it would be a second thing to
+           reach for after the one that already finished the job. *@
+        <div class="task-item__rename">
+            <TextField Value="@_draft"
+                       ValueChanged="v => _draft = v"
+                       AriaLabel="@($"Rename {Task.Title}")"
+                       Bare="true"
+                       InputCssClass="task-item__rename-input"
+                       TestId="@Suffix("rename")"
+                       Id="@_renameId"
+                       @onkeydown="OnRenameKeyAsync"
+                       @onblur="CommitRenameAsync" />
+        </div>
+    }
+    else
+    {
+        <button type="button"
+                class="task-item__body"
+                data-testid="@Suffix("open")"
+                @onclick="() => OnSelected.InvokeAsync(Task.Id)">
+            <span class="task-item__title">@Task.Title</span>
+
+            @if (Task.TagList.Count > 0 || Task.Details.Count > 0)
+            {
+                <span class="task-item__meta">
+                    @foreach (var detail in Task.Details)
+                    {
+                        <span class="@detail.CssClass" title="@detail.Name">
+                            @if (detail.Glyph.Length > 0)
+                            {
+                                @* The glyph is decoration on top of the words:
+                                   a screen reader hears "Reminder 09:00", not
+                                   "alarm clock emoji". *@
+                                <span class="task-item__glyph" aria-hidden="true">@detail.Glyph</span>
+                                <span class="sr-only">@detail.Name</span>
+                            }
+                            <span>@detail.Text</span>
+                        </span>
+                    }
+
+                    @foreach (var tag in Task.TagList)
+                    {
+                        <span class="tag-chip task-item__tag">#@tag</span>
+                    }
+                </span>
+            }
+        </button>
+    }
+
+    @if (CanRename && !_editing)
+    {
+        <button type="button"
+                class="task-item__edit"
+                aria-label="@($"Rename {Task.Title}")"
+                data-testid="@Suffix("edit")"
+                @onclick="StartRenameAsync"
+                @onclick:stopPropagation="true">
+            <span aria-hidden="true">✎</span>
+        </button>
+    }
+
+    @if (AllowCopy)
+    {
+        @* Right of the row, where the star used to be: it is the one thing here
+           that acts on the task's text rather than on its state, so it belongs
+           at the end rather than beside the circle. *@
+        <CopyButton Text="@CopyText"
+                    Label="@($"Copy {Task.Title}")"
+                    CssClass="task-item__copy"
+                    ButtonCssClass="task-item__copy-button"
+                    StatusCssClass="task-item__copy-status"
+                    ButtonTestId="@Suffix("copy")"
+                    StatusTestId="@Suffix("copy-status")" />
+    }
+</li>
+
+@code {
+    private readonly string _renameId = "task-rename-" + Guid.NewGuid().ToString("N");
+    private bool _editing;
+    private string _draft = string.Empty;
+
+    [Parameter, EditorRequired]
+    public TaskRow Task { get; set; } = new(string.Empty, string.Empty);
+
+    /// <summary>Raised by the circle. Without it the circle is state, not a
+    /// control.</summary>
+    [Parameter]
+    public EventCallback<string> OnToggle { get; set; }
+
+    /// <summary>Whether the row offers to copy itself. On by default: a task's
+    /// text is the thing people paste into a message, a commit or another
+    /// list, and reaching for it otherwise means selecting a line that is also a
+    /// click target.</summary>
+    [Parameter]
+    public bool AllowCopy { get; set; } = true;
+
+    /// <summary>What lands on the clipboard. Defaults to the title — the row's
+    /// metadata is this list's furniture rather than the task, and pasting
+    /// "Tasks · Today" into a message says nothing.</summary>
+    [Parameter]
+    public string? CopyValue { get; set; }
+
+    /// <summary>Raised by the row itself — "show me this one".</summary>
+    [Parameter]
+    public EventCallback<string> OnSelected { get; set; }
+
+    /// <summary>Raised when a rename settles. Without it the row offers no way
+    /// in — a pencil that opened a field nobody would save is worse than none.</summary>
+    [Parameter]
+    public EventCallback<TaskRename> OnRename { get; set; }
+
+    [Parameter]
+    public bool Selected { get; set; }
+
+    /// <summary>Whether this row can be picked up. The list turns it on; a row on
+    /// its own has nothing to be reordered within.</summary>
+    [Parameter]
+    public bool Draggable { get; set; }
+
+    /// <summary>This row is the one being dragged.</summary>
+    [Parameter]
+    public bool Dragging { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnDragStart { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnDragOver { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnDrop { get; set; }
+
+    [Parameter]
+    public EventCallback OnDragEnd { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private bool CanToggle => OnToggle.HasDelegate;
+
+    private bool CanRename => OnRename.HasDelegate;
+
+    private string CopyText => string.IsNullOrWhiteSpace(CopyValue) ? Task.Title : CopyValue;
+
+    /// <summary>
+    /// Renaming in place, rather than in the pane the row opens.
+    /// <para>
+    /// The draft is held here and the row is only told about it when it settles.
+    /// A rename that reported every keystroke would put a save per character
+    /// into whatever the host does with these — and would make Escape mean
+    /// nothing, because the change it was meant to abandon had already landed.
+    /// </para>
+    /// </summary>
+    private async Task StartRenameAsync()
+    {
+        _draft = Task.Title;
+        _editing = true;
+
+        // The field is a different element every time it appears, so it is found
+        // again by id after the render that creates it.
+        await InvokeAsync(StateHasChanged);
+        await FocusRenameAsync();
+    }
+
+    private async Task FocusRenameAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", _renameId);
+        }
+        catch (JSException)
+        {
+            // The field is there and typeable; it just did not take focus.
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task OnRenameKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            // Abandon: the row goes back to what it said, and nothing is raised.
+            _editing = false;
+            _draft = string.Empty;
+            return;
+        }
+
+        if (e.Key == "Enter") await CommitRenameAsync();
+    }
+
+    private async Task CommitRenameAsync()
+    {
+        if (!_editing) return;
+
+        _editing = false;
+        var title = _draft.Trim();
+        _draft = string.Empty;
+
+        // An empty title would leave a row nobody can identify, and a title that
+        // did not change is not a rename.
+        if (title.Length == 0 || string.Equals(title, Task.Title, StringComparison.Ordinal)) return;
+
+        await OnRename.InvokeAsync(new TaskRename(Task.Id, title));
+    }
+
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "task-item",
+        Task.Done ? "task-item--done" : null,
+        Selected ? "task-item--selected" : null,
+        Dragging ? "task-item--dragging" : null,
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+}

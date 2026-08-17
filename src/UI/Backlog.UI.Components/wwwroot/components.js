@@ -25,6 +25,174 @@
     // that case — deprecated, but it is what still works in a WebView2 without
     // clipboard-write. Either way the caller is told whether it worked, so the
     // UI can say so instead of claiming a copy that never happened.
+    /*
+        Markdown editing that acts on the selection.
+
+        This is the "rich text" half of a markdown editor, and it stops exactly
+        where a WYSIWYG would begin: the text stays markdown, the textarea stays
+        the truth, and a toolbar button is a text edit you could have typed. That
+        keeps every promise the read view already makes — the source is what is
+        saved, what is diffed, and what the parser sees — and it keeps the one
+        thing a contenteditable surface cannot: a body half-typed in a syntax
+        nobody has closed yet still round-trips exactly.
+
+        Selection lives in the browser and nowhere else, so all of it is here.
+        C# hears the finished text.
+    */
+    const backlogMarkdownSurface = (container) =>
+        container instanceof HTMLTextAreaElement ? container : container?.querySelector('textarea');
+
+    // Wrapping is a toggle: pressing bold on text that is already bold takes it
+    // off, because the alternative is `****text****` and a reader who has to
+    // count asterisks.
+    const backlogWrapSelection = (value, start, end, marker) => {
+        const selected = value.slice(start, end);
+        const before = value.slice(0, start);
+        const after = value.slice(end);
+        const width = marker.length;
+
+        if (selected.startsWith(marker) && selected.endsWith(marker) && selected.length >= width * 2) {
+            const inner = selected.slice(width, -width);
+            return { value: before + inner + after, start, end: start + inner.length };
+        }
+
+        if (before.endsWith(marker) && after.startsWith(marker)) {
+            return {
+                value: before.slice(0, -width) + selected + after.slice(width),
+                start: start - width,
+                end: end - width
+            };
+        }
+
+        return {
+            value: `${before}${marker}${selected}${marker}${after}`,
+            start: start + width,
+            end: end + width
+        };
+    };
+
+    // A line prefix applies to every line the selection touches, including the
+    // one the caret merely sits on. Applied to all of them or removed from all
+    // of them — a half-marked block is nobody's intent.
+    const backlogPrefixLines = (value, start, end, prefix) => {
+        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        const lineEndIndex = value.indexOf('\n', end);
+        const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+
+        const block = value.slice(lineStart, lineEnd);
+        const lines = block.split('\n');
+        // An ordered list renumbers rather than repeating "1." down the block.
+        const ordered = prefix === '1. ';
+        const marked = (line) => (ordered ? /^\d+[.)]\s/.test(line) : line.startsWith(prefix));
+        const allMarked = lines.every((line) => line.trim().length === 0 || marked(line));
+
+        const next = lines
+            .map((line, index) => {
+                if (line.trim().length === 0) return line;
+                if (allMarked) return line.replace(ordered ? /^\d+[.)]\s/ : prefix, '');
+                return (ordered ? `${index + 1}. ` : prefix) + line;
+            })
+            .join('\n');
+
+        return {
+            value: value.slice(0, lineStart) + next + value.slice(lineEnd),
+            start: lineStart,
+            end: lineStart + next.length
+        };
+    };
+
+    // One entry per live editor, so the scroll listener can be taken off again
+    // when the component goes away.
+    const backlogMarkdownWatchers = new Map();
+
+    window.backlogMarkdownEditor = {
+        /*
+            Keeps the highlight layer showing the same part of the text the
+            textarea is showing. The layer never scrolls itself — it is told
+            where the textarea got to — because two boxes scrolling on their own
+            drift apart by exactly as much as the reader scrolls.
+        */
+        watch(container, id) {
+            const textarea = backlogMarkdownSurface(container);
+            const layer = container?.querySelector('.markdown-editor__highlight');
+            if (!textarea || !layer) return;
+
+            this.unwatch(id);
+
+            const sync = () => {
+                layer.scrollTop = textarea.scrollTop;
+                layer.scrollLeft = textarea.scrollLeft;
+            };
+
+            textarea.addEventListener('scroll', sync, { passive: true });
+            // Typing at the bottom scrolls the textarea without a scroll event
+            // in every browser, so the input is worth listening to as well.
+            textarea.addEventListener('input', sync);
+            backlogMarkdownWatchers.set(id, () => {
+                textarea.removeEventListener('scroll', sync);
+                textarea.removeEventListener('input', sync);
+            });
+
+            sync();
+        },
+
+        unwatch(id) {
+            const remove = backlogMarkdownWatchers.get(id);
+            remove?.();
+            backlogMarkdownWatchers.delete(id);
+        },
+
+        /*
+            Applies one action to the textarea inside `container` and returns the
+            text afterwards. The element is mutated here rather than waiting for a
+            round trip, so the caret never visibly jumps to the end and back; C#
+            stores the same string, which means Blazor's diff finds nothing to
+            write and leaves the selection alone.
+        */
+        apply(container, action, argument) {
+            const textarea = backlogMarkdownSurface(container);
+            if (!textarea) return null;
+
+            const value = textarea.value ?? '';
+            const start = textarea.selectionStart ?? value.length;
+            const end = textarea.selectionEnd ?? start;
+
+            let result;
+            switch (action) {
+                case 'bold': result = backlogWrapSelection(value, start, end, '**'); break;
+                case 'italic': result = backlogWrapSelection(value, start, end, '*'); break;
+                case 'strike': result = backlogWrapSelection(value, start, end, '~~'); break;
+                case 'code': result = backlogWrapSelection(value, start, end, '`'); break;
+                case 'heading': result = backlogPrefixLines(value, start, end, '# '); break;
+                case 'quote': result = backlogPrefixLines(value, start, end, '> '); break;
+                case 'bullet': result = backlogPrefixLines(value, start, end, '- '); break;
+                case 'ordered': result = backlogPrefixLines(value, start, end, '1. '); break;
+                case 'task': result = backlogPrefixLines(value, start, end, '- [ ] '); break;
+                case 'link': {
+                    const text = value.slice(start, end) || 'link text';
+                    const url = argument || 'https://';
+                    const replacement = `[${text}](${url})`;
+                    result = {
+                        value: value.slice(0, start) + replacement + value.slice(end),
+                        // Land on the URL: the text was already chosen, the URL
+                        // never is.
+                        start: start + text.length + 3,
+                        end: start + text.length + 3 + url.length
+                    };
+                    break;
+                }
+                default:
+                    return null;
+            }
+
+            textarea.value = result.value;
+            textarea.setSelectionRange(result.start, result.end);
+            textarea.focus();
+
+            return result.value;
+        }
+    };
+
     window.backlogClipboard = {
         copy: async (text) => {
             const value = text ?? '';

@@ -1,0 +1,237 @@
+@page "/markdown/rich-text"
+
+<PageTitle>Rich text editing — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Rich text editing"
+           Summary="A subpage of Markdown, about writing it. MarkdownEditor puts a formatting toolbar over the source: select a word, press bold, and the word is bold — without the author having to know that bold is two asterisks. The text stays markdown throughout, and the story below about what this deliberately is not is the important one.">
+
+    <Story Name="The editor, and what it produces"
+           Description="Select something in the box and use the toolbar. Every button is an edit you could have typed by hand, which is the whole design: the textarea holds markdown before the click and markdown after it, and the read view on the right is the same parser the rest of the product reads with."
+           Code="@EditorCode">
+        <div class="sb-columns">
+            <div class="sb-stack">
+                <p class="sb-label">Edit</p>
+                <MarkdownEditor Value="@_source"
+                                ValueChanged="OnChanged"
+                                Rows="16"
+                                TestId="rich-text-editor" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Read view</p>
+                <div data-testid="rich-text-preview">
+                    <MarkdownView Blocks="_blocks" />
+                </div>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="The colours are a layer behind the text"
+           Description="A textarea cannot colour its own content — that is a fact about the element, and it is why every highlighted editor on the web works the way this one does. A coloured copy of the text is drawn in a box behind the textarea, and the text on top is made transparent so that only its caret and its selection show through. The two boxes agree on every metric that decides where a character lands: the padding, the font, the line height, the wrapping. Get one wrong and the colours slide off the words, at whichever line the two first disagree.
+
+The layer never scrolls itself. It is told where the textarea got to, because two boxes scrolling on their own drift apart by exactly as much as the reader scrolls. It is also aria-hidden: it is the same text twice, and a screen reader that read both would read the body twice over.
+
+The colouring is its own pass, not the parser's. MarkdownPreview answers what a line means and throws the syntax away; a highlighter has to account for every character including the markers, because an editor that lost a backtick while colouring one would be an editor that ate your text. It is more forgiving, too — a half-typed `**bold` is someone mid-sentence, and leaving it plain until it closes is the answer rather than a failure.">
+        <dl class="sb-grid" data-testid="rich-text-syntax">
+            @foreach (var sample in SyntaxSamples)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@sample.Name</dt>
+                    <dd>
+                        <pre class="sb-story__code"><code>@RenderSyntax(sample.Source)</code></pre>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="Why this is not a WYSIWYG"
+           Description="The obvious version of &quot;rich text&quot; is a contenteditable surface that looks like the finished document and serialises to markdown behind the scenes. This is not that, and the reason is the rest of the product rather than the effort.
+
+The source is the truth everywhere else: it is what auto-saves, what a checkbox in the read view rewrites, what a diff shows, what the parser reads, and what lands in a repository file another tool may edit. A WYSIWYG surface has to serialise back on every keystroke, and the first body it cannot round-trip is a body someone loses work in — a half-typed fence, an unclosed emphasis, a table mid-edit, a syntax this parser is deliberately partial about. All of those survive here because nothing ever leaves the text.
+
+What is lost is real and worth naming: you see markers rather than the result, so the read view beside the box is doing work a WYSIWYG would not need. That is the trade, made once, on purpose.">
+        <dl class="sb-grid" data-testid="rich-text-tradeoffs">
+            @foreach (var row in Tradeoffs)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@row.Question</dt>
+                    <dd class="sb-stack">
+                        <p><strong>Toolbar over source:</strong> @row.Toolbar</p>
+                        <p><strong>WYSIWYG surface:</strong> @row.Wysiwyg</p>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="Every button, and the text it writes"
+           Description="Two groups, because they act on different things: the first marks a run of text, the second turns whole lines into something. A reader who wants a list is not scanning past bold to find it.
+
+The glyphs are set the way the thing they make is set — the bold button is bold, the code button is monospace — so a button shows its result rather than naming it.">
+        <dl class="sb-grid" data-testid="rich-text-actions">
+            @foreach (var action in ToolbarActions)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@action.Name</dt>
+                    <dd class="sb-stack">
+                        <p>@action.Behaviour</p>
+                        <pre class="sb-story__code"><code>@action.Result</code></pre>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="Pressing it twice takes it off"
+           Description="Wrapping is a toggle. Bold on text that is already bold removes the markers rather than adding another pair, because the alternative is `****text****` and a reader who has to count asterisks. It reads the markers whether they are inside the selection or just outside it, so it works the same whether you selected the word or the word with its asterisks.
+
+Line prefixes toggle as a block: applied to every line the selection touches or removed from all of them. A half-marked block is nobody's intent. A numbered list renumbers as it goes rather than writing `1.` down the whole thing.">
+        <div class="sb-columns">
+            <div class="sb-stack">
+                <p class="sb-label">Try it — the text is already marked up</p>
+                <MarkdownEditor Value="@_toggleSource"
+                                ValueChanged="v => _toggleSource = v"
+                                Rows="8"
+                                TestId="rich-text-toggle" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Read view</p>
+                <div data-testid="rich-text-toggle-preview">
+                    <MarkdownView Blocks="@MarkdownPreview.ParseDocument(_toggleSource)" />
+                </div>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="The toolbar is an accelerator, never the only way in"
+           Description="Everything the buttons do can be typed, and that matters more than it sounds. It is what makes the editor work when interop fails — a WebView that has not finished starting, a prerendered page, a disconnected circuit — and a failed click leaves the text exactly as it was rather than half-applied. It is also what keeps the component honest: a toolbar that could do something the source cannot express would have invented a syntax the parser does not read.
+
+Disabled, the box and every button go together. A toolbar over a field nobody can type in is a set of controls that would each fail in their own way.">
+        <div class="sb-columns" data-testid="rich-text-disabled">
+            <MarkdownEditor Value="@DisabledSample" Disabled="true" Rows="6" AriaLabel="A disabled editor" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private sealed record SyntaxSample(string Name, string Source);
+
+    private sealed record Tradeoff(string Question, string Toolbar, string Wysiwyg);
+
+    /// <summary>The same colours the editor draws, asked of the same highlighter
+    /// — so this legend cannot show something the editor does not.</summary>
+    private static RenderFragment RenderSyntax(string source) => builder =>
+    {
+        var seq = 0;
+
+        foreach (var line in MarkdownHighlighter.Highlight(source))
+        {
+            foreach (var token in line.Tokens)
+            {
+                builder.OpenElement(seq++, "span");
+                builder.AddAttribute(seq++, "class", token.CssClass);
+                builder.AddContent(seq++, token.Text);
+                builder.CloseElement();
+            }
+
+            builder.AddContent(seq++, "\n");
+        }
+    };
+
+    private static readonly IReadOnlyList<SyntaxSample> SyntaxSamples =
+    [
+        new("Headings", "# A heading\n### A deeper one"),
+        new("Emphasis", "**bold**, *emphasis*, ~~struck~~ and `code`"),
+        new("Lists", "- A bullet\n1. A number\n- [ ] A task\n- [x] A finished one"),
+        new("Quotes and rules", "> A quote\n\n---"),
+        new("Links and tags", "A [link](https://example.com) and a #tag"),
+        new("Tables", "| Name | Status |\n| ---- | ------ |\n| One  | Open   |"),
+        new("Fences", "```csharp\n// nothing in here is markdown\nvar x = 1;\n```"),
+        new("Half-typed", "**bold that never closes\n[a link with no url")
+    ];
+
+    private sealed record ToolbarAction(string Name, string Behaviour, string Result);
+
+    private const string InitialSource = """
+        # Rich text, over markdown
+
+        Select any of this and press a toolbar button. **Bold**, *emphasis*,
+        ~~strikethrough~~ and `code` all wrap the selection; the line buttons act
+        on every line the selection touches.
+
+        - A bullet to turn into a task
+        - Another one
+
+        > A quote, which the quote button would add or remove.
+        """;
+
+    private const string ToggleSample = """
+        **This paragraph is already bold**, so pressing bold on it takes the
+        markers off rather than adding a second pair.
+
+        - [ ] These are already tasks
+        - [ ] Pressing the task button removes the boxes
+        """;
+
+    private const string DisabledSample = """
+        # Read only
+
+        The box and its toolbar are disabled together.
+        """;
+
+    private string _source = InitialSource;
+    private string _toggleSource = ToggleSample;
+    private IReadOnlyList<MdBlock> _blocks = MarkdownPreview.ParseDocument(InitialSource);
+
+    private void OnChanged(string value)
+    {
+        _source = value;
+        _blocks = MarkdownPreview.ParseDocument(value);
+    }
+
+    private static readonly IReadOnlyList<Tradeoff> Tradeoffs =
+    [
+        new("What is saved",
+            "The text, exactly as written. Nothing serialises it, so nothing can serialise it wrong.",
+            "Whatever the serialiser made of the document tree, which is only as good as its worst case."),
+
+        new("A body half-typed",
+            "Round-trips unchanged. An unclosed fence is text the parser degrades to prose, and it is still there tomorrow.",
+            "Has to be represented as something. Whatever that is, it is not what the author typed."),
+
+        new("A file another tool edits",
+            "Opens as the same markdown it was written as, in any editor.",
+            "Opens as whatever the serialiser normalised it to — reflowed, renumbered, re-marked."),
+
+        new("What the author sees",
+            "Markers, with a read view beside them doing the work of showing the result.",
+            "The finished document, which is genuinely nicer and is what this gives up.")
+    ];
+
+    private static readonly IReadOnlyList<ToolbarAction> ToolbarActions =
+    [
+        new("Bold", "Wraps the selection, and unwraps it if it is already wrapped.", "**selected**"),
+        new("Italic", "The same, with one marker.", "*selected*"),
+        new("Strikethrough", "The same again.", "~~selected~~"),
+        new("Inline code", "A backtick either side. Nothing inside it is parsed, which is the point of it.", "`selected`"),
+        new("Link", "Wraps the selection as the link text and lands the caret on the URL — the text was already chosen, the URL never is.", "[selected](https://)"),
+        new("Heading", "Prefixes every line the selection touches.", "# A line"),
+        new("Bulleted list", "One marker per line.", "- A line"),
+        new("Numbered list", "Renumbers as it goes rather than repeating `1.`.", "1. First\n2. Second"),
+        new("Task", "A checklist item — the shape the read view renders as a checkbox.", "- [ ] A line"),
+        new("Quote", "Prefixes the block. Consecutive lines read as one quote.", "> A line")
+    ];
+
+    private const string EditorCode = """
+        <MarkdownEditor Value="@_source" ValueChanged="OnChanged" Rows="16" />
+
+        @code {
+            private void OnChanged(string value)
+            {
+                _source = value;
+                _blocks = MarkdownPreview.ParseDocument(value);
+            }
+        }
+        """;
+}

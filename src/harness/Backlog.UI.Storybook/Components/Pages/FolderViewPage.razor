@@ -1,0 +1,306 @@
+@page "/folder-view"
+
+<PageTitle>Folder view — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Folder view"
+           Summary="FolderView shows one folder: what it is in the header, what is in it in the body. Structurally FileView's sibling — same header, same scrolling body, same MaxHeight and Fill — but it is a menu rather than a document, and it is set like one.">
+
+    <Story Name="A folder and what is in it"
+           Description="The header answers what this is; the tree answers what is in it. A folder opens and closes on click, and the component remembers which are open — that is the part worth having as a component rather than as a parameter, because expansion is state and every host would otherwise redo the same bookkeeping.
+
+Counts come for free and stand in for Kind when the caller gave none: how much is in here is the question a folder raises, and it is the only fact this component can work out for itself."
+           Code="@BasicCode">
+        <div class="sb-menu" data-testid="folder-view-basic">
+            <FolderView Name=".arc42"
+                        Path="D:\Repos\Backlog\.arc42"
+                        Source="Repository"
+                        Entries="@KnowledgeFolder"
+                        OnOpenFolder="OpenArc42"
+                        TestId="folder-view-arc42" />
+        </div>
+    </Story>
+
+    <Story Name="It is set like a menu, because it is one"
+           Description="This is the one place FolderView parts company with FileView. A file is the thing being read, so it sits on the deep surface and lets the chrome around it come forward; a folder is the way to the thing, so it sits on the raised one — the same inversion this storybook's own sidebar makes against its content, and the same one the desktop shell makes.
+
+Put the two side by side and it is visible: the folder reads as somewhere you go, the file reads as somewhere you arrived. Getting that the wrong way round is how a navigation pane starts competing with the document beside it.">
+        <div class="sb-columns" data-testid="folder-view-surfaces">
+            <div class="sb-stack">
+                <p class="sb-label">Folder — raised, a menu</p>
+                <FolderView CssClass="sb-menu" Name=".design" Source="Repository" Entries="@DesignFolder" MaxHeight="14rem" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">File — deep, a document</p>
+                <FileView Name="accessibility.md" Kind="Markdown" Body="@SurfaceSample" MaxHeight="14rem" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Open it in VS Code"
+           Description="The button appears only when something is listening for it. A folder shown in a browser tab has nowhere on disk to open, and an affordance that would do nothing is worse than none — which is also why the TreeView sample over on the Menus chapter does not have one. A tree of rows is a tree of rows; this is the component that knows it is a folder.
+
+The mark rather than the letters: &quot;VS&quot; in a 2rem box reads as an abbreviation of something a reader has to have been told, and the logo is what they already know from their own taskbar. The accessible name is the words either way — the icon is aria-hidden and a screen reader hears &quot;Open .tech in VS Code&quot;.
+
+Opening leaves this app entirely, so it can fail in ways nothing here can prevent: no editor installed, a path that moved. Busy keeps the button in place and the same size rather than vanishing under the pointer that just hit it, and a failure says so instead of leaving the reader watching nothing happen."
+           Code="@OpenCode">
+        <div class="sb-stack sb-menu" data-testid="folder-view-open">
+            <FolderView Name=".tech"
+                        Path="D:\Repos\Backlog\.tech"
+                        Source="Repository"
+                        Entries="@DesignFolder"
+                        OnOpenFolder="OpenAsync"
+                        IsOpening="@_opening"
+                        OpenErrorMessage="@_openError"
+                        MaxHeight="14rem"
+                        TestId="folder-view-openable" />
+
+            <p class="sb-state" data-testid="folder-view-open-state">@(_opened is null ? "nothing opened yet" : $"opened: {_opened}")</p>
+
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Ghost" OnClick="ToggleOpenError">
+                    Toggle the failure line
+                </AppButton>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Where it came from"
+           Description="This component is the desktop's knowledge menu with the vocabulary taken back out. That menu knew about areas, repository aliases, which chapter of arc42 sorts before which, and where an index.md hides — none of which a folder has. What was left when those went is what any folder anywhere has, and that is FolderEntry: a path, a name, whether it is a folder, what is inside, and whether it can be read at all.
+
+Sorting stayed with the caller on purpose. Which files matter and in what order is the one thing about a folder that is never generic — the knowledge menu floats adr and tdr into the middle of a numbered sequence, and no component could have guessed that.">
+        <dl class="sb-grid" data-testid="folder-view-model">
+            @foreach (var part in Model)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@part.Member</dt>
+                    <dd><p>@part.Meaning</p></dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="Selecting a row"
+           Description="Selection is two-way bindable, so a host that only wants a folder to be clickable does not have to hold it. A click reports folders as well as files: a folder in this product usually has something to show — an index file, a description — so selecting one is rarely wasted, and it is why a click both opens a folder and selects it rather than making the twisty a target of its own."
+           Code="@SelectionCode">
+        <div class="sb-columns">
+            <div class="sb-stack">
+                <FolderView CssClass="sb-menu" Name="src"
+                            Source="Repository"
+                            Kind="Source tree"
+                            Entries="@SourceFolder"
+                            @bind-SelectedPath="_selected"
+                            MaxHeight="18rem"
+                            TestId="folder-view-selection" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Selected</p>
+                <p class="sb-state" data-testid="folder-view-selected">@(_selected ?? "nothing yet")</p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Beside the file it opens"
+           Description="The pair the knowledge pane is made of, and the reason both components have the same header: a folder on the left, the file it selected on the right. Nothing here loads anything — the storybook has no file system — but the shape is the shape, and it is composition rather than a third component. Fill on both, so the column decides the height and each body scrolls inside it."
+           Code="@PairCode">
+        <div class="sb-tall">
+            <div class="sb-pane-pair" data-testid="folder-view-pair">
+                <FolderView Name=".design"
+                            Source="Repository"
+                            Entries="@DesignFolder"
+                            @bind-SelectedPath="_openPath"
+                            Fill="true"
+                            TestId="folder-view-pane" />
+
+                <FileView Name="@OpenFileName"
+                          Path="@($".design/{_openPath}")"
+                          Kind="Selected in the tree"
+                          Body="@OpenFileBody"
+                          Fill="true"
+                          TestId="folder-view-file" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Something that is there but cannot be read"
+           Description="A folder that failed to enumerate, a file with no permission, a broken link. The row still shows, disabled, with the reason on hover — because a reader who cannot see it will go looking for it, and an empty tree says the folder is empty, which is a different and untrue thing."
+           Code="@UnavailableCode">
+        <div data-testid="folder-view-unavailable">
+            <FolderView CssClass="sb-menu" Name="secrets"
+                        Source="Repository"
+                        Entries="@GuardedFolder"
+                        MaxHeight="14rem"
+                        TestId="folder-view-guarded" />
+        </div>
+    </Story>
+
+    <Story Name="A folder with nothing in it"
+           Description="Empty is a state, not an error. No count on the header — there is nothing to count — and a line in the body saying so, which the caller can replace with something its own reader would find more useful.">
+        <div class="sb-columns" data-testid="folder-view-empty">
+            <FolderView CssClass="sb-menu" Name="drafts" Source="Repository" Entries="@(Array.Empty<FolderEntry>())" MaxHeight="10rem" />
+            <FolderView CssClass="sb-menu" Name="drafts"
+                        Source="Repository"
+                        Entries="@(Array.Empty<FolderEntry>())"
+                        EmptyMessage="Nothing has been captured here yet."
+                        MaxHeight="10rem" />
+        </div>
+    </Story>
+
+    <Story Name="How deep it opens"
+           Description="InitiallyExpandedDepth decides how much is showing the first time and nothing after that — once a reader has opened or closed something, it is theirs. Zero folds everything, leaving the top row of each branch. One is the default and opens the folders at the top level, so what is directly inside them is visible without a click. A deep tree in a narrow pane usually wants zero.">
+        <div class="sb-columns" data-testid="folder-view-depth">
+            <div class="sb-stack">
+                <p class="sb-label">Depth 0 — everything folded</p>
+                <FolderView CssClass="sb-menu" Name="src" Entries="@SourceFolder" InitiallyExpandedDepth="0" MaxHeight="16rem" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Depth 2 — two levels open</p>
+                <FolderView CssClass="sb-menu" Name="src" Entries="@SourceFolder" InitiallyExpandedDepth="2" MaxHeight="16rem" />
+            </div>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private sealed record ModelPart(string Member, string Meaning);
+
+    private string? _selected;
+    private string? _openPath = "accessibility.md";
+    private string? _opened;
+    private string? _openError;
+    private bool _opening;
+
+    private const string SurfaceSample = """
+        # Accessibility
+
+        The file sits on the deep surface: it is the thing being read, so the
+        chrome around it comes forward and it does not.
+        """;
+
+    /// <summary>Stands in for the real open, which shells out to an editor. The
+    /// storybook has nothing to shell out to, so it shows the states the button
+    /// goes through instead of pretending to launch something.</summary>
+    private async Task OpenAsync()
+    {
+        _openError = null;
+        _opening = true;
+
+        await Task.Delay(TimeSpan.FromMilliseconds(700));
+
+        _opening = false;
+        _opened = ".tech";
+    }
+
+    private void ToggleOpenError() =>
+        _openError = _openError is null ? "VS Code is not installed, or is not on the PATH." : null;
+
+    private void OpenArc42() => _opened = ".arc42";
+
+    private static readonly IReadOnlyList<ModelPart> Model =
+    [
+        new("Path", "Unique within the folder, and what a selection reports. Usually the path relative to the folder's root."),
+        new("Name", "What the row shows. Humanising a file name is the caller's business — this one does not know that `context-map` should read as `Context Map`."),
+        new("Kind", "Folder or File. A file with children is describing something the view has no way to draw."),
+        new("Children", "What is inside. Null and empty render the same; they mean different things to a reader, so a caller that has not looked yet should say so with Message."),
+        new("SizeInBytes", "Shown beside a file's name, on the label rather than in a column — the tree indents, so a right-hand column would sit a different distance from every name it belongs to."),
+        new("Available", "False for something that is there and cannot be opened. The row still shows, disabled."),
+        new("Message", "Why it is unavailable, or anything worth saying on hover.")
+    ];
+
+    private static readonly IReadOnlyList<FolderEntry> KnowledgeFolder =
+    [
+        FolderEntry.File("index.md", "Index", 1_204),
+        FolderEntry.Folder("adr", "ADR",
+            FolderEntry.File("adr/0001-webview2.md", "0001 WebView2", 3_180),
+            FolderEntry.File("adr/0002-entry-text-language.md", "0002 Entry text language", 2_048)),
+        FolderEntry.Folder("tdr", "TDR",
+            FolderEntry.File("tdr/0001-markdown-parser.md", "0001 Markdown parser", 1_760)),
+        FolderEntry.File("01-introduction.md", "01 Introduction", 5_837),
+        FolderEntry.File("05-building-blocks.md", "05 Building blocks", 9_216)
+    ];
+
+    private static readonly IReadOnlyList<FolderEntry> SourceFolder =
+    [
+        FolderEntry.Folder("UI", "UI",
+            FolderEntry.Folder("UI/Backlog.UI.Components", "Backlog.UI.Components",
+                FolderEntry.Folder("UI/Backlog.UI.Components/Layout", "Layout",
+                    FolderEntry.File("UI/Backlog.UI.Components/Layout/FileView.razor", "FileView.razor", 6_980),
+                    FolderEntry.File("UI/Backlog.UI.Components/Layout/FolderView.razor", "FolderView.razor", 7_412)),
+                FolderEntry.Folder("UI/Backlog.UI.Components/Markdown", "Markdown",
+                    FolderEntry.File("UI/Backlog.UI.Components/Markdown/MarkdownView.razor", "MarkdownView.razor", 5_120)))),
+        FolderEntry.Folder("harness", "harness",
+            FolderEntry.File("harness/README.md", "README.md", 4_096))
+    ];
+
+    private static readonly IReadOnlyList<FolderEntry> DesignFolder =
+    [
+        FolderEntry.File("accessibility.md", "Accessibility", 6_144),
+        FolderEntry.File("interaction.md", "Interaction", 4_608),
+        FolderEntry.Folder("tokens", "Tokens",
+            FolderEntry.File("tokens/colour.md", "Colour", 2_560),
+            FolderEntry.File("tokens/type.md", "Type", 1_920))
+    ];
+
+    private static readonly IReadOnlyList<FolderEntry> GuardedFolder =
+    [
+        FolderEntry.File("readme.md", "Readme", 512),
+        new("keys", "Keys", FolderEntryKind.Folder, null, null, false, "Access to this folder was denied."),
+        new("token.txt", "token.txt", FolderEntryKind.File, null, 64, false, "Unable to read: the file is locked by another process.")
+    ];
+
+    /// <summary>Stands in for the file the tree selected. A real host reads the
+    /// file; the storybook has no file system and says so rather than pretending
+    /// to have one.</summary>
+    private string OpenFileName => _openPath is null ? "Nothing selected" : _openPath.Split('/')[^1];
+
+    private string OpenFileBody => _openPath is null
+        ? "Pick something on the left."
+        : $"""
+            # {OpenFileName}
+
+            The storybook has no file system, so this body is written rather than
+            read. What the story is showing is the pair: a folder decides what is
+            open, and the file view beside it shows it.
+
+            - Selected path: `{_openPath}`
+            - Both are in Fill mode, so the column decides the height
+            """;
+
+    private const string BasicCode = """
+        <FolderView Name=".arc42" Path="D:\Repos\Backlog\.arc42"
+                    Source="Repository" Entries="@entries" />
+        """;
+
+    private const string SelectionCode = """
+        <FolderView Name="src" Entries="@entries" @bind-SelectedPath="_selected" />
+
+        @* Or take the entry itself, for a host that wants more than the path. *@
+        <FolderView Name="src" Entries="@entries" OnEntrySelected="Open" />
+        """;
+
+    private const string PairCode = """
+        @* Composition, not a third component. *@
+        <div class="two-columns" style="height: 32rem">
+            <FolderView Name=".design" Entries="@entries" @bind-SelectedPath="_path" Fill="true" />
+            <FileView Name="@name" Body="@body" Fill="true" />
+        </div>
+        """;
+
+    private const string OpenCode = """
+        @* No OnOpenFolder, no button — a folder with nowhere to open shows none. *@
+        <FolderView Name=".tech" Entries="@entries" />
+
+        <FolderView Name=".tech"
+                    Path="@fullPath"
+                    Entries="@entries"
+                    OnOpenFolder="OpenAsync"
+                    IsOpening="@_opening"
+                    OpenErrorMessage="@_error" />
+        """;
+
+    private const string UnavailableCode = """
+        new FolderEntry("keys", "Keys", FolderEntryKind.Folder,
+            Available: false,
+            Message: "Access to this folder was denied.")
+        """;
+}

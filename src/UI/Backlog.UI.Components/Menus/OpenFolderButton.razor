@@ -1,0 +1,70 @@
+@*
+    "Open this in VS Code."
+
+    One control, used in two places: TreeView puts it beside its heading, and
+    FolderView puts it in its own header because it hides that heading. Two
+    buttons that did the same thing would be two buttons to keep in step, and the
+    storybook would end up showing the one nobody renders.
+
+    The mark rather than the letters: "VS" in a 2rem box reads as an abbreviation
+    of something, and the reader has to have been told what. The logo is the
+    thing they already recognise from their own taskbar. It keeps a real
+    accessible name either way — the icon is aria-hidden and the name comes from
+    the label, so a screen reader hears "Open .arc42 in VS Code" and not "VS".
+*@
+
+<button type="button"
+        class="@ClassValue"
+        data-testid="@TestId"
+        disabled="@(Disabled || Busy)"
+        title="@Label"
+        aria-label="@Label"
+        @onclick="OnClick"
+        @onclick:stopPropagation="true">
+    @if (Busy)
+    {
+        <Spinner Size="SpinnerSize.Small" CssClass="open-folder__spinner" />
+    }
+    else
+    {
+        @* The VS Code mark: the ribbon folded around the caret. Drawn rather
+           than fetched, because a component that needs the network to show its
+           own button does not work in a WebView with no egress. *@
+        <svg class="open-folder__glyph" viewBox="0 0 24 24" width="16" height="16"
+             fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M23.15 2.587 18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 0 0-1.276.057L.327 7.261A1 1 0 0 0 .326 8.74L3.899 12 .326 15.26a1 1 0 0 0 .001 1.479L1.65 17.94a.999.999 0 0 0 1.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 0 0 1.704.29l4.942-2.377A1.5 1.5 0 0 0 24 20.06V3.939a1.5 1.5 0 0 0-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z" />
+        </svg>
+    }
+</button>
+
+@code {
+    /// <summary>What a screen reader and a tooltip call it. Says which thing is
+    /// being opened, because a page may show more than one of these.</summary>
+    [Parameter]
+    public string Label { get; set; } = "Open in VS Code";
+
+    /// <summary>The action is in flight. The button stays in place and stays the
+    /// same size — a control that disappears while it works takes the reader's
+    /// pointer target with it.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    /// <summary>Replaces <c>open-folder</c>, for a host whose stylesheet already
+    /// names this button something else.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "open-folder";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+}
