@@ -6,27 +6,27 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 75,
-    "edges": 119,
+    "nodes": 76,
+    "edges": 121,
     "nodesByFolder": {
-      "arc42": 59,
+      "arc42": 60,
       "domain": 14,
       "tech": 2
     },
     "nodesByType": {
       "file": 16,
-      "chapter": 59
+      "chapter": 60
     },
     "nodesByStatus": {
-      "active": 49,
+      "active": 50,
       "proposed": 1,
       "draft": 21,
       "accepted": 2,
       "adopted": 2
     },
     "edgesByType": {
-      "contains": 45,
-      "related": 74
+      "contains": 46,
+      "related": 75
     }
   },
   "problems": [],
@@ -714,18 +714,34 @@
       },
       {
         "data": {
-          "id": ".arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification",
-          "label": "Cloud-service ADR alignments (pending MCP verification)",
+          "id": ".arc42/09-architecture-decisions.md#sync-service-adr-alignments",
+          "label": "Sync-service ADR alignments",
           "type": "chapter",
           "folder": "arc42",
           "path": ".arc42/09-architecture-decisions.md",
-          "slug": "cloud-service-adr-alignments-pending-mcp-verification",
+          "slug": "sync-service-adr-alignments",
           "level": 2,
-          "line": 13,
-          "status": "draft",
+          "line": 15,
+          "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
             ".arc42/07-deployment-view.md#cloud-deployment-azure"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/09-architecture-decisions.md#beyond-the-sync-service",
+          "label": "Beyond the sync service",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/09-architecture-decisions.md",
+          "slug": "beyond-the-sync-service",
+          "level": 2,
+          "line": 42,
+          "status": "draft",
+          "related": [
+            ".arc42/05-building-block-view.md#container-view"
           ]
         }
       },
@@ -738,7 +754,7 @@
           "path": ".arc42/09-architecture-decisions.md",
           "slug": "local-system-decisions",
           "level": 2,
-          "line": 41,
+          "line": 59,
           "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md"
@@ -754,7 +770,7 @@
           "path": ".arc42/09-architecture-decisions.md",
           "slug": "local-adrs",
           "level": 2,
-          "line": 59,
+          "line": 77,
           "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md"
@@ -1489,9 +1505,17 @@
       },
       {
         "data": {
-          "id": "contains:.arc42/09-architecture-decisions.md->.arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification",
+          "id": "contains:.arc42/09-architecture-decisions.md->.arc42/09-architecture-decisions.md#sync-service-adr-alignments",
           "source": ".arc42/09-architecture-decisions.md",
-          "target": ".arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification",
+          "target": ".arc42/09-architecture-decisions.md#sync-service-adr-alignments",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/09-architecture-decisions.md->.arc42/09-architecture-decisions.md#beyond-the-sync-service",
+          "source": ".arc42/09-architecture-decisions.md",
+          "target": ".arc42/09-architecture-decisions.md#beyond-the-sync-service",
           "type": "contains"
         }
       },
@@ -2025,17 +2049,25 @@
       },
       {
         "data": {
-          "id": "related:.arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification->.arc42/05-building-block-view.md#cloud-service",
-          "source": ".arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification",
+          "id": "related:.arc42/09-architecture-decisions.md#sync-service-adr-alignments->.arc42/05-building-block-view.md#cloud-service",
+          "source": ".arc42/09-architecture-decisions.md#sync-service-adr-alignments",
           "target": ".arc42/05-building-block-view.md#cloud-service",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification->.arc42/07-deployment-view.md#cloud-deployment-azure",
-          "source": ".arc42/09-architecture-decisions.md#cloud-service-adr-alignments-pending-mcp-verification",
+          "id": "related:.arc42/09-architecture-decisions.md#sync-service-adr-alignments->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".arc42/09-architecture-decisions.md#sync-service-adr-alignments",
           "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/09-architecture-decisions.md#beyond-the-sync-service->.arc42/05-building-block-view.md#container-view",
+          "source": ".arc42/09-architecture-decisions.md#beyond-the-sync-service",
+          "target": ".arc42/05-building-block-view.md#container-view",
           "type": "related"
         }
       },

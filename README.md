@@ -72,10 +72,22 @@ See [domain/domain.md](domain/domain.md) for functional boundaries and [architec
 `src/` holds shipping code only. It is laid out as a modular monolith:
 `src/Shared/` for the shared kernel, `src/Modules/<Context>/` for one vertically
 sliced module per bounded context, `src/Infrastructure/` for cross-cutting
-adapters that no single module owns, `src/App/` for the channel front ends,
-`src/Cloud/` for the sync service, and `src/Aspire/` for orchestration.
+adapters that no single module owns, `src/App/` for the channel front ends, and
+`src/Aspire/` for orchestration.
 
-Development-time hosts live under `src/harness/` so runnable project hosts stay below
+A module folder is named after what the module owns, and its projects carry that
+name — so the sync service is `src/Modules/Sync/Backlog.Modules.Sync.Api`, not a
+folder named after where it happens to be deployed. A module that is exposed over
+HTTP owns its own `.Api` project, which is a host: nothing else in the solution
+references it.
+
+`Sync` is the one module that is not a bounded context from
+[`.domain/context-map.md`](.domain/context-map.md). It owns no domain — it
+coordinates transient state between devices for the Capture and Inbox flow, and
+holds it only until the desktop picks it up. If it ever grows rules of its own, it
+needs an entry in the context map before it grows projects.
+
+Development-time hosts live under `src/Harness/` so runnable project hosts stay below
 `src/`, and automated test projects live in `tests/`.
 
 | Project | Channel / role |
@@ -92,9 +104,9 @@ Development-time hosts live under `src/harness/` so runnable project hosts stay 
 | `src/App/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |
 | `src/App/Backlog.Mobile` | Mobile channel — .NET MAUI Blazor Hybrid (Android) |
 | `src/App/Backlog.Ide.VsCode` | IDE channel — VS Code extension (TypeScript) |
-| `src/Cloud/Backlog.Cloud` | Cloud channel — thin ASP.NET Core sync service (Azure) |
-| `src/harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
-| `src/harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
+| `src/Modules/Sync/Backlog.Modules.Sync.Api` | Sync module's API — thin ASP.NET Core sync service, deployed to Azure |
+| `src/Harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
+| `src/Harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
 | `tests/Backlog.Modules.Backlog.UnitTests` | Unit tests for the Backlog module domain |
 | `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the file storage adapter |
 | `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services and GitHub integration |
@@ -133,13 +145,13 @@ Backlog.Modules.Backlog` stops resolving project-wide. `BacklogManagement` is
 also the context's name in the context map, so the constraint and the domain
 language agree.
 
-Everything under `src/harness/` is a development-time host. It ships nothing to a
+Everything under `src/Harness/` is a development-time host. It ships nothing to a
 user; it exists so the shared Razor components can be started by the Aspire
 AppHost and driven by Playwright, which the MAUI heads cannot be. That intent is
-enforced rather than documented: `src/harness/Directory.Build.props` marks every
+enforced rather than documented: `src/Harness/Directory.Build.props` marks every
 harness project non-packable and non-publishable, and
 `tests/Backlog.ArchitectureTests` fails the build if a shipping `src/` project ever
-references one. See [`src/harness/README.md`](src/harness/README.md).
+references one. See [`src/Harness/README.md`](src/Harness/README.md).
 
 ## Running locally
 
@@ -147,14 +159,14 @@ references one. See [`src/harness/README.md`](src/harness/README.md).
 dotnet run --project src/Aspire/Backlog.Aspire.AppHost
 ```
 
-The AppHost starts the cloud service and the two web test harnesses. The remaining
+The AppHost starts the sync service and the two web test harnesses. The remaining
 resources need something Aspire cannot provide on its own — a desktop
 window, an Android emulator, or a VS Code extension host — so they are registered
 with **explicit start** and launched on demand from the dashboard:
 
 | Resource | Starts | Needs |
 |---|---|---|
-| `cloud`, `desktop-web-harness`, `mobile-web-harness` | automatically | — |
+| `sync`, `desktop-web-harness`, `mobile-web-harness` | automatically | — |
 | `desktop` | on demand | Windows desktop session |
 | `mobile-android` | on demand | running Android emulator or attached device |
 | `ide-vscode-build` | on demand | `npm install` in `src/App/Backlog.Ide.VsCode` |

@@ -212,7 +212,7 @@ public class DesignTokenTests
     /// index.html and each harness's App.razor.</summary>
     private static IEnumerable<FileInfo> HostDocuments()
     {
-        foreach (var folder in new[] { "App", "harness" })
+        foreach (var folder in new[] { "App", "Harness" })
         {
             var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", folder));
             if (!root.Exists) continue;

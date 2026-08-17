@@ -16,7 +16,7 @@ public class StorybookCoverageTests
         new(Path.Combine(Repository.Root.FullName, "src", "UI", "Backlog.UI.Components"));
 
     private static readonly DirectoryInfo StorybookPages =
-        new(Path.Combine(Repository.Root.FullName, "src", "harness", "Backlog.UI.Storybook", "Components", "Pages"));
+        new(Path.Combine(Repository.Root.FullName, "src", "Harness", "Backlog.UI.Storybook", "Components", "Pages"));
 
     [Fact]
     public void Every_component_in_the_library_is_rendered_by_a_story()
@@ -54,7 +54,7 @@ public class StorybookCoverageTests
         // page has exactly one place to register itself.
         var index = File.ReadAllText(Path.Combine(
             Repository.Root.FullName,
-            "src", "harness", "Backlog.UI.Storybook", "Components", "Shared", "StorybookIndex.cs"));
+            "src", "Harness", "Backlog.UI.Storybook", "Components", "Shared", "StorybookIndex.cs"));
 
         var unlisted = StorybookPages.EnumerateFiles("*.razor")
             .Select(page => Regex.Match(File.ReadAllText(page.FullName), @"@page\s+""/([^""]*)"""))

@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -37,9 +37,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Mobile.UI", "src\Ap
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Mobile", "src\App\Backlog.Mobile\Backlog.Mobile.csproj", "{27FA7D79-2C4F-43C2-B657-D6E9B9A56C61}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Cloud", "Cloud", "{95E80168-171F-B871-B946-3646EA1871A2}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sync", "Sync", "{95E80168-171F-B871-B946-3646EA1871A2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Cloud", "src\Cloud\Backlog.Cloud\Backlog.Cloud.csproj", "{93A7B1AB-D000-48C2-B670-A7887A3359FA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Sync.Api", "src\Modules\Sync\Backlog.Modules.Sync.Api\Backlog.Modules.Sync.Api.csproj", "{93A7B1AB-D000-48C2-B670-A7887A3359FA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
@@ -53,15 +53,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.ArchitectureTests",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.Copilot", "src\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj", "{08D92DAB-3FA3-440A-8B1D-4DC78BD308AB}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "harness", "harness", "{D5AE8E2F-FCCF-FC4C-7CA1-EC37A83192A6}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Harness", "Harness", "{D5AE8E2F-FCCF-FC4C-7CA1-EC37A83192A6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Desktop.WebHarness", "src\harness\Backlog.Desktop.WebHarness\Backlog.Desktop.WebHarness.csproj", "{93AE502E-027E-4796-822A-54B7F99ACFA3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Desktop.WebHarness", "src\Harness\Backlog.Desktop.WebHarness\Backlog.Desktop.WebHarness.csproj", "{93AE502E-027E-4796-822A-54B7F99ACFA3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Mobile.WebHarness", "src\harness\Backlog.Mobile.WebHarness\Backlog.Mobile.WebHarness.csproj", "{A3ABD575-EECF-4BA7-97D1-883F93222A95}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Mobile.WebHarness", "src\Harness\Backlog.Mobile.WebHarness\Backlog.Mobile.WebHarness.csproj", "{A3ABD575-EECF-4BA7-97D1-883F93222A95}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.AzureFoundry", "src\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj", "{2CACFE7C-7C87-48C2-AAF7-D293E6081697}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.AzureFoundry.TestService", "src\harness\Backlog.AzureFoundry.TestService\Backlog.AzureFoundry.TestService.csproj", "{2920991B-17D0-44BF-8094-626C9D4FCB68}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.AzureFoundry.TestService", "src\Harness\Backlog.AzureFoundry.TestService\Backlog.AzureFoundry.TestService.csproj", "{2920991B-17D0-44BF-8094-626C9D4FCB68}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.Claude", "src\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj", "{D13B1945-EDE8-4BA8-ACBE-7D8473CB7367}"
 EndProject
@@ -73,7 +73,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UI", "UI", "{BBB7B94B-6E11-
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.UI.Components", "src\UI\Backlog.UI.Components\Backlog.UI.Components.csproj", "{24E89C7F-71E3-4982-A1B5-36B4EC3F23D8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.UI.Storybook", "src\harness\Backlog.UI.Storybook\Backlog.UI.Storybook.csproj", "{19A512EA-2E8E-4941-B1B8-8602DE540183}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.UI.Storybook", "src\Harness\Backlog.UI.Storybook\Backlog.UI.Storybook.csproj", "{19A512EA-2E8E-4941-B1B8-8602DE540183}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.UI.Components.UnitTests", "tests\Backlog.UI.Components.UnitTests\Backlog.UI.Components.UnitTests.csproj", "{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}"
 EndProject
@@ -434,7 +434,7 @@ Global
 		{34E17BD1-F97F-4A21-9DA1-F574269BE558} = {547E75E0-49BC-27F6-65D6-DF25CFFB661A}
 		{ABB53A21-38D5-46FB-B13F-C1A632173CBF} = {547E75E0-49BC-27F6-65D6-DF25CFFB661A}
 		{27FA7D79-2C4F-43C2-B657-D6E9B9A56C61} = {547E75E0-49BC-27F6-65D6-DF25CFFB661A}
-		{95E80168-171F-B871-B946-3646EA1871A2} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{95E80168-171F-B871-B946-3646EA1871A2} = {EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}
 		{93A7B1AB-D000-48C2-B670-A7887A3359FA} = {95E80168-171F-B871-B946-3646EA1871A2}
 		{F1BB6E09-89A0-4214-B3F6-413D23AA5284} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{6302BDC7-7A2F-4BFA-823C-17DC76732A8D} = {0AB3BF05-4346-4AA6-1389-037BE0695223}

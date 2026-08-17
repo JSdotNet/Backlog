@@ -1,7 +1,7 @@
 <Project>
 
   <!--
-    Everything under src/harness/ is development-time only. These projects host the
+    Everything under src/Harness/ is development-time only. These projects host the
     shared Razor components so the Aspire AppHost can start them and Playwright
     can drive them; the MAUI heads cannot be automated that way.
 

@@ -6,37 +6,55 @@ status: active
 
 This chapter links to the authoritative Architecture Decision Records rather than
 restating them. ADRs are maintained in the organization's guidance corpus
-(`jsdotnet-project-guidelines`) and primarily affect the **cloud service** (.NET)
-part of Prompt Backlog. The desktop, mobile, and IDE channels use their own platform
-stacks and are intentionally out of scope for the .NET ADR set.
+(`jsdotnet-project-guidelines`). The **sync service** is the part of Prompt Backlog
+that the ASP.NET-specific ADRs govern directly, but it is not the only governed
+code: the modules, the shared kernel, and the shared component library are .NET too
+(see *Beyond the sync service* below). The IDE channel is TypeScript and stays
+outside the .NET ADR set.
 
-## Cloud-service ADR alignments (pending MCP verification)
+## Sync-service ADR alignments
 
 ```meta
-status: draft
+status: active
 related: [".arc42/05-building-block-view.md#cloud-service", ".arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 
-The `jsdotnet-project-guidelines` MCP server was not available while drafting this
-branch, so the mapping below is a **local fallback** based on repository context and
-must be re-verified before implementation. It is intended to prevent obviously wrong
-technology choices, not to serve as a final ADR inventory.
+ADR numbers and titles below were verified against the `jsdotnet-project-guidelines`
+corpus on 2026-08-17. The *alignment* column is still a reading of intent per ADR,
+not a compliance audit of implemented code.
 
-| ADR | Current alignment for the cloud service |
+| ADR | Current alignment for the sync service |
 |---|---|
-| **0001 - Adopt .NET 10** | Expected target framework for the cloud service. |
-| **0003 - .NET Aspire for ASP.NET** | Expected orchestration / ServiceDefaults guidance if the sync layer is implemented as an ASP.NET workload. |
-| **0005 - Modular Monolith Structure** | Relevant if the cloud service grows beyond a single small API and needs standard project boundaries. |
-| **0006 - CQRS for ASP.NET API** | Relevant for separating sync commands from query-style status/read endpoints. |
+| **0001 - Adopt .NET 10** | Target framework of `Backlog.Modules.Sync.Api`. |
+| **0003 - .NET Aspire for ASP.NET** | Followed: the service is an Aspire resource (`sync`) and calls `AddServiceDefaults()`. |
+| **0005 - Modular Monolith Structure** | Followed: the service is the `Sync` module's own `.Api` project under `src/Modules/Sync/`, per the modular solution structure. |
+| **0006 - CQRS for ASP.NET API** | Already followed elsewhere: `Backlog.SharedKernel.Handlers` declares `ICommandHandler`/`IQueryHandler` once, with no mediator. Applies to the sync service when its endpoints grow past the current in-memory store. |
 | **0007 - Minimal APIs over Controllers** | Expected endpoint style for sync, webhook, and PC-registry APIs. |
-| **0010 - OpenTelemetry Observability** | Relevant for traces, metrics, and logs in the cloud service. |
+| **0010 - OpenTelemetry Observability** | Relevant for traces, metrics, and logs in the sync service. |
 | **0012 - Authentication with External Identity Providers (OIDC)** | Relevant only for the GitHub OAuth callback / any future external identity flow, not for device-session auth. |
 | **0013 - Authorization & Zero Trust** | Relevant for device/team authorization, least-privilege checks, and audit logging. |
 | **0014 - Persistence Strategy & Repository Boundaries** | Relevant for sync-state persistence and data ownership boundaries. |
 | **0015 - Resilience for Outbound Dependencies** | Relevant for GitHub and FCM outbound calls. |
 | **0016 - Messaging & Integration-Event Delivery** | Relevant only if webhook forwarding or sync delivery is implemented with durable asynchronous messaging. |
-| **0017 - HTTP Error Contract & Problem Details** | Expected error contract for the cloud API surface. |
+| **0017 - HTTP Error Contract & Problem Details** | Expected error contract for the sync API surface. |
 | **0018 - Configuration & Options Binding** | Relevant for strongly typed settings and externalized secrets. |
+
+## Beyond the sync service
+
+```meta
+status: draft
+related: [".arc42/05-building-block-view.md#container-view"]
+```
+
+Three ADRs already govern shipped code outside the sync service, and one is not
+adopted at all. This list records the gap; it is not an alignment claim.
+
+| ADR | Where it lands, and what is unrecorded |
+|---|---|
+| **0004 - Result Objects for Expected Failures** | `Backlog.SharedKernel` implements `Result`, `Result<T>`, and `Error`, and every module handler returns them. No alignment statement exists. |
+| **0009 - Feature Slices Within Module Projects** | `Backlog.Modules.Backlog` already uses the prescribed layout (`DomainModels/`, `Features/`, repository interface at the module root, `Services/`, `Extensions/`). Never recorded as a decision. |
+| **0011 - Centralized Frontend Styling Variables** | Design tokens live in one file, `src/UI/Backlog.UI.Components/wwwroot/components.css`, and `DesignTokenTests` enforces it. Never recorded as a decision. |
+| **0002 - Central Package Management** | **Not adopted.** There is no `Directory.Packages.props`; package versions are declared per project. Either adopt it or record why not. |
 
 ## Local system decisions
 

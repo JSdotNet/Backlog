@@ -82,14 +82,14 @@ for anything specified here.
 
 | What | Where |
 |---|---|
-| Storybook host | `src/harness/Backlog.UI.Storybook` |
+| Storybook host | `src/Harness/Backlog.UI.Storybook` |
 | Component library it renders | `src/UI/Backlog.UI.Components` |
 | Token declarations — the code side of `color-scheme.md` and `typography-and-layout.md` | `src/UI/Backlog.UI.Components/wwwroot/components.css` (`:root`) |
 
 Run it standalone, or as the `ui-storybook` Aspire resource:
 
 ```bash
-dotnet run --project src/harness/Backlog.UI.Storybook
+dotnet run --project src/Harness/Backlog.UI.Storybook
 ```
 
 Page map — each file here and the storybook pages that show it:
