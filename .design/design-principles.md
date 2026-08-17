@@ -146,7 +146,7 @@ status: active
 related: [".design/README.md#living-reference-the-ui-storybook"]
 ```
 
-The storybook (`src/harness/Backlog.UI.Storybook`) is where these principles are
+The storybook (`src/Harness/Backlog.UI.Storybook`) is where these principles are
 checked rather than asserted. It links the library stylesheet and adds page
 chrome only, so a principle that has quietly stopped holding shows up there
 first.

@@ -2,7 +2,7 @@
 
 Repo-aware IDE channel described in `.arc42/05-building-block-view.md#ide-extensions`.
 It contributes a `Backlog Inbox` tree view and a `Backlog: Capture Selection` command
-that talk to the cloud sync service (`Backlog.Cloud`).
+that talk to the sync service (`Backlog.Modules.Sync.Api`).
 
 ## Run
 

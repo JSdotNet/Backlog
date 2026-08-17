@@ -10,12 +10,18 @@ public class ModuleSurfaceTests
     private const string Module = "Backlog.Modules.Backlog";
     private const string Abstractions = "Backlog.Modules.Backlog.Abstractions";
 
+    /// <summary>
+    /// A module library exists to be called, so it has to publish a contract. An
+    /// <c>.Api</c> project is the opposite: a host that exposes the module over HTTP
+    /// and that nothing in the solution references, so it has no surface to publish.
+    /// </summary>
     [Fact]
     public void Every_module_publishes_an_abstractions_project()
     {
         var modules = Repository.ProjectsUnder("src", "Modules")
             .Select(project => Path.GetFileNameWithoutExtension(project.Name))
             .Where(name => !name.EndsWith(".Abstractions", StringComparison.Ordinal))
+            .Where(name => !name.EndsWith(".Api", StringComparison.Ordinal))
             .ToList();
 
         Assert.NotEmpty(modules);
@@ -71,7 +77,7 @@ public class ModuleSurfaceTests
     /// </summary>
     [Theory]
     [InlineData("App", "Backlog.Desktop.csproj")]
-    [InlineData("harness", "Backlog.Desktop.WebHarness.csproj")]
+    [InlineData("Harness", "Backlog.Desktop.WebHarness.csproj")]
     public void The_hosts_compose_the_module(string folder, string project)
     {
         var host = Repository.ProjectsUnder("src", folder)

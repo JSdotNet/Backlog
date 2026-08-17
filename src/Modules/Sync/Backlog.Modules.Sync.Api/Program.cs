@@ -1,4 +1,4 @@
-using Backlog.Cloud;
+using Backlog.Modules.Sync.Api;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +21,6 @@ sync.MapPost("/inbox", (SyncStore store, CaptureRequest request) =>
 sync.MapPost("/inbox/{id:guid}/ack", (SyncStore store, Guid id) =>
     store.Acknowledge(id) ? Results.NoContent() : Results.NotFound());
 
-app.MapGet("/", () => Results.Ok(new { service = "Backlog Cloud", role = "thin sync layer" }));
+app.MapGet("/", () => Results.Ok(new { service = "Backlog Sync", role = "thin sync layer" }));
 
 app.Run();

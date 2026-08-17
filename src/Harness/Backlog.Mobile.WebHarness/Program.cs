@@ -9,10 +9,10 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// "https+http://cloud" is resolved by Aspire service discovery, so the browser
-// harness always talks to the cloud service of this AppHost run.
+// "https+http://sync" is resolved by Aspire service discovery, so the browser
+// harness always talks to the sync service of this AppHost run.
 builder.Services.AddHttpClient<CloudSyncClient>(client =>
-    client.BaseAddress = new Uri("https+http://cloud"));
+    client.BaseAddress = new Uri("https+http://sync"));
 
 var app = builder.Build();
 

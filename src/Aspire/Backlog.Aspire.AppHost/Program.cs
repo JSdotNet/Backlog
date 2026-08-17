@@ -1,41 +1,41 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Cloud service — thin sync layer (Azure Container Apps in production).
-var cloud = builder.AddProject("cloud", "..\\..\\Cloud\\Backlog.Cloud\\Backlog.Cloud.csproj");
+// Sync service — the thin cloud-side sync layer (Azure Container Apps in production).
+var sync = builder.AddProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sync.Api\\Backlog.Modules.Sync.Api.csproj");
 
-// --- Test harnesses (src/harness/) ---------------------------------------
+// --- Test harnesses (src/Harness/) ---------------------------------------
 // The projects below are NOT shipped channels. They are development-only hosts
 // and local doubles so Aspire and Playwright can exercise app behavior without
 // deploying cloud dependencies or MAUI heads.
 
 // Local Azure Foundry-compatible endpoint used only by Aspire development runs.
-var azureFoundryTest = builder.AddProject("azure-foundry-test", "..\\..\\harness\\Backlog.AzureFoundry.TestService\\Backlog.AzureFoundry.TestService.csproj");
+var azureFoundryTest = builder.AddProject("azure-foundry-test", "..\\..\\Harness\\Backlog.AzureFoundry.TestService\\Backlog.AzureFoundry.TestService.csproj");
 
 // Desktop UI in the browser: hosts Backlog.Desktop.UI, the same components the
 // MAUI Blazor Hybrid desktop head renders in its WebView.
-builder.AddProject("desktop-web-harness", "..\\..\\harness\\Backlog.Desktop.WebHarness\\Backlog.Desktop.WebHarness.csproj")
-    .WithReference(cloud)
+builder.AddProject("desktop-web-harness", "..\\..\\Harness\\Backlog.Desktop.WebHarness\\Backlog.Desktop.WebHarness.csproj")
+    .WithReference(sync)
     .WithReference(azureFoundryTest)
     .WithEnvironment("BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT", azureFoundryTest.GetEndpoint("http"))
     .WaitFor(azureFoundryTest);
 
 // Mobile UI in the browser. The Android head needs an emulator, so this harness
 // hosts the same Razor components (Backlog.Mobile.UI) at phone width.
-builder.AddProject("mobile-web-harness", "..\\..\\harness\\Backlog.Mobile.WebHarness\\Backlog.Mobile.WebHarness.csproj")
-    .WithReference(cloud)
-    .WaitFor(cloud);
+builder.AddProject("mobile-web-harness", "..\\..\\Harness\\Backlog.Mobile.WebHarness\\Backlog.Mobile.WebHarness.csproj")
+    .WithReference(sync)
+    .WaitFor(sync);
 
 // Component storybook: the shared Backlog.UI.Components library on its own, with
-// no application or cloud dependency, so the components can be reviewed and
+// no application or sync dependency, so the components can be reviewed and
 // Playwright-driven independently of the app.
-builder.AddProject("ui-storybook", "..\\..\\harness\\Backlog.UI.Storybook\\Backlog.UI.Storybook.csproj");
+builder.AddProject("ui-storybook", "..\\..\\Harness\\Backlog.UI.Storybook\\Backlog.UI.Storybook.csproj");
 
 // --- Shipped channels (src/App) ---------------------------------------------
 
 // Desktop channel — .NET MAUI Blazor Hybrid (Windows). Registered so it shows up in
 // the app model, but never auto-started: launch it from the dashboard or the IDE.
 builder.AddProject("desktop", "..\\..\\App\\Backlog.Desktop\\Backlog.Desktop.csproj")
-    .WithReference(cloud)
+    .WithReference(sync)
     .WithExplicitStart();
 
 // Mobile channel — .NET MAUI Blazor Hybrid (Android). Aspire cannot run an Android
@@ -46,7 +46,7 @@ builder.AddExecutable(
         "dotnet",
         "..\\..\\App\\Backlog.Mobile",
         "build", "Backlog.Mobile.csproj", "-t:Run", "-f", "net10.0-android")
-    .WithEnvironment("BACKLOG_CLOUD_URL", cloud.GetEndpoint("http"))
+    .WithEnvironment("BACKLOG_SYNC_URL", sync.GetEndpoint("http"))
     .WithExplicitStart();
 
 // IDE channel — VS Code extension. The watch build keeps out/extension.js current.

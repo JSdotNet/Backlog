@@ -58,7 +58,7 @@ public class UiLibraryBoundaryTests
     [Fact]
     public void The_storybook_harness_hosts_only_the_shared_library()
     {
-        var storybook = Repository.ProjectsUnder("src", "harness")
+        var storybook = Repository.ProjectsUnder("src", "Harness")
             .SingleOrDefault(p => p.Name.Equals("Backlog.UI.Storybook.csproj", StringComparison.OrdinalIgnoreCase));
 
         Assert.NotNull(storybook);

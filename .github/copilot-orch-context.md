@@ -17,10 +17,10 @@ desktop, mobile, and IDE channels plus a thin cloud sync service.
 **AppHost project:** `src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj`
 (also declared in `aspire.config.json`).
 
-Solution: `Backlog.sln`. Product code lives under `src/`, including development-time hosts under `src/harness/`,
+Solution: `Backlog.sln`. Product code lives under `src/`, including development-time hosts under `src/Harness/`,
 and automated tests live under `tests/`.
 
-The `src/harness/` projects are **test harnesses, not shipped channels**. They are Blazor
+The `src/Harness/` projects are **test harnesses, not shipped channels**. They are Blazor
 Server hosts of the shared Razor components, and they exist specifically so the UI can be
 started by Aspire and driven by Playwright — the MAUI heads cannot be automated that way.
 Target them for UI validation. `ui-storybook` is the exception in kind: it hosts the shared
@@ -56,7 +56,7 @@ dotnet build Backlog.sln
 dotnet test Backlog.sln
 ```
 
-Only `cloud`, `azure-foundry-test`, `desktop-web-harness`, `mobile-web-harness`, and
+Only `sync`, `azure-foundry-test`, `desktop-web-harness`, `mobile-web-harness`, and
 `ui-storybook` start automatically. The `desktop`, `mobile-android`, `ide-vscode-build`, and
 `ide-vscode-host` resources are registered with `WithExplicitStart()` and must be started
 deliberately from the dashboard — do not treat them as failed startups when they sit idle.
@@ -73,7 +73,7 @@ actual URLs from the Aspire dashboard or the AppHost startup output, then use th
 | `desktop-web-harness` | Desktop UI components in the browser — primary Playwright target |
 | `mobile-web-harness` | Same components at phone width — mobile Playwright target |
 | `ui-storybook` | Every shared component on its own, with no app behind it |
-| `cloud` | Thin sync service the harnesses reference |
+| `sync` | Thin sync service the harnesses reference |
 
 ## Test Credentials
 
@@ -101,11 +101,11 @@ and state that authoritative guidance could not be verified.
 
 ## Healthy Startup
 
-Startup is healthy when the Aspire dashboard is reachable and `cloud`,
+Startup is healthy when the Aspire dashboard is reachable and `sync`,
 `desktop-web-harness`, `mobile-web-harness`, and `ui-storybook` all reach **Running**. The
 four `WithExplicitStart()` resources staying `NotStarted` is expected, not a failure.
 
-`mobile-web-harness` has a `WaitFor(cloud)` dependency, so it starts after `cloud` becomes
+`mobile-web-harness` has a `WaitFor(sync)` dependency, so it starts after `sync` becomes
 healthy — a brief wait there is normal. `ui-storybook` waits for nothing, because it
 references nothing.
 
