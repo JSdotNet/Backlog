@@ -80,11 +80,12 @@ when no reproduction has been written up yet.
   touches visual design, interaction behavior, content editing, or accessibility —
   loading only the relevant guideline file(s), not the whole folder.
 
-## Repository-native orchestration entrypoints
+## Orchestration entrypoints
 
-The knowledge-folder orchestrations are provided by the `knowledge-base` plugin. The only
-repo-native orchestration entrypoint left is `orch-fallback`, for task categories with no
-dedicated `orch-*` skill from either source. See `.github/copilot-orch-context.md`.
+Every orchestration entrypoint is plugin-provided: the knowledge-folder orchestrations come
+from the `knowledge-base` plugin, and the rest — including `orch-fallback`, for task
+categories with no dedicated `orch-*` skill — come from the `copilot-app` plugin. This
+repository ships no repo-native `orch-*` skills. See `.github/copilot-orch-context.md`.
 
 ## Runtime and QA context
 

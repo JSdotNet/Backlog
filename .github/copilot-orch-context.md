@@ -131,15 +131,14 @@ Two standing exceptions:
   `dotnet test`; `targeted` depth is sufficient.
 
 
-## Repo-Native Orchestration Skills
+## Orchestration Skill Sources
 
-The knowledge-folder orchestrations (`orch-arc42-content`, `orch-domain`, `orch-backlog`,
-`orch-tech`, `orch-design`) are provided by the `knowledge-base` plugin, not by this
-repository. Only one skill under `.github/skills/` remains repo-native:
+This repository ships no repo-native `orch-*` skills. The knowledge-folder orchestrations
+(`orch-arc42-content`, `orch-domain`, `orch-backlog`, `orch-tech`, `orch-design`) come from
+the `knowledge-base` plugin; every other orchestration — including `orch-fallback`, the
+generic entrypoint for task categories with no dedicated `orch-*` skill — comes from the
+`copilot-app` plugin.
 
-- `orch-fallback` — generic entrypoint for any task category with no dedicated `orch-*` skill,
-  repo-native or plugin-provided.
-
-`pr-jsdotnet` also lives under `.github/skills/`, but it is a pull-request workflow rather
-than an orchestration; see `.github/copilot-instructions.md`.
+The only skill under `.github/skills/` is `pr-jsdotnet`, and it is a pull-request workflow
+rather than an orchestration; see `.github/copilot-instructions.md`.
 
