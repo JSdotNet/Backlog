@@ -1,8 +1,13 @@
 # Copilot Orchestration Repo Context
 
 Repo-specific startup and QA context for `orch-*` orchestration runs in `JSdotNet/Backlog`.
-General orchestration routing and enforcement come from the `copilot-app` plugin; this file
-only supplies what is specific to this repository.
+General orchestration routing and enforcement come from the `copilot-app` plugin (GitHub
+Copilot) or the `claude-desktop` plugin (Claude Code); this file only supplies what is
+specific to this repository, and is read by both.
+
+The `claude-desktop` plugin looks for `.claude/orch-context.md` first and falls back to this
+path, so this file does not need to be duplicated. Everything below is toolchain-neutral
+runtime fact — AppHost path, how to run, base URLs, healthy startup, QA depth.
 
 ## Application
 
