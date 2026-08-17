@@ -10,8 +10,74 @@
     can inject markup.
 *@
 
-@foreach (var block in Blocks)
+@if (AllowCopy && !string.IsNullOrWhiteSpace(Source))
 {
+    @* Copies the markdown, not the rendering. What a reader wants out of a read
+       view is the thing they can paste back into one — the source is what round
+       trips, and it is what every other surface in this product stores. *@
+    <div class="md-actions">
+        <CopyButton Text="@Source"
+                    Label="@CopyLabel"
+                    ButtonCssClass="md-copy"
+                    StatusCssClass="md-copy__status"
+                    ButtonTestId="markdown-copy"
+                    StatusTestId="markdown-copy-status" />
+    </div>
+}
+
+<div class="@ViewClass">
+@foreach (var (block, index) in Blocks.Select((block, index) => (block, index)))
+{
+    @if (Annotated)
+    {
+        @* Only wrapped when there is something to hang off a block. A div around
+           every block changes what a stylesheet sees, and a read view nobody
+           annotates should render exactly what it rendered before. *@
+        <div class="md-block-row" data-block="@index">
+            <div class="md-block @(CommentsOn(index).Count > 0 ? "md-block--commented" : string.Empty)">
+                @RenderBlock(block)
+                @if (CanComment)
+                {
+                    <button type="button"
+                            class="md-block__comment"
+                            aria-label="@($"Comment on block {index + 1}")"
+                            data-testid="@($"markdown-comment-{index}")"
+                            @onclick="() => OnAddComment.InvokeAsync(index)">
+                        <span aria-hidden="true">💬</span>
+                        @if (CommentsOn(index).Count > 0)
+                        {
+                            <span class="md-block__count">@CommentsOn(index).Count</span>
+                        }
+                    </button>
+                }
+            </div>
+            @* In margin mode this cell is the second column, level with its
+               block; inline it simply follows. One markup, two layouts, so the
+               two cannot drift apart. *@
+            <div class="md-block-row__notes">
+                @RenderComments(CommentsOn(index))
+            </div>
+        </div>
+    }
+    else
+    {
+        @RenderBlock(block)
+    }
+}
+</div>
+
+@* A comment whose block has gone still has to land somewhere. Dropping it would
+   lose what someone said; showing it at the end says it is adrift. *@
+@if (Orphans.Count > 0)
+{
+    <div class="md-comments md-comments--orphaned" data-testid="markdown-orphaned-comments">
+        @RenderComments(Orphans)
+    </div>
+}
+
+@code {
+    private RenderFragment RenderBlock(MdBlock block) => __builder =>
+    {
     switch (block)
     {
         case MdHeading heading:
@@ -25,12 +91,227 @@
             break;
 
         case MdList list:
+            @RenderList(list)
+            break;
+
+        case MdQuote quote:
+            <blockquote class="md-quote">@RenderInlines(quote.Content)</blockquote>
+            break;
+        case MdCode codeBlock:
+            @if (DiagramView.IsDiagram(codeBlock.Language))
+            {
+                <DiagramView Title="Backlog diagram" Source="@codeBlock.Text" Language="@codeBlock.Language" />
+            }
+            else
+            {
+                <pre class="md-code"><code>@codeBlock.Text</code></pre>
+            }
+            break;
+
+        case MdTable table:
+            @* Wrapped, and the wrapper is what scrolls: a table is the one block
+               here that has a width of its own and cannot be reflowed to fit.
+               Making the wrapper a labelled, focusable region rather than the
+               table keeps the table a table to a screen reader while still
+               letting a keyboard reach the overflow. *@
+            <div class="md-table-scroll" role="region" tabindex="0" aria-label="Table">
+                <table class="md-table">
+                    <thead>
+                        <tr>
+                            @foreach (var (cell, column) in table.Header.Cells.Select((cell, column) => (cell, column)))
+                            {
+                                <th scope="col" class="@AlignClass(table, column)">@RenderInlines(cell.Content)</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in table.Rows)
+                        {
+                            <tr>
+                                @foreach (var (cell, column) in row.Cells.Select((cell, column) => (cell, column)))
+                                {
+                                    <td class="@AlignClass(table, column)">@RenderInlines(cell.Content)</td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            break;
+
+        case MdFootnotes footnotes:
+            @* An ordered list, because the numbers are the point and a reader
+               who lost their place should be able to count. The back-link is
+               what makes a footnote usable on a screen: following the mark down
+               is only half of it if there is no way back up. *@
+            <aside class="md-footnotes" aria-label="Footnotes">
+                <hr class="md-divider" />
+                <ol class="md-footnotes__list">
+                    @foreach (var note in footnotes.Notes)
+                    {
+                        <li id="@($"fn-{note.Label}")" class="md-footnotes__item">
+                            @RenderInlines(note.Content)
+                            <a class="md-footnotes__back"
+                               href="@($"#fnref-{note.Label}")"
+                               aria-label="@($"Back to reference {note.Number}")">↩</a>
+                        </li>
+                    }
+                </ol>
+            </aside>
+            break;
+
+        case MdDivider:
+            <hr class="md-divider" />
+            break;
+    }
+    };
+
+    private string? _editingId;
+    private string _draft = string.Empty;
+
+    /// <summary>Whether anything hangs off a block — an affordance to add a
+    /// remark, or a remark already there.</summary>
+    private bool Annotated => CanComment || Comments.Count > 0;
+
+    private string ViewClass => Layout is MarkdownCommentLayout.Margin && Annotated
+        ? "md-view md-view--margin"
+        : "md-view";
+
+    /// <summary>The draft is held here and the comment is only told about it
+    /// when it is saved. An edit that reported every keystroke would make Cancel
+    /// mean nothing — the change it was meant to abandon would already have
+    /// landed.</summary>
+    private void StartEdit(MarkdownComment comment)
+    {
+        _editingId = comment.Id;
+        _draft = comment.Body;
+    }
+
+    private void CancelEdit()
+    {
+        _editingId = null;
+        _draft = string.Empty;
+    }
+
+    private async Task SaveEditAsync(MarkdownComment comment)
+    {
+        var body = _draft.Trim();
+        CancelEdit();
+
+        // An empty comment is a delete asked for the wrong way, and an unchanged
+        // one is not an edit. Neither is raised.
+        if (body.Length == 0 || string.Equals(body, comment.Body, StringComparison.Ordinal)) return;
+
+        await OnEditComment.InvokeAsync(comment with { Body = body });
+    }
+
+    /// <summary>The comments hanging off one block, in the order they were
+    /// given.</summary>
+    private IReadOnlyList<MarkdownComment> CommentsOn(int index) =>
+        [.. Comments.Where(comment => comment.BlockIndex == index)];
+
+    /// <summary>Comments whose block is no longer there. Shown at the end rather
+    /// than dropped: a lost comment is worse than a stray one.</summary>
+    private IReadOnlyList<MarkdownComment> Orphans =>
+        [.. Comments.Where(comment => comment.BlockIndex < 0 || comment.BlockIndex >= Blocks.Count)];
+
+    private RenderFragment RenderComments(IReadOnlyList<MarkdownComment> comments) =>
+        @<text>
+            @if (comments.Count > 0)
+            {
+                <ul class="md-comments">
+                    @foreach (var comment in comments)
+                    {
+                        @* Resolved stays visible and quiet. The reason a
+                           paragraph reads the way it does is usually in the
+                           comment that got it there. *@
+                        <li class="md-comment @(comment.Resolved ? "md-comment--resolved" : string.Empty)"
+                            data-testid="@($"markdown-comment-body-{comment.Id}")">
+                            @if (!string.IsNullOrWhiteSpace(comment.Author) || !string.IsNullOrWhiteSpace(comment.Timestamp))
+                            {
+                                <p class="md-comment__who">
+                                    @if (!string.IsNullOrWhiteSpace(comment.Author))
+                                    {
+                                        <span class="md-comment__author">@comment.Author</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(comment.Timestamp))
+                                    {
+                                        <span class="md-comment__when">@comment.Timestamp</span>
+                                    }
+                                    @if (comment.Resolved)
+                                    {
+                                        <span class="md-comment__resolved">Resolved</span>
+                                    }
+                                </p>
+                            }
+
+                            @if (string.Equals(_editingId, comment.Id, StringComparison.Ordinal))
+                            {
+                                @* A comment is prose that may run to a paragraph,
+                                   so it gets a box and two buttons rather than
+                                   the commit-on-Enter a one-line rename uses:
+                                   Enter has to stay a newline here. *@
+                                <div class="md-comment__edit">
+                                    <TextArea Value="@_draft"
+                                              ValueChanged="v => _draft = v"
+                                              AriaLabel="Edit comment"
+                                              Rows="3"
+                                              Bare="true"
+                                              TestId="@($"markdown-comment-editor-{comment.Id}")" />
+                                    <div class="md-comment__edit-actions">
+                                        <button type="button"
+                                                class="md-comment__action"
+                                                data-testid="@($"markdown-comment-save-{comment.Id}")"
+                                                @onclick="() => SaveEditAsync(comment)">Save</button>
+                                        <button type="button"
+                                                class="md-comment__action"
+                                                data-testid="@($"markdown-comment-cancel-{comment.Id}")"
+                                                @onclick="CancelEdit">Cancel</button>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="md-comment__body">@comment.Body</p>
+
+                                <span class="md-comment__actions">
+                                    @if (OnEditComment.HasDelegate)
+                                    {
+                                        <button type="button"
+                                                class="md-comment__action"
+                                                data-testid="@($"markdown-comment-edit-{comment.Id}")"
+                                                @onclick="() => StartEdit(comment)">Edit</button>
+                                    }
+                                    @if (OnResolveComment.HasDelegate)
+                                    {
+                                        <button type="button"
+                                                class="md-comment__action"
+                                                data-testid="@($"markdown-comment-resolve-{comment.Id}")"
+                                                @onclick="() => OnResolveComment.InvokeAsync(comment.Id)">
+                                            @(comment.Resolved ? "Reopen" : "Resolve")
+                                        </button>
+                                    }
+                                </span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </text>;
+}
+
+@* A list renders itself and, through its items, any list written under it. It is
+   recursive rather than flat because the nesting is: an indented run belongs to
+   the item above it, and rendering it as a sibling would lose which. *@
+@code {
+    private RenderFragment RenderList(MdList list) =>
+        @<text>
             @if (list.Ordered)
             {
                 <ol class="md-list">
                     @foreach (var item in list.Items)
                     {
-                        <li>@RenderInlines(item.Content)</li>
+                        <li>@RenderInlines(item.Content)@RenderChildren(item)</li>
                     }
                 </ol>
             }
@@ -64,43 +345,83 @@
                                       role="img"
                                       aria-label="@(item.Done == true ? "Done" : "Not done")">@(item.Done == true ? "✔" : string.Empty)</span>
                             }
-                            @RenderInlines(item.Content)
+                            @RenderInlines(item.Content)@RenderChildren(item)
                         </li>
                     }
                 </ul>
             }
-            break;
+        </text>;
 
-        case MdQuote quote:
-            <blockquote class="md-quote">@RenderInlines(quote.Content)</blockquote>
-            break;
-        case MdCode codeBlock:
-            @if (DiagramView.IsDiagram(codeBlock.Language))
-            {
-                <DiagramView Title="Backlog diagram" Source="@codeBlock.Text" Language="@codeBlock.Language" />
-            }
-            else
-            {
-                <pre class="md-code"><code>@codeBlock.Text</code></pre>
-            }
-            break;
+    private RenderFragment RenderChildren(MdListItem item) =>
+        @<text>@foreach (var child in item.Nested) { @RenderList(child) }</text>;
 
-        case MdDivider:
-            <hr class="md-divider" />
-            break;
-    }
-}
-
-@code {
     [Parameter, EditorRequired]
     public IReadOnlyList<MdBlock> Blocks { get; set; } = [];
 
     [Parameter]
     public EventCallback<int> OnTaskItemToggled { get; set; }
 
+    /// <summary>The markdown these blocks were parsed from. Only needed to offer
+    /// a copy button — the view renders from <see cref="Blocks"/> and never reads
+    /// this — but copying the rendering rather than the source would hand back
+    /// something that does not paste into anything.</summary>
+    [Parameter]
+    public string? Source { get; set; }
+
+    /// <summary>Whether to offer a copy button. Needs <see cref="Source"/>: with
+    /// nothing to copy there is nothing to offer.</summary>
+    [Parameter]
+    public bool AllowCopy { get; set; }
+
+    [Parameter]
+    public string CopyLabel { get; set; } = "Copy markdown";
+
+    /// <summary>Comments against blocks of this view. Anchored by block index,
+    /// and re-anchoring when blocks move is the host's — see MarkdownComment.</summary>
+    [Parameter]
+    public IReadOnlyList<MarkdownComment> Comments { get; set; } = [];
+
+    /// <summary>Raised with the block index a reader wants to comment on.
+    /// Without it no block carries the affordance, and the markup is exactly what
+    /// it was before comments existed.</summary>
+    [Parameter]
+    public EventCallback<int> OnAddComment { get; set; }
+
+    /// <summary>Raised with a comment's id. Without it a comment shows its state
+    /// and offers no way to change it.</summary>
+    [Parameter]
+    public EventCallback<string> OnResolveComment { get; set; }
+
+    /// <summary>Raised with the whole comment, body already replaced. The record
+    /// rather than the text, so a host storing more than this component shows —
+    /// a thread, an edit history — gets back something it can match up.</summary>
+    [Parameter]
+    public EventCallback<MarkdownComment> OnEditComment { get; set; }
+
+    /// <summary>Where the remarks are drawn: under each block, or in a column
+    /// beside the body.</summary>
+    [Parameter]
+    public MarkdownCommentLayout Layout { get; set; } = MarkdownCommentLayout.Inline;
+
     private bool CanToggle => OnTaskItemToggled.HasDelegate;
 
+    private bool CanComment => OnAddComment.HasDelegate;
+
     private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) => MarkdownRender.Inlines(parts);
+
+    /// <summary>The alignment class for a column, read defensively: a body row
+    /// may have more cells than the delimiter row described, and a column nobody
+    /// aligned takes the default rather than throwing.</summary>
+    private static string AlignClass(MdTable table, int column) =>
+        column < table.Alignment.Count
+            ? table.Alignment[column] switch
+            {
+                MdAlign.Left => "md-table__cell--left",
+                MdAlign.Center => "md-table__cell--center",
+                MdAlign.Right => "md-table__cell--right",
+                _ => string.Empty
+            }
+            : string.Empty;
 
     private Task ToggleTaskItemAsync(int taskIndex) => OnTaskItemToggled.InvokeAsync(taskIndex);
 }

@@ -79,6 +79,106 @@ public sealed class FileViewTests
     }
 
     [Fact]
+    public void A_file_the_highlighter_knows_is_read_as_code_and_not_as_prose()
+    {
+        // The name is the only thing that says so. Nothing about the body would
+        // have told the component this was C#.
+        using var context = new BunitContext();
+
+        var view = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "Program.cs")
+            .Add(v => v.Body, "// # not a heading\nvar app = builder.Build();"));
+
+        Assert.Empty(view.FindAll(".file-view__body .md-heading"));
+        Assert.Empty(view.FindAll(".file-view__body .md-p"));
+        Assert.Equal("var", view.Find(".file-view__body .code-token--keyword").TextContent);
+        Assert.Equal(2, view.FindAll(".file-view__body .code-view__line").Count);
+    }
+
+    [Fact]
+    public void A_name_the_highlighter_does_not_know_is_still_read_as_markdown()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "notes.txt")
+            .Add(v => v.Body, "# Title\n\nA paragraph."));
+
+        Assert.Equal("Title", view.Find(".file-view__body .md-heading").TextContent);
+        Assert.Empty(view.FindAll(".file-view__body .code-view"));
+    }
+
+    [Fact]
+    public void Language_names_what_the_file_name_cannot()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "Dockerfile")
+            .Add(v => v.Language, "bash")
+            .Add(v => v.Body, "# A comment\nexport PATH=/app"));
+
+        Assert.Equal("export", view.Find(".file-view__body .code-token--keyword").TextContent);
+    }
+
+    [Fact]
+    public void Naming_markdown_asks_for_prose_back_from_a_file_that_would_be_code()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "notes.cs")
+            .Add(v => v.Language, "markdown")
+            .Add(v => v.Body, "# Title\n\nA paragraph."));
+
+        Assert.Equal("Title", view.Find(".file-view__body .md-heading").TextContent);
+        Assert.Empty(view.FindAll(".file-view__body .code-view"));
+    }
+
+    [Fact]
+    public void A_code_file_that_was_not_described_says_what_language_it_is()
+    {
+        // Going Bare took away the badge CodeView shows, so the header is the
+        // only place left that can say it.
+        using var context = new BunitContext();
+
+        var view = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "Program.cs")
+            .Add(v => v.Body, "var a = 1;"));
+
+        Assert.Equal("C#", view.Find(".file-view__meta").TextContent);
+    }
+
+    [Fact]
+    public void A_kind_the_caller_gave_is_never_overwritten_by_the_language()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "components.css")
+            .Add(v => v.Kind, "Stylesheet")
+            .Add(v => v.Body, ".a { color: red; }"));
+
+        Assert.Equal("Stylesheet", view.Find(".file-view__meta").TextContent);
+    }
+
+    [Fact]
+    public void Code_shares_the_hosts_scroll_region_rather_than_bringing_its_own()
+    {
+        // A framed block inside the body would be a second scroll container and
+        // a second tab stop inside the one pane the reader can see.
+        using var context = new BunitContext();
+
+        var view = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "Program.cs")
+            .Add(v => v.Body, "var a = 1;"));
+
+        Assert.Contains("code-view--bare", view.Find(".file-view__body .code-view").ClassList);
+        Assert.Empty(view.FindAll(".code-view__header"));
+        Assert.Single(view.FindAll("[tabindex='0']"));
+    }
+
+    [Fact]
     public void The_body_is_a_named_scroll_region_a_keyboard_can_reach()
     {
         // Without tabindex a Chromium user cannot scroll this at all without a

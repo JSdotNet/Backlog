@@ -17,16 +17,16 @@
         <CodeView Source="@TypeScriptSample" Language="typescript" Title="push.ts" ShowLineNumbers="true" />
     </Story>
 
-    <Story Name="Long lines scroll, or wrap if you ask"
-           Description="Code is written in lines, so by default a long one scrolls and the line stays one line. Wrap is for the places where horizontal scrolling is worse than a line that reads as two — a narrow pane, or a phone.">
+    <Story Name="Long lines wrap, or scroll if you ask"
+           Description="A long line wraps by default. Every surface this library renders on is narrower than the code written for it, and a line that runs off the right edge is a line nobody reads — a horizontal scrollbar hides content behind a gesture, and the reader has to find it first. Indentation survives the fold, so the shape of the code is still legible. Wrap=&quot;false&quot; keeps the line as one line for a snippet where that shape carries meaning and folding it would lie about it.">
         <div class="sb-columns">
             <div class="sb-stack">
-                <p class="sb-label">Scrolling (default)</p>
+                <p class="sb-label">Wrapping (default)</p>
                 <CodeView Source="@LongLineSample" Language="csharp" AllowCopy="false" />
             </div>
             <div class="sb-stack">
-                <p class="sb-label">Wrapping</p>
-                <CodeView Source="@LongLineSample" Language="csharp" Wrap="true" AllowCopy="false" />
+                <p class="sb-label">Scrolling</p>
+                <CodeView Source="@LongLineSample" Language="csharp" Wrap="false" AllowCopy="false" />
             </div>
         </div>
     </Story>
@@ -160,7 +160,7 @@
                 padding: var(--spacing-md);
                 color: var(--code-plain);
                 font-size: var(--font-size-sm);
-                white-space: pre;
+                white-space: pre-wrap;
             }
             """,
 

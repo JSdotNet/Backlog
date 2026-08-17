@@ -6,7 +6,7 @@
         <span class="diagram-view__title">@DiagramName</span>
         @if (!string.IsNullOrWhiteSpace(Language))
         {
-            <span class="diagram-view__language">@Language</span>
+            <span class="language-badge diagram-view__language" data-testid="diagram-view-language">@Language</span>
         }
     </figcaption>
     <div class="diagram-view__canvas" role="img" aria-label="@AriaLabel">

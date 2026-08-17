@@ -3,7 +3,67 @@
 <PageTitle>File view — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="File view"
-           Summary="FileView shows one file: what it is in the header, what it says in the body. The body scrolls on its own so the header never leaves the screen.">
+           Summary="FileView shows one file: what it is in the header, what it says in the body. The body scrolls on its own so the header never leaves the screen. What the body is read as comes from the file's own name — markdown for prose, coloured and numbered source for everything the highlighter has a grammar for.">
+
+    <Story Name="The file's name decides how it is read"
+           Description="Same component, same parameters, three files. A name the highlighter knows is shown as source: coloured, numbered, and never run through the markdown parser — a `#` in a shell script is a comment, and reading it as a heading is how a file view loses the file. A name it does not know is shown as markdown, which is also what a file of plain prose wants. Nothing here had to be told which was which."
+           Code="@KindsCode">
+        <div class="sb-stack" data-testid="file-view-kinds">
+            <FileView Name="MarkdownPreview.cs"
+                      Path="src\UI\Backlog.UI.Components\Markdown\MarkdownPreview.cs"
+                      SizeInBytes="1204"
+                      Body="@CSharpBody"
+                      MaxHeight="14rem"
+                      TestId="file-view-csharp" />
+
+            <FileView Name="appsettings.json"
+                      Path="src\harness\Backlog.UI.Storybook\appsettings.json"
+                      SizeInBytes="286"
+                      Body="@JsonBody"
+                      MaxHeight="14rem"
+                      TestId="file-view-json" />
+
+            <FileView Name="README.md"
+                      Path="src\harness\README.md"
+                      SizeInBytes="412"
+                      Body="@ShortBody"
+                      MaxHeight="14rem"
+                      TestId="file-view-markdown" />
+        </div>
+    </Story>
+
+    <Story Name="One scroll region either way"
+           Description="A code file keeps the promise the markdown one makes: the header stays put, the body scrolls under it, and there is exactly one thing to tab into. CodeView is given Bare here — without it the block would bring its own frame, its own height cap and its own focusable overflow, and the reader would find two scrollbars and two tab stops where they can see one pane. Long lines wrap, as they do everywhere else in the library, so nothing hides off the right edge of a pane this narrow."
+           Code="@BareCode">
+        <div class="sb-narrow" data-testid="file-view-code-scroll">
+            <FileView Name="components.css"
+                      Path="src\UI\Backlog.UI.Components\wwwroot\components.css"
+                      Kind="Stylesheet"
+                      SizeInBytes="61440"
+                      Body="@CssBody"
+                      MaxHeight="14rem"
+                      TestId="file-view-css" />
+        </div>
+    </Story>
+
+    <Story Name="When the name cannot say it"
+           Description="Language is the override, for the files whose name carries no grammar. A Dockerfile has no extension and a build script's `.txt` says nothing about what is in it — naming the language shows it as code anyway. It works the other way too: `Language=&quot;markdown&quot;` asks for prose back from a file whose extension would have made it code. A language with no grammar here still renders as code in one colour; losing the colour is not a reason to lose the line numbers and reflow the file as prose."
+           Code="@LanguageCode">
+        <div class="sb-columns" data-testid="file-view-language-override">
+            <FileView Name="Dockerfile"
+                      Language="bash"
+                      SizeInBytes="188"
+                      Body="@DockerfileBody"
+                      MaxHeight="12rem"
+                      TestId="file-view-dockerfile" />
+
+            <FileView Name="lifecycle.mmd"
+                      SizeInBytes="240"
+                      Body="@MermaidBody"
+                      MaxHeight="12rem"
+                      TestId="file-view-mermaid" />
+        </div>
+    </Story>
 
     <Story Name="A file with more content than fits"
            Description="Fill takes the whole height the host gives it — here a 32rem example area — and scrolls the body under a header that stays put. How tall a file gets is the layout's business, so a pane or a column decides it rather than the component carrying a number. The track is always reserved, so the text does not jump sideways the moment a file grows past the fold. Tab into the body and the arrow keys scroll it: a scroll container is a control whether or not it looks like one, so it takes focus and shows it."
@@ -69,6 +129,75 @@
 </StoryPage>
 
 @code {
+    private const string CSharpBody = """
+        namespace Backlog.UI.Components.Markdown;
+
+        /// <summary>The parser the read view and the file view share.</summary>
+        public static class MarkdownPreview
+        {
+            // A `#` here is a comment, and a `*` is a dereference nobody wrote.
+            // Both are why a source file is never handed to the markdown parser.
+            public static IReadOnlyList<MdBlock> ParseDocument(string? body)
+            {
+                if (string.IsNullOrEmpty(body)) return [];
+
+                var lines = body.Replace("\r\n", "\n").Split('\n');
+
+                return Read(lines, headingsAreHeadings: true);
+            }
+        }
+        """;
+
+    private const string JsonBody = """
+        {
+          "Logging": {
+            "LogLevel": {
+              "Default": "Information",
+              "Microsoft.AspNetCore": "Warning"
+            }
+          },
+          "AllowedHosts": "*"
+        }
+        """;
+
+    private const string CssBody = """
+        /* Bare: the host frames the code, names it and scrolls it, so the block gives up its own box entirely. */
+        .code-view--bare {
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: none;
+            max-height: none;
+            overflow: visible;
+        }
+
+        .file-view__body {
+            padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+            overflow: auto;
+            scrollbar-gutter: stable;
+        }
+        """;
+
+    private const string DockerfileBody = """
+        FROM mcr.microsoft.com/dotnet/aspnet:10.0
+
+        WORKDIR /app
+        COPY . .
+
+        # No extension to read, so the caller names the language.
+        ENTRYPOINT ["dotnet", "Backlog.Cloud.dll"]
+        """;
+
+    private const string MermaidBody = """
+        %% .mmd is on the list, so this one names itself.
+        stateDiagram-v2
+            [*] --> Captured
+            Captured --> Refining
+            Refining --> Active
+            Active --> Done
+            Done --> [*]
+        """;
+
     private const string ShortBody = """
         # Harness projects
 
@@ -150,6 +279,29 @@
                       Body="@body"
                       Fill="true" />
         </div>
+        """;
+
+    private const string KindsCode = """
+        @* Nothing says which is which: the name does. *@
+        <FileView Name="MarkdownPreview.cs" Body="@source" MaxHeight="14rem" />
+        <FileView Name="appsettings.json" Body="@config" MaxHeight="14rem" />
+        <FileView Name="README.md" Body="@readme" MaxHeight="14rem" />
+        """;
+
+    private const string BareCode = """
+        @* One scroll region, one tab stop: FileView passes CodeView Bare, so the
+           block brings the lines and the host keeps the frame. *@
+        <FileView Name="components.css" Path="…\wwwroot\components.css"
+                  Kind="Stylesheet" SizeInBytes="61440"
+                  Body="@css" MaxHeight="14rem" />
+        """;
+
+    private const string LanguageCode = """
+        @* No extension to read, so the caller names the language. *@
+        <FileView Name="Dockerfile" Language="bash" Body="@dockerfile" MaxHeight="12rem" />
+
+        @* And the other way: prose from a file whose extension says code. *@
+        <FileView Name="notes.cs" Language="markdown" Body="@notes" MaxHeight="12rem" />
         """;
 
     private const string ShortCode = """

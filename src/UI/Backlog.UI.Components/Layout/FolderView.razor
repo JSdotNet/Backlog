@@ -1,0 +1,297 @@
+@*
+    One folder, shown: what it is across the header, what is in it in the body.
+
+    The sibling of FileView, and deliberately the same shape — the same header,
+    the same scrolling body under it, the same MaxHeight and Fill. A pane that
+    shows a folder and then a file should not change its furniture between them.
+
+    The body is the library's own TreeView. This component's job is the two
+    things the desktop's knowledge menu was carrying around in its host: mapping
+    a folder's entries onto tree rows, and remembering which folders are open.
+    Expansion is state, and a component that renders a collapsible tree without
+    owning it hands every caller the same bookkeeping to redo.
+
+    Read-only, like FileView. Selecting a row reports it; nothing here renames,
+    moves or deletes anything, and an affordance that looked like it might would
+    be a lie.
+*@
+
+<article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <header class="folder-view__header">
+        <div class="folder-view__identity">
+            <h3 class="folder-view__name">@Name</h3>
+            @if (Details.Count > 0)
+            {
+                <p class="folder-view__meta">@string.Join(" · ", Details)</p>
+            }
+        </div>
+        <div class="folder-view__actions">
+            @if (!string.IsNullOrWhiteSpace(Path))
+            {
+                @* Truncated visually when the header is narrow, never in the DOM,
+                   so a screen reader still reads the whole path. *@
+                <p class="folder-view__path">@Path</p>
+            }
+            @* In this header rather than the tree's, because the tree's heading
+               is the one thing FolderView turns off — it has a name of its own
+               already. Same control either way. *@
+            @if (CanOpen)
+            {
+                <OpenFolderButton BaseClass="folder-view__open"
+                                  TestId="@OpenButtonTestId"
+                                  Label="@OpenLabel"
+                                  Busy="@IsOpening"
+                                  OnClick="() => OnOpenFolder.InvokeAsync()" />
+            }
+        </div>
+    </header>
+
+    <Alert Message="@OpenErrorMessage" TestId="@OpenErrorTestId" CssClass="folder-view__error" />
+
+    @* The tree is a list of buttons, so it is reachable without this being a
+       scroll container of its own — but it still scrolls, and a scroll container
+       has to be nameable. Unlike FileView's body it takes no tabindex: every row
+       inside it is already a tab stop, so the container would be one more stop
+       that does nothing. *@
+    <div class="folder-view__body"
+         role="group"
+         aria-label="@Name"
+         style="@BodyStyle"
+         data-testid="@BodyTestId">
+        <TreeView ClassPrefix="folder-tree"
+                  ShowHeading="false"
+                  NavAriaLabel="@Name"
+                  TreeAriaLabel="@Name"
+                  EmptyMessage="@EmptyMessage"
+                  Nodes="@_nodes"
+                  IsNodeSelected="node => IsSelected(node)"
+                  IsNodeExpanded="node => IsExpanded(node)"
+                  NodeClass="node => RowClass(node)"
+                  OnNodeSelected="OnRowSelectedAsync" />
+    </div>
+</article>
+
+@code {
+    private readonly Dictionary<string, FolderEntry> _entries = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
+
+    private IReadOnlyList<TreeNode> _nodes = [];
+    private bool _seeded;
+
+    /// <summary>The folder's name — the title, and the name of the tree.</summary>
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>The full path, shown opposite the name.</summary>
+    [Parameter]
+    public string? Path { get; set; }
+
+    /// <summary>Who or what the folder comes from, e.g. "Repository".</summary>
+    [Parameter]
+    public string? Source { get; set; }
+
+    /// <summary>What kind of folder it is. Null falls back to a count of what is
+    /// in it, which is the thing a reader wants to know about a folder and the
+    /// only fact this component can work out for itself.</summary>
+    [Parameter]
+    public string? Kind { get; set; }
+
+    /// <summary>What is in the folder, in the order it should be shown. Sorting
+    /// belongs to the caller: which files matter, and in what order, is the one
+    /// thing about a folder that is never generic.</summary>
+    [Parameter]
+    public IReadOnlyList<FolderEntry> Entries { get; set; } = [];
+
+    /// <summary>The path of the selected row, or null. Two-way bindable, so a
+    /// host that only wants a folder to be clickable does not have to hold the
+    /// selection itself.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> SelectedPathChanged { get; set; }
+
+    /// <summary>The entry behind the row that was clicked. Fires for folders as
+    /// well as files: a folder is a thing a host may want to show.</summary>
+    [Parameter]
+    public EventCallback<FolderEntry> OnEntrySelected { get; set; }
+
+    /// <summary>How many levels of folders to open the first time the tree is
+    /// shown. Zero folds everything, leaving only the top row of each branch;
+    /// one — the default — opens the folders at the top level, so what is
+    /// directly inside them is visible without a click. After that, expansion
+    /// belongs to whoever is clicking and this is not consulted again.</summary>
+    [Parameter]
+    public int InitiallyExpandedDepth { get; set; } = 1;
+
+    [Parameter]
+    public string EmptyMessage { get; set; } = "This folder is empty.";
+
+    /// <summary>Raised by the "open in VS Code" button. The button only appears
+    /// when something is listening: a folder shown inside a browser tab has
+    /// nowhere on disk to open, and an affordance that would do nothing is worse
+    /// than none.</summary>
+    [Parameter]
+    public EventCallback OnOpenFolder { get; set; }
+
+    /// <summary>What the open button is called. Names the folder, because a page
+    /// may show more than one.</summary>
+    [Parameter]
+    public string? OpenLabelFormat { get; set; }
+
+    /// <summary>The open is in flight. The button stays put and stays its size
+    /// rather than vanishing under the pointer that just hit it.</summary>
+    [Parameter]
+    public bool IsOpening { get; set; }
+
+    /// <summary>Why the last open failed. Opening a folder leaves this app
+    /// entirely, so it can fail in ways nothing here can prevent — no editor
+    /// installed, a path that moved — and the reader should be told rather than
+    /// left watching nothing happen.</summary>
+    [Parameter]
+    public string? OpenErrorMessage { get; set; }
+
+    /// <summary>How tall the body may grow before it scrolls. Any CSS length;
+    /// pass null to let it size to its content. Ignored when <see cref="Fill"/>
+    /// is set.</summary>
+    [Parameter]
+    public string? MaxHeight { get; set; } = "24rem";
+
+    /// <summary>Take the full height the host gives this, and scroll the tree
+    /// inside it — for a folder that lives in a pane or a column.</summary>
+    [Parameter]
+    public bool Fill { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        _entries.Clear();
+        _nodes = [.. Entries.Select(entry => Map(entry, depth: 0))];
+
+        // Seeded once. Re-seeding on every parameter change would reopen a folder
+        // the reader had just closed, every time the host re-rendered for any
+        // reason at all.
+        _seeded = true;
+    }
+
+    private TreeNode Map(FolderEntry entry, int depth)
+    {
+        _entries[entry.Path] = entry;
+
+        if (!_seeded && entry.IsFolder && depth < InitiallyExpandedDepth) _expanded.Add(entry.Path);
+
+        return new TreeNode(
+            entry.Path,
+            Label(entry),
+            entry.IsFolder ? TreeNodeKind.Folder : TreeNodeKind.Item,
+            entry.Available,
+            entry.Message,
+            [.. entry.Items.Select(child => Map(child, depth + 1))]);
+    }
+
+    /// <summary>A file's size rides on its label rather than in a column of its
+    /// own: the tree indents, so a right-hand column would sit a different
+    /// distance from every name it belongs to.</summary>
+    private static string Label(FolderEntry entry) =>
+        entry is { IsFolder: false, SizeInBytes: { } bytes }
+            ? $"{entry.Name} — {FileView.FormatSize(bytes)}"
+            : entry.Name;
+
+    private bool IsSelected(TreeNode node) => string.Equals(SelectedPath, node.Id, StringComparison.Ordinal);
+
+    private bool IsExpanded(TreeNode node) => _expanded.Contains(node.Id);
+
+    private string RowClass(TreeNode node) => string.Join(' ', new[]
+    {
+        "folder-tree__item",
+        IsSelected(node) ? "folder-tree__item--active" : null,
+        node.Available ? null : "folder-tree__item--unavailable"
+    }.Where(part => part is not null));
+
+    /// <summary>
+    /// A click on a folder both opens it and selects it. Splitting the two would
+    /// mean a twisty small enough to be its own miss-target, and a folder in this
+    /// product usually has something to show — an index file, a description —
+    /// so selecting it is rarely wasted.
+    /// </summary>
+    private async Task OnRowSelectedAsync(TreeNode node)
+    {
+        if (!_entries.TryGetValue(node.Id, out var entry)) return;
+
+        if (entry.IsFolder && entry.Items.Count > 0 && !_expanded.Remove(entry.Path))
+        {
+            _expanded.Add(entry.Path);
+        }
+
+        if (!string.Equals(SelectedPath, entry.Path, StringComparison.Ordinal))
+        {
+            SelectedPath = entry.Path;
+            await SelectedPathChanged.InvokeAsync(SelectedPath);
+        }
+
+        await OnEntrySelected.InvokeAsync(entry);
+    }
+
+    private string ClassValue
+    {
+        get
+        {
+            var fill = Fill ? " folder-view--fill" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"folder-view{fill}{extra}";
+        }
+    }
+
+    private string? BodyTestId => TestId is null ? null : $"{TestId}-body";
+
+    private string? OpenButtonTestId => TestId is null ? null : $"{TestId}-open";
+
+    private string? OpenErrorTestId => TestId is null ? null : $"{TestId}-open-error";
+
+    private bool CanOpen => OnOpenFolder.HasDelegate;
+
+    private string OpenLabel => string.IsNullOrWhiteSpace(OpenLabelFormat)
+        ? $"Open {Name} in VS Code"
+        : string.Format(System.Globalization.CultureInfo.CurrentCulture, OpenLabelFormat, Name);
+
+    // In fill mode the flex box decides the height, so a max-height here would
+    // only fight it.
+    private string? BodyStyle =>
+        Fill || string.IsNullOrWhiteSpace(MaxHeight) ? null : $"max-height: {MaxHeight}";
+
+    /// <summary>The middle line of the header, in the order a reader asks for
+    /// it. The count stands in for Kind when the caller gave none: it is the
+    /// question a folder actually raises.</summary>
+    private IReadOnlyList<string> Details =>
+    [
+        .. new[] { Source, Kind ?? Counts }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => part!)
+    ];
+
+    private string? Counts
+    {
+        get
+        {
+            var all = Entries.SelectMany(entry => entry.Flatten()).ToList();
+            if (all.Count == 0) return null;
+
+            var folders = all.Count(entry => entry.IsFolder);
+            var files = all.Count - folders;
+
+            return folders == 0
+                ? Plural(files, "file")
+                : $"{Plural(files, "file")}, {Plural(folders, "folder")}";
+        }
+    }
+
+    private static string Plural(int count, string noun) => $"{count} {noun}{(count == 1 ? string.Empty : "s")}";
+}

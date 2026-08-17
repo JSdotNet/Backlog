@@ -1,0 +1,93 @@
+@*
+    One row in a task's detail pane: add a step, put it in my day, remind me,
+    give it a due date, repeat it.
+
+    All of them are the same shape — an icon, a label, and sometimes a value and
+    a way to clear it — so they are one component rather than five. A row that is
+    set says what it is set to and offers an ✕; a row that is not says what it
+    would do. That difference is the whole state model, and it is why "Remind me"
+    and "Reminder, Monday 09:00" are the same control rather than two.
+*@
+
+<div class="@ClassValue" data-testid="@TestId">
+    <button type="button"
+            class="task-action__main"
+            aria-pressed="@(Togglable ? (Set ? "true" : "false") : null)"
+            data-testid="@Suffix("set")"
+            disabled="@Disabled"
+            @onclick="() => OnSet.InvokeAsync()">
+        <span class="task-action__icon" aria-hidden="true">@Icon</span>
+        <span class="task-action__label">
+            @Label
+            @if (Set && !string.IsNullOrWhiteSpace(Value))
+            {
+                <span class="task-action__value">@Value</span>
+            }
+        </span>
+    </button>
+
+    @if (Set && OnClear.HasDelegate)
+    {
+        <button type="button"
+                class="task-action__clear"
+                aria-label="@($"Clear {Label}")"
+                data-testid="@Suffix("clear")"
+                @onclick="() => OnClear.InvokeAsync()"
+                @onclick:stopPropagation="true">
+            <span aria-hidden="true">✕</span>
+        </button>
+    }
+</div>
+
+@code {
+    /// <summary>The glyph. Text rather than an icon set, because this library
+    /// ships no icon font and a component that needed one would need it
+    /// everywhere.</summary>
+    [Parameter, EditorRequired]
+    public string Icon { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>What it is set to, when it is set — "Monday, 09:00", "Weekly".
+    /// Already formatted: what tomorrow is called, and in what language, belongs
+    /// to the host.</summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    /// <summary>Whether the thing is set. Drives both what the row says and
+    /// whether it offers to clear it.</summary>
+    [Parameter]
+    public bool Set { get; set; }
+
+    /// <summary>Whether being set is a state the row itself is in, rather than
+    /// something it opens a picker for. My Day is a toggle; a due date is not.</summary>
+    [Parameter]
+    public bool Togglable { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback OnSet { get; set; }
+
+    /// <summary>Without this, a set row has no ✕ — which is right for a row that
+    /// toggles, since pressing it again is how it comes off.</summary>
+    [Parameter]
+    public EventCallback OnClear { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "task-action",
+        Set ? "task-action--set" : null,
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+}

@@ -156,6 +156,38 @@ html, body {
     max-width: 28rem;
 }
 
+/* A navigation pane's real width. A menu shown at the full width of this page is
+   a menu nobody will ever see: in the app it lives in a gutter beside the thing
+   it opens, and how a row truncates at 16rem is most of what there is to review
+   about it. Wide examples flattered every one of these. */
+.sb-menu {
+    max-width: 16rem;
+}
+
+/* A task list's real measure. Wider than a navigation menu and far narrower than
+   this page: a row of one line with a metadata line under it stops being one
+   thing to read somewhere around here, and how a title truncates is most of what
+   there is to review about a row. */
+.sb-menu-wide {
+    max-width: 34rem;
+}
+
+/* A menu beside the thing it opens, laid out the way the app lays it out: a
+   fixed gutter and everything else. Equal columns would have made the pane and
+   the document look like peers, which is exactly what they are not. */
+.sb-pane-pair {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    gap: var(--spacing-md);
+    height: 100%;
+}
+
+@media (max-width: 48rem) {
+    .sb-pane-pair {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 /* Gives an example a definite height to fill. A component that sizes itself to
    its container has nothing to show inside a box that just grows to fit it. */
 .sb-tall {

@@ -1,0 +1,156 @@
+@implements IDisposable
+@inject IJSRuntime Js
+
+@*
+    "Copy this." The button, the clipboard call, and the line that says whether
+    it worked.
+
+    All three together, because the third is the part that keeps being dropped.
+    The clipboard belongs to the browser and the browser is allowed to say no — a
+    WebView without permission, a page served over plain http — and a button that
+    reported nothing would leave a reader believing they had copied something
+    they had not, which is how you lose whatever was on the clipboard before.
+
+    The status is a role="status" line rather than a change of the button's
+    label, so the button goes on saying what it does.
+*@
+
+<span class="@ClassValue" data-testid="@TestId">
+    <IconButton CssClass="@ButtonCssClass"
+                AriaLabel="@Label"
+                OnClick="CopyAsync"
+                TestId="@ButtonTestId">
+        @if (ChildContent is not null)
+        {
+            @ChildContent
+        }
+        else
+        {
+            @* Two overlapping sheets. Drawn rather than fetched: a button that
+               needed the network to show itself is no use in a WebView with no
+               egress. *@
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <rect x="5.75" y="5.75" width="7.5" height="7.5" rx="1.5" />
+                <path d="M10.25 5.75V4.25a1.5 1.5 0 0 0-1.5-1.5h-4.5a1.5 1.5 0 0 0-1.5 1.5v4.5a1.5 1.5 0 0 0 1.5 1.5h1.5" />
+            </svg>
+        }
+    </IconButton>
+
+    <span class="@StatusCssClass" role="status" data-testid="@StatusTestId">@_status</span>
+</span>
+
+@code {
+    private const string Copied = "Copied";
+    private const string Failed = "Could not copy — select the text and copy it by hand.";
+
+    private string? _status;
+    private CancellationTokenSource? _statusDelay;
+
+    /// <summary>What lands on the clipboard, verbatim. Whitespace is content:
+    /// nothing is trimmed or reflowed on the way out.</summary>
+    [Parameter, EditorRequired]
+    public string Text { get; set; } = string.Empty;
+
+    /// <summary>What a screen reader calls it. Says what is being copied, since
+    /// a page may hold several of these.</summary>
+    [Parameter]
+    public string Label { get; set; } = "Copy";
+
+    /// <summary>Replaces the copy glyph, for a host that wants words on it.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string BaseClass { get; set; } = "copy-button";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces the class on the button itself, for a host whose
+    /// stylesheet already names it.</summary>
+    [Parameter]
+    public string? ButtonCssClass { get; set; }
+
+    /// <summary>Replaces the class on the status line.</summary>
+    [Parameter]
+    public string? StatusCssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>The button's own test id. Kept separate so a host that already
+    /// addresses one by name — CodeView does — keeps the name it had.</summary>
+    [Parameter]
+    public string? ButtonTestId { get; set; }
+
+    [Parameter]
+    public string? StatusTestId { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    /// <summary>
+    /// The clipboard belongs to the browser, and it is allowed to refuse. The
+    /// result is reported either way rather than assumed.
+    /// </summary>
+    private async Task CopyAsync()
+    {
+        try
+        {
+            ShowStatus(await Js.InvokeAsync<bool>("backlogClipboard.copy", Text) ? Copied : Failed);
+        }
+        catch (JSException)
+        {
+            ShowStatus(Failed);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: there is no browser to copy to yet.
+        }
+    }
+
+    /// <summary>
+    /// A confirmation that gets out of the way on its own.
+    /// <para>
+    /// The timer is deliberately not awaited by the click handler: the copy is
+    /// finished the moment the clipboard call returns, and holding the handler
+    /// open for three seconds would leave the button looking busy long after the
+    /// work was done.
+    /// </para>
+    /// </summary>
+    private void ShowStatus(string message)
+    {
+        _statusDelay?.Cancel();
+        _statusDelay?.Dispose();
+        _statusDelay = new CancellationTokenSource();
+
+        _status = message;
+        _ = ClearStatusAsync(_statusDelay.Token);
+    }
+
+    private async Task ClearStatusAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3), token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        if (token.IsCancellationRequested) return;
+
+        _status = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _statusDelay?.Cancel();
+        _statusDelay?.Dispose();
+    }
+}

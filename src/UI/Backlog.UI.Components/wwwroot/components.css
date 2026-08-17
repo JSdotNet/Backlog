@@ -112,6 +112,11 @@
     --line-height-normal: 1.5;
 
     /* Spacing (4px base scale) */
+    /* Twelve rules across this file already asked for a step below xs and none
+       of them were getting one: the token was used but never declared, so every
+       `gap: var(--spacing-2xs)` resolved to nothing and collapsed to zero. Rows
+       that were meant to sit a hair apart were touching. */
+    --spacing-2xs: 0.125rem;
     --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
@@ -860,6 +865,138 @@ button.md-check {
     color: var(--color-text-link);
 }
 
+/* An image is content, not decoration, so it takes the measure it is given and
+   never more. No fixed height: whatever the picture's ratio is, is what a reader
+   is meant to see. */
+.md-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: var(--spacing-sm) 0;
+    border-radius: var(--border-radius-sm);
+}
+
+/* An image whose URL we would not fetch. Its alt text is what the author meant
+   by it, so that is what shows — marked as substituted rather than passed off as
+   the picture. */
+.md-image--inert {
+    color: var(--color-text-secondary);
+    font-style: italic;
+}
+
+/* --- Tables -------------------------------------------------------------- */
+/*
+   A table is the one block in a body that has a width of its own: prose reflows
+   to whatever column it is given and a table does not. So the wrapper scrolls
+   and the table keeps its shape, rather than the columns being crushed until the
+   thing they were made to let you do — compare down a column — stops working.
+*/
+.md-table-scroll {
+    margin: 0 0 var(--spacing-sm);
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+}
+
+/* It scrolls, so it is focusable, so it shows focus — the same rule the code
+   block and the file body follow. */
+.md-table-scroll:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.md-table {
+    border-collapse: collapse;
+    /* Not width:100% — a two-column table stretched across a wide pane puts a
+       hand's width of nothing between the label and its value. */
+    min-width: 100%;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.md-table th,
+.md-table td {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    text-align: left;
+    vertical-align: top;
+    /* Rules between rows only. Boxing every cell draws more lines than data on a
+       table this size, and the eye follows a row without being told to. */
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.md-table th {
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* The last row's rule would be a line under the table with nothing beneath it. */
+.md-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.md-table__cell--left { text-align: left; }
+.md-table__cell--center { text-align: center; }
+/* Numbers are the reason a column is set right, and they only line up if the
+   digits do. */
+.md-table__cell--right {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Footnotes ----------------------------------------------------------- */
+
+/* The mark in the prose. Small and raised, and never so small that the one place
+   a reader has to hit precisely becomes the hardest thing on the line to click —
+   the padding is the target, not the digit. */
+.md-fnref {
+    font-size: 0.75em;
+    line-height: 0;
+}
+
+.md-fnref a {
+    padding: 0 0.15em;
+    color: var(--color-text-link);
+    text-decoration: none;
+}
+
+.md-fnref a:hover,
+.md-fnref a:focus-visible {
+    text-decoration: underline;
+}
+
+/* The notes themselves: quieter and smaller than the body, because a reader who
+   is not chasing a mark should be able to skip the whole block at a glance. */
+.md-footnotes {
+    display: block;
+    margin-top: var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.md-footnotes__list {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.md-footnotes__item {
+    margin-bottom: var(--spacing-xs);
+}
+
+/* Following a mark down is only half of it: without a way back, a reader who
+   took the link has lost their place in the prose. */
+.md-footnotes__back {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-link);
+    text-decoration: none;
+}
+
+.md-footnotes__back:hover,
+.md-footnotes__back:focus-visible {
+    text-decoration: underline;
+}
+
 /* --- Code view ----------------------------------------------------------- */
 /*
    A code block is a figure: a caption naming it, the code itself, and a status
@@ -909,6 +1046,23 @@ button.md-check {
     margin-left: auto;
 }
 
+/* The language a block is written in, wherever a block says so. It was a badge
+   on a diagram and bare mono text on a code block, which made the same fact look
+   like two different kinds of thing depending on which one you were reading.
+   One class now, worn by both. */
+.language-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
 .code-view__language {
     font-family: var(--font-family-mono);
 }
@@ -925,17 +1079,14 @@ button.md-check {
     color: var(--color-text-primary);
 }
 
+/* The frame: what the block sits in, and how far it may grow before it scrolls.
+   How the text itself behaves lives on __code, because a bare block has no
+   __body to carry it. */
 .code-view__body {
     margin: 0;
     padding: var(--spacing-md);
     max-height: 32rem;
     overflow: auto;
-    color: var(--code-plain);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
-    white-space: pre;
-    tab-size: 4;
 }
 
 /* The header already leaves space above the code, so the block does not need a
@@ -951,13 +1102,22 @@ button.md-check {
     outline-offset: calc(-1 * var(--border-width-2));
 }
 
+/* The text, wherever it is framed. Everything here is inherited by the lines
+   inside it, so the framed block and the bare one read identically without the
+   rules below having to know which shape they are in. */
 .code-view__code {
     display: block;
-    font: inherit;
-    /* Lines are blocks, and a block is as wide as the viewport unless told
-       otherwise — without this a numbered gutter stops halfway through a line
-       that scrolls. */
-    min-width: max-content;
+    color: var(--code-plain);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    /* Long lines wrap by default: every surface here is narrower than the code
+       written for it, and a line that runs off the right edge is a line nobody
+       reads. Indentation is still preserved — pre-wrap breaks the line without
+       collapsing the whitespace that shows its structure. */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    tab-size: 4;
 }
 
 .code-view__line {
@@ -966,13 +1126,31 @@ button.md-check {
     min-height: calc(1em * var(--line-height-normal));
 }
 
-.code-view--wrap .code-view__body {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+/* Wrap="false": the line stays one line and the block scrolls sideways, for a
+   snippet whose shape carries meaning and would read as a lie once folded.
+
+   min-width because lines are blocks, and a block is as wide as the viewport
+   unless told otherwise — without it a numbered gutter stops halfway through a
+   line that scrolls. Only the scrolling block needs it; a wrapped one never
+   overflows in the first place. */
+.code-view--nowrap .code-view__code {
+    white-space: pre;
+    overflow-wrap: normal;
+    min-width: max-content;
 }
 
-.code-view--wrap .code-view__code {
-    min-width: 0;
+/* Bare: the host frames the code, names it and scrolls it, so the block gives up
+   its own box entirely and contributes nothing but the lines. Everything that
+   made it a card — the padding, the fill, the border, the height cap and the
+   overflow that came with it — belongs to the host now. */
+.code-view--bare {
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    max-height: none;
+    overflow: visible;
 }
 
 /* The numbers are a counter rather than markup so that selecting the block and
@@ -1098,13 +1276,15 @@ button.md-check {
 
 /* --- Knowledge menu ------------------------------------------------------ */
 
-.knowledge-menu__message {
+.knowledge-menu__message,
+.folder-tree__message {
     margin: 0;
     color: var(--color-text-muted);
     font-size: var(--font-size-sm);
 }
 
-.knowledge-menu__row {
+.knowledge-menu__row,
+.folder-tree__row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
@@ -1151,6 +1331,8 @@ button.md-check {
 }
 
 .knowledge-menu,
+.folder-tree,
+.folder-tree__children,
 .knowledge-menu__children {
     display: grid;
     gap: var(--spacing-2xs);
@@ -1159,14 +1341,14 @@ button.md-check {
     list-style: none;
 }
 
-.knowledge-menu__item {
+.knowledge-menu__item,
+.folder-tree__item {
     display: grid;
     grid-template-columns: 1rem minmax(0, 1fr);
     align-items: center;
     gap: var(--spacing-2xs);
     width: 100%;
     padding: var(--spacing-xs) var(--spacing-sm);
-    padding-left: calc(var(--spacing-sm) + (var(--knowledge-menu-depth, 0) * var(--spacing-md)));
     border: var(--border-width) solid transparent;
     border-radius: var(--border-radius-md);
     background: transparent;
@@ -1177,9 +1359,22 @@ button.md-check {
     cursor: pointer;
 }
 
+/* Depth is a custom property TreeView writes per row, named after its own class
+   prefix — so the indent rule is the one thing the two trees cannot share. */
+.knowledge-menu__item {
+    padding-left: calc(var(--spacing-sm) + (var(--knowledge-menu-depth, 0) * var(--spacing-md)));
+}
+
+.folder-tree__item {
+    padding-left: calc(var(--spacing-sm) + (var(--folder-tree-depth, 0) * var(--spacing-md)));
+}
+
 .knowledge-menu__item:hover,
 .knowledge-menu__item:focus-visible,
-.knowledge-menu__item--active {
+.knowledge-menu__item--active,
+.folder-tree__item:hover,
+.folder-tree__item:focus-visible,
+.folder-tree__item--active {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 14%, transparent);
     color: var(--color-text-primary);
@@ -1187,23 +1382,1003 @@ button.md-check {
 }
 
 .knowledge-menu__item--unavailable,
-.knowledge-menu__item:disabled {
+.knowledge-menu__item:disabled,
+.folder-tree__item--unavailable,
+.folder-tree__item:disabled {
     color: var(--color-text-muted);
     cursor: not-allowed;
     opacity: 0.72;
 }
 
-.knowledge-menu__twisty {
+.knowledge-menu__twisty,
+.folder-tree__twisty {
     display: inline-flex;
     justify-content: center;
     color: var(--color-text-muted);
 }
 
-.knowledge-menu__label {
+.knowledge-menu__label,
+.folder-tree__label {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* --- Copy button --------------------------------------------------------- */
+/*
+   The button and the line that says whether it worked. The line is laid out
+   beside the button rather than under it, so a confirmation never changes the
+   height of whatever the button is sitting in.
+*/
+.copy-button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.copy-button__status,
+.md-copy__status,
+.markdown-document__status {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* --- Markdown read actions ----------------------------------------------- */
+
+/* Above the body, right-aligned: it acts on the whole thing, so it belongs where
+   a reader looks for something that does. */
+.md-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--spacing-xs);
+}
+
+.md-copy {
+    color: var(--color-text-secondary);
+}
+
+.md-copy:hover,
+.md-copy:focus-visible {
+    color: var(--color-text-primary);
+}
+
+/* --- Comments on a read view --------------------------------------------- */
+/*
+   A block you can comment on, and the comments hanging off it. The wrapper only
+   exists when someone is listening for a comment — a read view nobody annotates
+   renders exactly the markup it rendered before any of this.
+*/
+.md-block {
+    position: relative;
+}
+
+/* The affordance is in the margin, out of the text's way, and only opaque once
+   the block is reached. It is always in the DOM: one that appeared on hover
+   could not be found by touch or by keyboard. */
+.md-block__comment {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    min-height: 1.75rem;
+    padding: 0 var(--spacing-xs);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-disabled);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    opacity: 0;
+    cursor: pointer;
+}
+
+.md-block:hover .md-block__comment,
+.md-block__comment:focus-visible,
+.md-block--commented .md-block__comment {
+    opacity: 1;
+    outline: none;
+}
+
+.md-block__comment:hover,
+.md-block__comment:focus-visible {
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+}
+
+.md-block__count {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Indented and ruled on the left: a comment is about the block above it, and the
+   rule is what says so without a label. */
+.md-comments {
+    margin: 0 0 var(--spacing-sm) var(--spacing-md);
+    padding: 0 0 0 var(--spacing-md);
+    border-left: var(--border-width-2) solid var(--color-border);
+    list-style: none;
+}
+
+.md-comment {
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+/* Resolved is quieter and still legible. The reason a paragraph reads the way it
+   does is usually in the comment that got it there. */
+.md-comment--resolved {
+    opacity: 0.6;
+}
+
+.md-comment__who {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.md-comment__author {
+    color: var(--color-text-primary);
+}
+
+.md-comment__when,
+.md-comment__resolved {
+    color: var(--color-text-disabled);
+}
+
+.md-comment__body {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.md-comment__action {
+    margin-top: var(--spacing-2xs);
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.md-comment__action:hover,
+.md-comment__action:focus-visible {
+    color: var(--color-text-primary);
+}
+
+/* Adrift: the block it was written against has gone. Marked rather than hidden,
+   because a lost comment is worse than a stray one. */
+.md-comments--orphaned {
+    margin-top: var(--spacing-md);
+    border-left-style: dashed;
+}
+
+.md-comment__actions,
+.md-comment__edit-actions {
+    display: inline-flex;
+    gap: var(--spacing-sm);
+}
+
+.md-comment__edit {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+/* --- Comments in the margin ---------------------------------------------- */
+/*
+   The other shape: a column beside the body rather than blocks pushed apart.
+   Inline is closest to what a remark is about; margin keeps the prose
+   continuous, which is what you want when reviewing rather than reading.
+
+   One markup, two layouts. The margin cell is always emitted and simply follows
+   its block until the grid picks it up, so the two cannot drift apart.
+*/
+.md-view--margin .md-block-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 16rem;
+    gap: var(--spacing-md);
+    align-items: start;
+}
+
+/* Level with the block it belongs to, and no rule down its left — the column is
+   already the thing that says these are asides. */
+.md-view--margin .md-block-row__notes .md-comments {
+    margin: 0;
+    padding: 0;
+    border-left: none;
+}
+
+.md-view--margin .md-comment {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+/*
+   Below this the second column costs more than it is worth: a margin note in a
+   phone-width gutter is an inline note that has been made harder to read. It
+   falls back on its own rather than asking the caller to notice.
+*/
+@media (max-width: 60rem) {
+    .md-view--margin .md-block-row {
+        display: block;
+    }
+
+    .md-view--margin .md-block-row__notes .md-comments {
+        margin: 0 0 var(--spacing-sm) var(--spacing-md);
+        padding-left: var(--spacing-md);
+        border-left: var(--border-width-2) solid var(--color-border);
+    }
+
+    .md-view--margin .md-comment {
+        border: none;
+        background: transparent;
+        padding: 0;
+    }
+}
+
+/* --- Markdown document --------------------------------------------------- */
+/*
+   Read is the resting state and editing is a thing you ask for, so the bar is
+   quiet: a title, and the two things you can do to the body under it.
+*/
+.markdown-document {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.markdown-document__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    min-height: 2rem;
+}
+
+.markdown-document__title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-family-heading);
+    color: var(--color-text-primary);
+}
+
+.markdown-document__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex: 0 0 auto;
+}
+
+.markdown-document__copy {
+    color: var(--color-text-secondary);
+}
+
+.markdown-document__copy:hover,
+.markdown-document__copy:focus-visible {
+    color: var(--color-text-primary);
+}
+
+/* --- Task list ----------------------------------------------------------- */
+/*
+   Rows on the raised surface, separated by space rather than by rules. A list
+   this long with a line under every item reads as a table of something; the gap
+   is enough, and it leaves the rounded row as the thing the pointer lands on.
+*/
+/* A step above the hairline the other lists use. A task row is two lines of text
+   with controls at both ends, so it needs enough air above and below to read as
+   one thing — at a hairline the rows ran together into a block of text. */
+.task-list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.task-list__empty {
+    padding: var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* Fixed targets at either end and a middle that takes what is left, so only the
+   title gives up room.
+
+   Flex rather than a grid of named columns: the grip is only there when the list
+   is reorderable, and a positional grid silently shifts every child one column
+   left when it is not — which put the flexible track under the title's
+   neighbour and left the copy button short of the right edge. */
+.task-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.task-item:hover {
+    border-color: var(--color-border);
+}
+
+.task-item--selected {
+    border-color: var(--color-border-strong);
+    background: var(--color-background-raised);
+}
+
+/* The grip says the row can be moved before anyone tries. It is the only thing
+   here that is decoration: the keyboard path is the buttons, not the drag. */
+.task-item__grip {
+    color: var(--color-text-disabled);
+    cursor: grab;
+    user-select: none;
+}
+
+/*
+   While a row is in flight the list shows the order the drop would produce, so
+   the row being dragged is a gap you can see rather than a line to interpret. It
+   keeps its outline and gives up its fill: still there, plainly not settled.
+*/
+.task-item--dragging {
+    background: transparent;
+    border-style: dashed;
+    border-color: var(--color-border-focus);
+    opacity: 0.65;
+}
+
+.task-item--dragging * {
+    /* Nothing inside a row being dragged is a target — including the copy button
+       the pointer would otherwise pass over on its way down the list. */
+    pointer-events: none;
+}
+
+/*
+   The rows that are not moving draw in while one is in flight: narrower, inset,
+   and quieter. It is what says the list has made room for something rather than
+   that a row has gone missing, and it is the difference between a reorder you
+   can see happening and one you have to work out afterwards.
+
+   The inset is a state, not an animation. It was behind prefers-reduced-motion
+   at first and that was wrong: a reader who has asked for less movement has not
+   asked to be told less about what is going on. Only the transition — the part
+   that is literally motion — is gated, so the same size difference arrives
+   instantly instead of travelling.
+*/
+.task-list--dragging .task-item:not(.task-item--dragging) {
+    margin-inline: var(--spacing-sm);
+    opacity: 0.72;
+}
+
+.task-item {
+    transition:
+        margin var(--duration-fast, 120ms) ease,
+        transform var(--duration-fast, 120ms) ease,
+        opacity var(--duration-fast, 120ms) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .task-item {
+        transition: none;
+    }
+}
+
+/* Round, because that is this shape's one convention — and still a checkbox to
+   anything that is listening. */
+.task-item__check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: var(--border-width-2) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    cursor: pointer;
+}
+
+button.task-item__check:hover,
+button.task-item__check:focus-visible {
+    border-color: var(--color-border-focus);
+    outline: none;
+}
+
+.task-item--done .task-item__check {
+    border-color: var(--color-success);
+    background: var(--color-success);
+}
+
+/* The row's own hit area. A button rather than a click handler on the li, so it
+   is reachable, announced and activated the way every other row in this library
+   is. */
+.task-item__body {
+    display: grid;
+    gap: 2px;
+    /* The only child that gives up room. min-width:0 is what lets it, since a
+       flex item will not shrink below its content without it — and the title's
+       ellipsis depends on being allowed to. */
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.task-item__body:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+.task-item__title {
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Done is struck through and quieter, but still readable: a finished task is
+   the record of what was done, not a thing to be hidden. */
+.task-item--done .task-item__title {
+    color: var(--color-text-disabled);
+    text-decoration: line-through;
+}
+
+/* Between facts, not between characters. Each part of this line is a separate
+   thing that is true about the task, and at a hairline "Tasks" and "0 of 7" ran
+   together into one word — the space is what says they are two. */
+.task-item__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* Each fact carries the glyph that says what kind of fact it is: "Friday" and
+   "09:00" side by side are two dates until something says one is a deadline and
+   the other an alarm. The glyph is aria-hidden and the name is said in text
+   beside it, so nothing announces "alarm clock emoji". */
+.task-item__detail {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    white-space: nowrap;
+}
+
+.task-item__glyph {
+    font-size: 0.9em;
+    line-height: 1;
+}
+
+/* The two that carry a time come forward slightly. A due date and a reminder are
+   the facts that make a row urgent, and reading them at the same weight as the
+   list it came from is how a deadline gets missed. */
+.task-item__detail--due,
+.task-item__detail--reminder {
+    color: var(--color-text-primary);
+}
+
+/* Recurring is a shape rather than a moment, so it stays quiet. */
+.task-item__detail--repeat,
+.task-item__detail--note,
+.task-item__detail--steps {
+    color: var(--color-text-secondary);
+}
+
+.task-item__detail--myday {
+    color: var(--color-text-secondary);
+}
+
+/* A done row's urgency is over: nothing on the line competes any more. */
+.task-item--done .task-item__detail {
+    color: var(--color-text-disabled);
+}
+
+/* Smaller than a tag anywhere else in the product: on a row this is one more
+   piece of metadata, and a chip at its full size would out-shout the title. */
+.task-item__tag {
+    font-size: var(--font-size-xs);
+    padding: 0 var(--spacing-xs);
+}
+
+/* --- Renaming in place --------------------------------------------------- */
+
+.task-item__rename {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* The box sits exactly where the title was, so the row does not change height
+   when it opens — an edit that moved everything under it would cost the reader
+   their place. */
+.task-item__rename-input {
+    width: 100%;
+    padding: 0;
+    border: none;
+    border-bottom: var(--border-width-2) solid var(--color-border-focus);
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+}
+
+.task-item__rename-input:focus-visible {
+    outline: none;
+}
+
+.task-item__edit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-disabled);
+    font: inherit;
+    cursor: pointer;
+}
+
+.task-item:hover .task-item__edit,
+.task-item__edit:hover,
+.task-item__edit:focus-visible {
+    color: var(--color-text-primary);
+    outline: none;
+}
+
+/* --- Completed ----------------------------------------------------------- */
+/*
+   Finished work, folded away at the bottom. Kept rather than deleted: it is the
+   record of what was done, and the reason to open it is usually to undo
+   something.
+*/
+.task-list__completed {
+    margin-top: var(--spacing-md);
+}
+
+.task-list__completed-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: none;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.task-list__completed-header:hover,
+.task-list__completed-header:focus-visible {
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    outline: none;
+}
+
+.task-list__twisty {
+    display: inline-flex;
+    justify-content: center;
+    width: 1rem;
+    color: var(--color-text-disabled);
+}
+
+.task-list__completed-count {
+    color: var(--color-text-disabled);
+    font-variant-numeric: tabular-nums;
+}
+
+.task-list__completed .task-list {
+    margin-top: var(--spacing-2xs);
+}
+
+/* Right of the row: it acts on the task's text rather than on its state, so it
+   sits at the end rather than beside the circle. Quiet until the row is reached
+   — always present, because an affordance that only appears on hover cannot be
+   found by touch or by keyboard, but not competing with the title until then. */
+.task-item__copy {
+    display: inline-flex;
+    align-items: center;
+    justify-self: end;
+}
+
+.task-item__copy-button {
+    color: var(--color-text-disabled);
+}
+
+.task-item:hover .task-item__copy-button,
+.task-item__copy-button:hover,
+.task-item__copy-button:focus-visible {
+    color: var(--color-text-primary);
+}
+
+/* The confirmation would push the row's width around if it took part in the
+   layout, so it is announced and not drawn. Every reader who needs it hears it;
+   nobody's list reflows because someone copied a line. */
+.task-item__copy-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* --- Task actions -------------------------------------------------------- */
+/*
+   The rows in a task's detail pane. One shape for all of them, because "Remind
+   me" and "Reminder, Monday 09:00" are the same control in two states rather
+   than two controls.
+*/
+.task-action {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    border-radius: var(--border-radius-md);
+}
+
+.task-action:hover {
+    background: var(--color-background-alt);
+}
+
+.task-action__main {
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: none;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.task-action__main:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.task-action__main:disabled {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
+.task-action__icon {
+    display: inline-flex;
+    justify-content: center;
+    color: var(--color-text-disabled);
+}
+
+/* A set row comes forward, so the pane can be read down its left edge for what
+   is on and what is not. */
+.task-action--set .task-action__main,
+.task-action--set .task-action__icon {
+    color: var(--color-text-primary);
+}
+
+.task-action__value {
+    display: block;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.task-action__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    min-height: 2rem;
+    margin-right: var(--spacing-xs);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-disabled);
+    font: inherit;
+    cursor: pointer;
+}
+
+.task-action__clear:hover,
+.task-action__clear:focus-visible {
+    color: var(--color-text-primary);
+    outline: none;
+}
+
+/* --- Markdown editor ----------------------------------------------------- */
+/*
+   A toolbar over a textarea, not a surface pretending to be a document. It sits
+   directly on the box it acts on — separated by a rule rather than a gap —
+   because a toolbar floating above a field is a toolbar for the page.
+*/
+.markdown-editor {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    overflow: hidden;
+}
+
+.markdown-editor__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+/* Groups are separated by a rule rather than a wider gap: at this size a gap
+   big enough to read as a break is big enough to read as a mistake. */
+.markdown-editor__group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+.markdown-editor__group + .markdown-editor__group {
+    padding-left: var(--spacing-sm);
+    border-left: var(--border-width) solid var(--color-border);
+}
+
+/* 2rem square: the smallest a pointer target has any business being, and the
+   reason the glyph inside it is not the target itself. */
+.markdown-editor__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.markdown-editor__button:hover:not(:disabled),
+.markdown-editor__button:focus-visible {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    color: var(--color-text-primary);
+    outline: none;
+}
+
+.markdown-editor__button:disabled {
+    cursor: default;
+    opacity: 0.58;
+}
+
+/* Each glyph is set the way the thing it makes is set, so the button shows its
+   own result rather than naming it. */
+.markdown-editor__glyph--bold { font-weight: 700; }
+.markdown-editor__glyph--italic { font-style: italic; }
+.markdown-editor__glyph--strike { text-decoration: line-through; }
+.markdown-editor__glyph--code { font-family: var(--font-family-mono); }
+
+/* The textarea sits on the deep surface, the way the read view's code does: the
+   text being edited is the content, and the chrome above it is not.
+
+   Block, not flex: a textarea's intrinsic width is about twenty columns, and as
+   a flex item it took that instead of the room it was given — the box ended up a
+   third of the editor wide with the rest of the editor empty beside it. */
+.markdown-editor__surface {
+    position: relative;
+    display: block;
+    min-width: 0;
+    background: var(--color-background);
+}
+
+/* The field's grow wrapper, replaced. The default carries a border, a radius and
+   a fill of its own, which inside an editor that already has all three drew a
+   box inside a box. Here it is only the positioning context the highlight layer
+   is measured against. */
+.markdown-editor__grow {
+    position: relative;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+/*
+   The layer and the textarea have to agree on every metric that decides where a
+   character lands: the box, the font, the wrapping, the padding. They are listed
+   once here and inherited by both, because the failure mode of getting one wrong
+   is colours sliding off the words they belong to, and it only shows up at the
+   line where they diverge.
+*/
+.markdown-editor__input,
+.markdown-editor__highlight {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: var(--spacing-sm);
+    border: none;
+    border-radius: 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    letter-spacing: normal;
+    tab-size: 4;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
+/* The text itself is invisible; only the caret and the selection show through,
+   and the colours behind it do the reading. */
+.markdown-editor__input {
+    position: relative;
+    z-index: 1;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--color-text-primary);
+    resize: vertical;
+    overflow: auto;
+}
+
+/* A selection over transparent text still has to be visible, so it gets a fill
+   rather than relying on the text colour it does not have. */
+.markdown-editor__input::selection {
+    background: color-mix(in srgb, var(--color-primary) 32%, transparent);
+}
+
+.markdown-editor__input::placeholder {
+    color: var(--color-text-disabled);
+}
+
+/* The field's own focus ring would draw a box inside a box. The editor takes the
+   ring instead, because the editor is what the reader sees. */
+.markdown-editor__input:focus-visible {
+    outline: none;
+}
+
+.markdown-editor:focus-within {
+    border-color: var(--color-border-focus);
+}
+
+/* Behind the text, exactly under it. Scrolled by the textarea rather than by
+   itself, and never a pointer target — a click has to reach the box that takes
+   the caret. */
+.markdown-editor__highlight {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    color: var(--color-text-primary);
+}
+
+.markdown-editor__highlight code {
+    font: inherit;
+    white-space: inherit;
+    overflow-wrap: inherit;
+}
+
+/* --- Markdown syntax colours --------------------------------------------- */
+/*
+   The editor is a source view, so it takes the --code-* theme rather than the
+   semantic palette. That theme is already contrast-checked against
+   --color-background, which is exactly the surface this sits on.
+
+   Two colours in it are off limits here. --code-keyword and --code-tag are
+   aliases of the brand primary, and the primary is being kept for a feature that
+   is not built yet — so a heading takes the type teal instead, and nothing in
+   this block resolves to gold.
+
+   Only colour and weight, never size. The layer is drawn behind a textarea and
+   the two have to agree on where every character lands; a monospace face keeps
+   its advance width through bold and italic, and does not keep it through a
+   change of size. A bigger heading here would slide the colours off the words
+   from that line down.
+*/
+.md-syntax--plain {
+    color: var(--color-text-primary);
+}
+
+/* The syntax characters themselves: present, findable, and never competing with
+   the words they wrap. */
+.md-syntax--marker {
+    color: var(--color-text-disabled);
+}
+
+/* The loudest thing in the box, which is what a heading is in a document too.
+   Colour and weight together, because weight alone at this size is a difference
+   you have to go looking for. */
+.md-syntax--heading {
+    color: var(--code-type);
+    font-weight: 700;
+}
+
+/* The hashes belong to the heading rather than to the general run of syntax:
+   they are how you see, at a glance down the file, how deep a section is. */
+.md-syntax--heading-marker {
+    color: var(--code-type);
+    font-weight: 700;
+    opacity: 0.65;
+}
+
+.md-syntax--strong {
+    color: var(--color-text-primary);
+    font-weight: 700;
+}
+
+.md-syntax--emphasis {
+    color: var(--color-text-primary);
+    font-style: italic;
+}
+
+/* Struck through as well as coloured: it is the one mark whose meaning is
+   visible without reading the words. */
+.md-syntax--strike {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+.md-syntax--code {
+    color: var(--code-string);
+}
+
+.md-syntax--quote {
+    color: var(--code-comment);
+    font-style: italic;
+}
+
+/* Underlined as well as coloured, so it does not read as the same thing as a
+   #tag — they share a hue and nothing else. */
+.md-syntax--link {
+    color: var(--code-number);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+}
+
+/* The URL is a machine string beside prose, so it reads as one. */
+.md-syntax--url {
+    color: var(--code-comment);
+}
+
+.md-syntax--tag {
+    color: var(--code-number);
 }
 
 /* --- Diagram view -------------------------------------------------------- */
@@ -1269,13 +2444,11 @@ button.md-check {
     gap: var(--spacing-md);
 }
 
+/* Everything this needed is now .language-badge. Kept as a hook so a host that
+   already targets it keeps working, and so the diagram can differ later without
+   the code block having to. */
 .diagram-view__language {
-    padding: 0 var(--spacing-sm);
-    border-radius: var(--border-radius-full);
-    background: var(--color-info);
-    color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
-    font-size: var(--font-size-xs);
 }
 
 /* Neither surface draws a frame: it renders straight onto whatever is behind
@@ -2309,7 +3482,8 @@ button.tag-chip__label {
 
 /* The deep surface, not the raised one: a file is the thing being read, so it
    sits at the back of the stack and lets the app's own chrome come forward. */
-.file-view {
+.file-view,
+.folder-view {
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -2322,11 +3496,13 @@ button.tag-chip__label {
 /* Fill mode: the host decides how tall this is, and the body takes whatever is
    left under the header. min-height:0 is what lets a flex child actually shrink
    below its content and scroll instead of pushing the card open. */
-.file-view--fill {
+.file-view--fill,
+.folder-view--fill {
     height: 100%;
 }
 
-.file-view--fill .file-view__body {
+.file-view--fill .file-view__body,
+.folder-view--fill .folder-view__body {
     flex: 1 1 auto;
     min-height: 0;
 }
@@ -2334,7 +3510,8 @@ button.tag-chip__label {
 /* One surface, one rule. The header and the body share the card's background —
    a shade under the header drew the boundary twice — but the rule stays: the
    header is fixed and the body scrolls under it, and that needs a line. */
-.file-view__header {
+.file-view__header,
+.folder-view__header {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -2343,11 +3520,13 @@ button.tag-chip__label {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
-.file-view__identity {
+.file-view__identity,
+.folder-view__identity {
     min-width: 0;
 }
 
-.file-view__name {
+.file-view__name,
+.folder-view__name {
     margin: 0;
     font-family: var(--font-family-heading);
     font-size: var(--font-size-base);
@@ -2355,7 +3534,8 @@ button.tag-chip__label {
     overflow-wrap: anywhere;
 }
 
-.file-view__meta {
+.file-view__meta,
+.folder-view__meta {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
@@ -2365,7 +3545,8 @@ button.tag-chip__label {
    usually checking one segment of it rather than reading it as prose. It is the
    first thing to give up room when the header is narrow — the name beside it
    still identifies the file, and the text stays whole in the DOM. */
-.file-view__path {
+.file-view__path,
+.folder-view__path {
     flex: 0 1 auto;
     min-width: 0;
     margin: 0;
@@ -2382,7 +3563,8 @@ button.tag-chip__label {
    the desktop shell, but the library has to stand on its own — the storybook
    loads no app stylesheet, and a component that only looks right inside one host
    is not a component. */
-.file-view__body {
+.file-view__body,
+.folder-view__body {
     padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
     overflow: auto;
     /* Reserve the track so the content does not shift sideways the moment a
@@ -2392,28 +3574,33 @@ button.tag-chip__label {
     scrollbar-color: var(--color-border) transparent;
 }
 
-.file-view__body::-webkit-scrollbar {
+.file-view__body::-webkit-scrollbar,
+.folder-view__body::-webkit-scrollbar {
     width: 0.625rem;
     height: 0.625rem;
 }
 
-.file-view__body::-webkit-scrollbar-track {
+.file-view__body::-webkit-scrollbar-track,
+.folder-view__body::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.file-view__body::-webkit-scrollbar-thumb {
+.file-view__body::-webkit-scrollbar-thumb,
+.folder-view__body::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: var(--border-radius-full);
     background: var(--color-border);
     background-clip: padding-box;
 }
 
-.file-view__body::-webkit-scrollbar-thumb:hover {
+.file-view__body::-webkit-scrollbar-thumb:hover,
+.folder-view__body::-webkit-scrollbar-thumb:hover {
     background: var(--color-border-strong);
     background-clip: padding-box;
 }
 
-.file-view__body::-webkit-scrollbar-corner {
+.file-view__body::-webkit-scrollbar-corner,
+.folder-view__body::-webkit-scrollbar-corner {
     background: transparent;
 }
 
@@ -2429,16 +3616,102 @@ button.tag-chip__label {
 }
 
 @media (max-width: 40rem) {
-    .file-view__header {
+    .file-view__header,
+    .folder-view__header {
         flex-direction: column;
         align-items: stretch;
         gap: var(--spacing-xs);
     }
 
-    .file-view__path {
+    .file-view__path,
+    .folder-view__path {
         text-align: left;
     }
 }
+
+/* --- Folder view --------------------------------------------------------- */
+/*
+   Structurally FileView's sibling — the shared rules above give it the same
+   header, the same scrolling body and the same Fill behaviour — but it sits on
+   the raised surface rather than the deep one, because it is a menu and not a
+   document.
+
+   That is the same inversion the shell already makes: a sidebar of things you
+   could open is --color-background-alt, and the thing you opened is
+   --color-background. Put a folder on the deep surface and it reads as the
+   content; put it on the raised one and it reads as the way to the content,
+   which is what it is.
+*/
+.folder-view {
+    background: var(--color-background-alt);
+}
+
+/* The tree earns a little more room than a file's body: rows are targets, and
+   the padding is the target. */
+.folder-view__body {
+    padding: var(--spacing-sm);
+}
+
+/* The path and the open button share the right-hand side of the header. The
+   path gives up room first — the name already says which folder this is, and
+   the button is a fixed target that must not shrink under the pointer. */
+.folder-view__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.folder-view__error {
+    margin: 0 var(--spacing-md) var(--spacing-sm);
+}
+
+/* --- Open in VS Code ----------------------------------------------------- */
+/*
+   The mark, not the letters. Quiet until it is wanted — always present, because
+   an affordance that only appears on hover cannot be found by touch or by
+   keyboard, but sitting at the header's own weight until it is reached.
+*/
+.open-folder,
+.folder-view__open {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.open-folder:hover:not(:disabled),
+.open-folder:focus-visible,
+.folder-view__open:hover:not(:disabled),
+.folder-view__open:focus-visible {
+    border-color: var(--color-primary);
+    /* The mark is the brand's blue in the wild; on hover it comes forward to it
+       rather than to this product's own primary, so the button says which editor
+       it opens without a word on it. */
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    color: var(--color-text-primary);
+    outline: none;
+}
+
+.open-folder:disabled,
+.folder-view__open:disabled {
+    cursor: default;
+    opacity: 0.58;
+}
+
+.open-folder__glyph {
+    display: block;
+}
+
 
 .section-header {
     display: flex;

@@ -1,0 +1,44 @@
+@*
+    Read view on the left, the markdown that produced it on the right.
+
+    Chrome, not a component: it frames an example and has no behaviour of its
+    own. Every markdown story wants this same pairing, and repeating the two
+    columns in each one is how the source and the rendering drift apart — one
+    story showing a sample it no longer renders is worse than no sample.
+
+    The source is a `pre`, so it is read-only by construction rather than by a
+    flag someone has to remember to set. ParseDocument, not Parse: this chapter
+    is about markdown, where a `##` is a heading.
+*@
+
+<div class="sb-columns">
+    <div class="sb-stack">
+        <p class="sb-label">Read view</p>
+        <div data-testid="@TestId">
+            <MarkdownView Blocks="Blocks" />
+        </div>
+    </div>
+    <div class="sb-stack">
+        <p class="sb-label">Source</p>
+        <pre class="sb-story__code" data-testid="@SourceTestId"><code>@Source.Trim()</code></pre>
+    </div>
+</div>
+
+@code {
+    /// <summary>The markdown, shown verbatim and rendered beside itself.</summary>
+    [Parameter, EditorRequired]
+    public string Source { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string? SourceTestId => TestId is null ? null : $"{TestId}-source";
+
+    // Parsed when the source changes rather than on every render. These are
+    // constants in practice, so this parses once.
+    private IReadOnlyList<MdBlock> Blocks => _blocks ??= MarkdownPreview.ParseDocument(Source);
+
+    private IReadOnlyList<MdBlock>? _blocks;
+
+    protected override void OnParametersSet() => _blocks = null;
+}

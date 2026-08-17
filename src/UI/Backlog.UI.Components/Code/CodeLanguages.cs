@@ -226,6 +226,37 @@ public static class CodeLanguages
 
     public static bool IsSupported(string? language) => Resolve(language) is not null;
 
+    /// <summary>
+    /// The language a file is written in, read from its name. An extension is
+    /// just another alias — <c>.cs</c> and a <c>cs</c> fence name the same
+    /// grammar — so this asks the same table <see cref="Resolve"/> does rather
+    /// than keeping a second list that could disagree with it.
+    /// <para>
+    /// Null means "nothing here claims to know", which is the caller's cue to
+    /// show the file as prose instead of as code. <c>.md</c> and <c>.txt</c>
+    /// land there on purpose: they are not missing from the list, they are
+    /// files that are already readable without colour.
+    /// </para>
+    /// </summary>
+    public static string? ForFileName(string? fileName)
+    {
+        var name = fileName?.Trim();
+        if (string.IsNullOrEmpty(name)) return null;
+
+        // The last segment only: a folder called `src.cs` above a file called
+        // `notes` must not make the file C#.
+        var separator = name.LastIndexOfAny(['/', '\\']);
+        if (separator >= 0) name = name[(separator + 1)..];
+
+        var dot = name.LastIndexOf('.');
+
+        // No extension, a name that is nothing but a dot part (`.gitignore`), or
+        // a trailing dot with nothing after it. None of those name a language.
+        if (dot <= 0 || dot == name.Length - 1) return null;
+
+        return Resolve(name[(dot + 1)..]);
+    }
+
     /// <summary>What to print on the badge. An unrecognised language keeps the
     /// name it was given — the block is still that language, the highlighter
     /// just has nothing to say about it.</summary>

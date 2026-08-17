@@ -48,6 +48,30 @@
     margin-bottom: var(--spacing-md);
 }
 
+/* A subpage's href is a path under its parent's, and in a flat list that slash
+   is the only thing saying so. Indenting the row is what makes the relationship
+   visible without NavList — a shipped component — having to learn about depth
+   for the sake of one storybook page. */
+.sb-nav-group ::deep .nav-list__link[href*="/"] {
+    padding-left: var(--spacing-lg);
+}
+
+/* Entry edit, marked out in the index.
+
+   Storybook chrome and nothing else: the page renders the same components as
+   every other chapter, and the library knows nothing about this. Keyed on the
+   href for the same reason the subpage indent is — it keeps a one-page marker
+   out of NavList, which is a shipped component. */
+.sb-nav-group ::deep .nav-list__link[href="entry-edit"] {
+    color: #E5484D;
+}
+
+.sb-nav-group ::deep .nav-list__link[href="entry-edit"]:hover,
+.sb-nav-group ::deep .nav-list__link[href="entry-edit"]:focus-visible,
+.sb-nav-group ::deep .nav-list__link[href="entry-edit"].active {
+    color: #FF6369;
+}
+
 .sb-nav-empty {
     margin: 0;
     font-size: var(--font-size-sm);
