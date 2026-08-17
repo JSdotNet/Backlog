@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    Test-subtree defaults (org ADR 0002, hierarchical package sets). Only the
+    nearest Directory.Build.props is loaded automatically, so the root one is
+    imported explicitly here.
+
+    Every test project needs the same runner, framework and coverage packages
+    and the same Xunit using, so they are declared once instead of seven times.
+    Versions still come from the root Directory.Packages.props.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
