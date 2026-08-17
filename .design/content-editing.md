@@ -91,7 +91,7 @@ serialize them to canonical Markdown.
 |---|---|
 | Bold, italic, strikethrough | `**`, `*`/`_`, `~~`. |
 | Inline code | Backticks; `font-family-mono`. |
-| Links | Editable target + text; keyboard-accessible link editing. |
+| Links | Editable target + text; keyboard-accessible link editing. A link is rendered as a link only when its scheme is `http`, `https`, `mailto`, or a relative path — anything else (`javascript:`, `data:`) MUST render as the literal text the author typed, still readable but inert. The read view is a webview, and an `href` is the one place typed text could otherwise become behaviour. |
 | `#tags` | Recognized inline per `.arc42/08-crosscutting-concepts.md#tagging-and-organization`; rendered as a subtle chip but stored as literal `#tag` text. |
 | Mentions / references | If supported, stored as their canonical Markdown/text form. |
 
@@ -235,3 +235,40 @@ related: [".design/interaction-guidelines.md#save-state-indicator-vocabulary", "
 | Conflicts | Concurrent edits resolve last-write-wins with passive `Conflict` surfacing (see `interaction-guidelines.md#conflict-handling`). |
 | Spellcheck scope | Spellcheck applies to prose, not to code blocks, inline code, or raw passthrough blocks. |
 | Domain-rule refusal | A parsed value the domain model refuses (e.g. an illegal status transition, see `#live-parse-confirmation`) is surfaced inline, next to the text that produced it, not through the save-state indicator — the save still succeeds; only that one value is refused. |
+
+## Materialization
+
+```meta
+status: active
+related: [".design/README.md#living-reference-the-ui-storybook", ".design/typography-and-layout.md#heading-defaults"]
+```
+
+| Piece | Where | Review surface |
+|---|---|---|
+| Parser | `MarkdownPreview` (`src/UI/Backlog.UI.Components/Markdown`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
+| Read view | `MarkdownView` | Storybook → *Markdown* |
+| Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header | Storybook → *File view* |
+| Code blocks | `CodeView` — line numbers, copy button, per-language highlighting on the tokens in `color-scheme.md#syntax-highlighting-tokens` | Storybook → *Code* |
+| Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
+| Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Markdown* → **Edit and read** |
+
+What is true today, and where it differs from the model above:
+
+- **The editing model is inverted.** `#editing-model` specifies WYSIWYG as the
+  primary mode with a raw escape hatch. What exists is the opposite: the source
+  is edited as raw Markdown in a text area, with a live read view beside it. There
+  is no rich-text editor, no slash menu (`#slash-and-inline-commands`), and no
+  inline autoformat. Markdown being canonical is therefore trivially satisfied,
+  and `#round-trip-fidelity` is not yet under pressure — both become real
+  requirements the moment an editor lands.
+- **Task toggling is already correct.** Ticking a checkbox writes back into the
+  source and saves immediately with no debounce, and a `- [ ]` inside a code
+  fence is left alone — it is a code sample, not a task.
+- **Headings render on the compact ramp**, not the display ramp; see
+  `typography-and-layout.md#heading-defaults` for which surface gets which.
+- **Body text renders in `color-text-secondary`.** `design-principles.md#low-chrome-content-first`
+  reserves `color-text-primary` for content and `color-text-secondary` for
+  chrome, and the read view currently has that the other way round for
+  paragraphs, list items and code blocks. It reads as intended inside a dense
+  card and reads as washed-out in a document; a document surface SHOULD move to
+  `color-text-primary`. `[TODO: clarify]`

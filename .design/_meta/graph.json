@@ -6,29 +6,29 @@
     ".design"
   ],
   "stats": {
-    "nodes": 84,
-    "edges": 150,
+    "nodes": 94,
+    "edges": 176,
     "nodesByFolder": {
-      "design": 74,
+      "design": 84,
       "arc42": 5,
       "tech": 1,
       "domain": 4
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 70,
-      "heading": 4
+      "chapter": 79,
+      "heading": 5
     },
     "nodesByStatus": {
-      "active": 74,
-      "none": 4,
+      "active": 83,
+      "none": 5,
       "accepted": 1,
       "candidate": 1,
       "draft": 4
     },
     "edgesByType": {
-      "contains": 66,
-      "related": 84
+      "contains": 76,
+      "related": 100
     }
   },
   "problems": [],
@@ -90,6 +90,24 @@
       },
       {
         "data": {
+          "id": ".design/README.md#living-reference-the-ui-storybook",
+          "label": "Living Reference: The UI Storybook",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/README.md",
+          "slug": "living-reference-the-ui-storybook",
+          "level": 2,
+          "line": 71,
+          "status": "active",
+          "related": [
+            ".design/color-scheme.md",
+            ".design/typography-and-layout.md",
+            ".design/component-libraries.md"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/README.md#table-of-contents",
           "label": "Table of Contents",
           "type": "chapter",
@@ -97,7 +115,7 @@
           "path": ".design/README.md",
           "slug": "table-of-contents",
           "level": 2,
-          "line": 71,
+          "line": 118,
           "status": "active"
         }
       },
@@ -110,7 +128,7 @@
           "path": ".design/README.md",
           "slug": "provenance",
           "level": 2,
-          "line": 87,
+          "line": 134,
           "status": "active"
         }
       },
@@ -123,7 +141,7 @@
           "path": ".design/README.md",
           "slug": "status-vocabulary",
           "level": 2,
-          "line": 100,
+          "line": 147,
           "status": "active"
         }
       },
@@ -288,6 +306,23 @@
       },
       {
         "data": {
+          "id": ".design/accessibility.md#materialization",
+          "label": "Materialization",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/accessibility.md",
+          "slug": "materialization",
+          "level": 2,
+          "line": 191,
+          "status": "active",
+          "related": [
+            ".design/README.md#living-reference-the-ui-storybook",
+            ".design/interaction-guidelines.md#materialization"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/color-scheme.md",
           "label": "Color Scheme",
           "type": "file",
@@ -362,6 +397,23 @@
       },
       {
         "data": {
+          "id": ".design/color-scheme.md#syntax-highlighting-tokens",
+          "label": "Syntax Highlighting Tokens",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "syntax-highlighting-tokens",
+          "level": 2,
+          "line": 185,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#dark-mode-only",
+            ".design/content-editing.md#supported-constructs"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
           "label": "Contrast Rules (WCAG AA minimum)",
           "type": "chapter",
@@ -369,7 +421,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 181,
+          "line": 223,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -385,7 +437,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 208,
+          "line": 250,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -401,11 +453,27 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 235,
+          "line": 277,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
             ".arc42/04-solution-strategy.md#technology-choices"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#materialization",
+          "label": "Materialization",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "materialization",
+          "level": 2,
+          "line": 313,
+          "status": "active",
+          "related": [
+            ".design/README.md#living-reference-the-ui-storybook"
           ]
         }
       },
@@ -496,7 +564,7 @@
           "path": ".design/component-libraries.md",
           "slug": "candidate-comparison",
           "level": 2,
-          "line": 121,
+          "line": 127,
           "status": "active"
         }
       },
@@ -509,7 +577,7 @@
           "path": ".design/component-libraries.md",
           "slug": "recommendation-summary",
           "level": 2,
-          "line": 150,
+          "line": 156,
           "status": "active"
         }
       },
@@ -522,7 +590,7 @@
           "path": ".design/component-libraries.md",
           "slug": "diagram-and-graph-strategy",
           "level": 2,
-          "line": 171,
+          "line": 177,
           "status": "active",
           "related": [
             ".tech/technology-graph.md",
@@ -540,8 +608,24 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 190,
+          "line": 196,
           "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#materialization",
+          "label": "Materialization",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "materialization",
+          "level": 2,
+          "line": 218,
+          "status": "active",
+          "related": [
+            ".design/README.md#living-reference-the-ui-storybook"
+          ]
         }
       },
       {
@@ -735,6 +819,23 @@
       },
       {
         "data": {
+          "id": ".design/content-editing.md#materialization",
+          "label": "Materialization",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "materialization",
+          "level": 2,
+          "line": 239,
+          "status": "active",
+          "related": [
+            ".design/README.md#living-reference-the-ui-storybook",
+            ".design/typography-and-layout.md#heading-defaults"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/design-principles.md",
           "label": "Design Principles",
           "type": "file",
@@ -859,6 +960,22 @@
       },
       {
         "data": {
+          "id": ".design/design-principles.md#materialization",
+          "label": "Materialization",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/design-principles.md",
+          "slug": "materialization",
+          "level": 2,
+          "line": 142,
+          "status": "active",
+          "related": [
+            ".design/README.md#living-reference-the-ui-storybook"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/interaction-guidelines.md",
           "label": "Interaction Guidelines",
           "type": "file",
@@ -898,7 +1015,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "drag-and-drop-reordering",
           "level": 2,
-          "line": 92,
+          "line": 98,
           "status": "active",
           "related": [
             ".design/accessibility.md#keyboard-navigation",
@@ -915,7 +1032,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "feedback-and-toasts",
           "level": 2,
-          "line": 185,
+          "line": 191,
           "status": "active"
         }
       },
@@ -928,7 +1045,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "motion-and-reduced-motion",
           "level": 2,
-          "line": 200,
+          "line": 206,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#shadows-and-elevation",
@@ -945,7 +1062,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "focus-and-selection",
           "level": 2,
-          "line": 240,
+          "line": 252,
           "status": "active",
           "related": [
             ".design/accessibility.md#focus-visibility"
@@ -961,8 +1078,25 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "empty-loading-and-error-states",
           "level": 2,
-          "line": 255,
+          "line": 267,
           "status": "active"
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#materialization",
+          "label": "Materialization",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "materialization",
+          "level": 2,
+          "line": 307,
+          "status": "active",
+          "related": [
+            ".design/README.md#living-reference-the-ui-storybook",
+            ".design/accessibility.md"
+          ]
         }
       },
       {
@@ -1018,7 +1152,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "spacing-scale",
           "level": 2,
-          "line": 95,
+          "line": 103,
           "status": "active"
         }
       },
@@ -1031,7 +1165,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "density",
           "level": 2,
-          "line": 116,
+          "line": 124,
           "status": "active",
           "related": [
             ".design/design-principles.md#low-chrome-content-first"
@@ -1047,7 +1181,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "layout-grid-and-breakpoints",
           "level": 2,
-          "line": 133,
+          "line": 141,
           "status": "active"
         }
       },
@@ -1060,7 +1194,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "border-radius-and-width",
           "level": 2,
-          "line": 157,
+          "line": 165,
           "status": "active"
         }
       },
@@ -1073,7 +1207,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "shadows-and-elevation",
           "level": 2,
-          "line": 175,
+          "line": 183,
           "status": "active",
           "related": [
             ".design/color-scheme.md#elevation-by-color"
@@ -1089,10 +1223,27 @@
           "path": ".design/typography-and-layout.md",
           "slug": "iconography",
           "level": 2,
-          "line": 209,
+          "line": 217,
           "status": "active",
           "related": [
             ".design/accessibility.md#target-sizes-and-text"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md#materialization",
+          "label": "Materialization",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "materialization",
+          "level": 2,
+          "line": 252,
+          "status": "active",
+          "related": [
+            ".design/README.md#living-reference-the-ui-storybook",
+            ".design/color-scheme.md#materialization"
           ]
         }
       },
@@ -1105,7 +1256,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "keyboard-accessible-reordering",
           "level": 3,
-          "line": 138
+          "line": 144
         }
       },
       {
@@ -1129,7 +1280,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "nesting--indent-rules-chapters",
           "level": 3,
-          "line": 167
+          "line": 173
         }
       },
       {
@@ -1141,7 +1292,19 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "reorder--auto-save",
           "level": 3,
-          "line": 176
+          "line": 182
+        }
+      },
+      {
+        "data": {
+          "id": ".design/typography-and-layout.md#heading-defaults",
+          "label": "Heading Defaults",
+          "type": "heading",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "heading-defaults",
+          "level": 3,
+          "line": 78
         }
       },
       {
@@ -1353,6 +1516,14 @@
       },
       {
         "data": {
+          "id": "contains:.design/README.md->.design/README.md#living-reference-the-ui-storybook",
+          "source": ".design/README.md",
+          "target": ".design/README.md#living-reference-the-ui-storybook",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.design/README.md->.design/README.md#table-of-contents",
           "source": ".design/README.md",
           "target": ".design/README.md#table-of-contents",
@@ -1449,6 +1620,14 @@
       },
       {
         "data": {
+          "id": "contains:.design/accessibility.md->.design/accessibility.md#materialization",
+          "source": ".design/accessibility.md",
+          "target": ".design/accessibility.md#materialization",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.design/color-scheme.md->.design/color-scheme.md#provenance",
           "source": ".design/color-scheme.md",
           "target": ".design/color-scheme.md#provenance",
@@ -1481,6 +1660,14 @@
       },
       {
         "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#syntax-highlighting-tokens",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#syntax-highlighting-tokens",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.design/color-scheme.md->.design/color-scheme.md#contrast-rules-wcag-aa-minimum",
           "source": ".design/color-scheme.md",
           "target": ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
@@ -1500,6 +1687,14 @@
           "id": "contains:.design/color-scheme.md->.design/color-scheme.md#per-stack-token-mapping",
           "source": ".design/color-scheme.md",
           "target": ".design/color-scheme.md#per-stack-token-mapping",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#materialization",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#materialization",
           "type": "contains"
         }
       },
@@ -1564,6 +1759,14 @@
           "id": "contains:.design/component-libraries.md->.design/component-libraries.md#risks-and-gaps",
           "source": ".design/component-libraries.md",
           "target": ".design/component-libraries.md#risks-and-gaps",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md->.design/component-libraries.md#materialization",
+          "source": ".design/component-libraries.md",
+          "target": ".design/component-libraries.md#materialization",
           "type": "contains"
         }
       },
@@ -1657,6 +1860,14 @@
       },
       {
         "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#materialization",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#materialization",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.design/design-principles.md->.design/design-principles.md#dark-mode-only",
           "source": ".design/design-principles.md",
           "target": ".design/design-principles.md#dark-mode-only",
@@ -1713,6 +1924,14 @@
       },
       {
         "data": {
+          "id": "contains:.design/design-principles.md->.design/design-principles.md#materialization",
+          "source": ".design/design-principles.md",
+          "target": ".design/design-principles.md#materialization",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#auto-save-no-save-buttons",
           "source": ".design/interaction-guidelines.md",
           "target": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
@@ -1756,6 +1975,14 @@
           "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#empty-loading-and-error-states",
           "source": ".design/interaction-guidelines.md",
           "target": ".design/interaction-guidelines.md#empty-loading-and-error-states",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#materialization",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#materialization",
           "type": "contains"
         }
       },
@@ -1825,6 +2052,14 @@
       },
       {
         "data": {
+          "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#materialization",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/typography-and-layout.md#materialization",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/README.md->.arc42/02-constraints.md#technical-constraints",
           "source": ".design/README.md",
           "target": ".arc42/02-constraints.md#technical-constraints",
@@ -1844,6 +2079,30 @@
           "id": "related:.design/README.md->.arc42/08-crosscutting-concepts.md#storage-and-sync",
           "source": ".design/README.md",
           "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/README.md#living-reference-the-ui-storybook->.design/color-scheme.md",
+          "source": ".design/README.md#living-reference-the-ui-storybook",
+          "target": ".design/color-scheme.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/README.md#living-reference-the-ui-storybook->.design/typography-and-layout.md",
+          "source": ".design/README.md#living-reference-the-ui-storybook",
+          "target": ".design/typography-and-layout.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/README.md#living-reference-the-ui-storybook->.design/component-libraries.md",
+          "source": ".design/README.md#living-reference-the-ui-storybook",
+          "target": ".design/component-libraries.md",
           "type": "related"
         }
       },
@@ -1977,6 +2236,22 @@
       },
       {
         "data": {
+          "id": "related:.design/accessibility.md#materialization->.design/README.md#living-reference-the-ui-storybook",
+          "source": ".design/accessibility.md#materialization",
+          "target": ".design/README.md#living-reference-the-ui-storybook",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/accessibility.md#materialization->.design/interaction-guidelines.md#materialization",
+          "source": ".design/accessibility.md#materialization",
+          "target": ".design/interaction-guidelines.md#materialization",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/color-scheme.md->.design/design-principles.md#dark-mode-only",
           "source": ".design/color-scheme.md",
           "target": ".design/design-principles.md#dark-mode-only",
@@ -2025,6 +2300,22 @@
       },
       {
         "data": {
+          "id": "related:.design/color-scheme.md#syntax-highlighting-tokens->.design/design-principles.md#dark-mode-only",
+          "source": ".design/color-scheme.md#syntax-highlighting-tokens",
+          "target": ".design/design-principles.md#dark-mode-only",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#syntax-highlighting-tokens->.design/content-editing.md#supported-constructs",
+          "source": ".design/color-scheme.md#syntax-highlighting-tokens",
+          "target": ".design/content-editing.md#supported-constructs",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/color-scheme.md#contrast-rules-wcag-aa-minimum->.design/accessibility.md#contrast",
           "source": ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
           "target": ".design/accessibility.md#contrast",
@@ -2052,6 +2343,14 @@
           "id": "related:.design/color-scheme.md#per-stack-token-mapping->.arc42/04-solution-strategy.md#technology-choices",
           "source": ".design/color-scheme.md#per-stack-token-mapping",
           "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#materialization->.design/README.md#living-reference-the-ui-storybook",
+          "source": ".design/color-scheme.md#materialization",
+          "target": ".design/README.md#living-reference-the-ui-storybook",
           "type": "related"
         }
       },
@@ -2140,6 +2439,14 @@
           "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/accessibility.md",
           "source": ".design/component-libraries.md#diagram-and-graph-strategy",
           "target": ".design/accessibility.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#materialization->.design/README.md#living-reference-the-ui-storybook",
+          "source": ".design/component-libraries.md#materialization",
+          "target": ".design/README.md#living-reference-the-ui-storybook",
           "type": "related"
         }
       },
@@ -2305,6 +2612,30 @@
       },
       {
         "data": {
+          "id": "related:.design/content-editing.md#materialization->.design/README.md#living-reference-the-ui-storybook",
+          "source": ".design/content-editing.md#materialization",
+          "target": ".design/README.md#living-reference-the-ui-storybook",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/typography-and-layout.md#type-scale->.design/typography-and-layout.md#heading-defaults",
+          "source": ".design/typography-and-layout.md#type-scale",
+          "target": ".design/typography-and-layout.md#heading-defaults",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#materialization->.design/typography-and-layout.md#heading-defaults",
+          "source": ".design/content-editing.md#materialization",
+          "target": ".design/typography-and-layout.md#heading-defaults",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/design-principles.md->.arc42/04-solution-strategy.md#local-first-architecture",
           "source": ".design/design-principles.md",
           "target": ".arc42/04-solution-strategy.md#local-first-architecture",
@@ -2393,6 +2724,14 @@
       },
       {
         "data": {
+          "id": "related:.design/design-principles.md#materialization->.design/README.md#living-reference-the-ui-storybook",
+          "source": ".design/design-principles.md#materialization",
+          "target": ".design/README.md#living-reference-the-ui-storybook",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/interaction-guidelines.md->.design/design-principles.md#no-save-buttons--auto-save-everywhere",
           "source": ".design/interaction-guidelines.md",
           "target": ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
@@ -2473,6 +2812,22 @@
       },
       {
         "data": {
+          "id": "related:.design/interaction-guidelines.md#materialization->.design/README.md#living-reference-the-ui-storybook",
+          "source": ".design/interaction-guidelines.md#materialization",
+          "target": ".design/README.md#living-reference-the-ui-storybook",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#materialization->.design/accessibility.md",
+          "source": ".design/interaction-guidelines.md#materialization",
+          "target": ".design/accessibility.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/typography-and-layout.md->.design/color-scheme.md",
           "source": ".design/typography-and-layout.md",
           "target": ".design/color-scheme.md",
@@ -2524,6 +2879,22 @@
           "id": "related:.design/typography-and-layout.md#iconography->.design/accessibility.md#target-sizes-and-text",
           "source": ".design/typography-and-layout.md#iconography",
           "target": ".design/accessibility.md#target-sizes-and-text",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md#materialization->.design/README.md#living-reference-the-ui-storybook",
+          "source": ".design/typography-and-layout.md#materialization",
+          "target": ".design/README.md#living-reference-the-ui-storybook",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md#materialization->.design/color-scheme.md#materialization",
+          "source": ".design/typography-and-layout.md#materialization",
+          "target": ".design/color-scheme.md#materialization",
           "type": "related"
         }
       }

@@ -178,6 +178,48 @@ Copy-paste reference of every color token and its single dark value.
 | `color-border-strong` | `#737379` |
 | `color-border-focus` | `#F2C14E` |
 
+The twenty tokens above are the whole colour palette. `components.css` declares
+exactly these, plus the code-block theme in `#syntax-highlighting-tokens`;
+anything else in product code is a literal and MUST be replaced by a token.
+
+## Syntax Highlighting Tokens
+
+```meta
+status: active
+related: [".design/design-principles.md#dark-mode-only", ".design/content-editing.md#supported-constructs"]
+```
+
+`design-principles.md#dark-mode-only` requires syntax-highlight themes to be
+authored for dark surfaces rather than borrowed from a light editor, so the code
+theme is a token set of its own. It is a **theme, not a second semantic
+palette**: each token names what a run of code *is*, never what a piece of UI
+*means*, and nothing outside a code block may use one.
+
+| Token | Value | Run |
+|---|---|---|
+| `code-plain` | `color-text-primary` | Everything unclassified |
+| `code-keyword` | `color-primary` | Keywords — the "key highlight" the brand token is named for |
+| `code-type` | `#7FD1C1` | Type names |
+| `code-string` | `#9BD17F` | String literals |
+| `code-number` | `#F0A868` | Numeric literals |
+| `code-comment` | `#8595AD` | Comments |
+| `code-operator` | `color-text-secondary` | Operators and punctuation |
+| `code-tag` | `color-primary-light` | Markup tags |
+| `code-attribute` | `#7FD1C1` | Markup attributes |
+| `code-line-number` | `#7A8AA3` | Gutter line numbers |
+
+Rules:
+
+- Every value is measured against `color-background`, which is what a code block
+  sits on: runs of actual code clear 9.3:1, and the two deliberately quiet ones —
+  the comment grey at 6.1:1 and the line-number grey at 5.3:1 — still clear AA.
+  These are the figures against the neutral base in
+  `#surface-and-border-deviation`; each rose by ~5% when the base got darker, so
+  the theme needed no revision, only re-measurement.
+- The hues here are ones the product palette does not otherwise spend, so no two
+  kinds of run read as the same thing.
+- A new language MUST map onto these tokens; it MUST NOT add a colour.
+
 ## Contrast Rules (WCAG AA minimum)
 
 ```meta
@@ -267,3 +309,35 @@ Rules:
   emitting XAML + CSS) is the recommended mechanism to keep the three stacks in
   sync. `[TODO: clarify]` whether such a pipeline is in scope for the first
   release or tokens are hand-maintained per stack.
+
+## Materialization
+
+```meta
+status: active
+related: [".design/README.md#living-reference-the-ui-storybook"]
+```
+
+| Aspect | Where |
+|---|---|
+| Declaration | `src/UI/Backlog.UI.Components/wwwroot/components.css`, `:root` — the only place these values exist in code. The desktop's `app.css` links it and adds app-specific values only. |
+| Review surface | Storybook → *Foundations* → **Colour** |
+
+The Foundations page does not transcribe this file. It reads the tokens out of
+the live document, computes each ratio, and scores it against the thresholds in
+`#contrast-rules-wcag-aa-minimum` — so a value edited in `components.css` and not
+here shows up as a mismatch rather than passing unnoticed. It is also where the
+measured pairs in `#surface-and-border-deviation` come from: the override
+contract asks for evidence, and the evidence is generated rather than asserted.
+
+`DesignTokenTests.Every_colour_the_library_declares_matches_the_value_in_dotdesign`
+closes the same loop at build time — it fails when a value here and a value in
+`components.css` disagree, when this file's own tables disagree with each other,
+or when the stylesheet declares a colour this file does not name. The deviation
+chapter is excluded from that comparison, because its second column is
+deliberately a value the product does not use.
+
+Materialized: all twenty palette tokens and all ten code tokens.
+
+Not yet materialized: the per-stack mapping above is web-only in practice —
+there is no mobile MAUI `ResourceDictionary` and no IDE webview yet, so the CSS
+custom properties are currently the whole story.

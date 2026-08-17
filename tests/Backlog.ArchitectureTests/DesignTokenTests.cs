@@ -94,6 +94,105 @@ public class DesignTokenTests
         }
     }
 
+    /// <summary>The stylesheet and the document that specifies it. Every colour in
+    /// the library is named in <c>.design/color-scheme.md</c>, and the two had
+    /// drifted: the file carried a surface ramp a step darker than the one in the
+    /// org style guide the stylesheet follows, so a reader of the design folder and
+    /// a reader of the CSS were looking at different products.</summary>
+    [Fact]
+    public void Every_colour_the_library_declares_matches_the_value_in_dotdesign()
+    {
+        var declared = DeclaredColors(Path.Combine(
+            Repository.Root.FullName, "src", "UI", "Backlog.UI.Components", "wwwroot", "components.css"));
+
+        var specified = SpecifiedColors();
+
+        Assert.NotEmpty(declared);
+        Assert.NotEmpty(specified);
+
+        var mismatched = specified
+            .Where(entry => declared.TryGetValue(entry.Key, out var value) && value != entry.Value)
+            .Select(entry => $"{entry.Key} is {declared[entry.Key]} in components.css, {entry.Value} in .design")
+            .OrderBy(line => line)
+            .ToList();
+
+        var undocumented = declared.Keys
+            .Where(token => !specified.ContainsKey(token))
+            .OrderBy(token => token)
+            .ToList();
+
+        Assert.True(
+            mismatched.Count == 0,
+            "The stylesheet and .design/color-scheme.md disagree about a colour: "
+            + string.Join("; ", mismatched));
+
+        Assert.True(
+            undocumented.Count == 0,
+            "components.css declares colours .design/color-scheme.md does not name, so nothing says what "
+            + $"they mean or what they have to contrast against: {string.Join(", ", undocumented)}");
+    }
+
+    /// <summary>Colour literals declared on <c>:root</c>, keyed by token name
+    /// without the <c>--</c>. A token defined as <c>var(--other)</c> is skipped:
+    /// it has no value of its own to disagree about.</summary>
+    private static Dictionary<string, string> DeclaredColors(string path) =>
+        Regex.Matches(File.ReadAllText(path), @"--((?:color|code)-[a-z0-9-]+)\s*:\s*([^;]+);")
+            .Where(match => IsColorLiteral(match.Groups[2].Value))
+            .ToDictionary(
+                match => match.Groups[1].Value,
+                match => Normalized(match.Groups[2].Value));
+
+    /// <summary>The chapter that documents what the product deliberately is
+    /// <em>not</em>: its table puts the org guide's superseded value beside the
+    /// product's, so its second cell is a colour this file is declaring it does
+    /// not use. Read as a declaration it would look like the file contradicting
+    /// itself.</summary>
+    private const string SupersededValuesChapter = "Surface and Border Deviation";
+
+    /// <summary>The same colours as the tables in <c>color-scheme.md</c> give them.
+    /// Every declaring table there puts the token in the first cell and its value
+    /// in the second, so one pattern reads all of them — and a row whose second
+    /// cell is not a literal (a token reference, or the per-stack mapping's CSS
+    /// declaration) is not a value this can check.</summary>
+    private static Dictionary<string, string> SpecifiedColors()
+    {
+        var markdown = File.ReadAllText(
+            Path.Combine(Repository.Root.FullName, ".design", "color-scheme.md"));
+
+        var declaring = string.Concat(
+            Regex.Split(markdown, @"^(?=## )", RegexOptions.Multiline)
+                .Where(chapter => !chapter.StartsWith($"## {SupersededValuesChapter}", StringComparison.Ordinal)));
+
+        var rows = Regex.Matches(declaring, @"^\|\s*`((?:color|code)-[a-z0-9-]+)`\s*\|\s*`([^`]+)`\s*\|",
+            RegexOptions.Multiline);
+
+        var specified = new Dictionary<string, string>();
+
+        foreach (var row in rows.Where(row => IsColorLiteral(row.Groups[2].Value)))
+        {
+            var token = row.Groups[1].Value;
+            var value = Normalized(row.Groups[2].Value);
+
+            // The file states most values twice, per-group and in the full
+            // reference. Those two copies have to agree as well.
+            Assert.True(
+                !specified.TryGetValue(token, out var earlier) || earlier == value,
+                $"color-scheme.md lists {token} as both {earlier} and {value}.");
+
+            specified[token] = value;
+        }
+
+        return specified;
+    }
+
+    private static bool IsColorLiteral(string value) =>
+        value.TrimStart().StartsWith('#') || value.TrimStart().StartsWith("rgb", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Case and the spaces inside <c>rgba(...)</c> are formatting, not
+    /// value: the markdown writes the scrim tight and the CSS writes it spaced.</summary>
+    private static string Normalized(string value) =>
+        Regex.Replace(value, @"\s+", string.Empty).ToLowerInvariant();
+
     /// <summary>Custom properties declared on <c>:root</c>.</summary>
     private static HashSet<string> DeclaredTokens(string path)
     {

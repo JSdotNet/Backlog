@@ -68,6 +68,53 @@ status: active
 - Any decision that could not be sourced from the design MCP is marked
   `[TODO: clarify]` and must be resolved before that area ships.
 
+## Living Reference: The UI Storybook
+
+```meta
+status: active
+related: [".design/color-scheme.md", ".design/typography-and-layout.md", ".design/component-libraries.md"]
+```
+
+These files are the written rules; the **storybook** is where they are visible
+and runnable. It renders every component of the shared Razor library on its own,
+against the same stylesheet the desktop app links, so it is the review surface
+for anything specified here.
+
+| What | Where |
+|---|---|
+| Storybook host | `src/harness/Backlog.UI.Storybook` |
+| Component library it renders | `src/UI/Backlog.UI.Components` |
+| Token declarations — the code side of `color-scheme.md` and `typography-and-layout.md` | `src/UI/Backlog.UI.Components/wwwroot/components.css` (`:root`) |
+
+Run it standalone, or as the `ui-storybook` Aspire resource:
+
+```bash
+dotnet run --project src/harness/Backlog.UI.Storybook
+```
+
+Page map — each file here and the storybook pages that show it:
+
+| File | Storybook pages |
+|---|---|
+| `design-principles.md` | *Foundations* (one dark palette, no light column); *Markdown* (edits auto-save, no save button) |
+| `color-scheme.md` | *Foundations* → **Colour**, which measures each token's contrast in the live document against the thresholds in `#contrast-rules-wcag-aa-minimum` |
+| `typography-and-layout.md` | *Foundations* → **Typography**, **Spacing**, **Radius and elevation**, **Motion** |
+| `interaction-guidelines.md` | *Feedback* (SaveIndicator, Toast, Alert, EmptyState, Spinner); *Overlays*; *Markdown* (debounced text save, immediate task-toggle save) |
+| `content-editing.md` | *Markdown*, *File view*, *Code* |
+| `accessibility.md` | every page — components carry their own roles, labels and focus styles; *Foundations* reports contrast |
+| `component-libraries.md` | *Diagrams* and *Graph explorer* (Mermaid, AntV G6), plus the library itself |
+
+Rules:
+
+- The storybook MUST NOT restyle a library component; it adds page chrome only,
+  so what it shows is what the app shows.
+- `components.css` is the single declaration of tokens in code — the desktop's
+  `app.css` links it and declares only app-specific values on top. A token value
+  changed in one place MUST be changed in the other and here.
+- Where a rule in these files is **not yet materialized** in the library, the
+  file says so in a *Materialization* chapter rather than letting the two
+  disagree silently.
+
 ## Table of Contents
 
 ```meta

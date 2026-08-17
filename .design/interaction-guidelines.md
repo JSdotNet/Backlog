@@ -66,6 +66,12 @@ Rules:
 - Screen-reader announcements for save state are specified in
   `accessibility.md#screen-reader-announcements`.
 
+The shared `SaveIndicator` component carries three of these five states —
+`Saving` (`Saving...`), `Saved`, and `Failed` (`Could not save`) — plus an
+`Idle` state that renders nothing at all, which is how a surface with no edit in
+flight stays quiet. `Offline` and `Conflict` are specified above but not yet
+built; see `#materialization`.
+
 ### Undo and History
 
 | Rule | Requirement |
@@ -225,7 +231,13 @@ Standard combinations:
 | Dropdown / slash-command open | `transition-base` | `ease-out` |
 | Modal / drawer enter | `transition-slow` | `ease-out` |
 | Toast / save-state enter | `transition-slow` | `ease-out` |
-| Saved-confirmation flash | `transition-base` | `ease-bounce` |
+| Saved-confirmation flash | `transition-base` | `ease-out` (see below) |
+
+**Recorded deviation:** the org style guide pairs the saved-confirmation flash
+with `ease-bounce`. The product uses a smooth `ease-out` instead, by explicit
+decision — a bounce on every auto-save is a lot of movement for something that
+happens continuously and unprompted. The desktop declares this as
+`--ease-saved-flash` in `app.css`.
 
 Rules:
 
@@ -291,3 +303,38 @@ status: active
 | Persistent banner | Show a calm, persistent offline banner (`color-info` surface) at the top of the viewport; auto-dismiss on reconnect. |
 | Editing continues | Reading and editing MUST continue offline; only genuinely network-only actions (e.g. GitHub sync) are disabled with explanation. |
 | Save state | The save-state indicator shows `Offline — changes saved locally` (see `#save-state-indicator-vocabulary`). |
+
+## Materialization
+
+```meta
+status: active
+related: [".design/README.md#living-reference-the-ui-storybook", ".design/accessibility.md"]
+```
+
+| Rule area | Where it lives | Review surface |
+|---|---|---|
+| Auto-save, debounce, indicator | `SaveIndicator` in the shared library; `BacklogDesktopState` in the desktop app | Storybook → *Feedback* → **SaveIndicator**, and *Markdown* → **Edit and read**, which runs the real sequence: debounced text save while typing, immediate save on a task toggle, nothing shown while idle |
+| Toasts and feedback | `Toast`, `ToastHost`, `Alert`, `EmptyState`, `Spinner` | Storybook → *Feedback* |
+| Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
+| Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
+| Drag-and-drop reordering | The **desktop app**, not the library: entry and sub-item grips in `BacklogPane.razor`, state in `BacklogDesktopState` | none — see the gap below |
+
+Known gaps:
+
+- **Reorder has no storybook page.** Both reorder implementations live in the
+  desktop app rather than in the shared library, so the storybook cannot show
+  them and this section has no runnable review surface. Reorder is the single
+  largest interaction spec here; lifting a reorderable list into the library
+  would put it under review like everything else.
+- **No reorder announcements.** `accessibility.md#reorder-announcements` requires
+  a live region announcing "Moved to position 3 of 8"; there is no `aria-live`
+  region in the desktop app today. Keyboard reorder itself works — the grips take
+  focus and respond to the arrow keys, and each grip is labelled with that.
+- **No `Offline` or `Conflict` save state.** The `SaveState` enum stops at
+  `Failed`. Both states are specified in `#save-state-indicator-vocabulary` and
+  both need building before sync ships.
+- **The indicator has no icon.** It renders a coloured dot rather than the
+  `check-circle` / `loader-2` / `x-circle` glyphs the vocabulary names, because
+  the product has no icon set yet
+  (`typography-and-layout.md#materialization`). The dot is `aria-hidden`, so the
+  state is carried by the text, not by the colour alone.
