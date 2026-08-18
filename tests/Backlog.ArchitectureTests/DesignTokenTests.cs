@@ -373,28 +373,28 @@ public class DesignTokenTests
             .SelectMany(root => root.EnumerateFiles("*.css", SearchOption.AllDirectories))
             .Where(NotBuildOutput);
 
-    /// <summary>Every stylesheet we wrote ourselves: the app heads and the
-    /// development-time harnesses. Vendored CSS is excluded — bootstrap is full of
-    /// literals and none of them are ours to fix. The library's own
-    /// <c>components.css</c> is out of scope by living under <c>src/UI</c>: it is
-    /// where the literals are supposed to be.</summary>
-    private static IEnumerable<FileInfo> OurStylesheets()
-    {
-        foreach (var folder in new[] { "App", "Harness" })
-        {
-            var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", folder));
-            if (!root.Exists) continue;
-
-            var candidates = root.EnumerateFiles("*.css", SearchOption.AllDirectories)
-                .Where(NotBuildOutput)
-                .Where(file => !IsVendored(Relative(file)));
-
-            foreach (var file in candidates)
-            {
-                yield return file;
-            }
-        }
-    }
+    /// <summary>Every stylesheet we wrote ourselves: everything
+    /// <see cref="ApplicationStylesheets"/> covers, plus the development-time
+    /// harnesses, which are ours and are read by the same eyes.
+    ///
+    /// <para>Scoped through <see cref="Repository.UserInterfaceFolders"/> rather
+    /// than by naming <c>src/App</c>, for the reason that helper exists: a
+    /// module's <c>.UI</c> project is where a screen's stylesheet lives now, and
+    /// a rule that reads only <c>src/App</c> would keep passing while never
+    /// looking at one. A literal is easiest to write in exactly the scoped
+    /// stylesheet this would not have read.</para>
+    ///
+    /// <para>Vendored CSS is excluded — bootstrap is full of literals and none of
+    /// them are ours to fix. The library's own <c>components.css</c> is out of
+    /// scope by living under <c>src/Core</c> rather than in a UI folder: it is
+    /// where the literals are supposed to be.</para></summary>
+    private static IEnumerable<FileInfo> OurStylesheets() =>
+        Repository.UserInterfaceFolders()
+            .Append(new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", "Harness")))
+            .Where(root => root.Exists)
+            .SelectMany(root => root.EnumerateFiles("*.css", SearchOption.AllDirectories))
+            .Where(NotBuildOutput)
+            .Where(file => !IsVendored(Relative(file)));
 
     private static bool NotBuildOutput(FileInfo file) =>
         !file.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
