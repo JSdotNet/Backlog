@@ -68,3 +68,7 @@ nunit-*.xml
 # Claude Code worktree sessions. The rest of .claude/ (orch-context.md,
 # model-selection.md) is tracked team configuration.
 .claude/worktrees/
+
+# Local Android developer signing material created by build/Install-AndroidApp.ps1.
+# Never commit a keystore or its password; release signing comes from repo secrets.
+build/.local/

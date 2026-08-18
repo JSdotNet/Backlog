@@ -6,28 +6,28 @@
     ".tech"
   ],
   "stats": {
-    "nodes": 64,
-    "edges": 139,
+    "nodes": 66,
+    "edges": 142,
     "nodesByFolder": {
-      "tech": 52,
-      "arc42": 11,
+      "tech": 53,
+      "arc42": 12,
       "domain": 1
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 54
+      "chapter": 56
     },
     "nodesByStatus": {
       "candidate": 32,
-      "adopted": 20,
-      "active": 10,
+      "adopted": 21,
+      "active": 11,
       "accepted": 1,
       "draft": 1
     },
     "edgesByType": {
-      "contains": 45,
-      "related": 51,
-      "depends-on": 43
+      "contains": 46,
+      "related": 52,
+      "depends-on": 44
     }
   },
   "problems": [],
@@ -501,6 +501,26 @@
           ],
           "related": [
             ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/mobile.md#apk-packaging",
+          "label": "APK Packaging",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/mobile.md",
+          "slug": "apk-packaging",
+          "level": 2,
+          "line": 48,
+          "status": "adopted",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/mobile.md#android"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#installation-and-updates-mobile"
           ]
         }
       },
@@ -1024,7 +1044,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 76,
+          "line": 142,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -1146,6 +1166,24 @@
           "related": [
             ".tech/desktop.md#msix-packaging",
             ".tech/desktop.md#app-installer-appinstaller"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/07-deployment-view.md#installation-and-updates-mobile",
+          "label": "Installation and Updates (Mobile)",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "slug": "installation-and-updates-mobile",
+          "level": 3,
+          "line": 89,
+          "status": "active",
+          "related": [
+            ".tech/mobile.md#apk-packaging",
+            ".arc42/07-deployment-view.md#installation-and-updates"
           ],
           "outOfScope": true
         }
@@ -1368,6 +1406,14 @@
           "id": "contains:.tech/mobile.md->.tech/mobile.md#local-offline-store",
           "source": ".tech/mobile.md",
           "target": ".tech/mobile.md#local-offline-store",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/mobile.md->.tech/mobile.md#apk-packaging",
+          "source": ".tech/mobile.md",
+          "target": ".tech/mobile.md#apk-packaging",
           "type": "contains"
         }
       },
@@ -1960,6 +2006,22 @@
           "id": "related:.tech/mobile.md#local-offline-store->.arc42/08-crosscutting-concepts.md#storage-and-sync",
           "source": ".tech/mobile.md#local-offline-store",
           "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/mobile.md#apk-packaging->.tech/mobile.md#android",
+          "source": ".tech/mobile.md#apk-packaging",
+          "target": ".tech/mobile.md#android",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/mobile.md#apk-packaging->.arc42/07-deployment-view.md#installation-and-updates-mobile",
+          "source": ".tech/mobile.md#apk-packaging",
+          "target": ".arc42/07-deployment-view.md#installation-and-updates-mobile",
           "type": "related"
         }
       },
