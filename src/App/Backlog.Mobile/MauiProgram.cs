@@ -1,3 +1,4 @@
+using Backlog.Mobile.Services;
 using Backlog.Mobile.UI.Services;
 using Microsoft.Extensions.Logging;
 
@@ -30,6 +31,12 @@ public static class MauiProgram
 
 		builder.Services.AddHttpClient<CloudSyncClient>(client =>
 			client.BaseAddress = new Uri(syncBaseAddress));
+
+		// The Android recogniser, not the Web Speech one: the System WebView
+		// generally has no webkitSpeechRecognition, so the browser implementation
+		// would look wired up here and then do nothing on a device. The browser
+		// harness registers WebSpeechTranscriber against the same abstraction.
+		builder.Services.AddScoped<ISpeechTranscriber, AndroidSpeechTranscriber>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();

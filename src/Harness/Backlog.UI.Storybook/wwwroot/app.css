@@ -461,3 +461,95 @@ html, body {
         transform: none;
     }
 }
+
+/* A reference table inside a story — what a formatter returns for a given call,
+   which is a table and not a component. Page chrome, so it lives here rather than
+   in the library: nothing in Backlog.UI.Components renders a table like this. */
+
+/* These tables hold call signatures and type names that must not wrap, so at a
+   phone width they are wider than the page. Scrolling them inside their own box
+   keeps that local: without this the whole article scrolls sideways, and every
+   story above becomes draggable because one table at the bottom is too wide. */
+.sb-table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.sb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.sb-table th,
+.sb-table td {
+    padding: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+    text-align: left;
+    vertical-align: baseline;
+}
+
+.sb-table thead th {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.sb-table code {
+    white-space: nowrap;
+}
+
+/* The dashboard page composes sections of tiles, charts and tables; this is the
+   rhythm between them, which the storybook owns because a real host would use its
+   own page layout. */
+.sb-dashboard {
+    display: grid;
+    gap: var(--spacing-lg);
+}
+
+.sb-dashboard-split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: var(--spacing-md);
+    align-items: start;
+}
+
+.sb-dashboard-panel {
+    display: grid;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.sb-dashboard-panel__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+}
+
+/* A segmented strip of five repository names is wider than a phone. It scrolls
+   rather than wraps, because wrapping a segmented control breaks the one thing the
+   shape communicates — that these are one-of-many alternatives. Page chrome, so it
+   lives here: .btn-group is shared, and its refusal to wrap is correct. */
+.sb-control-scroll {
+    overflow-x: auto;
+    min-width: 0;
+    max-width: 100%;
+    /* The focus ring on the first and last button would otherwise be clipped by
+       the scroll box. */
+    padding: var(--spacing-2xs);
+}
+/* A track for a component that positions itself absolutely against one. The
+   standalone RoadmapTimelineBar story needs somewhere to be absolute inside;
+   without it the bar would place itself against the page. */
+.sb-bar-track {
+    position: relative;
+    height: 2.75rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+}

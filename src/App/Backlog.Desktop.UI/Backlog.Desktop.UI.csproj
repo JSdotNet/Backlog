@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
+  <!--
+    The desktop shell: the layout, the routes, the settings screen, and the
+    composition that decides which context panes are on screen. The contexts
+    themselves live in their own module UI projects and are referenced below;
+    what is left here is only the app's own chrome and its wwwroot.
+  -->
   <PropertyGroup>
     <RootNamespace>Backlog.Desktop.UI</RootNamespace>
     <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
@@ -10,23 +16,49 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The text parser is the contract between what a person types and what
-         gets stored, so it is worth testing directly rather than only through
-         the component that happens to call it. -->
+    <!-- Pane selection and the update presentation are decisions the shell makes
+         on its own, so they are worth testing directly rather than only through
+         the page that happens to render them. -->
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\UI\Backlog.UI.Components\Backlog.UI.Components.csproj" />
-    <!-- The module's published surface only: DTOs, the entry text language, and
-         the IBacklogEntries port. The aggregate, its repository and the use-case
-         handlers stay behind that line — the host wires them up, the UI does not
-         see them. -->
+    <ProjectReference Include="..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <!-- The feature port. The shell renders the catalog of switchable features
+         and gates its own chrome on them; what a feature is switched by is a
+         contract every context shares, so it lives in the kernel. -->
+    <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- The contexts the shell composes. It is the one place allowed to see all
+         of them at once, because wiring them together is its whole job. Dev PC
+         Management is the odd one out: its pane is not a global pane, it is
+         toggled on its own and docks to the right of the stack — but it is
+         composed here the same way, as a pane the shell makes room for and
+         otherwise knows nothing about. -->
+    <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog.UI\Backlog.Modules.Backlog.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Knowledge\Backlog.Modules.Knowledge.UI\Backlog.Modules.Knowledge.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.UI\Backlog.Modules.DevPc.UI.csproj" />
+    <!-- Three published surfaces, for the feature catalog and nothing else. The
+         catalog gathers keys that belong to the contexts they are features of,
+         so the shell that renders the list of switches names them where they are
+         declared rather than restating the strings. It still sees no DTO, no
+         port and no aggregate: a key is a constant. -->
     <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog.Abstractions\Backlog.Modules.Backlog.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+    <!-- Settings and the home page speak to these adapters directly: the AI
+         assistant panel and its endpoint settings, the Claude usage report, and
+         the GitHub repository/knowledge-folder settings plus the local clone
+         status the settings screen shows. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
-    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
-    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
+    <!-- The settings screen edits the workspace settings file itself: which
+         folder the backlog lives in, which repository backs it, and which
+         knowledge folders are configured for it. The last two are named in
+         adapter and Second Brain types, so they are not on the module's store
+         port and this screen takes the adapter, as it already does for GitHub,
+         Claude and Azure Foundry. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
   </ItemGroup>
 

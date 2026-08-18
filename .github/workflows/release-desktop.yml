@@ -62,6 +62,10 @@ jobs:
             return
           }
 
+          # A git pathspec matches a directory and everything under it, but only
+          # on a path-segment boundary: 'src/Modules/Backlog/Backlog.Modules.Backlog'
+          # does not match the sibling '...Backlog.Modules.Backlog.UI'. Every
+          # project the desktop head composes therefore has to be listed by name.
           $releasePaths = @(
             'Backlog.sln',
             'src/App/Backlog.Desktop',
@@ -71,7 +75,14 @@ jobs:
             'src/Infrastructure/Backlog.Infrastructure.FileSystem',
             'src/Infrastructure/Backlog.Infrastructure.GitHub',
             'src/Modules/Backlog/Backlog.Modules.Backlog',
-            'src/Shared/Backlog.SharedKernel',
+            'src/Modules/Backlog/Backlog.Modules.Backlog.UI',
+            'src/Modules/Backlog/Backlog.Modules.Backlog.Abstractions',
+            'src/Modules/DevPc/Backlog.Modules.DevPc.Abstractions',
+            'src/Modules/DevPc/Backlog.Modules.DevPc.UI',
+            'src/Modules/Inbox/Backlog.Modules.Inbox.UI',
+            'src/Modules/Knowledge/Backlog.Modules.Knowledge.UI',
+            'src/Modules/Knowledge/Backlog.Modules.Knowledge.Abstractions',
+            'src/Core/Backlog.SharedKernel',
             'build/Backlog.Desktop.appinstaller.template',
             'build/New-AppInstaller.ps1',
             '.github/workflows/release-desktop.yml'

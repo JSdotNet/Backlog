@@ -1,0 +1,475 @@
+@*
+    Composition over time: what share of the whole each series took, every bucket
+    adding to 100%.
+
+    Normalised here rather than by the caller. "Percentage of my time" is a share of
+    whatever was logged that week, and a caller passing raw hours should not have to
+    divide by a total it would then have to keep in step with the chart. Pass hours,
+    days, points — the bands are shares of the bucket either way, and they add to
+    100% by construction rather than by the caller getting the arithmetic right.
+
+    Which is also the chart's one lie, and the reason ShowTotals exists. A hundred
+    percent of a four-hour week and a hundred percent of a fifty-hour week look
+    identical here, so a composition chart on its own cannot tell you whether the
+    work grew or collapsed. The bucket totals under the axis are what make it
+    honest, and they are on by default.
+
+    Bands take ramp steps bottom to top in the order given, so the caller owns the
+    stacking order — and past the fourth series the ramp repeats. That is why the
+    labels sit *in* the bands rather than only in a legend: with one saturated hue
+    there are four shades to spend, and beyond that the name written across the band
+    is the only thing telling two of them apart. The legend is a summary, not the
+    identification.
+
+    Labels are HTML positioned over the plot, not SVG text. The viewBox stretches to
+    the box with preserveAspectRatio="none", which would stretch glyphs with it.
+*@
+
+<figure class="@ClassValue" style="@StyleValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <figcaption class="@(Part("label"))">@Label</figcaption>
+    }
+
+    @if (Bands.Count == 0)
+    {
+        <MetricStatus Kind="MetricStatusKind.Empty" Message="@EmptyMessage" CssClass="@(Part("status"))" />
+    }
+    else
+    {
+        <div class="@(Part("plot"))">
+            <div class="@(Part("canvas-wrap"))" aria-hidden="true">
+                <svg class="@(Part("canvas"))" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
+                    @foreach (var band in Bands)
+                    {
+                        @foreach (var shape in band.Shapes)
+                        {
+                            <polygon class="@BandClass(band)" points="@shape" />
+                        }
+                    }
+                </svg>
+
+                @* In-band names, for the bands with room for one. Positioned in
+                   percentages so they track the plot at any size. *@
+                @foreach (var band in Bands.Where(one => one.Anchor is not null))
+                {
+                    <span class="@InBandClass(band)"
+                          style="@($"left: {Text(band.Anchor!.X)}%; top: {Text(band.Anchor.Y)}%")">
+                        @band.Name
+                    </span>
+                }
+            </div>
+
+            <div class="@(Part("scale"))" aria-hidden="true">
+                <span>100%</span>
+                <span>50%</span>
+                <span>0%</span>
+            </div>
+
+            @* Inside the plot, sharing its grid column with the canvas. Aligning the
+               axis by hand — a margin sized to clear the scale column — puts every
+               tick a few pixels off the bucket it names, and the error is invisible
+               until someone reads a value off the wrong week. *@
+            <div class="@(Part("axis"))" aria-hidden="true">
+                @foreach (var tick in Ticks)
+                {
+                    <span class="@(Part("tick"))" style="@($"left: {Text(tick.X)}%")">
+                        <span class="@(Part("tick-label"))">@tick.Label</span>
+                        @if (ShowTotals)
+                        {
+                            <span class="@(Part("tick-total"))">@FormatBucketTotal(tick.Total)</span>
+                        }
+                    </span>
+                }
+            </div>
+        </div>
+
+        @if (ShowLegend)
+        {
+            <ul class="@(Part("legend"))">
+                @foreach (var band in Bands)
+                {
+                    <li class="@(Part("legend-item"))">
+                        <span class="@($"{Part("swatch")} {Part("swatch")}--{band.Ramp}")" aria-hidden="true"></span>
+                        <span class="@(Part("legend-name"))">@band.Name</span>
+                        <span class="@(Part("legend-share"))">@MetricFormat.Percent(band.OverallShare)</span>
+                    </li>
+                }
+            </ul>
+        }
+
+        @* The wrapper carries sr-only, not the table: a table ignores overflow and a
+           wide hidden one would drag the page sideways. *@
+        <div class="sr-only">
+            <table>
+                <caption>@Caption</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">@NameHeading</th>
+                        @foreach (var bucket in Buckets)
+                        {
+                            <th scope="col">@bucket</th>
+                        }
+                        <th scope="col">Share of the period</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var band in Bands)
+                    {
+                        <tr>
+                            <th scope="row">@band.Name</th>
+                            @foreach (var share in band.Shares)
+                            {
+                                <td>@(share is null ? NotReported : MetricFormat.Percent(share.Value))</td>
+                            }
+                            <td>@MetricFormat.Percent(band.OverallShare)</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    @* The figure a hundred-percent chart cannot show: a full week and
+                       an empty one are the same height here. *@
+                    <tr>
+                        <th scope="row">Logged in total</th>
+                        @foreach (var total in BucketTotals)
+                        {
+                            <td>@(total <= 0m ? NotReported : FormatBucketTotal(total))</td>
+                        }
+                        <td>@FormatBucketTotal(BucketTotals.Sum())</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+</figure>
+
+@code {
+    /// <summary>Raw amounts per bucket — hours, days, points. Normalised to shares of
+    /// each bucket, so nothing here needs to add to anything in particular.
+    /// <para>Stacking runs bottom to top in the order given, and that order is
+    /// meaning: it decides which band sits on the stable baseline and which one
+    /// absorbs everyone else's movement at the top.</para></summary>
+    [Parameter]
+    public IReadOnlyList<MetricSeries> Series { get; set; } = [];
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>Names the chart when there is no visible label.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>What the first column of the hidden table is called: "Repository",
+    /// "Project".</summary>
+    [Parameter]
+    public string NameHeading { get; set; } = "Series";
+
+    /// <summary>How a bucket total reads — "38h", "4.5d". Defaults to the compact
+    /// notation.</summary>
+    [Parameter]
+    public Func<decimal, string>? FormatTotal { get; set; }
+
+    /// <summary>Prints what was logged in each bucket under the axis. On by default,
+    /// because without it the chart cannot distinguish a full week from an empty
+    /// one.</summary>
+    [Parameter]
+    public bool ShowTotals { get; set; } = true;
+
+    [Parameter]
+    public bool ShowLegend { get; set; } = true;
+
+    /// <summary>Emphasises one band by name and mutes the others' labels. For a view
+    /// that is about one project's share rather than the whole split.</summary>
+    [Parameter]
+    public string? Selected { get; set; }
+
+    /// <summary>How thick a band has to be at its widest before it gets a name
+    /// written across it. Below this the label would not fit and the legend is the
+    /// only place the band is identified.</summary>
+    [Parameter]
+    public decimal MinLabelShare { get; set; } = 0.12m;
+
+    [Parameter]
+    public string Height { get; set; } = "13rem";
+
+    /// <summary>How many bucket labels to print at most, thinned like the column
+    /// chart's.</summary>
+    [Parameter]
+    public int MaxLabels { get; set; } = 7;
+
+    [Parameter]
+    public string? EmptyMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-stacked-area</c> as the class this block carries,
+    /// and every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-stacked-area";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>How many shades the ramp has before it repeats.</summary>
+    private const int RampSteps = 4;
+
+    private const string NotReported = "not reported";
+
+    private sealed record Anchor(decimal X, decimal Y);
+
+    private sealed record Band(
+        string Name,
+        int Ramp,
+        IReadOnlyList<string> Shapes,
+        IReadOnlyList<decimal?> Shares,
+        decimal OverallShare,
+        Anchor? Anchor);
+
+    private sealed record Tick(decimal X, string Label, decimal Total);
+
+    private IReadOnlyList<string> Buckets { get; set; } = [];
+
+    private IReadOnlyList<decimal> BucketTotals { get; set; } = [];
+
+    private IReadOnlyList<Band> Bands { get; set; } = [];
+
+    private IReadOnlyList<Tick> Ticks { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        var series = (Series ?? []).Where(one => one.Points.Count > 0).ToList();
+
+        // Bucket labels come from the longest series rather than the first, so a
+        // project that started late does not truncate the axis for everyone.
+        Buckets =
+        [
+            .. (series.OrderByDescending(one => one.Points.Count).FirstOrDefault()?.Points ?? [])
+                .Select(point => point.Label)
+        ];
+
+        if (series.Count == 0 || Buckets.Count == 0)
+        {
+            BucketTotals = [];
+            Bands = [];
+            Ticks = [];
+            return;
+        }
+
+        // A series missing a bucket contributes nothing to it. That is not the same as
+        // the bucket being unreported, which is the total being zero — nobody logged
+        // anything at all that week, and there is no whole to take a share of.
+        var raw = series
+            .Select(one => Buckets.Select(bucket => one.Points.FirstOrDefault(p => p.Label == bucket)?.Value).ToArray())
+            .ToList();
+
+        BucketTotals =
+        [
+            .. Enumerable.Range(0, Buckets.Count)
+                .Select(index => raw.Sum(values => Math.Max(0m, values[index] ?? 0m)))
+        ];
+
+        var reported = Enumerable.Range(0, Buckets.Count).Where(index => BucketTotals[index] > 0m).ToHashSet();
+
+        if (reported.Count == 0)
+        {
+            Bands = [];
+            Ticks = [];
+            return;
+        }
+
+        var shares = raw
+            .Select(values => Buckets.Select((_, index) => BucketTotals[index] <= 0m
+                    ? (decimal?)null
+                    : Math.Max(0m, values[index] ?? 0m) / BucketTotals[index])
+                .ToArray())
+            .ToList();
+
+        // Cumulative from the bottom, so each band's top edge is everything up to and
+        // including it.
+        var cumulative = new decimal[series.Count][];
+        var running = new decimal[Buckets.Count];
+
+        for (var k = 0; k < series.Count; k++)
+        {
+            cumulative[k] = new decimal[Buckets.Count];
+
+            for (var b = 0; b < Buckets.Count; b++)
+            {
+                running[b] += shares[k][b] ?? 0m;
+                cumulative[k][b] = running[b];
+            }
+        }
+
+        var grandTotal = BucketTotals.Sum();
+
+        Bands =
+        [
+            .. series.Select((one, k) => new Band(
+                one.Name,
+                k % RampSteps + 1,
+                Shapes(reported, k, cumulative),
+                shares[k],
+                grandTotal <= 0m
+                    ? 0m
+                    : Enumerable.Range(0, Buckets.Count).Sum(b => Math.Max(0m, raw[k][b] ?? 0m)) / grandTotal,
+                LabelAnchor(reported, k, shares[k], cumulative)))
+        ];
+
+        var stride = MaxLabels <= 0 ? 1 : Math.Max(1, (int)Math.Ceiling(Buckets.Count / (double)MaxLabels));
+
+        Ticks =
+        [
+            .. Buckets.Select((label, index) => (label, index))
+                .Where(entry => entry.index % stride == 0 || entry.index == Buckets.Count - 1)
+                .Select(entry => new Tick(X(entry.index), entry.label, BucketTotals[entry.index]))
+        ];
+    }
+
+    /// <summary>
+    /// One polygon per unbroken run of reported buckets.
+    /// </summary>
+    /// <remarks>
+    /// Split rather than bridged, because a straight line drawn across a fortnight
+    /// nobody logged is an invention. A run of a single bucket has no width to make an
+    /// area from, so it gets a narrow column instead of vanishing.
+    /// </remarks>
+    private IReadOnlyList<string> Shapes(HashSet<int> reported, int k, decimal[][] cumulative)
+    {
+        var shapes = new List<string>();
+        var run = new List<int>();
+
+        void Flush()
+        {
+            if (run.Count == 0) return;
+
+            // A single bucket has no width to make an area from, so it becomes a narrow
+            // column centred on its own x rather than disappearing.
+            var xs = new List<decimal>(run.Count == 1 ? 2 : run.Count);
+
+            if (run.Count == 1)
+            {
+                xs.Add(X(run[0]) - SliverWidth);
+                xs.Add(X(run[0]) + SliverWidth);
+            }
+            else
+            {
+                xs.AddRange(run.Select(X));
+            }
+
+            var points = new List<string>(xs.Count * 2);
+
+            // Along the top edge, then back along the edge of the band below it.
+            for (var position = 0; position < xs.Count; position++)
+            {
+                var index = run.Count == 1 ? run[0] : run[position];
+
+                points.Add($"{Text(xs[position])},{Text(Y(cumulative[k][index]))}");
+            }
+
+            for (var position = xs.Count - 1; position >= 0; position--)
+            {
+                var index = run.Count == 1 ? run[0] : run[position];
+                var below = k == 0 ? 0m : cumulative[k - 1][index];
+
+                points.Add($"{Text(xs[position])},{Text(Y(below))}");
+            }
+
+            shapes.Add(string.Join(' ', points));
+            run.Clear();
+        }
+
+        for (var index = 0; index < Buckets.Count; index++)
+        {
+            if (reported.Contains(index))
+            {
+                run.Add(index);
+                continue;
+            }
+
+            Flush();
+        }
+
+        Flush();
+
+        return shapes;
+    }
+
+    /// <summary>Where to write the band's name: its thickest reported bucket, if that
+    /// is thick enough to hold one.</summary>
+    private Anchor? LabelAnchor(HashSet<int> reported, int k, decimal?[] shares, decimal[][] cumulative)
+    {
+        var best = -1;
+        var bestShare = 0m;
+
+        foreach (var index in reported)
+        {
+            var share = shares[index] ?? 0m;
+
+            if (share <= bestShare) continue;
+
+            bestShare = share;
+            best = index;
+        }
+
+        if (best < 0 || bestShare < MinLabelShare) return null;
+
+        var below = k == 0 ? 0m : cumulative[k - 1][best];
+        var middle = (below + cumulative[k][best]) / 2m;
+
+        // Held off the edges so a label near the first or last bucket stays inside the
+        // plot instead of hanging over its border.
+        return new Anchor(Math.Clamp(X(best), 8m, 92m), Y(middle));
+    }
+
+    /// <summary>Half the width given to a run of one bucket, in viewBox units.</summary>
+    private decimal SliverWidth => Buckets.Count < 2 ? 6m : 100m / (Buckets.Count - 1) / 4m;
+
+    private decimal X(int index) => Buckets.Count < 2 ? 50m : (decimal)index * 100m / (Buckets.Count - 1);
+
+    /// <summary>Share to a y coordinate. Inverted: the stack grows upward from the
+    /// baseline, which is where a reader expects a hundred-percent chart to sit.</summary>
+    private static decimal Y(decimal share) => 100m - Math.Clamp(share, 0m, 1m) * 100m;
+
+    private string BandClass(Band band)
+    {
+        var muted = Selected is not null && !string.Equals(band.Name, Selected, StringComparison.OrdinalIgnoreCase)
+            ? $" {Part("band")}--muted"
+            : string.Empty;
+
+        return $"{Part("band")} {Part("band")}--{band.Ramp}{muted}";
+    }
+
+    private string InBandClass(Band band)
+    {
+        var subject = Selected is not null && string.Equals(band.Name, Selected, StringComparison.OrdinalIgnoreCase)
+            ? $" {Part("in-band")}--subject"
+            : string.Empty;
+
+        // Steps 3 and 4 are light enough that the label sits on them as inverse text;
+        // 1 and 2 are dark and take text-primary. Without this the name disappears
+        // into whichever end of the ramp it happens to land on.
+        return $"{Part("in-band")} {Part("in-band")}--{band.Ramp}{subject}";
+    }
+
+    private string FormatBucketTotal(decimal value) => (FormatTotal ?? MetricFormat.Compact)(value);
+
+    private string Caption => string.IsNullOrWhiteSpace(Label)
+        ? $"{NameHeading} as a share of each bucket"
+        : Label;
+
+    private string StyleValue => $"--metric-stacked-area-height: {Height}";
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    /// <summary>Invariant, for the same reason every other coordinate here is: a comma
+    /// decimal separator inside a points list is the separator between x and y.</summary>
+    private static string Text(decimal value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+}

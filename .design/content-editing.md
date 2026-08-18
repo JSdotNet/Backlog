@@ -245,7 +245,7 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/typogr
 
 | Piece | Where | Review surface |
 |---|---|---|
-| Parser | `MarkdownPreview` (`src/UI/Backlog.UI.Components/Markdown`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
+| Parser | `MarkdownPreview` (`src/Core/Backlog.UI.Components/Markdown`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
 | Read view | `MarkdownView` | Storybook → *Markdown* |
 | Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header | Storybook → *File view* |
 | Code blocks | `CodeView` — line numbers, copy button, per-language highlighting on the tokens in `color-scheme.md#syntax-highlighting-tokens` | Storybook → *Code* |

@@ -5,15 +5,15 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
-using Backlog.Desktop.UI.Shell;
-using Backlog.Desktop.UI.Workspace;
+using Backlog.Modules.DevPc.Abstractions;
+using Backlog.Modules.Backlog.Abstractions.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Backlog.Desktop.Services;
 
 public sealed partial class CopilotToolService : ICopilotToolService
 {
-    private readonly BacklogStore? _store;
+    private readonly IBacklogStore? _store;
     private readonly string? _configPath;
     private readonly ILogger<CopilotToolService>? _logger;
 
@@ -22,12 +22,12 @@ public sealed partial class CopilotToolService : ICopilotToolService
     {
     }
 
-    public CopilotToolService(BacklogStore store, ILogger<CopilotToolService>? logger = null)
+    public CopilotToolService(IBacklogStore store, ILogger<CopilotToolService>? logger = null)
         : this(store, logger, null)
     {
     }
 
-    private CopilotToolService(BacklogStore? store, ILogger<CopilotToolService>? logger, string? configPath)
+    private CopilotToolService(IBacklogStore? store, ILogger<CopilotToolService>? logger, string? configPath)
     {
         _store = store;
         _logger = logger;

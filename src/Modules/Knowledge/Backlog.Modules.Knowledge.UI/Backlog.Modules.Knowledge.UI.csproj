@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Second Brain context's UI: the knowledge menu, the panels for .arc42,
+    .domain, .design, .tech and the instruction sources, and the markdown and
+    graph views they render. Its own project so it can sit on the workspace
+    without sharing one with Backlog Management or the Shell.
+  -->
+  <PropertyGroup>
+    <!--
+      The root namespace deliberately does not match the project name, and must
+      not be "tidied" to match it. The Razor generator emits a component's
+      @using directives *inside* the component's namespace and without a
+      global:: prefix, so any namespace carrying a second "Backlog" segment
+      shadows the repository root — inside Backlog.Modules.Backlog.UI, for
+      instance, "@using Backlog.UI.Components.Markdown" resolves against
+      Backlog.Modules.Backlog and fails with CS0234. This project keeps the same
+      rule as its siblings for the same reason, and because keeping the
+      published namespace meant the move here changed no using, @using or
+      namespace line anywhere.
+    -->
+    <RootNamespace>Backlog.Desktop.UI.Knowledge</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The knowledge-folder parsers and the menu they build are worth testing
+         directly rather than only through the panels that render them. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- This context's own published surface: the knowledge-folder port, the
+         configured-folder format and the location a folder resolves to. The
+         panels ask it rather than the adapter that answers it, which is what
+         keeps Second Brain from having to see where the backlog is stored. -->
+    <ProjectReference Include="..\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
+  </ItemGroup>
+
+</Project>

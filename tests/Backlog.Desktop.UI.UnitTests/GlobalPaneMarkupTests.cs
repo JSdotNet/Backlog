@@ -28,7 +28,7 @@ public sealed class GlobalPaneMarkupTests
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
         Assert.Contains("@if (InboxPaneOptionVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("AppFeatureSettingsStore.InboxPane", home, StringComparison.Ordinal);
+        Assert.Contains("AppFeatures.InboxPane", home, StringComparison.Ordinal);
         Assert.Contains("_globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);", home, StringComparison.Ordinal);
     }
 
@@ -168,36 +168,19 @@ public sealed class GlobalPaneMarkupTests
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
-    private static string FindAppCss() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css"));
+    private static string FindAppCss() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css");
 
-    private static string FindHomeRazor() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "Shell", "Home.razor"));
+    private static string FindHomeRazor() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "Home.razor");
 
-    private static string FindInboxPane() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "Inbox", "InboxPane.razor"));
+    // The three bounded contexts left Backlog.Desktop.UI and became their own
+    // projects under src/Modules; only the shell's own chrome stayed behind.
+    private static string FindInboxPane() => RepositoryRoot.File("src", "Modules", "Inbox", "Backlog.Modules.Inbox.UI", "InboxPane.razor");
 
-    private static string FindBacklogPane() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "BacklogManagement", "BacklogPane.razor"));
+    private static string FindBacklogPane() => RepositoryRoot.File("src", "Modules", "Backlog", "Backlog.Modules.Backlog.UI", "BacklogPane.razor");
 
-    private static string FindKnowledgePane() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "Knowledge", "KnowledgePane.razor"));
+    private static string FindKnowledgePane() => RepositoryRoot.File("src", "Modules", "Knowledge", "Backlog.Modules.Knowledge.UI", "KnowledgePane.razor");
 
-    private static string FindAppJs() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.js"));
+    private static string FindAppJs() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.js");
 
-    private static string FindComponentsJs() => FindProjectFile(Path.Combine("src", "UI", "Backlog.UI.Components", "wwwroot", "components.js"));
-
-    private static string FindProjectFile(string relativePath)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(directory.FullName, relativePath);
-
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException($"Could not locate {relativePath} from the test output directory.");
-    }
+    private static string FindComponentsJs() => RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.js");
 }

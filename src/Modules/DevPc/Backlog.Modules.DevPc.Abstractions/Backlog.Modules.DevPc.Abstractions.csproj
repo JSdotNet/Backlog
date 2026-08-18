@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Dev PC Management module's public surface — everything a host, an
+    adapter or this context's own UI is allowed to see (ADR 0005, ADR 0009):
+      ICopilotToolService   the port: list the machine's configured tools, and
+                            update, enable or disable one
+      CopilotToolInfo etc.  what a caller receives instead of the config file —
+                            the DTOs and enums in that port's signatures
+      CopilotToolConfiguration
+                            the .tools/copilot-tools.json format and the
+                            per-machine override rule, this context's published
+                            language: a shared catalog overlaid by one PC's own
+                            config, merged by plugin name and package id
+      UnsupportedCopilotToolService
+                            the null object every host that cannot manage tools
+                            composes instead of an adapter
+
+    The catalog format sits here for the same reason EntryTextParser sits in
+    Backlog's abstractions: it is the language two adapters and a person editing
+    JSON by hand all have to agree on, so it is a contract rather than one
+    adapter's private detail. It is less pure than that precedent — it opens the
+    files it merges — because "which tools should this machine have" is a
+    question about files on that machine and nothing useful is left once the
+    reading is taken out.
+
+    There is no implementation project yet, and that is a statement about how
+    far this context has been built rather than a missing piece: the two
+    adapters that answer the port are host-owned (the desktop app shells out to
+    the Copilot and dotnet CLIs; the web harness reads the JSON only), so
+    nothing has yet needed a decision that belongs to neither host.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.DevPc.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The catalog merge and the per-machine path resolution decide what a
+         person sees as "installed", so they are worth testing directly rather
+         than only through whichever host happens to call them. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+</Project>
