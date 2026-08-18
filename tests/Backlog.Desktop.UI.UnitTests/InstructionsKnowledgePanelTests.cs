@@ -44,22 +44,7 @@ public sealed class InstructionsKnowledgePanelTests
         return new Harness(root, context);
     }
 
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(directory.FullName, ".github", "copilot-instructions.md");
-            if (File.Exists(candidate))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the repository root from the test output directory.");
-    }
+    private static string FindRepositoryRoot() => RepositoryRoot.Root.FullName;
 
     private sealed record Harness(string Root, BunitContext Context) : IDisposable
     {

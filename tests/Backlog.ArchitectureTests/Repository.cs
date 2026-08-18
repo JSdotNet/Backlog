@@ -3,13 +3,14 @@ using System.Xml.Linq;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// Walks up from the test binary to the repository root — the folder that holds
-/// <c>src</c>, <c>tests</c>, and <c>Backlog.sln</c> — so these tests keep working no
+/// The repository layout these tests read, rooted at the folder that holds
+/// <c>src</c>, <c>tests</c>, and <c>Backlog.sln</c>, so they keep working no
 /// matter where the build output lands.
 /// </summary>
 internal static class Repository
 {
-    public static DirectoryInfo Root { get; } = Locate();
+    /// <inheritdoc cref="RepositoryRoot.Root" />
+    public static DirectoryInfo Root { get; } = RepositoryRoot.Root;
 
     public static IEnumerable<FileInfo> ProjectsUnder(params string[] segments)
     {
@@ -69,24 +70,5 @@ internal static class Repository
             .Select(r => (string?)r.Attribute("Include"))
             .Where(include => !string.IsNullOrWhiteSpace(include))
             .Select(include => Path.GetFileNameWithoutExtension(include!.Replace('\\', Path.DirectorySeparatorChar)));
-    }
-
-    private static DirectoryInfo Locate()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (Directory.Exists(Path.Combine(dir.FullName, "src"))
-                && Directory.Exists(Path.Combine(dir.FullName, "tests"))
-                && File.Exists(Path.Combine(dir.FullName, "Backlog.sln")))
-            {
-                return dir;
-            }
-
-            dir = dir.Parent;
-        }
-
-        throw new DirectoryNotFoundException(
-            "Could not locate the repository root above " + AppContext.BaseDirectory);
     }
 }
