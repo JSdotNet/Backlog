@@ -95,6 +95,39 @@
     --code-attribute: #7FD1C1;
     --code-line-number: #7A8AA3;
 
+    /* Chart roles.
+       A chart needs role names the twenty palette tokens do not provide: a
+       series colour, a track, a gridline, a baseline. Like the code theme this
+       is a theme rather than a second palette, with one difference that matters:
+       every value below is derived — a var() of a palette token, or a
+       color-mix() of one against the surface it is drawn on. None of them holds
+       a colour of its own, so the palette is still twenty colours and
+       .design/color-scheme.md has no new value to disagree with.
+
+       The product palette carries exactly one saturated hue, so charts are
+       single-hue by rule. Part-to-whole takes an ordinal ramp of that hue —
+       validated as monotone in lightness with every adjacent gap at or above
+       0.06 OKLCH L and a hue spread of one degree — and two measures or two
+       providers are drawn as two charts, never as two series on one plot.
+
+       Measured on the card surface, ramp 1 to 4 are 3.05:1, 4.38:1, 6.69:1 and
+       9.68:1, so even the palest step clears the 3:1 a non-text mark owes its
+       background. The track is 1.59:1 and is deliberately below that floor
+       because it is the absence of data rather than data. The baseline takes
+       border-strong at 3.45:1 rather than border at 2.16:1, because a baseline
+       carries meaning and a gridline does not. */
+    --chart-surface: var(--color-background-alt);
+    --chart-series: var(--color-primary);
+    --chart-ramp-1: color-mix(in srgb, var(--color-primary) 45%, var(--chart-surface));
+    --chart-ramp-2: color-mix(in srgb, var(--color-primary) 60%, var(--chart-surface));
+    --chart-ramp-3: color-mix(in srgb, var(--color-primary) 80%, var(--chart-surface));
+    --chart-ramp-4: var(--color-primary);
+    --chart-track: color-mix(in srgb, var(--color-primary) 20%, var(--chart-surface));
+    --chart-grid: var(--color-border);
+    --chart-axis: var(--color-border-strong);
+    --chart-ink: var(--color-text-primary);
+    --chart-ink-muted: var(--color-text-secondary);
+
     /* Typography */
     --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-family-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -4384,5 +4417,1282 @@ button.tag-chip__label {
     .graph-explorer__card:focus-visible,
     .graph-explorer__card--selected {
         transform: none;
+    }
+}
+
+/* --- Metrics: tiles and grid --------------------------------------------- */
+/*
+   The dashboard group. Every colour below resolves to one of the chart roles at
+   the top of this file, so the group adds no colour of its own and the palette
+   is still the palette.
+*/
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(var(--metric-grid-min, 16rem), 1fr));
+    gap: var(--spacing-md);
+}
+
+.metric-tile {
+    display: grid;
+    align-content: start;
+    min-width: 0;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+/* The hero figure on a view. A left rule rather than a fill: the tile keeps the
+   same surface as its neighbours, so the emphasis reads as "this one first"
+   instead of as a different kind of thing. */
+.metric-tile--emphasis {
+    border-left: var(--border-width-4) solid var(--chart-series);
+}
+
+.metric-tile__label {
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+.metric-tile__value {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    color: var(--chart-ink);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    line-height: var(--line-height-tight);
+    /* Tokens run to six digits and a tile is a column in a grid: without this a
+       long figure widens its own column and the row stops lining up. */
+    overflow-wrap: anywhere;
+}
+
+.metric-tile--emphasis .metric-tile__value {
+    font-size: var(--font-size-4xl);
+}
+
+.metric-tile__unit {
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+}
+
+.metric-tile__delta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* Direction is in the word beside it. These three rules exist so a sighted
+   reader gets the same at-a-glance read a screen-reader user gets from the
+   sentence, and they change the arrow alone — never the text colour, which
+   would be the strong semantic palette this file rules out. */
+.metric-tile__delta--better .metric-tile__delta-arrow {
+    color: var(--chart-series);
+}
+
+.metric-tile__delta--worse .metric-tile__delta-arrow {
+    color: var(--color-text-primary);
+}
+
+.metric-tile__delta--flat .metric-tile__delta-arrow {
+    color: var(--chart-ink-muted);
+}
+
+.metric-tile__trend {
+    margin-top: var(--spacing-xs);
+}
+
+.metric-tile__footnote {
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+}
+
+/* --- Metrics: not-having-a-number ---------------------------------------- */
+
+.metric-status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* Unavailable is the state this UI sits in until a credential exists, so it gets
+   the info surface: explained and calm, not an error. */
+.metric-status--unavailable {
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-info);
+    color: var(--color-text-primary);
+}
+
+/* --- Metrics: sparkline -------------------------------------------------- */
+
+.metric-sparkline {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: var(--metric-sparkline-height, 2.5rem);
+}
+
+.metric-sparkline__plot {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.metric-sparkline__line {
+    fill: none;
+    stroke: var(--chart-series);
+    stroke-width: var(--border-width-2);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.metric-sparkline__area {
+    fill: var(--chart-track);
+    stroke: none;
+}
+
+.metric-sparkline__marker {
+    fill: var(--chart-series);
+    stroke: var(--chart-surface);
+    stroke-width: var(--border-width-2);
+}
+
+/* --- Metrics: columns ---------------------------------------------------- */
+
+/* min-width: 0 on each block below is not decoration. A grid or flex item defaults
+   to a minimum size of its own min-content width, and for a fourteen-column chart
+   with nowrap date labels that is far wider than a phone: the block would refuse to
+   shrink and push the whole page sideways instead of compressing its columns. */
+.metric-bars {
+    position: relative;
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    min-width: 0;
+}
+
+.metric-bars__label {
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+.metric-bars__plot {
+    display: flex;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* The scale is two labels rather than an axis with ticks. There is one gridline
+   worth drawing on a chart this short — the baseline — and it is on the columns
+   themselves. */
+.metric-bars__scale {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: var(--metric-bars-height, 9rem);
+    padding-bottom: 1.25rem;
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.metric-bars__columns {
+    display: flex;
+    flex: 1;
+    align-items: stretch;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    border-bottom: var(--border-width) solid var(--chart-axis);
+}
+
+.metric-bars__column {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.metric-bars__column-track {
+    display: flex;
+    align-items: flex-end;
+    height: var(--metric-bars-height, 9rem);
+}
+
+.metric-bars__column-fill {
+    display: block;
+    width: 100%;
+    /* A day with nothing in it still gets a hairline, so an empty bucket reads as
+       a bucket with no usage rather than as a gap in the data. */
+    min-height: var(--border-width);
+    border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
+    background: var(--chart-ramp-3);
+}
+
+.metric-bars__column--current .metric-bars__column-fill {
+    background: var(--chart-ramp-4);
+}
+
+.metric-bars__column-label {
+    /* Reserved whether or not this column prints one, so every column is the
+       same height and the baseline stays straight. */
+    min-height: 1rem;
+    overflow: hidden;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* --- Metrics: part-to-whole ---------------------------------------------- */
+
+.metric-breakdown-bar {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.metric-breakdown-bar__label {
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+.metric-breakdown-bar__track {
+    display: flex;
+    overflow: hidden;
+    width: 100%;
+    height: 1.25rem;
+    border-radius: var(--border-radius-sm);
+    background: var(--chart-track);
+}
+
+.metric-breakdown-bar__segment {
+    display: block;
+    height: 100%;
+    /* A segment worth a fraction of a percent would otherwise be invisible, and
+       the legend beside it says it exists. */
+    min-width: var(--border-width-2);
+}
+
+.metric-breakdown-bar__segment--1,
+.metric-breakdown-bar__swatch--1 {
+    background: var(--chart-ramp-1);
+}
+
+.metric-breakdown-bar__segment--2,
+.metric-breakdown-bar__swatch--2 {
+    background: var(--chart-ramp-2);
+}
+
+.metric-breakdown-bar__segment--3,
+.metric-breakdown-bar__swatch--3 {
+    background: var(--chart-ramp-3);
+}
+
+.metric-breakdown-bar__segment--4,
+.metric-breakdown-bar__swatch--4 {
+    background: var(--chart-ramp-4);
+}
+
+.metric-breakdown-bar__legend {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.metric-breakdown-bar__legend-item {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.metric-breakdown-bar__swatch {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--border-radius-sm);
+}
+
+.metric-breakdown-bar__legend-label {
+    color: var(--chart-ink);
+    overflow-wrap: anywhere;
+}
+
+.metric-breakdown-bar__legend-value,
+.metric-breakdown-bar__legend-share {
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* --- Metrics: budget meter ----------------------------------------------- */
+
+.metric-meter {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.metric-meter__heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.metric-meter__label {
+    color: var(--chart-ink-muted);
+}
+
+.metric-meter__reading {
+    color: var(--chart-ink);
+    font-family: var(--font-family-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.metric-meter__track {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 0.625rem;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.metric-meter__fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-ramp-3);
+}
+
+.metric-meter--warning .metric-meter__fill,
+.metric-meter--over .metric-meter__fill {
+    background: var(--chart-ramp-4);
+}
+
+/* Over the cap the fill is already the full track, so the state has to be
+   readable in the frame — plus the caption, which says it in words. */
+.metric-meter--over .metric-meter__track {
+    box-shadow: inset 0 0 0 var(--border-width) var(--chart-axis);
+}
+
+.metric-meter__threshold {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--border-width);
+    background: var(--chart-surface);
+}
+
+.metric-meter__caption {
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+}
+
+.metric-meter--over .metric-meter__caption {
+    color: var(--color-text-primary);
+}
+
+/* --- Metrics: breakdown table -------------------------------------------- */
+
+.metric-breakdown {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.metric-breakdown__label {
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* The nowrap figure columns make this table wider than a phone, so it scrolls
+   inside its own box. min-width: 0 is what lets it: the breakdown is often a grid
+   or flex child, and the default min-width of auto would have it refuse to shrink
+   below its content and push the page sideways instead. */
+.metric-breakdown__scroll {
+    overflow-x: auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.metric-breakdown__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.metric-breakdown__table th,
+.metric-breakdown__table td {
+    padding: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+    text-align: left;
+    vertical-align: baseline;
+}
+
+.metric-breakdown__table thead th {
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.metric-breakdown__name {
+    color: var(--chart-ink);
+    font-weight: 500;
+}
+
+.metric-breakdown__detail {
+    display: block;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+}
+
+/* Scoped through the table rather than standing alone: the base cell rule above
+   is two classes and sets text-align: left, so a single-class rule here loses the
+   alignment and every figure column drifts back to the left edge — which is the
+   one thing tabular figures exist to prevent. */
+.metric-breakdown__table .metric-breakdown__numeric {
+    color: var(--chart-ink);
+    font-family: var(--font-family-mono);
+    /* Figures in a column are compared down the column, and proportional digits
+       make that a guessing game. */
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.metric-breakdown__share {
+    display: inline-grid;
+    gap: var(--spacing-2xs);
+    justify-items: end;
+    min-width: 4.5rem;
+}
+
+.metric-breakdown__share-track {
+    width: 100%;
+    height: var(--border-width-4);
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.metric-breakdown__share-fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-ramp-3);
+}
+
+.metric-breakdown__total th,
+.metric-breakdown__total td {
+    border-bottom: none;
+    border-top: var(--border-width) solid var(--chart-axis);
+    font-weight: 500;
+}
+
+@media (max-width: 40rem) {
+    /* A tile per row rather than two half-width ones: the value is the whole
+       point of a tile and it is the first thing a narrow column truncates. */
+    .metric-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .metric-bars__scale {
+        display: none;
+    }
+
+    .metric-breakdown-bar__legend-item {
+        grid-template-columns: auto 1fr auto;
+    }
+
+    /* Three figures and a name do not fit a phone. The share is the one that
+       repeats something already in the row. */
+    .metric-breakdown-bar__legend-share {
+        display: none;
+    }
+}
+
+/* --- Metrics: score ------------------------------------------------------ */
+/*
+   Same derived chart roles as the rest of the group: nothing below holds a colour
+   of its own. The band takes a ramp step rather than a red-amber-green light,
+   because the palette has no strong semantic text ramp to draw one from and a
+   score is exactly the kind of number somebody prints in greyscale for a review.
+*/
+
+.metric-score {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.metric-score__head {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.metric-score__label {
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+.metric-score__figure {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.metric-score__value {
+    color: var(--chart-ink);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-4xl);
+    line-height: var(--line-height-tight);
+}
+
+.metric-score__scale {
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* The band name is the content; the shade only stops four bands from looking
+   identical. It is a pill on a ramp step with text-primary over it — the same
+   posture the badges take. */
+.metric-score__band {
+    justify-self: start;
+    margin: 0;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-inverse);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+}
+
+/* Steps 1 and 2 are dark enough that inverse text on them fails; they take the
+   surface and a ring instead, so every band stays legible. */
+.metric-score__band--1,
+.metric-score__band--2 {
+    background: var(--chart-surface);
+    box-shadow: inset 0 0 0 var(--border-width) var(--chart-axis);
+    color: var(--color-text-primary);
+}
+
+.metric-score__band--3 {
+    background: var(--chart-ramp-3);
+}
+
+.metric-score__band--4 {
+    background: var(--chart-ramp-4);
+}
+
+.metric-score__delta,
+.metric-score__footnote,
+.metric-score__opaque {
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+}
+
+.metric-score__opaque {
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-info);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.metric-score__scroll {
+    overflow-x: auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.metric-score__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.metric-score__table th,
+.metric-score__table td {
+    padding: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+    text-align: left;
+    vertical-align: baseline;
+}
+
+.metric-score__table tbody tr:last-child th,
+.metric-score__table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.metric-score__table thead th {
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.metric-score__input {
+    color: var(--chart-ink);
+    font-weight: 500;
+}
+
+.metric-score__table .metric-score__numeric {
+    color: var(--chart-ink);
+    font-family: var(--font-family-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.metric-score__of {
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+}
+
+.metric-score__points {
+    display: inline-grid;
+    gap: var(--spacing-2xs);
+    justify-items: end;
+    min-width: 4rem;
+}
+
+.metric-score__points-track {
+    width: 100%;
+    height: var(--border-width-4);
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.metric-score__points-fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-ramp-3);
+}
+
+/* --- Metrics: small multiples -------------------------------------------- */
+
+.metric-trellis {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.metric-trellis__head {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.metric-trellis__label {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+}
+
+/* Printed once for the whole grid, because it is the same number in every panel
+   and that is the claim the grid is making. */
+.metric-trellis__scale {
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+}
+
+.metric-trellis__panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(var(--metric-trellis-min, 11rem), 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.metric-trellis__panel {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--chart-surface);
+}
+
+/* Emphasis, not selection: the other panels are untouched, because the whole
+   point of a trellis is that every panel is readable at once. */
+.metric-trellis__panel--highlight {
+    border-color: var(--chart-series);
+}
+
+.metric-trellis__name {
+    margin: 0;
+    overflow: hidden;
+    color: var(--chart-ink);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.metric-trellis__value {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    color: var(--chart-ink);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-lg);
+    font-variant-numeric: tabular-nums;
+}
+
+.metric-trellis__change,
+.metric-trellis__detail {
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+}
+
+.metric-trellis__detail {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* --- Metrics: heatmap ---------------------------------------------------- */
+
+.metric-heatmap {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.metric-heatmap__label {
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+.metric-heatmap__scroll {
+    overflow-x: auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.metric-heatmap__grid {
+    border-collapse: separate;
+    border-spacing: var(--spacing-2xs);
+    font-size: var(--font-size-xs);
+}
+
+.metric-heatmap__corner {
+    padding: 0;
+}
+
+.metric-heatmap__bucket {
+    padding: 0 var(--spacing-2xs);
+    color: var(--chart-ink-muted);
+    font-weight: 400;
+    /* Column headings are dates and there may be twenty-six of them; upright keeps
+       the grid from being three times wider than it needs to be. */
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    white-space: nowrap;
+}
+
+.metric-heatmap__name {
+    padding-right: var(--spacing-sm);
+    color: var(--chart-ink);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+}
+
+/* position: relative because these carry sr-only descendants. .sr-only is
+   position: absolute, so without a positioned ancestor its containing block is the
+   page: hidden text inside a horizontally scrolled grid then lands at page
+   coordinates well past the viewport and drags the document's scroll width out with
+   it, even though the text itself is invisible. Scoping it to its own host keeps a
+   screen-reader affordance from becoming a layout bug. */
+.metric-heatmap__cell {
+    position: relative;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border-radius: var(--border-radius-sm);
+    /* Step 0: the track. "Nothing happened" is not the palest shade of
+       "something happened" — if one colour meant both, the grid could say
+       neither. */
+    background: var(--chart-track);
+}
+
+.metric-heatmap__cell--1 {
+    background: var(--chart-ramp-1);
+}
+
+.metric-heatmap__cell--2 {
+    background: var(--chart-ramp-2);
+}
+
+.metric-heatmap__cell--3 {
+    background: var(--chart-ramp-3);
+}
+
+.metric-heatmap__cell--4 {
+    background: var(--chart-ramp-4);
+}
+
+/* Not reported is not zero. An outline and no fill says "there is no cell here"
+   where the track would say "this cell is empty". */
+.metric-heatmap__cell--missing {
+    background: transparent;
+    box-shadow: inset 0 0 0 var(--border-width) var(--chart-grid);
+}
+
+.metric-heatmap__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    list-style: none;
+}
+
+.metric-heatmap__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    white-space: nowrap;
+}
+
+.metric-heatmap__swatch {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--border-radius-sm);
+    background: var(--chart-track);
+}
+
+.metric-heatmap__swatch--1 {
+    background: var(--chart-ramp-1);
+}
+
+.metric-heatmap__swatch--2 {
+    background: var(--chart-ramp-2);
+}
+
+.metric-heatmap__swatch--3 {
+    background: var(--chart-ramp-3);
+}
+
+.metric-heatmap__swatch--4 {
+    background: var(--chart-ramp-4);
+}
+
+/* --- Metrics: spotlight overlay ----------------------------------------- */
+
+.metric-spotlight {
+    position: relative;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    margin: 0;
+}
+
+.metric-spotlight__label {
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+.metric-spotlight__plot {
+    display: flex;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.metric-spotlight__scale {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: var(--metric-spotlight-height, 11rem);
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.metric-spotlight__canvas {
+    flex: 1;
+    min-width: 0;
+    height: var(--metric-spotlight-height, 11rem);
+    border-bottom: var(--border-width) solid var(--chart-axis);
+    overflow: visible;
+}
+
+/* Context. Grey rather than a paler gold: a muted brand hue reads as "a slightly
+   less important subject", and these are not subjects at all. */
+.metric-spotlight__line {
+    fill: none;
+    stroke: var(--chart-grid);
+    stroke-width: var(--border-width);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.metric-spotlight__line--subject {
+    stroke: var(--chart-series);
+    stroke-width: var(--border-width-2);
+}
+
+.metric-spotlight__axis {
+    display: flex;
+    justify-content: space-between;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+}
+
+.metric-spotlight__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    font-size: var(--font-size-sm);
+    list-style: none;
+}
+
+.metric-spotlight__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--chart-ink-muted);
+    min-width: 0;
+}
+
+.metric-spotlight__legend-item--subject {
+    color: var(--chart-ink);
+    font-weight: 500;
+}
+
+.metric-spotlight__swatch {
+    width: 0.75rem;
+    height: var(--border-width-2);
+    border-radius: var(--border-radius-full);
+    background: var(--chart-grid);
+}
+
+.metric-spotlight__legend-item--subject .metric-spotlight__swatch {
+    height: var(--border-width-4);
+    background: var(--chart-series);
+}
+
+.metric-spotlight__legend-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.metric-spotlight__legend-value {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 40rem) {
+    /* One panel per row past this width would make a trellis a list, which is the
+       one layout it must not become — but two still compare, so the minimum drops
+       rather than the grid collapsing. */
+    .metric-trellis__panels {
+        grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    }
+
+    .metric-spotlight__scale {
+        display: none;
+    }
+}
+
+/* --- Metrics: composition over time -------------------------------------- */
+/*
+   A hundred-percent stacked area. Bands take ramp steps bottom to top and the ramp
+   repeats past four, which is why the in-band label matters more here than in any
+   other chart in the group: with one saturated hue, the name written across the band
+   is what tells two same-shaded bands apart.
+*/
+
+.metric-stacked-area {
+    position: relative;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    margin: 0;
+}
+
+.metric-stacked-area__label {
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* A grid rather than a flex row, so the axis sits in the same column as the canvas
+   and is aligned by structure. Aligning it with a margin sized to clear the scale
+   column puts every tick a few pixels off the bucket it names — and that error is
+   invisible until someone reads a figure off the wrong week. */
+.metric-stacked-area__plot {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.metric-stacked-area__scale {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.metric-stacked-area__canvas-wrap {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.metric-stacked-area__axis {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+/* The positioning context for the in-band labels, which are HTML rather than SVG
+   text: the viewBox stretches to this box, and SVG text would stretch with it. */
+.metric-stacked-area__canvas-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: var(--metric-stacked-area-height, 13rem);
+    /* The surface shows through wherever a bucket had nothing logged, which is how a
+       gap in the data reads as a gap rather than as a bridge across it. */
+    border-radius: var(--border-radius-sm);
+    background: var(--chart-surface);
+}
+
+.metric-stacked-area__canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.metric-stacked-area__band {
+    /* A hairline in the surface colour between bands. Two adjacent ramp steps are
+       one step apart in lightness, and the seam is what stops them reading as one
+       band at the boundary. */
+    stroke: var(--chart-surface);
+    stroke-width: 0.4;
+}
+
+.metric-stacked-area__band--1 {
+    fill: var(--chart-ramp-1);
+}
+
+.metric-stacked-area__band--2 {
+    fill: var(--chart-ramp-2);
+}
+
+.metric-stacked-area__band--3 {
+    fill: var(--chart-ramp-3);
+}
+
+.metric-stacked-area__band--4 {
+    fill: var(--chart-ramp-4);
+}
+
+/* Selection mutes rather than recolours: the muted band keeps its position in the
+   stack, because a stack whose bands move is not the same chart. */
+.metric-stacked-area__band--muted {
+    fill: var(--chart-track);
+}
+
+.metric-stacked-area__in-band {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    max-width: 40%;
+    overflow: hidden;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    pointer-events: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Which way the label reads depends on how light the band under it is. Steps 1 and 2
+   are dark enough for text-primary; 3 and 4 are light enough that only the inverse
+   ink is legible on them. Getting this wrong is how a label disappears into its own
+   band. */
+.metric-stacked-area__in-band--1,
+.metric-stacked-area__in-band--2 {
+    color: var(--color-text-primary);
+}
+
+.metric-stacked-area__in-band--3,
+.metric-stacked-area__in-band--4 {
+    color: var(--color-text-inverse);
+}
+
+.metric-stacked-area__in-band--subject {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
+.metric-stacked-area__scale {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: var(--metric-stacked-area-height, 13rem);
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* Ticks are absolutely placed by percentage so they line up with the buckets they
+   name, whatever the plot's width. */
+.metric-stacked-area__axis {
+    position: relative;
+    height: 2.25rem;
+}
+
+.metric-stacked-area__tick {
+    position: absolute;
+    top: 0;
+    display: grid;
+    gap: var(--spacing-2xs);
+    justify-items: center;
+    transform: translateX(-50%);
+    color: var(--chart-ink-muted);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.metric-stacked-area__tick-label {
+    font-size: var(--font-size-xs);
+}
+
+/* The figure the chart itself cannot carry: a full week and an empty one are the
+   same height in a hundred-percent stack. */
+.metric-stacked-area__tick-total {
+    color: var(--chart-ink);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.metric-stacked-area__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    font-size: var(--font-size-sm);
+    list-style: none;
+}
+
+.metric-stacked-area__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    color: var(--chart-ink-muted);
+}
+
+.metric-stacked-area__swatch {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--border-radius-sm);
+    background: var(--chart-track);
+}
+
+.metric-stacked-area__swatch--1 {
+    background: var(--chart-ramp-1);
+}
+
+.metric-stacked-area__swatch--2 {
+    background: var(--chart-ramp-2);
+}
+
+.metric-stacked-area__swatch--3 {
+    background: var(--chart-ramp-3);
+}
+
+.metric-stacked-area__swatch--4 {
+    background: var(--chart-ramp-4);
+}
+
+.metric-stacked-area__legend-name {
+    overflow: hidden;
+    color: var(--chart-ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.metric-stacked-area__legend-share {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 40rem) {
+    /* One column once the scale is gone, so the collapsed column's gap does not
+       leave the plot indented by nothing. */
+    .metric-stacked-area__scale {
+        display: none;
+    }
+
+    .metric-stacked-area__plot {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .metric-stacked-area__canvas-wrap,
+    .metric-stacked-area__axis {
+        grid-column: 1;
+    }
+
+    /* Bucket totals under every printed tick is two rows of figures on a phone; the
+       hidden table still carries all of them. */
+    .metric-stacked-area__tick-total {
+        display: none;
     }
 }

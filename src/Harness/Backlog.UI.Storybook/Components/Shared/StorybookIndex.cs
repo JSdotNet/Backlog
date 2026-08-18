@@ -59,6 +59,12 @@ internal static class StorybookIndex
             new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model.")
         ]),
+        new("Dashboard",
+        [
+            new("usage-metrics", "Usage metrics", "MetricTile, MetricGrid, MetricSparkline, MetricBars, MetricBreakdownBar, MetricMeter, MetricBreakdown, MetricStatus."),
+            new("ai-usage", "AI usage and cost", "The same components composed into the view they were built for: what AI cost this fortnight, on what, and for whom."),
+            new("productivity", "Productivity over time", "MetricScore, MetricTrellis, MetricHeatmap, MetricSpotlight, MetricStackedArea: a score, where the time went, and the ways one hue can compare them across repositories.")
+        ]),
         new("Feedback",
         [
             new("feedback", "Feedback", "Alert, EmptyState, Spinner, SaveIndicator, Toast."),

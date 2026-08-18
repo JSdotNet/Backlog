@@ -1,0 +1,164 @@
+@*
+    Spend against a cap. The one component here that is about a limit rather than
+    a quantity, which is why it is a meter and not a bar chart of one value: a
+    meter has a known maximum and a reading inside it, and that is exactly the
+    shape of "$34 of a $50 monthly budget".
+
+    role="meter" carries the reading to the accessibility tree, and aria-valuetext
+    carries the words, because "34 of 50" announced as a bare number loses the
+    currency. A meter with no maximum is not a meter, so a caller that does not
+    know the cap should be showing a MetricTile instead.
+
+    Going over the cap does not turn the fill red. The product has no strong
+    semantic text palette and the soft error surface is a background; over-budget
+    reads as the fill filling the track, a modifier on the block, and the caption
+    saying so in words. That survives being printed in greyscale, which a colour
+    change does not.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <div class="@(Part("heading"))">
+        <span class="@(Part("label"))" id="@LabelId">@Label</span>
+        <span class="@(Part("reading"))">@ReadingText</span>
+    </div>
+
+    @* aria-valuenow is Reading rather than Value: the fill is drawn from the
+       clamped figure, and a valuenow of -50 against a valuemin of 0 is both out of
+       range and a different number from the one on screen. *@
+    <div class="@(Part("track"))"
+         role="meter"
+         aria-labelledby="@(string.IsNullOrWhiteSpace(Label) ? null : LabelId)"
+         aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
+         aria-valuenow="@Invariant(Reading)"
+         aria-valuemin="0"
+         aria-valuemax="@Invariant(Max)"
+         aria-valuetext="@ReadingText">
+        <span class="@(Part("fill"))" style="@($"width: {Invariant(FillPercent)}%")"></span>
+
+        @if (ThresholdPercent is not null)
+        {
+            @* The tick is decoration; the caption below says where the threshold
+               is in words, so hiding it from the tree loses nothing. *@
+            <span class="@(Part("threshold"))"
+                  style="@($"left: {Invariant(ThresholdPercent.Value)}%")"
+                  aria-hidden="true"></span>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(CaptionText))
+    {
+        <p class="@(Part("caption"))">@CaptionText</p>
+    }
+</div>
+
+@code {
+    /// <summary>What has been spent or used. Negative is clamped to zero: a
+    /// credit against a budget is not a reading on this meter.</summary>
+    [Parameter]
+    public decimal Value { get; set; }
+
+    /// <summary>The cap. Zero or less leaves the meter empty rather than dividing
+    /// by it.</summary>
+    [Parameter]
+    public decimal Max { get; set; }
+
+    /// <summary>Where the meter starts warning, as a value on the same scale —
+    /// not a fraction. A caller thinking in percentages passes <c>Max * 0.8m</c>,
+    /// which is clearer at the call site than a bare 0.8.</summary>
+    [Parameter]
+    public decimal? Threshold { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>Names the meter when there is no visible label.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>How the reading and the cap read. Defaults to the compact
+    /// notation; a budget in money passes a formatter that keeps the currency, so
+    /// the reading announces as "34.10 USD of 50.00 USD".</summary>
+    [Parameter]
+    public Func<decimal, string>? FormatValue { get; set; }
+
+    /// <summary>Replaces the generated caption. Null keeps the generated one,
+    /// which says what fraction of the cap has gone and whether the threshold or
+    /// the cap has been passed; an empty string drops the caption entirely.</summary>
+    [Parameter]
+    public string? Caption { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-meter</c> as the class this block carries, and
+    /// every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-meter";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private readonly string _labelId = "metric-meter-label-" + Guid.NewGuid().ToString("N");
+
+    private string LabelId => _labelId;
+
+    private decimal Reading => Value < 0m ? 0m : Value;
+
+    private decimal Share => Max <= 0m ? 0m : Reading / Max;
+
+    /// <summary>Clamped at the track's width. Past the cap the fill has nowhere
+    /// left to go and the modifier is what reports it.</summary>
+    private decimal FillPercent => Math.Min(Share, 1m) * 100m;
+
+    private decimal? ThresholdPercent => Threshold is null || Max <= 0m || Threshold <= 0m || Threshold >= Max
+        ? null
+        : Threshold.Value / Max * 100m;
+
+    private bool IsOverCap => Max > 0m && Reading > Max;
+
+    private bool IsOverThreshold => !IsOverCap && Threshold is not null && Reading >= Threshold.Value;
+
+    private string Format(decimal value) => (FormatValue ?? MetricFormat.Compact)(value);
+
+    private string ReadingText => Max <= 0m
+        ? Format(Reading)
+        : $"{Format(Reading)} of {Format(Max)}";
+
+    private string? CaptionText
+    {
+        get
+        {
+            if (Caption is not null) return Caption.Length == 0 ? null : Caption;
+            if (Max <= 0m) return null;
+
+            var share = MetricFormat.Percent(Share);
+
+            if (IsOverCap) return $"{share} of the cap — over by {Format(Reading - Max)}.";
+
+            return IsOverThreshold
+                ? $"{share} of the cap — past the {Format(Threshold!.Value)} warning mark."
+                : $"{share} of the cap.";
+        }
+    }
+
+    private string ClassValue
+    {
+        get
+        {
+            var state = IsOverCap
+                ? $" {BaseClass}--over"
+                : IsOverThreshold ? $" {BaseClass}--warning" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"{BaseClass}{state}{extra}";
+        }
+    }
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private static string Invariant(decimal value) =>
+        value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+}

@@ -1,0 +1,204 @@
+@*
+    A day-bucketed series as columns. Both usage APIs this was built for bucket by
+    day and report a handful of weeks at most, so the series is short, discrete and
+    countable — which is a column chart rather than a line. The sparkline beside a
+    tile is the same data with the axis taken away; this is the version a reader
+    can actually take figures off.
+
+    Columns are CSS boxes, not SVG. A bar is a rectangle, the tokens already
+    describe rectangles, and keeping it in the DOM means the axis labels are real
+    text that wraps, translates and scales with the reader's font size instead of
+    being baked into a viewBox.
+
+    Every column also appears in a visually-hidden table. That table is the
+    component's answer to the rule that a number rendered only as a bar length is
+    not readable: the picture is aria-hidden, and everything it shows is in the
+    table underneath it. Unlike the sparkline, these values appear nowhere else on
+    the page, so they have to be somewhere.
+*@
+
+<figure class="@ClassValue" style="@StyleValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <figcaption class="@(Part("label"))">@Label</figcaption>
+    }
+
+    @if (Columns.Count == 0)
+    {
+        <MetricStatus Kind="MetricStatusKind.Empty" Message="@EmptyMessage" CssClass="@(Part("status"))" />
+    }
+    else
+    {
+        <div class="@(Part("plot"))" aria-hidden="true">
+            <div class="@(Part("scale"))">
+                <span class="@(Part("scale-max"))">@Format(PeakValue)</span>
+                <span class="@(Part("scale-zero"))">0</span>
+            </div>
+
+            <div class="@(Part("columns"))">
+                @foreach (var column in Columns)
+                {
+                    <div class="@ColumnClass(column)" title="@($"{column.Label}: {Format(column.Value)}")">
+                        <div class="@(Part("column-track"))">
+                            <span class="@(Part("column-fill"))" style="@($"height: {Invariant(column.Height)}%")"></span>
+                        </div>
+                        <span class="@(Part("column-label"))">@(column.ShowLabel ? column.Label : null)</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* The wrapper carries sr-only rather than the table. A table ignores
+           overflow: hidden the way a block respects it, so a wide hidden table
+           renders at its natural width, escapes the 1px clip box and pushes the
+           whole page sideways — which a thirteen-column one certainly does. *@
+        <div class="sr-only">
+            <table>
+                <caption>@TableCaption</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">@BucketHeading</th>
+                        <th scope="col">@ValueHeading</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var column in Columns)
+                    {
+                        <tr>
+                            <th scope="row">@column.Label</th>
+                            <td>@Format(column.Value)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</figure>
+
+@code {
+    /// <summary>One point per bucket, oldest first. The label is the bucket's own
+    /// name — a date, an hour — and is what the axis and the table row say.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricPoint> Points { get; set; } = [];
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>How a value reads on the scale and in the table. Defaults to the
+    /// compact token notation.</summary>
+    [Parameter]
+    public Func<decimal, string>? FormatValue { get; set; }
+
+    /// <summary>What the bucket column is called in the hidden table.</summary>
+    [Parameter]
+    public string BucketHeading { get; set; } = "Bucket";
+
+    /// <summary>What the value column is called in the hidden table. Naming it is
+    /// worth the parameter: "Value" tells a screen-reader user nothing that
+    /// "Tokens" or "Cost" would not.</summary>
+    [Parameter]
+    public string ValueHeading { get; set; } = "Value";
+
+    /// <summary>How many axis labels to print at most. Thirty dates under a chart
+    /// this size overlap into a grey smear, so only every nth is drawn — the last
+    /// one always among them, because the most recent bucket is the one a reader
+    /// looks for first.</summary>
+    [Parameter]
+    public int MaxLabels { get; set; } = 7;
+
+    /// <summary>Draws the last column in the full brand hue with the rest a step
+    /// back, which is how "where we are now" reads without a legend.</summary>
+    [Parameter]
+    public bool HighlightLast { get; set; }
+
+    [Parameter]
+    public string Height { get; set; } = "9rem";
+
+    /// <summary>Shown when there are no buckets at all.</summary>
+    [Parameter]
+    public string? EmptyMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-bars</c> as the class this block carries, and
+    /// every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-bars";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private sealed record Column(string Label, decimal Value, decimal Height, bool ShowLabel, bool IsLast);
+
+    private List<Column> Columns { get; set; } = [];
+
+    private decimal PeakValue { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        var points = Points ?? [];
+
+        if (points.Count == 0)
+        {
+            Columns = [];
+            PeakValue = 0m;
+            return;
+        }
+
+        // Zero to max, never min to max, for the same reason the sparkline does
+        // it: a column chart zeroed on its own minimum makes a flat fortnight
+        // look like a cliff, and the reader has no axis to argue with.
+        PeakValue = points.Max(point => point.Value);
+
+        // A whole period of nothing is legitimate — a week with no AI usage in it —
+        // and every column should be empty rather than every column full.
+        var span = PeakValue <= 0m ? 1m : PeakValue;
+
+        var stride = MaxLabels <= 0 ? 1 : Math.Max(1, (int)Math.Ceiling(points.Count / (double)MaxLabels));
+        var last = points.Count - 1;
+
+        Columns =
+        [
+            .. points.Select((point, index) => new Column(
+                point.Label,
+                point.Value,
+                Math.Max(0m, point.Value) / span * 100m,
+                index % stride == 0 || index == last,
+                index == last))
+        ];
+    }
+
+    private string ColumnClass(Column column)
+    {
+        var highlight = HighlightLast && column.IsLast ? $" {Part("column")}--current" : string.Empty;
+
+        return $"{Part("column")}{highlight}";
+    }
+
+    private string TableCaption => string.IsNullOrWhiteSpace(Label)
+        ? $"{ValueHeading} per {BucketHeading.ToLowerInvariant()}"
+        : Label;
+
+    private string Format(decimal value) => (FormatValue ?? MetricFormat.Compact)(value);
+
+    private string StyleValue => $"--metric-bars-height: {Height}";
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue
+    {
+        get
+        {
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"{BaseClass}{extra}";
+        }
+    }
+
+    private static string Invariant(decimal value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+}

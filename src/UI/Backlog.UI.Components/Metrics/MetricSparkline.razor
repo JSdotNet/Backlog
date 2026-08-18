@@ -1,0 +1,132 @@
+@*
+    Twelve to thirty readings, no axes and no labels: context beside a number
+    that is already printed.
+
+    The y scale runs zero to max, never min to max. A sparkline zeroed on its own
+    minimum turns a series that moved by two percent into a mountain range, and
+    the reader has no axis to catch it with.
+
+    This is the one component in the group with no data table beside it. The
+    value it is about is the tile's own Value, printed an inch away, so the
+    number is already readable; a thirty-row table per tile would bury the tables
+    that carry something the reader cannot otherwise get. A host that wants a
+    sentence passes Description and gets one for screen readers only.
+*@
+
+@if (Coordinates.Count >= 2)
+{
+    <div class="@ClassValue" id="@Id" style="@StyleValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+        <svg class="@(Part("plot"))"
+             viewBox="0 0 100 30"
+             preserveAspectRatio="none"
+             aria-hidden="true"
+             focusable="false">
+            @if (Filled)
+            {
+                <path class="@(Part("area"))" d="@AreaPath" />
+            }
+            <polyline class="@(Part("line"))" points="@LinePoints" vector-effect="non-scaling-stroke" />
+            @if (ShowEndMarker)
+            {
+                <circle class="@(Part("marker"))"
+                        cx="@Text(Coordinates[^1].X)"
+                        cy="@Text(Coordinates[^1].Y)"
+                        r="4"
+                        vector-effect="non-scaling-stroke" />
+            }
+        </svg>
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <span class="sr-only">@Description</span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<MetricPoint> Points { get; set; } = [];
+
+    /// <summary>The ten-percent area wash under the line.</summary>
+    [Parameter]
+    public bool Filled { get; set; } = true;
+
+    [Parameter]
+    public bool ShowEndMarker { get; set; } = true;
+
+    /// <summary>A sentence for a screen reader — "rose steadily over the last
+    /// fourteen days". The picture itself is hidden from the tree.</summary>
+    [Parameter]
+    public string? Description { get; set; }
+
+    /// <summary>The y-max to draw against, instead of this series' own peak.
+    /// <para>What makes a set of small multiples comparable: left to itself every
+    /// panel scales to its own maximum, so a repository with a tenth of its
+    /// neighbour's activity draws the same mountain and the grid says nothing. A
+    /// trellis passes the same figure to every panel.</para></summary>
+    [Parameter]
+    public decimal? Max { get; set; }
+
+    [Parameter]
+    public string Height { get; set; } = "2.5rem";
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-sparkline</c> as the class this block carries.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-sparkline";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private List<(double X, double Y)> Coordinates { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        var points = Points ?? [];
+
+        // One point is a dot pretending to be a trend.
+        if (points.Count < 2)
+        {
+            Coordinates = [];
+            return;
+        }
+
+        // A supplied max that is smaller than this series would clip the line out of
+        // the box, so the larger of the two wins: a shared scale must still contain
+        // whatever it is given.
+        var max = Math.Max(points.Max(point => point.Value), Max ?? 0m);
+        var span = max <= 0m ? 1d : (double)max;
+        var step = 100d / (points.Count - 1);
+
+        Coordinates = [.. points.Select((point, index) =>
+            (index * step, 30d - (double)point.Value / span * 30d))];
+    }
+
+    private string LinePoints =>
+        string.Join(' ', Coordinates.Select(point => $"{Text(point.X)},{Text(point.Y)}"));
+
+    private string AreaPath =>
+        $"M {Text(Coordinates[0].X)},30 "
+        + string.Join(' ', Coordinates.Select(point => $"L {Text(point.X)},{Text(point.Y)}"))
+        + $" L {Text(Coordinates[^1].X)},30 Z";
+
+    private string StyleValue => $"--metric-sparkline-height: {Height}";
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    /// <summary>Coordinates are written invariant. A machine with a comma decimal
+    /// separator would otherwise emit "12,4" into a points list, where the comma
+    /// is the separator between x and y, and the whole line would fold up.</summary>
+    private static string Text(double value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+}
