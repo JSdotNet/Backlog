@@ -53,7 +53,7 @@ adopted at all. This list records the gap; it is not an alignment claim.
 |---|---|
 | **0004 - Result Objects for Expected Failures** | `Backlog.SharedKernel` implements `Result`, `Result<T>`, and `Error`, and every module handler returns them. No alignment statement exists. |
 | **0009 - Feature Slices Within Module Projects** | `Backlog.Modules.Backlog` already uses the prescribed layout (`DomainModels/`, `Features/`, repository interface at the module root, `Services/`, `Extensions/`). Never recorded as a decision. |
-| **0011 - Centralized Frontend Styling Variables** | Design tokens live in one file, `src/UI/Backlog.UI.Components/wwwroot/components.css`, and `DesignTokenTests` enforces it. Never recorded as a decision. |
+| **0011 - Centralized Frontend Styling Variables** | Design tokens live in one file, `src/Core/Backlog.UI.Components/wwwroot/components.css`, and `DesignTokenTests` enforces it. Never recorded as a decision. |
 | **0002 - Central Package Management** | **Not adopted.** There is no `Directory.Packages.props`; package versions are declared per project. Either adopt it or record why not. |
 
 ## Local system decisions

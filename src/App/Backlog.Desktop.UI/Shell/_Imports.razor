@@ -1,7 +1,17 @@
-@* The shell is the composition root: it is the one place allowed to see all
-   three contexts at once, because wiring them together is its whole job. *@
+@* The shell is the composition root: it is the one place allowed to see every
+   context at once, because wiring them together is its whole job. Dev PC
+   Management is here for its pane and nothing else — the shell names no tool
+   type, so it does not reference that module's abstractions either. *@
 @using Backlog.Desktop.UI.Shell
-@using Backlog.Desktop.UI.Workspace
+@using Backlog.Desktop.UI.AppUpdate
 @using Backlog.Desktop.UI.Inbox
 @using Backlog.Desktop.UI.BacklogManagement
 @using Backlog.Desktop.UI.Knowledge
+@using Backlog.Modules.DevPc.UI
+@* The feature port and the three published surfaces the feature catalog
+   gathers its keys from. Constants only: the shell reads no DTO and calls no
+   port on any of them. *@
+@using Backlog.SharedKernel
+@using Backlog.Modules.Backlog.Abstractions
+@using Backlog.Modules.Knowledge.Abstractions
+@using Backlog.Modules.DevPc.Abstractions

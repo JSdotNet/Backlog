@@ -1,9 +1,13 @@
 using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
+using Backlog.Desktop.UI.AppUpdate;
+using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Desktop.UI.Shell;
-using Backlog.Desktop.UI.Workspace;
+using Backlog.SharedKernel;
 using Backlog.Modules.Backlog;
+using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Backlog.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
@@ -32,19 +36,30 @@ public static class MauiProgram
 
         builder.Services.AddMauiBlazorWebView();
         builder.AddServiceDefaults();
-        builder.Services.AddSingleton<BacklogStore>();
+        // The workspace settings file, and the two module ports the adapters
+        // over it answer. The knowledge resolver is what both ports share, so
+        // neither context has to see the other's settings.
+        builder.Services.AddSingleton<WorkspaceSettingsStore>();
+        builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderSource(
+            sp.GetRequiredService<GitHubSettingsStore>(),
+            sp.GetRequiredService<WorkspaceSettingsStore>()));
+        builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
+            sp.GetRequiredService<WorkspaceSettingsStore>(),
+            sp.GetRequiredService<IKnowledgeFolderSource>()));
 
         // Composition: the Backlog module brings its own use cases, and the host
         // decides which adapter is behind them. The repository follows the
         // storage folder rather than being pinned to wherever it was at startup,
         // because somebody can move their backlog while the app is open.
         builder.Services.AddSingleton<IBacklogRepository>(sp =>
-            new RootedFileBacklogRepository(() => sp.GetRequiredService<BacklogStore>().RootDirectory));
+            new RootedFileBacklogRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         builder.Services.AddBacklogModule();
         builder.Services.AddSingleton<GitHubSettingsStore>();
         builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
-        builder.Services.AddSingleton<AppFeatureSettingsStore>();
+        // The catalog is the shell's product copy; the store is the adapter that
+        // remembers the choices. Composing the two is the host's job.
+        builder.Services.AddSingleton<IAppFeatureSettings>(_ => new AppFeatureSettingsStore(AppFeatures.All));
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
         builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
@@ -60,8 +75,8 @@ public static class MauiProgram
             sp.GetRequiredService<IClaudeTransport>(),
             sp.GetRequiredService<ClaudeSettingsStore>()));
         builder.Services.AddSingleton<GitHubIntegration>();
+        builder.Services.AddSingleton<FeedbackReporter>();
         builder.Services.AddSingleton<DesignKnowledgeProvider>();
-        builder.Services.AddSingleton<KnowledgeFolderSource>();
         builder.Services.AddSingleton<RepositoryBacklogSource>();
         builder.Services.AddSingleton<TechnologyKnowledgeService>();
         builder.Services.AddSingleton<InstructionSourceDiscovery>();
@@ -74,14 +89,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
         builder.Services.AddSingleton<KnowledgeFolderOpenService>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();
-        builder.Services.AddSingleton(sp => new DomainKnowledgeStore(sp.GetRequiredService<KnowledgeFolderSource>()));
+        builder.Services.AddSingleton(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 
         // The MSIX head can manage its own updates when packaged; it degrades to
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is
         // safe to register unconditionally.
         builder.Services.AddSingleton<IAppUpdateService, MsixAppUpdateService>();
         builder.Services.AddSingleton<ICopilotToolService>(sp => new CopilotToolService(
-            sp.GetRequiredService<BacklogStore>(),
+            sp.GetRequiredService<IBacklogStore>(),
             sp.GetService<ILogger<CopilotToolService>>()));
 
 #if DEBUG

@@ -13,35 +13,48 @@ on:
           - what-if
           - deploy
       environment_name:
-        description: 'GitHub environment containing Azure OIDC variables'
+        description: 'GitHub environment; also selects infra/foundry/<environment_name>.bicepparam'
         required: true
-        default: playground
+        default: backlog-ai
         type: string
       subscription_id:
-        description: 'Azure subscription ID'
-        required: true
-        default: 8b559814-3419-498f-8d8d-1bd4ea69b15c
+        description: 'Subscription to deploy to; blank uses the environment variable AZURE_SUBSCRIPTION_ID'
+        required: false
+        default: 8235e3b9-4cd0-4426-879a-471503d9e4fc
         type: string
       resource_group:
-        description: 'Azure resource group'
-        required: true
-        default: JS-Backlog
+        description: 'Resource group to deploy to; blank uses the environment variable AZURE_RESOURCE_GROUP'
+        required: false
+        default: JS-AI
         type: string
       foundry_account_name:
-        description: 'Azure AI Services / Foundry resource name'
-        required: true
-        default: backlog-foundry
+        description: 'Optional Foundry resource name override; blank uses the parameter file value'
+        required: false
+        default: ''
         type: string
       location:
-        description: 'Optional Azure region override; blank uses the resource group location'
+        description: 'Optional Azure region override; blank uses the parameter file value or the resource group location'
         required: false
         default: ''
         type: string
       include_balanced_model:
         description: 'Deploy optional gpt-5.6-sol balanced alternative'
         required: true
-        default: false
-        type: boolean
+        default: from-parameter-file
+        type: choice
+        options:
+          - from-parameter-file
+          - "true"
+          - "false"
+      include_speech_model:
+        description: 'Deploy optional gpt-4o-transcribe speech-to-text model'
+        required: true
+        default: from-parameter-file
+        type: choice
+        options:
+          - from-parameter-file
+          - "true"
+          - "false"
 
 permissions:
   contents: read
@@ -50,141 +63,177 @@ concurrency:
   group: deploy-foundry-${{ inputs.environment_name }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
   foundry:
     name: Validate and deploy Foundry
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     environment: ${{ inputs.environment_name }}
     permissions:
       contents: read
-      id-token: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Check workflow configuration
-        shell: bash
+      - name: Resolve deployment target
         env:
-          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+          SUBSCRIPTION_ID_INPUT: ${{ inputs.subscription_id }}
+          SUBSCRIPTION_ID_VAR: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP_INPUT: ${{ inputs.resource_group }}
+          RESOURCE_GROUP_VAR: ${{ vars.AZURE_RESOURCE_GROUP }}
           FOUNDRY_ACCOUNT_NAME: ${{ inputs.foundry_account_name }}
+          LOCATION: ${{ inputs.location }}
+          INCLUDE_BALANCED_MODEL: ${{ inputs.include_balanced_model }}
+          INCLUDE_SPEECH_MODEL: ${{ inputs.include_speech_model }}
         run: |
-          set -euo pipefail
+          $ErrorActionPreference = 'Stop'
 
-          if [[ -z "$AZURE_CLIENT_ID" ]]; then
-            echo "::error::GitHub environment variable AZURE_CLIENT_ID is not set."
+          $parameterFile = "infra/foundry/$env:ENVIRONMENT_NAME.bicepparam"
+          if (-not (Test-Path -LiteralPath $parameterFile)) {
+            Write-Output "::error::Parameter file $parameterFile does not exist. Add one for environment $env:ENVIRONMENT_NAME before deploying to its subscription."
             exit 1
-          fi
+          }
 
-          if [[ -z "$AZURE_TENANT_ID" ]]; then
-            echo "::error::GitHub environment variable AZURE_TENANT_ID is not set."
+          $subscriptionId = if ($env:SUBSCRIPTION_ID_INPUT) { $env:SUBSCRIPTION_ID_INPUT } else { $env:SUBSCRIPTION_ID_VAR }
+          if (-not $subscriptionId) {
+            Write-Output "::error::No subscription target. Set the GitHub environment variable AZURE_SUBSCRIPTION_ID for $env:ENVIRONMENT_NAME, or pass the subscription_id input."
             exit 1
-          fi
+          }
 
-          if [[ ! "$FOUNDRY_ACCOUNT_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9-]{1,62}[A-Za-z0-9]$ ]]; then
-            echo "::error::foundry_account_name must be 3-64 alphanumeric or hyphen characters and must start and end with an alphanumeric character."
+          if ($subscriptionId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+            Write-Output "::error::subscription_id must be a GUID."
             exit 1
-          fi
+          }
 
-      - name: Azure login
-        uses: Azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ inputs.subscription_id }}
+          $resourceGroup = if ($env:RESOURCE_GROUP_INPUT) { $env:RESOURCE_GROUP_INPUT } else { $env:RESOURCE_GROUP_VAR }
+          if (-not $resourceGroup) {
+            Write-Output "::error::No resource group target. Set the GitHub environment variable AZURE_RESOURCE_GROUP for $env:ENVIRONMENT_NAME, or pass the resource_group input."
+            exit 1
+          }
+
+          if ($resourceGroup -notmatch '^[A-Za-z0-9._()-]{1,90}$') {
+            Write-Output "::error::resource_group contains characters that Azure does not allow in a resource group name."
+            exit 1
+          }
+
+          $overrides = @()
+
+          if ($env:FOUNDRY_ACCOUNT_NAME) {
+            if ($env:FOUNDRY_ACCOUNT_NAME -notmatch '^[A-Za-z0-9][A-Za-z0-9-]{1,62}[A-Za-z0-9]$') {
+              Write-Output "::error::foundry_account_name must be 3-64 alphanumeric or hyphen characters and must start and end with an alphanumeric character."
+              exit 1
+            }
+            $overrides += "accountName=$env:FOUNDRY_ACCOUNT_NAME"
+          }
+
+          if ($env:LOCATION) {
+            if ($env:LOCATION -notmatch '^[a-z0-9]{2,40}$') {
+              Write-Output "::error::location must be an Azure region short name, for example swedencentral."
+              exit 1
+            }
+            $overrides += "location=$env:LOCATION"
+          }
+
+          if ($env:INCLUDE_BALANCED_MODEL -ne 'from-parameter-file') {
+            $overrides += "includeBalancedModel=$env:INCLUDE_BALANCED_MODEL"
+          }
+
+          if ($env:INCLUDE_SPEECH_MODEL -ne 'from-parameter-file') {
+            $overrides += "includeSpeechModel=$env:INCLUDE_SPEECH_MODEL"
+          }
+
+          @(
+            "AZURE_SUBSCRIPTION_ID=$subscriptionId"
+            "AZURE_RESOURCE_GROUP=$resourceGroup"
+            "FOUNDRY_PARAMETER_FILE=$parameterFile"
+            "FOUNDRY_PARAMETER_OVERRIDES=$($overrides -join ' ')"
+          ) | Add-Content -LiteralPath $env:GITHUB_ENV
+
+      - name: Select Azure subscription
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # The self-hosted runner supplies Azure access; this workflow never signs in itself.
+          az account show --output none 2>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::error::The self-hosted runner is not signed in to Azure. Run 'az login --tenant innovadis.com' as the runner service account, or attach a managed identity, then re-run."
+            exit 1
+          }
+
+          az account set --subscription $env:AZURE_SUBSCRIPTION_ID
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::error::The runner identity cannot access subscription $env:AZURE_SUBSCRIPTION_ID."
+            exit 1
+          }
+
+          az account show --query "{subscription:name, subscriptionId:id, tenantId:tenantId, user:user.name}" --output table
 
       - name: Build Bicep template
-        run: az bicep build --file infra/foundry/main.bicep
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          az bicep build --file infra/foundry/main.bicep
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Validate deployment
-        shell: bash
-        env:
-          FOUNDRY_ACCOUNT_NAME: ${{ inputs.foundry_account_name }}
-          INCLUDE_BALANCED_MODEL: ${{ inputs.include_balanced_model }}
-          LOCATION: ${{ inputs.location }}
-          RESOURCE_GROUP: ${{ inputs.resource_group }}
         run: |
-          set -euo pipefail
+          $ErrorActionPreference = 'Stop'
 
-          parameters=(
-            "infra/foundry/playground.bicepparam"
-            "accountName=$FOUNDRY_ACCOUNT_NAME"
-            "includeBalancedModel=$INCLUDE_BALANCED_MODEL"
-          )
+          $overrides = if ($env:FOUNDRY_PARAMETER_OVERRIDES) { $env:FOUNDRY_PARAMETER_OVERRIDES -split ' +' } else { @() }
 
-          if [[ -n "$LOCATION" ]]; then
-            parameters+=("location=$LOCATION")
-          fi
-
-          az deployment group validate \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/foundry/main.bicep \
-            --parameters "${parameters[@]}"
+          az deployment group validate `
+            --subscription $env:AZURE_SUBSCRIPTION_ID `
+            --resource-group $env:AZURE_RESOURCE_GROUP `
+            --template-file infra/foundry/main.bicep `
+            --parameters $env:FOUNDRY_PARAMETER_FILE @overrides
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Preview deployment
         if: inputs.mode == 'what-if' || inputs.mode == 'deploy'
-        shell: bash
-        env:
-          FOUNDRY_ACCOUNT_NAME: ${{ inputs.foundry_account_name }}
-          INCLUDE_BALANCED_MODEL: ${{ inputs.include_balanced_model }}
-          LOCATION: ${{ inputs.location }}
-          RESOURCE_GROUP: ${{ inputs.resource_group }}
         run: |
-          set -euo pipefail
+          $ErrorActionPreference = 'Stop'
 
-          parameters=(
-            "infra/foundry/playground.bicepparam"
-            "accountName=$FOUNDRY_ACCOUNT_NAME"
-            "includeBalancedModel=$INCLUDE_BALANCED_MODEL"
-          )
+          $overrides = if ($env:FOUNDRY_PARAMETER_OVERRIDES) { $env:FOUNDRY_PARAMETER_OVERRIDES -split ' +' } else { @() }
 
-          if [[ -n "$LOCATION" ]]; then
-            parameters+=("location=$LOCATION")
-          fi
-
-          az deployment group what-if \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/foundry/main.bicep \
-            --parameters "${parameters[@]}"
+          az deployment group what-if `
+            --subscription $env:AZURE_SUBSCRIPTION_ID `
+            --resource-group $env:AZURE_RESOURCE_GROUP `
+            --template-file infra/foundry/main.bicep `
+            --parameters $env:FOUNDRY_PARAMETER_FILE @overrides
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Deploy Foundry resources
         if: inputs.mode == 'deploy'
-        shell: bash
-        env:
-          FOUNDRY_ACCOUNT_NAME: ${{ inputs.foundry_account_name }}
-          INCLUDE_BALANCED_MODEL: ${{ inputs.include_balanced_model }}
-          LOCATION: ${{ inputs.location }}
-          RESOURCE_GROUP: ${{ inputs.resource_group }}
         run: |
-          set -euo pipefail
+          $ErrorActionPreference = 'Stop'
 
-          parameters=(
-            "infra/foundry/playground.bicepparam"
-            "accountName=$FOUNDRY_ACCOUNT_NAME"
-            "includeBalancedModel=$INCLUDE_BALANCED_MODEL"
-          )
+          $overrides = if ($env:FOUNDRY_PARAMETER_OVERRIDES) { $env:FOUNDRY_PARAMETER_OVERRIDES -split ' +' } else { @() }
 
-          if [[ -n "$LOCATION" ]]; then
-            parameters+=("location=$LOCATION")
-          fi
-
-          az deployment group create \
-            --name "backlog-foundry-${{ github.run_number }}" \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/foundry/main.bicep \
-            --parameters "${parameters[@]}"
+          az deployment group create `
+            --name "backlog-foundry-${{ github.run_number }}" `
+            --subscription $env:AZURE_SUBSCRIPTION_ID `
+            --resource-group $env:AZURE_RESOURCE_GROUP `
+            --template-file infra/foundry/main.bicep `
+            --parameters $env:FOUNDRY_PARAMETER_FILE @overrides
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Write deployment summary
         if: always()
-        shell: bash
         run: |
-          {
-            echo "### Foundry deployment"
-            echo ""
-            echo "- Mode: \`${{ inputs.mode }}\`"
-            echo "- Subscription: \`${{ inputs.subscription_id }}\`"
-            echo "- Resource group: \`${{ inputs.resource_group }}\`"
-            echo "- Foundry account: \`${{ inputs.foundry_account_name }}\`"
-            echo "- Optional balanced model: \`${{ inputs.include_balanced_model }}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          $unresolved = 'unresolved'
+          @(
+            "### Foundry deployment"
+            ""
+            "- Runner: ``self-hosted``"
+            "- Mode: ``${{ inputs.mode }}``"
+            "- Environment: ``${{ inputs.environment_name }}``"
+            "- Subscription: ``$(if ($env:AZURE_SUBSCRIPTION_ID) { $env:AZURE_SUBSCRIPTION_ID } else { $unresolved })``"
+            "- Resource group: ``$(if ($env:AZURE_RESOURCE_GROUP) { $env:AZURE_RESOURCE_GROUP } else { $unresolved })``"
+            "- Parameter file: ``$(if ($env:FOUNDRY_PARAMETER_FILE) { $env:FOUNDRY_PARAMETER_FILE } else { $unresolved })``"
+            "- Parameter overrides: ``$(if ($env:FOUNDRY_PARAMETER_OVERRIDES) { $env:FOUNDRY_PARAMETER_OVERRIDES } else { 'none' })``"
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY

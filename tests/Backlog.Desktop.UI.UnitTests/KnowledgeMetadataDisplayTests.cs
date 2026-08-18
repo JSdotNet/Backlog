@@ -30,9 +30,9 @@ public class KnowledgeMetadataDisplayTests
     {
         using var context = new BunitContext();
         var settings = new GitHubSettingsStore(Path.Combine(Path.GetTempPath(), "backlog-domain-panel-tests", Guid.NewGuid().ToString("n"), "github.json"));
-        context.Services.AddSingleton(new DomainKnowledgeStore(settings));
+        context.Services.AddSingleton(new DomainKnowledgeStore(new KnowledgeFolderSource(settings)));
         context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
-        context.Services.AddSingleton(new AppFeatureSettingsStore(Path.Combine(Path.GetTempPath(), "backlog-domain-panel-tests", Guid.NewGuid().ToString("n"), "features.json")));
+        context.Services.AddSingleton<IAppFeatureSettings>(new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(Path.GetTempPath(), "backlog-domain-panel-tests", Guid.NewGuid().ToString("n"), "features.json")));
 
         var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {

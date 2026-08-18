@@ -1,0 +1,184 @@
+@using System.Globalization
+
+@*
+    One bar on a roadmap row: where it sits, how long it runs, and the three
+    places a pointer can take hold of it.
+
+    It is drawn from whichever placement is current — the bar's own, or the one
+    a drag is part-way through proposing — so a bar being dragged is the same
+    element in a different place rather than a second, ghostly copy of itself.
+    That is what lets the dependency arrows stay attached to it while it moves.
+
+    The gestures are the pointer's and the keyboard's alike, but only the
+    pointer's live here. Which key does what is a decision about the whole
+    timeline — which bar is grabbed, which row it would land on, what to
+    announce — and a bar cannot answer any of that on its own, so it forwards
+    the key and lets the timeline decide.
+*@
+
+<div class="@ClassValue"
+     style="left: @Rem(Left); width: @Rem(Width)"
+     data-roadmap-bar="@Bar.Id"
+     data-roadmap-locked="@(Bar.Locked ? "true" : "false")"
+     data-testid="@TestId">
+
+    <button type="button"
+            id="@ButtonId"
+            class="roadmap-bar__body"
+            data-roadmap-grip="move"
+            aria-describedby="@DescribedById"
+            aria-current="@(Selected ? "true" : null)"
+            title="@Tooltip"
+            @onclick="() => OnActivate.InvokeAsync(Bar.Id)"
+            @onkeydown="OnKeyDown"
+            @onkeydown:preventDefault="PreventDefaultKeys">
+        <span class="roadmap-bar__title">@Placement.Title</span>
+
+        @* The badge is the dependency count the screenshot puts on the bar. It
+           is aria-hidden and said again in words below, because a screen reader
+           announcing a bare "2" in the middle of a title says nothing. *@
+        @if (DependencyCount > 0)
+        {
+            <span class="roadmap-bar__badge" aria-hidden="true">@DependencyCount</span>
+        }
+
+        <span class="sr-only">@AccessibleDetail</span>
+    </button>
+
+    @* Grips, not buttons. They carry no accessible name and no tab stop: an
+       edge is a pointer affordance, and the keyboard reaches the same two dates
+       through the bar itself. Two more tab stops per bar would put three
+       hundred of them between a reader and the row below. *@
+    @if (Resizable)
+    {
+        <span class="roadmap-bar__grip roadmap-bar__grip--start" data-roadmap-grip="start" aria-hidden="true"></span>
+        <span class="roadmap-bar__grip roadmap-bar__grip--end" data-roadmap-grip="end" aria-hidden="true"></span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public RoadmapBar Bar { get; set; } = new("", "", "", default, default);
+
+    [Parameter, EditorRequired]
+    public RoadmapGeometry Geometry { get; set; } = new(new RoadmapWindow(default, default));
+
+    /// <summary>The placement a gesture is currently proposing for this bar, or
+    /// null when it is sitting where its data says it does.</summary>
+    [Parameter]
+    public RoadmapChange? Preview { get; set; }
+
+    /// <summary>How many dependencies point at this bar. The number in the
+    /// badge, and nothing else — which dependencies they are is the timeline's,
+    /// because a bar cannot see the arrows drawn to it.</summary>
+    [Parameter]
+    public int DependencyCount { get; set; }
+
+    [Parameter]
+    public bool Selected { get; set; }
+
+    /// <summary>Whether the keyboard has picked this bar up. A grabbed bar is
+    /// drawn as lifted and is the one the arrow keys move.</summary>
+    [Parameter]
+    public bool Grabbed { get; set; }
+
+    /// <summary>Whether a pointer currently has hold of it.</summary>
+    [Parameter]
+    public bool Dragging { get; set; }
+
+    /// <summary>Whether where it is being taken is somewhere it cannot go — a
+    /// milestones row, which has no duration to give it. Shown as a refusal
+    /// rather than allowed and silently undone on drop.</summary>
+    [Parameter]
+    public bool Invalid { get; set; }
+
+    /// <summary>Whether the edges offer themselves to be dragged.</summary>
+    [Parameter]
+    public bool AllowResize { get; set; } = true;
+
+    /// <summary>Where the bar is, said in full — group, row, and anything else
+    /// only the timeline knows. Read out after the title.</summary>
+    [Parameter]
+    public string? ContextLabel { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnActivate { get; set; }
+
+    [Parameter]
+    public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
+
+    /// <summary>Whether the arrow keys and space are swallowed rather than
+    /// scrolling the page. True exactly while this bar is grabbed — outside a
+    /// grab the reader is navigating, and stealing their arrow keys then would
+    /// trap them.</summary>
+    [Parameter]
+    public bool PreventDefaultKeys { get; set; }
+
+    /// <summary>The element holding the keyboard instructions, so every bar
+    /// points at one copy of them rather than repeating them.</summary>
+    [Parameter]
+    public string? DescribedById { get; set; }
+
+    /// <summary>How a date is written. The host's, because what "12 Jan" should
+    /// say and in which language is not something this library knows.</summary>
+    [Parameter]
+    public Func<DateOnly, string> DateLabel { get; set; } =
+        date => date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>The id of the button itself, so focus can be put back on the
+    /// bar after a move has rebuilt the row it lives in.</summary>
+    [Parameter]
+    public string? ButtonId { get; set; }
+
+    /// <summary>The bar as it is currently being drawn: its own dates, or the
+    /// ones the gesture in flight is proposing.</summary>
+    private RoadmapBar Placement => Preview?.ApplyTo(Bar) ?? Bar;
+
+    private double Left => Geometry.XFor(Placement.Start);
+
+    private double Width => Geometry.WidthFor(Placement.Start, Placement.End);
+
+    private bool Resizable => AllowResize && !Bar.Locked;
+
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "roadmap-bar",
+        $"roadmap-bar--shade-{Placement.ShadeStep}",
+        Selected ? "roadmap-bar--selected" : null,
+        Grabbed ? "roadmap-bar--grabbed" : null,
+        Dragging ? "roadmap-bar--dragging" : null,
+        Invalid ? "roadmap-bar--invalid" : null,
+        Bar.Locked ? "roadmap-bar--locked" : null
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    private string Dates => $"{DateLabel(Placement.Start)} to {DateLabel(Placement.End)}";
+
+    /// <summary>What the tooltip says. The title is on the bar already, but a
+    /// narrow bar clips it, and the dates are nowhere else on screen at all.</summary>
+    private string Tooltip => string.Join(" — ", new[] { Placement.Title, Dates, Bar.Detail }
+        .Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>
+    /// Everything the bar is that its label does not say. Read after the title,
+    /// so the reader hears what the work is before hearing where it sits.
+    /// </summary>
+    private string AccessibleDetail => string.Join(". ", new[]
+    {
+        ContextLabel,
+        Dates,
+        Bar.Detail,
+        DependencyCount switch
+        {
+            0 => null,
+            1 => "1 dependency",
+            _ => $"{DependencyCount} dependencies"
+        },
+        Bar.Locked ? "Fixed, cannot be moved" : null,
+        Grabbed ? "Grabbed" : null
+    }.Where(part => !string.IsNullOrWhiteSpace(part))) + ".";
+
+    private static string Rem(double value) => $"{RoadmapGeometry.N(value)}rem";
+}

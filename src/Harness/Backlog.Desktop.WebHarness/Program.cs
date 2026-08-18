@@ -4,9 +4,13 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
+using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Desktop.UI.Shell;
-using Backlog.Desktop.UI.Workspace;
+using Backlog.Modules.DevPc.Abstractions;
+using Backlog.SharedKernel;
 using Backlog.Modules.Backlog;
+using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Backlog.Extensions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Desktop.WebHarness;
@@ -19,18 +23,27 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddSingleton<BacklogStore>();
+// The workspace settings file, and the two module ports the adapters over it
+// answer. The knowledge resolver is what both ports share, so neither context
+// has to see the other's settings.
+builder.Services.AddSingleton<WorkspaceSettingsStore>();
+builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderSource(
+    sp.GetRequiredService<GitHubSettingsStore>(),
+    sp.GetRequiredService<WorkspaceSettingsStore>()));
+builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
+    sp.GetRequiredService<WorkspaceSettingsStore>(),
+    sp.GetRequiredService<IKnowledgeFolderSource>()));
 
 // Composition: the Backlog module brings its own use cases, and the host decides
 // which adapter is behind them. The repository follows the storage folder rather
 // than being pinned to wherever it was at startup.
 builder.Services.AddSingleton<IBacklogRepository>(sp =>
-    new RootedFileBacklogRepository(() => sp.GetRequiredService<BacklogStore>().RootDirectory));
+    new RootedFileBacklogRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddBacklogModule();
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
-builder.Services.AddSingleton(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
+builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
 builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
@@ -45,8 +58,8 @@ builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
     sp.GetRequiredService<IClaudeTransport>(),
     sp.GetRequiredService<ClaudeSettingsStore>()));
 builder.Services.AddSingleton<GitHubIntegration>();
+builder.Services.AddSingleton<FeedbackReporter>();
 builder.Services.AddSingleton<DesignKnowledgeProvider>();
-builder.Services.AddSingleton<KnowledgeFolderSource>();
 builder.Services.AddSingleton<RepositoryBacklogSource>();
 builder.Services.AddSingleton<TechnologyKnowledgeService>();
 builder.Services.AddSingleton<InstructionSourceDiscovery>();
@@ -58,7 +71,7 @@ builder.Services.AddSingleton(_ => BacklogCopilotCli.Unavailable);
 builder.Services.AddSingleton(_ => new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
 builder.Services.AddSingleton<KnowledgeScope>();
 builder.Services.AddScoped<BacklogDesktopState>();
-builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<KnowledgeFolderSource>()));
+builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.
@@ -156,7 +169,7 @@ static AppFeatureSettingsStore CreateLocalDevelopmentFeatureSettingsStore(string
         settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "feature.settings.json");
     }
 
-    return new AppFeatureSettingsStore(settingsPath);
+    return new AppFeatureSettingsStore(AppFeatures.All, settingsPath);
 }
 
 static ClaudeSettingsStore CreateLocalDevelopmentClaudeSettingsStore(string contentRootPath)

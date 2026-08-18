@@ -1,0 +1,880 @@
+@implements IDisposable
+@inject BacklogDesktopState State
+@inject GitHubIntegration GitHub
+@inject IAppFeatureSettings Features
+@inject IJSRuntime JS
+
+@*
+    One entry is one block of markdown. Not focused, it reads as a document;
+    focused, it is the raw text. Nothing in between, and no field-level form
+    control anywhere — see BacklogDesktopState and EntryTextParser.
+
+    The pane owns the whole list: its filters, its editor focus, and its GitHub
+    and Copilot actions. The shell decides whether it is on screen and nothing
+    more.
+*@
+
+<section @key=@("backlog-pane") class="backlog-workspace" id="backlog-pane" data-testid="backlog-pane" aria-label="Backlog entries">
+
+    @* Areas are local piles/tags inside the selected repository scope. Status
+       narrows what is already in view, so it sits on the right. *@
+    <div class="filter-bar">
+        <div class="filter-group filter-group--areas" role="radiogroup" aria-label="Filter by area">
+            @foreach (var area in State.AreaFilters)
+            {
+                @* A radio in a radiogroup, so aria-checked rather than the
+                   aria-pressed ToggleButton would bring: these chips pick one
+                   of a set, they do not each hold a state of their own. *@
+                <AppButton BaseClass="chip chip--filter"
+                           Variant="ButtonVariant.None"
+                           CssClass="@(State.SelectedArea == area.Value ? "chip--active" : null)"
+                           TestId="area-filter-option"
+                           role="radio"
+                           aria-checked="@(State.SelectedArea == area.Value ? "true" : "false")"
+                           OnClick="() => State.SetAreaFilter(area.Value)">
+                    @area.Label<span class="chip__count">@area.Count</span>
+                </AppButton>
+            }
+        </div>
+
+        <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
+            @foreach (var filter in State.StatusFilters)
+            {
+                <AppButton BaseClass="chip chip--filter"
+                           Variant="ButtonVariant.None"
+                           CssClass="@(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : null)"
+                           id="@($"status-filter-{(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)}")"
+                           TestId="status-filter-option"
+                           role="radio"
+                           aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
+                           OnClick="() => OnFilterChanged(filter.Wire)">
+                    @filter.Label
+                </AppButton>
+            }
+        </div>
+    </div>
+
+    @if (State.FilteredRows.Count == 0)
+    {
+        <EmptyState Title="Nothing here yet."
+                    Description="Write your first entry to start triaging the backlog."
+                    data-testid="empty-state" />
+    }
+    else
+    {
+        <ul id="entry-list" data-testid="entry-list" class="entry-list @(State.DraggedRow is null ? string.Empty : "entry-list--dragging")">
+            @foreach (var row in State.FilteredRows)
+            {
+                var editing = ReferenceEquals(State.EditingRow, row);
+                var oneLine = !editing && row.UsesOneLineLayout;
+
+                <li class="entry-group" @key="row.Key">
+                <div class="entry-doc status-accent--@row.PreviewStatus.ToString().ToLowerInvariant() @(editing ? "entry-doc--editing" : string.Empty) @(oneLine ? "entry-doc--one-line" : string.Empty) @(ReferenceEquals(State.DraggedRow, row) ? "entry-doc--dragged" : string.Empty) @(row.JustSaved ? "entry-doc--saved-flash" : string.Empty)">
+
+                    @RenderGrip(row, before: true, "top")
+                    @RenderGrip(row, before: true, "left")
+
+                    @* A 12px rail is a fine thing to grab and a miserable thing
+                       to hit. While a drag is in flight the whole card becomes
+                       the target, split into a top half that drops above and a
+                       bottom half that drops below. *@
+                    @if (State.DraggedRow is not null && !ReferenceEquals(State.DraggedRow, row))
+                    {
+                        <div class="entry-doc__drops" aria-hidden="true">
+                            <div class="entry-doc__drop entry-doc__drop--before"
+                                 data-testid="entry-drop-before"
+                                 data-drop-zone="@row.Key"
+                                 @ondragenter:preventDefault="true"
+                                 @ondragover:preventDefault="true"
+                                 @ondrop="() => State.DropAsync(row, true)"></div>
+                            <div class="entry-doc__drop entry-doc__drop--after"
+                                 data-testid="entry-drop-after"
+                                 data-drop-zone="@row.Key"
+                                 @ondragenter:preventDefault="true"
+                                 @ondragover:preventDefault="true"
+                                 @ondrop="() => State.DropAsync(row, false)"></div>
+                        </div>
+                    }
+
+                    <div class="entry-doc__body">
+                        @if (editing || oneLine)
+                        {
+                            @RenderEntryMetadata(row, oneLine)
+                        }
+
+                        @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration))
+                        {
+                            <Alert Message="@row.GitHubError" BaseClass="entry-doc__gh-error" TestId="github-error" Role="status" />
+                        }
+
+                        @if (IsFeatureEnabled(AppFeatureKeys.CopilotCli))
+                        {
+                            <Alert Message="@row.CopilotError" BaseClass="entry-doc__gh-error" TestId="copilot-cli-error" Role="status" />
+                        }
+                        @* Not TextArea, and deliberately. The grow wrapper here
+                           holds the reading line as well as the box, replicates
+                           the text plus a trailing newline so the last line has
+                           somewhere to go, and the element itself is focused
+                           through _editor after a state change. TextArea shapes
+                           a labelled field; this is the editing surface. *@
+                        @if (editing)
+                        {
+                            <div class="grow-wrap" data-replicated-value="@(State.EntryEditText(row) + "\n")">
+                                <textarea class="entry-doc__editor"
+                                          id="entry-raw-@row.Key"
+                                          data-testid="entry-raw-input"
+                                          aria-label="Entry markdown"
+                                          placeholder="@BacklogDesktopState.NewEntryPlaceholder"
+                                          @ref="_editor"
+                                          @oninput="e => State.OnRawTextInput(row, e.Value?.ToString() ?? string.Empty)"
+                                          @onkeydown="e => OnEditorKeyDownAsync(row, e)"
+                                          @onfocus="() => FocusTextEntry(row)"
+                                          @onblur="() => OnEditorBlurAsync(row)">@State.EntryEditText(row)</textarea>
+
+                                @* Answers "which one is the status?" by simply
+                                   saying so, live, from the same parse the save
+                                   will use. *@
+                                <p class="entry-doc__reading" data-testid="entry-meta-reading">
+                                    <span class="entry-doc__reading-lead">reads as</span>
+                                    @foreach (var reading in row.MetaReadings)
+                                    {
+                                        <span class="entry-doc__reading-item @(reading.Explicit ? string.Empty : "entry-doc__reading-item--default") @(reading.Note is null ? string.Empty : "entry-doc__reading-item--refused")">
+                                            <span class="entry-doc__reading-kind">@reading.Kind</span>
+                                            <span class="entry-doc__reading-value">@reading.Value</span>
+                                            @if (reading.Note is not null)
+                                            {
+                                                <span class="entry-doc__reading-note">@reading.Note</span>
+                                            }
+                                        </span>
+                                    }
+                                </p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="entry-doc__read"
+                                 id="entry-content-@row.Key"
+                                 data-testid="entry-read-view"
+                                 role="group"
+                                 tabindex="0"
+                                 aria-label="Edit markdown for @(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "untitled entry" : row.PreviewTitle)"
+                                 @onclick="() => State.BeginEdit(row)"
+                                 @onkeydown="e => OnReadViewKeyDown(row, e)">
+
+                                <div class="entry-doc__title-line">
+
+                                    @if (row.HasExpandableContent)
+                                    {
+                                        <AppButton BaseClass="entry-doc__title-button"
+                                                   Variant="ButtonVariant.None"
+                                                   id="@($"fold-entry-{row.Key}")"
+                                                   TestId="entry-title-button"
+                                                   aria-expanded="@(row.EntryCollapsed ? "false" : "true")"
+                                                   aria-controls="@($"entry-content-{row.Key}")"
+                                                   aria-label="@(row.EntryCollapsed ? "Show entry details" : "Collapse entry to one line")"
+                                                   StopPropagation="true"
+                                                   OnClick="() => State.ToggleEntry(row)">
+                                            @if (string.IsNullOrWhiteSpace(row.PreviewTitle))
+                                            {
+                                                <span class="entry-doc__title entry-doc__title--empty">Untitled</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</span>
+                                            }
+                                            <span class="entry-doc__fold-chevron @(row.EntryCollapsed ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
+                                        </AppButton>
+                                    }
+                                    else if (string.IsNullOrWhiteSpace(row.PreviewTitle))
+                                    {
+                                        <p class="entry-doc__title entry-doc__title--empty">Untitled</p>
+                                    }
+                                    else
+                                    {
+                                        <p class="entry-doc__title" data-testid="entry-title">@row.PreviewTitle</p>
+                                    }
+                                    @if (!oneLine)
+                                    {
+                                        @RenderEntryMetadata(row, oneLine)
+                                    }
+                                </div>
+
+                                @if (!row.UsesOneLineLayout)
+                                {
+                                    <MarkdownView Blocks="row.PreviewBlocks" OnTaskItemToggled="index => State.ToggleTaskItemAsync(row, index)" />
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    @RenderGrip(row, before: false, "right")
+                    @RenderGrip(row, before: false, "bottom")
+                </div>
+
+                @* Sub-items are items, not paragraphs: they sit below the entry,
+                   indented under it, each one its own card that can be grabbed
+                   and re-ranked. Folded away, the count on the entry still says
+                   they are there. Parent editing is scoped to the parent chapter,
+                   so sub-item cards remain visible below it. *@
+                @if (row.PreviewSubItems.Count > 0 && !row.EntryCollapsed)
+                {
+                    <ul class="subitem-list @(ReferenceEquals(State.SubItemDragRow, row) ? "subitem-list--dragging" : string.Empty)"
+                        id="subitems-@row.Key"
+                        data-testid="subitem-list">
+                        @for (var index = 0; index < row.PreviewSubItems.Count; index++)
+                        {
+                            var position = index;
+                            var subItem = row.PreviewSubItems[position];
+                            var editingSubItem = State.IsEditingSubItem(row, position);
+
+                            <li class="subitem-card subitem-card--level-@subItem.Level @(subItem.Done ? "subitem-card--done" : string.Empty) @(editingSubItem ? "subitem-card--editing" : string.Empty) @(State.IsDraggingSubItem(row, position) ? "subitem-card--dragged" : string.Empty)"
+                                @key="position"
+                                data-testid="entry-subitem">
+
+                                @* The grip stays a raw button: `@ondragenter:preventDefault`
+                                   and `@ondragover:preventDefault` are directive
+                                   attributes, and like stopPropagation they cannot be
+                                   written on a component. A drop target is not a
+                                   button shape the library has, so there is nothing
+                                   to adopt here rather than a hook missing. *@
+                                <button type="button"
+                                        class="subitem-card__grip"
+                                        id="subitem-grip-@row.Key-@position"
+                                        data-testid="subitem-grip"
+                                        data-drag-grip="@row.Key-@position"
+                                        draggable="true"
+                                        tabindex="0"
+                                        aria-label="Reorder sub-item — drag, or use the up and down arrow keys"
+                                        @ondragstart="() => State.BeginSubItemDrag(row, position)"
+                                        @ondragend="() => State.EndSubItemDrag()"
+                                        @ondragenter:preventDefault="true"
+                                        @ondragover:preventDefault="true"
+                                        @ondrop="() => State.DropSubItemAsync(row, position, true)"
+                                        @onkeydown="e => OnSubItemGripKeyDownAsync(row, position, e)">
+                                    <span class="subitem-card__grip-dots" aria-hidden="true"></span>
+                                </button>
+
+                                @if (editingSubItem)
+                                {
+                                    @* Same editing surface as the entry above,
+                                       same reason it is not TextArea. *@
+                                    <div class="subitem-card__body subitem-card__body--editing">
+                                        <div class="grow-wrap" data-replicated-value="@(State.SubItemEditText(row, position) + "\n")">
+                                            <textarea class="entry-doc__editor subitem-card__editor"
+                                                      data-testid="subitem-raw-input"
+                                                      aria-label="Sub-item markdown"
+                                                      @ref="_editor"
+                                                      @oninput="e => State.OnSubItemRawTextInput(row, position, e.Value?.ToString() ?? string.Empty)"
+                                                      @onblur="() => OnSubItemEditorBlurAsync(row, position)">@State.SubItemEditText(row, position)</textarea>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="subitem-card__body"
+                                         role="group"
+                                         tabindex="0"
+                                         aria-label="Edit sub-item"
+                                         @onclick="() => State.BeginSubItemEdit(row, position)"
+                                         @onkeydown="e => OnSubItemReadViewKeyDown(row, position, e)">
+                                        <div class="subitem-card__title-row">
+                                            @if (subItem.HasCheckbox)
+                                            {
+                                                <ToggleButton BaseClass="md-check subitem-card__check"
+                                                              PressedCssClass="md-check--done"
+                                                              Pressed="@subItem.Done"
+                                                              TestId="subitem-checkbox"
+                                                              AriaLabel="@(subItem.Done ? "Mark sub-item not done" : "Mark sub-item done")"
+                                                              StopPropagation="true"
+                                                              PressedChanged="() => State.ToggleSubItemAsync(row, position)">@(subItem.Done ? "✔" : string.Empty)</ToggleButton>
+                                            }
+                                            @if (subItem.Children.Count > 0)
+                                            {
+                                                <AppButton BaseClass="subitem-card__title-button"
+                                                           Variant="ButtonVariant.None"
+                                                           TestId="subitem-title-button"
+                                                           aria-expanded="@(row.IsSubItemCollapsed(position) ? "false" : "true")"
+                                                           aria-controls="@($"subitem-content-{row.Key}-{position}")"
+                                                           aria-label="@(row.IsSubItemCollapsed(position) ? "Show sub-item details" : "Collapse sub-item details")"
+                                                           StopPropagation="true"
+                                                           OnClick="() => row.ToggleSubItemCollapsed(position)">
+                                                    <span class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</span>
+                                                    <span class="entry-doc__fold-chevron @(row.IsSubItemCollapsed(position) ? string.Empty : "entry-doc__fold-chevron--open")" aria-hidden="true">▸</span>
+                                                </AppButton>
+                                            }
+                                            else
+                                            {
+                                                <h3 class="subitem-card__title">@MarkdownRender.Inlines(subItem.Title)</h3>
+                                            }
+                                        </div>
+                                        @RenderSubItemMetadata(row, subItem, position)
+                                        @if (subItem.Children.Count > 0 && !row.IsSubItemCollapsed(position))
+                                        {
+                                            <div class="subitem-card__notes" id="subitem-content-@row.Key-@position">
+                                                <MarkdownView Blocks="subItem.Children" OnTaskItemToggled="index => State.ToggleTaskItemAsync(row, index)" />
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                @* Same bargain as the entries: mid-drag the whole
+                                   card is the target, top half drops above and
+                                   bottom half below. *@
+                                @if (ReferenceEquals(State.SubItemDragRow, row) && State.SubItemDragIndex != position)
+                                {
+                                    <div class="subitem-card__drops" aria-hidden="true">
+                                        <div class="subitem-card__drop subitem-card__drop--before"
+                                             data-testid="subitem-drop-before"
+                                             data-drop-zone="@row.Key-@position"
+                                             @ondragenter:preventDefault="true"
+                                             @ondragover:preventDefault="true"
+                                             @ondrop="() => State.DropSubItemAsync(row, position, true)"></div>
+                                        <div class="subitem-card__drop subitem-card__drop--after"
+                                             data-testid="subitem-drop-after"
+                                             data-drop-zone="@row.Key-@position"
+                                             @ondragenter:preventDefault="true"
+                                             @ondragover:preventDefault="true"
+                                             @ondrop="() => State.DropSubItemAsync(row, position, false)"></div>
+                                    </div>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+                </li>
+            }
+        </ul>
+    }
+
+    @* Creating an entry is the same gesture as writing in one, so the control
+       sits where the next entry will actually appear rather than up in the
+       chrome. *@
+    <AppButton BaseClass="entry-add"
+               Variant="ButtonVariant.None"
+               id="new-entry-button"
+               TestId="new-entry-button"
+               OnClick="OnNewEntry">
+        @* Not the Icon slot: that wraps what it is given in a `btn__icon` span,
+           and this row already has its own plus. *@
+        <span class="entry-add__plus" aria-hidden="true">+</span>
+        New entry
+    </AppButton>
+</section>
+
+@code {
+    private ElementReference _editor;
+    private Guid? _textFocusedEntryKey;
+
+    protected override void OnInitialized()
+    {
+        State.Changed += HandleStateChanged;
+        Features.Changed += HandleFeaturesChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // A sub-item that was just moved with the keyboard has to take the caret
+        // with it, or the next press moves whatever slid into the old slot.
+        if (State.SubItemFocus is { } focus)
+        {
+            State.ConsumeSubItemFocus();
+            try
+            {
+                await JS.InvokeVoidAsync("backlogFocus", $"subitem-grip-{focus.Row.Key}-{focus.Index}");
+            }
+            catch (Exception)
+            {
+                // Losing the focus ring is not worth tearing down the page.
+            }
+        }
+
+        if (!State.FocusPending || State.EditingRow is null) return;
+
+        State.FocusPending = false;
+        try
+        {
+            await _editor.FocusAsync();
+        }
+        catch (Exception)
+        {
+            // The editor can be gone again by the time this runs (a fast click
+            // elsewhere); losing the caret is not worth tearing down the page.
+        }
+    }
+
+    private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void HandleFeaturesChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
+
+    private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(BacklogFeatures.AdditionalRepositories);
+
+    /// <summary>The repositories an entry may be filed against. Without the
+    /// additional-repositories feature there is only ever the first one.</summary>
+    private IReadOnlyList<GitHubRepositoryRef> KnowledgeRepositories
+    {
+        get
+        {
+            if (AdditionalRepositoriesEnabled) return GitHub.Repositories;
+
+            var repository = GitHub.Repositories.FirstOrDefault();
+            return repository is null ? [] : [repository];
+        }
+    }
+
+    private GitHubRepositoryRef? RepositoryFor(EntryRow row) =>
+        AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Repositories.FirstOrDefault();
+
+    private IReadOnlyList<SelectorOption> RepositoryOptions() =>
+        [.. KnowledgeRepositories.Select(repository => new SelectorOption(repository.Alias, repository.Alias))];
+
+    private RenderFragment RenderEntryMetadata(EntryRow row, bool oneLine) =>
+        @<div class="entry-doc__meta" @onmousedown:stopPropagation="true" @onclick:stopPropagation="true">
+            <span class="entry-doc__meta-start">
+                @* SelectField rather than EnumSelect: EnumSelect titles its own
+                   labels ("In Progress"), and every other badge on this row
+                   reads lowercase. The options come from here so the vocabulary
+                   stays the app's. *@
+                <SelectField CurrentValue="@row.PreviewType.ToString()"
+                             Options="@TypeSelectorOptions()"
+                             Label="Change type"
+                             TestId="type-badge"
+                             CssClass="metadata-editor--type badge badge--type"
+                             OnChanged="value => OnTypeChangedAsync(row, value)" />
+
+                <PrioritySelector TEnum="Priority" CurrentValue="@row.PreviewPriority"
+                                  Options="@PriorityOptions()"
+                                  Label="Change priority"
+                                  TestId="priority-badge"
+                                  OnChanged="priority => State.ChangePriorityAsync(row, priority)" />
+
+                @if (KnowledgeRepositories.Count > 0)
+                {
+                    <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                                        Options="@RepositoryOptions()"
+                                        Label="Change repository"
+                                        TestId="area-badge"
+                                        OnChanged="value => OnRepositoryChangedAsync(row, value)" />
+                }
+            </span>
+
+            <span class="entry-doc__meta-end">
+                <span class="entry-doc__tags entry-doc__tags--end">
+                    @RenderTagEditor(row)
+                </span>
+
+                @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration) && State.GitHubConfigured)
+                {
+                    var repository = RepositoryFor(row);
+
+                    @if (row.IssueLink is { } link)
+                    {
+                        <a class="badge badge--gh badge--gh-@(GitHubStateClass(row.Snapshot?.Issue.State))"
+                           data-testid="github-issue-badge"
+                           href="@link.Url"
+                           target="_blank"
+                           rel="noopener"
+                           title="@link.RepoFullName issue @link.Label">
+                            @link.Label
+                            <span class="badge__state">@GitHubStateLabel(row.Snapshot?.Issue.State)</span>
+                        </a>
+
+                        @if (row.Snapshot?.Headline is { } pull)
+                        {
+                            <a class="badge badge--gh badge--gh-@(GitHubStateClass(pull.State))"
+                               data-testid="github-pr-badge"
+                               href="@pull.Url"
+                               target="_blank"
+                               rel="noopener"
+                               title="@pull.Title">
+                                PR #@pull.Number
+                                <span class="badge__state">@GitHubStateLabel(pull.State)</span>
+                            </a>
+                        }
+
+                    }
+                }
+
+                @if (row.Origin is { } origin)
+                {
+                    <Badge Kind="source" data-testid="entry-source-badge" Title="@($"{origin.RepositoryFullName} · {origin.RelativePath}")">
+                        <code>@origin.RelativePath</code>
+                    </Badge>
+                }
+                else if (!row.IsPersisted)
+                {
+                    <Badge Kind="draft" data-testid="draft-hint">Unsaved — give it a title line</Badge>
+                }
+
+                <StatusSelector CurrentValue="@row.PreviewStatus.ToString()"
+                                Options="@StatusSelectorOptions()"
+                                Label="Change status"
+                                TestId="status-badge"
+                                OnChanged="value => OnStatusChangedAsync(row, value)" />
+
+                <span class="entry-doc__actions" aria-label="Entry actions">
+                    @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration) && State.GitHubConfigured)
+                    {
+                        var repository = RepositoryFor(row);
+
+                        @if (row.IssueLink is not null)
+                        {
+                            <IconButton BaseClass="entry-doc__icon-action"
+                                        TestId="github-refresh-button"
+                                        Disabled="@row.GitHubBusy"
+                                        AriaLabel="Check this issue on GitHub"
+                                        OnClick="() => State.RefreshGitHubAsync(row)">
+                                @if (row.GitHubBusy)
+                                {
+                                    <span aria-hidden="true">…</span>
+                                }
+                                else
+                                {
+                                    <svg class="entry-doc__button-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                                        <path d="M1.705 8a6.303 6.303 0 0 1 10.848-4.365L11.318 4.87a.75.75 0 0 0 .53 1.281h3.329a.75.75 0 0 0 .75-.75V2.073a.75.75 0 0 0-1.28-.53l-1.018 1.018A7.804 7.804 0 0 0 .204 8a.75.75 0 0 0 1.501 0Zm14.091 0a.75.75 0 0 0-1.501 0 6.303 6.303 0 0 1-10.848 4.365l1.235-1.235a.75.75 0 0 0-.53-1.281H.823a.75.75 0 0 0-.75.75v3.328a.75.75 0 0 0 1.28.53l1.018-1.018A7.804 7.804 0 0 0 15.796 8Z" />
+                                    </svg>
+                                }
+                            </IconButton>
+                        }
+                        else if (repository is not null && row.IsPersisted)
+                        {
+                            <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--push"
+                                        TestId="github-push-button"
+                                        Disabled="@row.GitHubBusy"
+                                        AriaLabel="@($"Create an issue in {repository.FullName}")"
+                                        OnClick="() => State.PushToGitHubAsync(row, repository)">
+                                @if (row.GitHubBusy)
+                                {
+                                    <span aria-hidden="true">…</span>
+                                }
+                                else
+                                {
+                                    <svg class="entry-doc__button-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                                        <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
+                                    </svg>
+                                }
+                            </IconButton>
+                        }
+                    }
+
+                    @if (IsFeatureEnabled(AppFeatureKeys.CopilotCli) && row.IsPersisted)
+                    {
+                        <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--copilot"
+                                    TestId="copilot-cli-button"
+                                    Disabled="@row.CopilotBusy"
+                                    AriaLabel="Start GitHub Copilot CLI for this entry"
+                                    OnClick="() => State.StartCopilotCliAsync(row)">
+                            @if (row.CopilotBusy)
+                            {
+                                <span aria-hidden="true">…</span>
+                            }
+                            else
+                            {
+                                <span class="entry-doc__cli-mark" aria-hidden="true">gh</span>
+                            }
+                        </IconButton>
+                    }
+
+                    @if (ReferenceEquals(State.EditingRow, row) && IsTextEntryFocused(row))
+                    {
+                        <IconButton BaseClass="entry-doc__delete"
+                                    id="@($"delete-entry-{row.Key}")"
+                                    TestId="delete-entry-button"
+                                    AriaLabel="Delete entry"
+                                    OnClick="() => OnDeleteEntryAsync(row)">×</IconButton>
+                    }
+                </span>
+            </span>
+        </div>;
+
+    private RenderFragment RenderSubItemMetadata(EntryRow row, MdSubItem subItem, int position) =>
+        @<div class="entry-doc__meta subitem-card__meta" aria-label="Sub-item metadata and actions" @onmousedown:stopPropagation="true" @onclick:stopPropagation="true">
+            <span class="entry-doc__meta-start">
+                <SelectField CurrentValue="@((subItem.EntryMetadata()?.Type ?? EntryType.Task).ToString())"
+                             Options="@TypeSelectorOptions()"
+                             Label="Change sub-item type"
+                             TestId="subitem-type-badge"
+                             CssClass="metadata-editor--type badge badge--type"
+                             OnChanged="value => OnSubItemTypeChangedAsync(row, position, value)" />
+
+                <PrioritySelector TEnum="Priority" CurrentValue="@(subItem.EntryMetadata()?.Priority ?? Priority.Medium)"
+                                  Options="@PriorityOptions()"
+                                  Label="Change sub-item priority"
+                                  TestId="subitem-priority-badge"
+                                  OnChanged="priority => State.ChangeSubItemPriorityAsync(row, position, priority)" />
+
+                @if (KnowledgeRepositories.Count > 0)
+                {
+                    <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                                        Options="@RepositoryOptions()"
+                                        Label="Change repository"
+                                        TestId="subitem-area-badge"
+                                        OnChanged="value => OnSubItemRepositoryChangedAsync(row, value)" />
+                }
+            </span>
+
+            <span class="entry-doc__meta-end">
+                <span class="entry-doc__tags entry-doc__tags--end">
+                    @RenderSubItemTagEditor(row, subItem, position)
+                </span>
+
+                <StatusSelector CurrentValue="@((subItem.EntryMetadata()?.Status ?? (subItem.Done ? EntryStatus.Done : EntryStatus.Draft)).ToString())"
+                                Options="@StatusSelectorOptions()"
+                                Label="Change sub-item status"
+                                TestId="subitem-status-badge"
+                                OnChanged="value => OnSubItemStatusChangedAsync(row, position, value)" />
+
+                <span class="entry-doc__actions" aria-label="Sub-item actions">
+                    @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration) && State.GitHubConfigured && row.IsPersisted && RepositoryFor(row) is { } subItemRepository)
+                    {
+                        <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--push"
+                                    TestId="subitem-github-push-button"
+                                    Disabled="@row.GitHubBusy"
+                                    AriaLabel="@($"Create an issue in {subItemRepository.FullName}")"
+                                    OnClick="() => State.PushSubItemToGitHubAsync(row, position, subItemRepository)">
+                            @if (row.GitHubBusy)
+                            {
+                                <span aria-hidden="true">…</span>
+                            }
+                            else
+                            {
+                                <svg class="entry-doc__button-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                                    <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
+                                </svg>
+                            }
+                        </IconButton>
+                    }
+
+                    @if (IsFeatureEnabled(AppFeatureKeys.CopilotCli) && row.IsPersisted)
+                    {
+                        <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--copilot"
+                                    TestId="subitem-copilot-cli-button"
+                                    Disabled="@row.CopilotBusy"
+                                    AriaLabel="Start GitHub Copilot CLI from the parent entry"
+                                    OnClick="() => State.StartCopilotCliAsync(row)">
+                            @if (row.CopilotBusy)
+                            {
+                                <span aria-hidden="true">…</span>
+                            }
+                            else
+                            {
+                                <span class="entry-doc__cli-mark" aria-hidden="true">gh</span>
+                            }
+                        </IconButton>
+                    }
+                </span>
+            </span>
+        </div>;
+
+    private RenderFragment RenderSubItemTagEditor(EntryRow row, MdSubItem subItem, int position) =>
+        @<label class="entry-doc__tag-picker">
+            <span class="sr-only">Edit sub-item tags</span>
+            @* Bare, because the picker label around it is the layout. Tags
+               commit on change, not per keystroke, so the value goes through
+               the splatted @onchange rather than ValueChanged. *@
+            <TextField Bare="true"
+                       InputCssClass="entry-doc__tag-input"
+                       AriaLabel="Edit sub-item tags"
+                       data-testid="subitem-tags-input"
+                       title="Edit sub-item tags"
+                       list="@($"entry-tags-options-{row.Key}")"
+                       Placeholder="Tags"
+                       Value="@TagsInputValue(subItem)"
+                       @onchange="(ChangeEventArgs e) => OnSubItemTagsChangedAsync(row, position, e)" />
+        </label>;
+    private RenderFragment RenderTagEditor(EntryRow row) =>
+        @<label class="entry-doc__tag-picker">
+            <span class="sr-only">Edit tags</span>
+            <TextField Bare="true"
+                       InputCssClass="entry-doc__tag-input"
+                       AriaLabel="Edit tags"
+                       data-testid="entry-tags-input"
+                       title="Edit tags"
+                       list="@($"entry-tags-options-{row.Key}")"
+                       Placeholder="Tags"
+                       Value="@TagsInputValue(row)"
+                       @onchange="(ChangeEventArgs e) => OnTagsChangedAsync(row, e)" />
+            <datalist id="entry-tags-options-@row.Key">
+                @foreach (var tag in TagOptions(row))
+                {
+                    <option value="@tag"></option>
+                }
+            </datalist>
+        </label>;
+    /// <summary>The grab areas around an entry — one on each side. All four are
+    /// drag sources and drop targets. Only the top rail takes tab focus (four
+    /// stops per entry would wreck keyboard travel through the list), and it
+    /// carries the arrow-key reorder that every drag needs an equivalent
+    /// for.</summary>
+    private RenderFragment RenderGrip(EntryRow row, bool before, string side) =>
+        @* A drop target, not a button the library ships, and the
+           `@ondragover:preventDefault` it needs is a directive attribute that
+           cannot be written on a component. *@
+        @<button type="button"
+                 class="entry-doc__grip entry-doc__grip--@side"
+                 data-testid="entry-grip-@side"
+                 data-drag-grip="@row.Key"
+                 draggable="true"
+                 tabindex="@(side == "top" ? "0" : "-1")"
+                 aria-hidden="@(side == "top" ? "false" : "true")"
+                 aria-label="Reorder entry — drag, or use the up and down arrow keys"
+                 @ondragstart="() => State.BeginDrag(row)"
+                 @ondragend="() => State.EndDrag()"
+                 @ondragover:preventDefault="true"
+                 @ondragenter:preventDefault="true"
+                 @ondrop="() => State.DropAsync(row, before)"
+                 @onkeydown="e => OnGripKeyDownAsync(row, e)">
+            <span class="entry-doc__grip-dots" aria-hidden="true"></span>
+        </button>;
+    private void OnNewEntry() => State.NewRow();
+
+    private async Task OnEditorBlurAsync(EntryRow row)
+    {
+        BlurTextEntry(row);
+        await State.EndEditAsync(row);
+    }
+
+    private async Task OnSubItemEditorBlurAsync(EntryRow row, int position) =>
+        await State.EndSubItemEditAsync(row, position);
+
+    private async Task OnDeleteEntryAsync(EntryRow row) => await State.DeleteRowAsync(row);
+
+    private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
+
+    private async Task OnTypeChangedAsync(EntryRow row, string? value)
+    {
+        if (Enum.TryParse<EntryType>(value, out var type))
+        {
+            await State.ChangeTypeAsync(row, type);
+        }
+    }
+
+    private async Task OnRepositoryChangedAsync(EntryRow row, string? repositoryAlias) =>
+        await State.ChangeAreaAsync(row, repositoryAlias);
+
+    private async Task OnSubItemTypeChangedAsync(EntryRow row, int subItemIndex, string? value)
+    {
+        if (Enum.TryParse<EntryType>(value, out var type))
+        {
+            await State.ChangeSubItemTypeAsync(row, subItemIndex, type);
+        }
+    }
+
+    private async Task OnSubItemRepositoryChangedAsync(EntryRow row, string? repositoryAlias) =>
+        await State.ChangeAreaAsync(row, repositoryAlias);
+
+    private async Task OnSubItemStatusChangedAsync(EntryRow row, int subItemIndex, string value)
+    {
+        if (Enum.TryParse<EntryStatus>(value, out var status))
+        {
+            await State.ChangeSubItemStatusAsync(row, subItemIndex, status);
+        }
+    }
+
+    private async Task OnSubItemTagsChangedAsync(EntryRow row, int subItemIndex, ChangeEventArgs e) =>
+        await State.ChangeSubItemTagsAsync(row, subItemIndex, e.Value?.ToString() ?? string.Empty);
+
+    private async Task OnStatusChangedAsync(EntryRow row, string value)
+    {
+        if (Enum.TryParse<EntryStatus>(value, out var status))
+        {
+            await State.ChangeStatusAsync(row, status);
+        }
+    }
+
+    private async Task OnTagsChangedAsync(EntryRow row, ChangeEventArgs e) =>
+        await State.ChangeTagsAsync(row, e.Value?.ToString() ?? string.Empty);
+
+    private static IReadOnlyList<SelectorOption> TypeSelectorOptions() =>
+        [.. Enum.GetValues<EntryType>().Select(type => new SelectorOption(type.ToString(), Humanize(type.ToString())))];
+
+    private static IReadOnlyList<Priority> PriorityOptions() => [Priority.Low, Priority.Medium, Priority.High];
+
+    private static IReadOnlyList<EntryStatus> StatusOptions() => Enum.GetValues<EntryStatus>();
+
+    private static IReadOnlyList<SelectorOption> StatusSelectorOptions() =>
+        [.. StatusOptions().Select(status => new SelectorOption(status.ToString(), Humanize(status.ToString())))];
+
+    private void FocusTextEntry(EntryRow row)
+    {
+        _textFocusedEntryKey = row.Key;
+    }
+
+    private void BlurTextEntry(EntryRow row)
+    {
+        if (_textFocusedEntryKey == row.Key)
+        {
+            _textFocusedEntryKey = null;
+        }
+    }
+
+    private bool IsTextEntryFocused(EntryRow row) => _textFocusedEntryKey == row.Key;
+
+    private void OnSubItemReadViewKeyDown(EntryRow row, int position, KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            State.BeginSubItemEdit(row, position);
+        }
+    }
+
+    private IReadOnlyList<string> TagOptions(EntryRow row) =>
+        State.Rows
+            .SelectMany(existing => existing.PreviewMetadataTags)
+            .Concat(row.PreviewMetadataTags)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    private static string TagsInputValue(EntryRow row) => EntryTextParser.FormatTagsInput(row.PreviewMetadataTags);
+
+    private static string TagsInputValue(MdSubItem subItem) =>
+        EntryTextParser.FormatTagsInput(subItem.MetadataTags);
+
+    private async Task OnEditorKeyDownAsync(EntryRow row, KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await State.EndEditAsync(row);
+    }
+
+    private void OnReadViewKeyDown(EntryRow row, KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ") State.BeginEdit(row);
+    }
+
+    private async Task OnGripKeyDownAsync(EntryRow row, KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowUp") await State.MoveAsync(row, -1);
+        else if (e.Key == "ArrowDown") await State.MoveAsync(row, 1);
+    }
+
+    private async Task OnSubItemGripKeyDownAsync(EntryRow row, int index, KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowUp") await State.MoveSubItemAsync(row, index, -1);
+        else if (e.Key == "ArrowDown") await State.MoveSubItemAsync(row, index, 1);
+    }
+
+    private static string Humanize(string enumName)
+    {
+        var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
+        return text.ToLowerInvariant();
+    }
+
+    /// <summary>"never checked" is a real, distinct answer from "open" — the
+    /// badge says so rather than implying a state nobody has verified.</summary>
+    private static string GitHubStateLabel(GitHubItemState? state) => state switch
+    {
+        GitHubItemState.Open => "open",
+        GitHubItemState.Draft => "draft",
+        GitHubItemState.Merged => "merged",
+        GitHubItemState.Closed => "closed",
+        _ => "not checked"
+    };
+
+    private static string GitHubStateClass(GitHubItemState? state) =>
+        state?.ToString().ToLowerInvariant() ?? "unknown";
+
+    public void Dispose()
+    {
+        State.Changed -= HandleStateChanged;
+        Features.Changed -= HandleFeaturesChanged;
+    }
+}

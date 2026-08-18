@@ -1,0 +1,149 @@
+@*
+    A single current value, which is what a stat tile is for: the answer to "how
+    much" is a number set in type, never a one-bar bar chart.
+
+    A delta is never coloured text. The direction is in the glyph and, more
+    importantly, in the word — "up 12.4% vs previous 7 days" reads the same to
+    someone who cannot tell the chip's background from any other. Where a tile
+    wants emphasis the whole chip sits on one of the soft semantic surfaces with
+    text-primary on top; the product deliberately has no strong semantic text
+    palette to paint a red number in.
+
+    Whether up is good is the caller's to say. More sessions is better, more
+    spend is not, and no component can work that out from the number.
+*@
+
+<article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <p class="@(Part("label"))">@Label</p>
+
+    @if (Status is MetricStatusKind.Ready)
+    {
+        <p class="@(Part("value"))">
+            @Value
+            @if (!string.IsNullOrWhiteSpace(Unit))
+            {
+                <span class="@(Part("unit"))">@Unit</span>
+            }
+        </p>
+
+        @if (Delta is not null)
+        {
+            <p class="@DeltaClassValue">
+                @if (Arrow is not null)
+                {
+                    <span class="@(Part("delta-arrow"))" aria-hidden="true">@Arrow</span>
+                }
+                @DeltaText
+            </p>
+        }
+
+        @if (Trend is not null)
+        {
+            <div class="@(Part("trend"))">@Trend</div>
+        }
+    }
+    else
+    {
+        @* The label stays. A tile that loses it loses the only clue as to what
+           it is that cannot be shown. *@
+        <MetricStatus Kind="Status" Message="@StatusMessage" CssClass="@(Part("status"))" />
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Footnote))
+    {
+        <p class="@(Part("footnote"))">@Footnote</p>
+    }
+</article>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Already formatted by the caller through <see cref="MetricFormat"/>:
+    /// the tile does not know whether it is holding tokens, money or sessions.</summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public string? Unit { get; set; }
+
+    [Parameter]
+    public MetricDelta? Delta { get; set; }
+
+    /// <summary>The one hero figure on a view. Nothing enforces "one"; a second
+    /// emphasised tile just means the view has no lead.</summary>
+    [Parameter]
+    public bool Emphasis { get; set; }
+
+    [Parameter]
+    public string? Footnote { get; set; }
+
+    /// <summary>A sparkline slot. Anything else fits, but the trend beside a
+    /// number is what the space is shaped for.</summary>
+    [Parameter]
+    public RenderFragment? Trend { get; set; }
+
+    [Parameter]
+    public MetricStatusKind Status { get; set; } = MetricStatusKind.Ready;
+
+    /// <summary>The provider's reason, verbatim.</summary>
+    [Parameter]
+    public string? StatusMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-tile</c> as the class this block carries, and
+    /// every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-tile";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? Arrow => Delta is null || Delta.Value == 0m
+        ? null
+        : Delta.Value > 0m ? "\u25B2" : "\u25BC";
+
+    private string DeltaText
+    {
+        get
+        {
+            if (Delta is null) return string.Empty;
+
+            var change = MetricFormat.Delta(Delta);
+
+            return string.IsNullOrWhiteSpace(Delta.ComparedTo)
+                ? change
+                : $"{change} vs {Delta.ComparedTo}";
+        }
+    }
+
+    private string DeltaClassValue
+    {
+        get
+        {
+            var direction = Delta is null || Delta.Value == 0m
+                ? "flat"
+                : Delta.Value > 0m == Delta.HigherIsBetter ? "better" : "worse";
+
+            return $"{Part("delta")} {Part("delta")}--{direction}";
+        }
+    }
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue
+    {
+        get
+        {
+            var emphasis = Emphasis ? $" {BaseClass}--emphasis" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"{BaseClass}{emphasis}{extra}";
+        }
+    }
+}

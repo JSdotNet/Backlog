@@ -13,7 +13,7 @@ an Android emulator.
 |---|---|---|
 | `Backlog.Desktop.WebHarness` | `src/App/Backlog.Desktop.UI` | `desktop-web-harness` |
 | `Backlog.Mobile.WebHarness` | `src/App/Backlog.Mobile.UI` (phone width) | `mobile-web-harness` |
-| `Backlog.UI.Storybook` | `src/UI/Backlog.UI.Components` on its own | `ui-storybook` |
+| `Backlog.UI.Storybook` | `src/Core/Backlog.UI.Components` on its own | `ui-storybook` |
 
 `Backlog.UI.Storybook` is the odd one out: it hosts no app UI. It references the shared
 component library and `Backlog.Aspire.ServiceDefaults` and nothing else, so it renders every

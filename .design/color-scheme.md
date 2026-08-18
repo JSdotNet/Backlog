@@ -319,7 +319,7 @@ related: [".design/README.md#living-reference-the-ui-storybook"]
 
 | Aspect | Where |
 |---|---|
-| Declaration | `src/UI/Backlog.UI.Components/wwwroot/components.css`, `:root` — the only place these values exist in code. The desktop's `app.css` links it and adds app-specific values only. |
+| Declaration | `src/Core/Backlog.UI.Components/wwwroot/components.css`, `:root` — the only place these values exist in code. The desktop's `app.css` links it and adds app-specific values only. |
 | Review surface | Storybook → *Foundations* → **Colour** |
 
 The Foundations page does not transcribe this file. It reads the tokens out of

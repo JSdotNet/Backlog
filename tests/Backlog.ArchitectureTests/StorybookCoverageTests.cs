@@ -13,7 +13,7 @@ namespace Backlog.ArchitectureTests;
 public class StorybookCoverageTests
 {
     private static readonly DirectoryInfo Library =
-        new(Path.Combine(Repository.Root.FullName, "src", "UI", "Backlog.UI.Components"));
+        new(Path.Combine(Repository.Root.FullName, "src", "Core", "Backlog.UI.Components"));
 
     private static readonly DirectoryInfo StorybookPages =
         new(Path.Combine(Repository.Root.FullName, "src", "Harness", "Backlog.UI.Storybook", "Components", "Pages"));

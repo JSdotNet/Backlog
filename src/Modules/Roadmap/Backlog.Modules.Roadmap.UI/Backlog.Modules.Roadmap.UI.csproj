@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Roadmap module's UI: the forward-looking planning view over entries that
+    are roadmap-ready — Now/Next/Later, milestones and planning lanes (see
+    .domain/backlog/features.md#feature-roadmap-planning). Scaffolding only for
+    now; the project exists so the module has somewhere to grow that is not the
+    desktop shell.
+
+    It references the shared control library rather than growing its own
+    controls, which is the rule every module UI project follows.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Roadmap.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+  </ItemGroup>
+
+</Project>

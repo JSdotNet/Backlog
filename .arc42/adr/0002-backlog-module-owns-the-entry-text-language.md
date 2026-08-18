@@ -76,16 +76,20 @@ new entry starts as is now behind that single call.
 
 ### What the host keeps
 
-`Backlog.Desktop.UI` references **only** `Backlog.Modules.Backlog.Abstractions`.
-It no longer constructs a `BacklogEntry`, calls a mutator, or touches
-`IBacklogRepository`.
+The desktop side references **only** `Backlog.Modules.Backlog.Abstractions` — at
+the time this ADR was written that meant `Backlog.Desktop.UI`; the same code now
+lives in `Backlog.Modules.Backlog.UI`, which takes that reference and no other
+into the module. It no longer constructs a `BacklogEntry`, calls a mutator, or
+touches `IBacklogRepository`.
 
 The executable heads (`Backlog.Desktop`, `Backlog.Desktop.WebHarness`) do
 reference the module, because composition is theirs: they pick the storage
 adapter and call `AddBacklogModule()`. `RootedFileBacklogRepository` is new in
 the file-system adapter so the repository follows a storage folder the person can
-move while the app is open, which is what `BacklogStore` used to do by handing
-out a rebuilt repository.
+move while the app is open, which is what the workspace store used to do by
+handing out a rebuilt repository. That store is now the `IBacklogStore` port in
+this module's Abstractions, answered by `WorkspaceBacklogStore` in the file-system
+adapter.
 
 ### Guidance conflict, resolved deliberately
 
@@ -125,6 +129,7 @@ Negative:
 Neutral:
 
 - The Second Brain context still has no module — its readers and parsers live in
-  `Backlog.Desktop.UI/Knowledge`. It is a Core subdomain in the context map with
-  the same problem this ADR just fixed for Backlog Management, and it is the
-  obvious next extraction.
+  `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI`, which is a UI project
+  under a module folder rather than a module with a domain behind it. It is a
+  Core subdomain in the context map with the same problem this ADR just fixed for
+  Backlog Management, and it is the obvious next extraction.

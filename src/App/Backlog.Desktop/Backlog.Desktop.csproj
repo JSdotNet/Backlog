@@ -59,6 +59,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+    <!-- Dev PC Management's published surface. CopilotToolService implements its
+         ICopilotToolService port against the Copilot and dotnet CLIs, which is a
+         host's job; the port and the catalog format it reads come from here, not
+         from the UI project that happens to render the answer. -->
+    <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />

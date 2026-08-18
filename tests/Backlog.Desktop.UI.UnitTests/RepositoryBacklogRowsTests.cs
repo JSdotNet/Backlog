@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// the person already works in, filed under that repository's area — but it is
 /// somebody else's file, so the list may show it and must not write to it.
 /// </summary>
-[Collection(BacklogStoreCollection.Name)]
+[Collection(WorkspaceSettingsCollection.Name)]
 public sealed class RepositoryBacklogRowsTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];
@@ -104,7 +104,7 @@ public sealed class RepositoryBacklogRowsTests : IDisposable
         var root = Path.Combine(Path.GetTempPath(), "backlog-repo-rows", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
 
-        var store = new BacklogStore(root, Path.Combine(root, "settings.json"));
+        var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(Path.Combine(root, "local")));
 
         var clone = Path.Combine(root, "clone");
@@ -118,7 +118,8 @@ public sealed class RepositoryBacklogRowsTests : IDisposable
         settings.SetCloneDirectory("docs", clone);
 
         var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe());
-        var repositoryBacklog = new RepositoryBacklogSource(new KnowledgeFolderSource(settings));
+        var repositoryBacklog = new RepositoryBacklogSource(
+            BacklogTestHost.BacklogStoreFor(store, new KnowledgeFolderSource(settings)));
 
         return new Harness(
             BacklogTestHost.StateFor(store, integration, copilot: null, repositoryBacklog: repositoryBacklog),
@@ -130,7 +131,7 @@ public sealed class RepositoryBacklogRowsTests : IDisposable
         var root = Path.Combine(Path.GetTempPath(), "backlog-repo-rows", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
 
-        var store = new BacklogStore(root, Path.Combine(root, "settings.json"));
+        var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(Path.Combine(root, "local")));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
@@ -146,7 +147,8 @@ public sealed class RepositoryBacklogRowsTests : IDisposable
         }
 
         var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe());
-        var repositoryBacklog = new RepositoryBacklogSource(new KnowledgeFolderSource(settings));
+        var repositoryBacklog = new RepositoryBacklogSource(
+            BacklogTestHost.BacklogStoreFor(store, new KnowledgeFolderSource(settings)));
 
         return new Harness(
             BacklogTestHost.StateFor(store, integration, copilot: null, repositoryBacklog: repositoryBacklog),

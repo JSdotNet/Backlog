@@ -5,9 +5,11 @@ General orchestration routing and enforcement come from the `copilot-app` plugin
 Copilot) or the `claude-desktop` plugin (Claude Code); this file only supplies what is
 specific to this repository, and is read by both.
 
-The `claude-desktop` plugin looks for `.claude/orch-context.md` first and falls back to this
-path, so this file does not need to be duplicated. Everything below is toolchain-neutral
-runtime fact — AppHost path, how to run, base URLs, healthy startup, QA depth.
+The `claude-desktop` plugin reads `.claude/orch-context.md`, which carries the same facts in
+that plugin’s required schema; neither toolchain supports includes, so the two files are
+maintained side by side. **When the AppHost path, resource names, startup signals, or QA
+depth change, update both.** Everything below is toolchain-neutral runtime fact — AppHost
+path, how to run, base URLs, healthy startup, QA depth.
 
 ## Application
 
@@ -131,9 +133,12 @@ Two standing exceptions:
 - **Documentation-only changes** — edits confined to `.arc42/`, `.domain/`, `.backlog/`,
   `.tech/`, `.design/`, `.github/`, or `README.md` have no runtime surface. Verification is
   documentation review plus `build.mjs --check`; skip startup and Playwright.
-- **Non-UI code changes** — work confined to `tests/`, `src/Shared/`, or
+- **Non-UI code changes** — work confined to `tests/`, `src/Core/Backlog.SharedKernel`, or
   `src/Infrastructure/` with no user-visible behavior change is adequately covered by
-  `dotnet test`; `targeted` depth is sufficient.
+  `dotnet test`; `targeted` depth is sufficient. `src/Core/` as a whole does **not**
+  qualify: `src/Core/Backlog.UI.Components` is the shared control library every screen
+  renders, so a change there takes the full `playwright-qa` depth against
+  `ui-storybook` and `desktop-web-harness`.
 
 
 ## Orchestration Skill Sources

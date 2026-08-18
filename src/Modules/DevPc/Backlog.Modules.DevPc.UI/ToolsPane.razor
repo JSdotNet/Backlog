@@ -1,0 +1,182 @@
+@inject ICopilotToolService CopilotTools
+
+@*
+    The system tools pane: which Copilot plugins, repository tools and MCP
+    servers this machine is configured for, and what can be updated, enabled or
+    disabled. It asks ICopilotToolService and renders the answer — which host is
+    behind that port, and whether that host can do anything but read, is not
+    something the pane knows.
+
+    It owns its own loading for the same reason KnowledgePane does: the list is
+    the pane's subject, and a shell holding it would be holding state about a
+    context it only makes room for. The shell decides *whether* there is a tools
+    pane — the feature flag and the header toggle stay there — and this decides
+    what is in one.
+*@
+
+<section @key=@("tools-pane") class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
+    <header class="tools-panel__header">
+        <div>
+            <p class="tools-panel__eyebrow">System tools</p>
+            <h2 id="installed-tools-title" class="tools-panel__title">System tools</h2>
+            <p class="tools-panel__subtitle">Configured and disabled Copilot plugins, repository tools, and MCP servers.</p>
+        </div>
+        <div class="tools-panel__header-actions">
+            <span class="tools-panel__count">@(_tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools")</span>
+            <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
+        </div>
+    </header>
+
+    <div class="tools-panel__content" id="installed-tools-content">
+        <div class="tools-panel__toolbar">
+            <p class="tools-panel__message" role="status">@(_toolMessage ?? "Checking configured tools...")</p>
+            <div class="tools-panel__toolbar-actions">
+                <AppButton Variant="ButtonVariant.Secondary" Disabled="@(_toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync">
+                    @(_toolsLoading ? "Checking..." : "Check for updates")
+                </AppButton>
+                <AppButton Variant="ButtonVariant.Primary" Disabled="@(_toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
+                    @(_toolActionKey == "__all__" ? "Updating..." : "Update all")
+                </AppButton>
+            </div>
+        </div>
+
+        @if (_toolsLoading && _tools.Count == 0)
+        {
+            <p class="tools-panel__empty">Loading installed tool versions.</p>
+        }
+        else if (_tools.Count == 0)
+        {
+            <p class="tools-panel__empty">No configured tools were found.</p>
+        }
+        else
+        {
+            <div class="tools-table" role="table" aria-label="Configured Copilot tools">
+                <div class="tools-table__row tools-table__row--head" role="row">
+                    <span role="columnheader">Tool</span>
+                    <span role="columnheader">Installed</span>
+                    <span role="columnheader">Available</span>
+                    <span role="columnheader">Actions</span>
+                </div>
+
+                @foreach (var tool in _tools)
+                {
+                    <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" @key="tool.Key">
+                        <div role="cell" class="tools-table__tool">
+                            <strong>@tool.Name</strong>
+                            <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
+                        </div>
+                        <span role="cell" class="tools-table__version">@tool.InstalledVersion</span>
+                        <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
+                        <div role="cell" class="tools-table__actions">
+                            @if (tool.CanUpdate)
+                            {
+                                <AppButton Variant="ButtonVariant.Secondary"
+                                           Disabled="@(_toolsLoading || ToolActionBusy)"
+                                           OnClick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
+                                    Update
+                                </AppButton>
+                            }
+                            else
+                            {
+                                <span class="tools-table__action-note">@(tool.ConfiguredEnabled ? "Up to date" : "Disabled")</span>
+                            }
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Disabled="@(_toolsLoading || ToolActionBusy)"
+                                       OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
+                                @(tool.ConfiguredEnabled ? "Disable" : "Enable")
+                            </AppButton>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private bool _toolsLoading;
+    private string? _toolMessage;
+    private string? _toolActionKey;
+    private IReadOnlyList<CopilotToolInfo> _tools = [];
+
+    /// <summary>Raised when somebody dismisses the pane. Whether that hides it,
+    /// collapses a stack or does nothing is the shell's decision — the pane only
+    /// reports that the ✕ was pressed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    protected override Task OnInitializedAsync() => RefreshToolsAsync();
+
+    private bool ToolActionBusy => _toolActionKey is not null;
+
+    private bool CanUpdateAnyTool => _tools.Any(tool => tool.CanUpdate);
+
+    private async Task RefreshToolsAsync()
+    {
+        _toolsLoading = true;
+        _toolMessage = null;
+        try
+        {
+            var catalog = await CopilotTools.ListAsync();
+            _tools = catalog.Tools;
+            _toolMessage = catalog.Message;
+        }
+        catch (Exception ex)
+        {
+            _toolMessage = $"Tools could not be checked: {ex.Message}";
+        }
+        finally
+        {
+            _toolsLoading = false;
+        }
+    }
+
+    private async Task UpdateAllToolsAsync()
+    {
+        _toolActionKey = "__all__";
+        try
+        {
+            var result = await CopilotTools.UpdateAllAsync();
+            _toolMessage = result.Message;
+            if (result.Succeeded)
+            {
+                await RefreshToolsAsync();
+            }
+        }
+        finally
+        {
+            _toolActionKey = null;
+        }
+    }
+
+    private async Task ApplyToolActionAsync(CopilotToolInfo tool, CopilotToolAction action)
+    {
+        _toolActionKey = tool.Key;
+        try
+        {
+            var result = action switch
+            {
+                CopilotToolAction.Update => await CopilotTools.UpdateAsync(tool.Key),
+                CopilotToolAction.Enable => await CopilotTools.EnableAsync(tool.Key),
+                CopilotToolAction.Disable => await CopilotTools.DisableAsync(tool.Key),
+                _ => CopilotToolActionResult.Failed("Unknown tool action.")
+            };
+
+            _toolMessage = result.Message;
+            if (result.Succeeded)
+            {
+                await RefreshToolsAsync();
+            }
+        }
+        finally
+        {
+            _toolActionKey = null;
+        }
+    }
+
+    private static string Humanize(string enumName)
+    {
+        var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
+        return text.ToLowerInvariant();
+    }
+}
