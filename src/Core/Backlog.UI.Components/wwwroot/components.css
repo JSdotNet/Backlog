@@ -141,6 +141,15 @@
     --font-size-2xl: 1.5rem;
     --font-size-4xl: 2.25rem;
 
+    /* Weights share a table with the line heights below, but were the one
+       sub-family of the type scale never declared here. Three rules asked for
+       semibold by name and got normal instead, which is the whole visible weight
+       difference between a heading and its body. Only this step is declared,
+       because it is the only one referenced: .design/typography-and-layout.md
+       reserves it for body emphasis in place of bold, and the other weights are
+       still written as literals where they are used. */
+    --font-weight-semibold: 600;
+
     --line-height-tight: 1.25;
     --line-height-normal: 1.5;
 
@@ -1608,7 +1617,7 @@ button.md-check {
 .knowledge-menu__message,
 .folder-tree__message {
     margin: 0;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
@@ -1652,10 +1661,10 @@ button.md-check {
 .app-error-message {
     margin: 0;
     padding: var(--spacing-xs) var(--spacing-sm);
-    border: var(--border-width) solid color-mix(in srgb, var(--color-danger) 55%, transparent);
+    border: var(--border-width) solid color-mix(in srgb, var(--color-error) 55%, transparent);
     border-radius: var(--border-radius-md);
-    background: color-mix(in srgb, var(--color-danger) 14%, transparent);
-    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-error) 14%, transparent);
+    color: var(--color-text-primary);
     font-size: var(--font-size-xs);
 }
 
@@ -1714,7 +1723,7 @@ button.md-check {
 .knowledge-menu__item:disabled,
 .folder-tree__item--unavailable,
 .folder-tree__item:disabled {
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     cursor: not-allowed;
     opacity: 0.72;
 }
@@ -1723,7 +1732,7 @@ button.md-check {
 .folder-tree__twisty {
     display: inline-flex;
     justify-content: center;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
 }
 
 .knowledge-menu__label,
@@ -3110,7 +3119,7 @@ body.is-resizing-pane {
 
 .app-update-dialog__eyebrow,
 .feedback-dialog__eyebrow {
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;

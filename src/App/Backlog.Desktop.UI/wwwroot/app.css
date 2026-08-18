@@ -2698,7 +2698,7 @@ h1, h2, h3 {
 
 .knowledge-stack__menu-message {
     margin: 0;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
@@ -2841,8 +2841,13 @@ h1, h2, h3 {
 .domain-metadata__link:focus-visible {
     color: var(--color-primary);
 }
+
+/* Bare error text, with no error surface behind it to carry the meaning, so the
+   colour is the only thing saying this failed. The literal is what the file's
+   other three bare error statuses already use; .design names no error
+   *foreground* at all, which is the gap that let --color-danger be invented. */
 .domain-knowledge__action-error {
-    color: var(--color-danger);
+    color: #E4626F;
     font-size: var(--font-size-xs);
 }
 
