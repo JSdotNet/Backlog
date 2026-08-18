@@ -16,15 +16,18 @@ param accountSkuName string = 'S0'
   'GlobalProvisioned'
   'Provisioned'
 ])
-@description('SKU used for each model deployment.')
+@description('Default SKU used for model deployments that do not specify their own.')
 param deploymentSkuName string = 'GlobalStandard'
 
 @minValue(1)
-@description('Capacity used for each model deployment.')
+@description('Default capacity used for model deployments that do not specify their own.')
 param deploymentCapacity int = 1
 
 @description('Deploy the optional balanced alternative model.')
 param includeBalancedModel bool = false
+
+@description('Deploy the optional speech-to-text model.')
+param includeSpeechModel bool = false
 
 @description('Responsible AI content filter policy name for model deployments.')
 param contentFilterPolicyName string = 'Microsoft.DefaultV2'
@@ -32,10 +35,13 @@ param contentFilterPolicyName string = 'Microsoft.DefaultV2'
 @description('Tags applied to the Foundry resource and deployments.')
 param tags object = {
   workload: 'Backlog'
-  environment: 'playground'
+  environment: 'backlog-ai'
   managedBy: 'bicep'
 }
 
+// Each entry may pin its own deployment SKU and capacity. An empty skuName falls back to
+// deploymentSkuName, and a zero capacity falls back to deploymentCapacity. Speech models
+// need this because their quota and supported SKUs differ from the chat models.
 var requiredModelDeployments = [
   {
     name: 'gpt-5-4'
@@ -46,6 +52,8 @@ var requiredModelDeployments = [
     role: 'default-coding-architecture'
     promptTokenBudget: '922000'
     outputTokenBudget: '128000'
+    skuName: ''
+    capacity: 0
   }
   {
     name: 'gpt-5-5'
@@ -56,6 +64,8 @@ var requiredModelDeployments = [
     role: 'premium-fallback'
     promptTokenBudget: '922000'
     outputTokenBudget: '128000'
+    skuName: ''
+    capacity: 0
   }
   {
     name: 'gpt-5-6-luna'
@@ -66,6 +76,8 @@ var requiredModelDeployments = [
     role: 'fast-routine'
     promptTokenBudget: '922000'
     outputTokenBudget: '128000'
+    skuName: ''
+    capacity: 0
   }
 ]
 
@@ -79,10 +91,27 @@ var optionalModelDeployments = includeBalancedModel ? [
     role: 'balanced-alternative'
     promptTokenBudget: '922000'
     outputTokenBudget: '128000'
+    skuName: ''
+    capacity: 0
   }
 ] : []
 
-var selectedModelDeployments = concat(requiredModelDeployments, optionalModelDeployments)
+var speechModelDeployments = includeSpeechModel ? [
+  {
+    name: 'gpt-4o-transcribe'
+    modelName: 'gpt-4o-transcribe'
+    modelFormat: 'OpenAI'
+    publisher: 'OpenAI'
+    modelVersion: ''
+    role: 'speech-to-text'
+    promptTokenBudget: ''
+    outputTokenBudget: ''
+    skuName: 'GlobalStandard'
+    capacity: 0
+  }
+] : []
+
+var selectedModelDeployments = concat(requiredModelDeployments, optionalModelDeployments, speechModelDeployments)
 
 resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   name: accountName
@@ -105,8 +134,8 @@ resource modelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025
   name: deployment.name
   parent: foundryAccount
   sku: {
-    name: deploymentSkuName
-    capacity: deploymentCapacity
+    name: empty(deployment.skuName) ? deploymentSkuName : deployment.skuName
+    capacity: deployment.capacity == 0 ? deploymentCapacity : deployment.capacity
   }
   properties: {
     model: empty(deployment.modelVersion) ? {
@@ -124,6 +153,7 @@ resource modelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025
   }
   tags: union(tags, {
     'backlog-model-role': deployment.role
+  }, empty(deployment.promptTokenBudget) ? {} : {
     'backlog-prompt-token-budget': deployment.promptTokenBudget
     'backlog-output-token-budget': deployment.outputTokenBudget
   })
