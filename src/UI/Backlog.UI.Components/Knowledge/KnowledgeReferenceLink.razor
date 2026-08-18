@@ -1,0 +1,73 @@
+@*
+    One entry of a metadata relation field.
+
+    What it renders depends on what the host can do with it, not on what the
+    reference is. Given an href it is a link; given a handler it is a button;
+    given neither it is inert text — a reference nobody can follow should not
+    look like it invites a click, and it should not take a tab stop for nothing.
+
+    All three used to carry `knowledge-related`, which shares its rule with the
+    status pill: a border, a full radius, a filled surface and bold text. That
+    made every reference a badge, and a record then had a row of badges
+    competing with the one pill on the headline that is genuinely a state. A
+    reference is a link, so it looks like every other link in this product —
+    `.md-link`'s colour and the browser's own underline — and nothing more.
+*@
+
+@if (Reference is not null)
+{
+    @if (!string.IsNullOrWhiteSpace(Href))
+    {
+        <a class="knowledge-ref knowledge-ref--link"
+           href="@Href"
+           title="@Reference.Raw"
+           data-testid="@TestId"
+           @attributes="AdditionalAttributes">@Text</a>
+    }
+    else if (OnNavigate.HasDelegate)
+    {
+        <button type="button"
+                class="knowledge-ref knowledge-ref--action"
+                title="@Reference.Raw"
+                data-testid="@TestId"
+                @onclick="Navigate"
+                @attributes="AdditionalAttributes">@Text</button>
+    }
+    else
+    {
+        <code class="knowledge-ref knowledge-ref--inert" data-testid="@TestId" @attributes="AdditionalAttributes">@Text</code>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public KnowledgeReference Reference { get; set; } = default!;
+
+    /// <summary>Where the reference resolves to. Only the host knows how a
+    /// repository path becomes a route, so it hands the answer in rather than
+    /// this component guessing at one.</summary>
+    [Parameter]
+    public string? Href { get; set; }
+
+    /// <summary>Raised with the whole reference when it is activated. Ignored
+    /// while <see cref="Href"/> is set: a link already navigates, and two ways
+    /// to go to one place is one too many.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+
+    /// <summary>Whether to print the reference in full. The shortened label is
+    /// readable where the full path is mostly punctuation; the full form stays
+    /// on the title either way, so nothing is actually hidden.</summary>
+    [Parameter]
+    public bool ShowFullPath { get; set; } = true;
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Text => ShowFullPath ? Reference.Raw : Reference.Label;
+
+    private Task Navigate() => OnNavigate.InvokeAsync(Reference);
+}

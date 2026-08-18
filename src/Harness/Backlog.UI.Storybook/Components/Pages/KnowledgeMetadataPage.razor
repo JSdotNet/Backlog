@@ -1,0 +1,432 @@
+@page "/knowledge-base/metadata"
+
+<PageTitle>Metadata in the knowledge base — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Metadata"
+           Summary="A subpage of Knowledge base, about the first axis: reading a fenced meta block into a record and showing it as one. KnowledgeMeta does the reading, KnowledgeMetadata is what comes back, KnowledgeMetaView draws it. Adding metadata support to a component is those three and nothing else — no folder, no link resolver, no callback, all of which are the other two subpages.">
+
+    <Story Name="One fence in, one record out"
+           Description="KnowledgeMeta.Parse takes the text inside the fence — the caller has already stripped the fence lines — and hands back a KnowledgeMetadata. ParseFence is the same thing with the language check in front of it, which is the shape a renderer wants: give it the fence language and the body, and a block that was never metadata comes back Empty rather than half-read.
+
+It is hand-rolled rather than handed to a YAML library, and that was a decision rather than an oversight. This component library carries no dependency beyond the Blazor packages, and the block is a flat list of scalars with lists one level deep — the same shape the application's own knowledge readers already parse by hand.
+
+It is forgiving on purpose. The convention says to omit an empty field, but this repository's own arc42 template writes `related: []` and `issue: null`, and inline lists turn up quoted and bare. All of those read back the same way here; what a file says is not something a viewer gets to refuse.
+
+The record leads with the status on a line of its own, and the fields under it are the description list. This block was handed over without a heading, so the pill has that line to itself and stays where the fields under it start; where a heading exists it shares the line and holds its right edge, which is the pairing the Knowledge base page opens with. Sent to the far edge with no heading beside it, a lone pill would float there with the field list left-aligned underneath — the right edge is a relationship with a heading, not a property of the status.
+
+The pill and not a select, because this block was handed over without a folder. Which values a status may take is a fact about the folder, and it is the third subpage's parameter, not this one's."
+           Code="@ParseCode">
+        <div class="sb-columns" data-testid="knowledge-metadata-parse">
+            <div class="sb-stack">
+                <p class="sb-label">The fence body</p>
+                <pre class="sb-story__code" data-testid="knowledge-metadata-parse-source"><code>@TechBlock</code></pre>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">KnowledgeMetaView over the record</p>
+                <KnowledgeMetaView Metadata="@TechMetadata" TestId="knowledge-metadata-parse-view" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Every field, and which folder writes it"
+           Description="The schema is small and closed, and most of it is folder-specific. A field is not wrong elsewhere so much as meaningless: `kind` and `version` describe a technology, `implements` is how a backlog item says what it delivers, `aliases` belongs to the one file per context that names terms. Knowing which folder you are rendering tells you which rows of this table you will actually see.
+
+The column that catches people is the middle one. Three fields hold references — addresses that parse into a path and an optional chapter — and three hold plain strings that only ever look like text. Mixing them up is the single easiest mistake to make here, and the story below is entirely about it.
+
+Every row carries the line as a file actually writes it, because the shape in the middle column is a claim about syntax and the line is the only thing that shows it: a scalar takes its value bare, a reference field takes a list of addresses, and a plain-string field takes a list that is never parsed. The lines are written the way the folders write them — quoted here, bare there — because the parser reads both the same way and pretending otherwise would make one of the two look wrong.">
+        <dl class="sb-grid" data-testid="knowledge-metadata-fields">
+            @foreach (var field in Fields)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@field.Name</dt>
+                    <dd class="sb-stack">
+                        <p class="sb-state">@field.Shape — @field.Folders</p>
+                        <pre class="sb-story__code"
+                             data-testid="@($"knowledge-metadata-field-{field.Name}-source")"><code>@field.Line</code></pre>
+                        <p>@field.Meaning</p>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="A reference and a plain string are not the same field"
+           Description="This block is one term out of this repository's .domain/backlog/naming.md, and it carries both kinds at once. `aliases` holds three surface names the term is also known by; `related` holds one address pointing at where the term is modelled. They look alike on screen — both are chips — and they are not alike at all.
+
+An alias is a plain string by design. `BacklogEntry` is not a file and there is nothing to open; the link to where the term lives is carried by `related` instead, precisely so the two jobs stay in separate fields. The same reasoning gives `alternatives` and `order` plain strings: a technology that was weighed and rejected has no chapter to point at, and a reading order names siblings rather than paths.
+
+That is why KnowledgeMetaView never turns those three into links, no matter what a host wires up. Only `related`, `depends-on` and `implements` are parsed as references, and only those become followable — the next subpage is what makes them so.">
+        <div class="sb-columns" data-testid="knowledge-metadata-strings-vs-references">
+            <div class="sb-stack">
+                <p class="sb-label">The block, as written in .domain</p>
+                <pre class="sb-story__code" data-testid="knowledge-metadata-term-source"><code>@TermBlock</code></pre>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">aliases stay text, related parsed into a reference</p>
+                <KnowledgeMetaView Metadata="@TermMetadata" TestId="knowledge-metadata-term-view" />
+                <p class="sb-state" data-testid="knowledge-metadata-term-counts">
+                    @TermMetadata.Aliases.Count plain strings under aliases.
+                    @TermMetadata.References.Count parsed reference: @TermSummary
+                </p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="A field nobody defined is kept, not dropped"
+           Description="Extra holds every key the schema does not name, verbatim. The convention says not to invent fields, and a reader that quietly discarded one anyway would make a genuine schema addition invisible: the field would be in the file, absent from the view, and nobody could tell which of the two was wrong.
+
+The same collection catches an entry that was meant to be a reference and is not addressable. A value under `related` that will not parse is kept under its own key rather than dropped, because it is still something an author wrote — and a typo is only useful once it is visible.
+
+Below, `owner` is a field this schema has never heard of, and the second `related` entry is a bare hash that addresses nothing. Both survive: the unknown key under its own name, and the unparseable entry as a second `related` row, sitting beside the one that did parse."
+           Code="@ExtraCode">
+        <div class="sb-columns" data-testid="knowledge-metadata-extra">
+            <div class="sb-stack">
+                <p class="sb-label">A block with a field the schema does not define</p>
+                <pre class="sb-story__code" data-testid="knowledge-metadata-extra-source"><code>@ExtraBlock</code></pre>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Nothing silently disappears</p>
+                <KnowledgeMetaView Metadata="@ExtraMetadata" TestId="knowledge-metadata-extra-view" />
+                <p class="sb-state" data-testid="knowledge-metadata-extra-keys">
+                    Kept under Extra: @ExtraKeys
+                </p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="A block that stated nothing draws nothing"
+           Description="Empty in, nothing out — the same rule the metadata strip has always followed. A chapter with no metadata should not leave a gap where the record would have been, so KnowledgeMetaView renders no element at all rather than an empty description list with padding around it.
+
+`related: []` and `issue: null` are the reason IsEmpty is not simply a null check. Both are the arc42 template spelling out a field it does not have, and both mean the same as leaving the line out. They read back as absent, so a block that consists only of those is empty and draws nothing.
+
+The example below renders two components. One of them is not there, and that is the point.">
+        <div class="sb-stack" data-testid="knowledge-metadata-empty">
+            <p class="sb-label">A block of nothing but omissions</p>
+            <pre class="sb-story__code" data-testid="knowledge-metadata-empty-source"><code>@EmptyBlock</code></pre>
+            <KnowledgeMetaView Metadata="@EmptyMetadata" TestId="knowledge-metadata-empty-view" />
+            <p class="sb-state" data-testid="knowledge-metadata-empty-state">
+                IsEmpty: @EmptyMetadata.IsEmpty — nothing above this line was rendered.
+            </p>
+        </div>
+    </Story>
+
+    <Story Name="Adding metadata support to a component of your own"
+           Description="The smallest useful version is one parameter and one element. Take a KnowledgeMetadata, hand it to KnowledgeMetaView, and let the view's own empty rule decide whether anything appears — a caller that wraps the view in its own `if` is duplicating a decision the view already makes correctly.
+
+Take the record rather than a string. A component that took the fence body would parse on every render, and it would parse the same text again for each of its siblings; a component that took a status and a list of strings would be unable to express the other eight fields. KnowledgeMetadata is the shape that both loads once and says everything.
+
+Everything else on this component is optional and belongs to the other two axes. Nothing here needs a folder or a link resolver to render.
+
+The one addition worth making at the same time is Heading. The status answers the first question a reader has about a chapter, so the view puts it on the heading's line rather than three rows down a list — at the right edge of it, so a document of chapters reads as one column of states — but only a host that hands its heading in gets that, because the two share a line only if they share a parent. The heading below is the markup MarkdownView emits for one, which is also the markup the record's stylesheet knows how to sit beside; a host handing in an element of its own brings that element's margins with it.
+
+Handing the heading in is also what makes a long one behave. The line does not wrap: the heading shrinks and wraps its own text, and the status stays on its first line at the right edge rather than being carried down beside the last one. Sharing a line by margin trick instead comes apart at exactly that point."
+           Code="@ComponentCode">
+        <div class="sb-columns" data-testid="knowledge-metadata-howto">
+            <div class="sb-stack">
+                <p class="sb-label">The heading and the block that component was given</p>
+                <pre class="sb-story__code" data-testid="knowledge-metadata-howto-source"><code>@HowToSource</code></pre>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">What it renders — the status on the heading's line</p>
+                <KnowledgeMetaView Metadata="@TechMetadata"
+                                   CssClass="sb-metadata-panel"
+                                   AriaLabel="Chapter metadata"
+                                   TestId="knowledge-metadata-howto-view">
+                    <Heading>
+                        <p class="md-heading md-heading--2" role="heading" aria-level="2">@ChapterHeading</p>
+                    </Heading>
+                </KnowledgeMetaView>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="A heading too long for its line"
+           Description="The narrow case, at the width it actually breaks at. Both records below are the same block under the same heading; the second is held to a navigation-pane width so the heading has to wrap.
+
+What to look for is where the status ends up. It stays on the heading's first line, at the right edge, and the heading's remaining lines run under it. It is not carried down to sit beside the last line, and it does not take a row of its own below the heading — either of which would put the answer to `is this current?` somewhere other than beside the title it answers for.
+
+That is three rules working together, and each of them is load-bearing. The line does not wrap, so the status cannot be moved off it. The heading may shrink below the width of its own longest word, so it is the item that gives — a flex item's default minimum is its content, and left alone a heading would refuse to narrow and shove the status out of the row instead. And the row aligns on first baselines, so against a heading three lines tall the status sits level with line one.
+
+A select behaves identically: the same rule right-aligns both forms of the status, and neither of them shrinks."
+           Code="@WrapCode">
+        <div class="sb-stack" data-testid="knowledge-metadata-wrap">
+            <div class="sb-stack">
+                <p class="sb-label">Full width — the heading fits</p>
+                <KnowledgeMetaView Metadata="@TechMetadata"
+                                   CssClass="sb-metadata-panel"
+                                   AriaLabel="Chapter metadata"
+                                   TestId="knowledge-metadata-wrap-wide">
+                    <Heading>
+                        <p class="md-heading md-heading--2" role="heading" aria-level="2">@LongChapterHeading</p>
+                    </Heading>
+                </KnowledgeMetaView>
+            </div>
+            <div class="sb-stack sb-narrow">
+                <p class="sb-label">The same record at 28rem — the heading wraps, the status does not move</p>
+                <KnowledgeMetaView Metadata="@TechMetadata"
+                                   CssClass="sb-metadata-panel"
+                                   AriaLabel="Chapter metadata"
+                                   TestId="knowledge-metadata-wrap-narrow">
+                    <Heading>
+                        <p class="md-heading md-heading--2" role="heading" aria-level="2">@LongChapterHeading</p>
+                    </Heading>
+                </KnowledgeMetaView>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Parsing a fence yourself"
+           Description="When the component holds the markdown rather than a record — a custom renderer, a preview, a lint pass — ParseFence is the seam. It takes the language off the opening fence and the body inside it, and answers Empty for anything that is not a `meta` block, so the call site needs no language check of its own.
+
+IsMetaBlock is exposed separately for the case where the answer changes what you render rather than what you parse. That is exactly how MarkdownView uses it: the language decides which branch a code block takes, and the body is only parsed once that branch is chosen.
+
+Parse the block once and keep the result. MarkdownView holds a small dictionary keyed by block for this reason — a view re-renders far more often than its blocks change, and re-parsing the same fence on every redraw buys nothing.
+
+The source beside it is the whole fence, opening line included, because that line is the argument this story is about. Every other story on this page shows the body alone, which is what a caller of Parse holds."
+           Code="@ParseFenceCode">
+        <div class="sb-columns" data-testid="knowledge-metadata-fence">
+            <div class="sb-stack">
+                <p class="sb-label">The fence, language and all</p>
+                <pre class="sb-story__code" data-testid="knowledge-metadata-fence-source"><code>@FencedTechBlock</code></pre>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">ParseFence over that language and that body</p>
+                <KnowledgeMetaView Metadata="@KnowledgeMeta.ParseFence(KnowledgeMeta.FenceLanguage, TechBlock)"
+                                   TestId="knowledge-metadata-fence-view" />
+                <p class="sb-state" data-testid="knowledge-metadata-fence-state">@FenceSummary</p>
+            </div>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    /// <summary>One field of the schema, with the line a file writes it as. The
+    /// line is not decoration: the shape column claims a syntax, and the line is
+    /// what shows it.</summary>
+    private sealed record FieldRow(string Name, string Shape, string Folders, string Line, string Meaning);
+
+    /// <summary>The heading the .tech block below sits under, so the how-to story
+    /// can show what a host gets for handing one in.</summary>
+    private const string ChapterHeading = "ASP.NET Core Minimal APIs";
+
+    /// <summary>A heading of the length a real chapter reaches — this one is the
+    /// shape of an arc42 section title — so the wrap story is reviewed against
+    /// something a file would actually contain rather than filler.</summary>
+    private const string LongChapterHeading =
+        "ASP.NET Core Minimal APIs, and the routing conventions the sync service is expected to follow";
+
+    /// <summary>The ASP.NET Core Minimal APIs chapter of this repository's .tech/cloud.md.</summary>
+    private const string TechBlock = """
+        status: candidate
+        kind: framework
+        depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
+        related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
+        alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
+        """;
+
+    /// <summary>The Backlog Entry term out of .domain/backlog/naming.md.</summary>
+    private const string TermBlock = """
+        status: draft
+        aliases: [BacklogEntry, backlog_entry_id, backlog_item_id]
+        related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+        """;
+
+    private const string ExtraBlock = """
+        status: adopted
+        owner: platform-team
+        related: [".arc42/08-crosscutting-concepts.md#storage-and-sync", "#"]
+        """;
+
+    private const string EmptyBlock = """
+        related: []
+        issue: null
+        """;
+
+    private static readonly KnowledgeMetadata TechMetadata = KnowledgeMeta.Parse(TechBlock);
+
+    private static readonly KnowledgeMetadata TermMetadata = KnowledgeMeta.Parse(TermBlock);
+
+    private static readonly KnowledgeMetadata ExtraMetadata = KnowledgeMeta.Parse(ExtraBlock);
+
+    private static readonly KnowledgeMetadata EmptyMetadata = KnowledgeMeta.Parse(EmptyBlock);
+
+    /// <summary>The one address in the term block, taken apart.</summary>
+    private static string TermSummary =>
+        string.Join(", ", TermMetadata.References.Select(reference =>
+            $"path {reference.Path}, chapter {reference.Slug}, folder {reference.Folder}"));
+
+    private static string ExtraKeys => string.Join(", ", ExtraMetadata.Extra.Keys);
+
+    /// <summary>The chapter as it is written on disk: the heading, then the block
+    /// directly under it. Built from the same two constants the example renders,
+    /// so the source cannot describe a chapter the view is not showing.</summary>
+    private static string HowToSource => $"## {ChapterHeading}\n\n```{KnowledgeMeta.FenceLanguage}\n{TechBlock}\n```";
+
+    /// <summary>The same block with its fence lines. This story is about the
+    /// language on the opening fence as much as the body inside it, so the body
+    /// alone would be missing the argument.</summary>
+    private static string FencedTechBlock => $"```{KnowledgeMeta.FenceLanguage}\n{TechBlock}\n```";
+
+    /// <summary>What the language check answers, and what a non-meta fence parses to.</summary>
+    private static string FenceSummary =>
+        $"IsMetaBlock(\"meta\") is {KnowledgeMeta.IsMetaBlock("meta")}; "
+        + $"IsMetaBlock(\"mermaid\") is {KnowledgeMeta.IsMetaBlock("mermaid")}; "
+        + $"the same body through ParseFence(\"mermaid\", …) comes back empty: "
+        + $"{KnowledgeMeta.ParseFence("mermaid", TechBlock).IsEmpty}.";
+
+    private static readonly IReadOnlyList<FieldRow> Fields =
+    [
+        new("status", "scalar", "every folder",
+            "status: adopted",
+            "The only required field, and the only one every folder writes. What it is allowed to say "
+            + "depends on the folder, which is the State subpage."),
+
+        new("related", "references", "every folder",
+            "related: [\".arc42/02-constraints.md#technical-constraints\"]",
+            "What this chapter points at for context, with no claim about order. The general-purpose "
+            + "relation, and the one to reach for when the others do not fit."),
+
+        new("depends-on", "references", ".domain features, .backlog, .tech",
+            "depends-on: [\".tech/shared.md#net-runtime\"]",
+            "What has to land first. Says something stronger than related does, which is why a "
+            + "technology chapter uses it to point at the shared runtime it sits on."),
+
+        new("implements", "references", ".backlog",
+            "implements: [.domain/backlog/features.md#feature-roadmap-planning]",
+            "What a backlog item delivers, addressed into .domain. This is the field that ties a work "
+            + "item to the feature it exists for."),
+
+        new("issue", "scalar", ".backlog, .arc42 decisions",
+            "issue: JSdotNet/Backlog#118",
+            "The tracking issue: a URL, or the owner/repo#number shorthand. Stored exactly as authored "
+            + "— only the URL form can be followed from here, because the shorthand needs a remote "
+            + "this library knows nothing about."),
+
+        new("order", "plain strings", "root documents only",
+            "order: [overview.md, backlog, environment]",
+            "The reading order a folder's root document declares for its directory. Sibling file and "
+            + "directory names, never paths, and never on a chapter."),
+
+        new("aliases", "plain strings", ".domain naming",
+            "aliases: [BacklogEntry, backlog_entry_id, backlog_item_id]",
+            "Surface names one canonical term is also known by. Plain strings on purpose: an alias is "
+            + "a word, not a place."),
+
+        new("alternatives", "plain strings", ".tech",
+            "alternatives: [\"Azure Functions\", \"Controller-based ASP.NET Core\"]",
+            "What was weighed against this technology and not adopted. Plain strings because something "
+            + "that was rejected has no chapter to point at."),
+
+        new("kind", "scalar", ".tech",
+            "kind: framework",
+            "What kind of thing the entry is — format, runtime, framework, library."),
+
+        new("version", "scalar", ".tech",
+            "version: \"10.0\"",
+            "The pinned version, as authored. A string rather than a number, because 10.0 is not ten.")
+    ];
+
+    private const string ParseCode = """
+        @* The text inside the fence; the caller has already stripped the fence
+           lines themselves. *@
+        KnowledgeMetadata metadata = KnowledgeMeta.Parse(fenceBody);
+
+        @* Or, when you still hold the language the fence opened with. A block
+           that is not metadata comes back Empty rather than half-read. *@
+        KnowledgeMetadata metadata = KnowledgeMeta.ParseFence(codeBlock.Language, codeBlock.Text);
+        """;
+
+    private const string ExtraCode = """
+        @* Unknown keys survive under their own name, and so does a `related`
+           entry that would not parse as an address. *@
+        var metadata = KnowledgeMeta.Parse(body);
+
+        foreach (var (key, values) in metadata.Extra)
+        {
+            Console.WriteLine($"{key}: {string.Join(", ", values)}");
+        }
+        """;
+
+    private const string ComponentCode = """
+        @* ChapterHeader.razor — metadata support, in full. The heading is handed
+           to the view rather than placed above it, which is what puts the status
+           on its line instead of under it. *@
+        <KnowledgeMetaView Metadata="@Metadata" AriaLabel="Chapter metadata">
+            <Heading>
+                <h2 class="chapter__title">@Title</h2>
+            </Heading>
+        </KnowledgeMetaView>
+
+        @code {
+            [Parameter, EditorRequired]
+            public string Title { get; set; } = string.Empty;
+
+            @* The record, not the fence body: parsing per render would repeat the
+               same work on every redraw, and a status plus a list of strings
+               cannot express the other eight fields. *@
+            [Parameter]
+            public KnowledgeMetadata Metadata { get; set; } = KnowledgeMetadata.Empty;
+        }
+        """;
+
+    /// <summary>The stylesheet, not a component parameter: nothing about the wrap
+    /// story is wired up at the call site, which is the point. A host hands its
+    /// heading in and the record's own rule does the rest.</summary>
+    private const string WrapCode = """
+        /* components.css — the headline, and why it holds together at any width. */
+        .knowledge-record__headline {
+            display: flex;
+            flex-wrap: nowrap;      /* the status cannot be moved off the line */
+            align-items: baseline;  /* so it sits on the heading's *first* line */
+            gap: var(--spacing-xs) var(--spacing-sm);
+            min-width: 0;
+        }
+
+        /* The heading is the item that gives. Without this it would refuse to go
+           narrower than its longest word — a flex item's default minimum is its
+           content size — and push the status out of the row instead of wrapping. */
+        .knowledge-record__headline > :not(.knowledge-status):not(.status-editor) {
+            min-width: 0;
+        }
+
+        /* Both forms of the status, and neither ever shrinks. */
+        .knowledge-record__headline > .knowledge-status,
+        .knowledge-record__headline > .status-editor {
+            flex: 0 0 auto;
+        }
+
+        /* Pushed over by an auto margin rather than by growing the heading: the
+           heading keeps flex's default `0 1 auto`, so its box never stretches
+           past its own text. Only when there is a heading to be pushed away from
+           — a headline holding the status alone leaves it where the fields under
+           it start. */
+        .knowledge-record__headline > .knowledge-status:not(:first-child),
+        .knowledge-record__headline > .status-editor:not(:first-child) {
+            margin-inline-start: auto;
+        }
+        """;
+
+    private const string ParseFenceCode = """
+        @* A renderer that holds markdown rather than a record. The language
+           decides the branch; the body is only parsed once the branch is taken. *@
+        @if (KnowledgeMeta.IsMetaBlock(codeBlock.Language))
+        {
+            <KnowledgeMetaView Metadata="@MetadataOf(codeBlock)" />
+        }
+
+        @code {
+            @* Parsed once per block rather than once per render. *@
+            private readonly Dictionary<MdCode, KnowledgeMetadata> _metadata = [];
+
+            private KnowledgeMetadata MetadataOf(MdCode block)
+            {
+                if (_metadata.TryGetValue(block, out var parsed)) return parsed;
+
+                parsed = KnowledgeMeta.ParseFence(block.Language, block.Text);
+                _metadata[block] = parsed;
+                return parsed;
+            }
+        }
+        """;
+}

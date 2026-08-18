@@ -1255,6 +1255,17 @@ button.md-check {
     white-space: nowrap;
 }
 
+/* The typed badge wraps exactly one record, and a record is a stacked block
+   rather than one more chip in this row. */
+.knowledge-meta > .knowledge-record {
+    flex: 1 1 100%;
+}
+
+/* `.knowledge-related` is the legacy strip's chip and only that now: the typed
+   record draws its references as links (`.knowledge-ref`) and its plain strings
+   as values (`.knowledge-value`). It shares the pill rule below because the two
+   parameter callers are entitled to the markup and the look they were written
+   against — see MetadataBadgeCompatibilityTests. */
 .knowledge-related,
 .knowledge-status {
     font-family: var(--font-family-mono);
@@ -1272,6 +1283,283 @@ button.md-check {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     font-weight: 700;
+}
+
+/*
+   Status tones.
+
+   Five folders spell their lifecycle in five vocabularies, and none of them
+   should be renamed to suit a stylesheet — so the pill carries both its literal
+   status class and a tone class, and only the tone is painted. A tone is added
+   only when the folder is known, so a folder-blind strip keeps exactly the flat
+   pill it has always had.
+
+   Nothing here invents a colour: the semantic tokens are surfaces, so each tone
+   sits *on* one and takes its text from the text ramp, and the two quiet tones
+   spend no colour at all.
+*/
+
+.knowledge-status--tone-unknown {
+    background: transparent;
+}
+
+.knowledge-status--tone-provisional {
+    background: transparent;
+    border-style: dashed;
+    color: var(--color-text-disabled);
+    font-style: italic;
+}
+
+.knowledge-status--tone-planned {
+    background: var(--color-info);
+    border-color: var(--color-info);
+    color: var(--color-text-primary);
+}
+
+/* Active takes the brand colour: of everything on this scale it is the one that
+   describes the thing you are looking at right now. */
+.knowledge-status--tone-active {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    border-color: var(--color-primary-dark);
+    color: var(--color-primary-light);
+}
+
+.knowledge-status--tone-complete {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    color: var(--color-text-primary);
+}
+
+.knowledge-status--tone-attention {
+    background: var(--color-warning);
+    border-color: var(--color-warning);
+    color: var(--color-text-primary);
+}
+
+.knowledge-status--tone-retired {
+    background: transparent;
+    border-style: dashed;
+    color: var(--color-text-disabled);
+    text-decoration: line-through;
+}
+
+/* A status the folder does not define is almost always a typo, and a typo is
+   only worth anything once it is visible. The pill keeps its tone classes so a
+   half-recognised value still reads, and gains a surface that says "look here"
+   rather than one that says "this is fine". */
+.knowledge-status--unrecognised {
+    background: var(--color-error);
+    border-color: var(--color-border-strong);
+    border-style: dashed;
+    color: var(--color-text-primary);
+    font-style: normal;
+    text-decoration: none;
+}
+
+/*
+   A whole metadata block, rendered as the record it is, in two tiers.
+
+   The headline is what a reader wants first: the heading, and on the right edge
+   of the same line the one word that says whether the heading is still true.
+   The status used to be row one of the list below, which meant the answer to
+   "is this current?" arrived after a label, on its own line, level with
+   `related`. Sharing the line is only real if the two share a parent — hence
+   the headline row, rather than a margin trick that breaks the moment a heading
+   wraps.
+
+   The right edge is a column, not a gap after the words: a stack of records
+   reads as a list of states down one side, and a status that started wherever
+   its heading happened to end could not be scanned that way.
+
+   Everything else the block states is true but secondary, so the list under the
+   headline is deliberately quieter than it: smaller text, a dimmer label column,
+   tighter rows. Still a two-column description list, with rows using display:
+   contents so every label lines up in one column across the block rather than
+   each row measuring itself.
+*/
+
+.knowledge-record {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+/*
+   Heading left, status hard right, on one line.
+
+   `nowrap` is the load-bearing part. Wrapping was what put a long heading and
+   its status on two rows: the row ran out of width, the status was the item
+   that got moved, and the answer to "is this current?" ended up below the thing
+   it describes. With the row held to one line the heading is the item that
+   gives — it shrinks and wraps its own text — and the status stays where it was
+   put.
+
+   `min-width: 0` on the heading is what lets that happen at all. A flex item's
+   default `min-width: auto` is its min-content size, so a heading would refuse
+   to go narrower than its longest word and push the status out of the row
+   instead of wrapping.
+
+   The status is `flex: 0 0 auto` and pushed over by an auto margin rather than
+   by growing the heading. Growing the heading would right-align it just as
+   well, but it also stretches the heading's box across the whole row, and auto
+   margins resolve *after* flex-grow has already eaten the free space — so the
+   margin would be doing nothing and the alignment would be relying on a side
+   effect. The heading keeps flex's default `0 1 auto`: shrink, never grow. That
+   also means the auto margin can be dropped for the headline that has no
+   heading in it, which is the rule two blocks down.
+
+   `align-items: baseline` then does the rest. Baseline alignment uses an item's
+   *first* baseline, so against a heading that has wrapped to three lines the
+   status sits on line one, level with the words, rather than drifting down
+   beside the last one.
+*/
+.knowledge-record__headline {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+.knowledge-record__headline > :not(.knowledge-status):not(.status-editor) {
+    min-width: 0;
+}
+
+/* Both forms of the status — the static pill and the BadgeSelect the record
+   draws when the folder has a vocabulary to offer. Neither ever shrinks: it is
+   the short, fixed thing on the line, and the heading is what gives. */
+.knowledge-record__headline > .knowledge-status,
+.knowledge-record__headline > .status-editor {
+    flex: 0 0 auto;
+}
+
+/* Pushed over only when there is something to be pushed away from. A record
+   handed no heading has a headline holding the status alone — a metadata block
+   rendered on its own, which is most of them outside a document — and a lone
+   pill sent to the far edge would float there with the field list left-aligned
+   underneath it, attached to nothing. The right edge is a relationship with the
+   heading, not a property of the status.
+
+   The auto margin also overrides `.badge--status`'s own `margin-left`, which is
+   spacing for a badge in a row of badges and not for one holding an edge. */
+.knowledge-record__headline > .knowledge-status:not(:first-child),
+.knowledge-record__headline > .status-editor:not(:first-child) {
+    margin-inline-start: auto;
+}
+
+/* The heading arrives with the block margins it has as a block of its own.
+   Left alone they push the pill off the line and reopen the gap this row exists
+   to close. */
+.knowledge-record__headline .md-heading {
+    margin: 0;
+}
+
+.knowledge-fields {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    margin: 0;
+    font-size: var(--font-size-xs);
+}
+
+.knowledge-fields__row {
+    display: contents;
+}
+
+/* The dimmest thing in the record. A field name is scaffolding for the value
+   beside it — worth reading once to know which field this is, and never the
+   thing being looked at. */
+.knowledge-fields__label {
+    margin: 0;
+    color: var(--color-text-disabled);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.knowledge-fields__value {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0;
+    min-width: 0;
+    color: var(--color-text-secondary);
+}
+
+/*
+   A reference, as a link and not as a badge.
+
+   All three shapes used to carry `knowledge-related` and so inherited the status
+   pill's rule: border, full radius, filled surface, bold. That turned a row of
+   references into a row of badges, which both invited a click the inert form
+   does not answer and out-shouted the single pill on the headline that really is
+   a state. The treatment here is `.md-link`'s and nothing else — same colour,
+   same default underline — so a reference reads as what it is.
+*/
+
+.knowledge-ref {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    min-width: 0;
+    /* A reference is one long token with no spaces in it. Without a break
+       opportunity it sets the width of whatever column it lands in, which is how
+       a narrow grid ends up clipping instead of wrapping. */
+    overflow-wrap: anywhere;
+}
+
+.knowledge-ref--link {
+    color: var(--color-text-link);
+}
+
+/* The button form is stripped back to the anchor: a <button> arrives with a
+   font, a surface, a border and padding of its own, and whether the host routes
+   a reference in-process or lets the browser navigate is not something a reader
+   should be able to see. */
+.knowledge-ref--action {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--color-text-link);
+    font: inherit;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    text-align: left;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.knowledge-ref--link:hover,
+.knowledge-ref--action:hover {
+    color: var(--color-primary-light);
+}
+
+/* Resetting the chrome must not take the focus ring with it: this is the one
+   control in the record, and a keyboard has to be able to see where it is. */
+.knowledge-ref--link:focus-visible,
+.knowledge-ref--action:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+/* Nobody can follow this one, so it is not painted as though they could. Quiet
+   secondary text: readable, copyable, and making no promise. */
+.knowledge-ref--inert {
+    color: var(--color-text-secondary);
+}
+
+/* A plain string field — an alias, a kind, a version, an issue shorthand. It
+   names something with no chapter to point at, so it borrows neither the pill
+   nor the link: it is simply the value, set in the same mono face as the
+   references it sits among so the column still scans as one. */
+.knowledge-value {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 /* --- Knowledge menu ------------------------------------------------------ */

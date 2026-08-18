@@ -1,0 +1,313 @@
+@page "/knowledge-base"
+
+@* Titled "The meta block" and not "Knowledge base" — that is the sidebar group
+   this page and its three subpages sit in, and a page repeating its own group's
+   name reads as a rendering fault under the uppercase heading directly above it.
+   The name has to hold in three places at once: this heading, the sidebar row,
+   and the introduction's card grid, where every other card is named for its
+   subject. See the comment on the group in StorybookIndex. *@
+<PageTitle>The meta block — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="The meta block"
+           Summary="This repository keeps its own documentation in five folders — .arc42, .domain, .backlog, .tech and .design — and every addressable heading in them carries a fenced meta block: a short record of what state the chapter is in and what it points at. These components read that record. Three separable things came out of it — the block, the references inside it, and the status vocabulary that gives a folder its state — and each has a subpage of its own. This page is what the three have in common, and the promise that none of it changed anything that was already rendering.">
+
+    <Alert Message="@OptInNotice" Role="note" CssClass="sb-callout" />
+
+    <Story Name="A chapter is a heading, a record, and prose"
+           Description="This is the convention, and the sample is not invented: it is the top of this repository's own .tech/shared.md, pasted. A `#` heading opens the file and carries the file-level block; every `##` under it is an addressable chapter and carries its own. The block sits directly under its heading, before any prose, so a reader and a parser find it in the same place.
+
+Only status is required. Everything else is written when it has a value and left out when it does not — the convention is explicit that an empty list or a null is an omission rather than a value — so an absent field here reads as `not stated` and never as `stated as empty`. That is why a real block is two or three lines and never a template with the blanks left in.
+
+The fence language is `meta` and the body is YAML-shaped: flat scalars, and lists one level deep written inline or as dashes. Both forms are in the wild in this repository and both read back the same.
+
+Because the block sits directly under its heading, that is also where it is drawn: the pair is folded into one record and the heading shares its line with the status. Whether a chapter is current is the first thing a reader wants to know about it, and a status three rows into a list under the heading is an answer they have to go and find. Everything else the block says is true but secondary, so it sits under that line, quieter and tighter.
+
+The status sits at the right edge of that line rather than trailing the heading's last word. Down a document of chapters that makes one column of states, scannable on its own, which a status that started wherever each heading happened to end could not be. It stays on the heading's first line when a heading wraps — the answer belongs beside the title, not below it.
+
+It is also a control here, because this sample is read as `.tech` and a folder names the values its status may take. Nothing on this page persists anything, so a value picked below is kept for as long as the page is open and no further; a real host adds OnStatusChanged and writes it to the file the block came from."
+           Code="@ConventionCode">
+        <MarkdownStory Source="@SharedTechSample"
+                       RenderKnowledgeMetadata="true"
+                       KnowledgeFolder="KnowledgeFolder.Tech"
+                       TestId="knowledge-base-document" />
+    </Story>
+
+    <Story Name="Nothing renders differently until a host asks"
+           Description="The same document, twice, with its source above both. On the left MarkdownView has been given nothing new and the `meta` fence is what it has always been: a fenced code block, shown as one. On the right the host has said it is reading a knowledge document, and the fence becomes the record it was written as — folded into the heading above it, which is where the convention put it, so the heading and the status share a line.
+
+The default is off, and that is the whole compatibility story for markdown. Most of the text in this product is an entry body somebody typed, not a chapter out of a knowledge folder, and in a body a fence that happens to say `meta` is a listing like any other. Turning it on is a decision the host makes because it knows where the file came from — this component cannot know that, and guessing would rewrite bodies nobody asked it to touch."
+           Code="@OptInCode">
+        <div class="sb-stack" data-testid="knowledge-base-opt-in">
+            <div class="sb-stack">
+                <p class="sb-label">The document both columns render</p>
+                <pre class="sb-story__code" data-testid="knowledge-base-opt-in-source"><code>@ChapterSample.Trim()</code></pre>
+            </div>
+            <div class="sb-columns">
+                <div class="sb-stack">
+                    <p class="sb-label">Default — the fence is a fence</p>
+                    <div data-testid="knowledge-base-opt-in-off">
+                        <MarkdownView Blocks="@ChapterBlocks" />
+                    </div>
+                </div>
+                <div class="sb-stack">
+                    <p class="sb-label">Opted in — the fence is a record</p>
+                    <div data-testid="knowledge-base-opt-in-on">
+                        <MarkdownView Blocks="@ChapterBlocks"
+                                      RenderKnowledgeMetadata="true"
+                                      KnowledgeFolder="KnowledgeFolder.Tech" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="The seam sits in front of the one diagrams already use"
+           Description="MarkdownView switches over the blocks the parser produced, and an MdCode block now has three answers where it had two: a metadata record where a host opted in, a diagram where the language names one, and otherwise the code block it always was. The parser is not involved in any of it — it captured the fence language once, and every branch here reads that.
+
+The order is deliberate. The metadata test runs first and is gated on the opt-in, so a document that did not ask for knowledge rendering falls through to exactly the two branches that existed before it. Diagrams are the chapter next door; the sample below carries one so both seams can be seen sharing a body.
+
+There is a step in front of that switch. A `meta` fence written directly under a heading belongs to that heading, so the loop draws the two as one record and the fence's own turn is skipped — which is what happens to the fence in the sample below, and why the record there carries the heading. The MdCode branch is what catches a fence further down a body, away from any heading of its own. Annotated documents keep the stacked rendering either way: there every block is a row carrying its own index and comments are anchored to those indices, so folding two blocks into one row would strand the fence's comments on a row that no longer exists.
+
+Without egress the diagram falls back to its source. That is the diagram chapter's own story rather than anything going wrong here."
+           Code="@SeamCode">
+        <MarkdownStory Source="@MixedSample"
+                       RenderKnowledgeMetadata="true"
+                       KnowledgeFolder="KnowledgeFolder.Backlog"
+                       TestId="knowledge-base-mixed" />
+    </Story>
+
+    <Story Name="Three axes, and why they are three pages"
+           Description="A metadata block does three unrelated jobs, and a component adding support for it rarely wants all three at once. Keeping them apart is what makes each adoptable on its own: a view can render a block without resolving a single reference, and it can honour a folder's vocabulary without rendering a block at all.
+
+The sidebar carries one subpage per axis. Each answers the same question in its own terms — what do I add to a component to get this — and each carries the code to copy.">
+        <dl class="sb-grid" data-testid="knowledge-base-axes">
+            @foreach (var axis in Axes)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@axis.Name</dt>
+                    <dd class="sb-stack">
+                        <p>@axis.What</p>
+                        <p class="sb-state">@axis.Types</p>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="The strip that was already there did not move"
+           Description="MetadataBadge is rendered by the desktop app and by this storybook with two parameters and nothing else, and both are entitled to the markup they had when they were written. The top badge is that call, unchanged: one status span carrying `knowledge-status--ready`, one `code.knowledge-related` per relation, no description list, no link, no control and no tone class. The bottom badge is the same fields handed over as a parsed record with the folder named, which is the new capability.
+
+The second was not layered over the first. They are two branches kept apart on purpose, because layering would have risked shifting the very markup every existing caller depends on staying still. Asking for nothing new gets the old branch; asking for a block, a folder, a link resolver or a callback gets the new one, and only then.
+
+This is pinned by tests rather than by good intentions. MetadataBadgeCompatibilityTests asserts the legacy markup attribute by attribute and names itself a breaking change if it fails, so the guarantee this story makes is checked on every build.
+
+The contrast is sharper than it was when this story was written, and both halves of it are worth reading. The typed record now leads with the status on its own line, held to the right edge of it, and draws its addresses as links under the field that holds them; the strip beside it is one flat row of pills with `related` and `implements` collapsed into a single bucket, because the two-parameter form has only the one. Both are fed from the block above — the strip takes its addresses as the flat `Related` strings a caller passes today, the record takes the parsed block — so nothing in the difference comes from the two having been given different material.
+
+The sharpest difference is that the typed status is a control and the legacy one is a word. Naming the folder names the values the status is allowed to take, so the record offers them as a BadgeSelect; the two-parameter caller hands over a loose string and has no way to hear that it changed, so a control there would lead nowhere. Change the select on the lower badge and then look at the upper one: it does not move, and it is not supposed to — they are two branches, not two views of one state."
+           Code="@CompatibilityCode">
+        <div class="sb-stack" data-testid="knowledge-base-compatibility">
+            <div class="sb-stack">
+                <p class="sb-label">The block both badges were read from</p>
+                <pre class="sb-story__code" data-testid="knowledge-base-compatibility-source"><code>@RoadmapBlock</code></pre>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Two parameters — the markup it has always rendered</p>
+                <MetadataBadge Status="@RoadmapMetadata.Status"
+                               Related="@LegacyRelated"
+                               AriaLabel="Entry metadata"
+                               TestId="knowledge-base-legacy-badge" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">The same fields, typed and folder-aware</p>
+                <MetadataBadge Metadata="@RoadmapMetadata"
+                               Folder="KnowledgeFolder.Backlog"
+                               AriaLabel="Entry metadata"
+                               TestId="knowledge-base-typed-badge" />
+            </div>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private const string OptInNotice =
+        "Everything on these four pages is opt-in. MarkdownView renders a meta fence as a fenced code "
+        + "block until a host sets RenderKnowledgeMetadata, and MetadataBadge renders the strip it "
+        + "always did until something asks for more — so a surface that adopts none of this is "
+        + "unaffected by all of it.";
+
+    private sealed record Axis(string Name, string What, string Types);
+
+    /// <summary>The top of this repository's own .tech/shared.md, verbatim.</summary>
+    private const string SharedTechSample = """
+        # Shared Technologies
+
+        ```meta
+        status: candidate
+        related: [".tech/technology-graph.md", ".arc42/02-constraints.md#technical-constraints"]
+        ```
+
+        > Technologies used by more than one channel. Every layer file points at these
+        > chapters with `depends-on` instead of redefining them locally.
+
+        ## Markdown
+
+        ```meta
+        status: adopted
+        kind: format
+        related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
+        ```
+
+        The canonical storage format for all user content: inbox items, backlog items,
+        knowledge notes, and prompts.
+        """;
+
+    /// <summary>One chapter of .tech/shared.md, used for the on and off pair.</summary>
+    private const string ChapterSample = """
+        ## .NET Runtime
+
+        ```meta
+        status: candidate
+        kind: runtime
+        version: "10.0"
+        alternatives: ["Node.js only", "Rust + Tauri"]
+        ```
+
+        The primary managed runtime for the desktop, mobile, IDE and cloud channels.
+        """;
+
+    /// <summary>A backlog item carrying both seams in one body.</summary>
+    private const string MixedSample = """
+        ## Add roadmap planning to the backlog
+
+        ```meta
+        status: in-progress
+        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        related: [.domain/environment/features.md#feature-environment-aware-work-context]
+        ```
+
+        A roadmap view over selected backlog entries, without duplicating work items
+        into a separate planning system.
+
+        ```mermaid
+        flowchart LR
+            Entry([Backlog entry]) --> Lane[Planning lane]
+            Lane --> Roadmap[Roadmap view]
+        ```
+
+        Progress is derived from the underlying entries rather than stored again.
+        """;
+
+    private static readonly IReadOnlyList<MdBlock> ChapterBlocks = MarkdownPreview.ParseDocument(ChapterSample);
+
+    /// <summary>The block both badges below are given, shown as the source of
+    /// each. A backlog entry's own metadata, with an address under two different
+    /// relations.</summary>
+    private const string RoadmapBlock = """
+        status: ready
+        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        related: [.domain/environment/features.md#feature-environment-aware-work-context]
+        """;
+
+    private static readonly KnowledgeMetadata RoadmapMetadata = KnowledgeMeta.Parse(RoadmapBlock);
+
+    /// <summary>What a caller passes today: the addresses as the flat list of
+    /// strings the two-parameter form takes, with the relation each was written
+    /// under lost on the way in — that flattening is half of what this story is
+    /// contrasting. Read off the same block rather than restated beside it, so the
+    /// two badges are provably rendering one source.</summary>
+    private static readonly string[] LegacyRelated =
+        [.. RoadmapMetadata.References.Select(reference => reference.Raw)];
+
+    private static readonly IReadOnlyList<Axis> Axes =
+    [
+        new("Metadata — the block itself",
+            "Reading the fence into a record and showing it as one: a field name and its value, laid "
+            + "out as the description list it is, with the fields nobody defined kept rather than dropped.",
+            "KnowledgeMeta, KnowledgeMetadata, KnowledgeMetaView"),
+
+        new("References — the entries that address something",
+            "The related, depends-on and implements fields hold addresses rather than labels. Parsing "
+            + "one tells you the file, the chapter and the folder, and that is what makes it followable.",
+            "KnowledgeReference, KnowledgeReferenceLink"),
+
+        new("State — the status word, read in its folder",
+            "Five folders, five vocabularies, one visual scale underneath. Knowing the folder is what "
+            + "lets a view tell a status apart from a typo instead of styling both the same.",
+            "KnowledgeFolder, KnowledgeStatus, KnowledgeStatusTone")
+    ];
+
+    private const string ConventionCode = """
+        @* What a chapter of a knowledge folder looks like on disk. The fence is
+           `meta`, it sits directly under its heading, and only `status` is
+           required — every other field is written only when it has a value. *@
+
+        ## Markdown
+
+        ```meta
+        status: adopted
+        kind: format
+        related: [".arc42/02-constraints.md#technical-constraints"]
+        ```
+        """;
+
+    private const string OptInCode = """
+        @* Off by default. Anywhere that is not reading a knowledge document a
+           `meta` fence is still just a fenced block — which is what every
+           existing caller of this component is already relying on. *@
+        <MarkdownView Blocks="@blocks" />
+
+        @* On, for a document the host knows came out of a knowledge folder. The
+           folder is read off the path, so nothing has to be told it twice. *@
+        <MarkdownView Blocks="@blocks"
+                      RenderKnowledgeMetadata="true"
+                      KnowledgeFolder="@KnowledgeFolders.FromPath(path)" />
+        """;
+
+    private const string SeamCode = """
+        @* MarkdownView, over the block list. A `meta` fence directly under a
+           heading belongs to that heading, so the pair is drawn as one record
+           and the fence's own turn in the loop is skipped. *@
+        @if (block is MdHeading heading && PairedMetaFence(index) is { } fence)
+        {
+            <KnowledgeMetaView Metadata="@MetadataOf(fence)"
+                               Folder="@KnowledgeFolder"
+                               OnNavigate="@OnKnowledgeNavigate"
+                               HrefFor="@KnowledgeHrefFor"
+                               Heading="@RenderHeading(heading)" />
+        }
+
+        @* And on an MdCode block, for a fence with no heading of its own: three
+           answers where there were two, and the new one is gated so the other
+           two are reached exactly as often as they were before. *@
+        case MdCode codeBlock:
+            @if (RenderKnowledgeMetadata && KnowledgeMeta.IsMetaBlock(codeBlock.Language))
+            {
+                <KnowledgeMetaView Metadata="@MetadataOf(codeBlock)"
+                                   Folder="@KnowledgeFolder"
+                                   OnNavigate="@OnKnowledgeNavigate"
+                                   HrefFor="@KnowledgeHrefFor" />
+            }
+            else if (DiagramView.IsDiagram(codeBlock.Language))
+            {
+                <DiagramView Source="@codeBlock.Text" Language="@codeBlock.Language" />
+            }
+            else
+            {
+                <pre class="md-code"><code>@codeBlock.Text</code></pre>
+            }
+            break;
+        """;
+
+    private const string CompatibilityCode = """
+        @* Unchanged, and pinned by MetadataBadgeCompatibilityTests: a status
+           span, a code chip per relation, and nothing else in the markup. *@
+        <MetadataBadge Status="ready" Related="@relatedIds" AriaLabel="Entry metadata" />
+
+        @* Additive. Handing over a parsed block — or a folder, a link resolver,
+           or a callback — is what switches the strip to the typed form. *@
+        <MetadataBadge Metadata="@KnowledgeMeta.Parse(fenceBody)"
+                       Folder="KnowledgeFolder.Backlog"
+                       AriaLabel="Entry metadata" />
+        """;
+}

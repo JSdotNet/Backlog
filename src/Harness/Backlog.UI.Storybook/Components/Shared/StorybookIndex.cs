@@ -13,6 +13,12 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// arrangement split them into "Requested" and "Rest of the library", which
 /// recorded the order the work was commissioned in rather than anything a
 /// reader of the library could act on.
+/// <para>
+/// "Knowledge base" is the one group named after a subject rather than a job,
+/// and it is also the only one that is a parent page with subpages under it.
+/// Both follow from the same thing: its four pages document one convention from
+/// four angles, so they are read as a chapter and not picked out of a list.
+/// </para>
 /// </remarks>
 internal static class StorybookIndex
 {
@@ -58,6 +64,29 @@ internal static class StorybookIndex
             new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge."),
             new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model.")
+        ]),
+
+        // Its own group rather than four rows at the bottom of Content, and
+        // placed directly after Content because that is what it is built on:
+        // the chapter view is MarkdownView with one fence read differently, so
+        // a reader arrives here having just met the component it extends.
+        // Feedback stays last — it is a small utility group, and burying a
+        // subject area behind it would read as an afterthought.
+        //
+        // The parent page is titled for its subject and not "Knowledge base".
+        // The group title is already that, uppercased, directly above it, and
+        // the same words twice in two type styles read as a rendering fault. It
+        // is not "Overview" either: "Overview" is an existing group title, so
+        // filtering on it would light up that whole group (Matches keeps every
+        // page of a group whose title matches) *and* one row here; and on the
+        // introduction's card grid every other card is named for its subject —
+        // a lone structural word there says nothing about what is behind it.
+        new("Knowledge base",
+        [
+            new("knowledge-base", "The meta block", "The fenced meta block a knowledge chapter carries, and the three separable things read out of it. Opt-in throughout: nothing already rendering changed.", Exact: true),
+            new("knowledge-base/metadata", "Metadata", "KnowledgeMeta reads the fence into a KnowledgeMetadata and KnowledgeMetaView draws it — every field, and why an unknown one is kept rather than dropped."),
+            new("knowledge-base/references", "References", "Why related, depends-on and implements hold addresses rather than labels, and what KnowledgeReferenceLink renders for each thing a host can do with one."),
+            new("knowledge-base/state", "State", "Five folders spell their lifecycle five ways. What the folder parameter buys: the vocabulary, one tone scale under all of them, and a flag on a value that is in none.")
         ]),
         new("Feedback",
         [

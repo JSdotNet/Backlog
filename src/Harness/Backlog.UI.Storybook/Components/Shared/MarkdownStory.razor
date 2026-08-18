@@ -9,13 +9,22 @@
     The source is a `pre`, so it is read-only by construction rather than by a
     flag someone has to remember to set. ParseDocument, not Parse: this chapter
     is about markdown, where a `##` is a heading.
+
+    The knowledge parameters are forwarded verbatim rather than reinterpreted.
+    A knowledge story wants the same source-beside-rendering pairing every other
+    markdown story gets, and a frame that quietly rendered a `meta` fence
+    differently from the MarkdownView it wraps would be documenting itself.
 *@
 
 <div class="sb-columns">
     <div class="sb-stack">
         <p class="sb-label">Read view</p>
         <div data-testid="@TestId">
-            <MarkdownView Blocks="Blocks" />
+            <MarkdownView Blocks="Blocks"
+                          RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
+                          KnowledgeFolder="@KnowledgeFolder"
+                          OnKnowledgeNavigate="@OnKnowledgeNavigate"
+                          KnowledgeHrefFor="@KnowledgeHrefFor" />
         </div>
     </div>
     <div class="sb-stack">
@@ -31,6 +40,23 @@
 
     [Parameter]
     public string? TestId { get; set; }
+
+    /// <summary>Passed straight to <c>MarkdownView</c>. Off here for the same
+    /// reason it is off there: most markdown is not a knowledge document.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadata { get; set; }
+
+    /// <summary>Which knowledge folder the sample is pretending to come from.</summary>
+    [Parameter]
+    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+
+    /// <summary>Raised with the reference a reader activated in a metadata block.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+
+    /// <summary>Resolves a metadata reference to a link target.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
 
     private string? SourceTestId => TestId is null ? null : $"{TestId}-source";
 

@@ -1,0 +1,345 @@
+@page "/knowledge-base/references"
+
+<PageTitle>References in the knowledge base — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="References"
+           Summary="A subpage of Knowledge base, about the second axis: the entries under related, depends-on and implements are addresses rather than labels, and this is what makes them followable. KnowledgeReference parses one; KnowledgeReferenceLink draws it as a link, a button or inert text depending on what the host can actually do with it. Which fields hold references at all is the Metadata subpage; what a status word means is the State one.">
+
+    <Story Name="An address is a path, and optionally a heading"
+           Description="Two forms, and one character tells them apart. A bare path addresses a whole file; a path followed by `#` and a heading slug addresses one chapter of it. Chapters have no stored id — the path plus the heading's anchor slug is the address — which is why `#` is a separator here and never a comment marker. A parser that treated it as one would truncate every chapter reference in this repository to its file.
+
+The split is on the first hash, so a heading whose own slug carries a second one still resolves to a single chapter. A trailing hash with nothing after it addresses no chapter at all and reads back as the file it plainly points at, rather than as a chapter that does not exist.
+
+Folder falls out of the path for free: it is always the first segment, so nothing has to be told which folder it is looking at as long as it has the address. Label is the short form for display and Raw is what was authored — the strip keeps Raw on the title either way, so shortening hides nothing.
+
+Each cell leads with the `related` entry the address was read out of, because that is the only place one is ever written: nothing in this repository holds a bare address, it holds a list under a relation field. The line under it is that same string handed to Parse, taken apart in the order the record declares it."
+           Code="@ParseCode">
+        <dl class="sb-grid sb-grid--addresses" data-testid="knowledge-references-parsed">
+            @foreach (var sample in Samples)
+            {
+                <div class="sb-stack" data-testid="@($"knowledge-references-parsed-{sample.Slug}")">
+                    <dt class="sb-label">@sample.Name</dt>
+                    <dd class="sb-stack">
+                        <pre class="sb-story__code"
+                             data-testid="@($"knowledge-references-parsed-{sample.Slug}-source")"><code>@sample.Block</code></pre>
+                        <p class="sb-state">@Describe(sample.Raw)</p>
+                        <p>@sample.Note</p>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="Three shapes, and the host decides which"
+           Description="KnowledgeReferenceLink renders what the host can do with a reference, not what the reference is. Given an href it is an anchor; given a callback it is a button; given neither it is inert text — a `code` element carrying the address and making no offer.
+
+The inert shape is the case worth defending. A reference nobody can follow should not look like it invites a click, and it should not take a tab stop to do nothing when it gets one. All three shapes used to be drawn as badges, sharing the status pill's own rule — a border, a full radius, a filled surface, bold text — and a record then showed a row of badges shouting over the one pill on its headline that is genuinely a state. A reference is a link, so the two followable shapes look like every other link in this product and the third looks like the quiet text it is. The legacy two-parameter strip keeps its own `code.knowledge-related` chip on its own branch, pinned by its own test; nothing here restyled that.
+
+A URL is an anchor and a callback is a button because those are different affordances, not two styles of one. An anchor can be middle-clicked, copied, opened in a new window and read out as a link; a button cannot, and pretending otherwise breaks all four. When both are given the anchor wins and the callback is ignored — a link already navigates, and two ways to reach one place is one too many."
+           Code="@ShapesCode">
+        <div class="sb-stack">
+            <div class="sb-stack">
+                <p class="sb-label">The entry every cell below was read from</p>
+                <pre class="sb-story__code" data-testid="knowledge-references-shapes-source"><code>@ChapterBlock</code></pre>
+            </div>
+            <dl class="sb-grid sb-grid--addresses" data-testid="knowledge-references-shapes">
+                <div class="sb-stack">
+                    <dt class="sb-label">Neither — inert text</dt>
+                    <dd class="sb-stack">
+                        <div><KnowledgeReferenceLink Reference="@ChapterReference" TestId="knowledge-references-chip" /></div>
+                        <p class="sb-state">code.knowledge-ref--inert — no tab stop, no affordance.</p>
+                    </dd>
+                </div>
+                <div class="sb-stack">
+                    <dt class="sb-label">Href — an anchor</dt>
+                    <dd class="sb-stack">
+                        <div>
+                            <KnowledgeReferenceLink Reference="@ChapterReference"
+                                                    Href="@TargetHref"
+                                                    TestId="knowledge-references-link" />
+                        </div>
+                        <p class="sb-state">a.knowledge-ref--link — copyable, openable in a new window.</p>
+                    </dd>
+                </div>
+                <div class="sb-stack">
+                    <dt class="sb-label">OnNavigate — a button</dt>
+                    <dd class="sb-stack">
+                        <div>
+                            <KnowledgeReferenceLink Reference="@ChapterReference"
+                                                    OnNavigate="Follow"
+                                                    TestId="knowledge-references-button" />
+                        </div>
+                        <p class="sb-state">button.knowledge-ref--action — the host routes it, in-process.</p>
+                    </dd>
+                </div>
+                <div class="sb-stack">
+                    <dt class="sb-label">ShowFullPath false</dt>
+                    <dd class="sb-stack">
+                        <div>
+                            <KnowledgeReferenceLink Reference="@ChapterReference"
+                                                    ShowFullPath="false"
+                                                    TestId="knowledge-references-short" />
+                        </div>
+                        <p class="sb-state">Label instead of Raw, with Raw still on the title.</p>
+                    </dd>
+                </div>
+            </dl>
+        </div>
+    </Story>
+
+    <Story Name="Following one, and what comes back"
+           Description="The callback hands over the whole KnowledgeReference rather than the string it was written as. That is the difference between a host that can route and one that has to re-parse: the path, the chapter slug and the folder are already separated, and the folder is what usually decides which surface should open.
+
+Above the strip is the block it was read from, and under it a line reporting what arrived. Click any reference in it: every one is wired through a single handler on the strip — MetadataBadge and KnowledgeMetaView both forward OnNavigate down to each reference, so a host wires this once per block rather than once per entry."
+           Code="@NavigateCode">
+        <div class="sb-stack" data-testid="knowledge-references-live">
+            <p class="sb-label">The block, as written in .backlog</p>
+            <pre class="sb-story__code" data-testid="knowledge-references-live-source"><code>@RoadmapBlock</code></pre>
+            <MetadataBadge Metadata="@RoadmapMetadata"
+                           Folder="KnowledgeFolder.Backlog"
+                           OnNavigate="Follow"
+                           AriaLabel="Backlog item metadata"
+                           TestId="knowledge-references-live-badge" />
+            <p class="sb-state" data-testid="knowledge-references-followed">@FollowedSummary</p>
+        </div>
+    </Story>
+
+    <Story Name="The same block, as links"
+           Description="HrefFor is the other wiring, and the one to prefer when the target has a URL. The host owns the mapping from repository path to route — only it knows what it serves and where — so it hands the answer in rather than having this component guess at one.
+
+Returning null for a reference leaves that one as inert text while its siblings stay links. That matters more than it sounds: a block routinely points at one chapter the host can show and another it cannot, and a resolver that had to answer for all of them or none would turn the whole strip into dead text.
+
+This storybook serves no route for a repository path, so the resolver below sends every reference to one line further down this page. A real host would return its own route for the file."
+           Code="@HrefCode">
+        <div class="sb-stack" data-testid="knowledge-references-hrefs">
+            <p class="sb-label">The block, as written in .tech</p>
+            <pre class="sb-story__code" data-testid="knowledge-references-hrefs-source"><code>@TechBlock</code></pre>
+            <KnowledgeMetaView Metadata="@TechMetadata"
+                               Folder="KnowledgeFolder.Tech"
+                               HrefFor="@ResolveHref"
+                               TestId="knowledge-references-hrefs-view" />
+            <p id="knowledge-reference-target" class="sb-state" data-testid="knowledge-references-target">
+                Every link above lands here. A host returns its own route instead.
+            </p>
+        </div>
+    </Story>
+
+    <Story Name="Inside a rendered document"
+           Description="The same two parameters exist on MarkdownView, and they travel down to every metadata block in the body. A knowledge document read out of a folder therefore gets followable references throughout without the page walking the blocks itself.
+
+The resolver here answers only for `.domain` and returns null for everything else, so the file-level block's `.arc42` reference stays inert text while the chapter's `.domain` targets become links. That is the mixed case from the story above, in a real body."
+           Code="@MarkdownCode">
+        <MarkdownStory Source="@BacklogSample"
+                       RenderKnowledgeMetadata="true"
+                       KnowledgeFolder="KnowledgeFolder.Backlog"
+                       KnowledgeHrefFor="@ResolveDomainOnly"
+                       TestId="knowledge-references-document" />
+    </Story>
+
+    <Story Name="One target named twice is still one edge"
+           Description="References is the whole block's addresses in field order — related, then depends-on, then implements — de-duplicated on the form they were authored in. A chapter that names the same target under two fields means one edge in the graph, and a caller walking references to build one should not visit it twice.
+
+It is the authored form that de-duplicates, not the resolved target. Two spellings of the same file are two entries here, deliberately: this component cannot know whether a path is the same file under a different prefix, and silently merging two things an author wrote differently would be a guess."
+           Code="@ReferencesCode">
+        <div class="sb-stack" data-testid="knowledge-references-dedupe">
+            <pre class="sb-story__code" data-testid="knowledge-references-dedupe-source"><code>@DuplicateBlock</code></pre>
+            <p class="sb-state" data-testid="knowledge-references-dedupe-state">@DuplicateSummary</p>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    /// <summary>One address, and the `related` entry it would have been written
+    /// as. The name is what the cell is called; the address itself belongs in the
+    /// source under it rather than in a label, where it was long enough to set the
+    /// width of its column and spill over the cell beside it.</summary>
+    private sealed record ReferenceSample(string Name, string Raw, string Slug, string Note)
+    {
+        public string Block => $"related: [\"{Raw}\"]";
+    }
+
+    private KnowledgeReference? _followed;
+
+    /// <summary>The one entry the shapes story renders four ways.</summary>
+    private const string ChapterBlock = "related: [\".arc42/08-crosscutting-concepts.md#storage-and-sync\"]";
+
+    /// <summary>Read out of the block above rather than parsed from a second copy
+    /// of the same string, so the source shown beside the four shapes is the source
+    /// they were actually built from.</summary>
+    private static readonly KnowledgeReference ChapterReference = KnowledgeMeta.Parse(ChapterBlock).Related[0];
+
+    /// <summary>Where the anchor shape points, for the shapes story.</summary>
+    private const string TargetHref = "#knowledge-reference-target";
+
+    private const string RoadmapBlock = """
+        status: in-progress
+        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        related: [.domain/environment/features.md#feature-environment-aware-work-context]
+        """;
+
+    private static readonly KnowledgeMetadata RoadmapMetadata = KnowledgeMeta.Parse(RoadmapBlock);
+
+    private const string TechBlock = """
+        status: adopted
+        kind: framework
+        depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
+        related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
+        """;
+
+    private static readonly KnowledgeMetadata TechMetadata = KnowledgeMeta.Parse(TechBlock);
+
+    private const string DuplicateBlock = """
+        status: draft
+        related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+        depends-on: [.domain/backlog/domain.md#aggregate-backlog-entry, .tech/shared.md#markdown]
+        """;
+
+    private static readonly KnowledgeMetadata DuplicateMetadata = KnowledgeMeta.Parse(DuplicateBlock);
+
+    /// <summary>The top of this repository's own .backlog/domain-backlog.md.</summary>
+    private const string BacklogSample = """
+        # Backlog Management Work
+
+        ```meta
+        status: draft
+        related: [".arc42/09-architecture-decisions.md"]
+        ```
+
+        ## Add roadmap planning to the backlog
+
+        ```meta
+        status: draft
+        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        related: [.domain/environment/features.md#feature-environment-aware-work-context]
+        ```
+
+        A roadmap view over selected backlog entries, organised by planning horizon
+        while the entries stay the source of truth for status and priority.
+        """;
+
+    private static readonly IReadOnlyList<ReferenceSample> Samples =
+    [
+        new("A chapter of a file", ".arc42/08-crosscutting-concepts.md#storage-and-sync", "chapter",
+            "The common form: a file, and one addressable heading inside it."),
+
+        new("A whole file", ".tech/technology-graph.md", "file",
+            "No hash, so the whole file is the target and Label falls back to its name."),
+
+        new("Several segments deep", ".domain/backlog/domain.md#aggregate-backlog-entry", "nested",
+            "The folder is still the first segment of the path, never the last, however deep it goes."),
+
+        new("A trailing hash", ".design/color-scheme.md#", "trailing",
+            "Nothing after the hash, so it reads as the file it plainly points at rather than as a chapter that is missing."),
+
+        new("Outside the folders", "docs/handbook.md", "outside",
+            "Addressable, but in no knowledge folder — Folder comes back Unknown and everything else still works.")
+    ];
+
+    private string FollowedSummary => _followed is null
+        ? "Nothing followed yet. Click a reference above."
+        : $"Raw {_followed.Raw} · path {_followed.Path} · chapter {_followed.Slug ?? "(none — a file)"} "
+        + $"· folder {_followed.Folder} · IsChapter {_followed.IsChapter}";
+
+    private static string DuplicateSummary =>
+        $"related {DuplicateMetadata.Related.Count} + depends-on {DuplicateMetadata.DependsOn.Count} "
+        + $"= {DuplicateMetadata.References.Count} distinct references: "
+        + string.Join(", ", DuplicateMetadata.References.Select(reference => reference.Raw));
+
+    /// <summary>Takes a reference apart, in the order the record declares it.</summary>
+    private static string Describe(string raw)
+    {
+        var reference = KnowledgeReference.Parse(raw);
+        if (reference is null) return "Not addressable — Parse returns null.";
+
+        return $"path {reference.Path} · chapter {reference.Slug ?? "(none)"} · folder {reference.Folder} "
+            + $"· file {reference.FileName} · label {reference.Label} · IsChapter {reference.IsChapter}";
+    }
+
+    private void Follow(KnowledgeReference reference) => _followed = reference;
+
+    /// <summary>The storybook has no route for a repository path, so every
+    /// reference resolves to one line on this page. A host returns its own.</summary>
+    private static string? ResolveHref(KnowledgeReference reference) => TargetHref;
+
+    /// <summary>Answers for one folder only, so the mixed case is visible: the
+    /// references it declines stay inert beside the ones it resolved.</summary>
+    private static string? ResolveDomainOnly(KnowledgeReference reference) =>
+        reference.Folder is KnowledgeFolder.Domain ? TargetHref : null;
+
+    private const string ParseCode = """
+        @* Null for anything that addresses nothing; TryParse is the same call
+           for a caller that keeps the entries it could not read. *@
+        var reference = KnowledgeReference.Parse(".tech/shared.md#markdown");
+
+        reference.Path;      // .tech/shared.md
+        reference.Slug;      // markdown
+        reference.Folder;    // KnowledgeFolder.Tech
+        reference.FileName;  // shared.md
+        reference.Label;     // markdown        — Raw stays whole for the title
+        reference.IsChapter; // true            — IsFile is its opposite
+        """;
+
+    private const string ShapesCode = """
+        @* Neither: inert text. Nobody can follow it, so it does not offer. *@
+        <KnowledgeReferenceLink Reference="@reference" />
+
+        @* An href: an anchor, so it can be copied and opened in a new window. *@
+        <KnowledgeReferenceLink Reference="@reference" Href="@Route(reference)" />
+
+        @* A callback: a button, because the host routes it in-process. *@
+        <KnowledgeReferenceLink Reference="@reference" OnNavigate="Follow" />
+
+        @* Any of the three, shortened. Raw stays on the title, so the full
+           address is still one hover away. *@
+        <KnowledgeReferenceLink Reference="@reference" ShowFullPath="false" />
+        """;
+
+    private const string NavigateCode = """
+        @* Wired once on the block; every reference in it forwards to this. Both
+           MetadataBadge and KnowledgeMetaView take the same parameter. *@
+        <MetadataBadge Metadata="@metadata"
+                       Folder="KnowledgeFolder.Backlog"
+                       OnNavigate="Follow" />
+
+        @code {
+            @* The whole reference, already taken apart — the folder is usually
+               what decides which surface should open. *@
+            private void Follow(KnowledgeReference reference) =>
+                Navigation.NavigateTo($"/knowledge/{reference.Path}#{reference.Slug}");
+        }
+        """;
+
+    private const string HrefCode = """
+        <KnowledgeMetaView Metadata="@metadata" Folder="@folder" HrefFor="@Route" />
+
+        @code {
+            @* The host owns the mapping from repository path to route. Null
+               leaves that one reference a chip while its siblings stay links,
+               which is what a block pointing partly outside your reach needs. *@
+            private string? Route(KnowledgeReference reference) =>
+                _served.Contains(reference.Path)
+                    ? $"/knowledge/{reference.Path}#{reference.Slug}"
+                    : null;
+        }
+        """;
+
+    private const string MarkdownCode = """
+        @* The same two parameters on MarkdownView, reaching every metadata block
+           in the body at once. *@
+        <MarkdownView Blocks="@blocks"
+                      RenderKnowledgeMetadata="true"
+                      KnowledgeFolder="@KnowledgeFolders.FromPath(path)"
+                      KnowledgeHrefFor="@Route"
+                      OnKnowledgeNavigate="Follow" />
+        """;
+
+    private const string ReferencesCode = """
+        @* Every address the block carries, in field order, de-duplicated on the
+           authored form. One edge per target, for a caller building a graph. *@
+        foreach (var reference in metadata.References)
+        {
+            graph.Connect(current, reference.Path, reference.Slug);
+        }
+        """;
+}
