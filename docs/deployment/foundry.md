@@ -2,17 +2,18 @@
 
 Backlog deploys Azure AI Foundry model deployments through Bicep in `infra/foundry/` and the manual `Deploy Foundry` GitHub Actions workflow.
 
-No subscription is hardcoded in the workflow. A deployment target is a pair:
+The workflow runs on a **self-hosted runner** that already has Azure access; it does not sign in to Azure itself. A deployment target is a pair:
 
-1. a **GitHub environment** that carries the Azure identity and the subscription/resource group it may deploy to, and
+1. a **GitHub environment** that carries the subscription/resource group the run deploys to, and
 2. a **parameter file** `infra/foundry/<environment_name>.bicepparam` that carries the per-environment resource name, region, SKU, capacity, and tags.
 
-The workflow's `environment_name` input selects both. If the parameter file is missing, or the environment has no subscription configured, the run fails in its first step before touching Azure.
+The workflow's `environment_name` input selects both. If the parameter file is missing, or no subscription is resolved from the inputs or the environment, the run fails in its first step before touching Azure. The subscription and resource group inputs default to the `backlog-ai` target, so a run works even when the GitHub environment carries no variables.
 
 ## Deployment target
 
 | Setting | Value |
 | --- | --- |
+| Runner | self-hosted (Windows, `pwsh`) |
 | GitHub environment | `backlog-ai` |
 | Tenant/domain | `innovadis.com` (`b44c759d-a7bb-46bb-8aae-ba8d84789609`) |
 | Subscription | `8235e3b9-4cd0-4426-879a-471503d9e4fc` (Microsoft Azure Sponsorship) |
@@ -129,28 +130,42 @@ fails preflight.
 1. Create a `<environment_name>.bicepparam` file in `infra/foundry/`, copying `backlog-ai.bicepparam` and giving the account a globally unique custom subdomain name.
 2. Create the GitHub environment with the same name and set its variables (see below).
 3. Confirm model availability and quota in the target subscription and region.
-4. Grant the environment's Azure identity access on the target resource group, then run the workflow in `validate`, `what-if`, and only then `deploy` mode.
+4. Grant the runner's Azure identity access on the target resource group, then run the workflow in `validate`, `what-if`, and only then `deploy` mode.
+
+## Runner and Azure access
+
+The workflow runs on a self-hosted Windows runner (`runs-on: [self-hosted]`, all steps in `pwsh`).
+There is no `Azure/login` step and no GitHub OIDC federated credential: the runner is expected to
+already be authenticated to Azure, and the workflow only selects the target subscription.
+
+Prepare the runner once, **as the account the runner service runs under**:
+
+```powershell
+az login --tenant innovadis.com
+az bicep install
+```
+
+A managed identity on the runner host works equally well (`az login --identity`). Either way the
+identity needs enough access on the target resource group to create or update Azure AI Services
+accounts and deployments — Microsoft Foundry guidance requires permissions equivalent to
+**Cognitive Services Contributor** on the Foundry resource or resource group.
+
+The `Select Azure subscription` step fails fast with a clear message when the runner is not signed
+in, or when the signed-in identity cannot see the target subscription. Neither the Azure CLI nor the
+Bicep CLI is installed by the workflow; both must be present on the runner.
 
 ## GitHub environment setup
 
-Set these variables on each GitHub environment:
+The subscription and resource group inputs already default to the `backlog-ai` target, so these
+variables are optional. Set them on an environment when you want a target that does not have to be
+typed into every run:
 
 | Variable | Description | Value for `backlog-ai` |
 | --- | --- | --- |
-| `AZURE_CLIENT_ID` | Client ID for the app registration or managed identity used by GitHub OIDC in that subscription. | *(per app registration)* |
-| `AZURE_TENANT_ID` | Tenant ID that owns the subscription. | `b44c759d-a7bb-46bb-8aae-ba8d84789609` |
-| `AZURE_SUBSCRIPTION_ID` | Subscription the environment deploys to. Required unless the run passes the `subscription_id` input. | `8235e3b9-4cd0-4426-879a-471503d9e4fc` |
-| `AZURE_RESOURCE_GROUP` | Existing resource group in that subscription. Required unless the run passes the `resource_group` input. | `JS-AI` |
+| `AZURE_SUBSCRIPTION_ID` | Subscription the environment deploys to. Used when the run leaves `subscription_id` blank. | `8235e3b9-4cd0-4426-879a-471503d9e4fc` |
+| `AZURE_RESOURCE_GROUP` | Existing resource group in that subscription. Used when the run leaves `resource_group` blank. | `JS-AI` |
 
-Grant the Azure identity enough access on the target resource group to create or update Azure AI Services accounts and deployments. Microsoft Foundry guidance requires permissions equivalent to Cognitive Services Contributor on the Foundry resource or resource group.
-
-For an environment-scoped OIDC trust, use a subject like:
-
-```text
-repo:JSdotNet/Backlog:environment:backlog-ai
-```
-
-Each subscription needs its own federated credential — one per environment name it is used from.
+`AZURE_CLIENT_ID` and `AZURE_TENANT_ID` are no longer used — the runner's own identity supplies both.
 
 ## Run from GitHub Actions
 
@@ -160,8 +175,8 @@ Open **Actions -> Deploy Foundry -> Run workflow** and choose:
 | --- | --- | --- |
 | `mode` | `what-if` | Use `validate` for template validation only, `what-if` for a safe preview, and `deploy` to apply changes. |
 | `environment_name` | `backlog-ai` | Selects the GitHub environment and `infra/foundry/<environment_name>.bicepparam`. |
-| `subscription_id` | blank | Blank uses the environment's `AZURE_SUBSCRIPTION_ID`. Must be a GUID when set. |
-| `resource_group` | blank | Blank uses the environment's `AZURE_RESOURCE_GROUP`. |
+| `subscription_id` | `8235e3b9-4cd0-4426-879a-471503d9e4fc` | Blank falls back to the environment's `AZURE_SUBSCRIPTION_ID`. Must be a GUID when set. |
+| `resource_group` | `JS-AI` | Blank falls back to the environment's `AZURE_RESOURCE_GROUP`. |
 | `foundry_account_name` | blank | Blank uses the parameter file's `accountName`. |
 | `location` | blank | Blank uses the parameter file value, or the resource group location. |
 | `include_balanced_model` | `from-parameter-file` | Choose `true`/`false` to override the parameter file for one run. |
