@@ -212,6 +212,49 @@ there is no Microsoft Store listing.
 Debug builds run **unpackaged** (so Aspire and the WebView2 debugging attach keep
 working); the in-app updater reports "unsupported" there, which is expected.
 
+## Installing the Android app
+
+The Android app is distributed as a signed **APK** sideloaded from GitHub
+Releases — there is no Google Play listing. An APK (not an `.aab`) is published
+precisely so it can be installed straight onto a phone.
+
+1. On the phone, open the
+   [latest release](https://github.com/JSdotNet/Backlog/releases/latest) and
+   download the `Backlog.Mobile_<version>.apk` asset.
+2. Open the downloaded file. Android will ask for permission to install from
+   this source the first time — allow your browser or file manager under
+   **Settings → Apps → Special app access → Install unknown apps**.
+3. Install, then launch **Backlog** from the app drawer.
+
+Because the package is **self-signed**, later releases only install over an
+existing copy while they keep the same signing key. If Android reports "App not
+installed" after a key rotation, uninstall the old copy first.
+
+Nightly builds off `main` are published under separate `mobile-v*` tags and are
+not marked as the latest release; tagged `v*` releases carry both the desktop
+MSIX and the Android APK.
+
+### Sideloading a local build
+
+For development, `build/Install-AndroidApp.ps1` builds a signed APK and installs
+it over USB or onto a running emulator:
+
+```powershell
+./build/Install-AndroidApp.ps1
+```
+
+It creates a throwaway developer keystore under `build/.local/` (gitignored) on
+first run — that is a local identity only, never the release one, so an APK it
+signs cannot upgrade a release-signed install. Enable **Developer options → USB
+debugging** on the phone and accept the authorization prompt first. Use
+`-Device <serial>` when more than one device is attached, `-VersionCode <n>` to
+install over a previous local build, and `-SkipInstall` to produce the APK
+without installing it.
+
+The script needs the `maui-android` workload, a JDK, and the Android SDK
+platform-tools; it locates the Visual Studio installations of the latter two
+automatically, so they do not need to be on `PATH`.
+
 
 ## Language and conventions
 
