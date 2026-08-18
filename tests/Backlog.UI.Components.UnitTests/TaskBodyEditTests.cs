@@ -9,11 +9,29 @@ namespace Backlog.UI.Components.UnitTests;
 /// </summary>
 public sealed class TaskBodyEditTests
 {
-    private const string Body = """
+    /// <summary>
+    /// The body under test, with its newlines forced to LF.
+    /// <para>
+    /// Normalised rather than left as the bare literal, and not a <c>const</c> for
+    /// that reason. This repository sets <c>core.autocrlf=true</c> and the .NET job
+    /// runs on <c>windows-latest</c>, so a fresh checkout hands this file CRLF line
+    /// endings and the literal would carry them. HTML parsing normalises every
+    /// newline to LF, so text read back out of the DOM is LF whatever the source
+    /// said — an assertion comparing the two would pass on a working copy that
+    /// happened to be checked out with LF and fail on CI, which is the worst
+    /// version of a test there is.
+    /// </para>
+    /// <para>
+    /// Normalised here rather than at the one assertion that reads the DOM, because
+    /// several tests pass this same string around and the next one added would have
+    /// to remember. Do not simplify it back to a bare literal.
+    /// </para>
+    /// </summary>
+    private static readonly string Body = """
         Draft the release note for this change.
 
         Lead with what somebody can now do that they could not do before.
-        """;
+        """.ReplaceLineEndings("\n");
 
     private static IRenderedComponent<TaskItem> Open(
         BunitContext context,

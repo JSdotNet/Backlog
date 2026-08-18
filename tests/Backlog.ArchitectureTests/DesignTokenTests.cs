@@ -115,20 +115,33 @@ public class DesignTokenTests
     [Fact]
     public void A_heading_drawn_on_a_paragraph_is_given_the_weight_the_element_denies_it()
     {
-        var markup = File.ReadAllText(Path.Combine(
+        var view = new FileInfo(Path.Combine(
             Repository.Root.FullName,
-            "src", "UI", "Backlog.UI.Components", "Markdown", "MarkdownView.razor"));
+            "src", "Core", "Backlog.UI.Components", "Markdown", "MarkdownView.razor"));
+
+        var stylesheet = new FileInfo(Path.Combine(
+            Repository.Root.FullName, "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css"));
+
+        // Asserted before the premise below, because the premise is read out of
+        // these files: a path that no longer resolves would make the regex match
+        // nothing, the premise read false, and this test pass while checking
+        // nothing at all. A move has to fail here as a wrong path rather than
+        // further down as a green run.
+        Assert.True(view.Exists, $"{Relative(view)} is not where this test looks for it.");
+        Assert.True(stylesheet.Exists, $"{Relative(stylesheet)} is not where this test looks for it.");
 
         // The premise. Were headings ever drawn as h1-h6, the browser would supply
-        // the weight and this test would be asserting a rule nobody needs.
-        var drawnOnAParagraph = Regex.IsMatch(markup, @"<p[^>]*class=""md-heading");
+        // the weight and this test would be asserting a rule nobody needs. Skipping
+        // on that is deliberate; skipping because a file moved is not.
+        var drawnOnAParagraph = Regex.IsMatch(
+            File.ReadAllText(view.FullName), @"<p[^>]*class=""md-heading");
 
         if (!drawnOnAParagraph) return;
 
-        var stylesheet = File.ReadAllText(Path.Combine(
-            Repository.Root.FullName, "src", "UI", "Backlog.UI.Components", "wwwroot", "components.css"));
-
-        var rule = Regex.Match(stylesheet, @"^\.md-heading\s*\{(?<body>[^}]*)\}", RegexOptions.Multiline);
+        var rule = Regex.Match(
+            File.ReadAllText(stylesheet.FullName),
+            @"^\.md-heading\s*\{(?<body>[^}]*)\}",
+            RegexOptions.Multiline);
 
         Assert.True(rule.Success, "components.css has no .md-heading rule, so nothing styles a rendered heading.");
 
