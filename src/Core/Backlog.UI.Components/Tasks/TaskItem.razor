@@ -13,6 +13,26 @@
     Read-only when nothing is listening. A row with no OnToggle renders its state
     as an image rather than a control, the same rule MarkdownView follows for a
     checklist — a checkbox that silently does nothing is worse than no checkbox.
+    A blocked row goes the same way even when someone is listening: the circle is
+    state, never a button. Offering to complete a task whose predecessor is still
+    outstanding would be offering to lie about it.
+
+    A body, when there is one, folds in place under the row rather than opening
+    somewhere else. The whole reason to put a prompt on a task is to read it
+    where the task is; sending the reader to another surface for it would make
+    the list a table of contents for itself.
+
+    Editing that body is a toggle inside the fold, off to begin with, and offered
+    only when a host is listening. Reading is the common case, and a list of ten
+    prompts that opened ten textareas is not a list anybody skims — so the
+    rendered body is what a reader gets until they ask for the other one, exactly
+    the way the title stays text until the pencil is pressed. With nobody
+    listening there is no toggle and no editor at all, rather than a disabled
+    one: this row does not offer controls it cannot honour.
+
+    Every keystroke is reported, and there is no Save button and no Escape. That
+    is the opposite of the rename directly above, deliberately, and the whole
+    argument is on OnBodyChanged.
 *@
 
 <li class="@ClassValue"
@@ -55,7 +75,7 @@
     {
         <span class="task-item__check"
               role="img"
-              aria-label="@(Task.Done ? "Done" : "Not done")"
+              aria-label="@StateLabel"
               data-testid="@Suffix("check")">
             @if (Task.Done)
             {
@@ -89,10 +109,38 @@
                 @onclick="() => OnSelected.InvokeAsync(Task.Id)">
             <span class="task-item__title">@Task.Title</span>
 
-            @if (Task.TagList.Count > 0 || Task.Details.Count > 0)
+            @if (Task.TagList.Count > 0 || Details.Count > 0 || Next || ReadyToStart)
             {
                 <span class="task-item__meta">
-                    @foreach (var detail in Task.Details)
+                    @if (Next)
+                    {
+                        @* Which one to pick up has to be answerable at a glance,
+                           so the answer is on the row rather than something the
+                           reader works out by reading every row above it. It is
+                           first on the line because it is the only part of it
+                           that is about the list rather than about this task. *@
+                        <span class="task-item__next" data-testid="@Suffix("next")">
+                            <span class="task-item__glyph" aria-hidden="true">▶</span>
+                            <span>Next</span>
+                        </span>
+                    }
+                    else if (ReadyToStart)
+                    {
+                        @* Startable, but not the one the list nominated. Its own
+                           class rather than a quieter "next": there is exactly
+                           one next, and a marker that shared the name would make
+                           "which one do I start" answerable only by counting.
+
+                           The hollow triangle beside the filled one is the same
+                           shape twice, so the two read as one family with one
+                           primary rather than as two unrelated badges. *@
+                        <span class="task-item__ready" data-testid="@Suffix("ready")">
+                            <span class="task-item__glyph" aria-hidden="true">▷</span>
+                            <span>Ready</span>
+                        </span>
+                    }
+
+                    @foreach (var detail in Details)
                     {
                         <span class="@detail.CssClass" title="@detail.Name">
                             @if (detail.Glyph.Length > 0)
@@ -141,12 +189,94 @@
                     ButtonTestId="@Suffix("copy")"
                     StatusTestId="@Suffix("copy-status")" />
     }
+
+    @if (HasFold)
+    {
+        @* FoldControl rather than a disclosure of this row's own: it already
+           owns the trigger's aria-expanded, the id the trigger points at, and
+           keeping the region in the DOM while it is hidden. A second
+           implementation of that would be a second one to get wrong.
+
+           It takes a line of its own under the row. The title line keeps the
+           shape every other row in the list has, and the body arrives below it
+           rather than pushing the copy button off the end. *@
+        <FoldControl @bind-Expanded="_expanded"
+                     Label="@BodyLabel"
+                     AriaLabel="@($"{BodyLabel} for {Task.Title}")"
+                     BaseClass="task-item__fold"
+                     TestId="@Suffix("body-toggle")">
+            @if (CanEditBody)
+            {
+                @* Inside the region rather than beside the title, so it is
+                   reachable exactly when the body it edits is on screen — and so
+                   the title line keeps the shape every other row has.
+
+                   aria-pressed rather than two labels: the button does the same
+                   thing to the same body either way, and "Edit Prompt" that
+                   became "Stop editing Prompt" would be a control whose name
+                   changes under the reader between one press and the next. *@
+                <div class="task-item__body-tools">
+                    <button type="button"
+                            class="task-item__body-edit"
+                            aria-pressed="@(_editingBody ? "true" : "false")"
+                            data-testid="@Suffix("body-edit")"
+                            @onclick="() => _editingBody = !_editingBody"
+                            @onclick:stopPropagation="true">
+                        <span aria-hidden="true">✎</span>
+                        <span>Edit @BodyLabel</span>
+                    </button>
+                </div>
+            }
+
+            @if (_editingBody)
+            {
+                @* MarkdownEditor, not a textarea of this row's own. A body here is
+                   prose written by the same person in the same product as every
+                   other body, and a second editor would be a second set of
+                   keystrokes to get right.
+
+                   Value comes straight off the Task the host handed over. There
+                   is no draft: what the reader sees typed is what the host has
+                   already been told. *@
+                <MarkdownEditor Value="@Task.Body"
+                                ValueChanged="OnBodyTypedAsync"
+                                AriaLabel="@($"{BodyLabel} for {Task.Title}")"
+                                ToolbarLabel="@($"Formatting for {Task.Title}")"
+                                Rows="4"
+                                AutoGrow="true"
+                                CssClass="task-item__body-editor"
+                                TestId="@Suffix("body-editor")" />
+            }
+            else
+            {
+                <div class="task-item__body-text" data-testid="@Suffix("body")">
+                    <MarkdownView Blocks="@BodyBlocks" />
+                </div>
+            }
+        </FoldControl>
+    }
 </li>
 
 @code {
     private readonly string _renameId = "task-rename-" + Guid.NewGuid().ToString("N");
     private bool _editing;
     private string _draft = string.Empty;
+
+    /// <summary>Whether the body is open. Held here rather than raised, because
+    /// which rows a reader has unfolded is not a fact about the tasks — it dies
+    /// with the view, and a host asked to store it would be storing scroll
+    /// position by another name.</summary>
+    private bool _expanded;
+
+    /// <summary>Whether the open body is being edited rather than read. Held here
+    /// for the same reason the fold is: which row a reader happens to be typing
+    /// in is not a fact about the tasks. Off to start with, always — the common
+    /// case is reading, and a list that opened every editor at once would be a
+    /// list of textareas.</summary>
+    private bool _editingBody;
+
+    private IReadOnlyList<MdBlock>? _blocks;
+    private string? _parsed;
 
     [Parameter, EditorRequired]
     public TaskRow Task { get; set; } = new(string.Empty, string.Empty);
@@ -163,11 +293,55 @@
     [Parameter]
     public bool AllowCopy { get; set; } = true;
 
-    /// <summary>What lands on the clipboard. Defaults to the title — the row's
-    /// metadata is this list's furniture rather than the task, and pasting
-    /// "Tasks · Today" into a message says nothing.</summary>
+    /// <summary>
+    /// What lands on the clipboard. Set it and it wins outright: a host that has
+    /// said what this row pastes as knows something this component does not.
+    /// <para>
+    /// Unset, it is the title — the row's metadata is this list's furniture
+    /// rather than the task, and pasting "Tasks · Today" into a message says
+    /// nothing.
+    /// </para>
+    /// <para>
+    /// Unset on a row that has a body, it is the title, a blank line, and the
+    /// body. The body is the thing people came to paste, and pasting it alone
+    /// hands over a headless paragraph that no longer says which step it was —
+    /// the title is what makes it findable again afterwards.
+    /// </para>
+    /// </summary>
     [Parameter]
     public string? CopyValue { get; set; }
+
+    /// <summary>What the disclosure calls the body. "Body" by default, because
+    /// this library does not know what a host writes there — a prompt, a brief,
+    /// a note — and naming it after one of those would put the product's
+    /// vocabulary inside a component that has none of its own.</summary>
+    [Parameter]
+    public string BodyLabel { get; set; } = "Body";
+
+    /// <summary>Whether the body starts open. Read once, as the row first
+    /// renders: after that the fold belongs to the reader, and a parameter that
+    /// kept re-asserting itself would snap the body shut under them every time
+    /// anything else in the list moved.</summary>
+    [Parameter]
+    public bool BodyExpanded { get; set; }
+
+    /// <summary>
+    /// This row's place in the chain, as the list worked it out.
+    /// <para>
+    /// Passed in rather than derived here, because deriving it needs the other
+    /// rows and a row cannot see them. Null when nothing in the list declared a
+    /// dependency, and then this row renders exactly what it rendered before
+    /// chains existed.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public TaskChainStatus? Status { get; set; }
+
+    /// <summary>Whether this is the row to pick up next. A fact about the list
+    /// rather than about the task, which is why the list sets it and the row
+    /// only wears it.</summary>
+    [Parameter]
+    public bool Next { get; set; }
 
     /// <summary>Raised by the row itself — "show me this one".</summary>
     [Parameter]
@@ -177,6 +351,38 @@
     /// in — a pencil that opened a field nobody would save is worse than none.</summary>
     [Parameter]
     public EventCallback<TaskRename> OnRename { get; set; }
+
+    /// <summary>
+    /// Raised on every keystroke in the body, with the whole of it. Without it
+    /// the body stays a rendered <c>MarkdownView</c> and no editor is offered at
+    /// all — not a disabled one, because a control nobody is listening to is a
+    /// control that lies.
+    /// <para>
+    /// Per keystroke, and that is the opposite of <see cref="OnRename"/> two
+    /// parameters up. A title is one line, so Enter can mean "done" and the row
+    /// can hold a draft until it does. A body is multi-line markdown where Enter
+    /// is a newline, so there is no keystroke left over to mean "done" — and the
+    /// product has no save button anywhere, so a body that needed one would be
+    /// the single place in it that did.
+    /// </para>
+    /// <para>
+    /// Which is also why no Escape is offered here. The rename holds a draft, so
+    /// it has something of its own to throw away; this row holds nothing, and the
+    /// host already has every character. An Escape that "put it back" would have
+    /// to be an undo the host implements, so offering one on the row would be
+    /// offering a control that cannot do what its name says.
+    /// </para>
+    /// <para>
+    /// Committing on blur was the alternative and it is worse twice over: a
+    /// reader who folds the row away or moves on loses the text, and the copy
+    /// button beside it would copy a stale body while the editor held newer.
+    /// Reporting each keystroke makes <see cref="CopyText"/> correct by
+    /// construction instead — the body it formats is the body the reader can see,
+    /// because the round trip through the host has already happened.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<TaskBodyChange> OnBodyChanged { get; set; }
 
     [Parameter]
     public bool Selected { get; set; }
@@ -208,11 +414,115 @@
     [Parameter]
     public string? TestId { get; set; }
 
-    private bool CanToggle => OnToggle.HasDelegate;
+    /// <summary>The circle is a control only when there is something for it to
+    /// do. Nobody listening, or a row that cannot honestly be completed yet,
+    /// and it is state instead.</summary>
+    private bool CanToggle => OnToggle.HasDelegate && !Blocked;
 
     private bool CanRename => OnRename.HasDelegate;
 
-    private string CopyText => string.IsNullOrWhiteSpace(CopyValue) ? Task.Title : CopyValue;
+    /// <summary>Whether the body is the reader's to change, on the same terms as
+    /// the pencil: somebody is listening, or there is nothing to offer.</summary>
+    private bool CanEditBody => OnBodyChanged.HasDelegate;
+
+    /// <summary>
+    /// Whether there is a region under the row at all.
+    /// <para>
+    /// The body, or an edit in progress. Not just the body: a reader who selects
+    /// all of it and deletes it would otherwise have the fold — and the editor
+    /// they are typing in — vanish from under them mid-edit, which is the one
+    /// keystroke in a body that must not close the thing it was typed into.
+    /// </para>
+    /// <para>
+    /// Deliberately not every row. A fold on a row with no body would be this
+    /// component offering "add a body" to "Ring the dentist", and whether a task
+    /// may have one at all is the host's call rather than a list's.
+    /// </para>
+    /// </summary>
+    private bool HasFold => Task.HasBody || _editingBody;
+
+    /// <summary>Waiting on something outstanding. Read off the status rather
+    /// than recomputed, so done-wins-over-a-missing-predecessor is decided in
+    /// exactly one place.</summary>
+    private bool Blocked => Status is { Readiness: TaskReadiness.Blocked };
+
+    /// <summary>Nothing outstanding, so this row could be started. Read off the
+    /// status the list already passes rather than taken as a parameter of its
+    /// own: the list has said everything it needs to say about this row's place
+    /// in the chain, and a second flag saying "ready" would be the same fact
+    /// arriving twice with two chances to disagree.</summary>
+    private bool ReadyToStart => Status is { Readiness: TaskReadiness.Ready };
+
+    private string StateLabel => Task.Done ? "Done" : Blocked ? "Blocked" : "Not done";
+
+    /// <summary>The clipboard text. Unchanged by editing, and correct while it is
+    /// happening only because the body arrives here per keystroke: this reads
+    /// <c>Task.Body</c>, which under a blur-commit editor would still be the text
+    /// from before the reader started typing. Copy would then hand over a body the
+    /// reader can see is out of date, in the one control whose entire job is to
+    /// hand over exactly what is on screen.</summary>
+    private string CopyText =>
+        !string.IsNullOrWhiteSpace(CopyValue) ? CopyValue
+        : Task.HasBody ? $"{Task.Title}\n\n{Task.Body!.Trim()}"
+        : Task.Title;
+
+    /// <summary>The metadata line as this row draws it: what the chain worked
+    /// out first, then what the task knows about itself. A row that cannot be
+    /// started leads with why, because everything after that is moot until it is
+    /// fixed.</summary>
+    private IReadOnlyList<TaskDetail> Details => [.. ChainDetails, .. Task.Details];
+
+    private IReadOnlyList<TaskDetail> ChainDetails
+    {
+        get
+        {
+            if (Status is null) return [];
+
+            var details = new List<TaskDetail>();
+
+            // Named, not counted. "Waiting on 2" tells the reader they are stuck
+            // without telling them what to go and do about it.
+            if (Status.Waiting.Count > 0)
+            {
+                details.Add(new TaskDetail(
+                    TaskDetailKind.Blocked,
+                    string.Join(", ", Status.Waiting.Select(dependency => dependency.Label))));
+            }
+
+            if (Status.InCycle) details.Add(new TaskDetail(TaskDetailKind.Cycle, "waits on itself"));
+
+            return details;
+        }
+    }
+
+    /// <summary>
+    /// The body, parsed. Held between renders rather than parsed on each one: a
+    /// row in a list re-renders whenever anything around it moves, and the
+    /// markdown has not changed while it did.
+    /// <para>
+    /// ParseDocument, not Parse. The entry reading folds a <c>##</c> and
+    /// everything under it into a sub-item for a host to lay out as its own
+    /// card, and this row has nowhere to lay one out — a body with a sub-header
+    /// in it would render its first paragraph and silently drop the rest. Here
+    /// a heading is a heading, which is also what the person writing a prompt
+    /// meant by it.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<MdBlock> BodyBlocks
+    {
+        get
+        {
+            if (!string.Equals(_parsed, Task.Body, StringComparison.Ordinal))
+            {
+                _parsed = Task.Body;
+                _blocks = MarkdownPreview.ParseDocument(Task.Body);
+            }
+
+            return _blocks ?? [];
+        }
+    }
+
+    protected override void OnInitialized() => _expanded = BodyExpanded;
 
     /// <summary>
     /// Renaming in place, rather than in the pane the row opens.
@@ -280,10 +590,31 @@
         await OnRename.InvokeAsync(new TaskRename(Task.Id, title));
     }
 
+    /// <summary>
+    /// Reported, not kept. The row does not hold the text it was typed — the host
+    /// owns the body, so the next render reads the host's value back out of
+    /// <c>Task</c>, and a copy held here would be a second version of the same
+    /// string waiting to disagree with it.
+    /// <para>
+    /// What the reader is looking at meanwhile is the textarea's own content,
+    /// which is the browser's and is what keeps the caret where they left it. The
+    /// promise this row makes is narrower and more useful than "it re-reads every
+    /// keystroke": it never holds a body of its own, so the host's value wins the
+    /// moment the two differ.
+    /// </para>
+    /// </summary>
+    private Task OnBodyTypedAsync(string value) =>
+        OnBodyChanged.InvokeAsync(new TaskBodyChange(Task.Id, value));
+
     private string ClassValue => string.Join(' ', new[]
     {
         "task-item",
         Task.Done ? "task-item--done" : null,
+        // The row wraps for the region under it, which outlasts the body while an
+        // edit is emptying it.
+        HasFold ? "task-item--has-body" : null,
+        Blocked ? "task-item--blocked" : null,
+        Next ? "task-item--next" : null,
         Selected ? "task-item--selected" : null,
         Dragging ? "task-item--dragging" : null,
         CssClass

@@ -39,7 +39,8 @@ internal static class StorybookIndex
             new("buttons", "Buttons", "AppButton, IconButton, ButtonGroup, ToggleButton."),
             new("inputs", "Inputs", "TextField, TextArea, SearchBox, Toggle, Checkbox."),
             new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect, SearchBox."),
-            new("task-list", "Task list", "TaskItem, TaskListView and TaskAction: the controls a list of things-to-do is made of.")
+            new("task-list", "Task list", "TaskItem, TaskListView and TaskAction: the controls a list of things-to-do is made of.", Exact: true),
+            new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order.")
         ]),
         new("Structure and navigation",
         [

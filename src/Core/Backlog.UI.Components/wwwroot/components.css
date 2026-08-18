@@ -772,8 +772,16 @@
     color: var(--color-text-secondary);
 }
 
+/* The weight is stated rather than inherited because MarkdownView renders every
+   heading as a `p` carrying role="heading" — the semantics are on the role, so
+   the boldness a browser would have given an `h1` never arrives, and all six
+   levels were rendering at 400. It belongs on the base rule for the same reason
+   the family does: what makes a heading a heading is one fact at every level,
+   and the ramp below only decides how big it is. 700 is what the rest of the
+   library uses where the heading family carries a title. */
 .md-heading {
     font-family: var(--font-family-heading);
+    font-weight: 700;
     color: var(--color-text-primary);
     margin: var(--spacing-sm) 0 var(--spacing-xs);
     line-height: var(--line-height-tight);
@@ -1935,6 +1943,169 @@ button.task-item__check:focus-visible {
 .task-item__tag {
     font-size: var(--font-size-xs);
     padding: 0 var(--spacing-xs);
+}
+
+/* --- A body under the row ------------------------------------------------ */
+/*
+   Only a row that has a body wraps. flex-wrap on every row would let the copy
+   button drop below the title the moment a list got narrow, which is a layout
+   nobody asked for on the rows this feature does not touch.
+*/
+.task-item--has-body {
+    flex-wrap: wrap;
+}
+
+/* The disclosure takes a whole line under the row, so the title line keeps the
+   shape every other row in the list has. FoldControl is told to call its wrapper
+   this instead of .fold, so the two rules it needs are repeated here rather than
+   inherited from a class this element does not carry. */
+.task-item__fold {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    flex: 1 0 100%;
+    min-width: 0;
+}
+
+.task-item__fold .fold__trigger {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.task-item__fold .fold__trigger:hover,
+.task-item__fold .fold__trigger:focus-visible {
+    color: var(--color-text-primary);
+}
+
+/* The chevron on a row is next to a 1.25rem circle, so it takes the row's own
+   scale rather than the 1.25rem a fold gets when it is the whole control. */
+.task-item__fold .fold__chevron {
+    font-size: 1rem;
+}
+
+/* Indented to the depth of the title above it, so the body reads as belonging to
+   the row rather than sitting under the whole list. */
+.task-item__body-text {
+    padding-left: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* --- Editing that body --------------------------------------------------- */
+/*
+   The toggle lives inside the folded region, so it is on screen exactly when the
+   body it edits is. Pushed to the far end of that region for the same reason the
+   copy button sits at the end of the row: it acts on the text rather than being
+   part of it, and a control at the start would be read before the prose it is
+   about.
+*/
+.task-item__body-tools {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.task-item__body-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    padding: 0 var(--spacing-xs);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.task-item__body-edit:hover,
+.task-item__body-edit:focus-visible {
+    color: var(--color-text-primary);
+    outline: none;
+}
+
+/* Pressed has to be visible and not only announced. aria-pressed alone would
+   leave a sighted reader inferring the state from the textarea that appeared,
+   and the two controls that swap places here look nothing alike on purpose. */
+.task-item__body-edit[aria-pressed="true"] {
+    color: var(--color-primary);
+}
+
+/* Indented to the depth of the rendered body it replaces, so swapping one for
+   the other does not shift the text sideways under the reader. */
+.task-item__body-editor {
+    margin-left: var(--spacing-lg);
+}
+
+/* --- A chain of tasks ---------------------------------------------------- */
+/*
+   What a list derives when its rows name the ids they wait on. All of it is
+   drawn from a view TaskChain computed; none of it is stored on a row.
+*/
+
+/* State, never a control: a blocked row's circle is not a button, and it must
+   not look like one either. Dashed for the same reason the dragged row is —
+   present, and plainly not settled. */
+.task-item--blocked .task-item__check {
+    border-style: dashed;
+    border-color: var(--color-text-disabled);
+    cursor: default;
+}
+
+/* What it is waiting for is the reason the row cannot be acted on, so it reads
+   at the same weight as a deadline rather than joining the quiet facts. */
+.task-item__detail--blocked {
+    color: var(--color-text-primary);
+}
+
+/* A cycle is not a state a chain passes through; it is a mistake in the data
+   that only the host can fix. It gets the soft error surface — painted on, with
+   the text at full strength on top of it, which is what these semantic tokens
+   are for. */
+.task-item__detail--cycle {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-error);
+    color: var(--color-text-primary);
+}
+
+/* The two things on the metadata line that answer a question about the list
+   rather than stating a fact about the task. One box for both, declared together,
+   because they are the same kind of statement and a reader should see them as one
+   family — the shapes inside them are the same triangle filled and hollow for the
+   same reason. */
+.task-item__next,
+.task-item__ready {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid;
+    border-radius: var(--border-radius-full);
+    white-space: nowrap;
+}
+
+/* The one part of the line allowed to take the brand colour: a marker that read
+   like the rest of it would have to be found, and the whole point of it is to be
+   seen. */
+.task-item__next {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+/* Quieter, deliberately. A fan-out can free four rows at once, and four brand-
+   coloured badges would be four answers to a question that has one — this says
+   "you could start here too" without competing with the row that says start
+   here. */
+.task-item__ready {
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+/* Enough to find the row from across the list, and no more: the marker inside it
+   is already saying which one this is. */
+.task-item--next {
+    border-color: var(--color-primary-dark);
 }
 
 /* --- Renaming in place --------------------------------------------------- */

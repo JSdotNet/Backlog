@@ -12,6 +12,20 @@
     dragged would be a list some people cannot reorder. Alt+Arrow moves the
     focused row, and the focus goes with it — the row is a different element
     after the list re-renders, so it is found again by id.
+
+    When rows name the ids they wait on, the list works out what that comes to
+    and draws it: which rows are blocked, what each of them is waiting for, which
+    ones could be started, and which one of those to pick up next. In a linear
+    chain the last two are the same row and only one marker appears. They come
+    apart in a fan-out, where finishing one step frees several at once — and that
+    is exactly when the reader needs telling, because otherwise the unlock is
+    visible only by three waiting lines disappearing.
+
+    Worked out, not written down — the Tasks it was
+    handed are the Tasks the host still has, and the same answer is available to
+    the host from TaskChain without rendering anything. A list where nobody
+    declared a dependency derives nothing at all, so its markup is exactly what
+    it was before chains existed.
 *@
 
 <ul class="@ClassValue" data-testid="@TestId" aria-label="@AriaLabel">
@@ -65,6 +79,50 @@
     private string? _over;
     private bool _showCompleted;
 
+    /// <summary>The chain as it stands, by id, and the row to pick up next.
+    /// Derived once when the parameters land rather than per row per render:
+    /// every row needs the same answer, and computing it in a property would
+    /// walk the whole list once for each row in it.</summary>
+    private IReadOnlyDictionary<string, TaskChainStatus> _statuses =
+        new Dictionary<string, TaskChainStatus>(StringComparer.Ordinal);
+
+    private string? _nextId;
+
+    /// <summary>
+    /// A view of the list, never a change to it. TaskChain reads the rows and
+    /// returns statuses; nothing is written back, so the host's list is the same
+    /// object it handed over.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        var statuses = new Dictionary<string, TaskChainStatus>(StringComparer.Ordinal);
+        _nextId = null;
+
+        // Nobody declared anything, so there is nothing to derive — and a list
+        // that derived anyway would start marking a "next" row in every plain
+        // list in the product.
+        if (!TaskChain.IsChain(Tasks))
+        {
+            _statuses = statuses;
+            return;
+        }
+
+        // One resolve, both answers. Calling TaskChain.NextReady afterwards would
+        // walk the graph and detect the cycles a second time to learn something
+        // the statuses in hand already say: Resolve returns them in list order, so
+        // the first Ready in this loop is the row NextReady would have returned.
+        foreach (var status in TaskChain.Resolve(Tasks))
+        {
+            statuses.TryAdd(status.Id, status);
+
+            if (status.Readiness is not TaskReadiness.Ready) continue;
+
+            _nextId ??= status.Id;
+        }
+
+        _statuses = statuses;
+    }
+
     /// <summary>One row, wherever it is being drawn. Both lists render the same
     /// thing — a done row is not a different kind of row, it is the same row
     /// having been finished.</summary>
@@ -75,7 +133,11 @@
                    OnToggle="OnToggle"
                    OnSelected="OnSelected"
                    OnRename="OnRename"
+                   OnBodyChanged="OnBodyChanged"
                    AllowCopy="@AllowCopy"
+                   BodyLabel="@BodyLabel"
+                   Status="@StatusOf(task)"
+                   Next="@(string.Equals(_nextId, task.Id, StringComparison.Ordinal))"
                    Draggable="@(Reorderable && !task.Done)"
                    Dragging="@(string.Equals(_dragging, task.Id, StringComparison.Ordinal))"
                    OnDragStart="StartDrag"
@@ -100,8 +162,21 @@
     [Parameter]
     public bool AllowCopy { get; set; } = true;
 
+    /// <summary>What a row's disclosure calls its body. Passed straight through
+    /// to every row: what a body is called is the host's word for it, and one
+    /// list should not have two.</summary>
+    [Parameter]
+    public string BodyLabel { get; set; } = "Body";
+
     [Parameter]
     public EventCallback<TaskRename> OnRename { get; set; }
+
+    /// <summary>Straight through to every row, exactly like OnRename: whether a
+    /// body can be edited is one answer for the whole list, and a list that
+    /// decided it per row would be deciding which tasks are the reader's.
+    /// Unsupplied, no row offers an editor.</summary>
+    [Parameter]
+    public EventCallback<TaskBodyChange> OnBodyChanged { get; set; }
 
     /// <summary>Whether finished rows move to a section of their own at the
     /// bottom. On by default: a list whose done rows stay in place is a list you
@@ -179,6 +254,13 @@
             : Tasks;
 
     private string? RowTestId(TaskRow task) => TestId is null ? null : $"{TestId}-{task.Id}";
+
+    /// <summary>This row's status, or null when nothing here declared a
+    /// dependency. Null rather than a Ready everyone gets by default, because
+    /// "ready" said about a list nobody chained is an answer to a question the
+    /// reader never asked.</summary>
+    private TaskChainStatus? StatusOf(TaskRow task) =>
+        _statuses.TryGetValue(task.Id, out var status) ? status : null;
 
     private void StartDrag(string id)
     {

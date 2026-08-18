@@ -30,6 +30,29 @@ namespace Backlog.UI.Components.Tasks;
 /// <param name="Tags">What it is filed under. Rendered as chips rather than as
 /// more of the metadata line: a tag is a thing you click to find its siblings,
 /// and the rest of that line is text about this one task.</param>
+/// <param name="Body">The rest of the task, in markdown, when the title is not
+/// all of it — a prompt, a brief, the paragraph the one line is a summary of.
+/// <para>
+/// Markdown read by the parser this product already has, rather than a second
+/// vocabulary belonging to this component. A task body is prose written by the
+/// same person, in the same editor, as every other body here, and a row that
+/// read it differently would be a row you have to write for.
+/// </para>
+/// <para>
+/// Null is the ordinary case and costs nothing: a row without one renders
+/// exactly the markup it rendered before bodies existed.
+/// </para></param>
+/// <param name="DependsOn">The ids this task waits on, in no particular order.
+/// <para>
+/// A list rather than one predecessor. A step that cannot start until two other
+/// things are finished is the ordinary case, and asking which of the two is the
+/// real predecessor is a question with no answer.
+/// </para>
+/// <para>
+/// Only the ids are here. What they work out to — ready, blocked, in a cycle —
+/// is <see cref="TaskChain"/>'s, because a row cannot see its siblings and so
+/// cannot know whether the things it named are finished.
+/// </para></param>
 public sealed record TaskRow(
     string Id,
     string Title,
@@ -43,11 +66,20 @@ public sealed record TaskRow(
     int StepsDone = 0,
     int StepCount = 0,
     bool Note = false,
-    IReadOnlyList<string>? Tags = null)
+    IReadOnlyList<string>? Tags = null,
+    string? Body = null,
+    IReadOnlyList<string>? DependsOn = null)
 {
     public bool HasSteps => StepCount > 0;
 
+    /// <summary>Whether there is more to this task than its title.</summary>
+    public bool HasBody => !string.IsNullOrWhiteSpace(Body);
+
     public IReadOnlyList<string> TagList => Tags ?? [];
+
+    /// <summary>The ids it waits on, or none. Never null, so a caller deriving a
+    /// chain does not have to ask twice whether a row declared anything.</summary>
+    public IReadOnlyList<string> DependsOnList => DependsOn ?? [];
 
     /// <summary>
     /// The metadata line, in the order a reader asks for it: where it came from,
@@ -57,6 +89,15 @@ public sealed record TaskRow(
     /// "Friday" and "09:00" side by side are two dates until something says one
     /// is a deadline and the other an alarm. Everything absent is left out
     /// rather than filled in.
+    /// </para>
+    /// <para>
+    /// A row with a <see cref="Body"/> carries the note glyph whether or not it
+    /// was asked to. That glyph already meant "there is more text here than the
+    /// title", which is exactly what a body is — and a folded row that gave no
+    /// sign of one would be a row whose disclosure is the only thing saying it
+    /// is worth opening. Reusing the mark rather than minting a second one also
+    /// keeps the line honest: to a reader those are the same fact, and two
+    /// glyphs for it would read as two.
     /// </para>
     /// </summary>
     public IReadOnlyList<TaskDetail> Details =>
@@ -69,7 +110,7 @@ public sealed record TaskRow(
             Due is null ? null : new TaskDetail(TaskDetailKind.Due, Due),
             Reminder is null ? null : new TaskDetail(TaskDetailKind.Reminder, Reminder),
             Repeats ? new TaskDetail(TaskDetailKind.Repeat, RepeatLabel ?? "Repeats") : null,
-            Note ? new TaskDetail(TaskDetailKind.Note, "Note") : null
+            Note || HasBody ? new TaskDetail(TaskDetailKind.Note, "Note") : null
         }
         .Where(detail => detail is not null && !string.IsNullOrWhiteSpace(detail.Text))
         .Select(detail => detail!)
@@ -90,7 +131,16 @@ public enum TaskDetailKind
     Due,
     Reminder,
     Repeat,
-    Note
+    Note,
+
+    /// <summary>What the row is waiting on, named. Derived from the list rather
+    /// than set on the row, because no row can see the others.</summary>
+    Blocked,
+
+    /// <summary>The row is in a dependency cycle, so nothing will ever unblock
+    /// it. Said out loud rather than left to be worked out from a chain that
+    /// never advances.</summary>
+    Cycle
 }
 
 /// <summary>One part of a row's metadata line.</summary>
@@ -107,6 +157,11 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
         TaskDetailKind.Reminder => "⏰",
         TaskDetailKind.Repeat => "🔁",
         TaskDetailKind.Note => "📝",
+        TaskDetailKind.Blocked => "⏳",
+        // Deliberately not the repeat glyph. A chain that loops and a task that
+        // recurs are opposite facts, and one mark for both would say a broken
+        // chain is a schedule.
+        TaskDetailKind.Cycle => "↻",
         _ => string.Empty
     };
 
@@ -121,6 +176,8 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
         TaskDetailKind.Due => "Due",
         TaskDetailKind.Reminder => "Reminder",
         TaskDetailKind.Repeat => "Repeats",
+        TaskDetailKind.Blocked => "Waiting for",
+        TaskDetailKind.Cycle => "Cycle",
         _ => "Note"
     };
 

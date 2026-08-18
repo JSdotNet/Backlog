@@ -94,6 +94,64 @@ public class DesignTokenTests
         }
     }
 
+    /// <summary>
+    /// A rendered heading has to be given its weight, because it is not given one
+    /// by the element it is drawn on.
+    ///
+    /// <para>MarkdownView draws every heading as a <c>p</c> carrying
+    /// <c>role="heading"</c> — the semantics live on the role, which is a
+    /// deliberate choice and not the thing under test here. The consequence is:
+    /// the boldness a browser hands an <c>h1</c> never arrives, so if
+    /// <c>.md-heading</c> does not state a weight then every heading in every
+    /// document this product renders is the same weight as the paragraph under
+    /// it. That is what had happened, and nothing caught it while headings were
+    /// only ever read at a size the paragraph did not share.</para>
+    ///
+    /// <para>Asserted here rather than in bUnit: the markup was always correct —
+    /// right class, right role, right level — and the defect was entirely in what
+    /// the stylesheet did with it. A render test can only have confirmed the
+    /// class was present, which it already was.</para>
+    /// </summary>
+    [Fact]
+    public void A_heading_drawn_on_a_paragraph_is_given_the_weight_the_element_denies_it()
+    {
+        var view = new FileInfo(Path.Combine(
+            Repository.Root.FullName,
+            "src", "Core", "Backlog.UI.Components", "Markdown", "MarkdownView.razor"));
+
+        var stylesheet = new FileInfo(Path.Combine(
+            Repository.Root.FullName, "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css"));
+
+        // Asserted before the premise below, because the premise is read out of
+        // these files: a path that no longer resolves would make the regex match
+        // nothing, the premise read false, and this test pass while checking
+        // nothing at all. A move has to fail here as a wrong path rather than
+        // further down as a green run.
+        Assert.True(view.Exists, $"{Relative(view)} is not where this test looks for it.");
+        Assert.True(stylesheet.Exists, $"{Relative(stylesheet)} is not where this test looks for it.");
+
+        // The premise. Were headings ever drawn as h1-h6, the browser would supply
+        // the weight and this test would be asserting a rule nobody needs. Skipping
+        // on that is deliberate; skipping because a file moved is not.
+        var drawnOnAParagraph = Regex.IsMatch(
+            File.ReadAllText(view.FullName), @"<p[^>]*class=""md-heading");
+
+        if (!drawnOnAParagraph) return;
+
+        var rule = Regex.Match(
+            File.ReadAllText(stylesheet.FullName),
+            @"^\.md-heading\s*\{(?<body>[^}]*)\}",
+            RegexOptions.Multiline);
+
+        Assert.True(rule.Success, "components.css has no .md-heading rule, so nothing styles a rendered heading.");
+
+        Assert.True(
+            Regex.IsMatch(rule.Groups["body"].Value, @"font-weight\s*:"),
+            "MarkdownView draws headings as a p with role=\"heading\", so .md-heading has to declare its own "
+            + "font-weight. Without one every heading renders at 400 — the same weight as the paragraph "
+            + "beneath it — and a sub-header stops being findable by anyone skimming.");
+    }
+
     /// <summary>The stylesheet and the document that specifies it. Every colour in
     /// the library is named in <c>.design/color-scheme.md</c>, and the two had
     /// drifted: the file carried a surface ramp a step darker than the one in the
