@@ -1,0 +1,71 @@
+@*
+    One rendering of not-having-a-number, so the five components that can be in
+    that position do not each invent their own.
+
+    Unavailable is not an error. A usage client answers an availability question
+    before it answers a data question, and "no credential is configured" is the
+    answer this UI gets most often — a calm, explained, permanent-until-you-act
+    state rather than something that went wrong.
+
+    Ready renders nothing at all, the way SaveIndicator renders nothing when it
+    is idle: a caller can bind Kind straight to whatever it knows and get an
+    empty element only when there is something to say.
+*@
+
+@if (Kind is not MetricStatusKind.Ready)
+{
+    <p class="@ClassValue" role="status" data-testid="@TestId" @attributes="AdditionalAttributes">
+        @if (Kind is MetricStatusKind.Loading)
+        {
+            @* The paragraph is already the live region and already says
+               "Loading...", so the spinner's own label would announce it a
+               second time. It keeps the animation and gives up the name. *@
+            <Spinner Size="SpinnerSize.Small" Label="" />
+        }
+        @Text
+    </p>
+}
+
+@code {
+    [Parameter]
+    public MetricStatusKind Kind { get; set; } = MetricStatusKind.Empty;
+
+    /// <summary>What to say instead of the per-kind default — the provider's own
+    /// reason, verbatim. It is the only thing on screen that tells the reader
+    /// which credential is missing.</summary>
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-status</c> as the class this block carries.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-status";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Text => string.IsNullOrWhiteSpace(Message) ? DefaultText : Message;
+
+    private string DefaultText => Kind switch
+    {
+        MetricStatusKind.Loading => "Loading...",
+        MetricStatusKind.Unavailable => "Usage reporting is not available.",
+        _ => "No usage in this period."
+    };
+
+    private string ClassValue
+    {
+        get
+        {
+            var kind = $" {BaseClass}--{Kind.ToString().ToLowerInvariant()}";
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"{BaseClass}{kind}{extra}";
+        }
+    }
+}

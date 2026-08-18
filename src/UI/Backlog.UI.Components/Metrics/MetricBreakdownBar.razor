@@ -1,0 +1,137 @@
+@*
+    Part-to-whole in one bar. The reason this exists rather than a pie is the data
+    it was built for: the four token kinds an AI usage API reports are ordered by
+    what they cost, and a stacked bar keeps that order readable left to right
+    where a pie scatters it around a circle.
+
+    The bar itself is aria-hidden and the legend below it is the real content.
+    That is the whole accessibility argument for this component: a share rendered
+    only as a width is not a number anyone can read, so every part is also a row
+    saying what it is, how much of it there is, and what fraction of the total
+    that is.
+
+    Parts take ramp steps in the order given, so the caller owns the ordinal
+    scale. Past the fourth part the ramp repeats, because the palette carries one
+    saturated hue and four distinguishable steps of it — beyond that the legend
+    is what tells two parts apart, not the colour, and a fifth invented hue would
+    be the second semantic palette components.css forbids.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <p class="@(Part("label"))">@Label</p>
+    }
+
+    @if (Segments.Count == 0)
+    {
+        <MetricStatus Kind="MetricStatusKind.Empty" Message="@EmptyMessage" CssClass="@(Part("status"))" />
+    }
+    else
+    {
+        <div class="@(Part("track"))" aria-hidden="true">
+            @foreach (var segment in Segments)
+            {
+                <span class="@($"{Part("segment")} {Part("segment")}--{segment.Ramp}")"
+                      style="@($"width: {Width(segment.Share)}%")"
+                      title="@($"{segment.Label}: {Format(segment.Value)} ({MetricFormat.Percent(segment.Share)})")"></span>
+            }
+        </div>
+
+        @if (ShowLegend)
+        {
+            <ul class="@(Part("legend"))">
+                @foreach (var segment in Segments)
+                {
+                    <li class="@(Part("legend-item"))">
+                        <span class="@($"{Part("swatch")} {Part("swatch")}--{segment.Ramp}")" aria-hidden="true"></span>
+                        <span class="@(Part("legend-label"))">@segment.Label</span>
+                        <span class="@(Part("legend-value"))">@Format(segment.Value)</span>
+                        <span class="@(Part("legend-share"))">@MetricFormat.Percent(segment.Share)</span>
+                    </li>
+                }
+            </ul>
+        }
+    }
+</div>
+
+@code {
+    /// <summary>In the order they should read. For tokens that means cheapest
+    /// first — cache reads, then uncached input, then cache writes, then output —
+    /// so the bar grows more expensive to the right.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricPart> Parts { get; set; } = [];
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>How each part's value reads. Defaults to the compact token
+    /// notation; a bar over money passes a formatter that keeps the currency.</summary>
+    [Parameter]
+    public Func<decimal, string>? FormatValue { get; set; }
+
+    [Parameter]
+    public bool ShowLegend { get; set; } = true;
+
+    /// <summary>Shown when every part is zero or there are no parts at all — a
+    /// period with no usage in it, which is a fact rather than a failure.</summary>
+    [Parameter]
+    public string? EmptyMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-breakdown-bar</c> as the class this block
+    /// carries, and every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-breakdown-bar";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>How many steps the hue ramp has. Beyond this the ramp repeats.</summary>
+    private const int RampSteps = 4;
+
+    private sealed record Segment(string Label, decimal Value, decimal Share, int Ramp);
+
+    private List<Segment> Segments { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        var parts = (Parts ?? []).Where(part => part.Value > 0m).ToList();
+        var total = parts.Sum(part => part.Value);
+
+        // Every part zero is the same as no parts: there is no whole to be a part
+        // of, and dividing by it would be the only way to find out.
+        if (total <= 0m)
+        {
+            Segments = [];
+            return;
+        }
+
+        Segments =
+        [
+            .. parts.Select((part, index) => new Segment(
+                part.Label,
+                part.Value,
+                part.Value / total,
+                index % RampSteps + 1))
+        ];
+    }
+
+    private string Format(decimal value) => (FormatValue ?? MetricFormat.Compact)(value);
+
+    /// <summary>Widths are written invariant for the same reason the sparkline's
+    /// coordinates are: a comma decimal separator inside a percentage makes the
+    /// declaration invalid and the segment collapses.</summary>
+    private static string Width(decimal share) =>
+        (share * 100m).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+}

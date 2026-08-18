@@ -1,0 +1,273 @@
+@*
+    Per-model, per-actor, per-workspace: the rows behind the tiles. A table rather
+    than a chart, because the question it answers is "which one, and how much" and
+    that is read off figures, not off lengths. The share bar in the last cell is
+    decoration on top of a printed percentage, not a substitute for it.
+
+    Every measure is nullable and a null prints an em dash. That is the whole
+    reason this takes MetricRow rather than a tuple of numbers: the providers
+    disagree about what they report — one gives tokens and an estimated cost per
+    model, another gives a login and an editor and no figures at all — and a zero
+    in a cost column is a claim that something was free, which is not what "not
+    reported" means.
+
+    Rows render in the order given. Sorting is the caller's, because the useful
+    order depends on the question: biggest spender first for a cost review, most
+    recent first for a seat audit.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <p class="@(Part("label"))" id="@LabelId">@Label</p>
+    }
+
+    @if (EffectiveStatus is not MetricStatusKind.Ready)
+    {
+        <MetricStatus Kind="EffectiveStatus" Message="@StatusMessage" CssClass="@(Part("status"))" />
+    }
+    else
+    {
+        @* The figure columns do not wrap — tabular figures are compared down a
+           column and a wrapped number stops being one — so on a narrow head the
+           table is wider than its container. It scrolls inside this box rather
+           than taking the whole page sideways with it. *@
+        <div class="@(Part("scroll"))">
+            <table class="@(Part("table"))"
+                   aria-labelledby="@(string.IsNullOrWhiteSpace(Label) ? null : LabelId)"
+                   aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)">
+                <thead>
+                    <tr>
+                        <th scope="col">@NameHeading</th>
+                        @if (ShowTokens)
+                        {
+                            <th scope="col" class="@(Part("numeric"))">@TokensHeading</th>
+                        }
+                        @if (ShowCost)
+                        {
+                            <th scope="col" class="@(Part("numeric"))">@CostHeading</th>
+                        }
+                        @if (ShowShare)
+                        {
+                            <th scope="col" class="@(Part("numeric"))">@ShareHeading</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Rows)
+                    {
+                        <tr class="@(Part("row"))">
+                            <th scope="row" class="@(Part("name"))">
+                                @row.Name
+                                @if (!string.IsNullOrWhiteSpace(row.Detail))
+                                {
+                                    <span class="@(Part("detail"))">@row.Detail</span>
+                                }
+                            </th>
+
+                            @if (ShowTokens)
+                            {
+                                <td class="@(Part("numeric"))">@(row.Tokens is null ? Missing : MetricFormat.Compact(row.Tokens.Value))</td>
+                            }
+
+                            @if (ShowCost)
+                            {
+                                <td class="@(Part("numeric"))">@(row.Cost is null ? Missing : MetricFormat.Money(row.Cost, CostDecimals))</td>
+                            }
+
+                            @if (ShowShare)
+                            {
+                                <td class="@(Part("numeric"))">
+                                    @{
+                                        var share = ShareOfRow(row);
+                                    }
+                                    @if (share is null)
+                                    {
+                                        @Missing
+                                    }
+                                    else
+                                    {
+                                        <span class="@(Part("share"))">
+                                            <span class="@(Part("share-text"))">@MetricFormat.Percent(share.Value)</span>
+                                            @* The bar repeats the percentage beside it,
+                                               so it adds nothing to the tree. *@
+                                            <span class="@(Part("share-track"))" aria-hidden="true">
+                                                <span class="@(Part("share-fill"))" style="@($"width: {Width(share.Value)}%")"></span>
+                                            </span>
+                                        </span>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+
+                @if (ShowTotal)
+                {
+                    <tfoot>
+                        <tr class="@(Part("total"))">
+                            <th scope="row">@TotalHeading</th>
+                            @if (ShowTokens)
+                            {
+                                <td class="@(Part("numeric"))">@(TotalTokens is null ? Missing : MetricFormat.Compact(TotalTokens.Value))</td>
+                            }
+                            @if (ShowCost)
+                            {
+                                <td class="@(Part("numeric"))">@(TotalCost is null ? Missing : MetricFormat.Money(TotalCost, CostDecimals))</td>
+                            }
+                            @if (ShowShare)
+                            {
+                                <td class="@(Part("numeric"))">@(HasShareTotal ? MetricFormat.Percent(1m) : Missing)</td>
+                            }
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>In the order they should read; this component does not sort.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricRow> Rows { get; set; } = [];
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>Names the table when there is no visible label.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>Which column the share is a share of. Tokens and cost do not
+    /// produce the same ranking — a cheap model can burn most of the tokens — so
+    /// the caller says which one the question is about.</summary>
+    [Parameter]
+    public MetricShareOf ShareOf { get; set; } = MetricShareOf.Cost;
+
+    /// <summary>What the first column is: "Model", "Actor", "Workspace", "Seat".</summary>
+    [Parameter]
+    public string NameHeading { get; set; } = "Name";
+
+    [Parameter]
+    public string TokensHeading { get; set; } = "Tokens";
+
+    [Parameter]
+    public string CostHeading { get; set; } = "Cost";
+
+    [Parameter]
+    public string ShareHeading { get; set; } = "Share";
+
+    [Parameter]
+    public string TotalHeading { get; set; } = "Total";
+
+    /// <summary>Per-model costs run to fractions of a cent, and two decimals turns
+    /// a row of real figures into a row of 0.00.</summary>
+    [Parameter]
+    public int CostDecimals { get; set; } = 2;
+
+    /// <summary>Drop the share column for a table where proportion is not the
+    /// point — a seat list, where every row is one seat.</summary>
+    [Parameter]
+    public bool ShowShare { get; set; } = true;
+
+    [Parameter]
+    public bool ShowTotal { get; set; } = true;
+
+    [Parameter]
+    public MetricStatusKind Status { get; set; } = MetricStatusKind.Ready;
+
+    /// <summary>The provider's reason, verbatim.</summary>
+    [Parameter]
+    public string? StatusMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-breakdown</c> as the class this block carries,
+    /// and every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-breakdown";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>An em dash: this figure was not reported. Distinct from a zero,
+    /// which is a figure.</summary>
+    private const string Missing = "—";
+
+    private readonly string _labelId = "metric-breakdown-label-" + Guid.NewGuid().ToString("N");
+
+    private string LabelId => _labelId;
+
+    /// <summary>Ready with nothing in it is Empty. MetricStatus renders nothing at
+    /// all for Ready, so a caller that has loaded a period with no usage in it
+    /// would otherwise get a heading over a blank space.</summary>
+    private MetricStatusKind EffectiveStatus =>
+        Status is MetricStatusKind.Ready && Rows.Count == 0 ? MetricStatusKind.Empty : Status;
+
+    /// <summary>A column nobody reported anything into is not shown. A table of
+    /// Copilot seats would otherwise carry an entirely em-dashed cost column,
+    /// which reads as a broken feature rather than as data GitHub does not
+    /// publish.</summary>
+    private bool ShowTokens => Rows.Any(row => row.Tokens is not null);
+
+    private bool ShowCost => Rows.Any(row => row.Cost is not null);
+
+    private long? TotalTokens => ShowTokens
+        ? Rows.Where(row => row.Tokens is not null).Sum(row => row.Tokens!.Value)
+        : null;
+
+    /// <summary>Null when the rows disagree about currency. Two currencies do not
+    /// add up, and a total that silently picks one of them is a wrong number
+    /// rather than a missing one.</summary>
+    private MoneyAmount? TotalCost
+    {
+        get
+        {
+            var costs = Rows.Where(row => row.Cost is not null).Select(row => row.Cost!).ToList();
+
+            if (costs.Count == 0) return null;
+
+            var currency = costs[0].Currency;
+
+            return costs.All(cost => string.Equals(cost.Currency, currency, StringComparison.OrdinalIgnoreCase))
+                ? new MoneyAmount(costs.Sum(cost => cost.Amount), currency)
+                : null;
+        }
+    }
+
+    private bool HasShareTotal => ShareTotal > 0m;
+
+    private decimal ShareTotal => ShareOf switch
+    {
+        MetricShareOf.Tokens => Rows.Where(row => row.Tokens is not null).Sum(row => (decimal)row.Tokens!.Value),
+        _ => TotalCost?.Amount ?? Rows.Where(row => row.Cost is not null).Sum(row => row.Cost!.Amount)
+    };
+
+    private decimal? ShareOfRow(MetricRow row)
+    {
+        var total = ShareTotal;
+
+        if (total <= 0m) return null;
+
+        var value = ShareOf switch
+        {
+            MetricShareOf.Tokens => row.Tokens is null ? (decimal?)null : row.Tokens.Value,
+            _ => row.Cost?.Amount
+        };
+
+        return value is null ? null : value.Value / total;
+    }
+
+    private static string Width(decimal share) =>
+        (Math.Clamp(share, 0m, 1m) * 100m).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+}

@@ -1,0 +1,211 @@
+@*
+    Every repository on one plot, one of them in the brand hue and the rest in a
+    muted grey.
+
+    This is how a multi-series line chart is done with one saturated hue. The
+    ordinary version needs a categorical colour per series and there is one to
+    spend; overlaying them all as identical lines would be worse than useless. So
+    only one series is ever the subject: it takes the hue and the front of the
+    stacking order, and the others stay as context — you can still see whether the
+    subject sits above or below the pack, which is the question an overlay answers
+    and a trellis cannot.
+
+    Pick one by name and the chart is about that one. Pick none and every line is
+    context, which is a legitimate reading of "how does the estate look" but says
+    nothing about any single repository — the legend is then the only way to tell
+    them apart, and the legend does not name lines, so a caller wanting per-series
+    reading should be showing a MetricTrellis instead.
+
+    The legend prints each series' latest figure, and the hidden table carries every
+    reading, because a line is not a number and there are too many lines here for
+    any of them to be labelled in place.
+*@
+
+<figure class="@ClassValue" style="@StyleValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <figcaption class="@(Part("label"))">@Label</figcaption>
+    }
+
+    @if (Drawn.Count == 0)
+    {
+        <MetricStatus Kind="MetricStatusKind.Empty" Message="@EmptyMessage" CssClass="@(Part("status"))" />
+    }
+    else
+    {
+        <div class="@(Part("plot"))" aria-hidden="true">
+            <div class="@(Part("scale"))">
+                <span>@Format(Max)</span>
+                <span>0</span>
+            </div>
+
+            <svg class="@(Part("canvas"))" viewBox="0 0 100 40" preserveAspectRatio="none" focusable="false">
+                @* Context first, subject last: SVG paints in document order, so the
+                   subject has to come after the lines it is meant to sit in front of. *@
+                @foreach (var series in Context)
+                {
+                    <polyline class="@(Part("line"))" points="@Points(series)" vector-effect="non-scaling-stroke" />
+                }
+                @if (Subject is not null)
+                {
+                    <polyline class="@($"{Part("line")} {Part("line")}--subject")" points="@Points(Subject)" vector-effect="non-scaling-stroke" />
+                }
+            </svg>
+        </div>
+
+        <div class="@(Part("axis"))" aria-hidden="true">
+            <span>@Buckets[0]</span>
+            <span>@Buckets[^1]</span>
+        </div>
+
+        <ul class="@(Part("legend"))">
+            @foreach (var series in Drawn)
+            {
+                <li class="@LegendClass(series)">
+                    <span class="@(Part("swatch"))" aria-hidden="true"></span>
+                    <span class="@(Part("legend-name"))">@series.Name</span>
+                    <span class="@(Part("legend-value"))">@Format(series.Latest?.Value ?? 0m)</span>
+                </li>
+            }
+        </ul>
+
+        @* The wrapper carries sr-only rather than the table. A table ignores
+           overflow: hidden the way a block respects it, so a wide hidden table
+           renders at its natural width, escapes the 1px clip box and pushes the
+           whole page sideways — which a thirteen-column one certainly does. *@
+        <div class="sr-only">
+            <table>
+                <caption>@Caption</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">@NameHeading</th>
+                        @foreach (var bucket in Buckets)
+                        {
+                            <th scope="col">@bucket</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var series in Drawn)
+                    {
+                        <tr>
+                            <th scope="row">@series.Name</th>
+                            @foreach (var bucket in Buckets)
+                            {
+                                var reading = series.Points.FirstOrDefault(point => point.Label == bucket)?.Value;
+                                <td>@(reading is null ? "not reported" : Format(reading.Value))</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</figure>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<MetricSeries> Series { get; set; } = [];
+
+    /// <summary>Which series is the subject, by name. Null makes every line context —
+    /// see the note at the top of this file about when that is the wrong
+    /// component.</summary>
+    [Parameter]
+    public string? Selected { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>What the first column of the hidden table is called.</summary>
+    [Parameter]
+    public string NameHeading { get; set; } = "Series";
+
+    [Parameter]
+    public Func<decimal, string>? FormatValue { get; set; }
+
+    /// <summary>The y-max. Left null it is the largest value across every series,
+    /// which keeps the lines in proportion to each other — the only thing an overlay
+    /// is for.</summary>
+    [Parameter]
+    public decimal? SharedMax { get; set; }
+
+    [Parameter]
+    public string Height { get; set; } = "11rem";
+
+    [Parameter]
+    public string? EmptyMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-spotlight</c> as the class this block carries, and
+    /// every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-spotlight";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>Two readings is the fewest that make a line.</summary>
+    private IReadOnlyList<MetricSeries> Drawn =>
+        [.. (Series ?? []).Where(series => series.Points.Count >= 2)];
+
+    private MetricSeries? Subject =>
+        Drawn.FirstOrDefault(series => string.Equals(series.Name, Selected, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<MetricSeries> Context => Drawn.Where(series => !ReferenceEquals(series, Subject));
+
+    private IReadOnlyList<string> Buckets
+    {
+        get
+        {
+            var longest = Drawn.OrderByDescending(series => series.Points.Count).FirstOrDefault();
+
+            return longest is null ? [] : [.. longest.Points.Select(point => point.Label)];
+        }
+    }
+
+    private decimal Max => SharedMax ?? MetricScoring.SharedMax(Drawn);
+
+    private string Caption => string.IsNullOrWhiteSpace(Label)
+        ? $"{NameHeading} over {Buckets.Count} buckets"
+        : Label;
+
+    /// <summary>The polyline for one series against the shared scale. Written
+    /// invariant: a comma decimal separator inside a points list is the separator
+    /// between x and y, and the whole line folds up.</summary>
+    private string Points(MetricSeries series)
+    {
+        var span = Max <= 0m ? 1d : (double)Max;
+        var count = series.Points.Count;
+        var step = count < 2 ? 0d : 100d / (count - 1);
+
+        return string.Join(' ', series.Points.Select((point, index) =>
+        {
+            var x = index * step;
+            var y = 40d - (double)point.Value / span * 40d;
+
+            return $"{Text(x)},{Text(y)}";
+        }));
+    }
+
+    private string LegendClass(MetricSeries series) =>
+        ReferenceEquals(series, Subject)
+            ? $"{Part("legend-item")} {Part("legend-item")}--subject"
+            : Part("legend-item");
+
+    private string StyleValue => $"--metric-spotlight-height: {Height}";
+
+    private string Format(decimal value) => (FormatValue ?? MetricFormat.Compact)(value);
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    private static string Text(double value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+}

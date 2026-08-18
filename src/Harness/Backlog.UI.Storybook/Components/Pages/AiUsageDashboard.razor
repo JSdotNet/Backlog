@@ -1,0 +1,219 @@
+@page "/ai-usage"
+
+<PageTitle>AI usage and cost — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="AI usage and cost"
+           Summary="The metric components composed into the view they were built for: what AI cost this fortnight, on what, and for whom.">
+
+    <Story Name="The whole view"
+           Description="Four tiles, then the two questions a bill raises — where the tokens went and where the money went — then the rows behind them.
+
+The reading order is deliberate. Spend leads because it is the figure someone came to this page for; cache hit rate sits beside it because it is the one number on the page a team can act on to change the first one. The breakdowns come next because they answer “on what”, and the tables last because they answer “which one exactly”, which is a question you only ask after the first two.
+
+Every figure here is consistent with every other: the tiles, the bars, the part-to-whole and both tables all add up to the same 412.4M tokens and the same 487.20 USD. Tiles and tables that disagree is the most common way a dashboard is wrong, so the fixture is built to let a reviewer check it.">
+
+        <div class="sb-dashboard">
+
+            <MetricGrid Label="AI usage and cost, last 14 days" TestId="dashboard-tiles">
+                <MetricTile Label="Spend"
+                            Value="@MetricFormat.Money(UsageFixtures.TotalCost)"
+                            Emphasis="true"
+                            Delta="new MetricDelta(0.224m, MetricDeltaUnit.Percent, UsageFixtures.PreviousPeriod, HigherIsBetter: false)"
+                            Footnote="@($"Across {UsageFixtures.Period}.")"
+                            TestId="dashboard-tile-spend">
+                    <Trend>
+                        <MetricSparkline Points="UsageFixtures.CostPerDay"
+                                         Description="Daily spend rose through the fortnight, with two weekend troughs." />
+                    </Trend>
+                </MetricTile>
+
+                <MetricTile Label="Input served from cache"
+                            Value="@MetricFormat.Percent(UsageFixtures.CacheHitRate)"
+                            Delta="new MetricDelta(0.058m, MetricDeltaUnit.Percent, UsageFixtures.PreviousPeriod)"
+                            Footnote="Of input tokens, not of all of them — output is not something a cache could have served. The one rate here that changes the one above it."
+                            TestId="dashboard-tile-cache" />
+
+                <MetricTile Label="Total tokens"
+                            Value="@MetricFormat.Compact(UsageFixtures.TotalTokens)"
+                            Delta="new MetricDelta(0.186m, MetricDeltaUnit.Percent, UsageFixtures.PreviousPeriod, HigherIsBetter: false)"
+                            TestId="dashboard-tile-tokens">
+                    <Trend>
+                        <MetricSparkline Points="UsageFixtures.TokensPerDay"
+                                         Description="Tokens per day over the last 14 days." />
+                    </Trend>
+                </MetricTile>
+
+                <MetricTile Label="Sessions"
+                            Value="@UsageFixtures.TotalSessions.ToString()"
+                            Unit="@($"≈ {MetricFormat.Money(UsageFixtures.CostPerSession)} each")"
+                            Delta="new MetricDelta(17m, MetricDeltaUnit.Absolute, UsageFixtures.PreviousPeriod)"
+                            TestId="dashboard-tile-sessions" />
+            </MetricGrid>
+
+            <div class="sb-dashboard-panel">
+                <h3 class="sb-dashboard-panel__title">Budget</h3>
+                <MetricMeter Label="Spend so far this month"
+                             Value="UsageFixtures.BudgetSpent"
+                             Max="UsageFixtures.BudgetCap"
+                             Threshold="UsageFixtures.BudgetThreshold"
+                             FormatValue="UsageFixtures.Money"
+                             TestId="dashboard-budget" />
+            </div>
+
+            <div class="sb-dashboard-split">
+                <div class="sb-dashboard-panel">
+                    <h3 class="sb-dashboard-panel__title">Where the tokens went</h3>
+                    <MetricBreakdownBar Parts="UsageFixtures.TokenKinds"
+                                        Label="By kind, cheapest first"
+                                        TestId="dashboard-token-kinds" />
+                </div>
+
+                <div class="sb-dashboard-panel">
+                    <h3 class="sb-dashboard-panel__title">Where the money went</h3>
+                    <MetricBars Points="UsageFixtures.CostPerDay"
+                                Label="@($"Per day, in {UsageFixtures.Currency}")"
+                                BucketHeading="Day"
+                                ValueHeading="Cost"
+                                FormatValue="UsageFixtures.Money"
+                                HighlightLast="true"
+                                Height="7rem"
+                                TestId="dashboard-cost-per-day" />
+                </div>
+            </div>
+
+            <div class="sb-dashboard-split">
+                <div class="sb-dashboard-panel">
+                    <h3 class="sb-dashboard-panel__title">By model</h3>
+                    <MetricBreakdown Rows="UsageFixtures.ByModel"
+                                     AriaLabel="Usage and cost by model"
+                                     NameHeading="Model"
+                                     ShareOf="MetricShareOf.Cost"
+                                     TestId="dashboard-by-model" />
+                </div>
+
+                <div class="sb-dashboard-panel">
+                    <h3 class="sb-dashboard-panel__title">By person</h3>
+                    <MetricBreakdown Rows="UsageFixtures.ByActor"
+                                     AriaLabel="Usage and cost by person"
+                                     NameHeading="Actor"
+                                     ShareOf="MetricShareOf.Cost"
+                                     TestId="dashboard-by-actor" />
+                </div>
+            </div>
+
+        </div>
+    </Story>
+
+    <Story Name="Before a credential exists"
+           Description="What the same view looks like on a machine where nobody has configured a usage API yet — which is every machine, until someone does. Both usage clients answer an availability question before a data question, and this is that answer rendered.
+
+It is not an error state and it does not use the error surface. Each tile keeps its label so the reader can still see what the dashboard would show, and the reason is the provider's own sentence, because it is the only thing on screen naming the credential that is missing.">
+        <div class="sb-dashboard">
+            <MetricGrid Label="AI usage and cost, unavailable" TestId="dashboard-unavailable-tiles">
+                <MetricTile Label="Spend"
+                            Emphasis="true"
+                            Status="MetricStatusKind.Unavailable"
+                            StatusMessage="No Claude admin key is configured. Usage and cost reporting needs an admin key for the organization."
+                            TestId="dashboard-unavailable-spend" />
+
+                <MetricTile Label="Copilot seats"
+                            Status="MetricStatusKind.Unavailable"
+                            StatusMessage="@UsageFixtures.NoCredential"
+                            TestId="dashboard-unavailable-seats" />
+            </MetricGrid>
+
+            <div class="sb-dashboard-panel">
+                <h3 class="sb-dashboard-panel__title">Copilot seats</h3>
+                <MetricBreakdown Rows="NoRows"
+                                 AriaLabel="Copilot seats"
+                                 NameHeading="Seat"
+                                 Status="MetricStatusKind.Unavailable"
+                                 StatusMessage="@UsageFixtures.NoCredential"
+                                 TestId="dashboard-unavailable-table" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="While it loads, and when the period is empty"
+           Description="The two states between “no credential” and “here are your figures”. Loading keeps the labels and the layout, so the grid does not reflow under the reader when the numbers arrive.
+
+Empty is a fact about the period rather than a failure, and it says so in those terms. A team that took a fortnight off has no usage, and a dashboard that renders that as an error trains people to ignore its errors.">
+        <div class="sb-dashboard">
+            <MetricGrid Label="AI usage and cost, loading" TestId="dashboard-loading-tiles">
+                <MetricTile Label="Spend" Emphasis="true" Status="MetricStatusKind.Loading" TestId="dashboard-loading-spend" />
+                <MetricTile Label="Input served from cache" Status="MetricStatusKind.Loading" TestId="dashboard-loading-cache" />
+                <MetricTile Label="Total tokens" Status="MetricStatusKind.Loading" TestId="dashboard-loading-tokens" />
+                <MetricTile Label="Sessions" Status="MetricStatusKind.Loading" TestId="dashboard-loading-sessions" />
+            </MetricGrid>
+
+            <div class="sb-dashboard-split">
+                <div class="sb-dashboard-panel">
+                    <h3 class="sb-dashboard-panel__title">Where the tokens went</h3>
+                    <MetricBreakdownBar Parts="NoParts"
+                                        Label="By kind, cheapest first"
+                                        EmptyMessage="No tokens in this period."
+                                        TestId="dashboard-empty-kinds" />
+                </div>
+
+                <div class="sb-dashboard-panel">
+                    <h3 class="sb-dashboard-panel__title">Where the money went</h3>
+                    <MetricBars Points="NoPoints"
+                                Label="@($"Per day, in {UsageFixtures.Currency}")"
+                                EmptyMessage="No spend in this period."
+                                TestId="dashboard-empty-cost" />
+                </div>
+            </div>
+
+            <div class="sb-dashboard-panel">
+                <h3 class="sb-dashboard-panel__title">By model</h3>
+                <MetricBreakdown Rows="NoRows"
+                                 AriaLabel="Usage and cost by model"
+                                 NameHeading="Model"
+                                 TestId="dashboard-empty-models" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Where the data comes from"
+           Description="This page is drawn from figures written out by hand in the storybook, not from the usage clients — the storybook references the component library and the service defaults and nothing else, and that missing reference is what proves the library carries no domain.
+
+The shapes are copied, though, so the mapping to a real report is direct:">
+        <div class="sb-table-scroll">
+            <table class="sb-table">
+                <thead>
+                    <tr><th scope="col">On this page</th><th scope="col">Comes from</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Mapping)
+                    {
+                        <tr>
+                            <td>@row.OnPage</td>
+                            <td><code>@row.From</code></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly IReadOnlyList<MetricRow> NoRows = [];
+    private static readonly IReadOnlyList<MetricPart> NoParts = [];
+    private static readonly IReadOnlyList<MetricPoint> NoPoints = [];
+
+    private sealed record Mapped(string OnPage, string From);
+
+    private static readonly IReadOnlyList<Mapped> Mapping =
+    [
+        new("Total tokens, and the four kinds", "ClaudeTokenUsage — InputTokens, OutputTokens, CacheCreationInputTokens, CacheReadInputTokens"),
+        new("Tokens per day", "ClaudeUsageReport.Buckets, requested with ClaudeUsageBucket.Day"),
+        new("Spend, and spend per day", "ClaudeCostReport.Buckets — Amount plus Currency, kept exactly as reported"),
+        new("By model", "ClaudeUsageResult.Model, with ClaudeCodeModelUsage.EstimatedCost"),
+        new("By person, and the sessions and commits under each", "ClaudeCodeDailyUsage — Actor, Sessions, Commits, PullRequests"),
+        new("Copilot seats", "CopilotSeat — Login, PlanType, LastActivityEditor, LastActivityAt"),
+        new("Every “not available” state on this page", "ClaudeUsageAvailability.Reason and CopilotUsageAvailability.Reason"),
+        new("The budget cap", "Nothing yet — no setting holds a spend cap, so the meter's Max is the one figure here a host would have to introduce")
+    ];
+}

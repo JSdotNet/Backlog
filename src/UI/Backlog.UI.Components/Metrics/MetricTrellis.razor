@@ -1,0 +1,169 @@
+@*
+    Small multiples: one panel per repository, all on the same y-scale.
+
+    This is the component to reach for first when comparing series across
+    repositories, and the reason is the palette. A multi-series line chart needs one
+    categorical colour per series, and this product has exactly one saturated hue —
+    components.css says so, and says two providers are drawn as two charts rather
+    than two series on one plot. Small multiples are what that rule leaves, and they
+    were the better answer anyway: five overlaid lines are hard to read at any
+    number of colours, while five panels side by side are read at a glance.
+
+    The shared scale is the whole mechanism. Left to itself every panel scales to
+    its own peak, every repository draws an equally busy mountain, and a repository
+    with a tenth of its neighbour's activity looks identical to it. The y-max comes
+    from the largest value across every series, and the panel heading says what that
+    max is, once, for all of them.
+
+    Each panel prints its own latest figure and its change over the window, so the
+    picture is never the only copy of a number.
+*@
+
+<section class="@ClassValue" aria-labelledby="@(string.IsNullOrWhiteSpace(Label) ? null : LabelId)" aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label) || Drawn.Count > 0)
+    {
+        <header class="@(Part("head"))">
+            @if (!string.IsNullOrWhiteSpace(Label))
+            {
+                <h3 class="@(Part("label"))" id="@LabelId">@Label</h3>
+            }
+            @if (Drawn.Count > 0)
+            {
+                @* Printed once rather than per panel: it is the same number in every
+                   panel, and that is the point being made. *@
+                <p class="@(Part("scale"))">Same scale in every panel — 0 to @Format(Max).</p>
+            }
+        </header>
+    }
+
+    @if (Drawn.Count == 0)
+    {
+        <MetricStatus Kind="MetricStatusKind.Empty" Message="@EmptyMessage" CssClass="@(Part("status"))" />
+    }
+    else
+    {
+        <ul class="@(Part("panels"))" style="@StyleValue">
+            @foreach (var series in Drawn)
+            {
+                <li class="@PanelClass(series)">
+                    <p class="@(Part("name"))">@series.Name</p>
+
+                    <p class="@(Part("value"))">
+                        @Format(series.Latest?.Value ?? 0m)
+                        @if (series.Change is not null)
+                        {
+                            <span class="@(Part("change"))">@MetricFormat.Delta(new MetricDelta(series.Change.Value, MetricDeltaUnit.Percent, string.Empty))</span>
+                        }
+                    </p>
+
+                    @* Left as a plain MetricSparkline rather than renamed through
+                       BaseClass: a panel's plot is a sparkline and wants to look
+                       like one, and renaming it would fork the sparkline's styles
+                       into a second copy that then has to be kept in step. *@
+                    <MetricSparkline Points="series.Points"
+                                     Max="Max"
+                                     Height="@PanelHeight"
+                                     Description="@Sentence(series)" />
+
+                    @if (!string.IsNullOrWhiteSpace(series.Detail))
+                    {
+                        <p class="@(Part("detail"))">@series.Detail</p>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    /// <summary>One series per panel. Panels render in the order given — sorting is
+    /// the caller's, because the useful order depends on the question: best first
+    /// for a standings view, worst first for a review.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricSeries> Series { get; set; } = [];
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>Names the trellis when there is no visible label.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>How each panel's figure reads. Defaults to the compact notation; a
+    /// trellis over money passes a formatter that keeps the currency.</summary>
+    [Parameter]
+    public Func<decimal, string>? FormatValue { get; set; }
+
+    /// <summary>The y-max every panel shares. Left null it is the largest value
+    /// across every series, which is almost always what is wanted; set it to hold
+    /// the scale steady while the window changes, so the panels do not silently
+    /// rescale under the reader.</summary>
+    [Parameter]
+    public decimal? SharedMax { get; set; }
+
+    /// <summary>Marks one panel as the one being talked about. The other panels stay
+    /// exactly as they are — this adds emphasis, it does not mute the rest.</summary>
+    [Parameter]
+    public string? Highlight { get; set; }
+
+    /// <summary>How narrow a panel may get before the grid drops a column.</summary>
+    [Parameter]
+    public string MinPanelWidth { get; set; } = "11rem";
+
+    [Parameter]
+    public string PanelHeight { get; set; } = "3rem";
+
+    [Parameter]
+    public string? EmptyMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-trellis</c> as the class this block carries, and
+    /// every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-trellis";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private readonly string _labelId = "metric-trellis-label-" + Guid.NewGuid().ToString("N");
+
+    private string LabelId => _labelId;
+
+    /// <summary>A series with no readings has no panel: an empty box under a name
+    /// says "zero" where the data says "nothing was reported".</summary>
+    private IReadOnlyList<MetricSeries> Drawn =>
+        [.. (Series ?? []).Where(series => series.Points.Count > 0)];
+
+    private decimal Max => SharedMax ?? MetricScoring.SharedMax(Drawn);
+
+    private string StyleValue => $"--metric-trellis-min: {MinPanelWidth}";
+
+    private string PanelClass(MetricSeries series) =>
+        string.Equals(series.Name, Highlight, StringComparison.OrdinalIgnoreCase)
+            ? $"{Part("panel")} {Part("panel")}--highlight"
+            : Part("panel");
+
+    private string Format(decimal value) => (FormatValue ?? MetricFormat.Compact)(value);
+
+    /// <summary>What a screen reader hears instead of the panel's picture. The latest
+    /// figure is already printed above it, so this adds the shape and the span the
+    /// drawing carries and the text does not.</summary>
+    private string Sentence(MetricSeries series)
+    {
+        var low = series.Points.Min(point => point.Value);
+        var high = series.Points.Max(point => point.Value);
+
+        return $"{series.Name}: {series.Points.Count} readings from {series.Points[0].Label} to {series.Points[^1].Label}, "
+            + $"between {Format(low)} and {Format(high)}.";
+    }
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+}
