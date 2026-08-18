@@ -131,9 +131,12 @@ Two standing exceptions:
 - **Documentation-only changes** — edits confined to `.arc42/`, `.domain/`, `.backlog/`,
   `.tech/`, `.design/`, `.github/`, or `README.md` have no runtime surface. Verification is
   documentation review plus `build.mjs --check`; skip startup and Playwright.
-- **Non-UI code changes** — work confined to `tests/`, `src/Shared/`, or
+- **Non-UI code changes** — work confined to `tests/`, `src/Core/Backlog.SharedKernel`, or
   `src/Infrastructure/` with no user-visible behavior change is adequately covered by
-  `dotnet test`; `targeted` depth is sufficient.
+  `dotnet test`; `targeted` depth is sufficient. `src/Core/` as a whole does **not**
+  qualify: `src/Core/Backlog.UI.Components` is the shared control library every screen
+  renders, so a change there takes the full `playwright-qa` depth against
+  `ui-storybook` and `desktop-web-harness`.
 
 
 ## Orchestration Skill Sources

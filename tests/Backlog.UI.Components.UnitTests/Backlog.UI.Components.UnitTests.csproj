@@ -28,7 +28,7 @@
 
   <ItemGroup>
     <!-- Only the library: these tests exist to prove it stands on its own. -->
-    <ProjectReference Include="..\..\src\UI\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
   </ItemGroup>
 
 </Project>

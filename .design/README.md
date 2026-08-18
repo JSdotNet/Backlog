@@ -83,8 +83,8 @@ for anything specified here.
 | What | Where |
 |---|---|
 | Storybook host | `src/Harness/Backlog.UI.Storybook` |
-| Component library it renders | `src/UI/Backlog.UI.Components` |
-| Token declarations — the code side of `color-scheme.md` and `typography-and-layout.md` | `src/UI/Backlog.UI.Components/wwwroot/components.css` (`:root`) |
+| Component library it renders | `src/Core/Backlog.UI.Components` |
+| Token declarations — the code side of `color-scheme.md` and `typography-and-layout.md` | `src/Core/Backlog.UI.Components/wwwroot/components.css` (`:root`) |
 
 Run it standalone, or as the `ui-storybook` Aspire resource:
 

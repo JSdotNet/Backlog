@@ -76,11 +76,11 @@ public sealed class SettingsAiUsageTests
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-tests", Guid.NewGuid().ToString("n"));
 
-        var store = new BacklogStore(Path.Combine(root, "store"));
-        var features = new AppFeatureSettingsStore(Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(AppFeatureSettingsStore.GitHubIntegration, false);
-        _ = features.SetEnabled(AppFeatureSettingsStore.AiAssistant, aiAssistantEnabled);
-        _ = features.SetEnabled(AppFeatureSettingsStore.UsageMetrics, usageMetricsEnabled);
+        var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
+        var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
+        _ = features.SetEnabled(BacklogFeatures.GitHubIntegration, false);
+        _ = features.SetEnabled(AppFeatures.AiAssistant, aiAssistantEnabled);
+        _ = features.SetEnabled(AppFeatures.UsageMetrics, usageMetricsEnabled);
 
         var azureFoundry = new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json"));
         var claude = new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json"));
@@ -92,7 +92,7 @@ public sealed class SettingsAiUsageTests
 
         var testContext = new BunitContext();
         testContext.Services.AddSingleton(store);
-        testContext.Services.AddSingleton(features);
+        testContext.Services.AddSingleton<IAppFeatureSettings>(features);
         testContext.Services.AddSingleton(azureFoundry);
         testContext.Services.AddSingleton(claude);
         testContext.Services.AddSingleton(github);

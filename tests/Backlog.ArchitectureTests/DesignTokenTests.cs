@@ -75,7 +75,7 @@ public class DesignTokenTests
     public void No_application_stylesheet_redeclares_a_library_token()
     {
         var libraryTokens = DeclaredTokens(
-            Path.Combine(Repository.Root.FullName, "src", "UI", "Backlog.UI.Components", "wwwroot", "components.css"));
+            Path.Combine(Repository.Root.FullName, "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css"));
 
         Assert.NotEmpty(libraryTokens);
 
@@ -103,7 +103,7 @@ public class DesignTokenTests
     public void Every_colour_the_library_declares_matches_the_value_in_dotdesign()
     {
         var declared = DeclaredColors(Path.Combine(
-            Repository.Root.FullName, "src", "UI", "Backlog.UI.Components", "wwwroot", "components.css"));
+            Repository.Root.FullName, "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css"));
 
         var specified = SpecifiedColors();
 
@@ -209,14 +209,19 @@ public class DesignTokenTests
     }
 
     /// <summary>The root documents that decide stylesheet order: the MAUI heads'
-    /// index.html and each harness's App.razor.</summary>
+    /// index.html and each harness's App.razor.
+    ///
+    /// <para>Searched across the UI folders rather than <c>src/App</c>, for the
+    /// same reason as <see cref="ApplicationStylesheets"/>: a module UI project
+    /// carries no host document today, and a rule that could not see one if it
+    /// appeared would be relying on that staying true.</para></summary>
     private static IEnumerable<FileInfo> HostDocuments()
     {
-        foreach (var folder in new[] { "App", "Harness" })
-        {
-            var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", folder));
-            if (!root.Exists) continue;
+        var roots = Repository.UserInterfaceFolders()
+            .Append(new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", "Harness")));
 
+        foreach (var root in roots.Where(root => root.Exists))
+        {
             var candidates = root.EnumerateFiles("index.html", SearchOption.AllDirectories)
                 .Concat(root.EnumerateFiles("App.razor", SearchOption.AllDirectories));
 
@@ -227,14 +232,19 @@ public class DesignTokenTests
         }
     }
 
-    private static IEnumerable<FileInfo> ApplicationStylesheets()
-    {
-        var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", "App"));
-
-        return root.Exists
-            ? root.EnumerateFiles("*.css", SearchOption.AllDirectories).Where(NotBuildOutput)
-            : [];
-    }
+    /// <summary>Every stylesheet the application side owns: all of
+    /// <c>src/App</c>, plus each module's own <c>.UI</c> project.
+    ///
+    /// <para>This used to read <c>src/App</c> alone and covered the same files,
+    /// because the desktop's contexts were folders inside
+    /// <c>Backlog.Desktop.UI</c>. They are projects under <c>src/Modules</c>
+    /// now, and a context that redeclared the palette in a scoped stylesheet of
+    /// its own would have gone unread — which is exactly the drift this class
+    /// exists to prevent, arriving through the door the split opened.</para></summary>
+    private static IEnumerable<FileInfo> ApplicationStylesheets() =>
+        Repository.UserInterfaceFolders()
+            .SelectMany(root => root.EnumerateFiles("*.css", SearchOption.AllDirectories))
+            .Where(NotBuildOutput);
 
     private static bool NotBuildOutput(FileInfo file) =>
         !file.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")

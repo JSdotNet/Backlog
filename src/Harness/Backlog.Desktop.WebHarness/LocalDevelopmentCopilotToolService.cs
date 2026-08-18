@@ -1,16 +1,16 @@
 using System.Text.Json.Nodes;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
-using Backlog.Desktop.UI.Shell;
-using Backlog.Desktop.UI.Workspace;
+using Backlog.Modules.DevPc.Abstractions;
+using Backlog.Modules.Backlog.Abstractions.Services;
 
 namespace Backlog.Desktop.WebHarness;
 
 internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
 {
-    private readonly BacklogStore _store;
+    private readonly IBacklogStore _store;
 
-    public LocalDevelopmentCopilotToolService(BacklogStore store)
+    public LocalDevelopmentCopilotToolService(IBacklogStore store)
     {
         _store = store;
     }

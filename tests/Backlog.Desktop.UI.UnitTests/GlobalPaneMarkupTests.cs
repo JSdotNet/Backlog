@@ -28,7 +28,7 @@ public sealed class GlobalPaneMarkupTests
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
         Assert.Contains("@if (InboxPaneOptionVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("AppFeatureSettingsStore.InboxPane", home, StringComparison.Ordinal);
+        Assert.Contains("AppFeatures.InboxPane", home, StringComparison.Ordinal);
         Assert.Contains("_globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);", home, StringComparison.Ordinal);
     }
 
@@ -180,7 +180,7 @@ public sealed class GlobalPaneMarkupTests
 
     private static string FindAppJs() => FindProjectFile(Path.Combine("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.js"));
 
-    private static string FindComponentsJs() => FindProjectFile(Path.Combine("src", "UI", "Backlog.UI.Components", "wwwroot", "components.js"));
+    private static string FindComponentsJs() => FindProjectFile(Path.Combine("src", "Core", "Backlog.UI.Components", "wwwroot", "components.js"));
 
     private static string FindProjectFile(string relativePath)
     {

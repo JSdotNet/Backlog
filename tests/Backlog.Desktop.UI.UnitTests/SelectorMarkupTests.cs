@@ -11,9 +11,9 @@ public sealed class SelectorMarkupTests
     [Fact]
     public void The_selectors_live_in_the_shared_component_library()
     {
-        Assert.True(File.Exists(FindRepoFile("src", "UI", "Backlog.UI.Components", "Selects", "StatusSelector.razor")));
-        Assert.True(File.Exists(FindRepoFile("src", "UI", "Backlog.UI.Components", "Selects", "PrioritySelector.razor")));
-        Assert.True(File.Exists(FindRepoFile("src", "UI", "Backlog.UI.Components", "Selects", "RepositorySelector.razor")));
+        Assert.True(File.Exists(FindRepoFile("src", "Core", "Backlog.UI.Components", "Selects", "StatusSelector.razor")));
+        Assert.True(File.Exists(FindRepoFile("src", "Core", "Backlog.UI.Components", "Selects", "PrioritySelector.razor")));
+        Assert.True(File.Exists(FindRepoFile("src", "Core", "Backlog.UI.Components", "Selects", "RepositorySelector.razor")));
 
         Assert.False(Directory.EnumerateFiles(
                 FindRepoDirectory("src", "App", "Backlog.Desktop.UI", "BacklogManagement"), "*Selector.razor")

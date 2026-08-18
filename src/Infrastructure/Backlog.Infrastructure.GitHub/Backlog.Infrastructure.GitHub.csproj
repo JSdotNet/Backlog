@@ -9,7 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Shared\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- Second Brain's published surface. A repository carries a list of that
+         context's KnowledgeFolderSetting, which is the adapter conforming to a
+         module's language rather than a module reaching for an adapter — the
+         direction ModuleBoundaryTests allows and the one that keeps the setting
+         out of a project the module may not see. -->
+    <ProjectReference Include="..\..\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

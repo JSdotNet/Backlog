@@ -1,3 +1,4 @@
+using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Backlog.DomainModels;
 
@@ -86,7 +87,7 @@ public class RepositoryBacklogSourceTests
         File.WriteAllText(Path.Combine(repo.BacklogDirectory, "domain-backlog.md"), "# Domain work\n\n```meta\nstatus: active\n```\n\n## An item\n");
         File.WriteAllText(Path.Combine(repo.BacklogDirectory, "notes.txt"), "not markdown");
 
-        var documents = new RepositoryBacklogSource(repo.KnowledgeSource).Load("docs");
+        var documents = new RepositoryBacklogSource(repo.BacklogStore).Load("docs");
 
         var document = Assert.Single(documents);
         Assert.Equal(EntryStatus.InProgress, document.Status);
@@ -101,7 +102,7 @@ public class RepositoryBacklogSourceTests
         using var repo = new TemporaryRepository(backlogEnabled: false);
         File.WriteAllText(Path.Combine(repo.BacklogDirectory, "work.md"), "# Work\n");
 
-        Assert.Empty(new RepositoryBacklogSource(repo.KnowledgeSource).Load("docs"));
+        Assert.Empty(new RepositoryBacklogSource(repo.BacklogStore).Load("docs"));
     }
 
     [Fact]
@@ -109,7 +110,7 @@ public class RepositoryBacklogSourceTests
     {
         using var repo = new TemporaryRepository(createBacklogDirectory: false);
 
-        Assert.Empty(new RepositoryBacklogSource(repo.KnowledgeSource).Load("docs"));
+        Assert.Empty(new RepositoryBacklogSource(repo.BacklogStore).Load("docs"));
     }
 
     private sealed class TemporaryRepository : IDisposable
@@ -128,14 +129,16 @@ public class RepositoryBacklogSourceTests
             settings.SetCloneDirectory("docs", CloneDirectory);
             settings.SetKnowledgeFolder("docs", ".backlog", backlogEnabled, null);
 
-            KnowledgeSource = new KnowledgeFolderSource(settings);
+            BacklogStore = BacklogTestHost.BacklogStoreFor(
+                new WorkspaceSettingsStore(Path.Combine(_root, "workspace")),
+                new KnowledgeFolderSource(settings));
         }
 
         public string CloneDirectory { get; }
 
         public string BacklogDirectory { get; }
 
-        public KnowledgeFolderSource KnowledgeSource { get; }
+        public IBacklogStore BacklogStore { get; }
 
         public void Dispose()
         {

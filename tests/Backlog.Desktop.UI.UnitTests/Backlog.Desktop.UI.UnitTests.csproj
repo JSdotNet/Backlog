@@ -8,16 +8,37 @@
     <Using Include="Backlog.UI.Components.Markdown" />
 
     <!-- The app is split by bounded context (Inbox, BacklogManagement,
-         Knowledge) over a shared Workspace and a composing Shell. Tests sit
-         outside that boundary and check all of it, so the four namespaces are
-         imported once here instead of per file. -->
+         Knowledge) under a composing Shell — namespaces that are projects rather
+         than folders in one. The namespaces did not move with them, so these
+         lines are unchanged: each module UI project keeps publishing the
+         namespace it always did. Tests sit outside that boundary and check all
+         of it, so the namespaces are imported once here instead of per file. -->
     <Using Include="Backlog.Modules.Backlog.Abstractions" />
     <Using Include="Backlog.Modules.Backlog.Abstractions.DataTransferObjects" />
-    <Using Include="Backlog.Desktop.UI.Workspace" />
+    <!-- Dev PC Management publishes the Copilot tool port, the DTOs behind it and
+         the .tools catalog format. Unlike the contexts above it never had a
+         folder in Backlog.Desktop.UI to keep a namespace from, so its types say
+         Backlog.Modules.DevPc.Abstractions. -->
+    <Using Include="Backlog.Modules.DevPc.Abstractions" />
+    <!-- Second Brain publishes the knowledge-folder port, the configured-folder
+         format and the location it resolves to. Like Dev PC Management it never
+         had a folder in Backlog.Desktop.UI, so its types say
+         Backlog.Modules.Knowledge.Abstractions. -->
+    <Using Include="Backlog.Modules.Knowledge.Abstractions" />
+    <!-- The feature port and the app-wide feature keys, and the file-system
+         adapters that answer the workspace ports these tests drive directly. -->
+    <Using Include="Backlog.SharedKernel" />
+    <Using Include="Backlog.Infrastructure.FileSystem" />
     <Using Include="Backlog.Desktop.UI.Inbox" />
     <Using Include="Backlog.Desktop.UI.BacklogManagement" />
     <Using Include="Backlog.Desktop.UI.Knowledge" />
     <Using Include="Backlog.Desktop.UI.Shell" />
+    <!-- The self-update port and its result types moved out of the Shell folder
+         into AppUpdate/ and took their namespace with them. The settings screen
+         moved folders too but kept the Shell namespace; see the comment in
+         src/App/Backlog.Desktop.UI/Settings/_Imports.razor for the name
+         collision that decided it. -->
+    <Using Include="Backlog.Desktop.UI.AppUpdate" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,6 +47,13 @@
     <ProjectReference Include="..\..\src\harness\Backlog.AzureFoundry.TestService\Backlog.AzureFoundry.TestService.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Backlog\Backlog.Modules.Backlog.UI\Backlog.Modules.Backlog.UI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.UI\Backlog.Modules.Knowledge.UI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\App\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
   </ItemGroup>
 

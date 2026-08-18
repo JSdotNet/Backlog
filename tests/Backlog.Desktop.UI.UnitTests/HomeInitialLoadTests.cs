@@ -40,7 +40,7 @@ public sealed class HomeInitialLoadTests
     private static async Task<Harness> CreateHarnessAsync(string entryText)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-home-initial-load", Guid.NewGuid().ToString("n"));
-        var store = new BacklogStore(Path.Combine(root, "store"));
+        var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
 
         // Written through the real use case, so the store is left exactly as the
         // app leaves it — index and all.
@@ -48,17 +48,17 @@ public sealed class HomeInitialLoadTests
         Assert.True(saved.IsSuccess);
 
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
-        var featureSettings = new AppFeatureSettingsStore(Path.Combine(root, "features", "features.json"));
+        var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
 
         foreach (var feature in new[]
                  {
-                     AppFeatureSettingsStore.InboxPane,
-                     AppFeatureSettingsStore.KnowledgeSections,
-                     AppFeatureSettingsStore.RepositoryKnowledge,
-                     AppFeatureSettingsStore.SystemTools,
-                     AppFeatureSettingsStore.AiAssistant,
-                     AppFeatureSettingsStore.FeedbackReporting,
-                     AppFeatureSettingsStore.GitHubIntegration
+                     AppFeatures.InboxPane,
+                     KnowledgeFeatures.KnowledgeSections,
+                     KnowledgeFeatures.RepositoryKnowledge,
+                     DevPcFeatures.SystemTools,
+                     AppFeatures.AiAssistant,
+                     AppFeatures.FeedbackReporting,
+                     BacklogFeatures.GitHubIntegration
                  })
         {
             _ = featureSettings.SetEnabled(feature, false);
@@ -66,17 +66,19 @@ public sealed class HomeInitialLoadTests
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
         var knowledgeFolderSource = new KnowledgeFolderSource(gitHubSettings, store);
-        var repositoryBacklog = new RepositoryBacklogSource(knowledgeFolderSource);
+        var repositoryBacklog = new RepositoryBacklogSource(
+            BacklogTestHost.BacklogStoreFor(store, knowledgeFolderSource));
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
-        context.Services.AddSingleton(featureSettings);
+        context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);
+        context.Services.AddSingleton(new FeedbackReporter(gitHub));
         context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
         context.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-        context.Services.AddSingleton(knowledgeFolderSource);
+        context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
         context.Services.AddSingleton(repositoryBacklog);
         context.Services.AddSingleton<DesignKnowledgeProvider>();
         context.Services.AddSingleton<TechnologyKnowledgeService>();
@@ -88,9 +90,9 @@ public sealed class HomeInitialLoadTests
         context.Services.AddSingleton<KnowledgeScope>();
         context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<KnowledgeFolderSource>()));
+        context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
         context.Services.AddScoped(sp => BacklogTestHost.StateFor(
-            sp.GetRequiredService<BacklogStore>(),
+            sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
             BacklogCopilotCli.Unavailable,
             sp.GetRequiredService<RepositoryBacklogSource>()));

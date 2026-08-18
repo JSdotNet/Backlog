@@ -28,4 +28,12 @@ public sealed record BacklogEntryDto(
 /// <summary>Where an entry has been projected to outside this system — today a
 /// GitHub issue. Kept as data rather than a typed link so the module does not
 /// have to know what GitHub is.</summary>
-public sealed record EntryProjectionDto(string RepoId, string ExternalId, string TargetType);
+public sealed record EntryProjectionDto(string RepoId, string ExternalId, string TargetType)
+{
+    /// <summary>The <see cref="TargetType"/> an entry carries once it has been
+    /// pushed to a GitHub issue. The value is this context's vocabulary rather
+    /// than the adapter's: what an entry was projected onto is a fact about the
+    /// entry, and a caller comparing against it should not have to reference the
+    /// adapter that happened to create it.</summary>
+    public const string IssueTargetType = "issue";
+}

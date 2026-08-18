@@ -9,7 +9,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
     [Fact]
     public async Task Reports_configuration_needed_when_no_repository_is_configured()
     {
-        var view = await new DomainKnowledgeStore(NewSettingsStore()).LoadAsync();
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(NewSettingsStore())).LoadAsync();
 
         Assert.NotNull(view.Error);
         Assert.Empty(view.Contexts);
@@ -26,7 +26,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         settings.SetRepositories(repositories);
         settings.SetCloneDirectory("backlog", repo);
 
-        var view = await new DomainKnowledgeStore(settings).LoadAsync();
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync();
 
         Assert.Null(view.Error);
         Assert.Equal("JSdotNet/Backlog", view.RepositoryLabel);
@@ -65,7 +65,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         File.WriteAllText(Path.Combine(repo, ".domain", "inbox", "config.md"), "# Inbox config");
         var settings = ConfiguredSettings(repo);
 
-        var view = await new DomainKnowledgeStore(settings).LoadAsync("backlog");
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
 
         var context = Assert.Single(view.Contexts);
         Assert.Equal(
@@ -87,7 +87,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         settings.SetCloneDirectory("backlog", repo);
         settings.SetKnowledgeFolder("backlog", ".domain", enabled: true, path: "knowledge/.domain");
 
-        var view = await new DomainKnowledgeStore(settings).LoadAsync();
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync();
 
         Assert.Null(view.Error);
         Assert.EndsWith(Path.Combine("knowledge", ".domain"), view.RootPath);
@@ -100,7 +100,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         var repo = TempDir();
         WriteDomain(repo);
         var settings = ConfiguredSettings(repo);
-        var store = new DomainKnowledgeStore(settings);
+        var store = new DomainKnowledgeStore(new KnowledgeFolderSource(settings));
 
         await store.UpdateStatusAsync("backlog", ".domain/inbox/features.md", "accepted");
         var view = await store.LoadAsync("backlog");
@@ -116,7 +116,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         var repo = TempDir();
         WriteDomain(repo);
         var settings = ConfiguredSettings(repo);
-        var store = new DomainKnowledgeStore(settings);
+        var store = new DomainKnowledgeStore(new KnowledgeFolderSource(settings));
 
         await store.UpdateStatusAsync("backlog", ".domain/inbox/features.md#feature-inbox-capture", "adopted");
         var view = await store.LoadAsync("backlog");

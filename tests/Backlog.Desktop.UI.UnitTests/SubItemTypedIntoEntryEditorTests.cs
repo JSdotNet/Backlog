@@ -82,7 +82,7 @@ public sealed class SubItemTypedIntoEntryEditorTests : IDisposable
         var root = Path.Combine(Path.GetTempPath(), "backlog-typed-sub-item", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
 
-        var store = new BacklogStore(root, Path.Combine(root, "settings.json"));
+        var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
         return BacklogTestHost.StateFor(store, new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe()));
     }

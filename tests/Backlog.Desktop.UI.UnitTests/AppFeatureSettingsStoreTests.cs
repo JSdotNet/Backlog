@@ -11,11 +11,11 @@ public sealed class AppFeatureSettingsStoreTests
 
         try
         {
-            var store = new AppFeatureSettingsStore(path);
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            var message = store.SetEnabled(AppFeatureSettingsStore.Backlog, enabled: false);
+            var message = store.SetEnabled(BacklogFeatures.Backlog, enabled: false);
 
-            Assert.True(store.IsEnabled(AppFeatureSettingsStore.Backlog));
+            Assert.True(store.IsEnabled(BacklogFeatures.Backlog));
             Assert.Contains("always available", message);
             Assert.Empty(store.Current.DisabledFeatures);
         }
@@ -32,17 +32,17 @@ public sealed class AppFeatureSettingsStoreTests
 
         try
         {
-            var store = new AppFeatureSettingsStore(path);
-            store.SetEnabled(AppFeatureSettingsStore.GitHubIntegration, enabled: false);
-            store.SetEnabled(AppFeatureSettingsStore.CopilotCli, enabled: false);
-            store.SetEnabled(AppFeatureSettingsStore.AdditionalRepositories, enabled: false);
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+            store.SetEnabled(BacklogFeatures.GitHubIntegration, enabled: false);
+            store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
+            store.SetEnabled(BacklogFeatures.AdditionalRepositories, enabled: false);
 
-            var restarted = new AppFeatureSettingsStore(path);
+            var restarted = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(restarted.IsEnabled(AppFeatureSettingsStore.GitHubIntegration));
-            Assert.False(restarted.IsEnabled(AppFeatureSettingsStore.CopilotCli));
-            Assert.False(restarted.IsEnabled(AppFeatureSettingsStore.AdditionalRepositories));
-            Assert.True(restarted.IsEnabled(AppFeatureSettingsStore.Backlog));
+            Assert.False(restarted.IsEnabled(BacklogFeatures.GitHubIntegration));
+            Assert.False(restarted.IsEnabled(AppFeatureKeys.CopilotCli));
+            Assert.False(restarted.IsEnabled(BacklogFeatures.AdditionalRepositories));
+            Assert.True(restarted.IsEnabled(BacklogFeatures.Backlog));
         }
         finally
         {
@@ -55,19 +55,19 @@ public sealed class AppFeatureSettingsStoreTests
     {
         Assert.Equal(
             [
-                AppFeatureSettingsStore.Backlog,
-                AppFeatureSettingsStore.InboxPane,
-                AppFeatureSettingsStore.KnowledgeSections,
-                AppFeatureSettingsStore.RepositoryKnowledge,
-                AppFeatureSettingsStore.AdditionalRepositories,
-                AppFeatureSettingsStore.SystemTools,
-                AppFeatureSettingsStore.GitHubIntegration,
-                AppFeatureSettingsStore.FeedbackReporting,
-                AppFeatureSettingsStore.CopilotCli,
-                AppFeatureSettingsStore.AiAssistant,
-                AppFeatureSettingsStore.UsageMetrics
+                BacklogFeatures.Backlog,
+                AppFeatures.InboxPane,
+                KnowledgeFeatures.KnowledgeSections,
+                KnowledgeFeatures.RepositoryKnowledge,
+                BacklogFeatures.AdditionalRepositories,
+                DevPcFeatures.SystemTools,
+                BacklogFeatures.GitHubIntegration,
+                AppFeatures.FeedbackReporting,
+                AppFeatureKeys.CopilotCli,
+                AppFeatures.AiAssistant,
+                AppFeatures.UsageMetrics
             ],
-            AppFeatureSettingsStore.Features.Select(feature => feature.Key));
+            AppFeatures.All.Select(feature => feature.Key));
     }
 
     [Fact]
@@ -77,13 +77,13 @@ public sealed class AppFeatureSettingsStoreTests
 
         try
         {
-            var store = new AppFeatureSettingsStore(path);
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(store.IsEnabled(AppFeatureSettingsStore.UsageMetrics));
+            Assert.False(store.IsEnabled(AppFeatures.UsageMetrics));
 
-            store.SetEnabled(AppFeatureSettingsStore.UsageMetrics, enabled: true);
+            store.SetEnabled(AppFeatures.UsageMetrics, enabled: true);
 
-            Assert.True(new AppFeatureSettingsStore(path).IsEnabled(AppFeatureSettingsStore.UsageMetrics));
+            Assert.True(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(AppFeatures.UsageMetrics));
         }
         finally
         {
@@ -98,13 +98,13 @@ public sealed class AppFeatureSettingsStoreTests
 
         try
         {
-            var store = new AppFeatureSettingsStore(path);
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(store.IsEnabled(AppFeatureSettingsStore.InboxPane));
+            Assert.False(store.IsEnabled(AppFeatures.InboxPane));
 
-            store.SetEnabled(AppFeatureSettingsStore.InboxPane, enabled: true);
+            store.SetEnabled(AppFeatures.InboxPane, enabled: true);
 
-            Assert.True(new AppFeatureSettingsStore(path).IsEnabled(AppFeatureSettingsStore.InboxPane));
+            Assert.True(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(AppFeatures.InboxPane));
         }
         finally
         {
@@ -124,7 +124,7 @@ public sealed class AppFeatureSettingsStoreTests
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { disabledFeatures = Array.Empty<string>() }));
 
-            Assert.False(new AppFeatureSettingsStore(path).IsEnabled(AppFeatureSettingsStore.UsageMetrics));
+            Assert.False(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(AppFeatures.UsageMetrics));
         }
         finally
         {
@@ -139,13 +139,13 @@ public sealed class AppFeatureSettingsStoreTests
 
         try
         {
-            var store = new AppFeatureSettingsStore(path);
-            store.SetEnabled(AppFeatureSettingsStore.UsageMetrics, enabled: true);
-            store.SetEnabled(AppFeatureSettingsStore.UsageMetrics, enabled: false);
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+            store.SetEnabled(AppFeatures.UsageMetrics, enabled: true);
+            store.SetEnabled(AppFeatures.UsageMetrics, enabled: false);
 
-            var restarted = new AppFeatureSettingsStore(path);
+            var restarted = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(restarted.IsEnabled(AppFeatureSettingsStore.UsageMetrics));
+            Assert.False(restarted.IsEnabled(AppFeatures.UsageMetrics));
             Assert.Empty(restarted.Current.EnabledFeatures);
         }
         finally
@@ -166,18 +166,18 @@ public sealed class AppFeatureSettingsStoreTests
             {
                 disabledFeatures = new[]
                 {
-                    AppFeatureSettingsStore.Backlog,
-                    AppFeatureSettingsStore.GitHubIntegration,
+                    BacklogFeatures.Backlog,
+                    BacklogFeatures.GitHubIntegration,
                     "retired-feature",
                     "updates",
                     "repositories"
                 }
             }));
 
-            var store = new AppFeatureSettingsStore(path);
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.True(store.IsEnabled(AppFeatureSettingsStore.Backlog));
-            Assert.Equal([AppFeatureSettingsStore.GitHubIntegration], store.Current.DisabledFeatures);
+            Assert.True(store.IsEnabled(BacklogFeatures.Backlog));
+            Assert.Equal([BacklogFeatures.GitHubIntegration], store.Current.DisabledFeatures);
         }
         finally
         {

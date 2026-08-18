@@ -1,0 +1,12 @@
+@* Monitoring & Dashboard UI: the read side that turns signals from the other
+   contexts into visibility and follow-up. Deliberately empty until the module
+   has components of its own — an import here before there is anything to import
+   would only be a guess at what it will need.
+
+   When the first component does arrive, write every Backlog.* import as
+   @using global::Backlog.Something. This project's root namespace is
+   Backlog.Modules.Monitoring.UI, and the Razor generator emits these directives
+   inside that namespace without a global:: prefix, so the leading "Backlog"
+   binds to Backlog.Modules once a sibling puts a Backlog.Modules.Backlog
+   namespace in scope. Nothing this project references does today, which is the
+   only reason a bare import would still compile. *@

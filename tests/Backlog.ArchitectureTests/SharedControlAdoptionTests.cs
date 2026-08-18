@@ -107,11 +107,18 @@ public class SharedControlAdoptionTests
     private static string? OpeningControlTag(string line) =>
         RawControls.FirstOrDefault(control => Regex.IsMatch(line, $@"<{control}(\s|>|$)"));
 
-    /// <summary>Every .razor file in the application UI projects — the screens a
-    /// user actually sees, as opposed to the harnesses that host them.</summary>
+    /// <summary>Every .razor file in the UI projects — the screens a user
+    /// actually sees, as opposed to the harnesses that host them.
+    ///
+    /// <para>That means <c>src/App</c> and <c>src/Modules</c> both. This used to
+    /// read <c>src/App</c> alone and meant the same thing, because the desktop's
+    /// three context panes were folders inside <c>Backlog.Desktop.UI</c>. Once
+    /// they became their own projects under <c>src/Modules</c> the same code
+    /// enumerated the shell and the mobile app and nothing else — every rule
+    /// below stayed green while covering almost none of the screens it is
+    /// written about.</para></summary>
     private static IEnumerable<FileInfo> ApplicationScreens() =>
-        Repository.ProjectsUnder("src", "App")
-            .Where(project => project.Name.EndsWith(".UI.csproj", StringComparison.OrdinalIgnoreCase))
+        Repository.UserInterfaceProjects()
             .SelectMany(project => project.Directory!.EnumerateFiles("*.razor", SearchOption.AllDirectories))
             .Where(file => !file.FullName.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
                         && !file.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))

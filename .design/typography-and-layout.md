@@ -256,7 +256,7 @@ status: active
 related: [".design/README.md#living-reference-the-ui-storybook", ".design/color-scheme.md#materialization"]
 ```
 
-Declared in `src/UI/Backlog.UI.Components/wwwroot/components.css`; shown in the
+Declared in `src/Core/Backlog.UI.Components/wwwroot/components.css`; shown in the
 storybook's *Foundations* page, which measures each token in the live document
 rather than transcribing it.
 
