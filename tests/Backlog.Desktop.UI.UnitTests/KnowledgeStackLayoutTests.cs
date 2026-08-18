@@ -149,28 +149,6 @@ public sealed class KnowledgeStackLayoutTests
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
-    private static string FindAppCss()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(
-                directory.FullName,
-                "src",
-                "App",
-                "Backlog.Desktop.UI",
-                "wwwroot",
-                "app.css");
-
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException("Could not locate src\\App\\Backlog.Desktop.UI\\wwwroot\\app.css from the test output directory.");
-    }
+    private static string FindAppCss() =>
+        RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css");
 }

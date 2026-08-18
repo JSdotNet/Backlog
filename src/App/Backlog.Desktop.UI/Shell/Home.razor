@@ -2,22 +2,21 @@
 @implements IDisposable
 @inject BacklogDesktopState State
 @inject IJSRuntime JS
-@inject ICopilotToolService CopilotTools
-@inject GitHubIntegration GitHub
-@inject AppFeatureSettingsStore Features
+@inject FeedbackReporter Feedback
+@inject IAppFeatureSettings Features
 @inject IAppUpdateService Updates
 @inject IAzureFoundryChatClient AzureFoundryChat
 @inject KnowledgeScope Knowledge
 
 @*
     The shell. It owns the app chrome — header, update and feedback windows, the
-    AI panel, the system tools pane — and decides which of the three global panes
-    is on screen.
+    AI panel — and decides which of the three global panes is on screen, plus
+    whether there is room beside them for the separately-toggled tools pane.
 
-    What is inside a pane is not its business: Inbox, Backlog Management and
-    Second Brain each render themselves from their own folder, and the only thing
-    that crosses between them here is the repository scope handed to the
-    knowledge pane and the triaged item handed back from the inbox.
+    What is inside a pane is not its business: Inbox, Backlog Management, Second
+    Brain and Dev PC Management each render themselves from their own project,
+    and the only thing that crosses between them here is the repository scope
+    handed to the knowledge pane and the triaged item handed back from the inbox.
 *@
 
 <div class="shell shell--wide">
@@ -61,7 +60,7 @@
         @* Monitoring is a deliberate act, not a background poll: the backlog has
            to open instantly and offline, so nothing here waits on GitHub until
            somebody asks it to. *@
-        @if (IsFeatureEnabled(AppFeatureSettingsStore.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
+        @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
         {
             <IconButton BaseClass="icon-link"
                         id="github-sync-button"
@@ -113,7 +112,7 @@
                 </ToggleButton>
             }
         </div>
-        @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant))
+        @if (IsFeatureEnabled(AppFeatures.AiAssistant))
         {
             @* A disclosure, not a pressed state: these open a panel, so they
                carry aria-expanded and stay AppButton rather than ToggleButton. *@
@@ -127,7 +126,7 @@
                 Ask AI
             </AppButton>
         }
-        @if (IsFeatureEnabled(AppFeatureSettingsStore.SystemTools))
+        @if (IsFeatureEnabled(DevPcFeatures.SystemTools))
         {
             <AppButton BaseClass="header-tool-toggle"
                        Variant="ButtonVariant.None"
@@ -135,12 +134,12 @@
                        TestId="tools-toggle-button"
                        aria-controls="tools-pane"
                        aria-expanded="@(ToolsVisible ? "true" : "false")"
-                       OnClick="OnToolsToggleAsync">
+                       OnClick="ToggleToolsPane">
                 Tools
             </AppButton>
         }
 
-        @if (IsFeatureEnabled(AppFeatureSettingsStore.FeedbackReporting))
+        @if (IsFeatureEnabled(AppFeatures.FeedbackReporting))
         {
             <AppButton BaseClass="header-tool-toggle"
                        Variant="ButtonVariant.None"
@@ -202,7 +201,7 @@
             <Alert Message="@_appUpdateMessage" BaseClass="@_appUpdateStatusClass" TestId="app-update-status" Role="status" />
         </ChildContent>
     </Modal>
-    @if (IsFeatureEnabled(AppFeatureSettingsStore.FeedbackReporting))
+    @if (IsFeatureEnabled(AppFeatures.FeedbackReporting))
     {
         <Modal Open="_feedbackOpen"
                OpenChanged="value => { if (!value) CloseFeedbackDialog(); }"
@@ -266,7 +265,7 @@
         </Modal>
     }
 
-    @if (IsFeatureEnabled(AppFeatureSettingsStore.AiAssistant) && _aiExpanded)
+    @if (IsFeatureEnabled(AppFeatures.AiAssistant) && _aiExpanded)
     {
         <section class="ai-panel" id="ai-assistant-panel" data-testid="ai-assistant-panel" aria-labelledby="ai-assistant-title">
             <div class="ai-panel__header">
@@ -353,7 +352,7 @@
 
                 @if (ToolsVisible)
                 {
-                    @RenderToolsPane()
+                    <ToolsPane OnClose="ToggleToolsPane" />
                 }
 
                 @if (KnowledgePaneVisible)
@@ -374,10 +373,6 @@
     private DotNetObjectReference<Home>? _selfReference;
 
     private const double MinSidePaneWidthRem = SidePaneWidth.MinRem;
-    private bool _toolsLoading;
-    private string? _toolMessage;
-    private string? _toolActionKey;
-    private IReadOnlyList<CopilotToolInfo> _tools = [];
     private string? _appUpdateMessage;
     private string _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Unknown);
     private bool _checkingForAppUpdate;
@@ -421,9 +416,15 @@
         }
     }
 
-    private bool ToolsVisible => IsFeatureEnabled(AppFeatureSettingsStore.SystemTools) && _toolsExpanded;
+    /// <summary>Whether there is a tools pane on screen. Unlike the three global
+    /// panes this is a plain disclosure with no capacity rule — it docks to the
+    /// right of whatever else is in the side stack — but it is still gated on the
+    /// feature, so turning the feature off closes an open pane.</summary>
+    private bool ToolsVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) && _toolsExpanded;
 
     private void ToggleAiPanel() => _aiExpanded = !_aiExpanded;
+
+    private void ToggleToolsPane() => _toolsExpanded = !_toolsExpanded;
 
     private async Task AskAiAsync()
     {
@@ -475,7 +476,7 @@
 
     private bool BacklogPaneVisible => _globalPanes.IsEnabled(GlobalPane.Backlog);
 
-    private bool InboxFeatureEnabled => IsFeatureEnabled(AppFeatureSettingsStore.InboxPane);
+    private bool InboxFeatureEnabled => IsFeatureEnabled(AppFeatures.InboxPane);
 
     private bool InboxPaneOptionVisible => InboxFeatureEnabled;
 
@@ -484,14 +485,10 @@
     /// <summary>Whether there is any knowledge to offer. The shell asks Second
     /// Brain rather than working it out from folder settings itself.</summary>
     private bool KnowledgePaneOptionVisible =>
-        IsFeatureEnabled(AppFeatureSettingsStore.RepositoryKnowledge)
+        IsFeatureEnabled(KnowledgeFeatures.RepositoryKnowledge)
         && Knowledge.VisibleAreas(State.SelectedRepositoryAlias).Count > 0;
 
     private bool KnowledgePaneVisible => KnowledgePaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Knowledge);
-
-    private bool ToolActionBusy => _toolActionKey is not null;
-
-    private bool CanUpdateAnyTool => _tools.Any(tool => tool.CanUpdate);
 
     private bool InboxBeforeBacklogVisible => BacklogPaneVisible && InboxPaneVisible;
 
@@ -572,7 +569,7 @@
 
         try
         {
-            var link = await GitHub.ReportFeedbackAsync(_feedbackTitle, _feedbackDetails, _feedbackScreenArea, screenshot, screenshotError);
+            var link = await Feedback.ReportAsync(_feedbackTitle, _feedbackDetails, _feedbackScreenArea, screenshot, screenshotError);
             _feedbackSucceeded = true;
             _feedbackMessage = $"Created {link.RepoFullName}{link.Label}.";
             _feedbackTitle = string.Empty;
@@ -587,158 +584,6 @@
         finally
         {
             _feedbackSubmitting = false;
-        }
-    }
-
-    private RenderFragment RenderToolsPane() =>
-        @<section @key=@("tools-pane") class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
-            <header class="tools-panel__header">
-                <div>
-                    <p class="tools-panel__eyebrow">System tools</p>
-                    <h2 id="installed-tools-title" class="tools-panel__title">System tools</h2>
-                    <p class="tools-panel__subtitle">Configured and disabled Copilot plugins, repository tools, and MCP servers.</p>
-                </div>
-                <div class="tools-panel__header-actions">
-                    <span class="tools-panel__count">@(_tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools")</span>
-                    <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="OnToolsToggleAsync">✕</IconButton>
-                </div>
-            </header>
-
-            <div class="tools-panel__content" id="installed-tools-content">
-                <div class="tools-panel__toolbar">
-                    <p class="tools-panel__message" role="status">@(_toolMessage ?? "Checking configured tools...")</p>
-                    <div class="tools-panel__toolbar-actions">
-                        <AppButton Variant="ButtonVariant.Secondary" Disabled="@(_toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync">
-                            @(_toolsLoading ? "Checking..." : "Check for updates")
-                        </AppButton>
-                        <AppButton Variant="ButtonVariant.Primary" Disabled="@(_toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
-                            @(_toolActionKey == "__all__" ? "Updating..." : "Update all")
-                        </AppButton>
-                    </div>
-                </div>
-
-                @if (_toolsLoading && _tools.Count == 0)
-                {
-                    <p class="tools-panel__empty">Loading installed tool versions.</p>
-                }
-                else if (_tools.Count == 0)
-                {
-                    <p class="tools-panel__empty">No configured tools were found.</p>
-                }
-                else
-                {
-                    <div class="tools-table" role="table" aria-label="Configured Copilot tools">
-                        <div class="tools-table__row tools-table__row--head" role="row">
-                            <span role="columnheader">Tool</span>
-                            <span role="columnheader">Installed</span>
-                            <span role="columnheader">Available</span>
-                            <span role="columnheader">Actions</span>
-                        </div>
-
-                        @foreach (var tool in _tools)
-                        {
-                            <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" @key="tool.Key">
-                                <div role="cell" class="tools-table__tool">
-                                    <strong>@tool.Name</strong>
-                                    <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
-                                </div>
-                                <span role="cell" class="tools-table__version">@tool.InstalledVersion</span>
-                                <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
-                                <div role="cell" class="tools-table__actions">
-                                    @if (tool.CanUpdate)
-                                    {
-                                        <AppButton Variant="ButtonVariant.Secondary"
-                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                   OnClick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
-                                            Update
-                                        </AppButton>
-                                    }
-                                    else
-                                    {
-                                        <span class="tools-table__action-note">@(tool.ConfiguredEnabled ? "Up to date" : "Disabled")</span>
-                                    }
-                                    <AppButton Variant="ButtonVariant.Ghost"
-                                               Disabled="@(_toolsLoading || ToolActionBusy)"
-                                               OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
-                                        @(tool.ConfiguredEnabled ? "Disable" : "Enable")
-                                    </AppButton>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        </section>;
-
-    private async Task OnToolsToggleAsync()
-    {
-        _toolsExpanded = !_toolsExpanded;
-        if (_toolsExpanded && _tools.Count == 0)
-        {
-            await RefreshToolsAsync();
-        }
-    }
-
-    private async Task RefreshToolsAsync()
-    {
-        _toolsLoading = true;
-        _toolMessage = null;
-        try
-        {
-            var catalog = await CopilotTools.ListAsync();
-            _tools = catalog.Tools;
-            _toolMessage = catalog.Message;
-        }
-        catch (Exception ex)
-        {
-            _toolMessage = $"Tools could not be checked: {ex.Message}";
-        }
-        finally
-        {
-            _toolsLoading = false;
-        }
-    }
-
-    private async Task UpdateAllToolsAsync()
-    {
-        _toolActionKey = "__all__";
-        try
-        {
-            var result = await CopilotTools.UpdateAllAsync();
-            _toolMessage = result.Message;
-            if (result.Succeeded)
-            {
-                await RefreshToolsAsync();
-            }
-        }
-        finally
-        {
-            _toolActionKey = null;
-        }
-    }
-
-    private async Task ApplyToolActionAsync(CopilotToolInfo tool, CopilotToolAction action)
-    {
-        _toolActionKey = tool.Key;
-        try
-        {
-            var result = action switch
-            {
-                CopilotToolAction.Update => await CopilotTools.UpdateAsync(tool.Key),
-                CopilotToolAction.Enable => await CopilotTools.EnableAsync(tool.Key),
-                CopilotToolAction.Disable => await CopilotTools.DisableAsync(tool.Key),
-                _ => CopilotToolActionResult.Failed("Unknown tool action.")
-            };
-
-            _toolMessage = result.Message;
-            if (result.Succeeded)
-            {
-                await RefreshToolsAsync();
-            }
-        }
-        finally
-        {
-            _toolActionKey = null;
         }
     }
 
@@ -909,12 +754,6 @@
     // equivalent stays here so the separator has one clamped source of truth.
     private void OnResizerKeyDown(KeyboardEventArgs e) =>
         _knowledgePanelWidthRem = SidePaneWidth.Adjust(_knowledgePanelWidthRem, e.Key, _maxSidePaneWidthRem);
-
-    private static string Humanize(string enumName)
-    {
-        var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
-        return text.ToLowerInvariant();
-    }
 
     public void Dispose()
     {

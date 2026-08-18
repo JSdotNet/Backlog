@@ -24,6 +24,19 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="Backlog.Tests" />
+  </ItemGroup>
+
+  <!--
+    Tests that read repository files resolve them through RepositoryRoot, which
+    anchors the lookup at the worktree root instead of walking up until
+    something matches. It is linked rather than referenced because
+    Backlog.ArchitectureTests deliberately has no project references, and it is
+    linked here rather than per project so a new test project cannot reintroduce
+    an unbounded walk. See tests/Shared/RepositoryRoot.cs.
+  -->
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Shared\RepositoryRoot.cs" Link="Shared\RepositoryRoot.cs" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Backlog Management context's UI: the pane, its state, and the adapters
+    that read and write repository-authored entries. Its own project so it can
+    sit on the workspace without sharing one with Second Brain or the Shell.
+  -->
+  <PropertyGroup>
+    <!--
+      The root namespace deliberately does not match the project name, and must
+      not be "tidied" to match it — doing so does not compile. The Razor
+      generator emits a component's @using directives *inside* the component's
+      namespace and without a global:: prefix. Under a root namespace of
+      Backlog.Modules.Backlog.UI the leading "Backlog" in
+      "@using Backlog.UI.Components.Markdown" therefore binds to the enclosing
+      Backlog.Modules.Backlog rather than to the repository root, "Backlog.UI"
+      binds to Backlog.Modules.Backlog.UI, and ".Components" fails with CS0234.
+      Keeping the published namespace also means the move to this project
+      changed no using, @using or namespace line anywhere.
+    -->
+    <RootNamespace>Backlog.Desktop.UI.BacklogManagement</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The entry text round-trip, the draft mapping and the issue shape are
+         contracts between what a person types and what gets stored, so they are
+         worth testing directly rather than only through the pane. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- The module's published surface only: DTOs, the entry text language, and
+         the IBacklogEntries port. The aggregate, its repository and the use-case
+         handlers stay behind that line — the host wires them up, the UI does not
+         see them. -->
+    <ProjectReference Include="..\Backlog.Modules.Backlog.Abstractions\Backlog.Modules.Backlog.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
+    <!-- Deliberate, and the one context-to-context edge .domain/context-map.md
+         allows: BacklogDrafts converts repository rows into the Inbox's
+         published InboxItem contract. Backlog Management conforms to what the
+         Inbox publishes; the Inbox never reads back. -->
+    <ProjectReference Include="..\..\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
+  </ItemGroup>
+
+</Project>

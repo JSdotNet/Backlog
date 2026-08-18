@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using Backlog.Modules.Knowledge.Abstractions;
+
 namespace Backlog.Infrastructure.GitHub;
 
 /// <summary>

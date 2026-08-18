@@ -11,20 +11,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class SampleEntryTests
 {
-    private static readonly string SamplesDirectory = FindSamples();
-
-    private static string FindSamples()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            var candidate = Path.Combine(dir.FullName, "samples", "entries");
-            if (Directory.Exists(candidate)) return candidate;
-            dir = dir.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate samples/entries above " + AppContext.BaseDirectory);
-    }
+    private static readonly string SamplesDirectory = RepositoryRoot.Directory("samples", "entries");
 
     private static string Read(string name) =>
         File.ReadAllText(Path.Combine(SamplesDirectory, name));

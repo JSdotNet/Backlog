@@ -21,7 +21,7 @@ public sealed class InstructionsKnowledgePanelTests
     private static Harness CreateHarness()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-instructions-tests", Guid.NewGuid().ToString("n"));
-        var store = new BacklogStore(Path.Combine(root, "store"));
+        var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
@@ -38,27 +38,13 @@ public sealed class InstructionsKnowledgePanelTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton(gitHubSettings);
+        context.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(gitHubSettings, store));
         context.Services.AddSingleton(new InstructionSourceDiscovery());
 
         return new Harness(root, context);
     }
 
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(directory.FullName, ".github", "copilot-instructions.md");
-            if (File.Exists(candidate))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the repository root from the test output directory.");
-    }
+    private static string FindRepositoryRoot() => RepositoryRoot.Root.FullName;
 
     private sealed record Harness(string Root, BunitContext Context) : IDisposable
     {

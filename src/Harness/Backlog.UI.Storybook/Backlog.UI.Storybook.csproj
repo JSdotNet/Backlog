@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\..\UI\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
   </ItemGroup>
 
 </Project>

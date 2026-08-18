@@ -226,7 +226,7 @@ What the product actually uses today, against the recommendations above:
 
 | Layer | Recommended | In use |
 |---|---|---|
-| Desktop base controls | A shared web component library (`@vscode-elements`, Fluent Web Components) | **`Backlog.UI.Components`** — a first-party Razor class library with no domain in it, at `src/UI/Backlog.UI.Components`, rendered on its own in the storybook |
+| Desktop base controls | A shared web component library (`@vscode-elements`, Fluent Web Components) | **`Backlog.UI.Components`** — a first-party Razor class library with no domain in it, at `src/Core/Backlog.UI.Components`, rendered on its own in the storybook |
 | Design tokens | One logical set emitted per stack | One `:root` block in `components.css`, linked by every host. This is the shared layer working as intended — it is just hand-maintained, not generated |
 | Markdown editor | TipTap or Milkdown, hosted in the WebView2 | None. A text area over the source with a live read view beside it — see `content-editing.md#materialization` |
 | Reorder | dnd-kit | Hand-written HTML5 drag-and-drop with arrow-key equivalents, in the desktop app rather than in the library — see `interaction-guidelines.md#materialization` |

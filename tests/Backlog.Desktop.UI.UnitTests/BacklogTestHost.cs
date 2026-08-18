@@ -1,7 +1,8 @@
+using Backlog.Infrastructure.GitHub;
 using Backlog.Desktop.UI.BacklogManagement;
-using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Backlog.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,10 +20,10 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 internal static class BacklogTestHost
 {
-    public static IBacklogRepository RepositoryFor(BacklogStore store) =>
+    public static IBacklogRepository RepositoryFor(WorkspaceSettingsStore store) =>
         new RootedFileBacklogRepository(() => store.RootDirectory);
 
-    public static IBacklogEntries EntriesFor(BacklogStore store) =>
+    public static IBacklogEntries EntriesFor(WorkspaceSettingsStore store) =>
         EntriesFor(RepositoryFor(store));
 
     public static IBacklogEntries EntriesFor(IBacklogRepository repository) =>
@@ -32,10 +33,31 @@ internal static class BacklogTestHost
             .BuildServiceProvider()
             .GetRequiredService<IBacklogEntries>();
 
+    /// <summary>
+    /// Backlog Management's store port over a workspace settings file. The two
+    /// are composed by a host, and a test is a host: the port answers where the
+    /// backlog is from the settings file and where a repository's .backlog folder
+    /// is from the same resolver Second Brain uses, which is the join neither
+    /// context is allowed to make for itself.
+    /// </summary>
+    public static IBacklogStore BacklogStoreFor(
+        WorkspaceSettingsStore settings,
+        IKnowledgeFolderSource? folders = null) =>
+        new WorkspaceBacklogStore(
+            settings,
+            folders ?? new KnowledgeFolderSource(
+                new GitHubSettingsStore(Path.Combine(
+                    Path.GetTempPath(),
+                    "backlog-test-host",
+                    Guid.NewGuid().ToString("n"),
+                    "github.json")),
+                settings));
+
     public static BacklogDesktopState StateFor(
-        BacklogStore store,
+        WorkspaceSettingsStore store,
         GitHubIntegration gitHub,
         BacklogCopilotCli? copilot = null,
-        RepositoryBacklogSource? repositoryBacklog = null) =>
-        new(store, EntriesFor(store), gitHub, copilot, repositoryBacklog);
+        RepositoryBacklogSource? repositoryBacklog = null,
+        IKnowledgeFolderSource? folders = null) =>
+        new(BacklogStoreFor(store, folders), EntriesFor(store), gitHub, copilot, repositoryBacklog);
 }
