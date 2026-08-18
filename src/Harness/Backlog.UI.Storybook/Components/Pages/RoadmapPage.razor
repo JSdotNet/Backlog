@@ -1,0 +1,437 @@
+@page "/roadmap"
+
+<PageTitle>Roadmap — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Roadmap"
+           Summary="RoadmapTimeline and RoadmapTimelineBar: a plan drawn against time. Quarters across the top, a two-level column of swimlanes down the left, and bars, milestones and dependency arrows placed by their dates. The component does not know what a group is — a department, a product area, a person, a set of repositories — and it does not know what a row means. It is handed the structure, it draws it in the order it was handed, and it reports what the reader did to it.">
+
+    <Story Name="A plan across a year"
+           Description="Six bands, rows inside each, and bars placed by start and end date. This is the whole component in one picture: the axis is ruled in quarters, the left column stays put while the track scrolls sideways, and every bar carries its group&#39;s colour on its leading edge.
+
+Nothing here is a category the library invented. TARGETS, OPERATIONS, PRODUCT and the names inside them are strings this page made up, and RoadmapTimeline could not tell you which of them is a team and which is a workstream. That is the point: the same component draws a personal plan spanning four employers and a release train, and neither is more roadmap-shaped than the other.
+
+The colours are this page&#39;s too. The library declines to ship six hues, because its own palette guide forbids product code from growing a second semantic palette — so a group carries whatever colour its caller gives it, and a group with none is drawn neutral. What the library does guarantee is that a bar stays readable whatever colour arrives: the hue is mixed into a dark surface at thirty percent and shown at full strength only on the edge, where nothing has to be read on top of it."
+           Code="@TimelineCode">
+        <RoadmapTimeline Groups="@Plan"
+                         Bars="@_bars"
+                         Milestones="@Milestones"
+                         Links="@Links"
+                         Today="@Today"
+                         Title="2026"
+                         Description="One plan over several projects at once."
+                         HeadingLevel="3"
+                         SelectedId="@_selectedId"
+                         OnBarSelected="Select"
+                         OnBarChanged="Apply"
+                         TestId="roadmap" />
+        <p class="sb-state" data-testid="roadmap-selected">Selected: @(_selectedId ?? "(none)")</p>
+        <p class="sb-state" data-testid="roadmap-last-change">Last change: @(_lastChange ?? "(none)")</p>
+    </Story>
+
+    <Story Name="Moving a bar, and moving it without a mouse"
+           Description="Drag a bar sideways and it moves in time; drag it up or down and it changes row; drag either edge and only that date moves. Every one of those snaps to the week, and the bar you are looking at mid-drag is already at the position the drop will commit to — the preview and the result are the same value, so they cannot disagree.
+
+Then do the same thing with the keyboard, because a chart that could only be dragged would be a chart some people can read and nobody can edit. Tab to a bar, press Space to pick it up, and: Left and Right move it a week, Up and Down move it between rows, Shift with Left or Right pulls the end date, Alt with Left or Right pulls the start date. Space drops it, Escape puts it back. Each step is announced through a live region, and after a drop the focus goes back onto the bar rather than being left where the old element used to be.
+
+The readout below is the host. Nothing on this chart changed by itself: RoadmapTimeline proposed a placement, this page applied it, and the chart redrew from what it got back. That is deliberate — only a host knows whether a date is allowed, whether it saves, and what else has to move with it."
+           Code="@EditCode">
+        <RoadmapTimeline Groups="@EditablePlan"
+                         Bars="@_editable"
+                         Links="@EditableLinks"
+                         Title="Try it"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         OnBarChanged="ApplyEditable"
+                         ShowFilters="false"
+                         TestId="editable" />
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Ghost" OnClick="ResetEditable">Put it all back</AppButton>
+        </div>
+        <p class="sb-state" data-testid="editable-state">
+            @string.Join(" · ", _editable.Select(bar => $"{bar.Title}: {bar.Start:d MMM} – {bar.End:d MMM} on {bar.RowId}"))
+        </p>
+    </Story>
+
+    <Story Name="Dependencies, and what happens when one end is missing"
+           Description="A dashed arrow runs from the thing that has to land first to the thing waiting on it, and the badge on a bar counts how many arrows point at it. Both are worked out from where the two ends are drawn right now — including a bar you are part-way through dragging — so an arrow is never a stale line to where something used to be. Move the second bar and watch the arrow follow it.
+
+The two shapes an arrow takes are not decoration. When the dependent work starts after its dependency ends there is room for a plain elbow. When it does not — the plan says a thing starts before the thing it waits on has finished — the arrow has to double back through the gutter, and that detour is the reader&#39;s cue that the plan contains a contradiction. Drawing both as a straight line would hide exactly the thing worth seeing.
+
+A link naming something that is not on the chart draws nothing at all. That is the strict answer and it is the right one: an arrow into empty space is not a weaker dependency, it is a claim about a relationship the reader has no way to check. The third link below points at an id that does not exist, and there are two arrows on this chart rather than three."
+           Code="@LinkCode">
+        <RoadmapTimeline Groups="@DependencyPlan"
+                         Bars="@_dependent"
+                         Milestones="@DependencyMilestones"
+                         Links="@DependencyLinks"
+                         Title="What waits on what"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         ShowFilters="false"
+                         OnBarChanged="ApplyDependent"
+                         TestId="links" />
+    </Story>
+
+    <Story Name="Filtering, without the library knowing what it is filtering on"
+           Description="Three controls — Tag, Repository, Area — and RoadmapTimeline knows none of those words. A bar carries facets, a facet is a name and a value the caller chose, and the filter bar is built from whichever names the bars actually mention. A caller filing work by customer and contract gets two controls called Customer and Contract, from this same component, with nothing changed.
+
+That is the same decision as everywhere else in this library, and it is worth being blunt about why it survived a request for exactly these three filters. A Repository parameter would have to be kept in step with what a repository is; a facet named &quot;Repository&quot; by its caller never can be, because the component only ever compares two strings.
+
+Two behaviours are worth watching. The choices never narrow as you filter — an option that vanished the moment it became the only one left would be a control you could not undo. And an arrow whose far end has just been filtered off the chart disappears with it, rather than pointing at the space where the bar was."
+           Code="@FilterCode">
+        <RoadmapTimeline Groups="@FilterPlan"
+                         Bars="@FilterBars"
+                         Links="@FilterLinks"
+                         Title="Everything in flight"
+                         Description="Filter it down, then clear it."
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         TestId="filtered" />
+    </Story>
+
+    <Story Name="Milestones are not one-day bars"
+           Description="A launch, a freeze and a board date, on a row of their own. They are a separate thing from a bar for three reasons that all show up here: a milestone has no duration, so there is no edge to pull; it is drawn as a glyph, so it stays hittable at a year&#39;s zoom where a one-day bar would be a sliver; and it can be the far end of a dependency without ever being something you can reschedule by dragging.
+
+The three shapes are shapes rather than three colours, because colour must not be the only thing telling two kinds of marker apart. Each one carries its full description — what it is, which band and row it is on, and its date — as text for a screen reader, and the label beside it is hidden from assistive tech so the date is not read twice.
+
+Dropping a bar onto a milestones row is refused rather than quietly undone. Try it with the keyboard on the story above: grab a bar, press Down until you reach this kind of row, and the bar is drawn as refused and says so. &quot;You cannot&quot; and &quot;nothing happened&quot; look identical if you only ever get the second one."
+           Code="@MilestoneCode">
+        <RoadmapTimeline Groups="@MilestonePlan"
+                         Bars="@MilestoneBars"
+                         Milestones="@AllMarkers"
+                         Title="Fixed dates"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         ShowFilters="false"
+                         TestId="milestones" />
+    </Story>
+
+    <Story Name="One bar, on its own"
+           Description="RoadmapTimelineBar outside the chart, so its own states can be looked at rather than hunted for. It takes a bar, the geometry that decides where a date sits, and nothing else — it does not know which row it is on, how many rows there are, or what a dependency is. The count on its badge is handed to it, because a bar cannot see the arrows drawn to it.
+
+Everything a gesture does to it arrives as a Preview: a proposed placement it draws itself at, rather than a second ghostly copy of itself somewhere else. That is what keeps a dependency arrow attached to a bar being dragged — there is only ever one bar, in one place, and the arrow is resolved against wherever that is.
+
+The last of the four is locked. A locked bar loses its edge grips and refuses to be picked up at all, which is how a commitment somebody else owns is drawn."
+           Code="@BarCode">
+        <div class="sb-stack">
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@Solo"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Product, Jamie"
+                                    DependencyCount="2"
+                                    TestId="solo" />
+            </div>
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@Solo"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Product, Jamie"
+                                    Selected="true"
+                                    TestId="solo-selected" />
+            </div>
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@Solo"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Product, Jamie"
+                                    Grabbed="true"
+                                    Preview="@SoloPreview"
+                                    TestId="solo-grabbed" />
+            </div>
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@SoloLocked"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Product, Jamie"
+                                    TestId="solo-locked" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="A plan nobody has written"
+           Description="No groups, or groups with no rows in them, is not an empty chart with an axis over it — it is no chart. Drawing quarters above nothing would promise a plan that has not been made yet, and a reader would spend a moment looking for the bars before concluding there were none.
+
+Why the plan is empty is only knowable where the plan came from, so the sentence is the caller&#39;s."
+           Code="@EmptyCode">
+        <RoadmapTimeline Groups="@(Array.Empty<RoadmapGroup>())"
+                         Title="Next year"
+                         HeadingLevel="3"
+                         EmptyMessage="Nothing planned for next year yet. Add a band and put a row in it."
+                         TestId="empty" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DateOnly Today = new(2026, 5, 20);
+
+    private static DateOnly On(int month, int day) => new(2026, month, day);
+
+    private string? _selectedId;
+    private string? _lastChange;
+
+    private void Select(string id) => _selectedId = id;
+
+    private void Apply(RoadmapChange change) =>
+        Bind(ref _bars, change, out _lastChange);
+
+    private void ApplyEditable(RoadmapChange change) =>
+        Bind(ref _editable, change, out _);
+
+    private void ApplyDependent(RoadmapChange change) =>
+        Bind(ref _dependent, change, out _);
+
+    /// <summary>What a host does with a change: replace the bar it names, and
+    /// nothing else. The component proposed it; applying it is this page's,
+    /// which is why the chart only moves once this has run.</summary>
+    private static void Bind(ref RoadmapBar[] bars, RoadmapChange change, out string? said)
+    {
+        bars = [.. bars.Select(bar => bar.Id == change.BarId ? change.ApplyTo(bar) : bar)];
+        said = $"{change.Kind} — {change.BarId} to {change.Start:d MMM} – {change.End:d MMM}";
+    }
+
+    // --- The full plan -----------------------------------------------------
+
+    private static IReadOnlyList<RoadmapGroup> Plan =>
+    [
+        new("targets", "Targets", [new("milestones", "Milestones", RoadmapRowKind.Milestones)], "#F2C14E"),
+        new("operations", "Operations", [new("jamie", "Jamie"), new("alex", "Alex")], "#5FA8D3"),
+        new("product", "Product", [new("omar", "Omar"), new("farah", "Farah")], "#7FD1C1"),
+        new("sales", "Sales", [new("dilan", "Dilan")], "#C58BD8"),
+        new("marketing", "Marketing", [new("rin", "Rin")], "#E8836B"),
+        new("finance", "Finance", [new("pieter", "Pieter")], "#9BD17F")
+    ];
+
+    private RoadmapBar[] _bars =
+    [
+        new("onboarding", "jamie", "Onboarding rework", On(1, 5), On(3, 15), 0,
+            [new("Tag", "design"), new("Repository", "backlog"), new("Area", "desktop")]),
+        new("billing", "jamie", "Billing migration", On(4, 1), On(6, 30), 2,
+            [new("Tag", "platform"), new("Repository", "sync"), new("Area", "cloud")]),
+        new("support", "alex", "Support rota", On(2, 2), On(5, 31), 1,
+            [new("Tag", "process"), new("Repository", "backlog"), new("Area", "desktop")]),
+        new("editor", "omar", "Markdown editor", On(1, 12), On(4, 30), 0,
+            [new("Tag", "design"), new("Repository", "backlog"), new("Area", "desktop")]),
+        new("graph", "omar", "Knowledge graph", On(5, 4), On(9, 30), 2,
+            [new("Tag", "design"), new("Repository", "backlog"), new("Area", "ide")]),
+        new("sync", "farah", "Offline sync", On(3, 2), On(8, 31), 1,
+            [new("Tag", "platform"), new("Repository", "sync"), new("Area", "cloud")]),
+        new("mobile", "farah", "Mobile shell", On(9, 1), On(12, 20), 3,
+            [new("Tag", "platform"), new("Repository", "backlog"), new("Area", "mobile")]),
+        new("pilot", "dilan", "Pilot customers", On(6, 1), On(10, 31), 0,
+            [new("Tag", "process"), new("Repository", "backlog"), new("Area", "cloud")]),
+        new("launch", "rin", "Launch campaign", On(10, 1), On(12, 31), 1,
+            [new("Tag", "process"), new("Repository", "backlog"), new("Area", "cloud")]),
+        new("budget", "pieter", "FY27 budget", On(9, 14), On(11, 30), 2,
+            [new("Tag", "process"), new("Repository", "sync"), new("Area", "cloud")], Locked: true)
+    ];
+
+    private static IReadOnlyList<RoadmapMilestone> Milestones =>
+    [
+        new("beta", "milestones", "Beta", On(5, 15), RoadmapMarker.Star),
+        new("freeze", "milestones", "Code freeze", On(9, 30), RoadmapMarker.Square),
+        new("ga", "milestones", "GA", On(12, 1), RoadmapMarker.Diamond)
+    ];
+
+    private static IReadOnlyList<RoadmapLink> Links =>
+    [
+        new("onboarding", "billing"),
+        new("editor", "graph"),
+        new("sync", "mobile"),
+        new("graph", "freeze"),
+        new("pilot", "launch")
+    ];
+
+    // --- The one you can edit ----------------------------------------------
+
+    private static readonly RoadmapWindow EditWindow = new(new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+    private static IReadOnlyList<RoadmapGroup> EditablePlan =>
+    [
+        new("work", "Work", [new("first", "First"), new("second", "Second")], "#5FA8D3"),
+        new("dates", "Dates", [new("fixed", "Fixed", RoadmapRowKind.Milestones)], "#F2C14E")
+    ];
+
+    private static readonly RoadmapBar[] EditableStart =
+    [
+        new("a", "first", "Drag me sideways", On(2, 2), On(4, 12)),
+        new("b", "second", "Pull my right edge", On(5, 4), On(7, 12), 1),
+        new("c", "second", "Or my left one", On(8, 3), On(10, 11), 2)
+    ];
+
+    private RoadmapBar[] _editable = [.. EditableStart];
+
+    private void ResetEditable() => _editable = [.. EditableStart];
+
+    private static IReadOnlyList<RoadmapLink> EditableLinks => [new("a", "b")];
+
+    // --- Dependencies -------------------------------------------------------
+
+    private static IReadOnlyList<RoadmapGroup> DependencyPlan =>
+    [
+        new("chain", "Chain", [new("upstream", "Upstream"), new("downstream", "Downstream")], "#7FD1C1"),
+        new("dates", "Dates", [new("gates", "Gates", RoadmapRowKind.Milestones)], "#F2C14E")
+    ];
+
+    private RoadmapBar[] _dependent =
+    [
+        new("spec", "upstream", "Specification", On(1, 5), On(3, 1)),
+        new("build", "downstream", "Implementation", On(3, 9), On(6, 14), 1),
+        new("overlap", "downstream", "Started early", On(2, 2), On(3, 1), 2)
+    ];
+
+    private static IReadOnlyList<RoadmapMilestone> DependencyMilestones =>
+        [new("gate", "gates", "Gate", On(7, 1), RoadmapMarker.Diamond)];
+
+    private static IReadOnlyList<RoadmapLink> DependencyLinks =>
+    [
+        new("spec", "build"),
+        new("build", "gate"),
+        new("spec", "nothing-of-that-name")
+    ];
+
+    // --- Filtering ----------------------------------------------------------
+
+    private static IReadOnlyList<RoadmapGroup> FilterPlan =>
+    [
+        new("teams", "Teams", [new("one", "Team one"), new("two", "Team two")], "#C58BD8")
+    ];
+
+    private static IReadOnlyList<RoadmapBar> FilterBars =>
+    [
+        new("f1", "one", "Design system", On(1, 5), On(4, 12), 0,
+            [new("Tag", "design"), new("Repository", "backlog"), new("Area", "desktop")]),
+        new("f2", "one", "Sync protocol", On(4, 20), On(8, 2), 1,
+            [new("Tag", "platform"), new("Repository", "sync"), new("Area", "cloud")]),
+        new("f3", "two", "Editor polish", On(2, 2), On(5, 31), 2,
+            [new("Tag", "design"), new("Repository", "backlog"), new("Area", "ide")]),
+        new("f4", "two", "Release tooling", On(6, 1), On(9, 27), 3,
+            [new("Tag", "process"), new("Repository", "sync"), new("Area", "cloud")])
+    ];
+
+    private static IReadOnlyList<RoadmapLink> FilterLinks => [new("f1", "f2"), new("f3", "f4")];
+
+    // --- Milestones ---------------------------------------------------------
+
+    private static IReadOnlyList<RoadmapGroup> MilestonePlan =>
+    [
+        new("delivery", "Delivery", [new("stream", "Stream")], "#9BD17F"),
+        new("gates", "Gates", [new("markers", "Markers", RoadmapRowKind.Milestones)], "#E8836B")
+    ];
+
+    private static IReadOnlyList<RoadmapBar> MilestoneBars =>
+        [new("work", "stream", "The work itself", On(1, 5), On(9, 27))];
+
+    private static IReadOnlyList<RoadmapMilestone> AllMarkers =>
+    [
+        new("star", "markers", "Beta", On(3, 16), RoadmapMarker.Star, "The one people plan around"),
+        new("square", "markers", "Freeze", On(6, 29), RoadmapMarker.Square),
+        new("diamond", "markers", "GA", On(10, 5), RoadmapMarker.Diamond)
+    ];
+
+    // --- One bar ------------------------------------------------------------
+
+    private static readonly RoadmapGeometry SoloGeometry = new(new RoadmapWindow(On(1, 1), On(6, 30)), 26);
+
+    private static RoadmapBar Solo => new("solo", "row", "Design system rollout", On(1, 19), On(4, 12));
+
+    private static RoadmapBar SoloLocked => Solo with { Id = "solo-locked", Title = "Somebody else's commitment", Locked = true };
+
+    private static RoadmapChange? SoloPreview =>
+        new("solo", "row", On(2, 16), On(5, 10), RoadmapDrag.Move);
+
+    // --- The razor shown under each story -----------------------------------
+    //
+    // Comment markers in these are // rather than the razor form, because the
+    // razor tokenizer reads its own comment syntax even inside a string in a
+    // code block and would swallow the rest of the sample.
+
+    private const string TimelineCode = """
+        <RoadmapTimeline Groups="@Plan"
+                         Bars="@Bars"
+                         Milestones="@Milestones"
+                         Links="@Links"
+                         Today="@Today"
+                         Title="2026"
+                         SelectedId="@_selectedId"
+                         OnBarSelected="Select"
+                         OnBarChanged="Apply" />
+
+        // A group is a colour and some rows. What it means is never asked.
+        new RoadmapGroup("product", "Product",
+            [new RoadmapRow("omar", "Omar"), new RoadmapRow("farah", "Farah")],
+            Color: "#7FD1C1")
+
+        // A row of point-in-time markers instead of spans.
+        new RoadmapRow("milestones", "Milestones", RoadmapRowKind.Milestones)
+        """;
+
+    private const string EditCode = """
+        <RoadmapTimeline Groups="@Plan"
+                         Bars="@_bars"
+                         Window="@(new RoadmapWindow(new(2026, 1, 1), new(2026, 12, 31)))"
+                         OnBarChanged="Apply" />
+
+        // The component proposes; the host applies. It never edits the plan it
+        // was handed.
+        private void Apply(RoadmapChange change) =>
+            _bars = [.. _bars.Select(bar =>
+                bar.Id == change.BarId ? change.ApplyTo(bar) : bar)];
+
+        // Turn a gesture off where a plan does not permit it.
+        <RoadmapTimeline AllowResize="false" AllowRowChange="false" />
+        """;
+
+    private const string LinkCode = """
+        <RoadmapTimeline Groups="@Plan" Bars="@Bars" Links="@Links" />
+
+        // Either end may be a bar or a milestone; a link naming something
+        // absent draws nothing at all.
+        IReadOnlyList<RoadmapLink> Links =>
+        [
+            new("spec", "build"),
+            new("build", "gate")
+        ];
+        """;
+
+    private const string FilterCode = """
+        <RoadmapTimeline Groups="@Plan" Bars="@Bars" />
+
+        // The filter bar is built from whichever facet names the bars mention.
+        // Name them whatever your domain calls them.
+        new RoadmapBar("f1", "one", "Design system",
+            new(2026, 1, 5), new(2026, 4, 12),
+            Facets:
+            [
+                new RoadmapFacet("Tag", "design"),
+                new RoadmapFacet("Repository", "backlog"),
+                new RoadmapFacet("Area", "desktop")
+            ])
+        """;
+
+    private const string MilestoneCode = """
+        <RoadmapTimeline Groups="@Plan" Bars="@Bars" Milestones="@Markers" />
+
+        new RoadmapMilestone("star", "markers", "Beta",
+            new(2026, 3, 16), RoadmapMarker.Star,
+            Detail: "The one people plan around")
+        """;
+
+    private const string BarCode = """
+        <RoadmapTimelineBar Bar="@bar"
+                            Geometry="@geometry"
+                            ContextLabel="Product, Jamie"
+                            DependencyCount="2" />
+
+        // A gesture in flight is a proposed placement the bar draws itself at,
+        // not a second copy of it somewhere else.
+        <RoadmapTimelineBar Bar="@bar"
+                            Geometry="@geometry"
+                            Grabbed="true"
+                            Preview="@(new RoadmapChange(
+                                bar.Id, bar.RowId,
+                                new(2026, 2, 16), new(2026, 5, 10),
+                                RoadmapDrag.Move))" />
+        """;
+
+    private const string EmptyCode = """
+        <RoadmapTimeline Groups="@(Array.Empty<RoadmapGroup>())"
+                         EmptyMessage="Nothing planned for next year yet." />
+        """;
+}

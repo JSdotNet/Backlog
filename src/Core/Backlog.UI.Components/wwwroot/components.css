@@ -5867,3 +5867,565 @@ button.tag-chip__label {
         display: none;
     }
 }
+
+/* --- Roadmap timeline ---------------------------------------------------- */
+/*
+  A Gantt: quarters ruled across the top, two-level swimlanes down the left,
+  and everything else placed by date.
+
+  Three decisions are worth the ink.
+
+  The left column is a sibling of the scroller, not something sticky inside it.
+  Sticky cells inside a horizontally scrolling, transformed grid lose their
+  background in every browser at some zoom level, and the failure is a label
+  smeared over the bars rather than a label in the wrong place. Two lists of the
+  same height in the same order is a much cheaper promise to keep, and the
+  heights come from --roadmap-row-height, which the component publishes from the
+  same geometry it positions the bars with.
+
+  Every horizontal measurement arrives inline, in rem, from RoadmapGeometry.
+  Nothing here computes a position; this file styles boxes that have already
+  been placed. That is what lets the positioning be tested as arithmetic.
+
+  The group colour is the caller's, and a bar is a tinted dark surface rather
+  than a saturated one. That is not timidity about colour: it is the only way to
+  promise legible text over a hue this file has never seen. Mixing a caller's
+  colour into --color-background-alt at 30% or less keeps the result dark enough
+  that --color-text-primary clears 7:1 against it whatever the hue was, while
+  the colour itself appears at full strength on the bar's left edge and in the
+  band beside the row names, where nothing has to be read on top of it.
+*/
+
+.roadmap-timeline {
+    --roadmap-group-color: var(--color-border-strong);
+    --roadmap-axis-height: 2.75rem;
+    --roadmap-sidebar-width: 11rem;
+    --roadmap-band-width: 1.25rem;
+
+    display: grid;
+    gap: var(--spacing-md);
+    color: var(--color-text-primary);
+}
+
+.roadmap-timeline__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.roadmap-timeline__heading {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.roadmap-timeline__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-tight);
+}
+
+.roadmap-timeline__description {
+    margin: 0;
+    max-width: 60ch;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-timeline__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--spacing-sm);
+}
+
+.roadmap-timeline__filter {
+    min-width: 12rem;
+}
+
+.roadmap-timeline__empty {
+    margin: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) dashed var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+/* --- The frame: fixed labels, scrolling time ----------------------------- */
+
+.roadmap-timeline__frame {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    overflow: hidden;
+}
+
+.roadmap-timeline__sidebar {
+    flex: 0 0 var(--roadmap-sidebar-width);
+    width: var(--roadmap-sidebar-width);
+    border-right: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
+}
+
+/* Exactly as tall as the axis it stands beside. Without it the first row's
+   label sits opposite Q1's heading rather than opposite the first row. */
+.roadmap-timeline__sidebar-axis {
+    height: var(--roadmap-axis-height);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.roadmap-timeline__group {
+    display: flex;
+    align-items: stretch;
+    box-shadow: inset 0 -1px 0 var(--color-border);
+}
+
+/*
+  The band, written down its own length. Vertical because it has to be exactly
+  as tall as its rows and no taller — a group heading on a line of its own would
+  need a matching blank line in the track, and the two would drift apart the
+  first time one of them wrapped.
+
+  The whole sidebar is aria-hidden, so nothing is read sideways: every row in
+  the track carries "group, row" as its accessible name, and every bar repeats
+  it. This column is the sighted reader's copy of that.
+*/
+.roadmap-timeline__group-name {
+    flex: 0 0 var(--roadmap-band-width);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: var(--spacing-xs) 0;
+    background: color-mix(in srgb, var(--roadmap-group-color, var(--color-border-strong)) 24%, var(--color-background));
+    border-left: var(--border-width-4) solid var(--roadmap-group-color, var(--color-border-strong));
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-orientation: mixed;
+    writing-mode: vertical-rl;
+    rotate: 180deg;
+    overflow: hidden;
+}
+
+.roadmap-timeline__group-rows {
+    flex: 1;
+    min-width: 0;
+}
+
+.roadmap-timeline__row-name {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+/*
+  The one thing on the page allowed to be wider than the page. Everything else
+  is inside it, which is what keeps a year-long plan from pushing the document
+  sideways on a phone.
+*/
+.roadmap-timeline__scroll {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+
+.roadmap-timeline__scroll:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(var(--border-width-2) * -1);
+}
+
+.roadmap-timeline__track {
+    position: relative;
+    /* width arrives inline, from the geometry */
+}
+
+/* --- The axis ------------------------------------------------------------ */
+
+.roadmap-timeline__axis {
+    position: relative;
+    height: var(--roadmap-axis-height);
+    border-bottom: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
+}
+
+.roadmap-timeline__quarter {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding-left: var(--spacing-sm);
+    border-left: var(--border-width) solid var(--color-border);
+    overflow: hidden;
+}
+
+.roadmap-timeline__quarter-label {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    line-height: 1.1;
+}
+
+.roadmap-timeline__quarter-year {
+    color: var(--color-text-disabled);
+    font-size: var(--font-size-xs);
+    line-height: 1.1;
+}
+
+.roadmap-timeline__body {
+    position: relative;
+    /* Banding drawn rather than applied per row: the rows are absolutely
+       positioned, so :nth-child would count the grid and the arrows too. */
+    background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent var(--roadmap-row-height, 2.75rem),
+        rgba(255, 255, 255, 0.022) var(--roadmap-row-height, 2.75rem),
+        rgba(255, 255, 255, 0.022) calc(var(--roadmap-row-height, 2.75rem) * 2));
+}
+
+.roadmap-timeline__grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.roadmap-timeline__rule {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--border-width);
+    background: var(--color-border);
+}
+
+/* Today is the one line on the chart that is not a quarter, so it is the one
+   line that gets the brand colour. */
+.roadmap-timeline__today {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--border-width-2);
+    background: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent);
+}
+
+/* --- Dependencies -------------------------------------------------------- */
+
+/*
+  The overlay's viewBox is stated in the same rem the bars are positioned in, so
+  an arrow meets a bar's edge exactly rather than nearly. Its aspect ratio and
+  its CSS size come from the same two numbers, which is what lets it scale with
+  the reader's font size without the arrowheads shearing.
+*/
+.roadmap-timeline__links {
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.roadmap-timeline__link {
+    fill: none;
+    stroke: var(--color-border-strong);
+    stroke-width: 0.075;
+    stroke-dasharray: 0.25 0.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.roadmap-timeline__arrowhead {
+    fill: var(--color-border-strong);
+    stroke: none;
+}
+
+/* --- Rows ---------------------------------------------------------------- */
+
+.roadmap-timeline__row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    /* top and height arrive inline, from the geometry */
+}
+
+.roadmap-timeline__row--milestones {
+    background: color-mix(in srgb, var(--color-background-raised) 40%, transparent);
+}
+
+/* --- A bar --------------------------------------------------------------- */
+
+.roadmap-bar {
+    position: absolute;
+    top: 50%;
+    height: var(--roadmap-bar-height, 1.5rem);
+    translate: 0 -50%;
+    /* left and width arrive inline, from the geometry */
+}
+
+.roadmap-bar__body {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    width: 100%;
+    height: 100%;
+    padding: 0 var(--spacing-xs) 0 var(--spacing-sm);
+    border: var(--border-width) solid color-mix(in srgb, var(--roadmap-group-color, var(--color-border-strong)) 60%, var(--color-border));
+    border-left: var(--border-width-4) solid var(--roadmap-group-color, var(--color-border-strong));
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--roadmap-group-color, var(--color-border-strong)) var(--roadmap-bar-tint, 30%), var(--color-background-alt));
+    color: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    text-align: left;
+    cursor: grab;
+    transition: filter var(--transition-fast), box-shadow var(--transition-fast);
+    overflow: hidden;
+}
+
+/*
+  The hit area, extended past the drawn bar without widening it.
+
+  A bar's width is a duration the reader measures by eye, so padding a one-week
+  item out to the 44px an interactive target is required to be would draw it as
+  a fortnight. Instead the target grows into the row around it: vertically it
+  fills the full 44px row pitch, which is where the requirement is met. A very
+  short bar is still narrower than 44px horizontally, and that is a deliberate
+  trade — the guaranteed path to such a bar is the keyboard, which reaches it
+  with a Tab like any other.
+*/
+.roadmap-bar__body::before {
+    content: "";
+    position: absolute;
+    top: calc((var(--roadmap-row-height, 2.75rem) - var(--roadmap-bar-height, 1.5rem)) / -2);
+    bottom: calc((var(--roadmap-row-height, 2.75rem) - var(--roadmap-bar-height, 1.5rem)) / -2);
+    left: -0.25rem;
+    right: -0.25rem;
+}
+
+.roadmap-bar__body:hover {
+    filter: brightness(1.18);
+}
+
+.roadmap-bar__body:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width-2);
+}
+
+.roadmap-bar__title {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.roadmap-bar__badge {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+/* Shade separates two bars in one band that would otherwise abut invisibly.
+   It varies how much of the group's colour is mixed in and nothing else, so a
+   lighter bar never reads as a different kind of thing. */
+.roadmap-bar--shade-0 { --roadmap-bar-tint: 30%; }
+.roadmap-bar--shade-1 { --roadmap-bar-tint: 23%; }
+.roadmap-bar--shade-2 { --roadmap-bar-tint: 16%; }
+.roadmap-bar--shade-3 { --roadmap-bar-tint: 10%; }
+
+.roadmap-bar--selected .roadmap-bar__body {
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-primary);
+}
+
+/* Lifted, and staying lifted: a keyboard grab persists between keypresses, so
+   it has to look different from a hover that does not. */
+.roadmap-bar--grabbed .roadmap-bar__body,
+.roadmap-bar--dragging .roadmap-bar__body {
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-primary), var(--shadow-lg);
+    cursor: grabbing;
+    filter: brightness(1.25);
+}
+
+.roadmap-bar--grabbed {
+    z-index: 2;
+}
+
+/* Refused, not merely inert. A move onto a milestones row is rejected outright,
+   and saying so while the reader still has hold of the bar is the difference
+   between "you cannot" and "nothing happened". */
+.roadmap-bar--invalid .roadmap-bar__body {
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-text-disabled);
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+}
+
+.roadmap-bar--locked .roadmap-bar__body {
+    cursor: default;
+    border-style: dashed;
+}
+
+/* --- The edges ----------------------------------------------------------- */
+
+/*
+  Pointer affordances only: no tab stop and no accessible name. Two more stops
+  per bar would put three hundred of them between a reader and the row below,
+  and the same two dates are reachable from the bar itself with Shift or Alt and
+  an arrow key.
+*/
+.roadmap-bar__grip {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0.5rem;
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+.roadmap-bar__grip--start {
+    left: calc(var(--border-width-4) * -1);
+}
+
+.roadmap-bar__grip--end {
+    right: -0.125rem;
+}
+
+.roadmap-bar:hover .roadmap-bar__grip::after,
+.roadmap-bar__body:focus-visible ~ .roadmap-bar__grip::after {
+    content: "";
+    position: absolute;
+    top: 25%;
+    bottom: 25%;
+    left: 50%;
+    width: var(--border-width-2);
+    translate: -50% 0;
+    border-radius: var(--border-radius-full);
+    background: var(--color-text-primary);
+}
+
+.roadmap-bar--locked .roadmap-bar__grip {
+    display: none;
+}
+
+/* While a drag is in flight the pointer belongs to the bar, not to the text
+   under it — without this the browser starts selecting labels halfway through. */
+.roadmap-timeline--dragging {
+    cursor: grabbing;
+    user-select: none;
+}
+
+/* --- Milestones ---------------------------------------------------------- */
+
+/* The marker sits on the date; the label sits after it. Centring the pair would
+   put the glyph to the left of the day it marks by half the label's width, which
+   is a lie that grows with the length of the word. */
+.roadmap-milestone {
+    position: absolute;
+    top: 50%;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    translate: 0 -50%;
+    white-space: nowrap;
+    /* left arrives inline, from the geometry */
+}
+
+.roadmap-milestone__marker {
+    margin-left: -0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--roadmap-group-color, var(--color-border-strong));
+    font-size: var(--font-size-base);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.roadmap-milestone__marker:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
+
+.roadmap-milestone__marker[aria-current="true"] {
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-primary);
+}
+
+/* Shape carries the kind, not colour. A reader who cannot separate two hues
+   still separates a star from a square. */
+.roadmap-milestone__glyph {
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+
+.roadmap-milestone__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* --- Narrow screens ------------------------------------------------------ */
+
+@media (max-width: 40rem) {
+    .roadmap-timeline {
+        --roadmap-sidebar-width: 7.5rem;
+        --roadmap-band-width: 1rem;
+    }
+
+    .roadmap-timeline__filters {
+        width: 100%;
+    }
+
+    .roadmap-timeline__filter {
+        min-width: 0;
+        flex: 1 1 8rem;
+    }
+
+    /* The label beside a milestone is the first thing to go: at this width it
+       is what collides with the next milestone, and the glyph still carries the
+       date through its accessible name and its tooltip. */
+    .roadmap-milestone__label {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .roadmap-bar__body {
+        transition: none;
+    }
+}

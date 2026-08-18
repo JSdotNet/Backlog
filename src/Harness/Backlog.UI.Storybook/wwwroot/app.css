@@ -543,3 +543,13 @@ html, body {
        the scroll box. */
     padding: var(--spacing-2xs);
 }
+/* A track for a component that positions itself absolutely against one. The
+   standalone RoadmapTimelineBar story needs somewhere to be absolute inside;
+   without it the bar would place itself against the page. */
+.sb-bar-track {
+    position: relative;
+    height: 2.75rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+}
