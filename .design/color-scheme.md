@@ -63,7 +63,52 @@ standalone UI colors, and do not invent a second, stronger semantic palette.
 | `color-success` | `#1A3A22` | Success banners, confirmation panels, positive status surfaces |
 | `color-warning` | `#3D2E00` | Warning banners, caution panels, non-blocking alert surfaces |
 | `color-error` | `#3D0A0D` | Error banners, validation summaries, destructive-status surfaces |
+| `color-error-text` | `#EC8E97` | Error text, icons and input outlines — the legible foreground for the `color-error` surface, and for error text with no surface behind it |
 | `color-info` | `#0A2C31` | Informational notices, neutral announcement surfaces |
+
+`color-error-text` is the one deliberate exception to "surfaces only", and it
+exists because the rule above left a hole. Foreground text on a `color-error`
+panel covers a banner, but a bare error status line, an error icon, or an error
+input outline has no error surface behind it and so had no sanctioned colour at
+all. Two unsanctioned answers grew up in that gap: a raw `#E4626F` repeated
+through the desktop stylesheet, and a `--color-danger` that product code
+referenced but nothing ever declared. This token is the missing answer. It is a
+**foreground only** — it is never painted as a background, and it does not open
+the door to a second semantic palette, because it serves the one meaning that
+needed one.
+
+**The value is derived, not picked.** `#E4626F`, the incumbent literal, is
+hsl(354, 70.7%, 63.9%) and measures 5.59:1 on `color-background`, 4.86:1 on
+`color-background-alt` and **3.65:1** on `color-background-raised`. It fails the
+4.5:1 AA this document requires of a foreground on a semantic surface. No error
+message sits on a raised surface *today* — dialogs, modals and popovers are all
+built on `color-background` — so the alternative was to keep the incumbent and
+restrict it to the two surfaces it clears. That was rejected: the restriction
+would have to be honoured by the author of every future one-line error rule,
+nothing would enforce it, and the table below already states the requirement
+unrestricted, for a foreground on *any* semantic surface.
+`color-background-raised` is live for dropdowns, popovers and badges, which is
+where an error string lands next.
+
+`#EC8E97` is hsl(354, 70.7%, **74.0%**) — the same hue and the same saturation
+with only the lightness lifted, so this is a legibility correction to the colour
+already in use rather than a redesign of it.
+
+| Pairing | Required | `color-error-text` |
+|---|---|---|
+| on `color-background` | 4.5:1 | **7.91:1** |
+| on `color-background-alt` | 4.5:1 | **6.87:1** |
+| on `color-background-raised` | 4.5:1 | **5.17:1** |
+| on the `color-error` surface | 4.5:1 | **7.12:1** |
+| as a border vs `color-background` | 3:1 | **7.91:1** |
+| as a border vs `color-background-alt` | 3:1 | **6.87:1** |
+| as a border vs `color-background-raised` | 3:1 | **5.17:1** |
+
+Every ratio is computed with the WCAG 2.1 relative-luminance formula. The
+binding pair is the raised surface, as it was for the incumbent. 72% lightness
+(`#EA858F`, 4.80:1 on raised) is the lowest lightness that passes at all; 74% was
+chosen so the binding pair is not sitting 0.3 above the threshold, where a later
+surface adjustment would quietly push it back under.
 
 ### Neutral / Text
 
@@ -164,6 +209,7 @@ Copy-paste reference of every color token and its single dark value.
 | `color-success` | `#1A3A22` |
 | `color-warning` | `#3D2E00` |
 | `color-error` | `#3D0A0D` |
+| `color-error-text` | `#EC8E97` |
 | `color-info` | `#0A2C31` |
 | `color-text-primary` | `#F8F9FA` |
 | `color-text-secondary` | `#CED4DA` |
@@ -178,7 +224,7 @@ Copy-paste reference of every color token and its single dark value.
 | `color-border-strong` | `#737379` |
 | `color-border-focus` | `#F2C14E` |
 
-The twenty tokens above are the whole colour palette. `components.css` declares
+The twenty-one tokens above are the whole colour palette. `components.css` declares
 exactly these, plus the code-block theme in `#syntax-highlighting-tokens`;
 anything else in product code is a literal and MUST be replaced by a token.
 
@@ -336,7 +382,7 @@ or when the stylesheet declares a colour this file does not name. The deviation
 chapter is excluded from that comparison, because its second column is
 deliberately a value the product does not use.
 
-Materialized: all twenty palette tokens and all ten code tokens.
+Materialized: all twenty-one palette tokens and all ten code tokens.
 
 Not yet materialized: the per-stack mapping above is web-only in practice —
 there is no mobile MAUI `ResourceDictionary` and no IDE webview yet, so the CSS
