@@ -223,9 +223,10 @@ actual dashboard and resource URLs from the `aspire start` output, or with
 ## Deploying Azure Foundry models
 
 Azure AI Foundry model deployments are described in `infra/foundry/` and deployed
-through the manual **Deploy Foundry** GitHub Actions workflow. See
+through the manual **Deploy Foundry** GitHub Actions workflow, which runs on a
+self-hosted runner that already has Azure access. See
 [`docs/deployment/foundry.md`](docs/deployment/foundry.md) for the subscription
-target, model list, quota prerequisite, OIDC setup, and validate/what-if/deploy
+target, model list, quota prerequisite, runner setup, and validate/what-if/deploy
 commands. A target is a GitHub environment plus a matching
 `infra/foundry/<environment>.bicepparam` file, so another subscription can be added
 without changing the workflow.
