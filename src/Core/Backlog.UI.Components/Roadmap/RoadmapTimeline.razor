@@ -1,0 +1,960 @@
+@using System.Globalization
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    A plan drawn against time: quarters across the top, a two-level column of
+    swimlanes down the left, and everything else placed by its dates.
+
+    The model is entirely the caller's. A group has been a department, a product
+    area and a person; a row has been a name, a team and a milestones track; and
+    this component can tell none of them apart. It is handed groups, it draws
+    the rows under each in the order given, and it never asks what one means.
+    That is why there is no Owner, no Area and no Repository here — filtering on
+    those three works, and works without this file knowing the words, because a
+    bar carries facets whose names the caller chose. See RoadmapFacet.
+
+    Two of the gestures need saying plainly. Dragging is a pointer gesture with
+    no keyboard equivalent of its own, so every one of them has a key: a bar is
+    grabbed with Space, walked with the arrows, and dropped or abandoned. And
+    nothing here is committed. A drag proposes a placement, the timeline draws
+    the proposal, and the host is told once, on drop, what the reader decided —
+    because only the host knows whether the new dates are allowed, whether they
+    save, and what else has to move with them.
+*@
+
+<section class="roadmap-timeline @CssClass"
+         style="@Metrics"
+         aria-labelledby="@_headingId"
+         data-testid="@TestId">
+    <header class="roadmap-timeline__header">
+        <div class="roadmap-timeline__heading">
+            @Heading
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <p class="roadmap-timeline__description">@Description</p>
+            }
+        </div>
+
+        @* The filter controls exist only where there is something to filter. A
+           caller whose bars carry no facets gets no filter bar rather than an
+           empty one, which would promise a narrowing that cannot happen. *@
+        @if (ShowFilters && FacetNames.Count > 0)
+        {
+            <div class="roadmap-timeline__filters" data-testid="@Suffix("filters")">
+                @foreach (var name in FacetNames)
+                {
+                    <TagMultiSelect @key="name"
+                                    Label="@name"
+                                    Placeholder="@($"All {name.ToLowerInvariant()}")"
+                                    Options="@OptionsFor(name)"
+                                    SelectedValues="@SelectedIn(name)"
+                                    SelectedValuesChanged="values => Filter(name, values)"
+                                    CssClass="roadmap-timeline__filter"
+                                    TestId="@Suffix($"filter-{Slug(name)}")" />
+                }
+
+                @if (_filters.Values.Any(values => values.Count > 0))
+                {
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               OnClick="ClearFilters"
+                               TestId="@Suffix("filter-clear")">
+                        Clear filters
+                    </AppButton>
+                }
+            </div>
+        }
+    </header>
+
+    @* One copy of the keyboard contract, pointed at by every bar. Repeating it
+       per bar would have a screen reader read the manual three hundred times. *@
+    <p id="@_helpId" class="sr-only">
+        Press Enter to open. Press Space to pick the bar up, then Left and Right to move it a week,
+        Up and Down to move it to another row, Shift with Left or Right to change its end date,
+        and Alt with Left or Right to change its start date. Space drops it, Escape puts it back.
+    </p>
+
+    <p class="sr-only" role="status" aria-live="polite" data-testid="@Suffix("announcement")">@_announcement</p>
+
+    @if (Rows.Count == 0)
+    {
+        <p class="roadmap-timeline__empty" data-testid="@Suffix("empty")">@EmptyMessage</p>
+    }
+    else
+    {
+        <div class="roadmap-timeline__frame">
+            @* The left column does not scroll sideways with the track, so the
+               row a bar belongs to stays readable in November. It is a sibling
+               of the scroller rather than something sticky inside it: the rows
+               and the labels are then two lists of the same height in the same
+               order, which is a far cheaper promise to keep than a sticky cell
+               inside a scrolling, transformed grid. *@
+            <div class="roadmap-timeline__sidebar" aria-hidden="true">
+                <div class="roadmap-timeline__sidebar-axis"></div>
+
+                @foreach (var group in PopulatedGroups)
+                {
+                    <div class="roadmap-timeline__group"
+                         style="@GroupStyle(group)"
+                         data-testid="@Suffix($"group-{Slug(group.Id)}")">
+                        <p class="roadmap-timeline__group-name">@group.Title</p>
+                        <div class="roadmap-timeline__group-rows">
+                            @foreach (var row in group.RowList)
+                            {
+                                <p class="roadmap-timeline__row-name" style="height: @Rem(Geometry.RowHeightRem)">@row.Title</p>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="roadmap-timeline__scroll"
+                 role="region"
+                 tabindex="0"
+                 aria-label="@ScrollLabel">
+                <div @ref="_track" class="roadmap-timeline__track" style="width: @Rem(Geometry.TrackWidthRem)">
+
+                    <div class="roadmap-timeline__axis" data-testid="@Suffix("axis")">
+                        @foreach (var quarter in Span.Quarters)
+                        {
+                            <div class="roadmap-timeline__quarter"
+                                 style="left: @Rem(Geometry.XFor(quarter.Start)); width: @Rem(Geometry.WidthFor(quarter.Start, quarter.End))">
+                                <span class="roadmap-timeline__quarter-label">@quarter.Label</span>
+                                <span class="roadmap-timeline__quarter-year">@quarter.Year</span>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="roadmap-timeline__body" style="height: @Rem(TrackHeight)">
+
+                        <div class="roadmap-timeline__grid" aria-hidden="true">
+                            @foreach (var quarter in Span.Quarters.Skip(1))
+                            {
+                                <span class="roadmap-timeline__rule" style="left: @Rem(Geometry.XFor(quarter.Start))"></span>
+                            }
+
+                            @* Today is the caller's to state. A component that read
+                               the clock would draw a different picture in every test
+                               run and in every time zone it was opened in. *@
+                            @if (Today is { } today && Span.Contains(today))
+                            {
+                                <span class="roadmap-timeline__today" style="left: @Rem(Geometry.XFor(today))"></span>
+                            }
+                        </div>
+
+                        @* Arrows sit under the bars and take no pointer events: they
+                           describe a relationship between two things the reader
+                           clicks, and are not themselves clickable. Each is redrawn
+                           from where its two ends are right now, which is what keeps
+                           one attached to a bar part-way through being dragged. *@
+                        @if (Arrows.Count > 0)
+                        {
+                            <svg class="roadmap-timeline__links"
+                                 aria-hidden="true"
+                                 focusable="false"
+                                 viewBox="@ViewBox"
+                                 style="width: @Rem(Geometry.TrackWidthRem); height: @Rem(TrackHeight)"
+                                 data-testid="@Suffix("links")">
+                                <defs>
+                                    <marker id="@_arrowheadId" markerWidth="4" markerHeight="4" refX="3.4" refY="2"
+                                            markerUnits="strokeWidth" orient="auto">
+                                        <path class="roadmap-timeline__arrowhead" d="M 0 0.4 L 3.4 2 L 0 3.6 z" />
+                                    </marker>
+                                </defs>
+
+                                @* Unkeyed on purpose. These paths hold no state and
+                                   have no identity to preserve between renders — they
+                                   are pure output, rebuilt from the current positions
+                                   every time. Keying them on their two ids looked
+                                   tidier and was wrong: "a"+"bc" and "ab"+"c" are the
+                                   same string, and a duplicate key throws on the
+                                   second render rather than the first, so the crash
+                                   arrives on the reader's first drag. *@
+                                @foreach (var arrow in Arrows)
+                                {
+                                    <path class="roadmap-timeline__link" d="@arrow.Path" marker-end="@ArrowheadRef" />
+                                }
+                            </svg>
+                        }
+
+                        @foreach (var placed in Rows)
+                        {
+                            <div @key="placed.Row.Id"
+                                 class="@(placed.Row.Kind == RoadmapRowKind.Milestones ? "roadmap-timeline__row roadmap-timeline__row--milestones" : "roadmap-timeline__row")"
+                                 style="top: @Rem(Geometry.RowTop(placed.Index)); height: @Rem(Geometry.RowHeightRem); @GroupStyle(placed.Group)"
+                                 role="group"
+                                 aria-label="@Context(placed)"
+                                 data-roadmap-row="@placed.Row.Id"
+                                 data-testid="@Suffix($"row-{Slug(placed.Row.Id)}")">
+
+                                @foreach (var bar in BarsOn(placed.Row.Id))
+                                {
+                                    <RoadmapTimelineBar @key="bar.Id"
+                                                        Bar="bar"
+                                                        Geometry="Geometry"
+                                                        Preview="@PreviewFor(bar.Id)"
+                                                        DependencyCount="@DependencyCount(bar.Id)"
+                                                        Selected="@Is(SelectedId, bar.Id)"
+                                                        Grabbed="@Is(_grabbedId, bar.Id)"
+                                                        Dragging="@Is(_dragId, bar.Id)"
+                                                        Invalid="@(Refused && Is(ActiveId, bar.Id))"
+                                                        AllowResize="@AllowResize"
+                                                        ContextLabel="@Context(placed)"
+                                                        DateLabel="@DateLabel"
+                                                        DescribedById="@_helpId"
+                                                        PreventDefaultKeys="@Is(_grabbedId, bar.Id)"
+                                                        ButtonId="@BarButtonId(bar.Id)"
+                                                        OnActivate="Activate"
+                                                        OnKeyDown="args => Key(bar, args)"
+                                                        TestId="@Suffix($"bar-{Slug(bar.Id)}")" />
+                                }
+
+                                @foreach (var milestone in MilestonesOn(placed.Row.Id))
+                                {
+                                    <span @key="milestone.Id"
+                                          class="@MilestoneClass(milestone)"
+                                          style="left: @Rem(Geometry.XFor(milestone.On))">
+                                        <button type="button"
+                                                class="roadmap-milestone__marker"
+                                                aria-current="@(Is(SelectedId, milestone.Id) ? "true" : null)"
+                                                title="@Tooltip(milestone)"
+                                                data-testid="@Suffix($"milestone-{Slug(milestone.Id)}")"
+                                                @onclick="() => Activate(milestone.Id)">
+                                            <span class="roadmap-milestone__glyph" aria-hidden="true">@Glyph(milestone.Marker)</span>
+                                            <span class="sr-only">@Spoken(milestone, placed)</span>
+                                        </button>
+                                        <span class="roadmap-milestone__label" aria-hidden="true">@milestone.Title</span>
+                                    </span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    // A page may hold more than one timeline, so every id that is pointed at
+    // from elsewhere has to be unique per instance, or the second one's bars
+    // describe themselves using the first one's help text.
+    private readonly string _instance = Guid.NewGuid().ToString("N");
+
+    private ElementReference _track;
+    private DotNetObjectReference<RoadmapTimeline>? _self;
+    private bool _attached;
+
+    /// <summary>Which bar a pointer has hold of, and which one a keyboard has
+    /// picked up. Two fields rather than one because they are drawn
+    /// differently: a grabbed bar stays lifted between keypresses, a dragged
+    /// one is under the pointer only while the button is down.</summary>
+    private string? _dragId;
+    private string? _grabbedId;
+
+    private RoadmapDrag _kind = RoadmapDrag.Move;
+    private int _steps;
+    private int _rowOffset;
+    private string? _announcement;
+
+    private readonly Dictionary<string, IReadOnlyList<string>> _filters = new(StringComparer.Ordinal);
+
+    // Worked out once per change rather than once per read. The chart asks
+    // where every row is, which bars survive the filter and where every arrow
+    // lands many times over in a single render, and each of those answers is
+    // the same for the whole pass.
+    private IReadOnlyList<PlacedRow>? _rows;
+    private IReadOnlyList<RoadmapBar>? _visible;
+    private IReadOnlyList<RoadmapArrow>? _arrows;
+    private RoadmapWindow? _span;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<RoadmapGroup> Groups { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<RoadmapBar> Bars { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<RoadmapMilestone> Milestones { get; set; } = [];
+
+    /// <summary>The dependencies drawn between bars and milestones.</summary>
+    [Parameter]
+    public IReadOnlyList<RoadmapLink> Links { get; set; } = [];
+
+    /// <summary>The stretch of time drawn. Left unset, it is the narrowest run
+    /// of whole quarters that holds everything the plan contains.</summary>
+    [Parameter]
+    public RoadmapWindow? Window { get; set; }
+
+    /// <summary>Where to draw the "now" line, if anywhere. The caller's,
+    /// because a component that read the clock could not be tested twice.</summary>
+    [Parameter]
+    public DateOnly? Today { get; set; }
+
+    /// <summary>Which day a week starts on here, and so where a drag lands.</summary>
+    [Parameter]
+    public DayOfWeek WeekStart { get; set; } = DayOfWeek.Monday;
+
+    /// <summary>How wide one quarter is drawn, in rem. The zoom control: every
+    /// horizontal measurement on the chart is derived from it.</summary>
+    [Parameter]
+    public double QuarterWidth { get; set; } = 16;
+
+    /// <summary>Whether a bar can be moved in time at all.</summary>
+    [Parameter]
+    public bool AllowMove { get; set; } = true;
+
+    /// <summary>Whether a bar's edges can be pulled to change its dates.</summary>
+    [Parameter]
+    public bool AllowResize { get; set; } = true;
+
+    /// <summary>Whether a move may also change which row a bar is on. Off for a
+    /// plan whose rows are decided elsewhere — an owner assigned by a system of
+    /// record is not something to reassign by dropping a rectangle on it.</summary>
+    [Parameter]
+    public bool AllowRowChange { get; set; } = true;
+
+    /// <summary>Whether the filter bar is offered. It appears only when the
+    /// bars carry facets to filter on.</summary>
+    [Parameter]
+    public bool ShowFilters { get; set; } = true;
+
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnBarSelected { get; set; }
+
+    /// <summary>Where a bar ended up. Raised once, when the gesture settles,
+    /// and never before: see RoadmapChange for why applying it is the host's.</summary>
+    [Parameter]
+    public EventCallback<RoadmapChange> OnBarChanged { get; set; }
+
+    /// <summary>What is being filtered on now, for a host that wants to mirror
+    /// it into a URL. The narrowing itself is done here — which bars are on
+    /// screen is a way of looking at the plan, not a change to it.</summary>
+    [Parameter]
+    public EventCallback<IReadOnlyDictionary<string, IReadOnlyList<string>>> OnFilterChanged { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Roadmap";
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    /// <summary>Which heading level the title is, so a page can nest one of
+    /// these without breaking its outline.</summary>
+    [Parameter]
+    public int HeadingLevel { get; set; } = 2;
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Roadmap timeline";
+
+    [Parameter]
+    public string EmptyMessage { get; set; } = "No roadmap yet. Add a group with a row in it.";
+
+    /// <summary>How a date is written, wherever one is read out. The host's:
+    /// what language it is said in is not this library's to decide.</summary>
+    [Parameter]
+    public Func<DateOnly, string> DateLabel { get; set; } =
+        date => date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string _headingId => "roadmap-timeline-title-" + _instance;
+
+    private string _helpId => "roadmap-timeline-help-" + _instance;
+
+    private string _arrowheadId => "roadmap-timeline-arrowhead-" + _instance;
+
+    private IReadOnlyList<RoadmapGroup> GroupList => Groups ?? [];
+
+    private IReadOnlyList<RoadmapBar> BarList => Bars ?? [];
+
+    private IReadOnlyList<RoadmapMilestone> MilestoneList => Milestones ?? [];
+
+    private IReadOnlyList<RoadmapLink> LinkList => Links ?? [];
+
+    /// <summary>A group with no rows takes up no height, so drawing its label
+    /// would leave a heading pointing at nothing.</summary>
+    private IEnumerable<RoadmapGroup> PopulatedGroups => GroupList.Where(group => group.RowList.Count > 0);
+
+    /// <summary>Every row, flattened and numbered. The number is the row's
+    /// vertical position, and it is what a drag up or down counts in.</summary>
+    private IReadOnlyList<PlacedRow> Rows => _rows ??=
+        [.. PopulatedGroups
+            .SelectMany(group => group.RowList.Select(row => (group, row)))
+            .Select((pair, index) => new PlacedRow(pair.group, pair.row, index))];
+
+    /// <summary>
+    /// The window being drawn: the caller's, or the narrowest one that holds
+    /// everything. Every date in the plan is offered to it, milestones
+    /// included, so a launch three quarters past the last bar is still on the
+    /// chart.
+    /// </summary>
+    private RoadmapWindow Span => _span ??= Window ?? RoadmapWindow.Covering(
+        BarList.SelectMany(bar => new[] { bar.Start, bar.End })
+            .Concat(MilestoneList.Select(milestone => milestone.On)),
+        Today ?? DateOnly.FromDateTime(DateTime.Now));
+
+    private RoadmapGeometry Geometry => new(Span, QuarterWidth);
+
+    private double TrackHeight => Geometry.TrackHeightRem(Rows.Count);
+
+    /// <summary>
+    /// The two heights the stylesheet has to agree with the geometry about: the
+    /// pitch of a row, and how tall the axis is.
+    /// <para>
+    /// Published rather than written down twice. The row banding, the sidebar
+    /// labels and the track rows all have to line up to the pixel, and a
+    /// stylesheet holding its own copy of 2.75rem is a stylesheet that will
+    /// disagree with this file the first time either is tuned.
+    /// </para>
+    /// </summary>
+    private string Metrics =>
+        $"--roadmap-row-height: {Rem(Geometry.RowHeightRem)}; --roadmap-bar-height: {Rem(Geometry.BarHeightRem)}";
+
+    private string ViewBox =>
+        $"0 0 {RoadmapGeometry.N(Geometry.TrackWidthRem)} {RoadmapGeometry.N(TrackHeight)}";
+
+    private string ArrowheadRef => $"url(#{_arrowheadId})";
+
+    private string ScrollLabel => $"{AriaLabel}, {Span.Start.Year} to {Span.End.Year}";
+
+    private RenderFragment Heading => builder =>
+    {
+        builder.OpenElement(0, "h" + Math.Clamp(HeadingLevel, 1, 6).ToString(CultureInfo.InvariantCulture));
+        builder.AddAttribute(1, "id", _headingId);
+        builder.AddAttribute(2, "class", "roadmap-timeline__title");
+        builder.AddContent(3, Title);
+        builder.CloseElement();
+    };
+
+    /// <summary>Which bar the current gesture is about, whichever kind of
+    /// gesture it is.</summary>
+    private string? ActiveId => _dragId ?? _grabbedId;
+
+    protected override void OnParametersSet() => Invalidate();
+
+    /// <summary>Everything derived, forgotten. Called wherever the plan or the
+    /// gesture changes — which is the whole list of places any of it can.</summary>
+    private void Invalidate()
+    {
+        _rows = null;
+        _visible = null;
+        _arrows = null;
+        _span = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Attached once the track exists, and only then. A plan with no rows
+        // renders no track at all, so the reference would be to nothing.
+        if (_attached || Rows.Count == 0) return;
+
+        _self ??= DotNetObjectReference.Create(this);
+
+        try
+        {
+            await Js.InvokeVoidAsync(
+                "backlogRoadmapTimeline.attach",
+                _track,
+                _instance,
+                _self,
+                new { weekRem = Geometry.WeekWidthRem, rowRem = Geometry.RowHeightRem });
+
+            _attached = true;
+        }
+        catch (JSException)
+        {
+            // The library script is not on the page. Everything except pointer
+            // dragging still works, keyboard editing included, so the chart is
+            // degraded rather than broken and there is nothing to report.
+        }
+    }
+
+    // --- The gesture, from either direction --------------------------------
+
+    /// <summary>A pointer has taken hold of a bar. Which part of it decides
+    /// whether the gesture reschedules the work or re-estimates it.</summary>
+    [JSInvokable]
+    public void DragBegin(string barId, string grip)
+    {
+        _dragId = barId;
+        _grabbedId = null;
+        _kind = GripKind(grip);
+        _steps = 0;
+        _rowOffset = 0;
+
+        Invalidate();
+        StateHasChanged();
+    }
+
+    /// <summary>How far the drag has got, in whole weeks and whole rows. Called
+    /// only when that answer changes, which is why it is cheap enough to redraw
+    /// the whole chart — arrows included — on every one.</summary>
+    [JSInvokable]
+    public void DragPreview(int weekSteps, int rowSteps)
+    {
+        if (_dragId is null) return;
+
+        _steps = AllowMove || _kind != RoadmapDrag.Move ? weekSteps : 0;
+        _rowOffset = AllowRowChange && _kind == RoadmapDrag.Move ? rowSteps : 0;
+
+        Invalidate();
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task DragCommit()
+    {
+        if (_dragId is null) return;
+
+        await Settle(_dragId);
+    }
+
+    [JSInvokable]
+    public void DragCancel()
+    {
+        var abandoned = ActiveId;
+        var bar = abandoned is null ? null : Bar(abandoned);
+
+        Release();
+
+        if (bar is not null)
+        {
+            Announce($"Move cancelled. {bar.Title} returned to {DateLabel(bar.Start)}.");
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// The keyboard half of the same gesture, and not an afterthought: dragging
+    /// has no keyboard equivalent of its own, so a timeline that could only be
+    /// dragged would be one some readers could look at and never edit.
+    /// </summary>
+    private async Task Key(RoadmapBar bar, KeyboardEventArgs args)
+    {
+        // Enter opens and Space picks up: two verbs, two keys, and opening is the
+        // one a reader does by accident far more often than moving.
+        //
+        // Enter is deliberately not handled here while the bar is loose. The bar
+        // is a real button, so the browser already turns Enter into a click, and
+        // catching it here as well would raise the host's selection callback
+        // twice for one keypress. Once grabbed, the default is suppressed and
+        // Enter means the same as Space: put it down.
+        if (args.Key is " " or "Spacebar" || (args.Key == "Enter" && _grabbedId is not null))
+        {
+            if (_grabbedId is not null)
+            {
+                await Settle(_grabbedId);
+                return;
+            }
+
+            if (bar.Locked || (!AllowMove && !AllowResize)) return;
+
+            _dragId = null;
+            _grabbedId = bar.Id;
+            _kind = RoadmapDrag.Move;
+            _steps = 0;
+            _rowOffset = 0;
+
+            Invalidate();
+            Announce($"Grabbed {bar.Title}. Use arrow keys to move, Space to drop, Escape to cancel.");
+            return;
+        }
+
+        if (_grabbedId is null) return;
+
+        if (args.Key == "Escape")
+        {
+            DragCancel();
+            return;
+        }
+
+        var along = args.Key switch
+        {
+            "ArrowRight" => 1,
+            "ArrowLeft" => -1,
+            _ => 0
+        };
+
+        if (along != 0)
+        {
+            // Which two dates the arrows are moving is decided by the modifier
+            // held with them, and changing modifier mid-grab starts that edit
+            // over. Carrying the step count across would apply a move's three
+            // weeks to an edge the moment Shift went down.
+            var kind = args.ShiftKey ? RoadmapDrag.ResizeEnd
+                : args.AltKey ? RoadmapDrag.ResizeStart
+                : RoadmapDrag.Move;
+
+            if (kind == RoadmapDrag.Move && !AllowMove) return;
+            if (kind != RoadmapDrag.Move && !AllowResize) return;
+
+            if (kind != _kind)
+            {
+                _kind = kind;
+                _steps = 0;
+                _rowOffset = 0;
+            }
+
+            _steps += along;
+
+            Invalidate();
+            AnnouncePlacement(bar);
+            return;
+        }
+
+        var across = args.Key switch
+        {
+            "ArrowDown" => 1,
+            "ArrowUp" => -1,
+            _ => 0
+        };
+
+        if (across == 0 || !AllowRowChange || _kind != RoadmapDrag.Move) return;
+
+        _rowOffset += across;
+
+        Invalidate();
+        AnnouncePlacement(bar);
+    }
+
+    /// <summary>
+    /// The end of a gesture, from a pointer or from a key. One path for both:
+    /// the two differ in how the reader said "here", not in what happens next.
+    /// </summary>
+    private async Task Settle(string barId)
+    {
+        var change = PreviewFor(barId);
+        var bar = Bar(barId);
+
+        Release();
+
+        if (change is null || bar is null)
+        {
+            if (bar is not null) Announce($"{bar.Title} left where it was.");
+
+            StateHasChanged();
+            return;
+        }
+
+        Announce($"Dropped {bar.Title} at {DateLabel(change.Start)} to {DateLabel(change.End)}.");
+
+        await OnBarChanged.InvokeAsync(change);
+
+        // The row it landed on may be rebuilt around it, and a moved bar whose
+        // focus ring stayed with the old element is a bar the reader has to
+        // find again with the Tab key. Named by id, because it is now a
+        // different node.
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", BarButtonId(barId));
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private void Release()
+    {
+        _dragId = null;
+        _grabbedId = null;
+        _steps = 0;
+        _rowOffset = 0;
+
+        Invalidate();
+    }
+
+    private static RoadmapDrag GripKind(string grip) => grip switch
+    {
+        "start" => RoadmapDrag.ResizeStart,
+        "end" => RoadmapDrag.ResizeEnd,
+        _ => RoadmapDrag.Move
+    };
+
+    /// <summary>
+    /// What the gesture in flight would do to this bar, or null when it would
+    /// do nothing. This is what the bar is drawn from and what the arrows are
+    /// resolved against, so the preview and the drop can never disagree — they
+    /// are the same value.
+    /// </summary>
+    private RoadmapChange? PreviewFor(string barId)
+    {
+        if (!Is(ActiveId, barId) || Bar(barId) is not { } bar) return null;
+
+        return RoadmapChange.For(bar, _kind, _steps, Landing(bar) ?? bar.RowId, WeekStart);
+    }
+
+    /// <summary>
+    /// Which row a move would land on, or null when it would land somewhere it
+    /// cannot go.
+    /// <para>
+    /// A milestones row holds points in time and has no duration to lend a bar,
+    /// so dropping one there is refused outright rather than allowed and then
+    /// silently undone. Null is the refusal, and the caller turns it back into
+    /// the row the bar came from — the difference between "you cannot" and
+    /// "nothing happened" is what the reader is shown, not where the bar ends
+    /// up.
+    /// </para>
+    /// </summary>
+    private string? Landing(RoadmapBar bar)
+    {
+        if (_rowOffset == 0 || !AllowRowChange || _kind != RoadmapDrag.Move) return bar.RowId;
+
+        var rows = Rows;
+        var from = rows.FirstOrDefault(row => Is(row.Row.Id, bar.RowId));
+
+        if (from is null) return bar.RowId;
+
+        var landing = rows[Math.Clamp(from.Index + _rowOffset, 0, rows.Count - 1)];
+
+        return landing.Row.Kind == RoadmapRowKind.Bars ? landing.Row.Id : null;
+    }
+
+    /// <summary>Whether the gesture in flight is being refused.</summary>
+    private bool Refused => ActiveId is { } id && Bar(id) is { } bar && Landing(bar) is null;
+
+    private async Task Activate(string id)
+    {
+        if (OnBarSelected.HasDelegate) await OnBarSelected.InvokeAsync(id);
+    }
+
+    private void AnnouncePlacement(RoadmapBar bar)
+    {
+        if (Refused)
+        {
+            Announce("That row takes milestones, not bars.");
+            return;
+        }
+
+        var placed = PreviewFor(bar.Id)?.ApplyTo(bar) ?? bar;
+        var row = Rows.FirstOrDefault(candidate => Is(candidate.Row.Id, placed.RowId));
+
+        Announce($"{DateLabel(placed.Start)} to {DateLabel(placed.End)}{(row is null ? null : ", " + Context(row))}.");
+    }
+
+    private void Announce(string message) => _announcement = message;
+
+    // --- Filtering ---------------------------------------------------------
+
+    /// <summary>Facet names in the order the bars first mention them, so the
+    /// filter controls appear in the order the caller thought of them rather
+    /// than alphabetically.</summary>
+    private IReadOnlyList<string> FacetNames =>
+        [.. BarList.SelectMany(bar => bar.FacetList).Select(facet => facet.Name).Distinct(StringComparer.Ordinal)];
+
+    /// <summary>Every value a facet takes, across all bars rather than the
+    /// visible ones. Narrowing the options as you filter would make a choice
+    /// disappear the moment it became the only one left.</summary>
+    private IReadOnlyList<SelectorOption> OptionsFor(string name) =>
+        [.. BarList.SelectMany(bar => bar.FacetList)
+            .Where(facet => string.Equals(facet.Name, name, StringComparison.Ordinal))
+            .Select(facet => facet.Value)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.CurrentCultureIgnoreCase)
+            .Select(value => new SelectorOption(value, value))];
+
+    private IReadOnlyList<string> SelectedIn(string name) =>
+        _filters.TryGetValue(name, out var values) ? values : [];
+
+    private async Task Filter(string name, IReadOnlyList<string> values)
+    {
+        _filters[name] = values;
+
+        Invalidate();
+
+        await OnFilterChanged.InvokeAsync(_filters.ToDictionary(pair => pair.Key, pair => pair.Value));
+    }
+
+    private async Task ClearFilters()
+    {
+        _filters.Clear();
+
+        Invalidate();
+
+        await OnFilterChanged.InvokeAsync(new Dictionary<string, IReadOnlyList<string>>());
+    }
+
+    /// <summary>
+    /// The bars still on screen. A bar has to match every facet being filtered
+    /// on, and any one of the values chosen within each — "tagged design AND in
+    /// either of these two repositories", which is how a reader reads two
+    /// controls standing side by side.
+    /// </summary>
+    private IReadOnlyList<RoadmapBar> VisibleBars => _visible ??=
+        [.. BarList.Where(bar => _filters
+            .Where(filter => filter.Value.Count > 0)
+            .All(filter => bar.FacetList.Any(facet =>
+                string.Equals(facet.Name, filter.Key, StringComparison.Ordinal)
+                && filter.Value.Contains(facet.Value, StringComparer.Ordinal))))];
+
+    private IEnumerable<RoadmapBar> BarsOn(string rowId) =>
+        VisibleBars.Where(bar => Is(EffectiveRow(bar), rowId));
+
+    /// <summary>Which row a bar is drawn on right now — including part-way
+    /// through being dragged onto another one.</summary>
+    private string EffectiveRow(RoadmapBar bar) => PreviewFor(bar.Id)?.RowId ?? bar.RowId;
+
+    private IEnumerable<RoadmapMilestone> MilestonesOn(string rowId) =>
+        MilestoneList.Where(milestone => Is(milestone.RowId, rowId));
+
+    private RoadmapBar? Bar(string id) => BarList.FirstOrDefault(bar => Is(bar.Id, id));
+
+    // --- Dependencies ------------------------------------------------------
+
+    /// <summary>
+    /// Every arrow that can actually be drawn.
+    /// <para>
+    /// A link whose end is missing, or has been filtered off the chart, is
+    /// dropped rather than drawn to where the thing would have been. An arrow
+    /// pointing at empty space is not a weaker version of a dependency; it is a
+    /// claim about a relationship the reader has no way to check.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<RoadmapArrow> Arrows => _arrows ??=
+        [.. LinkList
+            // The same dependency stated twice is one dependency. Left in, it
+            // would draw one arrow exactly on top of another and count two
+            // against the badge, which is a number the reader cannot reconcile
+            // with the arrows they can see.
+            .Distinct()
+            .Select(link => (link, from: RightAnchor(link.FromId), to: LeftAnchor(link.ToId)))
+            .Where(candidate => candidate.from is not null && candidate.to is not null)
+            .Select(candidate => new RoadmapArrow(
+                candidate.link.FromId,
+                candidate.link.ToId,
+                Geometry.LinkPath(
+                    candidate.from!.Value.X,
+                    candidate.from!.Value.Y,
+                    candidate.to!.Value.X,
+                    candidate.to!.Value.Y),
+                $"{Name(candidate.link.FromId)} before {Name(candidate.link.ToId)}"))];
+
+    /// <summary>How many dependencies point at something. The badge on the bar,
+    /// counted from the links that survived resolution so the number and the
+    /// arrows on screen always agree.</summary>
+    private int DependencyCount(string id) => Arrows.Count(arrow => Is(arrow.ToId, id));
+
+    /// <summary>Where an arrow leaves something: its right edge, at the
+    /// vertical centre of whichever row it is currently drawn on.</summary>
+    private (double X, double Y)? RightAnchor(string id) => Anchor(id, trailing: true);
+
+    /// <summary>Where an arrow meets something: its left edge.</summary>
+    private (double X, double Y)? LeftAnchor(string id) => Anchor(id, trailing: false);
+
+    private (double X, double Y)? Anchor(string id, bool trailing)
+    {
+        if (Bar(id) is { } bar && VisibleBars.Any(visible => Is(visible.Id, id)))
+        {
+            var placed = PreviewFor(id)?.ApplyTo(bar) ?? bar;
+            var row = RowIndex(placed.RowId);
+
+            if (row is null) return null;
+
+            var left = Geometry.XFor(placed.Start);
+
+            return (trailing ? left + Geometry.WidthFor(placed.Start, placed.End) : left, Geometry.RowCenter(row.Value));
+        }
+
+        var milestone = MilestoneList.FirstOrDefault(candidate => Is(candidate.Id, id));
+
+        if (milestone is null) return null;
+
+        var milestoneRow = RowIndex(milestone.RowId);
+
+        // Both ends of a milestone are the same point: it has no width to leave
+        // one side of and arrive at the other.
+        return milestoneRow is null ? null : (Geometry.XFor(milestone.On), Geometry.RowCenter(milestoneRow.Value));
+    }
+
+    private int? RowIndex(string rowId) =>
+        Rows.FirstOrDefault(candidate => Is(candidate.Row.Id, rowId))?.Index;
+
+    private string Name(string id) =>
+        Bar(id)?.Title
+        ?? MilestoneList.FirstOrDefault(milestone => Is(milestone.Id, id))?.Title
+        ?? id;
+
+    // --- Presentation helpers ----------------------------------------------
+
+    /// <summary>
+    /// The group's colour, handed to the stylesheet as a custom property.
+    /// <para>
+    /// The library declines to pick these. Its palette guide is explicit that
+    /// product code must not grow a second semantic palette, and six separable
+    /// hues is exactly that — so a group's colour arrives from the caller, the
+    /// same way the graph explorer's legend colours do. No colour is a neutral
+    /// band, which reads as "nobody said" rather than as one more category.
+    /// </para>
+    /// </summary>
+    private static string? GroupStyle(RoadmapGroup group) =>
+        string.IsNullOrWhiteSpace(group.Color) ? null : $"--roadmap-group-color: {group.Color};";
+
+    private static string MilestoneClass(RoadmapMilestone milestone) =>
+        "roadmap-milestone roadmap-milestone--" + milestone.Marker.ToString().ToLowerInvariant();
+
+    /// <summary>Where a row is, said the way a reader would: the band first,
+    /// then the line within it.</summary>
+    private static string Context(PlacedRow placed) => $"{placed.Group.Title}, {placed.Row.Title}";
+
+    private static string Glyph(RoadmapMarker marker) => marker switch
+    {
+        RoadmapMarker.Star => "★",
+        RoadmapMarker.Square => "■",
+        _ => "◆"
+    };
+
+    private string Tooltip(RoadmapMilestone milestone) =>
+        string.Join(" — ", new[] { milestone.Title, DateLabel(milestone.On), milestone.Detail }
+            .Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    private string Spoken(RoadmapMilestone milestone, PlacedRow placed) =>
+        string.Join(". ", new[] { $"Milestone: {milestone.Title}", Context(placed), DateLabel(milestone.On), milestone.Detail }
+            .Where(part => !string.IsNullOrWhiteSpace(part))) + ".";
+
+    private string BarButtonId(string barId) => $"roadmap-bar-{_instance}-{Slug(barId)}";
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    private static bool Is(string? left, string right) => string.Equals(left, right, StringComparison.Ordinal);
+
+    private static string Rem(double value) => $"{RoadmapGeometry.N(value)}rem";
+
+    /// <summary>An id or a name reduced to something safe in a test hook and in
+    /// an element id. Not reversible and not meant to be: it names an element,
+    /// it does not carry the value.</summary>
+    private static string Slug(string value) =>
+        new([.. value.Select(character => char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-')]);
+
+    /// <summary>A row and where it sits, once the two-level structure has been
+    /// flattened into the single list the chart actually draws.</summary>
+    private sealed record PlacedRow(RoadmapGroup Group, RoadmapRow Row, int Index);
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogRoadmapTimeline.dispose", _instance);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Disposed from a prerender, where interop is not available yet.
+            // Nothing was attached, so there is nothing to detach.
+        }
+
+        _self?.Dispose();
+    }
+}

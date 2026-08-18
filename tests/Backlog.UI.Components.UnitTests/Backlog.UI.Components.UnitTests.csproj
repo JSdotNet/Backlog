@@ -22,6 +22,7 @@
     <Using Include="Backlog.UI.Components.Menus" />
     <Using Include="Backlog.UI.Components.Metrics" />
     <Using Include="Backlog.UI.Components.Overlays" />
+    <Using Include="Backlog.UI.Components.Roadmap" />
     <Using Include="Backlog.UI.Components.Selects" />
     <Using Include="Backlog.UI.Components.Tasks" />
     <Using Include="Backlog.UI.Components.UnitTests.Harnesses" />

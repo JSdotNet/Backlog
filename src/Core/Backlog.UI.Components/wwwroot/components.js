@@ -1064,4 +1064,143 @@
             backlogDiagramInstances.delete(id);
         }
     };
+    /*
+        Roadmap timeline drag.
+
+        The bars are Blazor's; only the pointer is JS's. This listens on the
+        timeline once and works out, from the distance travelled, how many whole
+        weeks and how many rows the gesture amounts to — then tells .NET, but
+        only when that answer changes.
+
+        That "only when it changes" is the whole design. A pointermove fires per
+        frame, and forwarding every one of them over a server circuit would make
+        the bar lag the pointer by a round trip each. Rounding to the week the
+        drag has actually reached collapses a hundred moves into three or four
+        calls, and the preview .NET draws is the snapped position the drop will
+        commit to — so what the reader sees while dragging is what they get.
+
+        Nothing here knows what a week is worth in pixels. That arrives from
+        .NET in rem, because the rem is what the geometry is stated in, and it
+        is converted here at the moment of the drag so a reader who has zoomed
+        their text still moves a bar one week per week's width on their screen.
+    */
+    const backlogRoadmapTimelines = new Map();
+
+    window.backlogRoadmapTimeline = {
+        attach(element, id, reference, options) {
+            if (!element) return;
+
+            this.dispose(id);
+
+            const weekRem = Number(options?.weekRem) || 1;
+            const rowRem = Number(options?.rowRem) || 1;
+            const drag = { active: false, pointerId: null, target: null, startX: 0, startY: 0, steps: 0, rows: 0 };
+
+            const reset = () => {
+                if (drag.target && drag.pointerId !== null && drag.target.hasPointerCapture?.(drag.pointerId)) {
+                    drag.target.releasePointerCapture(drag.pointerId);
+                }
+                drag.active = false;
+                drag.pointerId = null;
+                drag.target = null;
+                element.classList.remove('roadmap-timeline--dragging');
+            };
+
+            const onPointerDown = (event) => {
+                // Secondary buttons open menus; a drag started on one would run
+                // under a context menu the reader is trying to read.
+                if (event.button !== 0 || drag.active) return;
+
+                const grip = event.target.closest('[data-roadmap-grip]');
+                if (!grip || !element.contains(grip)) return;
+
+                const bar = grip.closest('[data-roadmap-bar]');
+                if (!bar || bar.dataset.roadmapLocked === 'true') return;
+
+                drag.active = true;
+                drag.pointerId = event.pointerId;
+                drag.target = grip;
+                drag.startX = event.clientX;
+                drag.startY = event.clientY;
+                drag.steps = 0;
+                drag.rows = 0;
+
+                grip.setPointerCapture?.(event.pointerId);
+                element.classList.add('roadmap-timeline--dragging');
+
+                // The browser's own text selection and native image drag both
+                // fight a pointer drag, and both leave the reader holding a
+                // ghost of the label instead of the bar.
+                event.preventDefault();
+
+                reference.invokeMethodAsync('DragBegin', bar.dataset.roadmapBar, grip.dataset.roadmapGrip);
+            };
+
+            const onPointerMove = (event) => {
+                if (!drag.active || event.pointerId !== drag.pointerId) return;
+
+                const rem = backlogRootFontSize();
+                const steps = Math.round((event.clientX - drag.startX) / rem / weekRem);
+
+                // An edge has no row to land on, so vertical travel while
+                // resizing is a wobble in the reader's hand, not an instruction.
+                const rows = drag.target.dataset.roadmapGrip === 'move'
+                    ? Math.round((event.clientY - drag.startY) / rem / rowRem)
+                    : 0;
+
+                if (steps === drag.steps && rows === drag.rows) return;
+
+                drag.steps = steps;
+                drag.rows = rows;
+
+                reference.invokeMethodAsync('DragPreview', steps, rows);
+            };
+
+            const onPointerUp = (event) => {
+                if (!drag.active || event.pointerId !== drag.pointerId) return;
+
+                reset();
+                reference.invokeMethodAsync('DragCommit');
+            };
+
+            const onPointerCancel = (event) => {
+                if (!drag.active || event.pointerId !== drag.pointerId) return;
+
+                reset();
+                reference.invokeMethodAsync('DragCancel');
+            };
+
+            // Escape abandons a pointer drag as well as a keyboard one. The two
+            // gestures are different but the reader's "no, put it back" is the
+            // same key, and a drag that could only be cancelled by dropping it
+            // somewhere would have no way out at all.
+            const onKeyDown = (event) => {
+                if (!drag.active || event.key !== 'Escape') return;
+
+                reset();
+                reference.invokeMethodAsync('DragCancel');
+            };
+
+            element.addEventListener('pointerdown', onPointerDown);
+            element.addEventListener('pointermove', onPointerMove);
+            element.addEventListener('pointerup', onPointerUp);
+            element.addEventListener('pointercancel', onPointerCancel);
+            document.addEventListener('keydown', onKeyDown);
+
+            backlogRoadmapTimelines.set(id, () => {
+                reset();
+                element.removeEventListener('pointerdown', onPointerDown);
+                element.removeEventListener('pointermove', onPointerMove);
+                element.removeEventListener('pointerup', onPointerUp);
+                element.removeEventListener('pointercancel', onPointerCancel);
+                document.removeEventListener('keydown', onKeyDown);
+            });
+        },
+
+        dispose(id) {
+            const detach = backlogRoadmapTimelines.get(id);
+            detach?.();
+            backlogRoadmapTimelines.delete(id);
+        }
+    };
 })();

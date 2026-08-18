@@ -58,7 +58,8 @@ internal static class StorybookIndex
             new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
             new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge."),
             new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
-            new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model.")
+            new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
+            new("roadmap", "Roadmap", "RoadmapTimeline and RoadmapTimelineBar: a plan against a quarter-ruled time axis, with swimlanes, dependency arrows and bars you can drag.")
         ]),
         new("Dashboard",
         [
