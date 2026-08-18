@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Inbox context's UI: what has been captured but not yet decided on.
+    Upstream of Backlog Management and Second Brain (.domain/context-map.md), so
+    it references nothing but the shared control library — anything more would be
+    the Inbox reading back from a context it publishes to.
+  -->
+  <PropertyGroup>
+    <!--
+      The root namespace deliberately does not match the project name, and must
+      not be "tidied" to match it. The Razor generator emits a component's
+      @using directives *inside* the component's namespace and without a
+      global:: prefix, so a namespace with a second "Backlog" segment shadows
+      the repository root: inside Backlog.Modules.Inbox.UI a sibling project's
+      "Backlog.UI.Components.Buttons" would bind to Backlog.Modules.* and fail
+      with CS0234. Keeping the types in Backlog.Desktop.UI.Inbox also means the
+      move to this project changed no using, @using or namespace line anywhere.
+    -->
+    <RootNamespace>Backlog.Desktop.UI.Inbox</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+  </ItemGroup>
+
+</Project>

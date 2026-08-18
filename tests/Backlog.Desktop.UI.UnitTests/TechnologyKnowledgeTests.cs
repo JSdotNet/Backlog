@@ -29,7 +29,7 @@ public sealed class KnowledgeFolderSourceTests
 
         Assert.True(location.Available);
         Assert.Equal(Path.Combine(workspace.RepositoryPath, ".tech"), location.FullPath);
-        Assert.Equal("JSdotNet/Backlog", location.Repository?.FullName);
+        Assert.Equal("JSdotNet/Backlog", location.RepositoryFullName);
     }
 
     [Fact]

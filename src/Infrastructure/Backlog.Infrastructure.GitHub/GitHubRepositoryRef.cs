@@ -1,3 +1,5 @@
+using Backlog.Modules.Knowledge.Abstractions;
+
 namespace Backlog.Infrastructure.GitHub;
 
 /// <summary>
@@ -25,6 +27,11 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     public string? Token { get; init; }
 
 
+    /// <summary>The knowledge folders configured for this repository. The type
+    /// is Second Brain's published language rather than this adapter's: a
+    /// repository is one place those folders can live, not the thing that
+    /// defines them. That is why this project references that module's
+    /// abstractions and not the reverse.</summary>
     public List<KnowledgeFolderSetting> KnowledgeFolders { get; init; } = KnowledgeFolderSetting.Defaults();
 
     /// <summary>
@@ -93,43 +100,5 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
         else if (text.StartsWith(http, StringComparison.OrdinalIgnoreCase)) text = text[http.Length..];
 
         return text.EndsWith(".git", StringComparison.OrdinalIgnoreCase) ? text[..^4] : text;
-    }
-}
-
-public sealed record KnowledgeFolderSetting(string Key, string DisplayName, string DefaultRelativePath, bool SupportsPathOverride = true)
-{
-    public bool Enabled { get; init; } = true;
-
-    /// <summary>Optional repository-relative or absolute override. Null means the
-    /// conventional folder at the repository root is used.</summary>
-    public string? Path { get; init; }
-
-    public string EffectivePath => string.IsNullOrWhiteSpace(Path) ? DefaultRelativePath : Path.Trim();
-
-    public static List<KnowledgeFolderSetting> Defaults() =>
-    [
-        new("instructions", "Instructions", string.Empty, SupportsPathOverride: false),
-        new(".backlog", "Backlog", ".backlog"),
-        new(".domain", "Domain", ".domain"),
-        new(".arc42", "arc42 architecture", ".arc42"),
-        new(".tech", "Technology", ".tech"),
-        new(".design", "Design", ".design")
-    ];
-
-    public static List<KnowledgeFolderSetting> Normalize(IEnumerable<KnowledgeFolderSetting>? configured)
-    {
-        var byKey = (configured ?? []).ToDictionary(f => f.Key, StringComparer.OrdinalIgnoreCase);
-
-        return
-        [
-            .. Defaults().Select(folder =>
-                byKey.TryGetValue(folder.Key, out var existing)
-                    ? folder with
-                    {
-                        Enabled = existing.Enabled,
-                        Path = folder.SupportsPathOverride && !string.IsNullOrWhiteSpace(existing.Path) ? existing.Path.Trim() : null
-                    }
-                    : folder)
-        ];
     }
 }

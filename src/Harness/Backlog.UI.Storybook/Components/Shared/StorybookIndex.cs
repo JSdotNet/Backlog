@@ -45,7 +45,8 @@ internal static class StorybookIndex
             new("buttons", "Buttons", "AppButton, IconButton, ButtonGroup, ToggleButton."),
             new("inputs", "Inputs", "TextField, TextArea, SearchBox, Toggle, Checkbox."),
             new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect, SearchBox."),
-            new("task-list", "Task list", "TaskItem, TaskListView and TaskAction: the controls a list of things-to-do is made of.")
+            new("task-list", "Task list", "TaskItem, TaskListView and TaskAction: the controls a list of things-to-do is made of.", Exact: true),
+            new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order.")
         ]),
         new("Structure and navigation",
         [
@@ -63,7 +64,14 @@ internal static class StorybookIndex
             new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
             new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge."),
             new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
-            new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model.")
+            new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
+            new("roadmap", "Roadmap", "RoadmapTimeline and RoadmapTimelineBar: a plan against a quarter-ruled time axis, with swimlanes, dependency arrows and bars you can drag.")
+        ]),
+        new("Dashboard",
+        [
+            new("usage-metrics", "Usage metrics", "MetricTile, MetricGrid, MetricSparkline, MetricBars, MetricBreakdownBar, MetricMeter, MetricBreakdown, MetricStatus."),
+            new("ai-usage", "AI usage and cost", "The same components composed into the view they were built for: what AI cost this fortnight, on what, and for whom."),
+            new("productivity", "Productivity over time", "MetricScore, MetricTrellis, MetricHeatmap, MetricSpotlight, MetricStackedArea: a score, where the time went, and the ways one hue can compare them across repositories.")
         ]),
 
         // Its own group rather than four rows at the bottom of Content, and

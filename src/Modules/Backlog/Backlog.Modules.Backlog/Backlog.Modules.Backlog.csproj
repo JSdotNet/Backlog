@@ -17,7 +17,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Shared\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\Backlog.Modules.Backlog.Abstractions\Backlog.Modules.Backlog.Abstractions.csproj" />
   </ItemGroup>
 

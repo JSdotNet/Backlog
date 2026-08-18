@@ -1,0 +1,18 @@
+@* Backlog Management asks its own module where entries live and the shared
+   kernel what is turned on. It conforms to the Inbox's published item contract in
+   BacklogDrafts, which says so in its own usings rather than here — and it
+   never sees Second Brain (Knowledge) or the Shell at all. Now that the context
+   is its own project these imports are the project's own rather than inherited
+   from the desktop app, so what the pane needs is named here and nothing more. *@
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using Backlog.Modules.Backlog.Abstractions
+@using Backlog.Modules.Backlog.Abstractions.Services
+@using Backlog.SharedKernel
+@using Backlog.Infrastructure.GitHub
+@using Backlog.UI.Components.Markdown
+@using Backlog.UI.Components.Selects
+@using Backlog.UI.Components.Feedback
+@using Backlog.UI.Components.Badges
+@using Backlog.UI.Components.Buttons
+@using Backlog.UI.Components.Inputs

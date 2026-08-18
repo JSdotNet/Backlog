@@ -1,0 +1,1194 @@
+@page "/settings"
+@*
+    The namespace deliberately does not match the folder, and must not be
+    "tidied" to match it — doing so does not compile.
+
+    This file declares a component named Settings. Under the folder-matching
+    namespace Backlog.Desktop.UI.Settings it becomes
+    Backlog.Desktop.UI.Settings.Settings, and that sibling namespace then shadows
+    the type for everything else under Backlog.Desktop.UI. The unit tests are
+    where it lands: they sit in Backlog.Desktop.UI.UnitTests, so the simple name
+    Settings resolves outward to Backlog.Desktop.UI and finds the namespace
+    before it ever reaches the component —
+
+        SettingsAiUsageTests.cs(69,61): error CS0118:
+            'Settings' is a namespace but is used like a type
+
+    — for IRenderedComponent<Settings>, Render<Settings>() and the record field
+    that holds it. Nothing else in the solution broke; the collision is this
+    component sharing its name with the folder it moved into.
+
+    The file still left Shell/, which was the point: Shell/ is app chrome and the
+    settings screen is not. Only the published namespace stayed put, so the move
+    changed no using, @@using or namespace line anywhere.
+
+    For the same reason this folder has no _Imports.razor: the generated
+    _Imports class is a type like any other, so an _Imports.razor here would
+    declare Backlog.Desktop.UI.Settings and shadow the component all over again —
+    and a @@namespace on it to avoid that collides with Shell/_Imports.razor
+    (CS0111, one _Imports per namespace). The two lines it would have carried are
+    written below instead.
+*@
+@namespace Backlog.Desktop.UI.Shell
+@using Backlog.Infrastructure.FileSystem
+@using Backlog.Infrastructure.Claude
+@using Backlog.SharedKernel
+@using Backlog.Modules.Backlog.Abstractions
+@using Backlog.Modules.Knowledge.Abstractions
+@inject WorkspaceSettingsStore Store
+@inject GitHubIntegration GitHub
+@inject NavigationManager Navigation
+@inject IAppFeatureSettings Features
+@inject AzureFoundrySettingsStore AzureFoundry
+@inject ILocalGitRepositoryService LocalGit
+@inject ClaudeSettingsStore Claude
+
+@*
+    The one screen in this app with a form control, and it earns it: a folder
+    path is not something you can type inline into a backlog entry. It still
+    follows the house rule - no save button. Committing the field (blur or
+    Enter) moves the store.
+*@
+
+<div class="shell shell--narrow">
+    <header class="app-header">
+        <h1>Settings</h1>
+        <a class="icon-link" href="" data-testid="back-link" title="Back to the backlog" aria-label="Back to the backlog">←</a>
+    </header>
+
+    @* The pill strip is the shared Tabs component wearing this page's classes.
+       Arrow-key movement between the pills comes with it. *@
+    <Tabs Bare="true"
+          ListElement="nav"
+          ListCssClass="settings-tabs"
+          AriaLabel="Settings pages"
+          TabCssClass="settings-tab"
+          ActiveTabCssClass="settings-tab settings-tab--active"
+          ActiveId="@ActivePageId"
+          ActiveIdChanged="ShowSettingsPageById">
+
+        <TabPanel Id="features" Title="Features" Element="section" BaseClass="setting" aria-label="Feature settings">
+            <h2 class="setting__title">Features</h2>
+            <p class="setting__description">
+                Turn off parts of the app that are not ready yet. Backlog stays available.
+            </p>
+            <div class="feature-flags" role="list" aria-label="Feature flags">
+                @foreach (var feature in AppFeatures.All)
+                {
+                    @* A flag row is the shared Toggle in its native-checkbox
+                       shape: the whole row is a label, so the box is reachable
+                       by clicking the text. *@
+                    <Toggle NativeCheckbox="true"
+                            BaseClass="feature-flag"
+                            CssClass="@(feature.AlwaysEnabled ? "feature-flag--locked" : null)"
+                            TextCssClass="feature-flag__content"
+                            LabelCssClass="feature-flag__title"
+                            DescriptionCssClass="feature-flag__description"
+                            Label="@feature.Name"
+                            Description="@feature.Description"
+                            Checked="@Features.IsEnabled(feature.Key)"
+                            CheckedChanged="enabled => SetFeatureEnabled(feature, enabled)"
+                            Disabled="@feature.AlwaysEnabled"
+                            role="listitem">
+                        <TextContent>
+                            @if (feature.AlwaysEnabled)
+                            {
+                                <span class="feature-flag__status">Always available</span>
+                            }
+                        </TextContent>
+                    </Toggle>
+
+                    @if (IsUsageMetricsFeature(feature) && UsageMetricsEnabled)
+                    {
+                        <p class="setting__note" data-testid="usage-api-endpoints-context-note">
+                            Configure organization usage API endpoints on the AI tab.
+                        </p>
+                    }
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_featureMessage))
+            {
+                <p class="setting__note" role="status">@_featureMessage</p>
+            }
+        </TabPanel>
+
+    @if (IsSettingsPageAvailable(SettingsPage.Ai))
+    {
+        <TabPanel Id="ai" Title="AI" Element="section" BaseClass="setting" aria-label="AI settings">
+            @if (UsageMetricsEnabled)
+            {
+                <section class="setting" data-testid="usage-api-endpoints-settings" aria-label="AI usage API settings">
+                    <h2 class="setting__title">AI usage organization APIs</h2>
+                    <p class="setting__body">
+                        Configure the API roots Backlog uses for organization-scoped Claude and GitHub Copilot usage metrics.
+                    </p>
+
+                    @* Every field on this page is the shared TextField wearing
+                       the page's own label and input classes. Bare, because a
+                       settings section lays its label and box out itself, and a
+                       grid wrapper between them would move the spacing. *@
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Claude organization API endpoint"
+                               Id="claude-usage-endpoint"
+                               data-testid="claude-usage-endpoint-input"
+                               Type="url"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Value="@_draftClaudeUsageEndpoint"
+                               ValueChanged="value => _draftClaudeUsageEndpoint = value"
+                               @onchange="ApplyUsageEndpoints"
+                               @onkeydown="OnUsageEndpointKeyDown" />
+
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="GitHub organization API endpoint"
+                               Id="github-usage-endpoint"
+                               data-testid="github-usage-endpoint-input"
+                               Type="url"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Value="@_draftGitHubUsageEndpoint"
+                               ValueChanged="value => _draftGitHubUsageEndpoint = value"
+                               @onchange="ApplyUsageEndpoints"
+                               @onkeydown="OnUsageEndpointKeyDown" />
+
+                    <p class="setting__status" data-testid="usage-api-endpoints-status" role="status">
+                        @if (_usageEndpointsMessage is not null)
+                        {
+                            <span>@_usageEndpointsMessage</span>
+                        }
+                        else
+                        {
+                            <span>Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code> and GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>.</span>
+                        }
+                    </p>
+                    <p class="setting__note">
+                        These endpoints are auto-saved. Keep keys and tokens in their existing secure settings fields; endpoint settings contain no secrets.
+                    </p>
+                </section>
+            }
+
+            @if (AiAssistantEnabled)
+            {
+                <section class="setting" data-testid="azure-foundry-settings" aria-label="Azure Foundry AI settings">
+                    <h2 class="setting__title">Azure Foundry AI</h2>
+                    <p class="setting__body">
+                        Connect Backlog to an Azure Foundry chat deployment. The app sends the
+                        visible backlog content and your question to that deployment only when
+                        you ask.
+                    </p>
+
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Endpoint"
+                               Id="azure-foundry-endpoint"
+                               data-testid="azure-foundry-endpoint-input"
+                               Type="url"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="https://your-resource.openai.azure.com"
+                               Value="@_draftAzureFoundryEndpoint"
+                               ValueChanged="value => _draftAzureFoundryEndpoint = value"
+                               @onchange="ApplyAzureFoundryConnection"
+                               @onkeydown="OnAzureFoundryKeyDown" />
+
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Deployment"
+                               Id="azure-foundry-deployment"
+                               data-testid="azure-foundry-deployment-input"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="gpt-5.4"
+                               Value="@_draftAzureFoundryDeployment"
+                               ValueChanged="value => _draftAzureFoundryDeployment = value"
+                               @onchange="ApplyAzureFoundryConnection"
+                               @onkeydown="OnAzureFoundryKeyDown" />
+
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="API version"
+                               Id="azure-foundry-api-version"
+                               data-testid="azure-foundry-api-version-input"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Value="@_draftAzureFoundryApiVersion"
+                               ValueChanged="value => _draftAzureFoundryApiVersion = value"
+                               @onchange="ApplyAzureFoundryConnection"
+                               @onkeydown="OnAzureFoundryKeyDown" />
+
+                    @* type="password" is not one of TextField's four, so it is
+                       splatted rather than passed as Type: the component would
+                       fall back to text and show the key. *@
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="API key"
+                               Id="azure-foundry-api-key"
+                               data-testid="azure-foundry-api-key-input"
+                               type="password"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="@(AzureFoundry.Current.ApiKey is null ? "key" : "stored - hidden")"
+                               Value="@_draftAzureFoundryApiKey"
+                               ValueChanged="value => _draftAzureFoundryApiKey = value"
+                               @onchange="ApplyAzureFoundryApiKey"
+                               @onkeydown="OnAzureFoundryApiKeyDown" />
+
+                    <p class="setting__status" data-testid="azure-foundry-status" role="status">
+                        @if (_azureFoundryMessage is not null)
+                        {
+                            <span>@_azureFoundryMessage</span>
+                        }
+                        else if (AzureFoundry.Current.IsConfigured)
+                        {
+                            <span>AI is connected to <code>@AzureFoundry.Current.Deployment</code>.</span>
+                        }
+                        else
+                        {
+                            <span>AI needs an endpoint, deployment, and API key before it can answer questions.</span>
+                        }
+                    </p>
+
+                    <div class="setting__actions">
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="azure-foundry-clear-key-button"
+                                   Disabled="@(AzureFoundry.Current.ApiKey is null)"
+                                   OnClick="ClearAzureFoundryApiKey">
+                            Forget API key
+                        </AppButton>
+                    </div>
+
+                    <p class="setting__note">
+                        The key is kept in <code>@AzureFoundry.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
+                    </p>
+                </section>
+            }
+        </TabPanel>
+    }
+
+        <TabPanel Id="storage" Title="Storage" Element="section" BaseClass="setting" aria-label="Storage settings">
+            <h2 class="setting__title">Where the backlog is stored</h2>
+            <p class="setting__body">
+                Every entry is a markdown file with YAML frontmatter, readable and editable
+                without this app. Point this at a synced or version-controlled folder and the
+                backlog travels with it.
+            </p>
+
+            @* The error class goes on InputCssClass, not ErrorMessage: this
+               page reports the reason in its own status paragraph below, and
+               ErrorMessage would render a second one as an Alert. *@
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="@SettingInputClass(_error)"
+                       Label="Folder"
+                       Id="storage-path"
+                       data-testid="storage-path-input"
+                       spellcheck="false"
+                       autocomplete="off"
+                       aria-describedby="storage-path-status"
+                       Value="@_draftPath"
+                       ValueChanged="value => _draftPath = value"
+                       @onchange="ApplyAsync"
+                       @onkeydown="OnKeyDownAsync" />
+
+            <p class="setting__status" id="storage-path-status" data-testid="storage-path-status" role="status">
+                @if (_error is not null)
+                {
+                    <span class="setting__status--error">@_error</span>
+                }
+                else if (_moved)
+                {
+                    <span class="setting__status--ok">Moved. Entries now load from this folder.</span>
+                }
+                else
+                {
+                    <span>Entries live in <code>@Store.EntriesDirectory</code>@(Store.IsDefaultRoot ? " - the default location." : ".") Inbox is prepared at <code>@Store.InboxDirectory</code>.</span>
+                }
+            </p>
+
+            <div class="setting__actions">
+                <AppButton Variant="ButtonVariant.None"
+                           data-testid="reset-storage-path"
+                           Disabled="@Store.IsDefaultRoot"
+                           OnClick="ResetAsync">
+                    Use the default folder
+                </AppButton>
+            </div>
+
+            <p class="setting__note">
+                Moving the store points the app somewhere new - it does not copy anything.
+                Entries already written stay in the old folder until you move the files
+                yourself.
+            </p>
+
+            <div class="knowledge-folders" data-testid="storage-knowledge-folder-settings">
+                <h3 class="knowledge-folders__title">Knowledge-base sections</h3>
+                <p class="setting__note">
+                    Storage knowledge folders default to their conventional paths under the storage folder.
+                    Clear an override to return to the default, or turn a section off for global knowledge.
+                    Instructions are on/off only and use Backlog's standard folder discovery.
+                </p>
+
+                @foreach (var folder in Store.KnowledgeFolders)
+                {
+                    var knowledgeInputId = $"storage-knowledge-{folder.Key.TrimStart('.')}";
+
+                    <div class="knowledge-folder" data-testid="storage-knowledge-folder-row">
+                        @* Checkbox rather than Toggle: Toggle's native shape puts
+                           the box after the text, and on these rows it leads.
+                           The row's own class comes after the component's, so
+                           the tighter gap and the code styling still win. *@
+                        <Checkbox CssClass="knowledge-folder__toggle"
+                                  Label="@folder.DisplayName"
+                                  Checked="@folder.Enabled"
+                                  CheckedChanged="enabled => SetStorageKnowledgeFolderEnabled(folder, enabled)"
+                                  data-testid="storage-knowledge-folder-enabled">
+                            <code>@folder.Key</code>
+                        </Checkbox>
+
+                        @if (folder.SupportsPathOverride)
+                        {
+                            <TextField Bare="true"
+                                       InputCssClass="setting__input"
+                                       AriaLabel="@($"{folder.DisplayName} folder path")"
+                                       Id="@knowledgeInputId"
+                                       data-testid="storage-knowledge-folder-path-input"
+                                       spellcheck="false"
+                                       autocomplete="off"
+                                       Placeholder="@folder.DefaultRelativePath"
+                                       Value="@StorageKnowledgePathDraft(folder)"
+                                       ValueChanged="value => _draftKnowledgePaths[KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key)] = value"
+                                       @onchange="() => ApplyStorageKnowledgeFolderPath(folder)"
+                                       @onkeydown="e => OnStorageKnowledgePathKeyDown(e, folder)" />
+                        }
+                        else
+                        {
+                            <span class="knowledge-folder__fixed">Uses standard instruction file discovery</span>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="repo-card__section" data-testid="storage-backup-repository">
+                <h3 class="knowledge-folders__title">Backup repository</h3>
+                <p class="setting__note">
+                    Optional GitHub repository metadata for future backup. The folder above remains the place entries are written today.
+                </p>
+
+                <TextField Bare="true"
+                           LabelCssClass="setting__label"
+                           InputCssClass="@SettingInputClass(_storageRepositoryError)"
+                           Label="Repository"
+                           Id="storage-repository"
+                           data-testid="storage-repository-input"
+                           spellcheck="false"
+                           autocomplete="off"
+                           Placeholder="owner/repo"
+                           aria-describedby="storage-repository-status"
+                           Value="@_draftStorageRepository"
+                           ValueChanged="value => _draftStorageRepository = value"
+                           @onchange="ApplyStorageRepository"
+                           @onkeydown="OnStorageRepositoryKeyDown" />
+
+                <p class="setting__status" id="storage-repository-status" data-testid="storage-repository-status" role="status">
+                    @if (_storageRepositoryError is not null)
+                    {
+                        <span class="setting__status--error">@_storageRepositoryError</span>
+                    }
+                    else if (Store.RootRepository is { } storageRepository)
+                    {
+                        <span>Backup metadata points at <code>@storageRepository.FullName</code>.</span>
+                    }
+                    else
+                    {
+                        <span>No backup repository configured.</span>
+                    }
+                </p>
+
+                <div class="setting__actions">
+                    <AppButton Variant="ButtonVariant.None"
+                               data-testid="clear-storage-repository-button"
+                               Disabled="@(Store.RootRepository is null)"
+                               OnClick="ClearStorageRepository">
+                        Clear backup repository
+                    </AppButton>
+                </div>
+            </div>
+        </TabPanel>
+
+        <TabPanel Id="repositories"
+                  Title="Repositories"
+                  Element="section"
+                  BaseClass="setting"
+                  TestId="github-settings"
+                  aria-label="Repository settings">
+            <h2 class="setting__title">Repositories</h2>
+            <p class="setting__body">
+                Configure zero or more repositories Backlog can work with. GitHub needs an
+                <code>owner/repo</code> connection; local features also
+                need the clone directory on this machine.
+            </p>
+
+            @* The box carries its own border through `setting__input`, so the
+               library's grow wrapper is emitted without one and auto-grow stays
+               off - the rows count is what sizes this field. *@
+            <TextArea Bare="true"
+                      AutoGrow="false"
+                      GrowCssClass=""
+                      LabelCssClass="setting__label"
+                      InputCssClass="@($"{SettingInputClass(_repoError)} setting__input--multiline")"
+                      Label="@RepositoryInputLabel"
+                      Id="github-repos"
+                      data-testid="github-repos-input"
+                      Rows="@RepositoryInputRows"
+                      spellcheck="false"
+                      autocomplete="off"
+                      aria-describedby="github-repos-status"
+                      Placeholder="@RepositoryInputPlaceholder"
+                      Value="@_draftRepos"
+                      ValueChanged="value => _draftRepos = value"
+                      @onchange="ApplyRepositories" />
+
+            <p class="setting__status" id="github-repos-status" data-testid="github-repos-status" role="status">
+                @if (_repoError is not null)
+                {
+                    <span class="setting__status--error">@_repoError</span>
+                }
+                else if (!VisibleRepositories.Any())
+                {
+                    <span>Nothing configured - entries show no repository controls until one is.</span>
+                }
+                else
+                {
+                    <span>
+                        <code>@VisibleRepositories.First().FullName</code> is configured@(VisibleRepositories.Count > 1 ? $", and {VisibleRepositories.Count - 1} more." : ".")
+                        @if (AdditionalRepositoriesEnabled)
+                        {
+                            <span>Type <code>@("@" + VisibleRepositories.First().Alias)</code> on an entry to assign it to <code>@VisibleRepositories.First().FullName</code>.</span>
+                        }
+                        else
+                        {
+                            <span>The first configured repository is used for the single-repository backlog experience.</span>
+                        }
+                    </span>
+                }
+            </p>
+
+            <div class="setting__actions">
+                <AppButton Variant="ButtonVariant.None"
+                           data-testid="add-repository-button"
+                           OnClick="AddRepositoryDraft">
+                    Add repository
+                </AppButton>
+            </div>
+            @if (VisibleRepositories.Any())
+            {
+                @* One subpage per repository, same shared strip as the page tabs
+                   above - only the classes differ. *@
+                <Tabs Bare="true"
+                      ListCssClass="repo-subpages"
+                      ListTestId="repo-subpages"
+                      AriaLabel="Repository pages"
+                      TabCssClass="repo-subpage"
+                      ActiveTabCssClass="repo-subpage repo-subpage--active"
+                      ActiveId="@ActiveRepository?.Alias"
+                      ActiveIdChanged="ShowRepositoryPage">
+                    @foreach (var repository in VisibleRepositories)
+                    {
+                        var activeRepo = repository;
+
+                        <TabPanel Id="@activeRepo.Alias"
+                                  TabTestId="repo-subpage-tab"
+                                  Element="article"
+                                  BaseClass="repo-card"
+                                  TestId="github-repo-card"
+                                  aria-label="@($"{activeRepo.FullName} repository settings")">
+                            <TitleContent>
+                                <span>@activeRepo.FullName</span>
+                            </TitleContent>
+                            <ChildContent>
+                        <header class="repo-card__header">
+                            <div>
+                                <h3 class="repo-card__title">@activeRepo.FullName</h3>
+                                <p class="repo-card__meta">
+                                    Area <code>@("@" + activeRepo.Alias)</code>
+                                </p>
+                            </div>
+
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="remove-repository-button"
+                                       OnClick="() => RemoveRepository(activeRepo)">
+                                Remove repository
+                            </AppButton>
+                        </header>
+
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Local clone directory"
+                                   Id="@($"clone-{activeRepo.Alias}")"
+                                   data-testid="repo-clone-directory-input"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Placeholder="@($"C:\\Repos\\{activeRepo.Name}")"
+                                   Value="@CloneDirectoryDraft(activeRepo)"
+                                   ValueChanged="value => _draftCloneDirectories[activeRepo.Alias] = value"
+                                   @onchange="() => ApplyCloneDirectory(activeRepo.Alias)"
+                                   @onkeydown="e => OnClonePathKeyDown(e, activeRepo)" />
+
+                        <p class="setting__status" data-testid="repo-clone-status" role="status">
+                            @{ var cloneStatus = CloneStatus(activeRepo); }
+                            @if (cloneStatus.IsCloned)
+                            {
+                                <span>Local clone: <code>@cloneStatus.CloneDirectory</code></span>
+                            }
+                            else
+                            {
+                                <span>@cloneStatus.Summary</span>
+                            }
+                        </p>
+
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="repo-clone-button"
+                                       Disabled="@(!CanClone(activeRepo))"
+                                       OnClick="() => CloneRepositoryAsync(activeRepo)">
+                                @CloneButtonText(activeRepo)
+                            </AppButton>
+                        </div>
+
+
+                        @if (Features.IsEnabled(BacklogFeatures.GitHubIntegration))
+                        {
+                            <div class="repo-card__section" data-testid="repo-github-access">
+                                <h4 class="knowledge-folders__title">GitHub access</h4>
+                                <p class="setting__note">
+                                    Signing in with the GitHub CLI is preferred. This repository token is only used as a fallback for <code>@activeRepo.FullName</code> when <code>gh</code> is not signed in.
+                                </p>
+                                <p class="setting__status" data-testid="github-connection-status" role="status">
+                                    @(_connection?.Summary ?? "Checking how this machine can reach GitHub...")
+                                </p>
+                                <TextField Bare="true"
+                                           LabelCssClass="setting__label"
+                                           InputCssClass="setting__input"
+                                           Label="Personal access token"
+                                           Id="@($"github-token-{activeRepo.Alias}")"
+                                           data-testid="github-token-input"
+                                           type="password"
+                                           spellcheck="false"
+                                           autocomplete="off"
+                                           Placeholder="@(activeRepo.Token is null ? "ghp_..." : "stored - hidden")"
+                                           Value="@RepositoryTokenDraft(activeRepo)"
+                                           ValueChanged="value => _draftTokens[activeRepo.Alias] = value"
+                                           @onchange="() => ApplyRepositoryTokenAsync(activeRepo)"
+                                           @onkeydown="e => OnRepositoryTokenKeyDownAsync(e, activeRepo)" />
+                                <div class="setting__actions">
+                                    <AppButton Variant="ButtonVariant.None"
+                                               data-testid="github-recheck-button"
+                                               OnClick="CheckConnectionAsync">
+                                        Check the connection
+                                    </AppButton>
+                                    <AppButton Variant="ButtonVariant.None"
+                                               data-testid="github-clear-token-button"
+                                               Disabled="@(activeRepo.Token is null)"
+                                               OnClick="() => ClearRepositoryTokenAsync(activeRepo)">
+                                        Forget this repository token
+                                    </AppButton>
+                                </div>
+                                <p class="setting__note">
+                                    Tokens are kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately outside the backlog folder, so they are never synced or committed with entries.
+                                </p>
+                            </div>
+                        }
+                        <div class="knowledge-folders" data-testid="knowledge-folder-settings">
+                            <h4 class="knowledge-folders__title">Knowledge-base sections</h4>
+                            <p class="setting__note">
+                                Repository knowledge folders default to their conventional paths.
+                                Clear an override to return to the default, or turn a section off for this repository.
+                                Instructions are on/off only and use Backlog's standard repository discovery.
+                            </p>
+
+                            @foreach (var folder in activeRepo.KnowledgeFolders)
+                            {
+                                var knowledgeInputId = $"knowledge-{activeRepo.Alias}-{folder.Key.TrimStart('.')}";
+
+                                <div class="knowledge-folder" data-testid="knowledge-folder-row">
+                                    <Checkbox CssClass="knowledge-folder__toggle"
+                                              Label="@folder.DisplayName"
+                                              Checked="@folder.Enabled"
+                                              CheckedChanged="enabled => SetKnowledgeFolderEnabled(activeRepo, folder, enabled)"
+                                              data-testid="knowledge-folder-enabled">
+                                        <code>@folder.Key</code>
+                                    </Checkbox>
+
+                                    @if (folder.SupportsPathOverride)
+                                    {
+                                        <TextField Bare="true"
+                                                   InputCssClass="setting__input"
+                                                   Id="@knowledgeInputId"
+                                                   data-testid="knowledge-folder-path-input"
+                                                   spellcheck="false"
+                                                   autocomplete="off"
+                                                   Disabled="@(!folder.Enabled)"
+                                                   Placeholder="@folder.DefaultRelativePath"
+                                                   AriaLabel="@($"{activeRepo.FullName} {folder.DisplayName} folder path")"
+                                                   Value="@KnowledgePathDraft(activeRepo, folder)"
+                                                   ValueChanged="value => _draftKnowledgePaths[KnowledgeDraftKey(activeRepo.Alias, folder.Key)] = value"
+                                                   @onchange="() => ApplyKnowledgeFolderPath(activeRepo, folder)"
+                                                   @onkeydown="e => OnKnowledgePathKeyDown(e, activeRepo, folder)" />
+                                    }
+
+                                    <p class="knowledge-folder__status">
+                                        @if (!folder.Enabled)
+                                        {
+                                            <span>Off for this repository.</span>
+                                        }
+                                        else if (!folder.SupportsPathOverride)
+                                        {
+                                            <span>Uses standard repository instruction discovery.</span>
+                                        }
+                                        else if (string.IsNullOrWhiteSpace(folder.Path))
+                                        {
+                                            <span>Uses <code>@folder.DefaultRelativePath</code> at the repository root.</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Uses <code>@folder.EffectivePath</code>.</span>
+                                        }
+                                    </p>
+                                </div>
+                            }
+                        </div>
+                            </ChildContent>
+                        </TabPanel>
+                    }
+                </Tabs>
+            }
+        </TabPanel>
+    </Tabs>
+</div>
+@code {
+    private string _draftPath = string.Empty;
+    private string? _error;
+    private bool _moved;
+
+    private string _draftRepos = string.Empty;
+    private string? _repoError;
+    private string _draftStorageRepository = string.Empty;
+    private string? _storageRepositoryError;
+    private GitHubConnection? _connection;
+    private string? _featureMessage;
+    private string _draftAzureFoundryEndpoint = string.Empty;
+    private string _draftAzureFoundryDeployment = string.Empty;
+    private string _draftAzureFoundryApiVersion = AzureFoundrySettingsStore.DefaultApiVersion;
+    private string _draftAzureFoundryApiKey = string.Empty;
+    private string? _azureFoundryMessage;
+    private string _draftClaudeUsageEndpoint = string.Empty;
+    private string _draftGitHubUsageEndpoint = string.Empty;
+    private string? _usageEndpointsMessage;
+    private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftKnowledgePaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _cloningRepositories = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftTokens = new(StringComparer.Ordinal);
+    private SettingsPage _activePage = SettingsPage.Features;
+    private string? _activeRepositoryAlias;
+    private const string StorageKnowledgeAlias = "storage";
+
+    private enum SettingsPage
+    {
+        Features,
+        Ai,
+        Storage,
+        Repositories,
+    }
+
+    // The strip speaks in ids; the page still thinks in the enum.
+    private static string PageId(SettingsPage page) => page.ToString().ToLowerInvariant();
+
+    private string ActivePageId => PageId(_activePage);
+
+    private void ShowSettingsPageById(string id)
+    {
+        if (Enum.TryParse<SettingsPage>(id, ignoreCase: true, out var page)) ShowSettingsPage(page);
+    }
+
+    private GitHubRepositoryRef? ActiveRepository => FindActiveRepository();
+
+    private bool AdditionalRepositoriesEnabled => Features.IsEnabled(BacklogFeatures.AdditionalRepositories);
+
+    private bool AiAssistantEnabled => Features.IsEnabled(AppFeatures.AiAssistant);
+
+    private bool UsageMetricsEnabled => Features.IsEnabled(AppFeatures.UsageMetrics);
+
+    private string RepositoryInputLabel => "Repositories";
+
+    private int RepositoryInputRows => Math.Max(4, GitHub.Repositories.Count + 1);
+
+    private string RepositoryInputPlaceholder => "JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs";
+
+    private IReadOnlyList<GitHubRepositoryRef> VisibleRepositories => GitHub.Repositories;
+
+    private void ShowSettingsPage(SettingsPage page)
+    {
+        if (IsSettingsPageAvailable(page))
+        {
+            _activePage = page;
+        }
+    }
+
+    private bool IsSettingsPageAvailable(SettingsPage page) => page switch
+    {
+        SettingsPage.Features or SettingsPage.Storage or SettingsPage.Repositories => true,
+        SettingsPage.Ai => AiAssistantEnabled || UsageMetricsEnabled,
+        _ => false
+    };
+
+    private static bool IsUsageMetricsFeature(AppFeatureDefinition feature) =>
+        string.Equals(feature.Key, AppFeatures.UsageMetrics, StringComparison.OrdinalIgnoreCase);
+
+    private void SetFeatureEnabled(AppFeatureDefinition feature, bool enabled)
+    {
+        var error = Features.SetEnabled(feature.Key, enabled);
+        _featureMessage = error ?? (feature.AlwaysEnabled
+            ? $"{feature.Name} is always available."
+            : $"{feature.Name} is now {(enabled ? "enabled" : "disabled")}.");
+        EnsureActiveSettingsPage();
+        _draftRepos = RepositorySettingsText();
+        EnsureActiveRepositoryPage();
+    }
+
+
+    private void ApplyAzureFoundryConnection()
+    {
+        var error = AzureFoundry.SetConnection(
+            _draftAzureFoundryEndpoint,
+            _draftAzureFoundryDeployment,
+            null,
+            _draftAzureFoundryApiVersion);
+        _azureFoundryMessage = error ?? "Azure Foundry settings updated.";
+        SyncAzureFoundryDrafts();
+    }
+
+    private void ApplyAzureFoundryApiKey()
+    {
+        if (string.IsNullOrWhiteSpace(_draftAzureFoundryApiKey)) return;
+
+        var error = AzureFoundry.SetApiKey(_draftAzureFoundryApiKey);
+        _azureFoundryMessage = error ?? "Azure Foundry API key stored.";
+        _draftAzureFoundryApiKey = string.Empty;
+        SyncAzureFoundryDrafts();
+    }
+
+    private void ClearAzureFoundryApiKey()
+    {
+        var error = AzureFoundry.ClearApiKey();
+        _azureFoundryMessage = error ?? "Azure Foundry API key forgotten.";
+        _draftAzureFoundryApiKey = string.Empty;
+        SyncAzureFoundryDrafts();
+    }
+
+    private void OnAzureFoundryKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyAzureFoundryConnection();
+        else if (e.Key == "Escape") SyncAzureFoundryDrafts();
+    }
+
+    private void OnAzureFoundryApiKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyAzureFoundryApiKey();
+        else if (e.Key == "Escape") _draftAzureFoundryApiKey = string.Empty;
+    }
+
+    private void SyncAzureFoundryDrafts()
+    {
+        _draftAzureFoundryEndpoint = AzureFoundry.Current.Endpoint ?? string.Empty;
+        _draftAzureFoundryDeployment = AzureFoundry.Current.Deployment ?? string.Empty;
+        _draftAzureFoundryApiVersion = AzureFoundry.Current.ApiVersion;
+    }
+
+    private void ApplyUsageEndpoints()
+    {
+        var claudeError = Claude.SetApiEndpoint(_draftClaudeUsageEndpoint);
+        var githubError = GitHub.Settings.SetApiEndpoint(_draftGitHubUsageEndpoint);
+
+        _usageEndpointsMessage = string.Join(" ", new[] { claudeError, githubError }.Where(message => !string.IsNullOrWhiteSpace(message)));
+        if (string.IsNullOrWhiteSpace(_usageEndpointsMessage))
+        {
+            _usageEndpointsMessage = "AI usage API settings updated.";
+        }
+
+        SyncUsageEndpointDrafts();
+    }
+
+    private void OnUsageEndpointKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyUsageEndpoints();
+        else if (e.Key == "Escape") SyncUsageEndpointDrafts();
+    }
+
+    private void SyncUsageEndpointDrafts()
+    {
+        _draftClaudeUsageEndpoint = Claude.Current.ApiEndpoint;
+        _draftGitHubUsageEndpoint = GitHub.Settings.Current.ApiEndpoint;
+    }
+    private void EnsureActiveSettingsPage()
+    {
+        if (!IsSettingsPageAvailable(_activePage))
+        {
+            _activePage = SettingsPage.Features;
+        }
+    }
+
+    private void ShowRepositoryPage(string alias) => _activeRepositoryAlias = GitHubRepositoryRef.NormalizeAlias(alias);
+
+    protected override Task OnInitializedAsync()
+    {
+        _draftPath = Store.RootDirectory;
+        _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+        SyncStorageKnowledgeDrafts();
+        SyncAzureFoundryDrafts();
+        SyncUsageEndpointDrafts();
+        _draftRepos = RepositorySettingsText();
+        SyncRepositoryDrafts();
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // Asking GitHub who we are is a network call, so it happens after the
+        // page is on screen rather than holding it up.
+        if (Features.IsEnabled(BacklogFeatures.GitHubIntegration))
+        {
+            await CheckConnectionAsync();
+        }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ApplyAsync();
+        else if (e.Key == "Escape") _draftPath = Store.RootDirectory;
+    }
+
+    private Task ApplyAsync()
+    {
+        var previous = Store.RootDirectory;
+        _error = Store.TryUseRoot(_draftPath);
+        _moved = _error is null && !string.Equals(previous, Store.RootDirectory, StringComparison.OrdinalIgnoreCase);
+
+        if (_error is null) _draftPath = Store.RootDirectory;
+        return Task.CompletedTask;
+    }
+
+    private Task ResetAsync()
+    {
+        _draftPath = Store.DefaultRootDirectory;
+        return ApplyAsync();
+    }
+
+    private void ApplyStorageRepository()
+    {
+        _storageRepositoryError = string.IsNullOrWhiteSpace(_draftStorageRepository)
+            ? Store.ClearRepository()
+            : Store.TrySetRepository(_draftStorageRepository);
+        _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+    }
+
+    private void ClearStorageRepository()
+    {
+        _storageRepositoryError = Store.ClearRepository();
+        _draftStorageRepository = string.Empty;
+    }
+
+    private void OnStorageRepositoryKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyStorageRepository();
+        else if (e.Key == "Escape") _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+    }
+
+    /// <summary>The input's classes for a field whose rejection is reported in
+    /// the status line beside it rather than by the component.</summary>
+    private static string SettingInputClass(string? error) =>
+        error is null ? "setting__input" : "setting__input setting__input--error";
+
+    private string StorageKnowledgePathDraft(KnowledgeFolderSetting folder)
+    {
+        var key = KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key);
+        if (!_draftKnowledgePaths.TryGetValue(key, out var draft))
+        {
+            draft = folder.Path ?? string.Empty;
+            _draftKnowledgePaths[key] = draft;
+        }
+
+        return draft;
+    }
+
+    private void SetStorageKnowledgeFolderEnabled(KnowledgeFolderSetting folder, bool enabled)
+    {
+        _error = Store.SetKnowledgeFolder(
+            folder.Key,
+            enabled,
+            StorageKnowledgePathDraft(folder));
+        SyncStorageKnowledgeDrafts();
+    }
+
+    private void ApplyStorageKnowledgeFolderPath(KnowledgeFolderSetting folder)
+    {
+        _error = Store.SetKnowledgeFolder(
+            folder.Key,
+            folder.Enabled,
+            StorageKnowledgePathDraft(folder));
+        SyncStorageKnowledgeDrafts();
+    }
+
+    private void OnStorageKnowledgePathKeyDown(KeyboardEventArgs e, KnowledgeFolderSetting folder)
+    {
+        if (e.Key == "Enter") ApplyStorageKnowledgeFolderPath(folder);
+        else if (e.Key == "Escape") _draftKnowledgePaths[KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key)] = folder.Path ?? string.Empty;
+    }
+
+    private void SyncStorageKnowledgeDrafts()
+    {
+        foreach (var folder in Store.KnowledgeFolders)
+        {
+            _draftKnowledgePaths[KnowledgeDraftKey(StorageKnowledgeAlias, folder.Key)] = folder.Path ?? string.Empty;
+        }
+    }
+    /// <summary>Commits the repository list. Lines that aren't repositories are
+    /// reported and skipped rather than throwing away the ones around them —
+    /// a half-typed line is an ordinary thing to have in a text box.</summary>
+    private void ApplyRepositories()
+    {
+        var (repositories, errors) = GitHubSettings.ParseText(_draftRepos);
+        var messages = new List<string>(errors);
+
+        var saveError = GitHub.Settings.SetRepositories(repositories);
+        if (saveError is not null) messages.Add(saveError);
+        _repoError = messages.Count > 0 ? string.Join(" ", messages) : null;
+        _draftRepos = RepositorySettingsText();
+        SyncRepositoryDrafts();
+    }
+
+
+    private void AddRepositoryDraft()
+    {
+        var separator = string.IsNullOrWhiteSpace(_draftRepos) ? string.Empty : Environment.NewLine;
+        _draftRepos = $"{_draftRepos}{separator}new-repository = owner/repo";
+        _repoError = "Replace the placeholder with the repository owner/repo, then leave the field to save it.";
+    }
+
+    private string CloneDirectoryDraft(GitHubRepositoryRef repo)
+    {
+        if (!_draftCloneDirectories.TryGetValue(repo.Alias, out var draft))
+        {
+            draft = repo.CloneDirectory ?? string.Empty;
+            _draftCloneDirectories[repo.Alias] = draft;
+        }
+
+        return draft;
+    }
+
+    private string KnowledgePathDraft(GitHubRepositoryRef repo, KnowledgeFolderSetting folder)
+    {
+        var key = KnowledgeDraftKey(repo.Alias, folder.Key);
+        if (!_draftKnowledgePaths.TryGetValue(key, out var draft))
+        {
+            draft = folder.Path ?? string.Empty;
+            _draftKnowledgePaths[key] = draft;
+        }
+
+        return draft;
+    }
+
+    private void RemoveRepository(GitHubRepositoryRef repository)
+    {
+        _repoError = GitHub.Settings.RemoveRepository(repository.Alias);
+        _draftRepos = RepositorySettingsText();
+        SyncRepositoryDrafts();
+    }
+
+    private void ApplyCloneDirectory(string alias)
+    {
+        _draftCloneDirectories.TryGetValue(alias, out var value);
+        _repoError = GitHub.Settings.SetCloneDirectory(alias, value);
+        SyncRepositoryDrafts();
+    }
+
+    private LocalGitRepositoryStatus CloneStatus(GitHubRepositoryRef repository) =>
+        LocalGit.GetStatus(repository, CloneDirectoryDraft(repository));
+
+    private bool CanClone(GitHubRepositoryRef repository) =>
+        !_cloningRepositories.Contains(repository.Alias) && CloneStatus(repository).CanClone;
+
+    private string CloneButtonText(GitHubRepositoryRef repository)
+    {
+        if (_cloningRepositories.Contains(repository.Alias)) return "Cloning...";
+
+        var status = CloneStatus(repository);
+        return status.IsCloned ? "Already cloned" : "Clone repository";
+    }
+
+    private async Task CloneRepositoryAsync(GitHubRepositoryRef repository)
+    {
+        _cloningRepositories.Add(repository.Alias);
+        _repoError = null;
+
+        try
+        {
+            var result = await LocalGit.CloneAsync(repository, CloneDirectoryDraft(repository));
+            if (result.Success && result.CloneDirectory is not null)
+            {
+                _repoError = GitHub.Settings.SetCloneDirectory(repository.Alias, result.CloneDirectory);
+            }
+            else
+            {
+                _repoError = result.Message;
+            }
+
+            SyncRepositoryDrafts();
+        }
+        finally
+        {
+            _cloningRepositories.Remove(repository.Alias);
+        }
+    }
+
+    private void SetKnowledgeFolderEnabled(GitHubRepositoryRef repo, KnowledgeFolderSetting folder, bool enabled)
+    {
+        _repoError = GitHub.Settings.SetKnowledgeFolder(
+            repo.Alias,
+            folder.Key,
+            enabled,
+            KnowledgePathDraft(repo, folder));
+        SyncRepositoryDrafts();
+    }
+
+    private void ApplyKnowledgeFolderPath(GitHubRepositoryRef repo, KnowledgeFolderSetting folder)
+    {
+        _repoError = GitHub.Settings.SetKnowledgeFolder(
+            repo.Alias,
+            folder.Key,
+            folder.Enabled,
+            KnowledgePathDraft(repo, folder));
+        SyncRepositoryDrafts();
+    }
+
+    private void OnClonePathKeyDown(KeyboardEventArgs e, GitHubRepositoryRef repo)
+    {
+        if (e.Key == "Enter") ApplyCloneDirectory(repo.Alias);
+        else if (e.Key == "Escape") _draftCloneDirectories[repo.Alias] = repo.CloneDirectory ?? string.Empty;
+    }
+
+    private void OnKnowledgePathKeyDown(KeyboardEventArgs e, GitHubRepositoryRef repo, KnowledgeFolderSetting folder)
+    {
+        if (e.Key == "Enter") ApplyKnowledgeFolderPath(repo, folder);
+        else if (e.Key == "Escape") _draftKnowledgePaths[KnowledgeDraftKey(repo.Alias, folder.Key)] = folder.Path ?? string.Empty;
+    }
+
+    private void SyncRepositoryDrafts()
+    {
+        foreach (var repo in GitHub.Repositories)
+        {
+            _draftCloneDirectories[repo.Alias] = repo.CloneDirectory ?? string.Empty;
+
+            foreach (var folder in repo.KnowledgeFolders)
+            {
+                _draftKnowledgePaths[KnowledgeDraftKey(repo.Alias, folder.Key)] = folder.Path ?? string.Empty;
+            }
+        }
+
+        EnsureActiveRepositoryPage();
+    }
+
+    private GitHubRepositoryRef? FindActiveRepository()
+    {
+        if (!VisibleRepositories.Any()) return null;
+
+        if (!string.IsNullOrWhiteSpace(_activeRepositoryAlias))
+        {
+            var selected = VisibleRepositories.FirstOrDefault(repo => string.Equals(repo.Alias, _activeRepositoryAlias, StringComparison.Ordinal));
+            if (selected is not null) return selected;
+        }
+
+        return VisibleRepositories[0];
+    }
+
+    private bool IsActiveRepository(GitHubRepositoryRef repo) =>
+        string.Equals(FindActiveRepository()?.Alias, repo.Alias, StringComparison.Ordinal);
+
+    private void EnsureActiveRepositoryPage()
+    {
+        if (!VisibleRepositories.Any())
+        {
+            _activeRepositoryAlias = null;
+            return;
+        }
+
+        _activeRepositoryAlias = FindActiveRepository()?.Alias;
+    }
+
+    private string RepositorySettingsText() => GitHub.Settings.Current.ToText();
+
+    private static string KnowledgeDraftKey(string alias, string folderKey) => $"{alias}|{folderKey}";
+
+
+    private string RepositoryTokenDraft(GitHubRepositoryRef repo)
+    {
+        if (!_draftTokens.TryGetValue(repo.Alias, out var draft))
+        {
+            draft = string.Empty;
+            _draftTokens[repo.Alias] = draft;
+        }
+
+        return draft;
+    }
+
+    private async Task OnRepositoryTokenKeyDownAsync(KeyboardEventArgs e, GitHubRepositoryRef repo)
+    {
+        if (e.Key == "Enter") await ApplyRepositoryTokenAsync(repo);
+        else if (e.Key == "Escape") _draftTokens[repo.Alias] = string.Empty;
+    }
+
+    private async Task ApplyRepositoryTokenAsync(GitHubRepositoryRef repo)
+    {
+        var draft = RepositoryTokenDraft(repo);
+        if (string.IsNullOrWhiteSpace(draft)) return;
+
+        _repoError = GitHub.Settings.SetRepositoryToken(repo.Alias, draft);
+        _draftTokens[repo.Alias] = string.Empty;
+        SyncRepositoryDrafts();
+        await CheckConnectionAsync();
+    }
+
+    private async Task ClearRepositoryTokenAsync(GitHubRepositoryRef repo)
+    {
+        _repoError = GitHub.Settings.SetRepositoryToken(repo.Alias, null);
+        _draftTokens[repo.Alias] = string.Empty;
+        SyncRepositoryDrafts();
+        await CheckConnectionAsync();
+    }
+
+    private async Task CheckConnectionAsync()
+    {
+        _connection = null;
+        StateHasChanged();
+
+        try
+        {
+            _connection = await GitHub.DescribeConnectionAsync();
+        }
+        catch (Exception)
+        {
+            _connection = new GitHubConnection(false, "Couldn't work out how to reach GitHub from this machine.");
+        }
+
+        StateHasChanged();
+    }
+}

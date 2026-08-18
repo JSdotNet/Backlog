@@ -31,17 +31,17 @@ public sealed class HomeKnowledgePaneTests
     private static Harness CreateHarness()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-home-tests", Guid.NewGuid().ToString("n"));
-        var store = new BacklogStore(Path.Combine(root, "store"));
+        var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
-        var featureSettings = new AppFeatureSettingsStore(Path.Combine(root, "features", "features.json"));
+        var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
 
-        _ = featureSettings.SetEnabled(AppFeatureSettingsStore.InboxPane, true);
-        _ = featureSettings.SetEnabled(AppFeatureSettingsStore.KnowledgeSections, true);
-        _ = featureSettings.SetEnabled(AppFeatureSettingsStore.RepositoryKnowledge, true);
-        _ = featureSettings.SetEnabled(AppFeatureSettingsStore.SystemTools, false);
-        _ = featureSettings.SetEnabled(AppFeatureSettingsStore.AiAssistant, false);
-        _ = featureSettings.SetEnabled(AppFeatureSettingsStore.FeedbackReporting, false);
-        _ = featureSettings.SetEnabled(AppFeatureSettingsStore.GitHubIntegration, false);
+        _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);
+        _ = featureSettings.SetEnabled(KnowledgeFeatures.KnowledgeSections, true);
+        _ = featureSettings.SetEnabled(KnowledgeFeatures.RepositoryKnowledge, true);
+        _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, false);
+        _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
+        _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
+        _ = featureSettings.SetEnabled(BacklogFeatures.GitHubIntegration, false);
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
@@ -56,17 +56,19 @@ public sealed class HomeKnowledgePaneTests
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
         var knowledgeFolderSource = new KnowledgeFolderSource(gitHubSettings, store);
-        var repositoryBacklog = new RepositoryBacklogSource(knowledgeFolderSource);
+        var repositoryBacklog = new RepositoryBacklogSource(
+            BacklogTestHost.BacklogStoreFor(store, knowledgeFolderSource));
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
-        context.Services.AddSingleton(featureSettings);
+        context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);
+        context.Services.AddSingleton(new FeedbackReporter(gitHub));
         context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
         context.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-        context.Services.AddSingleton(knowledgeFolderSource);
+        context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
         context.Services.AddSingleton(repositoryBacklog);
         context.Services.AddSingleton<DesignKnowledgeProvider>();
         context.Services.AddSingleton<TechnologyKnowledgeService>();
@@ -78,9 +80,9 @@ public sealed class HomeKnowledgePaneTests
         context.Services.AddSingleton<KnowledgeScope>();
         context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<KnowledgeFolderSource>()));
+        context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
         context.Services.AddScoped(sp => BacklogTestHost.StateFor(
-            sp.GetRequiredService<BacklogStore>(),
+            sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
             BacklogCopilotCli.Unavailable,
             sp.GetRequiredService<RepositoryBacklogSource>()));
@@ -88,22 +90,7 @@ public sealed class HomeKnowledgePaneTests
         return new Harness(root, context);
     }
 
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(directory.FullName, ".github", "copilot-instructions.md");
-            if (File.Exists(candidate))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the repository root from the test output directory.");
-    }
+    private static string FindRepositoryRoot() => RepositoryRoot.Root.FullName;
 
     private sealed record Harness(string Root, BunitContext Context) : IDisposable
     {

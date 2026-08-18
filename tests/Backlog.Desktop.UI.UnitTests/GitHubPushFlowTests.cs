@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// exactly as the screen does — with GitHub itself stubbed out, so the test is
 /// about the wiring rather than the network.
 /// </summary>
-[Collection(BacklogStoreCollection.Name)]
+[Collection(WorkspaceSettingsCollection.Name)]
 public sealed class GitHubPushFlowTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];
@@ -222,7 +222,7 @@ public sealed class GitHubPushFlowTests : IDisposable
             600,
             42);
 
-        var link = await harness.Integration.ReportFeedbackAsync("Broken view", "The pane is blank.", "backlog list", screenshot);
+        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", "backlog list", screenshot);
 
         Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
         Assert.Equal("[Feedback][Desktop app] Broken view", harness.Client.CreatedTitle);
@@ -238,7 +238,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     {
         var harness = Build("JSdotNet/Backlog");
 
-        await harness.Integration.ReportFeedbackAsync("Cannot capture", null, null, null, "Permission denied.");
+        await harness.Feedback.ReportAsync("Cannot capture", null, null, null, "Permission denied.");
 
         Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
         Assert.Contains("_No details provided._", harness.Client.CreatedBody);
@@ -259,7 +259,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var root = Path.Combine(Path.GetTempPath(), "backlog-github-flow", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
 
-        var store = new BacklogStore(root, Path.Combine(root, "settings.json"));
+        var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(root));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
@@ -269,14 +269,15 @@ public sealed class GitHubPushFlowTests : IDisposable
         var client = new FakeGitHubClient();
         var integration = new GitHubIntegration(settings, client, new FakeProbe());
 
-        return new Harness(BacklogTestHost.StateFor(store, integration), client, store, integration);
+        return new Harness(BacklogTestHost.StateFor(store, integration), client, store, integration, new FeedbackReporter(integration));
     }
 
     private sealed record Harness(
         BacklogDesktopState State,
         FakeGitHubClient Client,
-        BacklogStore Store,
-        GitHubIntegration Integration);
+        WorkspaceSettingsStore Store,
+        GitHubIntegration Integration,
+        FeedbackReporter Feedback);
 
     private sealed class FakeGitHubClient : IGitHubClient
     {

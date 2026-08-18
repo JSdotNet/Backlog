@@ -2,6 +2,14 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class SelectorMarkupTests
 {
+    // The backlog context left Backlog.Desktop.UI for its own project under
+    // src/Modules; the namespace came with it, so only the folder moved.
+    private static string BacklogUi =>
+        RepositoryRoot.Directory("src", "Modules", "Backlog", "Backlog.Modules.Backlog.UI");
+
+    private static string FindBacklogPane() =>
+        RepositoryRoot.File("src", "Modules", "Backlog", "Backlog.Modules.Backlog.UI", "BacklogPane.razor");
+
     /// <summary>
     /// A status badge looks the same whether it is on a backlog entry or an
     /// arc42 chapter; only the words differ, and those arrive as options. So the
@@ -11,13 +19,11 @@ public sealed class SelectorMarkupTests
     [Fact]
     public void The_selectors_live_in_the_shared_component_library()
     {
-        Assert.True(File.Exists(FindRepoFile("src", "UI", "Backlog.UI.Components", "Selects", "StatusSelector.razor")));
-        Assert.True(File.Exists(FindRepoFile("src", "UI", "Backlog.UI.Components", "Selects", "PrioritySelector.razor")));
-        Assert.True(File.Exists(FindRepoFile("src", "UI", "Backlog.UI.Components", "Selects", "RepositorySelector.razor")));
+        Assert.True(File.Exists(RepositoryRoot.Combine("src", "Core", "Backlog.UI.Components", "Selects", "StatusSelector.razor")));
+        Assert.True(File.Exists(RepositoryRoot.Combine("src", "Core", "Backlog.UI.Components", "Selects", "PrioritySelector.razor")));
+        Assert.True(File.Exists(RepositoryRoot.Combine("src", "Core", "Backlog.UI.Components", "Selects", "RepositorySelector.razor")));
 
-        Assert.False(Directory.EnumerateFiles(
-                FindRepoDirectory("src", "App", "Backlog.Desktop.UI", "BacklogManagement"), "*Selector.razor")
-            .Any());
+        Assert.False(Directory.EnumerateFiles(BacklogUi, "*Selector.razor").Any());
     }
 
     [Fact]
@@ -41,7 +47,7 @@ public sealed class SelectorMarkupTests
         foreach (var panel in new[] { "Arc42KnowledgePanel.razor", "DomainKnowledgePanel.razor", "TechnologyKnowledgePanel.razor" })
         {
             var markup = NormalizeLineEndings(File.ReadAllText(
-                FindRepoFile("src", "App", "Backlog.Desktop.UI", "Knowledge", panel)));
+                RepositoryRoot.File("src", "Modules", "Knowledge", "Backlog.Modules.Knowledge.UI", panel)));
 
             Assert.Contains("<StatusSelector", markup, StringComparison.Ordinal);
             Assert.DoesNotContain("Backlog.Desktop.UI.BacklogManagement", markup, StringComparison.Ordinal);
@@ -75,27 +81,6 @@ public sealed class SelectorMarkupTests
         Assert.Contains("TestId=\"subitem-title-button\"", pane, StringComparison.Ordinal);
     }
 
-    private static string FindRepoDirectory(params string[] relativePath)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(new[] { directory.FullName }.Concat(relativePath).ToArray());
-            if (Directory.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException($"Could not locate {Path.Combine(relativePath)}.");
-    }
-
-    private static string FindBacklogPane() =>
-        FindRepoFile("src", "App", "Backlog.Desktop.UI", "BacklogManagement", "BacklogPane.razor");
-
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;
@@ -110,22 +95,4 @@ public sealed class SelectorMarkupTests
     }
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
-
-    private static string FindRepoFile(params string[] relativePath)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(new[] { directory.FullName }.Concat(relativePath).ToArray());
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        return Path.Combine(new[] { AppContext.BaseDirectory }.Concat(relativePath).ToArray());
-    }
 }

@@ -191,12 +191,12 @@ public sealed class GitHubSettingsTests
 
         try
         {
-            var store = new BacklogStore(directory, settingsPath);
+            var store = new WorkspaceSettingsStore(directory, settingsPath);
             store.SetKnowledgeFolder(".tech", enabled: false, path: null);
             store.SetKnowledgeFolder(".domain", enabled: true, path: @"knowledge\domain");
             store.SetKnowledgeFolder("instructions", enabled: false, path: @"custom\instructions");
 
-            var reopened = new BacklogStore(directory, settingsPath);
+            var reopened = new WorkspaceSettingsStore(directory, settingsPath);
 
             Assert.False(reopened.KnowledgeFolders.Single(f => f.Key == ".tech").Enabled);
             Assert.Equal(@"knowledge\domain", reopened.KnowledgeFolders.Single(f => f.Key == ".domain").Path);
@@ -243,7 +243,7 @@ public sealed class GitHubSettingsTests
         try
         {
             Directory.CreateDirectory(Path.Combine(directory, "knowledge", "domain"));
-            var store = new BacklogStore(directory, settingsPath);
+            var store = new WorkspaceSettingsStore(directory, settingsPath);
             store.SetKnowledgeFolder(".domain", enabled: true, path: @"knowledge\domain");
             var source = new KnowledgeFolderSource(new GitHubSettingsStore(githubPath), store);
 
@@ -420,7 +420,7 @@ public sealed class GitHubLinkTests
     [Fact]
     public void A_pushed_entry_remembers_which_issue_it_became()
     {
-        var entry = Entry(new EntryProjectionDto("JSdotNet/Backlog", "42", GitHubIntegration.IssueTargetType));
+        var entry = Entry(new EntryProjectionDto("JSdotNet/Backlog", "42", EntryProjectionDto.IssueTargetType));
 
         var link = BacklogIssues.FindLink(entry);
 

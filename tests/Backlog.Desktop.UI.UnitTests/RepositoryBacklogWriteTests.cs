@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// their source file. Edits survive reload because the write targets the correct
 /// segment in the correct file, not a local store copy.
 /// </summary>
-[Collection(BacklogStoreCollection.Name)]
+[Collection(WorkspaceSettingsCollection.Name)]
 public sealed class RepositoryBacklogWriteTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];
@@ -305,7 +305,7 @@ public sealed class RepositoryBacklogWriteTests : IDisposable
         var root = Path.Combine(Path.GetTempPath(), "backlog-write-tests", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
 
-        var store = new BacklogStore(root, Path.Combine(root, "settings.json"));
+        var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(Path.Combine(root, "local")));
 
         var clone = Path.Combine(root, "clone");
@@ -319,7 +319,8 @@ public sealed class RepositoryBacklogWriteTests : IDisposable
         settings.SetCloneDirectory("docs", clone);
 
         var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe());
-        var repositoryBacklog = new RepositoryBacklogSource(new KnowledgeFolderSource(settings));
+        var repositoryBacklog = new RepositoryBacklogSource(
+            BacklogTestHost.BacklogStoreFor(store, new KnowledgeFolderSource(settings)));
 
         return new Harness(
             BacklogTestHost.StateFor(store, integration, copilot: null, repositoryBacklog: repositoryBacklog),
@@ -331,12 +332,13 @@ public sealed class RepositoryBacklogWriteTests : IDisposable
     {
         public BacklogDesktopState CreateReloadedState()
         {
-            var store = new BacklogStore(Root, Path.Combine(Root, "settings.json"));
+            var store = new WorkspaceSettingsStore(Root, Path.Combine(Root, "settings.json"));
             Assert.Null(store.TryUseRoot(Path.Combine(Root, "local")));
 
             var settings = new GitHubSettingsStore(Path.Combine(Root, "github.json"));
             var integration = new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe());
-            var repositoryBacklog = new RepositoryBacklogSource(new KnowledgeFolderSource(settings));
+            var repositoryBacklog = new RepositoryBacklogSource(
+                BacklogTestHost.BacklogStoreFor(store, new KnowledgeFolderSource(settings)));
             return BacklogTestHost.StateFor(store, integration, copilot: null, repositoryBacklog: repositoryBacklog);
         }
     }

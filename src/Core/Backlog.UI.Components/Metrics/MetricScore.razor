@@ -1,0 +1,229 @@
+@*
+    A productivity score, its band, and — the part that matters — what it is made
+    of.
+
+    A score is a claim, not a measurement. Nobody can check "68" against anything,
+    so a score shown on its own is either taken on faith or ignored, and it is
+    usually ignored. Showing the inputs, their weights and what each contributed
+    turns it into an argument a reader can join: someone who thinks commits are
+    over-weighted can see that they are worth 30 of the 100 and say so.
+
+    That is why Components is not optional decoration. A caller who passes none
+    gets a bare number, and the component says as much in its own markup rather
+    than pretending the number stands alone.
+
+    The band is words plus a ramp step, never a red-amber-green light. The palette
+    carries one saturated hue and no strong semantic text colours, and a score is
+    exactly the kind of number somebody eventually prints in greyscale for a
+    review.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <div class="@(Part("head"))">
+        <p class="@(Part("label"))" id="@LabelId">@Label</p>
+
+        @if (Status is MetricStatusKind.Ready)
+        {
+            <p class="@(Part("figure"))">
+                <span class="@(Part("value"))">@MetricFormat.Score(Score)</span>
+                <span class="@(Part("scale"))">/ @MetricFormat.Score(MetricScoring.MaxScore)</span>
+            </p>
+
+            @if (Band is not null)
+            {
+                <p class="@($"{Part("band")} {Part("band")}--{BandRamp}")">@Band.Name</p>
+            }
+
+            @if (Delta is not null)
+            {
+                <p class="@(Part("delta"))">@MetricFormat.Delta(Delta) @(string.IsNullOrWhiteSpace(Delta.ComparedTo) ? null : $"vs {Delta.ComparedTo}")</p>
+            }
+        }
+    </div>
+
+    @if (Status is not MetricStatusKind.Ready)
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" CssClass="@(Part("status"))" />
+    }
+    else if (Components.Count == 0)
+    {
+        @* Not an error, but worth saying out loud: this number has nothing behind
+           it that the reader can inspect. *@
+        <p class="@(Part("opaque"))">Scored from inputs this view does not show.</p>
+    }
+    else
+    {
+        <div class="@(Part("scroll"))">
+            <table class="@(Part("table"))" aria-labelledby="@LabelId">
+                <thead>
+                    <tr>
+                        <th scope="col">Input</th>
+                        <th scope="col" class="@(Part("numeric"))">Reading</th>
+                        <th scope="col" class="@(Part("numeric"))">Weight</th>
+                        <th scope="col" class="@(Part("numeric"))">Points</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Rows)
+                    {
+                        var component = row.Component;
+                        <tr>
+                            <th scope="row" class="@(Part("input"))">@component.Label</th>
+                            <td class="@(Part("numeric"))">
+                                @MetricFormat.Compact(component.Value) <span class="@(Part("of"))">of @MetricFormat.Compact(component.Max)</span>
+                            </td>
+                            <td class="@(Part("numeric"))">@MetricFormat.Percent(component.Weight / TotalWeight)</td>
+                            <td class="@(Part("numeric"))">
+                                <span class="@(Part("points"))">
+                                    <span class="@(Part("points-text"))">@MetricFormat.Score(row.Points)</span>
+                                    @* The bar restates the points beside it, so it is
+                                       decoration and stays out of the tree. *@
+                                    <span class="@(Part("points-track"))" aria-hidden="true">
+                                        <span class="@(Part("points-fill"))" style="@($"width: {Width(component.Normalized)}%")"></span>
+                                    </span>
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Footnote))
+    {
+        <p class="@(Part("footnote"))">@Footnote</p>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = "Productivity score";
+
+    /// <summary>The inputs the score is worked out from. Empty is allowed and says
+    /// so on screen — it is not the same as having no score.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricScoreComponent> Components { get; set; } = [];
+
+    /// <summary>Overrides the score worked out from <see cref="Components"/>. For a
+    /// score that arrives already computed from a service, with the components
+    /// passed alongside it so the reader can still see the working.</summary>
+    [Parameter]
+    public decimal? Value { get; set; }
+
+    /// <summary>Named regions of the scale, in any order.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricBand> Bands { get; set; } = [];
+
+    /// <summary>Movement against an earlier period. Higher is better by default,
+    /// which for a productivity score is the one case where that is safe to
+    /// assume.</summary>
+    [Parameter]
+    public MetricDelta? Delta { get; set; }
+
+    [Parameter]
+    public string? Footnote { get; set; }
+
+    [Parameter]
+    public MetricStatusKind Status { get; set; } = MetricStatusKind.Ready;
+
+    [Parameter]
+    public string? StatusMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-score</c> as the class this block carries, and
+    /// every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-score";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private readonly string _labelId = "metric-score-label-" + Guid.NewGuid().ToString("N");
+
+    private string LabelId => _labelId;
+
+    private decimal Score => Value ?? MetricScoring.Score(Components);
+
+    private MetricBand? Band => MetricScoring.BandFor(Score, Bands);
+
+    /// <summary>Weights are shown as a share of the total rather than raw, because a
+    /// raw 3 means nothing without knowing what the others are.</summary>
+    private decimal TotalWeight
+    {
+        get
+        {
+            var total = Components.Sum(component => component.Weight);
+
+            return total <= 0m ? 1m : total;
+        }
+    }
+
+    /// <summary>Which ramp step the band takes. The band is named in words beside
+    /// it; this only stops four bands from looking identical.</summary>
+    private int BandRamp => MetricScoring.RampStep(Score, MetricScoring.MaxScore);
+
+    /// <summary>One table row: the input, and the points it is shown as contributing.</summary>
+    private sealed record Row(MetricScoreComponent Component, decimal Points);
+
+    /// <summary>
+    /// The rows, with their points apportioned so that they add up to the score
+    /// printed above them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Rounding each contribution on its own does not preserve the total: four inputs
+    /// contributing 29.17, 17.50, 19.32 and 9.13 round to points summing to 50.1 under
+    /// a score that rounds to 50. A tenth is a small lie, but this is the one component
+    /// on the page whose entire purpose is that the reader can check the number against
+    /// its parts, and a table that does not add up is the fastest way to lose them.
+    /// </para>
+    /// <para>
+    /// So the tenths are apportioned by largest remainder, the standard fix for
+    /// exactly this problem: every row is floored, and the tenths left over go to the
+    /// rows that lost the most in the flooring. Ties go to the earlier row, so the
+    /// same inputs always produce the same table.
+    /// </para>
+    /// </remarks>
+    private IReadOnlyList<Row> Rows
+    {
+        get
+        {
+            if (Components.Count == 0) return [];
+
+            // Whole tenths of a point, so the apportionment is integer arithmetic and
+            // cannot reintroduce the rounding it exists to remove.
+            var exact = Components.Select(component => component.Contribution(TotalWeight) * 10m).ToArray();
+            var floors = exact.Select(value => decimal.Floor(value)).ToArray();
+
+            var target = decimal.Round(Score * 10m, 0, MidpointRounding.AwayFromZero);
+            var spare = (int)(target - floors.Sum());
+
+            // Rows that lost the most to flooring get the spare tenths back first.
+            var order = Enumerable.Range(0, exact.Length)
+                .OrderByDescending(index => exact[index] - floors[index])
+                .ThenBy(index => index)
+                .ToArray();
+
+            for (var taken = 0; taken < spare && taken < order.Length; taken++)
+            {
+                floors[order[taken]] += 1m;
+            }
+
+            return [.. Components.Select((component, index) => new Row(component, floors[index] / 10m))];
+        }
+    }
+
+    private static string Width(decimal share) =>
+        (Math.Clamp(share, 0m, 1m) * 100m).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+}

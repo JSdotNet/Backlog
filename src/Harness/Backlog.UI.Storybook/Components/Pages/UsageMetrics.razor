@@ -1,0 +1,450 @@
+@page "/usage-metrics"
+
+<PageTitle>Usage metrics — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Usage metrics"
+           Summary="The pieces a usage dashboard is assembled from, each on its own. Composed into an actual view on the AI usage and cost page.">
+
+    <Story Name="MetricTile"
+           Description="A label, a number, and how it moved. The number is already formatted by the caller — the tile does not know whether it is holding tokens, money or sessions, which is why it takes a string and not a decimal.
+
+Whether up is good is a parameter, because the answer differs per metric: more sessions is better, more spend is not. It changes the wording and the arrow, never the text colour — the palette has soft semantic surfaces and no strong semantic text ramp to paint a red number from."
+           Code="@TileCode">
+        <MetricGrid Label="Metric tile examples">
+            <MetricTile Label="Total tokens"
+                        Value="@MetricFormat.Compact(UsageFixtures.TotalTokens)"
+                        Delta="new MetricDelta(0.186m, MetricDeltaUnit.Percent, UsageFixtures.PreviousPeriod, HigherIsBetter: false)"
+                        Footnote="@($"Across {UsageFixtures.Period}.")"
+                        TestId="tile-tokens" />
+
+            <MetricTile Label="Sessions"
+                        Value="@UsageFixtures.TotalSessions.ToString()"
+                        Delta="new MetricDelta(17m, MetricDeltaUnit.Absolute, UsageFixtures.PreviousPeriod)"
+                        TestId="tile-sessions" />
+
+            <MetricTile Label="Cost per session"
+                        Value="@MetricFormat.Money(UsageFixtures.CostPerSession)"
+                        Delta="new MetricDelta(0m, MetricDeltaUnit.Percent, UsageFixtures.PreviousPeriod, HigherIsBetter: false)"
+                        Footnote="Unchanged reads as a word, not an absent arrow."
+                        TestId="tile-per-session" />
+        </MetricGrid>
+    </Story>
+
+    <Story Name="MetricTile with emphasis and a trend"
+           Description="One hero figure per view. Emphasis is a rule down the left edge and a larger number rather than a different surface, so it reads as “this one first” instead of as a different kind of thing.
+
+The Trend slot is shaped for a sparkline but takes anything."
+           Code="@EmphasisCode">
+        <MetricGrid Label="Emphasised tile">
+            <MetricTile Label="Spend"
+                        Value="@MetricFormat.Money(UsageFixtures.TotalCost)"
+                        Emphasis="true"
+                        Delta="new MetricDelta(0.224m, MetricDeltaUnit.Percent, UsageFixtures.PreviousPeriod, HigherIsBetter: false)"
+                        Footnote="@($"Reported in {UsageFixtures.Currency}, exactly as the provider reported it.")"
+                        TestId="tile-spend">
+                <Trend>
+                    <MetricSparkline Points="UsageFixtures.CostPerDay"
+                                     Description="Daily spend over the last 14 days, with two weekend troughs and a rise into the second week."
+                                     TestId="tile-spend-trend" />
+                </Trend>
+            </MetricTile>
+
+            <MetricTile Label="Input served from cache"
+                        Value="@MetricFormat.Percent(UsageFixtures.CacheHitRate)"
+                        Delta="new MetricDelta(0.058m, MetricDeltaUnit.Percent, UsageFixtures.PreviousPeriod)"
+                        Footnote="Of input tokens only — output is not something a cache could have served. A cache read costs a fraction of an uncached input token, so this is the one rate worth steering on."
+                        TestId="tile-cache" />
+        </MetricGrid>
+    </Story>
+
+    <Story Name="MetricTile without a number"
+           Description="Both usage clients answer an availability question before they answer a data question, so “no credential is configured” is the state this UI sits in most often. It is not an error: the tile keeps its label, says why in the provider's own words, and waits.
+
+Loading and empty are the other two. Empty means the period really had nothing in it, which is a fact rather than a failure."
+           Code="@TileStatusCode">
+        <MetricGrid Label="Tiles with no number to show">
+            <MetricTile Label="Copilot usage"
+                        Status="MetricStatusKind.Unavailable"
+                        StatusMessage="@UsageFixtures.NoCredential"
+                        TestId="tile-unavailable" />
+
+            <MetricTile Label="Total tokens" Status="MetricStatusKind.Loading" TestId="tile-loading" />
+
+            <MetricTile Label="Spend"
+                        Status="MetricStatusKind.Empty"
+                        StatusMessage="No AI usage in this period."
+                        TestId="tile-empty" />
+        </MetricGrid>
+    </Story>
+
+    <Story Name="MetricSparkline"
+           Description="Twelve to thirty readings, no axes and no labels: context beside a number that is already printed an inch away.
+
+The y scale runs zero to max, never min to max. Zeroed on its own minimum, a series that moved two percent becomes a mountain range and the reader has no axis to catch it with. Fewer than two points renders nothing at all — one point is a dot pretending to be a trend."
+           Code="@SparklineCode">
+        <div class="sb-stack">
+            <MetricSparkline Points="UsageFixtures.TokensPerDay"
+                             Description="Tokens per day over the last 14 days."
+                             TestId="sparkline-tokens" />
+
+            <MetricSparkline Points="UsageFixtures.SessionsPerDay"
+                             Filled="false"
+                             ShowEndMarker="false"
+                             Height="4rem"
+                             Description="Sessions per day over the last 14 days."
+                             TestId="sparkline-sessions" />
+
+            <p class="sb-state">Below, one point — nothing is drawn:</p>
+            <MetricSparkline Points="OnePoint" TestId="sparkline-single" />
+        </div>
+    </Story>
+
+    <Story Name="MetricBars"
+           Description="The same series with an axis, for when a reader needs to take figures off it rather than glance at the shape. Columns are CSS boxes rather than SVG, so the axis labels are real text that scales with the reader's font size.
+
+Fourteen dates do not fit under a chart this size, so only every nth is printed — the last one always among them. Every column is also a row in a visually-hidden table, because a number rendered only as a bar length is not readable, and these figures appear nowhere else on the page."
+           Code="@BarsCode">
+        <div class="sb-stack">
+            <MetricBars Points="UsageFixtures.TokensPerDay"
+                        Label="Tokens per day"
+                        BucketHeading="Day"
+                        ValueHeading="Tokens"
+                        HighlightLast="true"
+                        TestId="bars-tokens" />
+
+            <MetricBars Points="UsageFixtures.CostPerDay"
+                        Label="@($"Spend per day, in {UsageFixtures.Currency}")"
+                        BucketHeading="Day"
+                        ValueHeading="Cost"
+                        FormatValue="UsageFixtures.Money"
+                        Height="7rem"
+                        TestId="bars-cost" />
+        </div>
+    </Story>
+
+    <Story Name="MetricBreakdownBar"
+           Description="Part-to-whole in one bar, with the legend as the real content — the bar is aria-hidden, because a share rendered only as a width is not a number anyone can read.
+
+Parts take ramp steps in the order given, so the caller owns the ordinal scale. For tokens that means cheapest first, which is why the pale band on the left is the biggest: cache reads cost a fraction of uncached input, and the difference between this bar and a bar that is mostly output is the difference between a bill and a much larger one."
+           Code="@BreakdownBarCode">
+        <div class="sb-stack">
+            <MetricBreakdownBar Parts="UsageFixtures.TokenKinds"
+                                Label="Tokens by kind, cheapest first"
+                                TestId="breakdown-bar-tokens" />
+
+            <MetricBreakdownBar Parts="ProviderSplit"
+                                Label="Spend by provider"
+                                FormatValue="UsageFixtures.Money"
+                                TestId="breakdown-bar-providers" />
+
+            <p class="sb-state">Every part zero is the same as no parts — there is no whole to be a part of:</p>
+            <MetricBreakdownBar Parts="EmptyParts"
+                                Label="Tokens by kind"
+                                EmptyMessage="No tokens in this period."
+                                TestId="breakdown-bar-empty" />
+        </div>
+    </Story>
+
+    <Story Name="MetricMeter"
+           Description="Spend against a cap — the one component here about a limit rather than a quantity, which is why it is a meter with a known maximum and a reading inside it.
+
+The threshold is passed as a value on the same scale rather than as a fraction, so the call site reads Max * 0.8m instead of a bare 0.8. Going over does not turn the fill red: over-budget is a modifier, a frame, and a caption saying so by how much, all of which survive being printed in greyscale."
+           Code="@MeterCode">
+        <div class="sb-stack">
+            <MetricMeter Label="Spend this month"
+                         Value="UsageFixtures.BudgetSpent"
+                         Max="UsageFixtures.BudgetCap"
+                         Threshold="UsageFixtures.BudgetThreshold"
+                         FormatValue="UsageFixtures.Money"
+                         TestId="meter-under" />
+
+            <MetricMeter Label="Spend this month"
+                         Value="874.20m"
+                         Max="UsageFixtures.BudgetCap"
+                         Threshold="UsageFixtures.BudgetThreshold"
+                         FormatValue="UsageFixtures.Money"
+                         TestId="meter-warning" />
+
+            <MetricMeter Label="Spend this month"
+                         Value="1148.65m"
+                         Max="UsageFixtures.BudgetCap"
+                         Threshold="UsageFixtures.BudgetThreshold"
+                         FormatValue="UsageFixtures.Money"
+                         TestId="meter-over" />
+
+            <MetricMeter Label="Seats in use"
+                         Value="_seats"
+                         Max="12m"
+                         Threshold="10m"
+                         Caption="@($"{12 - (int)_seats} of 12 seats unassigned.")"
+                         TestId="meter-seats" />
+
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _seats = Math.Max(0m, _seats - 2m)">Release two seats</AppButton>
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="() => _seats += 2m">Assign two seats</AppButton>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="MetricBreakdown"
+           Description="The rows behind the tiles. A table rather than a chart, because the question is “which one, and how much”, and that is read off figures — the share bar in the last cell is decoration on top of a printed percentage, not a substitute for it.
+
+Which column the share is a share of is a parameter, because tokens and cost do not produce the same ranking: Sonnet burns more tokens than Opus and costs less than half as much. Rows render in the order given; sorting belongs to the caller, because the useful order depends on the question."
+           Code="@BreakdownCode">
+        <div class="sb-stack">
+            <MetricBreakdown Rows="UsageFixtures.ByModel"
+                             Label="By model"
+                             NameHeading="Model"
+                             ShareOf="MetricShareOf.Cost"
+                             CostDecimals="2"
+                             TestId="breakdown-models" />
+
+            <MetricBreakdown Rows="UsageFixtures.ByModel"
+                             Label="The same rows, shared by tokens instead — a different ranking"
+                             NameHeading="Model"
+                             ShareOf="MetricShareOf.Tokens"
+                             TestId="breakdown-models-tokens" />
+
+            <MetricBreakdown Rows="UsageFixtures.ByActor"
+                             Label="By person"
+                             NameHeading="Actor"
+                             ShareOf="MetricShareOf.Cost"
+                             TestId="breakdown-actors" />
+        </div>
+    </Story>
+
+    <Story Name="MetricBreakdown with nothing to report"
+           Description="Every measure on a row is nullable, because the providers disagree about what they report. A column nobody reported anything into is dropped rather than printed as a stack of em dashes: GitHub publishes no figures per Copilot seat, so a seat table is a name and a detail line and that is all.
+
+A total across two currencies is a wrong number rather than a missing one, so the footer prints an em dash instead of adding them up."
+           Code="@BreakdownNullCode">
+        <div class="sb-stack">
+            <MetricBreakdown Rows="UsageFixtures.CopilotSeats"
+                             Label="Copilot seats — GitHub reports no figures per seat"
+                             NameHeading="Seat"
+                             ShowShare="false"
+                             ShowTotal="false"
+                             TestId="breakdown-seats" />
+
+            <MetricBreakdown Rows="MixedCurrencies"
+                             Label="Two currencies — the total refuses to add them"
+                             NameHeading="Workspace"
+                             TestId="breakdown-mixed" />
+
+            <MetricBreakdown Rows="NoRows"
+                             Label="A period with nothing in it"
+                             NameHeading="Model"
+                             TestId="breakdown-empty" />
+
+            <MetricBreakdown Rows="NoRows"
+                             Label="Copilot usage"
+                             NameHeading="Seat"
+                             Status="MetricStatusKind.Unavailable"
+                             StatusMessage="@UsageFixtures.NoCredential"
+                             TestId="breakdown-unavailable" />
+        </div>
+    </Story>
+
+    <Story Name="MetricStatus"
+           Description="One rendering of not-having-a-number, so the components that can be in that position do not each invent their own. Ready renders nothing at all, the way SaveIndicator renders nothing when it is idle, so a caller can bind Kind straight to whatever it knows.
+
+Unavailable takes the soft info surface rather than the error one, and the default message is replaced by the provider's own reason — that sentence is the only thing on screen telling the reader which credential is missing."
+           Code="@StatusCode">
+        <div class="sb-stack">
+            <MetricStatus Kind="MetricStatusKind.Loading" TestId="status-loading" />
+            <MetricStatus Kind="MetricStatusKind.Empty" TestId="status-empty" />
+            <MetricStatus Kind="MetricStatusKind.Unavailable" TestId="status-unavailable-default" />
+            <MetricStatus Kind="MetricStatusKind.Unavailable"
+                          Message="@UsageFixtures.NoCredential"
+                          TestId="status-unavailable-reason" />
+            <p class="sb-state">Below, Ready — nothing is rendered:</p>
+            <MetricStatus Kind="MetricStatusKind.Ready" TestId="status-ready" />
+        </div>
+    </Story>
+
+    <Story Name="MetricFormat"
+           Description="A cost figure gets a formatter rather than a component: something whose whole body is one string earns a story and a test file for no review value.
+
+Everything formats invariant. Not a style preference — on a machine with a comma decimal separator, “12,35 USD” would break every assertion that spells a number out, and it would break there and nowhere else."
+           Code="@FormatCode">
+        <div class="sb-table-scroll">
+            <table class="sb-table">
+                <thead>
+                    <tr><th scope="col">Call</th><th scope="col">Reads as</th><th scope="col">Why</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in FormatExamples)
+                    {
+                        <tr>
+                            <td><code>@row.Call</code></td>
+                            <td><code>@row.Result</code></td>
+                            <td>@row.Why</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private decimal _seats = 9m;
+
+    private static readonly IReadOnlyList<MetricPoint> OnePoint = [new("18 Aug", 42m)];
+
+    private static readonly IReadOnlyList<MetricPart> EmptyParts =
+    [
+        new("Cache read", 0m),
+        new("Output", 0m)
+    ];
+
+    private static readonly IReadOnlyList<MetricPart> ProviderSplit =
+    [
+        new("Claude", 487.20m),
+        new("Copilot seats", 152.00m)
+    ];
+
+    private static readonly IReadOnlyList<MetricRow> MixedCurrencies =
+    [
+        new("acme-eu", 118_400_000L, new MoneyAmount(214.60m, "EUR")),
+        new("acme-us", 294_000_000L, new MoneyAmount(272.60m, "USD"))
+    ];
+
+    private static readonly IReadOnlyList<MetricRow> NoRows = [];
+
+    private sealed record FormatExample(string Call, string Result, string Why);
+
+    private static readonly IReadOnlyList<FormatExample> FormatExamples =
+    [
+        new("Compact(1284)", MetricFormat.Compact(1284L),
+            "Under ten thousand keeps every digit: \"10.0K\" throws away the only ones anyone looks at."),
+        new("Compact(12.40m)", MetricFormat.Compact(12.40m),
+            "A day's spend keeps its cents; 12.40 rounded to 12 is the whole number thrown away."),
+        new("Compact(412_400_000)", MetricFormat.Compact(412_400_000L),
+            "Token counts are only ever read to one decimal."),
+        new("Compact(999_950)", MetricFormat.Compact(999_950L),
+            "Would round to 1000.0K, which is a thousand of the wrong unit, so it steps up."),
+        new("Money(new(12.3456m, \"USD\"))", MetricFormat.Money(new MoneyAmount(12.3456m, "USD")),
+            "The ISO code, never a symbol — nothing here knows the amount is dollars."),
+        new("Money(new(0.0043m, \"USD\"), 4)", MetricFormat.Money(new MoneyAmount(0.0043m, "USD"), 4),
+            "Per-model costs run to fractions of a cent, and two decimals makes them all 0.00."),
+        new("Percent(0.1236m)", MetricFormat.Percent(0.1236m), "One decimal by default."),
+        new("Percent(1m)", MetricFormat.Percent(1m), "Trailing zeros go: exactly one is \"100%\"."),
+        new("Percent(0.00004m)", MetricFormat.Percent(0.00004m),
+            "A part that rounds away entirely still exists; printing 0% says the opposite of what the data says."),
+        new("Delta(up 12.4%)", MetricFormat.Delta(new MetricDelta(0.124m, MetricDeltaUnit.Percent, "last week")),
+            "Words, not arrows — the arrow beside it is aria-hidden, so direction has to survive without it."),
+        new("Delta(down 3)", MetricFormat.Delta(new MetricDelta(-3m, MetricDeltaUnit.Absolute, "last week")),
+            "Absolute deltas are counts, not fractions."),
+        new("Delta(0)", MetricFormat.Delta(new MetricDelta(0m, MetricDeltaUnit.Percent, "last week")),
+            "No movement is a word rather than \"up 0%\".")
+    ];
+
+    private const string TileCode = """
+        <MetricGrid Label="Metric tile examples">
+            <MetricTile Label="Total tokens"
+                        Value="@MetricFormat.Compact(report.Totals.TotalTokens)"
+                        Delta="new MetricDelta(0.186m, MetricDeltaUnit.Percent, "previous 14 days", HigherIsBetter: false)"
+                        Footnote="Across the last 14 days." />
+        </MetricGrid>
+        """;
+
+    private const string EmphasisCode = """
+        <MetricTile Label="Spend"
+                    Value="@MetricFormat.Money(cost.Total)"
+                    Emphasis="true"
+                    Delta="new MetricDelta(0.224m, MetricDeltaUnit.Percent, "previous 14 days", HigherIsBetter: false)">
+            <Trend>
+                <MetricSparkline Points="costPerDay"
+                                 Description="Daily spend over the last 14 days." />
+            </Trend>
+        </MetricTile>
+        """;
+
+    private const string TileStatusCode = """
+        @* The provider's own reason, verbatim: it is the only thing on screen
+           that says which credential is missing. *@
+        <MetricTile Label="Copilot usage"
+                    Status="MetricStatusKind.Unavailable"
+                    StatusMessage="@availability.Reason" />
+        """;
+
+    private const string SparklineCode = """
+        <MetricSparkline Points="tokensPerDay"
+                         Description="Tokens per day over the last 14 days." />
+
+        <MetricSparkline Points="sessionsPerDay"
+                         Filled="false"
+                         ShowEndMarker="false"
+                         Height="4rem"
+                         Description="Sessions per day over the last 14 days." />
+        """;
+
+    private const string BarsCode = """
+        <MetricBars Points="tokensPerDay"
+                    Label="Tokens per day"
+                    BucketHeading="Day"
+                    ValueHeading="Tokens"
+                    HighlightLast="true" />
+
+        @* A formatter is how a chart over money keeps its currency. *@
+        <MetricBars Points="costPerDay"
+                    Label="Spend per day, in USD"
+                    BucketHeading="Day"
+                    ValueHeading="Cost"
+                    FormatValue="amount => MetricFormat.Money(new MoneyAmount(amount, "USD"))" />
+        """;
+
+    private const string BreakdownBarCode = """
+        @* Cheapest first, so the bar grows more expensive to the right. *@
+        <MetricBreakdownBar Label="Tokens by kind, cheapest first"
+                            Parts="@(new MetricPart[]
+                            {
+                                new("Cache read", tokens.CacheReadInputTokens),
+                                new("Input (uncached)", tokens.InputTokens),
+                                new("Cache write", tokens.CacheCreationInputTokens),
+                                new("Output", tokens.OutputTokens)
+                            })" />
+        """;
+
+    private const string MeterCode = """
+        @* The threshold is a value on the same scale, not a fraction. *@
+        <MetricMeter Label="Spend this month"
+                     Value="spentThisMonth"
+                     Max="monthlyCap"
+                     Threshold="monthlyCap * 0.8m"
+                     FormatValue="amount => MetricFormat.Money(new MoneyAmount(amount, "USD"))" />
+        """;
+
+    private const string BreakdownCode = """
+        <MetricBreakdown Rows="byModel"
+                         Label="By model"
+                         NameHeading="Model"
+                         ShareOf="MetricShareOf.Cost"
+                         CostDecimals="2" />
+        """;
+
+    private const string BreakdownNullCode = """
+        @* No figures per seat, so no token or cost column is drawn at all. *@
+        <MetricBreakdown Rows="@(seats.Select(seat => new MetricRow(
+                             seat.Login,
+                             Detail: $"{seat.PlanType} · {seat.LastActivityEditor ?? "editor not reported"}")).ToList())"
+                         Label="Copilot seats"
+                         NameHeading="Seat"
+                         ShowShare="false"
+                         ShowTotal="false" />
+        """;
+
+    private const string StatusCode = """
+        @* Ready renders nothing, so Kind can be bound straight to whatever is known. *@
+        <MetricStatus Kind="MetricStatusKind.Unavailable" Message="@availability.Reason" />
+        """;
+
+    private const string FormatCode = """
+        MetricFormat.Compact(412_400_000L)                    // 412.4M
+        MetricFormat.Money(new MoneyAmount(12.3456m, "USD"))  // 12.35 USD
+        MetricFormat.Percent(0.1236m)                         // 12.4%
+        MetricFormat.Delta(new MetricDelta(0.124m, MetricDeltaUnit.Percent, "last week"))  // up 12.4%
+        """;
+}

@@ -50,8 +50,8 @@ public sealed class CodeLanguageForFileNameTests
     }
 
     [Theory]
-    [InlineData(@"src\UI\Backlog.UI.Components\Code\CodeView.razor")]
-    [InlineData("src/UI/Backlog.UI.Components/Code/CodeView.razor")]
+    [InlineData(@"src\Core\Backlog.UI.Components\Code\CodeView.razor")]
+    [InlineData("src/Core/Backlog.UI.Components/Code/CodeView.razor")]
     public void A_path_is_read_from_its_last_segment(string path)
     {
         // `.razor` is not on the list, and the `.Components` folder above it must

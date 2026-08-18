@@ -6,27 +6,27 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 76,
-    "edges": 121,
+    "nodes": 79,
+    "edges": 127,
     "nodesByFolder": {
-      "arc42": 60,
+      "arc42": 62,
       "domain": 14,
-      "tech": 2
+      "tech": 3
     },
     "nodesByType": {
       "file": 16,
-      "chapter": 60
+      "chapter": 63
     },
     "nodesByStatus": {
-      "active": 50,
+      "active": 52,
       "proposed": 1,
       "draft": 21,
       "accepted": 2,
-      "adopted": 2
+      "adopted": 3
     },
     "edgesByType": {
-      "contains": 46,
-      "related": 75
+      "contains": 48,
+      "related": 79
     }
   },
   "problems": [],
@@ -572,6 +572,40 @@
       },
       {
         "data": {
+          "id": ".arc42/07-deployment-view.md#local-deployment-mobile",
+          "label": "Local Deployment (Mobile)",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "slug": "local-deployment-mobile",
+          "level": 2,
+          "line": 76,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#mobile-app",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/07-deployment-view.md#installation-and-updates-mobile",
+          "label": "Installation and Updates (Mobile)",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/07-deployment-view.md",
+          "slug": "installation-and-updates-mobile",
+          "level": 3,
+          "line": 89,
+          "status": "active",
+          "related": [
+            ".tech/mobile.md#apk-packaging",
+            ".arc42/07-deployment-view.md#installation-and-updates"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/07-deployment-view.md#cloud-deployment-azure",
           "label": "Cloud Deployment (Azure)",
           "type": "chapter",
@@ -579,7 +613,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 76,
+          "line": 142,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -1057,6 +1091,27 @@
       },
       {
         "data": {
+          "id": ".tech/mobile.md#apk-packaging",
+          "label": "APK Packaging",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/mobile.md",
+          "slug": "apk-packaging",
+          "level": 2,
+          "line": 48,
+          "status": "adopted",
+          "kind": "tool",
+          "depends-on": [
+            ".tech/mobile.md#android"
+          ],
+          "related": [
+            ".arc42/07-deployment-view.md#installation-and-updates-mobile"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
           "label": "Feature: Repository knowledge areas",
           "type": "chapter",
@@ -1444,6 +1499,22 @@
           "id": "contains:.arc42/07-deployment-view.md#local-deployment-desktop->.arc42/07-deployment-view.md#installation-and-updates",
           "source": ".arc42/07-deployment-view.md#local-deployment-desktop",
           "target": ".arc42/07-deployment-view.md#installation-and-updates",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/07-deployment-view.md->.arc42/07-deployment-view.md#local-deployment-mobile",
+          "source": ".arc42/07-deployment-view.md",
+          "target": ".arc42/07-deployment-view.md#local-deployment-mobile",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/07-deployment-view.md#local-deployment-mobile->.arc42/07-deployment-view.md#installation-and-updates-mobile",
+          "source": ".arc42/07-deployment-view.md#local-deployment-mobile",
+          "target": ".arc42/07-deployment-view.md#installation-and-updates-mobile",
           "type": "contains"
         }
       },
@@ -1892,6 +1963,38 @@
           "id": "related:.arc42/07-deployment-view.md#installation-and-updates->.tech/desktop.md#app-installer-appinstaller",
           "source": ".arc42/07-deployment-view.md#installation-and-updates",
           "target": ".tech/desktop.md#app-installer-appinstaller",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#local-deployment-mobile->.arc42/05-building-block-view.md#mobile-app",
+          "source": ".arc42/07-deployment-view.md#local-deployment-mobile",
+          "target": ".arc42/05-building-block-view.md#mobile-app",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#local-deployment-mobile->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/07-deployment-view.md#local-deployment-mobile",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#installation-and-updates-mobile->.tech/mobile.md#apk-packaging",
+          "source": ".arc42/07-deployment-view.md#installation-and-updates-mobile",
+          "target": ".tech/mobile.md#apk-packaging",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/07-deployment-view.md#installation-and-updates-mobile->.arc42/07-deployment-view.md#installation-and-updates",
+          "source": ".arc42/07-deployment-view.md#installation-and-updates-mobile",
+          "target": ".arc42/07-deployment-view.md#installation-and-updates",
           "type": "related"
         }
       },

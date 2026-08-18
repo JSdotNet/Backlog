@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Dev PC Management context's UI: what the machines the work system runs on
+    are configured with, and what an operator can do about it (see
+    .domain/context-map.md). Today that is the system tools pane — the Copilot
+    plugins, repository tools and MCP servers this PC is set up for.
+
+    It references the shared control library rather than growing its own
+    controls, which is the rule every module UI project follows, and its own
+    module's published surface for the port it injects. It sees no host, no
+    workspace and no sibling context: the tools pane is scoped by nothing but
+    the machine it is running on.
+  -->
+  <PropertyGroup>
+    <!--
+      Unlike its siblings this root namespace does match the project name, and
+      it is safe for a reason worth stating rather than assuming. The Razor
+      generator emits a component's @using directives inside the component's
+      namespace and without a global:: prefix, so under
+      Backlog.Modules.DevPc.UI a bare "Backlog.*" import would bind to
+      Backlog.Modules as soon as a Backlog.Modules.Backlog namespace entered
+      this project's reference closure. Nothing here brings one in — the only
+      references are the control library and this module's own abstractions —
+      and _Imports.razor writes every Backlog.* import as global:: anyway, so
+      neither half of that has to stay true by luck.
+    -->
+    <RootNamespace>Backlog.Modules.DevPc.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <!-- The module's published surface only: the ICopilotToolService port and
+         the DTOs it answers with. Which host implements it, and whether that
+         host can do more than read, stays behind that line. -->
+    <ProjectReference Include="..\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

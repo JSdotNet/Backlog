@@ -1,0 +1,363 @@
+name: Release mobile
+
+on:
+  push:
+    tags:
+      - 'v*'
+  schedule:
+    # One hour after "Release desktop" so a shared v* release already exists when
+    # both channels publish from the same tag.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version without the leading v (e.g. 1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: release-mobile-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, sign, and publish the Android APK
+    # Android heads build on Linux and the runner image ships the Android SDK, so
+    # this channel does not need the windows-latest runner the MSIX flow requires.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Check scheduled release changes
+        id: release_gate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ('${{ github.event_name }}' -ne 'schedule') {
+            "should_release=true" >> $env:GITHUB_OUTPUT
+            Write-Output "Release requested by ${{ github.event_name }}."
+            return
+          }
+
+          $latestTag = gh release list --limit 1 --exclude-drafts --exclude-pre-releases --json tagName --jq '.[0].tagName'
+          if ($LASTEXITCODE -ne 0) { throw "Could not inspect existing GitHub releases." }
+
+          if ([string]::IsNullOrWhiteSpace($latestTag) -or $latestTag -eq 'null') {
+            "should_release=true" >> $env:GITHUB_OUTPUT
+            Write-Output "No existing release found; scheduled release will run."
+            return
+          }
+
+          $releasePaths = @(
+            'Backlog.sln',
+            'src/App/Backlog.Mobile',
+            'src/App/Backlog.Mobile.UI',
+            'src/UI/Backlog.UI.Components',
+            'src/Aspire/Backlog.Aspire.ServiceDefaults',
+            'src/Shared/Backlog.SharedKernel',
+            '.github/workflows/release-mobile.yml'
+          )
+          $changedFiles = git diff --name-only "$latestTag..HEAD" -- $releasePaths
+          if ($LASTEXITCODE -ne 0) { throw "Could not compare HEAD with latest release $latestTag." }
+
+          if ($changedFiles) {
+            "should_release=true" >> $env:GITHUB_OUTPUT
+            Write-Output "Scheduled release will run because release-relevant files changed since $latestTag."
+            return
+          }
+
+          "should_release=false" >> $env:GITHUB_OUTPUT
+          "### Mobile release skipped" >> $env:GITHUB_STEP_SUMMARY
+          "No release-relevant changes were found since $latestTag." >> $env:GITHUB_STEP_SUMMARY
+      - name: Setup JDK
+        if: steps.release_gate.outputs.should_release == 'true'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Android SDK components
+        if: steps.release_gate.outputs.should_release == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdkRoot = $env:ANDROID_HOME
+          if ([string]::IsNullOrWhiteSpace($sdkRoot)) { $sdkRoot = $env:ANDROID_SDK_ROOT }
+          if ([string]::IsNullOrWhiteSpace($sdkRoot)) { throw "Neither ANDROID_HOME nor ANDROID_SDK_ROOT is set on this runner." }
+
+          $sdkManager = Join-Path $sdkRoot 'cmdline-tools/latest/bin/sdkmanager'
+          if (-not (Test-Path -LiteralPath $sdkManager)) { throw "sdkmanager was not found at $sdkManager." }
+
+          # net10.0-android targets API 36; install it explicitly rather than relying
+          # on whatever the runner image happens to preinstall this month.
+          & $sdkManager --install 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+          if ($LASTEXITCODE -ne 0) { throw "Installing Android SDK components failed." }
+
+          "ANDROID_HOME=$sdkRoot" >> $env:GITHUB_ENV
+          "ANDROID_SDK_ROOT=$sdkRoot" >> $env:GITHUB_ENV
+      - name: Install MAUI Android workload
+        if: steps.release_gate.outputs.should_release == 'true'
+        run: dotnet workload install maui-android
+
+      - name: Derive version numbers
+        if: steps.release_gate.outputs.should_release == 'true'
+        id: version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $mobileOnly = $false
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $raw = '${{ github.event.inputs.version }}'
+            $tag = "v$raw"
+          }
+          else {
+            $tag = '${{ github.ref_name }}'
+            $raw = $tag.TrimStart('v')
+            if ('${{ github.ref_type }}' -eq 'branch') {
+              if ('${{ github.ref_name }}' -ne 'main') {
+                throw "Unsupported release branch '${{ github.ref_name }}'."
+              }
+              # Nightly builds get their own tag namespace. github.run_number is a
+              # per-workflow counter, so reusing the desktop 'v0.1.N' shape here would
+              # eventually attach an APK to an unrelated, older desktop release.
+              $raw = '0.1.${{ github.run_number }}'
+              $tag = "mobile-v$raw"
+              $mobileOnly = $true
+            }
+          }
+          if ($raw -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Version must be MAJOR.MINOR.PATCH or a v-prefixed tag (got '$raw')."
+          }
+
+          # Android requires a monotonically increasing integer versionCode. Pack the
+          # semantic version into one so a higher release always installs over a lower.
+          $parts = $raw.Split('.')
+          [int]$major = $parts[0]
+          [int]$minor = $parts[1]
+          [int]$patch = $parts[2]
+          if ($major -gt 214) { throw "Major version $major exceeds the versionCode packing limit of 214." }
+          if ($minor -gt 99) { throw "Minor version $minor exceeds the versionCode packing limit of 99." }
+          if ($patch -gt 99999) { throw "Patch version $patch exceeds the versionCode packing limit of 99999." }
+          $versionCode = ($major * 10000000) + ($minor * 100000) + $patch
+          if ($versionCode -lt 1) { throw "Derived versionCode must be at least 1 (got $versionCode)." }
+
+          "tag=$tag"                                        >> $env:GITHUB_OUTPUT
+          "display=$raw"                                    >> $env:GITHUB_OUTPUT
+          "code=$versionCode"                               >> $env:GITHUB_OUTPUT
+          "mobile_only=$($mobileOnly.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          "apk=Backlog.Mobile_$raw.apk"                     >> $env:GITHUB_OUTPUT
+          Write-Output "Tag=$tag Display=$raw VersionCode=$versionCode MobileOnlyRelease=$mobileOnly"
+
+      - name: Check signing configuration
+        if: steps.release_gate.outputs.should_release == 'true'
+        id: signing
+        shell: pwsh
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $required = [ordered]@{
+            ANDROID_KEYSTORE_BASE64   = $env:ANDROID_KEYSTORE_BASE64
+            ANDROID_KEYSTORE_PASSWORD = $env:ANDROID_KEYSTORE_PASSWORD
+            ANDROID_KEY_ALIAS         = $env:ANDROID_KEY_ALIAS
+            ANDROID_KEY_PASSWORD      = $env:ANDROID_KEY_PASSWORD
+          }
+          $missing = @($required.Keys | Where-Object { [string]::IsNullOrWhiteSpace($required[$_]) })
+
+          if ($missing.Count -eq 0) {
+            "configured=true" >> $env:GITHUB_OUTPUT
+            Write-Output "Android signing secrets are configured."
+            return
+          }
+
+          "configured=false" >> $env:GITHUB_OUTPUT
+          if ('${{ github.event_name }}' -ne 'workflow_dispatch' -and '${{ github.ref_type }}' -eq 'branch') {
+            "### Mobile release skipped" >> $env:GITHUB_STEP_SUMMARY
+            "Signing secrets are not configured, so the main-branch release package was not produced." >> $env:GITHUB_STEP_SUMMARY
+            Write-Output "Android signing secrets are not configured (missing: $($missing -join ', ')). Skipping main-branch release packaging."
+            return
+          }
+
+          throw "Secret(s) $($missing -join ', ') not set. Refusing to produce an unsigned package."
+
+      - name: Restore signing keystore
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
+        id: keystore
+        shell: pwsh
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:ANDROID_KEYSTORE_BASE64)) {
+            throw "Secret ANDROID_KEYSTORE_BASE64 is not set. Refusing to produce an unsigned package."
+          }
+          $keystorePath = Join-Path $env:RUNNER_TEMP 'backlog-android.keystore'
+          try {
+            $bytes = [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64.Trim())
+          }
+          catch {
+            throw "ANDROID_KEYSTORE_BASE64 is not valid base64: $($_.Exception.Message)"
+          }
+          if ($bytes.Length -eq 0) { throw "ANDROID_KEYSTORE_BASE64 decoded to an empty file." }
+          [System.IO.File]::WriteAllBytes($keystorePath, $bytes)
+          "path=$keystorePath" >> $env:GITHUB_OUTPUT
+          Write-Output "Restored keystore to $keystorePath ($($bytes.Length) bytes)."
+
+      - name: Publish signed APK
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
+        shell: pwsh
+        env:
+          # Passed by name through the env: prefix so the passwords never appear in
+          # the MSBuild command line or the runner process table.
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # APK, not AAB: this package is sideloaded from GitHub Releases straight onto
+          # a device, and .aab is only consumable by Google Play.
+          dotnet publish src/App/Backlog.Mobile/Backlog.Mobile.csproj `
+            -f net10.0-android `
+            -c Release `
+            -p:AndroidPackageFormat=apk `
+            -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} `
+            -p:ApplicationVersion=${{ steps.version.outputs.code }} `
+            -p:AndroidKeyStore=true `
+            "-p:AndroidSigningKeyStore=$env:KEYSTORE_PATH" `
+            "-p:AndroidSigningKeyAlias=$env:ANDROID_KEY_ALIAS" `
+            -p:AndroidSigningStorePass=env:ANDROID_KEYSTORE_PASSWORD `
+            -p:AndroidSigningKeyPass=env:ANDROID_KEY_PASSWORD
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
+
+      - name: Stage and verify the signed APK
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
+        id: stage
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $outDir = Join-Path $env:RUNNER_TEMP 'release'
+          New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
+          $apk = Get-ChildItem -Path 'src/App/Backlog.Mobile/bin/Release' -Recurse -Filter '*-Signed.apk' -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $apk) { throw "No signed .apk was produced by the publish step." }
+
+          $stagedApk = Join-Path $outDir '${{ steps.version.outputs.apk }}'
+          Copy-Item $apk.FullName $stagedApk -Force
+          Write-Output "Staged APK: $stagedApk"
+
+          # Belt and braces: prove the artifact really is signed before publishing it.
+          $buildTools = Join-Path $env:ANDROID_HOME 'build-tools'
+          $apkSigner = Get-ChildItem -Path $buildTools -Recurse -Filter 'apksigner' -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $apkSigner) { throw "apksigner was not found under $buildTools; cannot verify the APK signature." }
+
+          & $apkSigner.FullName verify --verbose $stagedApk
+          if ($LASTEXITCODE -ne 0) { throw "apksigner could not verify the signature of $stagedApk. Refusing to publish an unsigned package." }
+
+          "dir=$outDir"    >> $env:GITHUB_OUTPUT
+          "apk=$stagedApk" >> $env:GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        if: steps.release_gate.outputs.should_release == 'true' && steps.signing.outputs.configured == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = '${{ steps.version.outputs.tag }}'
+          $apk = '${{ steps.stage.outputs.apk }}'
+          $mobileOnly = '${{ steps.version.outputs.mobile_only }}' -eq 'true'
+
+          gh release view $tag 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            $notes = if ($mobileOnly) { "Backlog mobile $tag" } else { "Backlog $tag" }
+            $latest = if ($mobileOnly) { '--latest=false' } else { '--latest' }
+            gh release create $tag --target $env:GITHUB_SHA --title $tag --notes $notes $latest $apk
+            if ($LASTEXITCODE -ne 0) {
+              # The desktop job may have created the shared release in the meantime.
+              Write-Output "Creating release $tag failed; retrying as an asset upload."
+              gh release upload $tag $apk --clobber
+              if ($LASTEXITCODE -ne 0) { throw "Publishing the release failed." }
+            }
+          }
+          else {
+            # The release already exists, normally created by the desktop job for the
+            # same tag. Upload the APK only; do not rewrite its title, notes, or
+            # 'latest' flag and clobber the other channel's metadata.
+            gh release upload $tag $apk --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Publishing the release failed." }
+          }
+
+          $url = gh release view $tag --json url --jq .url
+          "### Published GitHub Release" >> $env:GITHUB_STEP_SUMMARY
+          "[$tag]($url)" >> $env:GITHUB_STEP_SUMMARY
+      - name: Remove signing keystore
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $keystorePath = Join-Path $env:RUNNER_TEMP 'backlog-android.keystore'
+          if (Test-Path -LiteralPath $keystorePath) {
+            Remove-Item -LiteralPath $keystorePath -Force
+            Write-Output "Removed $keystorePath."
+          }
+
+      - name: Create issue for release failure
+        if: failure()
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ISSUE_TITLE: 'Release mobile failed: run #${{ github.run_number }}'
+          RELEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_ACTOR: ${{ github.actor }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bodyPath = Join-Path $env:RUNNER_TEMP 'release-failure-issue.md'
+          @(
+            'The mobile release workflow failed.'
+            ''
+            "- Run: $env:RELEASE_RUN_URL"
+            "- Event: $env:RELEASE_EVENT_NAME"
+            "- Ref: $env:RELEASE_REF_NAME"
+            "- Commit: $env:RELEASE_SHA"
+            "- Actor: $env:RELEASE_ACTOR"
+            ''
+            'Review the failed workflow logs and update this issue with the root cause and remediation.'
+          ) | Set-Content -Path $bodyPath -Encoding utf8
+
+          $existingIssue = gh issue list --state open --search "$env:RELEASE_ISSUE_TITLE in:title" --json number --jq '.[0].number'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not search for an existing release failure issue.' }
+
+          if ([string]::IsNullOrWhiteSpace($existingIssue) -or $existingIssue -eq 'null') {
+            gh issue create --title $env:RELEASE_ISSUE_TITLE --body-file $bodyPath
+          }
+          else {
+            gh issue comment $existingIssue --body-file $bodyPath
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create or update the release failure issue.' }

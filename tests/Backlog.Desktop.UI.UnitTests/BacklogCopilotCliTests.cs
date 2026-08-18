@@ -4,7 +4,7 @@ using Backlog.Modules.Backlog.DomainModels;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
-[Collection(BacklogStoreCollection.Name)]
+[Collection(WorkspaceSettingsCollection.Name)]
 public sealed class BacklogCopilotCliTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];
@@ -79,7 +79,7 @@ public sealed class BacklogCopilotCliTests : IDisposable
         var root = Path.Combine(Path.GetTempPath(), "backlog-copilot-flow", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
 
-        var store = new BacklogStore(Path.Combine(root, "settings"));
+        var store = new WorkspaceSettingsStore(Path.Combine(root, "settings"));
         Assert.Null(store.TryUseRoot(root));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
@@ -89,7 +89,7 @@ public sealed class BacklogCopilotCliTests : IDisposable
         return new Harness(BacklogTestHost.StateFor(store, integration, copilot), store);
     }
 
-    private sealed record Harness(BacklogDesktopState State, BacklogStore Store);
+    private sealed record Harness(BacklogDesktopState State, WorkspaceSettingsStore Store);
 
     private sealed class FakeCopilotCliLauncher : ICopilotCliLauncher
     {

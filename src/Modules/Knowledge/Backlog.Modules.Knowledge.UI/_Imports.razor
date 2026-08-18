@@ -1,0 +1,18 @@
+@* Second Brain. It is scoped by a repository alias handed in as a parameter,
+   never by reading backlog state, so nothing here imports Backlog Management —
+   not even to find out where the storage folder is, which the knowledge-folder
+   port answers instead.
+   Now that the context is its own project these imports are the project's own
+   rather than inherited from the desktop app, so what the panels need is named
+   here and nothing more. *@
+@using Backlog.Modules.Knowledge.Abstractions
+@using Backlog.SharedKernel
+@using Backlog.Infrastructure.GitHub
+@using Backlog.UI.Components.Markdown
+@using Backlog.UI.Components.Selects
+@using Backlog.UI.Components.Menus
+@using Backlog.UI.Components.Diagrams
+@using Backlog.UI.Components.Feedback
+@using Backlog.UI.Components.Badges
+@using Backlog.UI.Components.Buttons
+@using Backlog.UI.Components.Layout

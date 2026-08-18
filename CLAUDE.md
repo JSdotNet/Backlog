@@ -60,12 +60,18 @@ complete without explicit user approval.
 
 ## Orchestration configuration
 
-The `claude-desktop` plugin reads `.claude/orch-context.md` and `.claude/model-selection.md`,
-falling back to the `.github/copilot-*` equivalents this repository already carries:
+The `claude-desktop` plugin reads two repository files, both of which this repository now
+carries:
 
-- `.github/copilot-orch-context.md` — how to run the Aspire AppHost, which harness
-  resources to target for UI validation, healthy-startup signals, and default QA depth.
-- `.github/copilot-model-selection.md` — per-category model overrides for orchestration runs.
+- `.claude/orch-context.md` — how to run the Aspire AppHost, which harness resources to
+  target for UI validation, healthy-startup signals, and default QA depth.
+- `.claude/model-selection.md` — per-category Claude model overrides for orchestration runs.
+
+The GitHub Copilot equivalents are separate files with separate audiences, not fallbacks:
+`.github/copilot-orch-context.md` duplicates the same runtime facts for Copilot and must be
+updated alongside `.claude/orch-context.md`, while `.github/copilot-model-selection.md`
+configures Copilot against the Azure Foundry catalog and is independent of the Claude model
+choices.
 
 ## Running and testing
 

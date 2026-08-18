@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Second Brain module's public surface — everything a host, an adapter or
+    this context's own UI is allowed to see (ADR 0005, ADR 0009):
+      IKnowledgeFolderSource  the port: which local folder a knowledge area
+                              resolves to for a given repository scope, and
+                              which folders are configured for that scope
+      KnowledgeFolderSetting  the configured-folder format, this context's
+                              published language: a key, a display name, a
+                              conventional relative path and an optional
+                              override. The GitHub adapter stores a list of
+                              these per repository, which is why that adapter
+                              references this project and not the other way
+                              round
+      KnowledgeFolderLocation what a caller receives from the port instead of a
+                              path plus a pile of reasons it might be missing
+
+    There is no implementation project yet, and that is a statement about how far
+    this context has been built rather than a missing piece: resolving a folder
+    is reading settings and testing directories, which is an adapter's work, so
+    the answer lives in Backlog.Infrastructure.FileSystem.
+
+    Nothing here may reference an infrastructure adapter or a host — the port is
+    what keeps Second Brain's UI from having to know that the answer is stitched
+    together from GitHub repository settings and the backlog storage root.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Knowledge.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    No InternalsVisibleTo: everything here is the published surface, so there is
+    nothing for a test to be let in to see.
+  -->
+
+</Project>
