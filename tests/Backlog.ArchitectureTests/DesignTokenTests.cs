@@ -94,6 +94,51 @@ public class DesignTokenTests
         }
     }
 
+    /// <summary>
+    /// A rendered heading has to be given its weight, because it is not given one
+    /// by the element it is drawn on.
+    ///
+    /// <para>MarkdownView draws every heading as a <c>p</c> carrying
+    /// <c>role="heading"</c> — the semantics live on the role, which is a
+    /// deliberate choice and not the thing under test here. The consequence is:
+    /// the boldness a browser hands an <c>h1</c> never arrives, so if
+    /// <c>.md-heading</c> does not state a weight then every heading in every
+    /// document this product renders is the same weight as the paragraph under
+    /// it. That is what had happened, and nothing caught it while headings were
+    /// only ever read at a size the paragraph did not share.</para>
+    ///
+    /// <para>Asserted here rather than in bUnit: the markup was always correct —
+    /// right class, right role, right level — and the defect was entirely in what
+    /// the stylesheet did with it. A render test can only have confirmed the
+    /// class was present, which it already was.</para>
+    /// </summary>
+    [Fact]
+    public void A_heading_drawn_on_a_paragraph_is_given_the_weight_the_element_denies_it()
+    {
+        var markup = File.ReadAllText(Path.Combine(
+            Repository.Root.FullName,
+            "src", "UI", "Backlog.UI.Components", "Markdown", "MarkdownView.razor"));
+
+        // The premise. Were headings ever drawn as h1-h6, the browser would supply
+        // the weight and this test would be asserting a rule nobody needs.
+        var drawnOnAParagraph = Regex.IsMatch(markup, @"<p[^>]*class=""md-heading");
+
+        if (!drawnOnAParagraph) return;
+
+        var stylesheet = File.ReadAllText(Path.Combine(
+            Repository.Root.FullName, "src", "UI", "Backlog.UI.Components", "wwwroot", "components.css"));
+
+        var rule = Regex.Match(stylesheet, @"^\.md-heading\s*\{(?<body>[^}]*)\}", RegexOptions.Multiline);
+
+        Assert.True(rule.Success, "components.css has no .md-heading rule, so nothing styles a rendered heading.");
+
+        Assert.True(
+            Regex.IsMatch(rule.Groups["body"].Value, @"font-weight\s*:"),
+            "MarkdownView draws headings as a p with role=\"heading\", so .md-heading has to declare its own "
+            + "font-weight. Without one every heading renders at 400 — the same weight as the paragraph "
+            + "beneath it — and a sub-header stops being findable by anyone skimming.");
+    }
+
     /// <summary>The stylesheet and the document that specifies it. Every colour in
     /// the library is named in <c>.design/color-scheme.md</c>, and the two had
     /// drifted: the file carried a surface ramp a step darker than the one in the

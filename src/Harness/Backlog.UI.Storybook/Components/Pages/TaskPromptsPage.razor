@@ -1,0 +1,635 @@
+@page "/task-list/prompts"
+@implements IDisposable
+
+<PageTitle>Prompt tasks — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Prompt tasks"
+           Summary="A subpage of Task list, about two things a row can have beyond its title: a body, and the ids of the tasks it waits on. A prompt is long enough that it cannot be a title and short enough that it should not need a page of its own, and a set of prompts meant to be run in order is a chain whether or not anything writes the order down. Both are the same row you have already read about — everything a title-only task does, it still does. Both are editable here, on this page rather than in the library, because both are data the host owns and this page is the host.">
+
+    <Story Name="A prompt is a body, not a longer title"
+           Description="A title says which step this is. A prompt says what the step actually does, and it is a paragraph, a sub-header and a list — so it goes in a body rather than into a title that would then be truncated at the first ellipsis.
+
+The body is markdown, parsed by the parser this product already has and rendered by MarkdownView. That is not reuse for its own sake: a prompt is prose somebody writes in the same editor as every other body here, and a row that read its own dialect would be a row you have to write for twice.
+
+The row still carries the note glyph while it is folded. That mark already meant “there is more text here than the title”, which is exactly what a body is — reusing it says one fact once, where a second glyph would say the same thing twice and read as two.
+
+Copying takes the title, a blank line, then the body. The prompt is what people paste, but a headless paragraph in a chat window no longer says which step it was, and the title is what makes it findable again. An explicit CopyValue still wins outright: a host that has said what a row pastes as knows something this component does not."
+           Code="@BodyCode">
+        <ul class="task-list sb-menu-wide" data-testid="prompt-single">
+            <TaskItem Task="@ReviewPrompt"
+                      BodyLabel="Prompt"
+                      OnToggle="_ => { }"
+                      TestId="prompt-review" />
+        </ul>
+    </Story>
+
+    <Story Name="Folded, and open"
+           Description="Folded is the resting state, because a list of ten prompts read at full length is not a list any more. Opening one costs a click and nothing else: the body arrives under the row it belongs to rather than in a pane beside it, so the reader never leaves the list to read the thing the list is about.
+
+The disclosure is FoldControl, which already owns the trigger's aria-expanded, the id it points at, and keeping the region in the DOM while it is hidden rather than removing it. A second implementation of that inside this row would be a second one to get wrong.
+
+The label is the host's word. This library says “Body”, because it does not know whether what a host puts there is a prompt, a brief or a note, and a component that called it a prompt would be a component with the product's vocabulary baked into it. The page you are reading passes “Prompt”."
+           Code="@FoldCode">
+        <ul class="task-list sb-menu-wide" data-testid="prompt-folded">
+            <TaskItem Task="@ShortPrompt" BodyLabel="Prompt" TestId="prompt-closed" />
+            <TaskItem Task="@ShortPromptOpen" BodyLabel="Prompt" BodyExpanded="true" TestId="prompt-open" />
+        </ul>
+    </Story>
+
+    <Story Name="Editing the prompt where you read it"
+           Description="A prompt nobody can fix is a prompt nobody keeps, and the place to fix it is where it is read. The fold swaps the rendered body for MarkdownEditor — the same editor the entry pane uses, because a prompt is prose written by the same person in the same product, and a second editor here would be a second set of keystrokes to get right.
+
+Editing is a toggle, and it starts off. Ten prompt rows must not be ten open textareas, and reading is what a list is for. The button carries `aria-pressed` rather than renaming itself: “Edit Prompt” that turned into “Stop editing” would be a control whose name changes under the reader between one press and the next. Pass no OnBodyChanged and there is no toggle and no editor at all — a read-only body rather than a disabled one, on the same terms as the circle with nothing listening.
+
+Every keystroke is reported. There is no Save button and no Escape, which is the opposite of the rename on the Task list page, and each half of that has its own reason.
+
+A rename can commit on Enter because a title is one line. In a body Enter is a newline, so there is no keystroke left over that could mean “done”. And nothing in this product has a save button — the entry pane auto-saves and says so in a line under the editor, which is exactly what the indicator under this row is doing, driven by the changes the row raises. A body that needed a button would be the one place in the product that did.
+
+Escape is missing for a sharper reason than taste. The rename holds a draft, so it has something of its own to throw away; this row holds nothing, and the host already has every character. An Escape that put the old text back would have to be an undo the host implements — so a row offering one would be offering a control that cannot do what its name says.
+
+Committing on blur was the alternative, and it loses twice. Fold the row away or move on mid-edit and the text is gone; and the copy button beside it would copy the body from before you started typing. Reporting each keystroke makes that button right by construction: what it copies is what you can see, because the round trip through the host has already happened.
+
+Type in it. The row is storing nothing — empty the body completely and the editor stays put rather than vanishing with the fold, which is the one keystroke in a body that must not close the thing it was typed into.
+
+The list under that one is the same parameter handed to TaskListView instead of to a row: it goes straight through to every row it draws, because whether a body can be edited is one answer for a whole list, and a list that decided it per row would be deciding which tasks are the reader's. Those rows start folded, because which rows a reader has opened is theirs from the first render on."
+           Code="@EditBodyCode">
+        <ul class="task-list sb-menu-wide" data-testid="prompt-editable">
+            <TaskItem Task="@_editable"
+                      BodyLabel="Prompt"
+                      BodyExpanded="true"
+                      OnToggle="_ => { }"
+                      OnBodyChanged="EditBodyAsync"
+                      TestId="editable" />
+        </ul>
+        <div class="sb-row">
+            <SaveIndicator State="_saveState" TestId="prompt-editable-save" />
+        </div>
+        <p class="sb-state" data-testid="prompt-editable-state">The host has been told @_bodyChanges @(_bodyChanges == 1 ? "time" : "times") and holds @(_editable.Body?.Length ?? 0) characters.</p>
+
+        <p class="sb-label">And the same thing through the list</p>
+        <div class="sb-menu-wide" data-testid="prompt-editable-list">
+            <TaskListView Tasks="@_editableList"
+                          BodyLabel="Prompt"
+                          OnToggle="_ => { }"
+                          OnBodyChanged="EditListBodyAsync"
+                          GroupCompleted="false"
+                          AriaLabel="Two editable prompts"
+                          TestId="editable-list" />
+        </div>
+    </Story>
+
+    <Story Name="A title is still the whole of most tasks"
+           Description="The row above has a prompt and the row below is a line of text, and the second one is unchanged in every respect: no disclosure, no note glyph, no extra element, the same markup it emitted before bodies existed.
+
+That is the point of making the body optional rather than making every task a document with a title field. Most things on a list are “ring the dentist”, and a shape that made those carry an empty body would have made the common case pay for the rare one."
+           Code="@DefaultCode">
+        <ul class="task-list sb-menu-wide" data-testid="prompt-mixed">
+            <TaskItem Task="@ShortPrompt" BodyLabel="Prompt" OnToggle="_ => { }" TestId="prompt-with-body" />
+            <TaskItem Task="@PlainTask" BodyLabel="Prompt" OnToggle="_ => { }" TestId="prompt-without-body" />
+        </ul>
+    </Story>
+
+    <Story Name="A chain, in the order it has to run"
+           Description="A task names the ids it waits on — a list of them, not one predecessor, because a step that needs two things finished before it can start is the ordinary case and asking which of the two is the real one is a question with no answer.
+
+Three states come out of that: done, ready when everything it named is finished, blocked when something is not. Done wins over the derivation. A row somebody marked done is done even if a step it named is still outstanding, because done is a fact that was recorded and blocked is only a conclusion — a component that argued with the recorded one would be telling the reader they are wrong about their own list.
+
+The first row that is ready and not finished carries the “next” marker. Which one to pick up has to be answerable at a glance, and without the marker it is answerable only by reading every row above the one you want.
+
+A chain shaped like this one has exactly one ready row at a time, so exactly one marker ever appears on it. The chapter after this is the shape where that stops being true.
+
+Tick the ready row and watch the chain move. Nothing about this is stored: TaskListView derives it from the Tasks it was handed on every render and writes nothing back, and TaskChain offers the host the same answer without rendering anything at all."
+           Code="@ChainCode">
+        <div class="sb-menu-wide" data-testid="prompt-chain">
+            <TaskListView Tasks="@_chain"
+                          BodyLabel="Prompt"
+                          OnToggle="ToggleChain"
+                          GroupCompleted="false"
+                          AriaLabel="A chain of prompts"
+                          TestId="chain" />
+        </div>
+        <p class="sb-state" data-testid="prompt-chain-next">Next: @(TaskChain.NextReady(_chain)?.Title ?? "(nothing ready)")</p>
+    </Story>
+
+    <Story Name="One step unlocks three"
+           Description="Three prompts wait on the same step. Tick “Gather the source material” and all three become startable in one move: the first of them says Next, the other two say Ready.
+
+Two markers, because there are two questions. TaskChain.NextReady answers “what should I start first” and TaskChain.Ready answers “what can I start now”, and a fan-out is the shape where those stop being the same row. Marking one and leaving the other two bare would make the unlock visible only negatively — two waiting lines disappearing — which is a reader working out what happened from what is no longer on screen.
+
+The vocabulary does not change with the count. A list that only marked Ready rows once there were two or more would be teaching the reader two languages for one fact. In the linear chain above, exactly one row is ready, so exactly one marker appears there and nothing about it has changed; extra markers show up only in a fan-out, which is precisely when they are the answer to something.
+
+Next keeps the brand colour and Ready stays quiet, so four startable rows read as one recommendation with alternatives rather than four equal shouts. The glyphs are the same triangle filled and hollow, so the two markers read as one family with one primary — and Ready has its own class rather than a quieter Next, because there is exactly one next and a marker sharing that name would make “which one do I start” answerable only by counting."
+           Code="@FanOutCode">
+        <div class="sb-menu-wide" data-testid="prompt-fan-out">
+            <TaskListView Tasks="@_fanOut"
+                          BodyLabel="Prompt"
+                          OnToggle="ToggleFanOut"
+                          GroupCompleted="false"
+                          AriaLabel="One step, three prompts waiting on it"
+                          TestId="fan-out" />
+        </div>
+        <p class="sb-state" data-testid="prompt-fan-out-next">TaskChain.NextReady: @(TaskChain.NextReady(_fanOut)?.Title ?? "(nothing ready)")</p>
+        <p class="sb-state" data-testid="prompt-fan-out-ready">TaskChain.Ready: @Titles(TaskChain.Ready(_fanOut))</p>
+    </Story>
+
+    <Story Name="A blocked row says what it is waiting for, and offers nothing"
+           Description="Two things happen to a row that cannot start yet, and both of them are refusals.
+
+Its circle stops being a control. OnToggle is supplied here and the blocked row still renders its state as an image with an accessible label rather than as a button — the same rule the library already follows for a row nobody is listening to, for the same reason: a control that would take focus and then either do nothing or record something untrue is worse than no control. Completing a step whose predecessor is unfinished is the untrue version.
+
+Its metadata line names what it is waiting for, by title, at the front. Named rather than counted: “waiting on 2” tells the reader they are stuck without telling them what to go and do about it. The names come first on the line because everything else on it is moot until they are dealt with."
+           Code="@BlockedCode">
+        <div class="sb-menu-wide" data-testid="prompt-blocked">
+            <TaskListView Tasks="@Blocked"
+                          BodyLabel="Prompt"
+                          OnToggle="_ => { }"
+                          GroupCompleted="false"
+                          AriaLabel="A blocked prompt"
+                          TestId="blocked" />
+        </div>
+    </Story>
+
+    <Story Name="An id that names nothing here"
+           Description="The last row waits on `sign-off`, and no row in this list has that id. It stays blocked, and it says `sign-off` verbatim.
+
+The alternative was to drop an id that resolves to nothing, and that alternative is the dangerous one. A chain that quietly forgot an unknown dependency would report itself ready when the step it waits on is merely missing from this view — the one failure mode that looks exactly like success. Blocked with the raw id on screen is the honest version, and it is also the actionable one: only the reader can tell whether the step is filtered out of this list or the id is simply misspelt, and either way the string they need to look for is on the row."
+           Code="@DanglingCode">
+        <div class="sb-menu-wide" data-testid="prompt-dangling">
+            <TaskListView Tasks="@Dangling"
+                          BodyLabel="Prompt"
+                          OnToggle="_ => { }"
+                          GroupCompleted="false"
+                          AriaLabel="A dependency that names nothing"
+                          TestId="dangling" />
+        </div>
+        <p class="sb-state" data-testid="prompt-dangling-next">Next: @(TaskChain.NextReady(Dangling)?.Title ?? "(nothing ready)")</p>
+    </Story>
+
+    <Story Name="A chain that waits on itself"
+           Description="Three prompts, each waiting on the next, the last waiting on the first. Every one of them is blocked, every one is flagged as being in a cycle, and “next ready” is nothing.
+
+Every part of that is a refusal to guess. Calling any of them ready would be a lie, because none of them can ever be unblocked by anything inside the list. Picking one to start on would be inventing a beginning for a chain that has none, and the reader would work on it and get nowhere. Silently breaking the loop at some edge would be worse still: the component would have chosen which dependency is the wrong one, which is exactly the decision only the person who wrote them can make.
+
+So the honest answer is the one on screen — blocked, with the cause named, and nothing offered. The cycle is not a rendering problem to be worked around; it is a mistake in the data, and the useful thing a component can do about one is point at it.
+
+TaskChain finds these from an explicit stack rather than by recursing. A cycle is precisely the shape that turns a recursive walk into a stack overflow, and the one input it must not fall over on is the one it exists to detect."
+           Code="@CycleCode">
+        <div class="sb-menu-wide" data-testid="prompt-cycle">
+            <TaskListView Tasks="@Cycle"
+                          BodyLabel="Prompt"
+                          OnToggle="_ => { }"
+                          GroupCompleted="false"
+                          AriaLabel="A dependency cycle"
+                          TestId="cycle" />
+        </div>
+        <p class="sb-state" data-testid="prompt-cycle-next">Next: @(TaskChain.NextReady(Cycle)?.Title ?? "(nothing ready)")</p>
+        <p class="sb-state" data-testid="prompt-cycle-members">In the cycle: @string.Join(", ", TaskChain.Cycles(Cycle).Select(task => task.Title))</p>
+    </Story>
+
+    <Story Name="Wiring the chain up, here"
+           Description="There is no dependency-editor component, and there is not going to be one. A chain is data the host owns — the ids sitting on the rows it handed over — so the control that edits it belongs wherever the data does. This page is the host, so the pickers below are the page's own: a TagMultiSelect per row, its options built from the other rows and its chips from that row's DependsOn.
+
+Each picker offers every row but its own. A task that waits on itself is a cycle of one, and while the chain detects that perfectly well there is no reason to make it a click away.
+
+Add a dependency and everything re-derives on the next render. The row goes blocked, its waiting line names the step by title, its circle stops being a control, and the Next marker moves to whichever row is now first and startable. Nothing is written down: the page rewrites its own array, hands the same list back, and TaskListView works the states out again from what it was given.
+
+Point two rows at each other and you have built a cycle. The list will say so — every row in it blocked, every row flagged, nothing Next — rather than quietly breaking the loop somewhere. The chapter above explains why that refusal is the honest answer; this is where you can cause it.
+
+The pickers are not part of the row on purpose. A row that carried its own dependency editor would have decided that dependencies are always the reader's to change, in every list in the product, including the ones where the order comes from somewhere else entirely."
+           Code="@WiringCode">
+        <div class="sb-menu-wide" data-testid="prompt-wired">
+            <TaskListView Tasks="@_wired"
+                          BodyLabel="Prompt"
+                          OnToggle="ToggleWired"
+                          GroupCompleted="false"
+                          AriaLabel="A chain you can wire up"
+                          TestId="wired" />
+        </div>
+        <div class="sb-stack" data-testid="prompt-wiring">
+            @foreach (var task in _wired)
+            {
+                var row = task;
+                <TagMultiSelect Options="@Others(row)"
+                                SelectedValues="@row.DependsOnList"
+                                SelectedValuesChanged="ids => Wire(row.Id, ids)"
+                                Label="@($"“{row.Title}” waits on")"
+                                Placeholder="Add a step"
+                                TestId="@($"wiring-{row.Id}")" />
+            }
+        </div>
+        <p class="sb-state" data-testid="prompt-wired-next">TaskChain.NextReady: @(TaskChain.NextReady(_wired)?.Title ?? "(nothing ready)")</p>
+        <p class="sb-state" data-testid="prompt-wired-cycle">TaskChain.Cycles: @Titles(TaskChain.Cycles(_wired))</p>
+    </Story>
+
+    <Story Name="Nothing derived, nothing drawn"
+           Description="The same list with the dependencies taken off. No “next” marker, no blocked circle, no waiting line — the markup is exactly what it was before any of this existed.
+
+TaskListView asks whether anything declared a dependency at all before it derives anything. That is not an optimisation. A list nobody chained that started marking a “next” row would be answering a question its host never asked, in every plain list in the product."
+           Code="@UnchainedCode">
+        <div class="sb-menu-wide" data-testid="prompt-unchained">
+            <TaskListView Tasks="@Unchained"
+                          BodyLabel="Prompt"
+                          OnToggle="_ => { }"
+                          GroupCompleted="false"
+                          AriaLabel="The same prompts, unchained"
+                          TestId="unchained" />
+        </div>
+    </Story>
+
+    <Story Name="What is deliberately not here"
+           Description="A prompt on a row and an order between rows are the two things a list can show. Everything below is a decision about what happens off the list, and a component that answered any of them would be a component to unpick when the product answers it differently.">
+        <dl class="sb-grid" data-testid="prompt-open-questions">
+            @foreach (var question in OpenQuestions)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@question.Name</dt>
+                    <dd><p>@question.Detail</p></dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private sealed record OpenQuestion(string Name, string Detail);
+
+    private const string ReviewBody = """
+        You are reviewing a change to the Backlog UI component library.
+
+        ### What to look at
+
+        Read the diff against the conventions the library already keeps, not
+        against a general style guide. The question is whether this change
+        would look out of place beside the code that was already there.
+
+        - Does every glyph have an `sr-only` name next to it?
+        - Does any control that would do nothing render as a button?
+        - Does the component store anything the host owns?
+        - Does each new parameter say why it exists, not what it is?
+
+        Report findings grouped by severity and change nothing.
+        """;
+
+    private const string SummariseBody = """
+        Summarise the review findings for the person who has to act on them.
+
+        Lead with the one thing that would block a merge. Keep each finding to
+        a sentence and a file path.
+        """;
+
+    private static readonly TaskRow ReviewPrompt =
+        new("review-prompt", "Review the change", Group: "Prompts", Body: ReviewBody);
+
+    private static readonly TaskRow ShortPrompt =
+        new("summarise", "Summarise the findings", Group: "Prompts", Body: SummariseBody);
+
+    /// <summary>The same row, already open. BodyExpanded is read once, so the
+    /// fold stays the reader's from the first render on.</summary>
+    private static readonly TaskRow ShortPromptOpen =
+        ShortPrompt with { Id = "summarise-open" };
+
+    private static readonly TaskRow PlainTask =
+        new("dentist", "Ring the dentist", Group: "Tasks", Due: "Today");
+
+    private const string EditableBody = """
+        Draft the release note for this change.
+
+        ### What it has to say
+
+        Lead with what somebody can now do that they could not do before, and
+        keep the reason for it to one sentence.
+
+        - Name the change in the words a reader would search for.
+        - Say what it replaces, if it replaces anything.
+
+        Change this text and watch the line under the list: the row is storing
+        none of it.
+        """;
+
+    /// <summary>The row the reader can type into. Held in a field, not a static:
+    /// the host owns the body, so the host is what changes when a keystroke is
+    /// reported.</summary>
+    private TaskRow _editable =
+        new("release-note", "Draft the release note", Group: "Prompts", Body: EditableBody);
+
+    private int _bodyChanges;
+    private SaveState _saveState = SaveState.Idle;
+    private CancellationTokenSource? _saveDelay;
+
+    /// <summary>The same listener, handed to a list rather than to a row. Both
+    /// rows can be edited or neither can, which is the only shape the answer
+    /// comes in.</summary>
+    private IReadOnlyList<TaskRow> _editableList =
+    [
+        new("brief", "Write the brief", Group: "Prompts", Body: "Say what the change is for, in one paragraph."),
+        new("summarise", "Summarise the findings", Group: "Prompts", Body: SummariseBody)
+    ];
+
+    /// <summary>One step, three prompts waiting on it — the shape where "what
+    /// should I start first" and "what can I start now" stop being the same
+    /// answer.</summary>
+    private IReadOnlyList<TaskRow> _fanOut =
+    [
+        new("gather", "Gather the source material", Group: "Prompts"),
+        new("summarise", "Summarise it", Group: "Prompts", DependsOn: ["gather"]),
+        new("critique", "Critique it", Group: "Prompts", DependsOn: ["gather"]),
+        new("translate", "Translate it", Group: "Prompts", DependsOn: ["gather"])
+    ];
+
+    /// <summary>The chain whose dependencies are the reader's to change. Wired up
+    /// as a linear one to start with, so the first thing the pickers do is
+    /// visible against something familiar.</summary>
+    private IReadOnlyList<TaskRow> _wired =
+    [
+        new("outline", "Draft the outline", Group: "Prompts"),
+        new("draft", "Write the first draft", Group: "Prompts", DependsOn: ["outline"]),
+        new("review", "Review the draft", Group: "Prompts", DependsOn: ["draft"])
+    ];
+
+    /// <summary>The chain the reader can move: tick the ready row and the one
+    /// behind it becomes ready in turn. Held in a field because the host owns
+    /// the list — the component derives the states and changes nothing.</summary>
+    private IReadOnlyList<TaskRow> _chain =
+    [
+        new("outline", "Draft the outline", Done: true, Group: "Prompts"),
+        new("first-draft", "Write the first draft", Group: "Prompts", DependsOn: ["outline"]),
+        new("review", "Review the draft", Group: "Prompts", DependsOn: ["first-draft"]),
+        new("publish", "Publish it", Group: "Prompts", DependsOn: ["review", "first-draft"])
+    ];
+
+    private static readonly IReadOnlyList<TaskRow> Blocked =
+    [
+        new("collect", "Collect the findings", Group: "Prompts"),
+        new("rank", "Rank them by severity", Group: "Prompts", DependsOn: ["collect"]),
+        new("send", "Send the summary", Group: "Prompts", DependsOn: ["collect", "rank"])
+    ];
+
+    private static readonly IReadOnlyList<TaskRow> Dangling =
+    [
+        new("build", "Build the release", Done: true, Group: "Prompts"),
+        new("ship", "Ship it", Group: "Prompts", DependsOn: ["sign-off"])
+    ];
+
+    private static readonly IReadOnlyList<TaskRow> Cycle =
+    [
+        new("collect", "Collect the findings", Group: "Prompts", DependsOn: ["rank"]),
+        new("rank", "Rank them by severity", Group: "Prompts", DependsOn: ["summarise"]),
+        new("summarise", "Summarise them", Group: "Prompts", DependsOn: ["collect"])
+    ];
+
+    private static readonly IReadOnlyList<TaskRow> Unchained =
+    [
+        new("collect", "Collect the findings", Group: "Prompts"),
+        new("rank", "Rank them by severity", Group: "Prompts"),
+        new("send", "Send the summary", Group: "Prompts")
+    ];
+
+    private static readonly IReadOnlyList<OpenQuestion> OpenQuestions =
+    [
+        new("How a prompt is run",
+            "The row holds the text, offers to copy it, and — when a host is listening — lets it be edited. What model reads it, with what context, and what comes back is not something a list of tasks can know, and a component with a Run button on it would have decided all three. Nothing on this page runs anything."),
+
+        new("Where the chain is kept",
+            "DependsOn is on the row the host handed over, and the states are derived on every render. Nothing here writes an order down, because the host is the only thing that knows whether one survives a reload. There is no dependency-editor component either: the pickers on this page are the page's own, built out of TagMultiSelect, because a chain is data the host owns and the control that edits data belongs where the data does."),
+
+        new("Whether a task may have a body at all",
+            "A row folds a body when it has one and offers nothing when it does not. Putting an “add a prompt” affordance on every row would be this library deciding that every task is a document — including “ring the dentist” — and which rows carry one is the host's call. The host says so by putting text in Body."),
+
+        new("Where a body is saved, and how it is undone",
+            "Editing raises every keystroke and stops there. There is no save button, because there is none anywhere in the product; the indicator on this page stands in for the real auto-save. Undo is the host's for the same reason: the row keeps no draft, so it has nothing to put back — which is exactly why it offers no Escape rather than an Escape that quietly did nothing."),
+
+        new("What an AI does with the result",
+            "Nothing on this page moves a task on when a prompt finishes. Whether a run marks its task done, opens the next one, or waits to be told is a product decision, and the component is already shaped for either: the host ticks the row, and the chain re-derives."),
+
+        new("How a cycle gets fixed",
+            "The chain names the rows caught in one and stops there. Which dependency in a loop is the wrong one is a question only the person who wrote them can answer, and a component that broke the loop somewhere would have answered it for them."),
+
+        new("What the reader sees while a prompt runs",
+            "Nothing here has a progress state for a body. A row can be blocked, ready or done, and “a model is part-way through this one” is none of those — it is a fact about a run rather than about a task, and inventing a fourth state for it would put a vocabulary in the row that the product has not agreed on yet.")
+    ];
+
+    private void ToggleChain(string id) =>
+        _chain = [.. _chain.Select(task => task.Id == id ? task with { Done = !task.Done } : task)];
+
+    private void ToggleFanOut(string id) =>
+        _fanOut = [.. _fanOut.Select(task => task.Id == id ? task with { Done = !task.Done } : task)];
+
+    private void ToggleWired(string id) =>
+        _wired = [.. _wired.Select(task => task.Id == id ? task with { Done = !task.Done } : task)];
+
+    /// <summary>What the host does with a keystroke: applies it to the row it owns
+    /// and starts saving. Nothing is validated and nothing is trimmed — the text
+    /// the reader typed is the text the host holds.</summary>
+    private async Task EditBodyAsync(TaskBodyChange change)
+    {
+        _editable = _editable with { Body = change.Body };
+        _bodyChanges++;
+        await MarkSavingAsync();
+    }
+
+    /// <summary>The same handler, applying to a list instead of to one row. The
+    /// change names the row it came from, which is the only thing the host needs
+    /// to find it again.</summary>
+    private async Task EditListBodyAsync(TaskBodyChange change)
+    {
+        _editableList =
+        [
+            .. _editableList.Select(task =>
+                task.Id == change.Id ? task with { Body = change.Body } : task)
+        ];
+
+        _bodyChanges++;
+        await MarkSavingAsync();
+    }
+
+    /// <summary>Every row but this one, as options. A task that waits on itself is
+    /// a cycle of one; the chain detects it, and there is still no reason to put
+    /// it one click away.</summary>
+    private IReadOnlyList<SelectorOption> Others(TaskRow row) =>
+    [
+        .. _wired
+            .Where(task => !string.Equals(task.Id, row.Id, StringComparison.Ordinal))
+            .Select(task => new SelectorOption(task.Id, task.Title))
+    ];
+
+    /// <summary>The host applying a change to its own data, which is all editing a
+    /// chain is. The states are not touched — they are derived again on the next
+    /// render from the array this returns.</summary>
+    private void Wire(string id, IReadOnlyList<string> dependsOn) =>
+        _wired = [.. _wired.Select(task => task.Id == id ? task with { DependsOn = dependsOn } : task)];
+
+    private static string Titles(IReadOnlyList<TaskRow> tasks) =>
+        tasks.Count == 0 ? "(none)" : string.Join(", ", tasks.Select(task => task.Title));
+
+    /// <summary>Stands in for the real auto-save, the same way the entry page does:
+    /// Saving while the keystrokes are still arriving, Saved once they stop. The
+    /// product has no save button anywhere, so this line is the only thing that
+    /// says the edit landed.</summary>
+    private async Task MarkSavingAsync()
+    {
+        _saveDelay?.Cancel();
+        _saveDelay?.Dispose();
+        _saveDelay = new CancellationTokenSource();
+        var token = _saveDelay.Token;
+
+        _saveState = SaveState.Saving;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(600), token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        _saveState = SaveState.Saved;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _saveDelay?.Cancel();
+        _saveDelay?.Dispose();
+    }
+
+    private const string BodyCode = """
+        @* The body is markdown and nothing else. Optional: leave it off and the
+           row is the row it always was. *@
+        new TaskRow("review-prompt", "Review the change", Body: prompt)
+
+        @* Copied as the title, a blank line, then the body — unless the host
+           says otherwise, in which case the host wins. *@
+        <TaskItem Task="@row" BodyLabel="Prompt" />
+        """;
+
+    private const string FoldCode = """
+        @* "Body" by default. The host's word for it goes here. *@
+        <TaskListView Tasks="@tasks" BodyLabel="Prompt" />
+        """;
+
+    private const string DefaultCode = """
+        @* No Body, so no disclosure, no note glyph, and the same markup a row
+           emitted before bodies existed. *@
+        new TaskRow("dentist", "Ring the dentist", Due: "Today")
+        """;
+
+    private const string ChainCode = """
+        @* A whole chain, to copy and edit. The array's order is the reading
+           order; DependsOn is what makes it a chain, and the two are allowed to
+           disagree — a row may name a step written below it. *@
+        private IReadOnlyList<TaskRow> _tasks =
+        [
+            new("outline",     "Draft the outline",     Done: true),
+            new("first-draft", "Write the first draft", DependsOn: ["outline"]),
+            new("review",      "Review the draft",      DependsOn: ["first-draft"]),
+            new("publish",     "Publish it",            DependsOn: ["review", "first-draft"])
+        ];
+
+        <TaskListView Tasks="@_tasks" OnToggle="Toggle" BodyLabel="Prompt" />
+
+        @code {
+            // The host still owns the list; the view derives the states.
+            private void Toggle(string id) =>
+                _tasks = [.. _tasks.Select(t => t.Id == id ? t with { Done = !t.Done } : t)];
+
+            // And the same answers, without rendering anything.
+            private TaskRow? next = TaskChain.NextReady(_tasks);
+            private IReadOnlyList<TaskRow> startable = TaskChain.Ready(_tasks);
+        }
+        """;
+
+    private const string EditBodyCode = """
+        @* No OnBodyChanged and the body is a read-only MarkdownView: no toggle,
+           no editor, nothing disabled. *@
+        <TaskItem Task="@_row" BodyLabel="Prompt" OnBodyChanged="EditBody" />
+        <SaveIndicator State="_saveState" />
+
+        @* Or to a whole list, which hands it to every row it draws. The change
+           names the row it came from. *@
+        <TaskListView Tasks="@_tasks" BodyLabel="Prompt" OnBodyChanged="EditBody" />
+
+        @code {
+            // Every keystroke, with the whole body. The row holds no draft: it
+            // reads the text back out of the Task on the next render, so the host
+            // applying the change is what makes the editor show it.
+            private async Task EditBody(TaskBodyChange change)
+            {
+                _row = _row with { Body = change.Body };
+                await MarkSavingAsync();   // Saving while keys arrive, Saved after
+            }
+        }
+        """;
+
+    private const string FanOutCode = """
+        @* One step, three rows waiting on it. Finishing it makes all three
+           startable in one move: the first is Next, the other two are Ready. *@
+        private IReadOnlyList<TaskRow> _tasks =
+        [
+            new("gather",    "Gather the source material"),
+            new("summarise", "Summarise it",  DependsOn: ["gather"]),
+            new("critique",  "Critique it",   DependsOn: ["gather"]),
+            new("translate", "Translate it",  DependsOn: ["gather"])
+        ];
+
+        // Two questions. They give the same answer in a linear chain and come
+        // apart here, which is the whole reason both exist.
+        TaskRow? first = TaskChain.NextReady(_tasks);           // "Summarise it"
+        IReadOnlyList<TaskRow> now = TaskChain.Ready(_tasks);   // all three
+        """;
+
+    private const string WiringCode = """
+        @* No dependency-editor component: a chain is data the host owns, so the
+           control that edits it is the host's too. *@
+        <TagMultiSelect Options="@Others(row)"
+                        SelectedValues="@row.DependsOnList"
+                        SelectedValuesChanged="ids => Wire(row.Id, ids)"
+                        Label="@($"{row.Title} waits on")" />
+
+        @code {
+            // Every row but this one: a task that waits on itself is a cycle of
+            // one, and there is no reason to make it a click away.
+            private IReadOnlyList<SelectorOption> Others(TaskRow row) =>
+                [.. _tasks.Where(t => t.Id != row.Id)
+                          .Select(t => new SelectorOption(t.Id, t.Title))];
+
+            // Applying it is all there is to it. The states re-derive from the
+            // list this hands back.
+            private void Wire(string id, IReadOnlyList<string> dependsOn) =>
+                _tasks = [.. _tasks.Select(t => t.Id == id ? t with { DependsOn = dependsOn } : t)];
+        }
+        """;
+
+    private const string BlockedCode = """
+        @* A step that waits on two things is the ordinary case, which is why
+           DependsOn is a list rather than one predecessor. *@
+        private IReadOnlyList<TaskRow> _tasks =
+        [
+            new("collect", "Collect the findings"),
+            new("rank",    "Rank them by severity", DependsOn: ["collect"]),
+            new("send",    "Send the summary",      DependsOn: ["collect", "rank"])
+        ];
+
+        @* OnToggle is supplied and the blocked row still renders state, not a
+           control. A blocked row has nothing honest to offer. *@
+        <TaskListView Tasks="@_tasks" OnToggle="Toggle" />
+        """;
+
+    private const string DanglingCode = """
+        @* Nothing here has the id "sign-off". The row stays blocked and says so. *@
+        new TaskRow("ship", "Ship it", DependsOn: ["sign-off"])
+        """;
+
+    private const string CycleCode = """
+        // Blocked, every one of them, and NextReady is null.
+        var caught = TaskChain.Cycles(tasks);
+        var next = TaskChain.NextReady(tasks);
+        """;
+
+    private const string UnchainedCode = """
+        @* No row declares one, so nothing is derived and nothing is drawn. *@
+        TaskChain.IsChain(tasks) // false
+        """;
+}
