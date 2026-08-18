@@ -2,14 +2,63 @@
 
 Backlog deploys Azure AI Foundry model deployments through Bicep in `infra/foundry/` and the manual `Deploy Foundry` GitHub Actions workflow.
 
-The playground target is:
+No subscription is hardcoded in the workflow. A deployment target is a pair:
+
+1. a **GitHub environment** that carries the Azure identity and the subscription/resource group it may deploy to, and
+2. a **parameter file** `infra/foundry/<environment_name>.bicepparam` that carries the per-environment resource name, region, SKU, capacity, and tags.
+
+The workflow's `environment_name` input selects both. If the parameter file is missing, or the environment has no subscription configured, the run fails in its first step before touching Azure.
+
+## Deployment target
 
 | Setting | Value |
 | --- | --- |
-| Tenant/domain | `innovadis.com` |
-| Subscription | `8b559814-3419-498f-8d8d-1bd4ea69b15c` |
-| Resource group | `JS-Backlog` |
-| Default GitHub environment | `playground` |
+| GitHub environment | `backlog-ai` |
+| Tenant/domain | `innovadis.com` (`b44c759d-a7bb-46bb-8aae-ba8d84789609`) |
+| Subscription | `8235e3b9-4cd0-4426-879a-471503d9e4fc` (Microsoft Azure Sponsorship) |
+| Resource group | `JS-AI` |
+| Region | `swedencentral` |
+| Foundry account | `backlog-foundry` |
+| Parameter file | `infra/foundry/backlog-ai.bicepparam` |
+| Speech model | `gpt-4o-transcribe`, enabled via `includeSpeechModel = true` |
+
+The resource group is `westeurope` but the Foundry account is placed in `swedencentral`, so `backlog-ai.bicepparam` sets `location` explicitly instead of inheriting the resource group location.
+
+To add a second target later, add a parameter file and a GitHub environment of the same name — the workflow needs no change.
+
+## Quota prerequisite
+
+The Sponsorship subscription has **no `GlobalStandard` quota** for the required models yet. Verified in both `swedencentral` and `westeurope`:
+
+| Quota | Used | Limit |
+| --- | ---: | ---: |
+| `OpenAI.GlobalStandard.gpt-5.4` | 0 | 0 |
+| `OpenAI.GlobalStandard.gpt-5.5` | 0 | 0 |
+| `OpenAI.GlobalStandard.gpt-5.6-luna` | 0 | 0 |
+| `OpenAI.GlobalStandard.gpt-5.6-sol` | 0 | 0 |
+
+The speech model is the exception — it already has quota in this subscription:
+
+| Quota | Used | Limit |
+| --- | ---: | ---: |
+| `OpenAI.GlobalStandard.gpt-4o-transcribe` | 0 | 400 |
+
+That does not make the deployment succeed on its own: the template deploys the account and all
+selected models together, so the missing chat quota fails the whole run.
+
+The models themselves are available in both regions, and the template validates cleanly against a subscription that has quota. But every mode — including `validate` — fails preflight in this subscription with `InsufficientQuota` until a quota increase is granted:
+
+```text
+This operation require 1 new capacity in quota One Thousand Tokens Per Minute - gpt-5.4 - GlobalStandard, which is bigger than the current available capacity 0.
+```
+
+Request quota for the Sponsorship subscription in the Azure AI Foundry portal (Management center -> Quota) before running the workflow. Then set `deploymentCapacity` in `backlog-ai.bicepparam` to a value the granted quota covers; the template default is `1` (one thousand tokens per minute per deployment).
+
+Check the current numbers with:
+
+```powershell
+az cognitiveservices usage list --location swedencentral --subscription 8235e3b9-4cd0-4426-879a-471503d9e4fc --query "[?contains(name.value,'GlobalStandard') && contains(name.value,'gpt-5.')].{quota:name.value, used:currentValue, limit:limit}" --output table
+```
 
 ## Resources
 
@@ -19,12 +68,27 @@ The template defaults the Azure region to the resource group's location. Overrid
 
 ## Model deployments
 
+Every environment deploys the same required model set. What may differ per environment is the account name, region, account SKU, deployment SKU, capacity, content filter policy, tags, and whether the optional balanced and speech models are included.
+
 | Deployment | Model | Role | Prompt tokens | Output tokens | Default |
 | --- | --- | --- | ---: | ---: | --- |
 | `gpt-5-4` | `gpt-5.4` | Default coding and architecture model | 922000 | 128000 | Yes |
 | `gpt-5-5` | `gpt-5.5` | Premium fallback | 922000 | 128000 | Yes |
 | `gpt-5-6-luna` | `gpt-5.6-luna` | Fast, cheaper routine model | 922000 | 128000 | Yes |
 | `gpt-5-6-sol` | `gpt-5.6-sol` | Balanced alternative | 922000 | 128000 | Optional |
+| `gpt-4o-transcribe` | `gpt-4o-transcribe` | Speech-to-text | n/a | n/a | Optional, on for `backlog-ai` |
+
+All of these are available in `swedencentral` and `westeurope` with the `GlobalStandard` SKU.
+
+Microsoft's MAI models are **not** an option for speech. The deployable Microsoft-format catalog is
+`MAI-Image-2`, `MAI-Image-2e`, `MAI-Image-2.5`, `MAI-Image-2.5-Flash`, `MAI-Image-2.5-Pro`,
+`MAI-Thinking-1`, and the `Phi-4` family — no voice or speech entry, in any region checked
+(`swedencentral`, `westeurope`, `eastus`, `eastus2`, `westus3`, `northcentralus`, `japaneast`).
+Speech in Foundry is OpenAI-format today: `gpt-4o-transcribe`, `gpt-4o-transcribe-diarize`,
+`gpt-4o-mini-transcribe`, `whisper`, `tts`, `tts-hd`, and the `gpt-audio`/`gpt-realtime` families.
+
+Note that `.domain/capture/features.md` specifies speech-to-text capture as *on-device*
+transcription. `gpt-4o-transcribe` is a cloud fallback, not a replacement for that design.
 
 Token budgets are captured as deployment tags and documentation. They are not sent as unsupported Azure deployment runtime parameters.
 
@@ -32,22 +96,61 @@ Do not configure custom sampling parameters for GPT-5 reasoning models. The depl
 
 Claude deployments are not included. Add them only after confirming that the Azure provider and model availability support Anthropic deployments without deprecated or unsupported parameters. Do not configure Claude 5 in this repository while the current provider sends deprecated `temperature` values.
 
+## Per-environment parameters
+
+These are the parameters a `<environment_name>.bicepparam` file may set. Only `accountName` is required.
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| `accountName` | *(required)* | Must be acceptable as an Azure AI Services account and custom subdomain name, and globally unique as a custom subdomain. |
+| `location` | resource group location | Set when the account must live in a specific model-supported region, as `backlog-ai` does. |
+| `accountSkuName` | `S0` | Azure AI Services account SKU. |
+| `deploymentSkuName` | `GlobalStandard` | Default SKU for deployments that do not pin their own; must be available in the target subscription and region. |
+| `deploymentCapacity` | `1` | Default capacity for deployments that do not pin their own, in thousands of tokens per minute; bounded by the target subscription's quota. |
+| `includeBalancedModel` | `false` | Deploys `gpt-5-6-sol` in addition to the required set. |
+| `includeSpeechModel` | `false` | Deploys `gpt-4o-transcribe`. Set to `true` in `backlog-ai.bicepparam`. |
+| `contentFilterPolicyName` | `Microsoft.DefaultV2` | Responsible AI policy applied to every deployment. |
+| `tags` | workload/environment/managedBy | Applied to the account and, extended with model role and token budget tags, to each deployment. |
+
+## Adding a model
+
+Model deployments live in `main.bicep`. Each entry may pin `skuName` and `capacity`: an empty
+`skuName` falls back to `deploymentSkuName`, and a zero `capacity` falls back to
+`deploymentCapacity`. Speech models need this, because `whisper`, `tts`, and `tts-hd` offer only
+the `Standard` SKU while the chat models are `GlobalStandard`, and speech quota is far smaller
+than chat quota.
+
+Confirm the model name, region availability, SKU, and quota with `az cognitiveservices model list`
+and `az cognitiveservices usage list` before adding an entry — a name that is not in the catalog
+fails preflight.
+
+## Adding a subscription target
+
+1. Create a `<environment_name>.bicepparam` file in `infra/foundry/`, copying `backlog-ai.bicepparam` and giving the account a globally unique custom subdomain name.
+2. Create the GitHub environment with the same name and set its variables (see below).
+3. Confirm model availability and quota in the target subscription and region.
+4. Grant the environment's Azure identity access on the target resource group, then run the workflow in `validate`, `what-if`, and only then `deploy` mode.
+
 ## GitHub environment setup
 
-Create or update the `playground` GitHub environment with these variables:
+Set these variables on each GitHub environment:
 
-| Variable | Description |
-| --- | --- |
-| `AZURE_CLIENT_ID` | Client ID for the Azure app registration or managed identity used by GitHub OIDC. |
-| `AZURE_TENANT_ID` | Tenant ID for `innovadis.com`. |
+| Variable | Description | Value for `backlog-ai` |
+| --- | --- | --- |
+| `AZURE_CLIENT_ID` | Client ID for the app registration or managed identity used by GitHub OIDC in that subscription. | *(per app registration)* |
+| `AZURE_TENANT_ID` | Tenant ID that owns the subscription. | `b44c759d-a7bb-46bb-8aae-ba8d84789609` |
+| `AZURE_SUBSCRIPTION_ID` | Subscription the environment deploys to. Required unless the run passes the `subscription_id` input. | `8235e3b9-4cd0-4426-879a-471503d9e4fc` |
+| `AZURE_RESOURCE_GROUP` | Existing resource group in that subscription. Required unless the run passes the `resource_group` input. | `JS-AI` |
 
-Grant the Azure identity enough access on `JS-Backlog` to create or update Azure AI Services accounts and deployments. Microsoft Foundry guidance requires permissions equivalent to Cognitive Services Contributor on the Foundry resource or resource group.
+Grant the Azure identity enough access on the target resource group to create or update Azure AI Services accounts and deployments. Microsoft Foundry guidance requires permissions equivalent to Cognitive Services Contributor on the Foundry resource or resource group.
 
 For an environment-scoped OIDC trust, use a subject like:
 
 ```text
-repo:JSdotNet/Backlog:environment:playground
+repo:JSdotNet/Backlog:environment:backlog-ai
 ```
+
+Each subscription needs its own federated credential — one per environment name it is used from.
 
 ## Run from GitHub Actions
 
@@ -56,59 +159,55 @@ Open **Actions -> Deploy Foundry -> Run workflow** and choose:
 | Input | Default | Notes |
 | --- | --- | --- |
 | `mode` | `what-if` | Use `validate` for template validation only, `what-if` for a safe preview, and `deploy` to apply changes. |
-| `environment_name` | `playground` | GitHub environment containing Azure OIDC variables and approvals. |
-| `subscription_id` | `8b559814-3419-498f-8d8d-1bd4ea69b15c` | Explicit subscription target. |
-| `resource_group` | `JS-Backlog` | Existing resource group target. |
-| `foundry_account_name` | `backlog-foundry` | Must be acceptable as an Azure AI Services account/custom subdomain name. |
-| `location` | blank | Blank uses the resource group location. |
-| `include_balanced_model` | `false` | Set to `true` to deploy `gpt-5-6-sol`. |
+| `environment_name` | `backlog-ai` | Selects the GitHub environment and `infra/foundry/<environment_name>.bicepparam`. |
+| `subscription_id` | blank | Blank uses the environment's `AZURE_SUBSCRIPTION_ID`. Must be a GUID when set. |
+| `resource_group` | blank | Blank uses the environment's `AZURE_RESOURCE_GROUP`. |
+| `foundry_account_name` | blank | Blank uses the parameter file's `accountName`. |
+| `location` | blank | Blank uses the parameter file value, or the resource group location. |
+| `include_balanced_model` | `from-parameter-file` | Choose `true`/`false` to override the parameter file for one run. |
+| `include_speech_model` | `from-parameter-file` | Choose `true`/`false` to override the parameter file for one run. |
 
 The workflow always builds and validates the Bicep template before previewing or deploying. It does not run automatically on push.
 
 ## Run locally
 
+The Bicep CLI is a separate download from the Azure CLI; install it once:
+
+```powershell
+az bicep install
+```
+
 Authenticate and select the target subscription:
 
 ```powershell
 az login --tenant innovadis.com
-az account set --subscription 8b559814-3419-498f-8d8d-1bd4ea69b15c
+az account set --subscription 8235e3b9-4cd0-4426-879a-471503d9e4fc
 ```
 
 Build and validate the template:
 
 ```powershell
-az bicep build --file infra\foundry\main.bicep
-az deployment group validate `
-  --resource-group JS-Backlog `
-  --template-file infra\foundry\main.bicep `
-  --parameters infra\foundry\playground.bicepparam accountName=backlog-foundry
+az bicep build --file infra\foundry\main.bicep --stdout
+```
+
+```powershell
+az deployment group validate --resource-group JS-AI --template-file infra\foundry\main.bicep --parameters infra\foundry\backlog-ai.bicepparam
 ```
 
 Preview changes without applying them:
 
 ```powershell
-az deployment group what-if `
-  --resource-group JS-Backlog `
-  --template-file infra\foundry\main.bicep `
-  --parameters infra\foundry\playground.bicepparam accountName=backlog-foundry
+az deployment group what-if --resource-group JS-AI --template-file infra\foundry\main.bicep --parameters infra\foundry\backlog-ai.bicepparam
 ```
 
 Apply only after reviewing the what-if output and confirming model availability, quota, and approvals:
 
 ```powershell
-az deployment group create `
-  --name backlog-foundry `
-  --resource-group JS-Backlog `
-  --template-file infra\foundry\main.bicep `
-  --parameters infra\foundry\playground.bicepparam accountName=backlog-foundry
+az deployment group create --name backlog-foundry --resource-group JS-AI --template-file infra\foundry\main.bicep --parameters infra\foundry\backlog-ai.bicepparam
 ```
 
 After deployment, get the Foundry Models endpoint:
 
 ```powershell
-az cognitiveservices account show `
-  --name backlog-foundry `
-  --resource-group JS-Backlog `
-  --query "properties.endpoints.'Azure AI Model Inference API'" `
-  --output tsv
+az cognitiveservices account show --name backlog-foundry --resource-group JS-AI --query "properties.endpoints.'Azure AI Model Inference API'" --output tsv
 ```
