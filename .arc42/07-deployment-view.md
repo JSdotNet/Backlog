@@ -73,6 +73,72 @@ flowchart LR
     Release -->|"OnLaunch / background / Settings check"| Machine
 ```
 
+## Local Deployment (Mobile)
+
+```meta
+status: active
+related: [".arc42/05-building-block-view.md#mobile-app", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
+```
+
+The mobile app is installed on Android devices as a capture-first,
+sync-dependent channel — it is not canonical, so this section covers only how
+the APK reaches a device, not a data layout equivalent to the desktop's local
+Markdown tree. Its on-device JSON queue is documented in
+`.tech/mobile.md#local-offline-store`.
+
+### Installation and Updates (Mobile)
+
+```meta
+status: active
+related: [".tech/mobile.md#apk-packaging", ".arc42/07-deployment-view.md#installation-and-updates"]
+```
+
+The mobile app is distributed as a **signed APK sideloaded from GitHub
+Releases** — there is no Google Play listing and no in-app update mechanism.
+
+- **Package** — Release builds produce a signed `.apk`
+  (`AndroidPackageFormat=apk`), not an `.aab`: the package is sideloaded
+  straight onto a device, and `.aab` is only consumable by Google Play.
+- **Signing** — signing values come only from repository secrets
+  (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
+  `ANDROID_KEY_PASSWORD`); the workflow refuses to produce an unsigned package
+  when they are absent and runs `apksigner verify` on the staged APK before
+  publishing.
+- **Versioning** — `ApplicationDisplayVersion` is set to the semantic version;
+  `ApplicationVersion` (the Android `versionCode`) is a packed integer
+  (`major*10^7 + minor*10^5 + patch`, so `v1.2.3` becomes `10200003`) because
+  Android requires a monotonically increasing integer for a package to be
+  recognized as an upgrade.
+- **Release channel** — tagged `v*` releases share one GitHub Release with
+  the desktop MSIX. Nightly `main` builds publish under a separate
+  `mobile-v0.1.<run_number>` tag marked not-latest, because
+  `github.run_number` is a per-workflow counter and would otherwise collide
+  with the desktop's own nightly numbering.
+- **Trust** — the keystore is self-signed, so installing prompts to allow
+  installs from unknown sources. Because it is self-signed, an APK signed
+  with a different key cannot upgrade an existing install — Android rejects
+  signature changes, so switching between a developer build and a release
+  build requires uninstalling first.
+- **Updates** — unlike the desktop's App Installer, there is no in-app
+  auto-update mechanism for Android; updating means manually re-downloading
+  the latest APK from GitHub Releases and reinstalling over the existing app
+  (same signing key required).
+- **Developer sideload** — `build/Install-AndroidApp.ps1` builds a signed APK
+  and installs it via `adb`, generating a throwaway developer keystore under
+  the gitignored `build/.local/` so a local build never needs the release
+  signing secrets.
+- **Release automation** — `.github/workflows/release-mobile.yml` builds,
+  signs (from repository secrets), verifies, and uploads the APK to the
+  GitHub Release on a `v*` tag or the nightly schedule.
+
+```mermaid
+flowchart LR
+    Dev["Tag v1.2.3 (or mobile-v0.1.N nightly)"] --> CI["release-mobile workflow"]
+    CI -->|"signed + apksigner-verified APK"| Release["GitHub Release"]
+    Release -->|"first install (sideload)"| Device["Android device"]
+    Release -.->|"manual re-download (no in-app check)"| Device
+```
+
 ## Cloud Deployment (Azure)
 
 ```meta

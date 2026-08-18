@@ -1,0 +1,52 @@
+@*
+    The KPI row. It lives in the library rather than in the storybook because the
+    desktop shell needs the same reflow: a dashboard that reads well in the
+    harness and wraps badly in the app has been reviewed in the wrong place.
+
+    An unlabelled grid carries no role at all. A group with no accessible name is
+    noise in the tree — it announces a boundary and then cannot say what is
+    inside it.
+*@
+
+<div class="@ClassValue"
+     style="@StyleValue"
+     role="@Role"
+     aria-label="@Label"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>How narrow a column may get before the grid drops one. Published
+    /// as a custom property so a host can widen it for a denser tile without
+    /// restating the whole grid rule.</summary>
+    [Parameter]
+    public string MinColumnWidth { get; set; } = "16rem";
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-grid</c> as the class this block carries.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-grid";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? Role => string.IsNullOrWhiteSpace(Label) ? null : "group";
+
+    private string StyleValue => $"--metric-grid-min: {MinColumnWidth}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+}

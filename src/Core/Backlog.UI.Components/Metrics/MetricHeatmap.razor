@@ -1,0 +1,186 @@
+@*
+    Repositories down, periods across, shade for the score. The chart that scales
+    when a trellis stops fitting: twenty repositories over twenty-six weeks is five
+    hundred readings, which is five hundred cells here and twenty unreadably narrow
+    panels there.
+
+    A heatmap is also the one chart type this palette is *built* for. Every other
+    way of comparing series wants a categorical scale — one colour per repository —
+    and there is exactly one saturated hue to spend. A heatmap wants a sequential
+    scale instead, which is precisely what an ordinal ramp of one hue is.
+
+    Zero gets the track rather than the palest step. "Nothing happened that week" and
+    "a little happened that week" are different facts, and if the palest shade means
+    both then the chart cannot say either.
+
+    The grid is a real table with real row and column headers, so it is navigable
+    rather than being a picture of a table. Each cell carries its figure as text in
+    the title and in a visually-hidden span, because a shade is not a number: the
+    ramp has four steps and the data has hundreds of values, so the colour is a
+    bucket and the text is the reading.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <p class="@(Part("label"))" id="@LabelId">@Label</p>
+    }
+
+    @if (Buckets.Count == 0 || Rows.Count == 0)
+    {
+        <MetricStatus Kind="MetricStatusKind.Empty" Message="@EmptyMessage" CssClass="@(Part("status"))" />
+    }
+    else
+    {
+        <div class="@(Part("scroll"))">
+            <table class="@(Part("grid"))"
+                   aria-labelledby="@(string.IsNullOrWhiteSpace(Label) ? null : LabelId)"
+                   aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)">
+                <thead>
+                    <tr>
+                        <td class="@(Part("corner"))"></td>
+                        @foreach (var bucket in Buckets)
+                        {
+                            <th scope="col" class="@(Part("bucket"))">@bucket</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Rows)
+                    {
+                        <tr>
+                            <th scope="row" class="@(Part("name"))">@row.Name</th>
+                            @foreach (var bucket in Buckets)
+                            {
+                                var reading = Reading(row, bucket);
+                                <td class="@CellClass(reading)" title="@Title(row, bucket, reading)">
+                                    @* The shade is a bucket of four; this is the
+                                       reading. A screen reader gets the figure, and a
+                                       pointer gets it from the title. *@
+                                    <span class="sr-only">@(reading is null ? NotReported : Format(reading.Value))</span>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (ShowLegend)
+        {
+            <ul class="@(Part("legend"))" aria-label="@($"Shade scale, 0 to {Format(Max)}")">
+                <li class="@(Part("legend-item"))">
+                    <span class="@($"{Part("swatch")} {Part("swatch")}--0")" aria-hidden="true"></span>
+                    <span>none</span>
+                </li>
+                @for (var step = 1; step <= RampSteps; step++)
+                {
+                    var index = step;
+                    <li class="@(Part("legend-item"))">
+                        <span class="@($"{Part("swatch")} {Part("swatch")}--{index}")" aria-hidden="true"></span>
+                        <span>@Format(Ceiling(index - 1)) – @Format(Ceiling(index))</span>
+                    </li>
+                }
+            </ul>
+        }
+    }
+</div>
+
+@code {
+    /// <summary>One row per series. Every series is read against the same bucket
+    /// labels, taken from whichever series has the most of them, so a series missing
+    /// a week leaves a gap rather than shifting its row left.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricSeries> Series { get; set; } = [];
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>Names the grid when there is no visible label.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>How a cell's figure reads in its title and to a screen reader.</summary>
+    [Parameter]
+    public Func<decimal, string>? FormatValue { get; set; }
+
+    /// <summary>The value that earns the darkest step. Left null it is the largest
+    /// reading present; set it to a fixed ceiling — 100 for a score — so the shades
+    /// mean the same thing from one window to the next.</summary>
+    [Parameter]
+    public decimal? SharedMax { get; set; }
+
+    [Parameter]
+    public bool ShowLegend { get; set; } = true;
+
+    [Parameter]
+    public string? EmptyMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-heatmap</c> as the class this block carries, and
+    /// every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-heatmap";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>How many shades the ramp has. Four, because that is how many steps of
+    /// one hue stay apart on this surface.</summary>
+    private const int RampSteps = 4;
+
+    /// <summary>An em dash in the hidden text: this cell was not reported. A zero
+    /// would be a claim that nothing happened.</summary>
+    private const string NotReported = "not reported";
+
+    private readonly string _labelId = "metric-heatmap-label-" + Guid.NewGuid().ToString("N");
+
+    private string LabelId => _labelId;
+
+    private IReadOnlyList<MetricSeries> Rows =>
+        [.. (Series ?? []).Where(series => series.Points.Count > 0)];
+
+    /// <summary>The column headings. Taken from the longest series rather than the
+    /// first, so one short row does not truncate the whole grid.</summary>
+    private IReadOnlyList<string> Buckets
+    {
+        get
+        {
+            var longest = Rows.OrderByDescending(series => series.Points.Count).FirstOrDefault();
+
+            return longest is null ? [] : [.. longest.Points.Select(point => point.Label)];
+        }
+    }
+
+    private decimal Max => SharedMax ?? MetricScoring.SharedMax(Rows);
+
+    private static decimal? Reading(MetricSeries series, string bucket) =>
+        series.Points.FirstOrDefault(point => point.Label == bucket)?.Value;
+
+    private string CellClass(decimal? reading)
+    {
+        if (reading is null) return $"{Part("cell")} {Part("cell")}--missing";
+
+        var step = MetricScoring.RampStep(reading.Value, Max, RampSteps);
+
+        return $"{Part("cell")} {Part("cell")}--{step}";
+    }
+
+    private string Title(MetricSeries row, string bucket, decimal? reading) =>
+        $"{row.Name}, {bucket}: {(reading is null ? NotReported : Format(reading.Value))}";
+
+    /// <summary>The top of ramp step <paramref name="step"/>, for the legend.</summary>
+    private decimal Ceiling(int step) => Math.Round(Max / RampSteps * step, 1, MidpointRounding.AwayFromZero);
+
+    private string Format(decimal value) => (FormatValue ?? MetricFormat.Compact)(value);
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+}

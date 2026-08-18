@@ -14,6 +14,11 @@ builder.Services.AddRazorComponents()
 builder.Services.AddHttpClient<CloudSyncClient>(client =>
     client.BaseAddress = new Uri("https+http://sync"));
 
+// The browser half of ISpeechTranscriber. The MAUI head registers the Android
+// recogniser against the same abstraction; neither implementation runs in the
+// other's host, which is why there are two registrations rather than one.
+builder.Services.AddScoped<ISpeechTranscriber, WebSpeechTranscriber>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

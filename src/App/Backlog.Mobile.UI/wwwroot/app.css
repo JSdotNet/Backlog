@@ -117,3 +117,25 @@ ul.inbox li { display: flex; align-items: center; gap: .5rem; padding: .5rem 0; 
 ul.inbox .title { flex: 1; }
 ul.inbox .source { color: var(--color-text-secondary); font-size: .8rem; }
 .error { color: #ff8080; }
+
+/*
+  Speech capture on the Inbox screen.
+
+  The mic sits in the capture row; everything it has to say goes on its own line
+  underneath, because a phone-width row has room for controls and nothing else.
+  Colours are the library's tokens — this file declares none of its own.
+*/
+.capture__field { flex: 1; }
+
+.capture__mic { flex: 0 0 auto; }
+
+.capture__status,
+.capture__notice {
+    margin: 0 0 .5rem;
+    color: var(--color-text-secondary);
+    font-size: .85rem;
+}
+
+/* The status line carries the recognised words, which can run long. Wrapping is
+   the point: truncating would hide the very thing the person asked to see. */
+.capture__status { overflow-wrap: anywhere; }
