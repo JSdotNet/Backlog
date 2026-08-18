@@ -1,15 +1,53 @@
 @page "/"
 @using Backlog.Mobile.UI.Services
 @inject CloudSyncClient Sync
+@inject ISpeechTranscriber Speech
 
 <PageTitle>Inbox</PageTitle>
 
 <h1>Inbox</h1>
 
 <div class="capture">
-    <TextField @bind-Value="_draft" AriaLabel="Quick capture" Placeholder="Quick capture…" CssClass="capture__field" />
+    <TextField @bind-Value="_draft" AriaLabel="Quick capture" Placeholder="Quick capture…"
+               CssClass="capture__field" TestId="capture-field" />
+    @* Speech only ever fills this field. Capture is still the one thing that
+       syncs, so nothing reaches the cloud that the person has not read first. *@
+    <ToggleButton Pressed="_listening"
+                  PressedChanged="OnSpeechToggledAsync"
+                  Disabled="@(_speechSupported != true)"
+                  AriaLabel="@(_listening ? "Stop dictating" : "Dictate a capture")"
+                  Title="@(_listening ? "Stop dictating" : "Dictate a capture")"
+                  CssClass="capture__mic"
+                  TestId="speech-toggle">
+        @* Drawn rather than fetched, for the same reason CopyButton draws its
+           clipboard: a WebView with no egress still has to show the button. *@
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <rect x="6" y="1.75" width="4" height="7.5" rx="2" />
+            <path d="M3.75 7.25v.75a4.25 4.25 0 0 0 8.5 0v-.75" />
+            <path d="M8 12.25v2" />
+        </svg>
+    </ToggleButton>
     <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(_draft)" OnClick="CaptureAsync">Capture</AppButton>
 </div>
+
+@if (_speechSupported == false)
+{
+    <Alert Message="Speech recognition is not available on this device — type your capture instead."
+           Role="status" BaseClass="capture__notice" TestId="speech-unavailable" />
+}
+
+@if (_speechStatus is not null)
+{
+    @* role="status" rather than "alert": this is the running commentary on a
+       thing the person just started, not an interruption. *@
+    <Alert Message="@_speechStatus" Role="status" BaseClass="capture__status" TestId="speech-status" />
+}
+
+@if (_speechError is not null)
+{
+    <Alert Message="@_speechError" BaseClass="error" TestId="speech-error" />
+}
 
 @if (_error is not null)
 {
@@ -38,11 +76,101 @@ else
 }
 
 @code {
+    private const string Listening = "Listening…";
+
     private IReadOnlyList<InboxItem>? _items;
     private string _draft = string.Empty;
     private string? _error;
 
+    /// <summary>Null until the recogniser has been asked. Neither "yes" nor "no"
+    /// is true during the first render, and claiming either would flash a
+    /// message or an enabled button that the answer then contradicts.</summary>
+    private bool? _speechSupported;
+
+    private bool _listening;
+    private string? _speechStatus;
+    private string? _speechError;
+
     protected override Task OnInitializedAsync() => RefreshAsync();
+
+    /// <summary>
+    /// The support question is asked after the first render, not before it: in
+    /// the browser harness the component prerenders on the server, where there
+    /// is no browser to ask and the honest answer would be a misleading "no".
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _speechSupported = await Speech.IsSupportedAsync();
+        StateHasChanged();
+    }
+
+    private async Task OnSpeechToggledAsync(bool pressed)
+    {
+        if (!pressed)
+        {
+            // Stop only asks; the words arrive on the listening turn below.
+            await Speech.StopAsync();
+            return;
+        }
+
+        _listening = true;
+        _speechError = null;
+        _speechStatus = Listening;
+
+        // ListenAsync does not complete until recognition ends, so it is
+        // deliberately not awaited here: this handler has to return for the
+        // pressed state and the "Listening…" line to reach the screen at all.
+        _ = ListenAsync();
+    }
+
+    private async Task ListenAsync()
+    {
+        SpeechTranscript result;
+
+        try
+        {
+            result = await Speech.ListenAsync();
+        }
+        catch (Exception ex)
+        {
+            // The transcribers report their failures as results; anything that
+            // still arrives as an exception is unexpected, and swallowing it
+            // would leave the button stuck on.
+            result = SpeechTranscript.Failed(ex.Message);
+        }
+
+        _listening = false;
+
+        if (result.IsError)
+        {
+            _speechStatus = null;
+            _speechError = result.Error;
+        }
+        else if (result.Text.Length == 0)
+        {
+            _speechStatus = "Nothing was heard.";
+        }
+        else
+        {
+            _speechStatus = $"Heard: {result.Text}";
+            _draft = Append(_draft, result.Text);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Dictation extends what is in the field rather than replacing it — a
+    /// second sentence is the ordinary case, and overwriting would lose the
+    /// first one with no way back.
+    /// </summary>
+    private static string Append(string draft, string spoken)
+    {
+        var existing = draft.TrimEnd();
+        return existing.Length == 0 ? spoken : $"{existing} {spoken}";
+    }
 
     private async Task RefreshAsync()
     {
@@ -63,6 +191,8 @@ else
         if (title.Length == 0) return;
 
         _draft = string.Empty;
+        _speechStatus = null;
+
         try
         {
             await Sync.CaptureAsync(title);

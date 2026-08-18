@@ -1,0 +1,24 @@
+<!-- The Razor SDK, matching Backlog.UI.Components.UnitTests: the project under
+     test is a Razor class library, and a test that needs markup to set a screen
+     up should be able to write markup rather than a hand-built fragment. -->
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <ItemGroup>
+    <PackageReference Include="bunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Bunit" />
+    <Using Include="Microsoft.AspNetCore.Components" />
+    <Using Include="Microsoft.AspNetCore.Components.Web" />
+    <Using Include="Backlog.Mobile.UI.Components.Pages" />
+    <Using Include="Backlog.Mobile.UI.Services" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only the mobile UI: these tests drive the screen, and the MAUI head and
+         the browser harness are the two hosts it has to run in unchanged. -->
+    <ProjectReference Include="..\..\src\App\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
+  </ItemGroup>
+
+</Project>
