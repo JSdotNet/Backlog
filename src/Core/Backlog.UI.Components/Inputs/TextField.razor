@@ -44,7 +44,21 @@ else
     [Parameter]
     public bool Readonly { get; set; }
 
-    /// <summary>One of text, number, url or email; anything else falls back to text.</summary>
+    /// <summary>One of text, number, url, email, date or datetime-local; anything
+    /// else falls back to text.
+    /// <para>
+    /// The two date types are here rather than in a DateField of their own because
+    /// nothing else about the field would differ: same label pairing, same
+    /// <c>aria-describedby</c> wiring, same error state. A second component would
+    /// have been this one with a different <c>type</c> attribute, and a host that
+    /// wanted a date would then have had two places to look for one.
+    /// </para>
+    /// <para>
+    /// A date field raises <c>oninput</c> while the value is still incomplete, and
+    /// an incomplete date reads as empty. A host for which empty means "clear the
+    /// field" should therefore splat an <c>onchange</c> handler rather than bind
+    /// <see cref="ValueChanged"/>: a date commits when it is a date.
+    /// </para></summary>
     [Parameter]
     public string Type { get; set; } = "text";
 
@@ -146,7 +160,7 @@ else
 
     protected override void OnParametersSet()
     {
-        if (Type is not ("text" or "number" or "url" or "email")) Type = "text";
+        if (Type is not ("text" or "number" or "url" or "email" or "date" or "datetime-local")) Type = "text";
     }
 
     private Task OnInput(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);

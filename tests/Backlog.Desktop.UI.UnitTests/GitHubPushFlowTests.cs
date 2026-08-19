@@ -133,6 +133,17 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
 
+    /// <summary>
+    /// Editing one step touches that chapter and nothing around it.
+    /// <para>
+    /// The route changed and the claim did not. There used to be a raw textarea per
+    /// sub-item card, handed the chapter's whole text; a step's title and its notes
+    /// are now two controls in the detail pane, each reporting through the shared
+    /// task row. Both still end in a <c>ReplaceSubItemText</c> against the same
+    /// index, which is exactly what this has always been about: an edit that reached
+    /// the wrong chapter would overwrite a neighbour with no error anywhere.
+    /// </para>
+    /// </summary>
     [Fact]
     public async Task Editing_a_sub_item_updates_only_that_chapter()
     {
@@ -147,12 +158,12 @@ public sealed class GitHubPushFlowTests : IDisposable
             "## Last\n" +
             "Keep last.\n");
 
-        harness.State.BeginSubItemEdit(row, 1);
-        harness.State.OnSubItemRawTextInput(row, 1, "### Updated target\nNew target notes.");
-        await harness.State.EndSubItemEditAsync(row, 1);
+        await harness.State.RenameSubItemAsync(row, 1, "Updated target");
+        harness.State.ChangeSubItemNote(row, 1, "New target notes.");
 
-        Assert.False(harness.State.IsEditingSubItem(row, 1));
         Assert.Contains("## First\nKeep this.", row.RawText);
+        // Same line break the chapter already had. Writing notes back must not
+        // introduce a blank line the author did not type.
         Assert.Contains("### Updated target\nNew target notes.", row.RawText);
         Assert.DoesNotContain("Old target notes.", row.RawText);
         Assert.Contains("## Last\nKeep last.", row.RawText);

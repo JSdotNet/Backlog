@@ -105,6 +105,21 @@ public static class EntryTextParser
         IReadOnlyList<string>? MetadataTags = null);
 
     /// <summary>
+    /// A named token whose kind was understood but whose value was not:
+    /// <c>due:friday</c>, <c>repeat:fortnightly</c>. The field it named stays
+    /// unset — parsing is tolerant, and refusing the whole line would lose the
+    /// fields around it — but the words the reader typed are kept here so a
+    /// surface showing what the text will be saved as can say the value was
+    /// refused instead of showing nothing where a due date used to be.
+    /// <para>
+    /// Only the five names this grammar knows are collected. A token whose
+    /// <em>name</em> is unknown is unrecognized rather than refused, which is a
+    /// different fact with a different rule behind it.
+    /// </para>
+    /// </summary>
+    public sealed record UnreadableToken(string Name, string Value);
+
+    /// <summary>
     /// What one segment of entry text says. The scheduling and dependency members
     /// carry defaults so that a caller only interested in the older fields still
     /// compiles — but a caller that <em>writes</em> an entry back must pass them,
@@ -125,7 +140,8 @@ public static class EntryTextParser
         DateTime? RemindAt = null,
         Recurrence? Recurrence = null,
         DateOnly? InMyDayOn = null,
-        IReadOnlyList<string>? DependsOn = null);
+        IReadOnlyList<string>? DependsOn = null,
+        IReadOnlyList<UnreadableToken>? Unreadable = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -137,7 +153,8 @@ public static class EntryTextParser
         DateTime? RemindAt = null,
         Recurrence? Recurrence = null,
         DateOnly? InMyDayOn = null,
-        IReadOnlyList<string>? DependsOn = null)
+        IReadOnlyList<string>? DependsOn = null,
+        IReadOnlyList<UnreadableToken>? Unreadable = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -255,7 +272,8 @@ public static class EntryTextParser
             metadata.RemindAt,
             metadata.Recurrence,
             metadata.InMyDayOn,
-            metadata.DependsOn ?? []);
+            metadata.DependsOn ?? [],
+            metadata.Unreadable ?? []);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -270,6 +288,7 @@ public static class EntryTextParser
         Recurrence? recurrence = null;
         DateOnly? inMyDayOn = null;
         var dependsOn = new List<string>();
+        var unreadable = new List<UnreadableToken>();
 
         foreach (Match match in TokenRegex.Matches(line))
         {
@@ -291,18 +310,22 @@ public static class EntryTextParser
                 {
                     case "due":
                         if (TryParseDateToken(value, out var due)) dueOn = due;
+                        else unreadable.Add(new UnreadableToken("due", value));
                         break;
 
                     case "remind":
                         if (TryParseReminderToken(value, out var remind)) remindAt = remind;
+                        else unreadable.Add(new UnreadableToken("remind", value));
                         break;
 
                     case "repeat":
                         if (TryParseRepeatToken(value, out var repeat)) recurrence = repeat;
+                        else unreadable.Add(new UnreadableToken("repeat", value));
                         break;
 
                     case "myday":
                         if (TryParseDateToken(value, out var myDay)) inMyDayOn = myDay;
+                        else unreadable.Add(new UnreadableToken("myday", value));
                         break;
 
                     case "after":
@@ -310,7 +333,12 @@ public static class EntryTextParser
                         // blocks and a malformed one round-trips. Only an exact
                         // repeat is dropped, because two mentions of the same
                         // predecessor are one dependency.
-                        if (value.Length > 0 && !dependsOn.Contains(value, StringComparer.Ordinal))
+                        // An `after:` with nothing after the colon is the one
+                        // malformed dependency there is: absent means absent, so
+                        // an empty token is a reader asking for something rather
+                        // than a reader asking for nothing.
+                        if (value.Length == 0) unreadable.Add(new UnreadableToken("after", value));
+                        else if (!dependsOn.Contains(value, StringComparer.Ordinal))
                         {
                             dependsOn.Add(value);
                         }
@@ -372,7 +400,8 @@ public static class EntryTextParser
             remindAt,
             recurrence,
             inMyDayOn,
-            dependsOn);
+            dependsOn,
+            unreadable);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -624,6 +653,208 @@ public static class EntryTextParser
     /// nested ones. This is the number <see cref="GetParentText"/> and
     /// <see cref="ReplaceParentText"/> want.</summary>
     public static int CountSubItems(string raw) => LocateSubItems(raw).Count;
+
+    // The detail pane edits an entry a field at a time — a title, a note, one
+    // step's name, one step's notes — where the raw editor used to hand over the
+    // whole document. Every one of these is still a text rewrite, and the text is
+    // still the entry: a field-shaped control whose write did not end up here
+    // would be a second source of truth, which is the one thing this format
+    // exists to rule out.
+
+    /// <summary>
+    /// Writes a new title on to the entry and leaves the rest of it alone.
+    /// <para>
+    /// Always as a <c>#</c> heading, because that is what the first line becomes
+    /// on save anyway (see <see cref="Parse"/>): writing it bare would only mean
+    /// the next save rewrote the line the reader had just typed.
+    /// </para>
+    /// <para>
+    /// An empty title is written as an empty heading rather than refused.
+    /// Refusing belongs to whatever is listening — the shared task row never
+    /// raises an empty rename — and a rewrite that silently kept the old title
+    /// would be one whose output does not match its input.
+    /// </para>
+    /// </summary>
+    public static string WithTitle(string raw, string title)
+    {
+        var heading = "# " + (title ?? string.Empty).Trim();
+        var lines = Normalize(raw).Split('\n').ToList();
+        var titleIndex = FirstContentLine(lines);
+
+        if (titleIndex < 0) return heading;
+
+        lines[titleIndex] = heading;
+        return string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// The entry's own prose: everything below the title and the metadata line and
+    /// above the first sub-item.
+    /// <para>
+    /// The note, in other words — what a reader wrote about the entry itself
+    /// rather than about one of its steps. Deliberately not
+    /// <see cref="ParsedEntry.Body"/>, which starts in the same place but runs to
+    /// the end of the document and so takes every sub-item chapter with it.
+    /// </para>
+    /// </summary>
+    public static string GetNote(string raw)
+    {
+        var lines = Normalize(GetParentText(raw)).Split('\n').ToList();
+        var start = NoteStartLine(lines);
+
+        return start < 0 || start >= lines.Count
+            ? string.Empty
+            : string.Join('\n', lines.Skip(start)).Trim('\n');
+    }
+
+    /// <summary>Writes the note back, keeping the title, the metadata line and
+    /// every sub-item where they were. Emptying the note removes it rather than
+    /// leaving a blank paragraph behind — absent means absent here for the same
+    /// reason it does on the metadata line.</summary>
+    public static string WithNote(string raw, string note)
+    {
+        var normalized = Normalize(raw);
+        var lines = Normalize(GetParentText(normalized)).Split('\n').ToList();
+        var start = NoteStartLine(lines);
+
+        var head = start < 0 ? lines : lines.Take(start).ToList();
+        while (head.Count > 0 && string.IsNullOrWhiteSpace(head[^1])) head.RemoveAt(head.Count - 1);
+
+        var body = Normalize(note ?? string.Empty).Trim('\n');
+        var parent = body.Length == 0
+            ? string.Join('\n', head)
+            : head.Count == 0 ? body : string.Join('\n', head) + "\n\n" + body;
+
+        return ReplaceParentText(normalized, parent);
+    }
+
+    /// <summary>Where a note begins inside a block of chapter text, or -1 when
+    /// there is nothing but a heading. The heading comes first, then an optional
+    /// metadata line; everything after those is the note. One function for the
+    /// entry and for a sub-item, because both chapters have that same shape.</summary>
+    private static int NoteStartLine(IReadOnlyList<string> lines)
+    {
+        var index = FirstContentLine(lines);
+        if (index < 0) return -1;
+
+        index++;
+        while (index < lines.Count && string.IsNullOrWhiteSpace(lines[index])) index++;
+
+        if (index < lines.Count && MetaLineRegex.IsMatch(lines[index].Trim())) index++;
+        while (index < lines.Count && string.IsNullOrWhiteSpace(lines[index])) index++;
+
+        return index;
+    }
+
+    /// <summary>One sub-item's heading text, without its hashes and without the
+    /// checkbox marker a done one carries. Indexed exactly as
+    /// <see cref="LocateSubItems"/> and <see cref="ToggleSubItem"/> index it — the
+    /// nth chapter, and a checklist line is not one.</summary>
+    public static string GetSubItemTitle(string raw, int subItemIndex)
+    {
+        var text = GetSubItemText(raw, subItemIndex);
+        if (text.Length == 0) return string.Empty;
+
+        var heading = HeadingRegex.Match(Normalize(text).Split('\n')[0].TrimStart());
+        if (!heading.Success) return string.Empty;
+
+        var title = heading.Groups[2].Value.Trim();
+        var box = CheckboxPrefixRegex.Match(title);
+
+        return box.Success ? title[box.Length..].Trim() : title;
+    }
+
+    /// <summary>Renames one sub-item, keeping its heading level and its checkbox
+    /// marker. Neither is anything the rename asked about: a step does not change
+    /// depth or come undone because somebody fixed a typo in its name.</summary>
+    public static string WithSubItemTitle(string raw, int subItemIndex, string title)
+    {
+        var text = GetSubItemText(raw, subItemIndex);
+        if (text.Length == 0) return raw;
+
+        var lines = Normalize(text).Split('\n').ToList();
+        var heading = HeadingRegex.Match(lines[0].TrimStart());
+        if (!heading.Success) return raw;
+
+        var marker = HeadingCheckboxMarkerRegex.Match(lines[0]);
+        var hashes = heading.Groups[1].Value;
+        var renamed = (title ?? string.Empty).Trim();
+
+        lines[0] = marker.Success
+            ? $"{hashes} [{marker.Groups["marker"].Value}] {renamed}"
+            : $"{hashes} {renamed}";
+
+        return ReplaceSubItemText(raw, subItemIndex, string.Join('\n', lines));
+    }
+
+    /// <summary>One sub-item's notes: what is written under its heading, past its
+    /// own metadata line when it has one.</summary>
+    public static string GetSubItemNote(string raw, int subItemIndex)
+    {
+        var text = GetSubItemText(raw, subItemIndex);
+        if (text.Length == 0) return string.Empty;
+
+        var lines = Normalize(text).Split('\n').ToList();
+        var start = NoteStartLine(lines);
+
+        return start < 0 || start >= lines.Count
+            ? string.Empty
+            : string.Join('\n', lines.Skip(start)).Trim('\n');
+    }
+
+    /// <summary>Writes one sub-item's notes back, keeping its heading and its own
+    /// metadata line. The bargain <see cref="WithNote"/> makes about the entry,
+    /// one level down.</summary>
+    public static string WithSubItemNote(string raw, int subItemIndex, string note)
+    {
+        var text = GetSubItemText(raw, subItemIndex);
+        if (text.Length == 0) return raw;
+
+        var lines = Normalize(text).Split('\n').ToList();
+        var start = NoteStartLine(lines);
+
+        var head = start < 0 ? lines : lines.Take(start).ToList();
+        while (head.Count > 0 && string.IsNullOrWhiteSpace(head[^1])) head.RemoveAt(head.Count - 1);
+
+        var body = Normalize(note ?? string.Empty).Trim('\n');
+
+        // One newline, not the blank line the entry's note gets. A sub-item chapter
+        // is written `## Heading` then its notes on the next line — that is what
+        // MoveSubItem rebuilds and what every entry in the store already holds — and
+        // inserting a blank line here would be exactly the "gratuitous whitespace
+        // churn" .design/content-editing.md#round-trip-fidelity rules out, on every
+        // step of every entry somebody edited the notes of.
+        var replacement = body.Length == 0
+            ? string.Join('\n', head)
+            : string.Join('\n', head) + "\n" + body;
+
+        return ReplaceSubItemText(raw, subItemIndex, replacement);
+    }
+
+    /// <summary>
+    /// Adds a step at the end of the entry, as a <c>##</c> chapter.
+    /// <para>
+    /// At the end because that is where the reader just looked: the add row sits
+    /// under the last step, and a step that appeared above the ones already there
+    /// would be a step nobody saw arrive. At level two because nesting one under
+    /// another is a move, and moving it is a gesture the list already offers.
+    /// </para>
+    /// <para>
+    /// An empty title adds nothing. There is no such thing as a step with no name,
+    /// and a bare <c>##</c> would leave a chapter the reader cannot see, select or
+    /// delete.
+    /// </para>
+    /// </summary>
+    public static string AppendSubItem(string raw, string title)
+    {
+        var trimmed = (title ?? string.Empty).Trim();
+        if (trimmed.Length == 0) return raw;
+
+        var normalized = Normalize(raw).TrimEnd('\n');
+        var heading = "## " + trimmed;
+
+        return normalized.Length == 0 ? heading : normalized + "\n\n" + heading;
+    }
 
     /// <summary>Where an entry's sub-items begin, or -1 when it has none to
     /// keep. Sub-items typed into the entry's own editor arrive above the ones

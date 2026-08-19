@@ -164,6 +164,7 @@
                    OnSelected="OnSelected"
                    OnRename="OnRename"
                    OnBodyChanged="OnBodyChanged"
+                   Actions="@RowActions"
                    AllowCopy="@AllowCopy"
                    BodyLabel="@BodyLabel"
                    Status="@StatusOf(task)"
@@ -209,6 +210,13 @@
     /// Unsupplied, no row offers an editor.</summary>
     [Parameter]
     public EventCallback<TaskBodyChange> OnBodyChanged { get; set; }
+
+    /// <summary>The host's own controls for each row, handed the task they are
+    /// about. Straight through to every row for the same reason OnRename is: what a
+    /// host can do to a task is one answer for the whole list, and a list that
+    /// decided it per row would be deciding which tasks are actionable.</summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? RowActions { get; set; }
 
     /// <summary>Whether finished rows move to a section of their own at the
     /// bottom. On by default: a list whose done rows stay in place is a list you

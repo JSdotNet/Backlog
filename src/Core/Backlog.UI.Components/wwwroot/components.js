@@ -228,6 +228,48 @@
         }
     };
 
+    // A task row's drag needs a payload, and Blazor's DragEventArgs is read-only so
+    // no C# handler can supply one. Chromium starts a drag without one happily
+    // enough and then refuses to fire drop, which reads as a drag that works and
+    // does nothing when released.
+    //
+    // Here rather than in a host's own script, because TaskListView owns the whole
+    // gesture: a host that had to supply this would be a host that has to know the
+    // list drags at all. Capture phase, so it runs before Blazor's handler for the
+    // same event.
+    document.addEventListener(
+        'dragstart',
+        (event) => {
+            const row = event.target instanceof Element ? event.target.closest('.task-item[draggable="true"]') : null;
+            if (!row || !event.dataTransfer) return;
+
+            event.dataTransfer.effectAllowed = 'move';
+            // Some payload is required for the drag to be considered valid.
+            event.dataTransfer.setData('text/plain', row.getAttribute('data-testid') ?? 'task');
+
+            if (event.dataTransfer.setDragImage) {
+                const bounds = row.getBoundingClientRect();
+                event.dataTransfer.setDragImage(row, event.clientX - bounds.left, event.clientY - bounds.top);
+            }
+        },
+        true
+    );
+
+    // A drop only fires where dragover was cancelled. The row's own
+    // `:preventDefault` does that too; this is the frame before Blazor has attached
+    // it, which is otherwise a dropped drop.
+    document.addEventListener(
+        'dragover',
+        (event) => {
+            const row = event.target instanceof Element ? event.target.closest('.task-item') : null;
+            if (!row || !event.dataTransfer) return;
+
+            event.dataTransfer.dropEffect = 'move';
+            event.preventDefault();
+        },
+        true
+    );
+
     // The side pane is resized by dragging its edge. Pointer capture and the live
     // width both belong in the browser; C# only hears the settled value, so a drag
     // costs one interop call instead of one per frame.
@@ -319,6 +361,11 @@
 
         const layout = handle.closest(BACKLOG_PANE_LAYOUT_SELECTOR);
         if (!layout) return;
+
+        // A split that did not register an owner is not this drag's to settle.
+        // There is one owner for the whole document, so honouring a second layout
+        // would hand its width to whichever component registered first.
+        if (layout.getAttribute('data-pane-drag') === 'off') return;
 
         event.preventDefault();
         handle.focus();

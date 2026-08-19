@@ -21,7 +21,7 @@ namespace Backlog.Modules.Backlog.Features.SaveEntryFromText;
 public sealed record SaveEntryFromTextCommand(Guid? Id, string RawText, int Order);
 
 public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
-    : ICommandHandler<SaveEntryFromTextCommand, Result<BacklogEntryDto>>
+    : ICommandHandler<SaveEntryFromTextCommand, Result<SavedEntryDto>>
 {
     /// <summary>An entry needs a title before it can exist. Somebody halfway
     /// through typing one has not failed at anything, so this is an ordinary
@@ -34,7 +34,7 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
         "entry.not_found",
         "That entry no longer exists.");
 
-    public async Task<Result<BacklogEntryDto>> Handle(
+    public async Task<Result<SavedEntryDto>> Handle(
         SaveEntryFromTextCommand command,
         CancellationToken cancellationToken = default)
     {
@@ -47,7 +47,7 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
             : await CreateAsync(parsed, command.Order, cancellationToken);
     }
 
-    private async Task<Result<BacklogEntryDto>> CreateAsync(
+    private async Task<Result<SavedEntryDto>> CreateAsync(
         EntryTextParser.ParsedEntry parsed,
         int order,
         CancellationToken cancellationToken)
@@ -78,10 +78,10 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
         // *completes* an occurrence, and a create has no previous state for the
         // save to have moved it from — an entry arriving already finished is a
         // record of something done, not an occurrence just now finishing.
-        return entry.ToDto();
+        return new SavedEntryDto(entry.ToDto());
     }
 
-    private async Task<Result<BacklogEntryDto>> UpdateAsync(
+    private async Task<Result<SavedEntryDto>> UpdateAsync(
         Guid id,
         EntryTextParser.ParsedEntry parsed,
         CancellationToken cancellationToken)
@@ -117,10 +117,16 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
         {
             // Saved after the completed occurrence, so a failure here cannot lose
             // the completion that has already been recorded.
-            await entries.SaveAsync(RecurrencePolicy.NextOccurrence(entry), cancellationToken);
+            var successor = RecurrencePolicy.NextOccurrence(entry);
+            await entries.SaveAsync(successor, cancellationToken);
+
+            // Named in the result rather than left for the caller to notice. A
+            // list that only ever refreshes the row it saved has no other way to
+            // learn that a second entry now exists.
+            return new SavedEntryDto(entry.ToDto(), successor.Id);
         }
 
-        return entry.ToDto();
+        return new SavedEntryDto(entry.ToDto());
     }
 
     /// <summary>

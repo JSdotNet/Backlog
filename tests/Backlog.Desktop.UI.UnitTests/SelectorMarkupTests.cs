@@ -67,15 +67,54 @@ public sealed class SelectorMarkupTests
         Assert.DoesNotContain("row.IsReadOnly", pane, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Entries and steps are both rows in the shared task list, and the pane writes
+    /// neither of their titles itself.
+    /// <para>
+    /// This replaces a pin on two collapse buttons integrated into the two titles.
+    /// Both titles were <c>AppButton</c>s the pane composed, each folding its own
+    /// content; both are now <c>TaskItem</c> rows inside a <c>TaskListView</c>, whose
+    /// title is the row's own button and whose fold is <c>FoldControl</c>'s. The claim
+    /// worth keeping is the one underneath that: the pane renders the library's rows
+    /// rather than a title control of its own, for the entries and for the steps
+    /// alike.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Entry_and_sub_item_titles_use_integrated_collapse_buttons()
+    public void Entries_and_steps_are_both_rows_in_the_shared_task_list()
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        // Both titles are the shared AppButton now, so the test id reaches the
-        // DOM through its TestId parameter rather than a literal attribute.
-        Assert.Contains("TestId=\"entry-title-button\"", pane, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"subitem-title-button\"", pane, StringComparison.Ordinal);
+        // Two lists: the entries on the left, the selected entry's steps on the
+        // right. Plus the selected entry itself, which wears the same row.
+        Assert.Contains("TestId=\"entry-list\"", pane, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"subitem-list\"", pane, StringComparison.Ordinal);
+        Assert.Contains("<TaskItem", pane, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("entry-title-button", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("subitem-title-button", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("subitem-card__title", pane, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The two hand-offs a step offers reach it through the row's action slot rather
+    /// than through a row of the pane's own beside it.
+    /// <para>
+    /// The shared-control rule that governs this says the remedy for a component
+    /// missing a hook is the hook, not a second implementation. A step's GitHub push
+    /// and Copilot hand-off are exactly that case: the library had nowhere for a
+    /// host's own controls to go, and the alternative was a hand-rolled row under
+    /// every step.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Step_hand_offs_arrive_through_the_shared_rows_action_slot()
+    {
+        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+
+        Assert.Contains("RowActions=", pane, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"subitem-github-push-button\"", pane, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"subitem-copilot-cli-button\"", pane, StringComparison.Ordinal);
     }
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");

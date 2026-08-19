@@ -11,7 +11,7 @@
   ],
   "stats": {
     "nodes": 509,
-    "edges": 922,
+    "edges": 923,
     "nodesByFolder": {
       "arc42": 62,
       "domain": 305,
@@ -36,7 +36,7 @@
     },
     "edgesByType": {
       "contains": 419,
-      "related": 435,
+      "related": 436,
       "depends-on": 66,
       "implements": 2
     }
@@ -6946,7 +6946,8 @@
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
-            ".design/typography-and-layout.md#heading-defaults"
+            ".design/typography-and-layout.md#heading-defaults",
+            ".design/content-editing.md#scheduling-and-dependency-tokens"
           ]
         }
       },
@@ -14954,6 +14955,14 @@
           "id": "related:.design/content-editing.md#materialization->.design/typography-and-layout.md#heading-defaults",
           "source": ".design/content-editing.md#materialization",
           "target": ".design/typography-and-layout.md#heading-defaults",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#materialization->.design/content-editing.md#scheduling-and-dependency-tokens",
+          "source": ".design/content-editing.md#materialization",
+          "target": ".design/content-editing.md#scheduling-and-dependency-tokens",
           "type": "related"
         }
       },

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Backlog.Modules.Backlog.Abstractions;
+using Backlog.Modules.Backlog.Abstractions.DataTransferObjects;
 using Backlog.Modules.Backlog.DomainModels;
 using Backlog.Modules.Backlog.Features.SaveEntryFromText;
 
@@ -32,6 +33,51 @@ public sealed class RecurringEntryTests
         Assert.Equal(new DateOnly(2026, 8, 28), successor.DueOn);
         Assert.Equal(completed.Id, successor.RecurrenceSourceId);
         Assert.Equal(new Recurrence(1, RecurrenceUnit.Week), successor.Recurrence);
+    }
+
+    /// <summary>
+    /// The save says a successor was created, and which one.
+    /// <para>
+    /// It has to say so, because nothing else can. The completed entry is the one
+    /// the caller already has and nothing on it changed; <c>recurrence_source_id</c>
+    /// points backwards and lives on the successor, which is precisely the entry
+    /// the caller has not got. A screen that inferred the spawn instead — from a
+    /// status reaching done and a repeat being set — would be the spawn rule
+    /// reimplemented somewhere it can drift from this one.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_save_reports_the_successor_it_created()
+    {
+        var store = new InMemoryBacklogRepository();
+
+        var id = await Save(store, null, Text("!in-progress"));
+        var completion = await SaveResult(store, id, Text("!done"));
+
+        Assert.Equal(store.Successor(id).Id, completion.SpawnedOccurrenceId);
+
+        // And it is not the entry that was saved, which is the whole point.
+        Assert.NotEqual(completion.Entry.Id, completion.SpawnedOccurrenceId);
+    }
+
+    [Fact]
+    public async Task A_save_that_spawned_nothing_reports_nothing()
+    {
+        var store = new InMemoryBacklogRepository();
+
+        // A create, an ordinary edit, a completion with no repeat on it, and a
+        // second save of an entry that was already done: four saves, no spawn, and
+        // nothing for a caller to act on.
+        var created = await SaveResult(store, null, Text("!in-progress"));
+        Assert.Null(created.SpawnedOccurrenceId);
+
+        Assert.Null((await SaveResult(store, created.Entry.Id, Text("!ready"))).SpawnedOccurrenceId);
+
+        var plain = await SaveResult(store, null, "# Water the plants\n`task` `!in-progress`\n");
+        Assert.Null((await SaveResult(store, plain.Entry.Id, "# Water the plants\n`task` `!done`\n")).SpawnedOccurrenceId);
+
+        await SaveResult(store, created.Entry.Id, Text("!done"));
+        Assert.Null((await SaveResult(store, created.Entry.Id, Text("!done"))).SpawnedOccurrenceId);
     }
 
     [Fact]
@@ -180,13 +226,16 @@ public sealed class RecurringEntryTests
     private static string Text(string statusToken, string repeat = "weekly") =>
         $"# Weekly review\n`task` `{statusToken}` `due:2026-08-21` `repeat:{repeat}`\n";
 
-    private static async Task<Guid> Save(InMemoryBacklogRepository store, Guid? id, string rawText)
+    private static async Task<Guid> Save(InMemoryBacklogRepository store, Guid? id, string rawText) =>
+        (await SaveResult(store, id, rawText)).Entry.Id;
+
+    private static async Task<SavedEntryDto> SaveResult(InMemoryBacklogRepository store, Guid? id, string rawText)
     {
         var result = await new SaveEntryFromTextCommandHandler(store)
             .Handle(new SaveEntryFromTextCommand(id, rawText, 0));
 
         Assert.True(result.IsSuccess);
-        return result.Value.Id;
+        return result.Value;
     }
 
     /// <summary>The store a host would supply, small enough to read. Entries are

@@ -280,7 +280,7 @@ related: [".design/interaction-guidelines.md#save-state-indicator-vocabulary", "
 
 ```meta
 status: active
-related: [".design/README.md#living-reference-the-ui-storybook", ".design/typography-and-layout.md#heading-defaults"]
+related: [".design/README.md#living-reference-the-ui-storybook", ".design/typography-and-layout.md#heading-defaults", ".design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
 | Piece | Where | Review surface |
@@ -291,16 +291,30 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/typogr
 | Code blocks | `CodeView` — line numbers, copy button, per-language highlighting on the tokens in `color-scheme.md#syntax-highlighting-tokens` | Storybook → *Code* |
 | Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Markdown* → **Edit and read** |
+| Scheduling and dependency tokens | Read and written by `EntryTextParser`; `TaskAction` is the shape a control over one takes | Storybook → *Task list* → **The detail pane's rows** |
+| Entry list and detail pane | `SplitPane` over a `TaskListView` of entries and one open entry: its own row, its steps as a second `TaskListView`, the `TaskAction` rows, the selectors, a `MarkdownEditor` over the note, and the raw hatch | Storybook → *Task list*; *Layout* → **Split pane** |
+| Raw-Markdown escape hatch | The whole entry's canonical text in a mono `TextArea`, with the live "reads as" hint under it | Backlog pane → the **Markdown** toggle, or Ctrl+Shift+M |
 
 What is true today, and where it differs from the model above:
 
-- **The editing model is inverted.** `#editing-model` specifies WYSIWYG as the
-  primary mode with a raw escape hatch. What exists is the opposite: the source
-  is edited as raw Markdown in a text area, with a live read view beside it. There
-  is no rich-text editor, no slash menu (`#slash-and-inline-commands`), and no
-  inline autoformat. Markdown being canonical is therefore trivially satisfied,
-  and `#round-trip-fidelity` is not yet under pressure — both become real
-  requirements the moment an editor lands.
+- **The editing model is no longer inverted, and is not yet WYSIWYG either.** The
+  backlog's detail pane edits an entry a field at a time — a title, a note, a
+  step, a date, a dependency — and the canonical Markdown is a toggle and a
+  keyboard shortcut away, which is the escape hatch
+  `#raw-markdown-escape-hatch` asks for rather than the primary surface
+  `#editing-model` rules out. What is still missing from `#editing-model` is the
+  rich-text part: the note is a Markdown editor with a formatting toolbar, not a
+  WYSIWYG view, and there is no slash menu (`#slash-and-inline-commands`) and no
+  inline autoformat. Markdown being canonical is therefore still trivially
+  satisfied, and `#round-trip-fidelity` is only under pressure where a field
+  rewrite touches text it was not asked about — which is why each of those
+  rewrites is scoped to one chapter and leaves the rest byte-for-byte.
+- **The metadata line now carries two syntaxes.** Sigil tokens for type, priority,
+  status, area and tags, and named `name:value` tokens for the scheduling and
+  dependency fields — see `#scheduling-and-dependency-tokens` for why the second
+  form exists rather than five more sigils. A reader sees one line either way; the
+  split is about which characters were still available, not about two kinds of
+  fact.
 - **Task toggling is already correct.** Ticking a checkbox writes back into the
   source and saves immediately with no debounce, and a `- [ ]` inside a code
   fence is left alone — it is a code sample, not a task.

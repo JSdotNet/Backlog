@@ -17,6 +17,12 @@
      data-testid="@TestId"
      data-pane-split="true"
      data-pane-anchor="start"
+     @* A split that does not own the JS resizer does not take part in the JS drag
+        either. The pointer handler is one document-level listener with one owner,
+        so a second split dragging through it would report its width to whoever
+        registered first — the host's own layout, not this one. The keyboard
+        resize below is unaffected, so the gesture still has an equivalent. *@
+     data-pane-drag="@(UseJsResizer ? null : "off")"
      style="--split-pane-start: @Rem(StartWidthRem)rem"
      @attributes="AdditionalAttributes">
     <div class="split-pane__start">@Start</div>

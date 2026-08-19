@@ -2534,6 +2534,16 @@ button.task-item__check:focus-visible {
     white-space: nowrap;
 }
 
+/* The host's own controls, at the end of the row. A fixed track like the copy
+   button beside it: whatever the host puts here must not be what gives up room
+   when the title is long. */
+.task-item__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
+}
+
 /* --- Task actions -------------------------------------------------------- */
 /*
    The rows in a task's detail pane. One shape for all of them, because "Remind

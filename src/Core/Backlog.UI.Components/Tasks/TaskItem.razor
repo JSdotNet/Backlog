@@ -97,7 +97,10 @@
                        AriaLabel="@($"Rename {Task.Title}")"
                        Bare="true"
                        InputCssClass="task-item__rename-input"
-                       TestId="@Suffix("rename")"
+                       @* On the input rather than through TestId, which lives on a
+                          wrapper Bare does not render — so the name went nowhere and
+                          the field could only be found by its class. *@
+                       data-testid="@Suffix("rename")"
                        Id="@_renameId"
                        @onkeydown="OnRenameKeyAsync"
                        @onblur="CommitRenameAsync" />
@@ -115,7 +118,7 @@
                 data-testid="@Suffix("open")"
                 @onkeydown="OnRowKeyDownAsync"
                 @onclick="() => OnSelected.InvokeAsync(Task.Id)">
-            <span class="task-item__title">@Task.Title</span>
+            <span class="task-item__title" data-testid="@Suffix("title")">@Task.Title</span>
 
             @if (Task.TagList.Count > 0 || Details.Count > 0 || Next || ReadyToStart)
             {
@@ -196,6 +199,26 @@
                     StatusCssClass="task-item__copy-status"
                     ButtonTestId="@Suffix("copy")"
                     StatusTestId="@Suffix("copy-status")" />
+    }
+
+    @if (Actions is not null)
+    {
+        @* What the host can do to this task that this library has no opinion
+           about: push it somewhere, hand it to a tool, open it in an editor. The
+           row cannot know what those are, and a host that had nowhere to put them
+           would build a second row beside this one to hold them.
+
+           At the end, after the copy button, because everything to the left of
+           here is about the task's own text or state and these are about what
+           happens to it elsewhere. Clicks stop here for the same reason the pencil
+           stops them: pushing a task is not opening it. *@
+        <span class="task-item__actions"
+              role="group"
+              aria-label="@($"Actions for {Task.Title}")"
+              @onmousedown:stopPropagation="true"
+              @onclick:stopPropagation="true">
+            @Actions(Task)
+        </span>
     }
 
     @if (HasFold)
@@ -318,6 +341,18 @@
     /// </summary>
     [Parameter]
     public string? CopyValue { get; set; }
+
+    /// <summary>
+    /// The host's own controls for this row, handed the task they are about.
+    /// <para>
+    /// A slot rather than a set of parameters, because what a host wants to do to
+    /// a task is not a list this library can finish. Unset, the row renders exactly
+    /// the markup it rendered before the slot existed — an empty group would be an
+    /// element with an aria-label about nothing.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? Actions { get; set; }
 
     /// <summary>What the disclosure calls the body. "Body" by default, because
     /// this library does not know what a host writes there — a prompt, a brief,

@@ -109,6 +109,24 @@ Each move is also said out loud. The visible answer to “where did it go” is 
         <p class="sb-state" data-testid="task-list-order">@string.Join(" → ", _ordered.Select(t => t.Title))</p>
     </Story>
 
+    <Story Name="The host's own controls on a row"
+           Description="What a host can do to a task is not a list this library can finish — push it somewhere, hand it to a tool, open it in an editor — so RowActions is a slot rather than a set of parameters, and it is handed the task it is about.
+
+At the end of the row, after the copy button, because everything to the left of there is about the task's own text or state and these are about what happens to it elsewhere. Clicks stop at the slot for the same reason they stop at the pencil: pushing a task is not opening it.
+
+Unset, a row renders exactly the markup it rendered before the slot existed. An empty group would be an element with an aria-label about nothing."
+           Code="@RowActionCode">
+        <div class="sb-menu-wide" data-testid="task-list-row-actions">
+            <TaskListView Tasks="@Sample"
+                          OnToggle="_ => { }"
+                          AllowCopy="false"
+                          AriaLabel="Tasks with host actions"
+                          TestId="row-actions"
+                          RowActions="@(task => HostActions(task))" />
+        </div>
+        <p class="sb-state" data-testid="task-list-row-action-state">@(_lastAction ?? "Nothing pressed yet.")</p>
+    </Story>
+
     <Story Name="Nothing to toggle, nothing to copy"
            Description="A row with no OnToggle renders its circle as state rather than as a control — the same rule MarkdownView follows for a checklist, and for the same reason: a checkbox that silently does nothing is worse than no checkbox. Copying is the other way round: it is on by default, because a task&#39;s text is the thing people paste into a message or a commit, and AllowCopy is how a host that has nowhere to paste turns it off.">
         <div class="sb-menu-wide" data-testid="task-list-readonly">
@@ -367,6 +385,34 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
         @code {
             // The host applies it: only the host knows where the order is kept.
             private void Reorder(TaskMove move) => _tasks = move.ApplyTo(_tasks, t => t.Id);
+        }
+        """;
+
+    private string? _lastAction;
+
+    /// <summary>What a host puts in the row's action slot. IconButton, because these
+    /// are the library's own controls being handed back into it — the slot is about
+    /// where they go, not about the host bringing its own buttons.</summary>
+    private RenderFragment HostActions(TaskRow task) =>
+        @<text>
+            <IconButton BaseClass="btn btn--icon"
+                        AriaLabel="@($"Push {task.Title}")"
+                        TestId="@($"row-actions-{task.Id}-push")"
+                        OnClick='() => Record("Pushed", task)'>↑</IconButton>
+
+            <IconButton BaseClass="btn btn--icon"
+                        AriaLabel="@($"Hand {task.Title} to a tool")"
+                        TestId="@($"row-actions-{task.Id}-tool")"
+                        OnClick='() => Record("Handed over", task)'>gh</IconButton>
+        </text>;
+    private void Record(string what, TaskRow task) => _lastAction = $"{what}: {task.Title}.";
+
+    private const string RowActionCode = """
+        <TaskListView Tasks="@tasks" RowActions="@(task => Actions(task))" />
+
+        @code {
+            private RenderFragment Actions(TaskRow task) =>
+                @<IconButton AriaLabel="@($"Push {task.Title}")" OnClick="() => Push(task)">↑</IconButton>;
         }
         """;
 
