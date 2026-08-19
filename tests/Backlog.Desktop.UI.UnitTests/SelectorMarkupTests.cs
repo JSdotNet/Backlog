@@ -54,14 +54,11 @@ public sealed class SelectorMarkupTests
         }
     }
 
-    [Fact]
-    public void Sub_item_repository_metadata_uses_an_interactive_repository_selector()
-    {
-        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
-
-        Assert.True(CountOccurrences(pane, "<RepositorySelector") >= 2);
-        Assert.Contains("OnSubItemRepositoryChangedAsync", pane, StringComparison.Ordinal);
-    }
+    // There was a fact here requiring a second RepositorySelector on the sub-item
+    // metadata row. That row is gone: it edited a sub-item's repository by
+    // changing the *parent* entry's area, which is not what it looked like it
+    // did, and a sub-item has no area of its own to change. The entry-level
+    // selector is asserted above and is the only one there should be.
 
     [Fact]
     public void Backlog_markup_no_longer_branches_on_is_read_only()
@@ -70,28 +67,64 @@ public sealed class SelectorMarkupTests
         Assert.DoesNotContain("row.IsReadOnly", pane, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Entries and steps are both rows in the shared task list, and the pane writes
+    /// neither of their titles itself.
+    /// <para>
+    /// This replaces a pin on two collapse buttons integrated into the two titles.
+    /// Both titles were <c>AppButton</c>s the pane composed, each folding its own
+    /// content; both are now <c>TaskItem</c> rows inside a <c>TaskListView</c>, whose
+    /// title is the row's own button and whose fold is <c>FoldControl</c>'s. The claim
+    /// worth keeping is the one underneath that: the pane renders the library's rows
+    /// rather than a title control of its own, for the entries and for the steps
+    /// alike.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Entry_and_sub_item_titles_use_integrated_collapse_buttons()
+    public void Entries_and_steps_are_both_rows_in_the_shared_task_list()
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        // Both titles are the shared AppButton now, so the test id reaches the
-        // DOM through its TestId parameter rather than a literal attribute.
-        Assert.Contains("TestId=\"entry-title-button\"", pane, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"subitem-title-button\"", pane, StringComparison.Ordinal);
+        // Two lists: the entries on the left, the selected entry's steps on the
+        // right. Plus the selected entry itself, which wears the same row.
+        Assert.Contains("TestId=\"entry-list\"", pane, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"subitem-list\"", pane, StringComparison.Ordinal);
+        Assert.Contains("<TaskItem", pane, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("entry-title-button", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("subitem-title-button", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("subitem-card__title", pane, StringComparison.Ordinal);
     }
 
-    private static int CountOccurrences(string text, string value)
+    /// <summary>
+    /// The hand-offs are the entry's and there are none on a step.
+    /// <para>
+    /// This assertion used to say the opposite: that a step's GitHub push and Copilot
+    /// hand-off arrived through <c>TaskListView.RowActions</c>. The slot is still the
+    /// right answer to "where does a host put its own controls on a row" — that rule
+    /// has not changed — but the question was wrong. A step is not a thing this
+    /// product files as an issue: <c>.domain/backlog/domain.md</c> gives
+    /// <c>ProjectionRef</c> to the entry, and a Sub-Item projects to checkboxes
+    /// <em>inside</em> that entry's issue.
+    /// </para>
+    /// <para>
+    /// Asserted on the markup rather than on a render because the failure this catches
+    /// is somebody adding the buttons back: a rendered test can only fail on the
+    /// entries it happens to build, and this one fails on the source.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void No_step_carries_a_hand_off_of_its_own()
     {
-        var count = 0;
-        var index = 0;
-        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
-        {
-            count++;
-            index += value.Length;
-        }
+        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        return count;
+        Assert.DoesNotContain("subitem-github-push-button", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("subitem-copilot-cli-button", pane, StringComparison.Ordinal);
+
+        // And the entry-level pair is still there, named for the whole task.
+        Assert.Contains("TestId=\"github-push-button\"", pane, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"copilot-cli-button\"", pane, StringComparison.Ordinal);
+        Assert.Contains("Hand over the whole entry", pane, StringComparison.Ordinal);
     }
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");

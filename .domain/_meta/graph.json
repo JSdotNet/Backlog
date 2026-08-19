@@ -6,27 +6,28 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 295,
-    "edges": 423,
+    "nodes": 313,
+    "edges": 463,
     "nodesByFolder": {
-      "domain": 287,
+      "domain": 305,
       "arc42": 8
     },
     "nodesByType": {
       "file": 60,
-      "chapter": 202,
-      "heading": 33
+      "chapter": 218,
+      "heading": 35
     },
     "nodesByStatus": {
       "draft": 253,
+      "proposed": 16,
       "idea": 1,
-      "none": 33,
+      "none": 35,
       "active": 8
     },
     "edgesByType": {
-      "contains": 227,
-      "related": 177,
-      "depends-on": 19
+      "contains": 245,
+      "related": 196,
+      "depends-on": 22
     }
   },
   "problems": [],
@@ -78,11 +79,29 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-service-projection",
           "level": 2,
-          "line": 78,
+          "line": 178,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#aggregate-progress-signal",
             ".arc42/06-runtime-view.md#backlog-entry-to-github-issue"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/domain.md#domain-service-recurrence",
+          "label": "Domain Service: Recurrence",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "slug": "domain-service-recurrence",
+          "level": 2,
+          "line": 191,
+          "status": "proposed",
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/backlog/domain.md#domain-event-entrycompleted",
+            ".domain/backlog/domain.md#domain-event-occurrencespawned"
           ]
         }
       },
@@ -95,7 +114,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-statuschanged",
           "level": 2,
-          "line": 91,
+          "line": 232,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -112,7 +131,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entryprojected",
           "level": 2,
-          "line": 117,
+          "line": 258,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -130,11 +149,29 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entrycompleted",
           "level": 2,
-          "line": 144,
+          "line": 285,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
             ".domain/backlog/domain.md#domain-service-projection",
+            ".domain/monitoring/domain.md#aggregate-progress-signal"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/domain.md#domain-event-occurrencespawned",
+          "label": "Domain Event: OccurrenceSpawned",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "slug": "domain-event-occurrencespawned",
+          "level": 2,
+          "line": 310,
+          "status": "proposed",
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/backlog/domain.md#domain-service-recurrence",
             ".domain/monitoring/domain.md#aggregate-progress-signal"
           ]
         }
@@ -148,7 +185,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-aiworklogged",
           "level": 2,
-          "line": 169,
+          "line": 338,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -213,6 +250,120 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
+          "label": "Feature: Scheduling and recurrence",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "feature-scheduling-and-recurrence",
+          "level": 2,
+          "line": 54,
+          "status": "proposed",
+          "depends-on": [
+            ".domain/backlog/features.md#feature-refinement-and-prioritization"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#sub-feature-due-dates",
+          "label": "Sub-feature: Due dates",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "sub-feature-due-dates",
+          "level": 3,
+          "line": 78,
+          "status": "proposed"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#sub-feature-reminders",
+          "label": "Sub-feature: Reminders",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "sub-feature-reminders",
+          "level": 3,
+          "line": 89,
+          "status": "proposed"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#sub-feature-recurring-entries",
+          "label": "Sub-feature: Recurring entries",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "sub-feature-recurring-entries",
+          "level": 3,
+          "line": 104,
+          "status": "proposed",
+          "related": [
+            ".domain/backlog/domain.md#domain-service-recurrence",
+            ".domain/backlog/features.md#feature-archive-and-lifecycle"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#feature-my-day",
+          "label": "Feature: My Day",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "feature-my-day",
+          "level": 2,
+          "line": 123,
+          "status": "proposed",
+          "depends-on": [
+            ".domain/backlog/features.md#feature-refinement-and-prioritization"
+          ],
+          "related": [
+            ".domain/backlog/features.md#feature-scheduling-and-recurrence"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#feature-entry-dependencies",
+          "label": "Feature: Entry dependencies",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "feature-entry-dependencies",
+          "level": 2,
+          "line": 142,
+          "status": "proposed",
+          "depends-on": [
+            ".domain/backlog/features.md#feature-refinement-and-prioritization"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/backlog/features.md#sub-feature-manual-ordering"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#sub-feature-readiness-and-chain-order",
+          "label": "Sub-feature: Readiness and chain order",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "sub-feature-readiness-and-chain-order",
+          "level": 3,
+          "line": 160,
+          "status": "proposed"
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/features.md#feature-multi-repo-targeting",
           "label": "Feature: Multi-repo targeting",
           "type": "chapter",
@@ -220,7 +371,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-multi-repo-targeting",
           "level": 2,
-          "line": 48,
+          "line": 184,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-backlog-entry-creation"
@@ -239,7 +390,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-projection",
           "level": 2,
-          "line": 60,
+          "line": 196,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-multi-repo-targeting"
@@ -258,7 +409,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-issue-projection-and-state-read-back",
           "level": 3,
-          "line": 72,
+          "line": 208,
           "status": "draft",
           "related": [
             ".domain/repository-management/features.md#sub-feature-github-access-resolution",
@@ -275,7 +426,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-search-filter-and-organize",
           "level": 2,
-          "line": 87,
+          "line": 223,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-bi-directional-linking"
@@ -291,7 +442,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-manual-ordering",
           "level": 3,
-          "line": 99,
+          "line": 235,
           "status": "draft"
         }
       },
@@ -304,7 +455,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-prompt-features",
           "level": 2,
-          "line": 109,
+          "line": 245,
           "status": "draft"
         }
       },
@@ -317,7 +468,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-hand-off-to-copilot-cli",
           "level": 3,
-          "line": 118,
+          "line": 254,
           "status": "draft",
           "related": [
             ".domain/productivity/features.md#sub-feature-ai-activity-capture"
@@ -333,7 +484,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 130,
+          "line": 266,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-repository-knowledge-areas",
@@ -350,7 +501,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-archive-and-lifecycle",
           "level": 2,
-          "line": 145,
+          "line": 281,
           "status": "draft"
         }
       },
@@ -363,7 +514,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-roadmap-planning",
           "level": 2,
-          "line": 154,
+          "line": 290,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -382,7 +533,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-roadmap-views",
           "level": 3,
-          "line": 167,
+          "line": 303,
           "status": "draft"
         }
       },
@@ -554,6 +705,156 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/naming.md#term-due-date",
+          "label": "Term: Due Date",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-due-date",
+          "level": 2,
+          "line": 91,
+          "status": "proposed",
+          "aliases": [
+            "due_on",
+            "due",
+            "Due"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-reminder",
+          "label": "Term: Reminder",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-reminder",
+          "level": 2,
+          "line": 104,
+          "status": "proposed",
+          "aliases": [
+            "remind_at",
+            "remind",
+            "Reminder"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-recurrence",
+          "label": "Term: Recurrence",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-recurrence",
+          "level": 2,
+          "line": 117,
+          "status": "proposed",
+          "aliases": [
+            "Repeat",
+            "repeat",
+            "recurrence",
+            "RepeatLabel",
+            "RecurrenceUnit",
+            "DayOfWeek"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#recurrence"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-my-day",
+          "label": "Term: My Day",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-my-day",
+          "level": 2,
+          "line": 130,
+          "status": "proposed",
+          "aliases": [
+            "in_my_day_on",
+            "myday",
+            "InMyDay"
+          ],
+          "related": [
+            ".domain/backlog/features.md#feature-my-day"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-dependency",
+          "label": "Term: Dependency",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-dependency",
+          "level": 2,
+          "line": 144,
+          "status": "proposed",
+          "aliases": [
+            "depends_on",
+            "DependsOn",
+            "after",
+            "predecessor"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-readiness",
+          "label": "Term: Readiness",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-readiness",
+          "level": 2,
+          "line": 157,
+          "status": "proposed",
+          "aliases": [
+            "TaskReadiness",
+            "ready",
+            "blocked"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#readiness"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-occurrence",
+          "label": "Term: Occurrence",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-occurrence",
+          "level": 2,
+          "line": 169,
+          "status": "proposed",
+          "aliases": [
+            "recurrence_source_id",
+            "OccurrenceSpawned"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#domain-service-recurrence"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/naming.md#term-roadmap",
           "label": "Term: Roadmap",
           "type": "chapter",
@@ -561,7 +862,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-roadmap",
           "level": 2,
-          "line": 91,
+          "line": 182,
           "status": "draft",
           "aliases": [
             "Roadmap planning",
@@ -3832,7 +4133,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "sub-item",
           "level": 4,
-          "line": 43
+          "line": 97
         }
       },
       {
@@ -3844,7 +4145,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-type",
           "level": 4,
-          "line": 62
+          "line": 139
         }
       },
       {
@@ -3856,7 +4157,31 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-status",
           "level": 4,
-          "line": 66
+          "line": 143
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/domain.md#recurrence",
+          "label": "Recurrence",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "slug": "recurrence",
+          "level": 4,
+          "line": 123
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/domain.md#readiness",
+          "label": "Readiness",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "slug": "readiness",
+          "level": 4,
+          "line": 164
         }
       },
       {
@@ -4385,6 +4710,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/backlog/domain.md->.domain/backlog/domain.md#domain-service-recurrence",
+          "source": ".domain/backlog/domain.md",
+          "target": ".domain/backlog/domain.md#domain-service-recurrence",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/backlog/domain.md->.domain/backlog/domain.md#domain-event-statuschanged",
           "source": ".domain/backlog/domain.md",
           "target": ".domain/backlog/domain.md#domain-event-statuschanged",
@@ -4404,6 +4737,14 @@
           "id": "contains:.domain/backlog/domain.md->.domain/backlog/domain.md#domain-event-entrycompleted",
           "source": ".domain/backlog/domain.md",
           "target": ".domain/backlog/domain.md#domain-event-entrycompleted",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/domain.md->.domain/backlog/domain.md#domain-event-occurrencespawned",
+          "source": ".domain/backlog/domain.md",
+          "target": ".domain/backlog/domain.md#domain-event-occurrencespawned",
           "type": "contains"
         }
       },
@@ -4436,6 +4777,62 @@
           "id": "contains:.domain/backlog/features.md#feature-refinement-and-prioritization->.domain/backlog/features.md#sub-feature-sub-items-and-steps",
           "source": ".domain/backlog/features.md#feature-refinement-and-prioritization",
           "target": ".domain/backlog/features.md#sub-feature-sub-items-and-steps",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#feature-scheduling-and-recurrence",
+          "source": ".domain/backlog/features.md",
+          "target": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md#feature-scheduling-and-recurrence->.domain/backlog/features.md#sub-feature-due-dates",
+          "source": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
+          "target": ".domain/backlog/features.md#sub-feature-due-dates",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md#feature-scheduling-and-recurrence->.domain/backlog/features.md#sub-feature-reminders",
+          "source": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
+          "target": ".domain/backlog/features.md#sub-feature-reminders",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md#feature-scheduling-and-recurrence->.domain/backlog/features.md#sub-feature-recurring-entries",
+          "source": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
+          "target": ".domain/backlog/features.md#sub-feature-recurring-entries",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#feature-my-day",
+          "source": ".domain/backlog/features.md",
+          "target": ".domain/backlog/features.md#feature-my-day",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#feature-entry-dependencies",
+          "source": ".domain/backlog/features.md",
+          "target": ".domain/backlog/features.md#feature-entry-dependencies",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md#feature-entry-dependencies->.domain/backlog/features.md#sub-feature-readiness-and-chain-order",
+          "source": ".domain/backlog/features.md#feature-entry-dependencies",
+          "target": ".domain/backlog/features.md#sub-feature-readiness-and-chain-order",
           "type": "contains"
         }
       },
@@ -4580,6 +4977,62 @@
           "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-ai-work-log",
           "source": ".domain/backlog/naming.md",
           "target": ".domain/backlog/naming.md#term-ai-work-log",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-due-date",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-due-date",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-reminder",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-reminder",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-recurrence",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-recurrence",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-my-day",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-my-day",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-dependency",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-dependency",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-readiness",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-readiness",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-occurrence",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-occurrence",
           "type": "contains"
         }
       },
@@ -5953,6 +6406,30 @@
       },
       {
         "data": {
+          "id": "related:.domain/backlog/domain.md#domain-service-recurrence->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/domain.md#domain-service-recurrence",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/domain.md#domain-service-recurrence->.domain/backlog/domain.md#domain-event-entrycompleted",
+          "source": ".domain/backlog/domain.md#domain-service-recurrence",
+          "target": ".domain/backlog/domain.md#domain-event-entrycompleted",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/domain.md#domain-service-recurrence->.domain/backlog/domain.md#domain-event-occurrencespawned",
+          "source": ".domain/backlog/domain.md#domain-service-recurrence",
+          "target": ".domain/backlog/domain.md#domain-event-occurrencespawned",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/backlog/domain.md#domain-event-statuschanged->.domain/backlog/domain.md#aggregate-backlog-entry",
           "source": ".domain/backlog/domain.md#domain-event-statuschanged",
           "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -6017,6 +6494,30 @@
       },
       {
         "data": {
+          "id": "related:.domain/backlog/domain.md#domain-event-occurrencespawned->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/domain.md#domain-event-occurrencespawned",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/domain.md#domain-event-occurrencespawned->.domain/backlog/domain.md#domain-service-recurrence",
+          "source": ".domain/backlog/domain.md#domain-event-occurrencespawned",
+          "target": ".domain/backlog/domain.md#domain-service-recurrence",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/domain.md#domain-event-occurrencespawned->.domain/monitoring/domain.md#aggregate-progress-signal",
+          "source": ".domain/backlog/domain.md#domain-event-occurrencespawned",
+          "target": ".domain/monitoring/domain.md#aggregate-progress-signal",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/backlog/domain.md#domain-event-aiworklogged->.domain/backlog/domain.md#aggregate-backlog-entry",
           "source": ".domain/backlog/domain.md#domain-event-aiworklogged",
           "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -6045,6 +6546,78 @@
           "source": ".domain/backlog/features.md#feature-refinement-and-prioritization",
           "target": ".domain/backlog/features.md#feature-backlog-entry-creation",
           "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/backlog/features.md#feature-scheduling-and-recurrence->.domain/backlog/features.md#feature-refinement-and-prioritization",
+          "source": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
+          "target": ".domain/backlog/features.md#feature-refinement-and-prioritization",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#feature-scheduling-and-recurrence->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#sub-feature-recurring-entries->.domain/backlog/domain.md#domain-service-recurrence",
+          "source": ".domain/backlog/features.md#sub-feature-recurring-entries",
+          "target": ".domain/backlog/domain.md#domain-service-recurrence",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#sub-feature-recurring-entries->.domain/backlog/features.md#feature-archive-and-lifecycle",
+          "source": ".domain/backlog/features.md#sub-feature-recurring-entries",
+          "target": ".domain/backlog/features.md#feature-archive-and-lifecycle",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/backlog/features.md#feature-my-day->.domain/backlog/features.md#feature-refinement-and-prioritization",
+          "source": ".domain/backlog/features.md#feature-my-day",
+          "target": ".domain/backlog/features.md#feature-refinement-and-prioritization",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#feature-my-day->.domain/backlog/features.md#feature-scheduling-and-recurrence",
+          "source": ".domain/backlog/features.md#feature-my-day",
+          "target": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/backlog/features.md#feature-entry-dependencies->.domain/backlog/features.md#feature-refinement-and-prioritization",
+          "source": ".domain/backlog/features.md#feature-entry-dependencies",
+          "target": ".domain/backlog/features.md#feature-refinement-and-prioritization",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#feature-entry-dependencies->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/features.md#feature-entry-dependencies",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#feature-entry-dependencies->.domain/backlog/features.md#sub-feature-manual-ordering",
+          "source": ".domain/backlog/features.md#feature-entry-dependencies",
+          "target": ".domain/backlog/features.md#sub-feature-manual-ordering",
+          "type": "related"
         }
       },
       {
@@ -6220,6 +6793,78 @@
           "id": "related:.domain/backlog/naming.md#term-ai-work-log->.domain/backlog/domain.md#domain-event-aiworklogged",
           "source": ".domain/backlog/naming.md#term-ai-work-log",
           "target": ".domain/backlog/domain.md#domain-event-aiworklogged",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-due-date->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/naming.md#term-due-date",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-reminder->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/naming.md#term-reminder",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/domain.md#aggregate-backlog-entry->.domain/backlog/domain.md#recurrence",
+          "source": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "target": ".domain/backlog/domain.md#recurrence",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-recurrence->.domain/backlog/domain.md#recurrence",
+          "source": ".domain/backlog/naming.md#term-recurrence",
+          "target": ".domain/backlog/domain.md#recurrence",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-my-day->.domain/backlog/features.md#feature-my-day",
+          "source": ".domain/backlog/naming.md#term-my-day",
+          "target": ".domain/backlog/features.md#feature-my-day",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-dependency->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/naming.md#term-dependency",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/domain.md#aggregate-backlog-entry->.domain/backlog/domain.md#readiness",
+          "source": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "target": ".domain/backlog/domain.md#readiness",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-readiness->.domain/backlog/domain.md#readiness",
+          "source": ".domain/backlog/naming.md#term-readiness",
+          "target": ".domain/backlog/domain.md#readiness",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-occurrence->.domain/backlog/domain.md#domain-service-recurrence",
+          "source": ".domain/backlog/naming.md#term-occurrence",
+          "target": ".domain/backlog/domain.md#domain-service-recurrence",
           "type": "related"
         }
       },

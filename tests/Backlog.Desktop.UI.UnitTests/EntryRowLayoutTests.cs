@@ -4,8 +4,19 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class EntryRowLayoutTests
 {
+    /// <summary>
+    /// Whether there is more to an entry than its title.
+    /// <para>
+    /// This used to be half of a one-line-versus-expanded layout decision, and that
+    /// decision is gone: every row in the list is one line, and the expansion is the
+    /// detail pane beside it. What the predicate is still for is the note mark on
+    /// the row — the only thing on a folded row that says it is worth opening — so
+    /// it is asserted here on its own rather than through a layout that no longer
+    /// exists.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Title_and_metadata_only_entries_use_one_line_layout()
+    public void A_title_and_metadata_only_entry_has_nothing_more_to_show()
     {
         var row = new EntryRow
         {
@@ -13,12 +24,11 @@ public sealed class EntryRowLayoutTests
         };
 
         Assert.False(row.HasExpandableContent);
-        Assert.True(row.UsesOneLineLayout);
         Assert.Contains("sync", row.PreviewTags);
     }
 
     [Fact]
-    public void Entries_with_body_can_be_folded_to_one_line()
+    public void An_entry_with_a_body_has_more_than_its_title()
     {
         var row = new EntryRow
         {
@@ -26,11 +36,6 @@ public sealed class EntryRowLayoutTests
         };
 
         Assert.True(row.HasExpandableContent);
-        Assert.False(row.UsesOneLineLayout);
-
-        row.EntryCollapsed = true;
-
-        Assert.True(row.UsesOneLineLayout);
     }
 
     [Fact]
@@ -261,29 +266,34 @@ public sealed class EntryRowLayoutTests
         Assert.Equal(["child"], row.PreviewSubItems[1].MetadataTags);
     }
 
+    /// <summary>
+    /// One step's notes are that step's, and writing them leaves its siblings alone.
+    /// <para>
+    /// This is what is left of "collapse state is tracked per sub-item". Which steps
+    /// a reader has unfolded is the shared task row's own business now — it dies with
+    /// the view, and the row holds it. What still has to be per sub-item, and is a
+    /// fact about the markdown rather than about a view, is the text: the pane hands
+    /// each step's notes to its own editor by index, and an edit that reached the
+    /// wrong chapter would silently overwrite a neighbour.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Sub_item_collapse_state_is_tracked_per_sub_item()
+    public void Notes_are_addressed_per_sub_item()
     {
-        var row = new EntryRow
-        {
-            RawText =
-                "# Prepare review\n\n" +
-                "## First\n" +
-                "Notes one.\n\n" +
-                "## Second\n" +
-                "Notes two.\n"
-        };
+        const string raw =
+            "# Prepare review\n\n" +
+            "## First\n" +
+            "Notes one.\n\n" +
+            "## Second\n" +
+            "Notes two.\n";
 
-        Assert.False(row.IsSubItemCollapsed(0));
-        Assert.False(row.IsSubItemCollapsed(1));
+        Assert.Equal("Notes one.", EntryTextParser.GetSubItemNote(raw, 0));
+        Assert.Equal("Notes two.", EntryTextParser.GetSubItemNote(raw, 1));
 
-        row.ToggleSubItemCollapsed(0);
+        var rewritten = EntryTextParser.WithSubItemNote(raw, 0, "Rewritten one.");
 
-        Assert.True(row.IsSubItemCollapsed(0));
-        Assert.False(row.IsSubItemCollapsed(1));
-
-        row.ToggleSubItemCollapsed(0);
-
-        Assert.False(row.IsSubItemCollapsed(0));
+        Assert.Equal("Rewritten one.", EntryTextParser.GetSubItemNote(rewritten, 0));
+        Assert.Equal("Notes two.", EntryTextParser.GetSubItemNote(rewritten, 1));
+        Assert.Equal("First", EntryTextParser.GetSubItemTitle(rewritten, 0));
     }
 }

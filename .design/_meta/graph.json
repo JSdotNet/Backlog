@@ -6,29 +6,30 @@
     ".design"
   ],
   "stats": {
-    "nodes": 95,
-    "edges": 179,
+    "nodes": 101,
+    "edges": 188,
     "nodesByFolder": {
-      "design": 85,
+      "design": 86,
       "arc42": 5,
       "tech": 1,
-      "domain": 4
+      "domain": 9
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 80,
+      "chapter": 86,
       "heading": 5
     },
     "nodesByStatus": {
-      "active": 84,
+      "active": 85,
       "none": 5,
       "accepted": 1,
       "candidate": 1,
-      "draft": 4
+      "draft": 4,
+      "proposed": 5
     },
     "edgesByType": {
-      "contains": 77,
-      "related": 102
+      "contains": 78,
+      "related": 110
     }
   },
   "problems": [],
@@ -751,7 +752,29 @@
           "related": [
             ".domain/backlog/naming.md#term-entry-status",
             ".domain/backlog/naming.md#term-area",
-            ".design/typography-and-layout.md#font-families"
+            ".design/typography-and-layout.md#font-families",
+            ".design/content-editing.md#scheduling-and-dependency-tokens"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "label": "Scheduling and Dependency Tokens",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "scheduling-and-dependency-tokens",
+          "level": 2,
+          "line": 152,
+          "status": "active",
+          "related": [
+            ".design/content-editing.md#structured-metadata-sigils",
+            ".domain/backlog/naming.md#term-due-date",
+            ".domain/backlog/naming.md#term-reminder",
+            ".domain/backlog/naming.md#term-recurrence",
+            ".domain/backlog/naming.md#term-my-day",
+            ".domain/backlog/naming.md#term-dependency"
           ]
         }
       },
@@ -764,7 +787,7 @@
           "path": ".design/content-editing.md",
           "slug": "live-parse-confirmation",
           "level": 2,
-          "line": 151,
+          "line": 195,
           "status": "active",
           "related": [
             ".design/content-editing.md#editing-feedback-and-state"
@@ -780,7 +803,7 @@
           "path": ".design/content-editing.md",
           "slug": "paste-behavior",
           "level": 2,
-          "line": 169,
+          "line": 213,
           "status": "active"
         }
       },
@@ -793,7 +816,7 @@
           "path": ".design/content-editing.md",
           "slug": "slash-and-inline-commands",
           "level": 2,
-          "line": 191,
+          "line": 235,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#feedback-and-toasts",
@@ -810,7 +833,7 @@
           "path": ".design/content-editing.md",
           "slug": "unsupported-syntax-preservation",
           "level": 2,
-          "line": 207,
+          "line": 251,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#reorder--auto-save"
@@ -826,7 +849,7 @@
           "path": ".design/content-editing.md",
           "slug": "editing-feedback-and-state",
           "level": 2,
-          "line": 224,
+          "line": 268,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
@@ -843,11 +866,12 @@
           "path": ".design/content-editing.md",
           "slug": "materialization",
           "level": 2,
-          "line": 239,
+          "line": 283,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
-            ".design/typography-and-layout.md#heading-defaults"
+            ".design/typography-and-layout.md#heading-defaults",
+            ".design/content-editing.md#scheduling-and-dependency-tokens"
           ]
         }
       },
@@ -1490,6 +1514,120 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/naming.md#term-due-date",
+          "label": "Term: Due Date",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-due-date",
+          "level": 2,
+          "line": 91,
+          "status": "proposed",
+          "aliases": [
+            "due_on",
+            "due",
+            "Due"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-reminder",
+          "label": "Term: Reminder",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-reminder",
+          "level": 2,
+          "line": 104,
+          "status": "proposed",
+          "aliases": [
+            "remind_at",
+            "remind",
+            "Reminder"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-recurrence",
+          "label": "Term: Recurrence",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-recurrence",
+          "level": 2,
+          "line": 117,
+          "status": "proposed",
+          "aliases": [
+            "Repeat",
+            "repeat",
+            "recurrence",
+            "RepeatLabel",
+            "RecurrenceUnit",
+            "DayOfWeek"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#recurrence"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-my-day",
+          "label": "Term: My Day",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-my-day",
+          "level": 2,
+          "line": 130,
+          "status": "proposed",
+          "aliases": [
+            "in_my_day_on",
+            "myday",
+            "InMyDay"
+          ],
+          "related": [
+            ".domain/backlog/features.md#feature-my-day"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-dependency",
+          "label": "Term: Dependency",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-dependency",
+          "level": 2,
+          "line": 144,
+          "status": "proposed",
+          "aliases": [
+            "depends_on",
+            "DependsOn",
+            "after",
+            "predecessor"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/04-solution-strategy.md#local-first-architecture",
           "label": "Local-first Architecture",
           "type": "chapter",
@@ -1840,6 +1978,14 @@
           "id": "contains:.design/content-editing.md->.design/content-editing.md#structured-metadata-sigils",
           "source": ".design/content-editing.md",
           "target": ".design/content-editing.md#structured-metadata-sigils",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#scheduling-and-dependency-tokens",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#scheduling-and-dependency-tokens",
           "type": "contains"
         }
       },
@@ -2597,6 +2743,62 @@
       },
       {
         "data": {
+          "id": "related:.design/content-editing.md#structured-metadata-sigils->.design/content-editing.md#scheduling-and-dependency-tokens",
+          "source": ".design/content-editing.md#structured-metadata-sigils",
+          "target": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.design/content-editing.md#structured-metadata-sigils",
+          "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "target": ".design/content-editing.md#structured-metadata-sigils",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#term-due-date",
+          "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "target": ".domain/backlog/naming.md#term-due-date",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#term-reminder",
+          "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "target": ".domain/backlog/naming.md#term-reminder",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#term-recurrence",
+          "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "target": ".domain/backlog/naming.md#term-recurrence",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#term-my-day",
+          "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "target": ".domain/backlog/naming.md#term-my-day",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#term-dependency",
+          "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "target": ".domain/backlog/naming.md#term-dependency",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/content-editing.md#live-parse-confirmation->.design/content-editing.md#editing-feedback-and-state",
           "source": ".design/content-editing.md#live-parse-confirmation",
           "target": ".design/content-editing.md#editing-feedback-and-state",
@@ -2672,6 +2874,14 @@
           "id": "related:.design/content-editing.md#materialization->.design/typography-and-layout.md#heading-defaults",
           "source": ".design/content-editing.md#materialization",
           "target": ".design/typography-and-layout.md#heading-defaults",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#materialization->.design/content-editing.md#scheduling-and-dependency-tokens",
+          "source": ".design/content-editing.md#materialization",
+          "target": ".design/content-editing.md#scheduling-and-dependency-tokens",
           "type": "related"
         }
       },

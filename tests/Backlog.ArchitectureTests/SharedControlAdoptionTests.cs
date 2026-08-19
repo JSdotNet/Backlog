@@ -39,30 +39,30 @@ public class SharedControlAdoptionTests
     /// <summary>
     /// The raw elements that are not a component the library is missing.
     ///
-    /// <para>Each is keyed on a class the element carries, and each is here for
-    /// a reason written next to it in the markup:</para>
+    /// <para>Empty, and that is the finding rather than an omission. The backlog
+    /// pane held all four exceptions there have ever been, and the To Do-shaped
+    /// rewrite retired every one of them:</para>
     /// <list type="bullet">
-    /// <item>the markdown editors hold a reading line inside the grow wrapper,
-    /// replicate the text plus a trailing newline, and are focused through an
-    /// <c>ElementReference</c> — TextArea shapes a labelled field, not an
-    /// editing surface;</item>
-    /// <item>the reorder grips are drop targets, and the
-    /// <c>ondragover:preventDefault</c> they need is a directive attribute that
-    /// cannot be written on a component at all.</item>
+    /// <item><c>entry-doc__editor</c> and <c>subitem-card__editor</c> — the two
+    /// hand-rolled markdown textareas. The entry's note is a
+    /// <c>MarkdownEditor</c>, a step's notes are the shared task row's own body
+    /// editor, and the raw escape hatch is a <c>TextArea</c>. What the exception
+    /// was really buying — a reading line inside the grow wrapper — turned out
+    /// to be a sibling of the box rather than a child of it, and nothing needed
+    /// an <c>ElementReference</c> once the surface stopped being what opened on
+    /// click.</item>
+    /// <item><c>entry-doc__grip</c> and <c>subitem-card__grip</c> — the reorder
+    /// rails and their drop zones. <c>TaskListView</c> owns the whole drag,
+    /// including the <c>ondragover:preventDefault</c> that could not be written
+    /// on a component: it is written inside one.</item>
     /// </list>
     ///
     /// <para>Adding an entry here is a claim that the library has nothing to
     /// adopt. If the answer is instead that a component is missing a hook, the
-    /// hook belongs in the library — that is what every entry above was
-    /// weighed against.</para>
+    /// hook belongs in the library — which is how the sub-item hand-off buttons
+    /// became <c>TaskListView.RowActions</c> rather than a fifth entry.</para>
     /// </summary>
-    private static readonly string[] AllowedRawControls =
-    [
-        "entry-doc__editor",
-        "subitem-card__editor",
-        "entry-doc__grip",
-        "subitem-card__grip"
-    ];
+    private static readonly string[] AllowedRawControls = [];
 
     /// <summary>
     /// The class names the shared library puts on the elements its own
@@ -118,12 +118,6 @@ public class SharedControlAdoptionTests
     /// and the shell owns the arrow-key handling on it. SplitPane takes none of
     /// that yet, so adopting it means moving the interop into the library
     /// first.</item>
-    /// <item><c>grow-wrap</c> — the wrapper around the entry and sub-item
-    /// editors. It is <c>TextArea</c>'s auto-grow wrapper, and it is here for
-    /// the same reason those editors are in <see cref="AllowedRawControls"/>:
-    /// the wrapper holds the reading line the editor grows against, so it comes
-    /// with the editor. Whichever change adopts TextArea there retires both
-    /// exceptions together.</item>
     /// <item><c>md-link</c> — one anchor into Settings from the domain knowledge
     /// panel, borrowing the class <c>MarkdownView</c> puts on a link inside
     /// rendered Markdown. There is no component to adopt: the library ships no
@@ -141,7 +135,6 @@ public class SharedControlAdoptionTests
     private static readonly string[] AllowedComponentClasses =
     [
         "badge--gh",
-        "grow-wrap",
         "md-link",
         "pane-resizer"
     ];

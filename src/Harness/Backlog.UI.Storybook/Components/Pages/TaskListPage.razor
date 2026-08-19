@@ -33,6 +33,25 @@ The draft is held in the row and reported only when it settles. A rename that ra
         <p class="sb-state" data-testid="task-list-renamed">@(_lastRename ?? "nothing renamed yet")</p>
     </Story>
 
+    <Story Name="Renaming with no pencil to press first"
+           Description="DirectRename makes the title a field from the start, for a surface whose subject is this one row — a detail panel showing one thing has nothing to scan, so a pencil there is a press between the reader and what they came to change. A list keeps its pencil: ten rows that opened ten inputs is not a list anybody skims.
+
+It settles on exactly the same terms as the pencil&#39;s field. Enter commits, clicking away commits, Escape puts the title back, and neither an empty title nor an unchanged one is a rename. The border under the box is quiet until the caret is in it, because permanent underlining on every row is chrome shouting at somebody who is only reading.
+
+The rows below are also reorderable, and that is the part worth trying. A draggable element swallows the pointer inside its own inputs — press and move to select a word and the browser drags the row instead — so a row with a field open turns its own draggable off. The grip is the drag handle instead, and Alt+Up/Alt+Down works from inside the field, where a bare arrow is still a caret move. Alt+Arrow means nothing to a caret on Windows, which is what makes it available."
+           Code="@DirectRenameCode">
+        <div class="sb-menu-wide" data-testid="task-list-direct">
+            <TaskListView Tasks="@_directRenamable"
+                          OnRename="RenameDirect"
+                          DirectRename="true"
+                          Reorderable="true"
+                          OnReorder="ReorderDirect"
+                          AriaLabel="Directly renamable tasks"
+                          TestId="direct" />
+        </div>
+        <p class="sb-state" data-testid="task-list-direct-state">@(_lastDirect ?? "nothing renamed or moved yet")</p>
+    </Story>
+
     <Story Name="Quick edit, straight down the list"
            Description="Retitling is one thing done many times over, so the keystroke that finishes a rename is also the one that starts the next: Tab commits this row and opens the field on the row below it, Shift+Tab walks back up. That is the spreadsheet bargain, and it is the whole reason anybody retitles six rows instead of giving up after two — a rename that handed the reader back to the pencil would cost a round trip per row, and the pencil is the smallest target on it.
 
@@ -58,6 +77,28 @@ With nobody listening to OnAdd there is no add row at all and Tab off the last r
                           TestId="quick" />
         </div>
         <p class="sb-state" data-testid="task-list-quick-edit-renames">@(_quickSettled.Count == 0 ? "nothing settled yet" : string.Join(" → ", _quickSettled))</p>
+    </Story>
+
+    <Story Name="The host's own row above Completed"
+           Description="AfterOpenRows is the host's place in the list, under the open rows and above the finished ones. It exists because “add one more” belongs at the end of the work rather than at the end of the document: the list owns the Completed section, so a button the host rendered after the whole component landed underneath a fold of things already done — the one place in the list where nothing new is ever going to appear.
+
+Tick a row and watch the button stay put while the section grows beneath it. A slot rather than an AddLabel parameter, because what a host adds and what it calls it is not a list this library can finish; unfilled, it renders nothing at all."
+           Code="@SlotCode">
+        <div class="sb-menu-wide" data-testid="task-list-slot">
+            <TaskListView Tasks="@_slotted"
+                          OnToggle="ToggleSlotted"
+                          AriaLabel="With a host's own row"
+                          TestId="slot">
+                <AfterOpenRows>
+                    <AppButton BaseClass="btn btn--ghost"
+                               Size="ButtonSize.Small"
+                               TestId="slot-add"
+                               OnClick="AddSlotted">
+                        + New task
+                    </AppButton>
+                </AfterOpenRows>
+            </TaskListView>
+        </div>
     </Story>
 
     <Story Name="Tags, dates, reminders and repeats"
@@ -117,7 +158,13 @@ A finished task stays readable. It is struck through and quieter, but it is the 
 
 While a row is in flight the list shows the order the drop would produce, rather than drawing a line between two rows. The reader is already looking at the list, so moving it is the cheapest possible answer to “where would this land” — the gap is a gap you can see instead of a line to interpret. The rows that are not moving pull in slightly, which is what says the list made room rather than that a row went missing. All of it is a view: Tasks is untouched, and abandoning the drag needs nothing rolled back because nothing changed.
 
-A drag is a pointer gesture with no keyboard equivalent, so a list that only dragged would be a list some people cannot reorder. The buttons under each row are that equivalent here; the real product would put them on Alt+Arrow with the focus following the row it moved."
+A drag is a pointer gesture with no keyboard equivalent, so a list that only dragged would be a list some people cannot reorder. Tab to a row and press Alt+Arrow: the row moves, and the focus goes with it rather than staying on the position it left — otherwise the second press would move whatever slid into the old slot.
+
+Alt, and not a bare arrow. A plain ArrowDown on a focused row is how somebody reads down a long list, and a row that swallowed it to reorder itself would take away scrolling to add moving. Alt is also the one modifier with no default action of its own on a button, so nothing has to be prevented — which matters, because Blazor resolves preventDefault when the row renders rather than when the key arrives, so “prevent it only for the combination I handle” is not expressible.
+
+The move is clamped at both ends rather than wrapped. A row at the top that jumped to the bottom on one more press would be a move nobody asked for, and the reader would have to notice it before they could undo it.
+
+Each move is also said out loud. The visible answer to “where did it go” is the row having moved, which is no answer at all to somebody who cannot see the list, so the position it landed in goes to a live region — the one below, normally screen-reader-only and shown here so there is something to look at."
            Code="@ReorderCode">
         <div class="sb-menu-wide" data-testid="task-list-reorder">
             <TaskListView Tasks="@_ordered"
@@ -128,12 +175,24 @@ A drag is a pointer gesture with no keyboard equivalent, so a list that only dra
                           TestId="reorder" />
         </div>
         <p class="sb-state" data-testid="task-list-order">@string.Join(" → ", _ordered.Select(t => t.Title))</p>
-        <div class="sb-row">
-            @foreach (var task in _ordered)
-            {
-                <AppButton Variant="ButtonVariant.Ghost" OnClick="() => MoveUp(task.Id)">Move “@task.Title” up</AppButton>
-            }
+    </Story>
+
+    <Story Name="The host's own controls on a row"
+           Description="What a host can do to a task is not a list this library can finish — push it somewhere, hand it to a tool, open it in an editor — so RowActions is a slot rather than a set of parameters, and it is handed the task it is about.
+
+At the end of the row, after the copy button, because everything to the left of there is about the task's own text or state and these are about what happens to it elsewhere. Clicks stop at the slot for the same reason they stop at the pencil: pushing a task is not opening it.
+
+Unset, a row renders exactly the markup it rendered before the slot existed. An empty group would be an element with an aria-label about nothing."
+           Code="@RowActionCode">
+        <div class="sb-menu-wide" data-testid="task-list-row-actions">
+            <TaskListView Tasks="@Sample"
+                          OnToggle="_ => { }"
+                          AllowCopy="false"
+                          AriaLabel="Tasks with host actions"
+                          TestId="row-actions"
+                          RowActions="@(task => HostActions(task))" />
         </div>
+        <p class="sb-state" data-testid="task-list-row-action-state">@(_lastAction ?? "Nothing pressed yet.")</p>
     </Story>
 
     <Story Name="Nothing to toggle, nothing to copy"
@@ -244,6 +303,23 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
         new("r2", "Escape puts this one back", Group: "Tasks")
     ];
 
+    private string? _lastDirect;
+
+    private IReadOnlyList<TaskRow> _directRenamable =
+    [
+        new("x1", "Type in me — there is no pencil", Group: "Steps"),
+        new("x2", "Alt+Down moves me, from inside the field", Group: "Steps"),
+        new("x3", "Drag me by the grip, not by the row", Group: "Steps", Due: "Friday")
+    ];
+
+    private int _slotCounter = 1;
+
+    private IReadOnlyList<TaskRow> _slotted =
+    [
+        new("s1", "Tick me and the section below grows"),
+        new("s2", "The button stays where it is"),
+        new("s3", "Already finished", Done: true)
+    ];
     private IReadOnlyList<TaskRow> _quick =
     [
         new("q1", "Pencil me, then press Tab", Group: "Tasks"),
@@ -347,17 +423,6 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
     /// opinion of its own.</summary>
     private void Reorder(TaskMove move) => _ordered = move.ApplyTo(_ordered, t => t.Id);
 
-    /// <summary>The keyboard equivalent, stood in for by buttons here. A drag is
-    /// a pointer gesture and nothing else, so a list that only dragged would be a
-    /// list some people cannot reorder at all.</summary>
-    private void MoveUp(string id)
-    {
-        var index = _ordered.ToList().FindIndex(t => t.Id == id);
-        if (index <= 0) return;
-
-        _ordered = new TaskMove(id, _ordered[index - 1].Id).ApplyTo(_ordered, t => t.Id);
-    }
-
     private const string RowCode = """
         <TaskListView Tasks="@tasks"
                       OnToggle="Toggle"
@@ -379,6 +444,24 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
         _renamable = [.. _renamable.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
         _lastRename = $"renamed {rename.Id} to “{rename.Title}”";
     }
+
+    private void RenameDirect(TaskRename rename)
+    {
+        _directRenamable = [.. _directRenamable.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
+        _lastDirect = $"renamed {rename.Id} to “{rename.Title}”";
+    }
+
+    private void ReorderDirect(TaskMove move)
+    {
+        _directRenamable = move.ApplyTo(_directRenamable, t => t.Id);
+        _lastDirect = $"moved {move.Id} onto {move.TargetId}";
+    }
+
+    private void ToggleSlotted(string id) =>
+        _slotted = [.. _slotted.Select(t => t.Id == id ? t with { Done = !t.Done } : t)];
+
+    private void AddSlotted() =>
+        _slotted = [.. _slotted, new TaskRow($"s{++_slotCounter + 3}", "One more, added from the slot")];
 
     private void RenameQuick(TaskRename rename)
     {
@@ -409,6 +492,24 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
             private void Rename(TaskRename rename) =>
                 _tasks = [.. _tasks.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
         }
+        """;
+
+    private const string DirectRenameCode = """
+        @* The title is a field from the start. Same commit rules as the pencil's. *@
+        <TaskListView Tasks="@tasks" OnRename="Rename" DirectRename="true"
+                      Reorderable="true" OnReorder="Reorder" />
+
+        @* Which is why TaskItem turns the row's own draggable off while a field is
+           open, makes the grip draggable in its own right, and hears Alt+Arrow
+           inside the field. All three, or reordering quietly goes away. *@
+        """;
+
+    private const string SlotCode = """
+        <TaskListView Tasks="@tasks" OnToggle="Toggle">
+            <AfterOpenRows>
+                <AppButton OnClick="Add">+ New task</AppButton>
+            </AfterOpenRows>
+        </TaskListView>
         """;
 
     private const string QuickEditCode = """
@@ -467,6 +568,34 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
         @code {
             // The host applies it: only the host knows where the order is kept.
             private void Reorder(TaskMove move) => _tasks = move.ApplyTo(_tasks, t => t.Id);
+        }
+        """;
+
+    private string? _lastAction;
+
+    /// <summary>What a host puts in the row's action slot. IconButton, because these
+    /// are the library's own controls being handed back into it — the slot is about
+    /// where they go, not about the host bringing its own buttons.</summary>
+    private RenderFragment HostActions(TaskRow task) =>
+        @<text>
+            <IconButton BaseClass="btn btn--icon"
+                        AriaLabel="@($"Push {task.Title}")"
+                        TestId="@($"row-actions-{task.Id}-push")"
+                        OnClick='() => Record("Pushed", task)'>↑</IconButton>
+
+            <IconButton BaseClass="btn btn--icon"
+                        AriaLabel="@($"Hand {task.Title} to a tool")"
+                        TestId="@($"row-actions-{task.Id}-tool")"
+                        OnClick='() => Record("Handed over", task)'>gh</IconButton>
+        </text>;
+    private void Record(string what, TaskRow task) => _lastAction = $"{what}: {task.Title}.";
+
+    private const string RowActionCode = """
+        <TaskListView Tasks="@tasks" RowActions="@(task => Actions(task))" />
+
+        @code {
+            private RenderFragment Actions(TaskRow task) =>
+                @<IconButton AriaLabel="@($"Push {task.Title}")" OnClick="() => Push(task)">↑</IconButton>;
         }
         """;
 

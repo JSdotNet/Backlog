@@ -79,6 +79,38 @@
         });
     };
 
+    /*
+        Whether the focus has landed on something outside a named region.
+
+        The question a `focusout` handler actually has is "did the reader leave
+        this region, or only move about inside it", and Blazor's FocusEventArgs
+        cannot answer it: it carries `Type` and nothing else, so the
+        `relatedTarget` the DOM event holds never reaches C#. Rather than smuggle
+        the target across, the caller asks afterwards where the focus ended up.
+
+        Afterwards is the point. A `focusout` fires before the next element is
+        focused, so `activeElement` mid-transfer is the body; by the time this
+        interop call runs the browser has finished the transfer in the task that
+        raised the event, so the answer is the settled one rather than the
+        transitional one — which also makes it right for a focus the handler
+        itself moved.
+
+        Nowhere is deliberately not somewhere else. The focus is on the body
+        after the element holding it was removed — closing a date picker does
+        exactly that — and after the window itself loses focus. Neither is the
+        reader moving on, and a caller acting on it would tear down the surface
+        they are in the middle of using.
+    */
+    window.backlogFocusOutside = (id) => {
+        const element = document.getElementById(id);
+        if (!element) return false;
+
+        const focused = document.activeElement;
+        if (!focused || focused === document.body || focused === document.documentElement) return false;
+
+        return !element.contains(focused);
+    };
+
     // Copying is the browser's job, and the browser is allowed to refuse: the
     // async clipboard needs a secure context and a permission the host WebView
     // may not have granted. The execCommand path is the fallback for exactly
@@ -288,6 +320,48 @@
         }
     };
 
+    // A task row's drag needs a payload, and Blazor's DragEventArgs is read-only so
+    // no C# handler can supply one. Chromium starts a drag without one happily
+    // enough and then refuses to fire drop, which reads as a drag that works and
+    // does nothing when released.
+    //
+    // Here rather than in a host's own script, because TaskListView owns the whole
+    // gesture: a host that had to supply this would be a host that has to know the
+    // list drags at all. Capture phase, so it runs before Blazor's handler for the
+    // same event.
+    document.addEventListener(
+        'dragstart',
+        (event) => {
+            const row = event.target instanceof Element ? event.target.closest('.task-item[draggable="true"]') : null;
+            if (!row || !event.dataTransfer) return;
+
+            event.dataTransfer.effectAllowed = 'move';
+            // Some payload is required for the drag to be considered valid.
+            event.dataTransfer.setData('text/plain', row.getAttribute('data-testid') ?? 'task');
+
+            if (event.dataTransfer.setDragImage) {
+                const bounds = row.getBoundingClientRect();
+                event.dataTransfer.setDragImage(row, event.clientX - bounds.left, event.clientY - bounds.top);
+            }
+        },
+        true
+    );
+
+    // A drop only fires where dragover was cancelled. The row's own
+    // `:preventDefault` does that too; this is the frame before Blazor has attached
+    // it, which is otherwise a dropped drop.
+    document.addEventListener(
+        'dragover',
+        (event) => {
+            const row = event.target instanceof Element ? event.target.closest('.task-item') : null;
+            if (!row || !event.dataTransfer) return;
+
+            event.dataTransfer.dropEffect = 'move';
+            event.preventDefault();
+        },
+        true
+    );
+
     // The side pane is resized by dragging its edge. Pointer capture and the live
     // width both belong in the browser; C# only hears the settled value, so a drag
     // costs one interop call instead of one per frame.
@@ -323,10 +397,12 @@
      * Which edge the resized pane is anchored to.
      *
      * The app's knowledge panel sits on the right, so its width is the distance
-     * from the pointer to the layout's right edge. SplitPane's bound value is the
-     * *start* pane, on the left, whose width is the distance from the left edge.
-     * Measuring both the same way made the library's separator run backwards:
-     * dragging right narrowed the pane it was supposed to widen.
+     * from the pointer to the layout's right edge. A SplitPane's bound value is the
+     * width of whichever pane its Anchor names, so a start-anchored one measures
+     * from the left edge instead. Measuring both the same way made the library's
+     * separator run backwards: dragging right narrowed the pane it was supposed to
+     * widen. The default stays 'end' because a layout that says nothing is the app's
+     * own, which was here first.
      */
     function backlogPaneAnchor(layout) {
         return layout.getAttribute('data-pane-anchor') === 'start' ? 'start' : 'end';
@@ -404,6 +480,11 @@
         const layout = handle.closest(BACKLOG_PANE_LAYOUT_SELECTOR);
         if (!layout) return;
 
+        // A split that did not register an owner is not this drag's to settle.
+        // There is one owner for the whole document, so honouring a second layout
+        // would hand its width to whichever component registered first.
+        if (layout.getAttribute('data-pane-drag') === 'off') return;
+
         event.preventDefault();
         handle.focus();
         document.body.classList.add('is-resizing-pane');
@@ -415,7 +496,7 @@
             // Both names are set so the app's knowledge layout and the library's
             // SplitPane each read the one their stylesheet knows.
             layout.style.setProperty('--knowledge-panel-width', `${width}rem`);
-            layout.style.setProperty('--split-pane-start', `${width}rem`);
+            layout.style.setProperty('--split-pane-fixed', `${width}rem`);
             handle.setAttribute('aria-valuenow', String(width));
         };
 

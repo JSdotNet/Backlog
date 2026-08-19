@@ -31,7 +31,7 @@ public static class BacklogModuleRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddScoped<IQueryHandler<ListEntriesQuery, IReadOnlyList<BacklogEntryDto>>, ListEntriesQueryHandler>();
-        services.AddScoped<ICommandHandler<SaveEntryFromTextCommand, Result<BacklogEntryDto>>, SaveEntryFromTextCommandHandler>();
+        services.AddScoped<ICommandHandler<SaveEntryFromTextCommand, Result<SavedEntryDto>>, SaveEntryFromTextCommandHandler>();
         services.AddScoped<ICommandHandler<LinkEntryToIssueCommand, Result<BacklogEntryDto>>, LinkEntryToIssueCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteEntryCommand>, DeleteEntryCommandHandler>();
         services.AddScoped<ICommandHandler<ReorderEntriesCommand>, ReorderEntriesCommandHandler>();

@@ -15,6 +15,10 @@
     focused row, and the focus goes with it — the row is a different element
     after the list re-renders, so it is found again by id.
 
+    A move is also said out loud. The visible answer to "where did it go" is the
+    row having moved, which is no answer at all to somebody who cannot see the
+    list, so each move announces the position it landed in.
+
     When rows name the ids they wait on, the list works out what that comes to
     and draws it: which rows are blocked, what each of them is waiting for, which
     ones could be started, and which one of those to pick up next. In a linear
@@ -122,6 +126,24 @@
     }
 </ul>
 
+@* The host's own place in the list, under the open rows and above the finished
+   ones.
+
+   It exists because "add one more" belongs at the end of the work rather than at
+   the end of the document: this list owns the Completed section, so a control the
+   host rendered after the whole component landed underneath a fold of things
+   already done. A slot rather than an AddLabel parameter — what a host adds, and
+   what it calls it, is not a list this library can finish — and an unfilled one
+   renders nothing at all, so the markup is exactly what it was before the slot
+   existed. *@
+@AfterOpenRows
+
+@* Where the row landed, for anyone who cannot see that it moved. Always
+   rendered rather than appearing with the first move: a live region has to be in
+   the DOM before it changes, or the first announcement is the one nobody
+   hears. *@
+<p class="sr-only" role="status" aria-live="polite" data-testid="@Suffix("announcement")">@_announcement</p>
+
 @* Finished work goes to the bottom, behind a count you can fold away. A list
    whose done rows stay where they were becomes a list you have to read past to
    find the work — and deleting them instead would throw away the record of what
@@ -155,6 +177,24 @@
     private string? _dragging;
     private string? _over;
     private bool _showCompleted;
+
+    /// <summary>What to say about the last keyboard move, if there was one.</summary>
+    private string? _announcement;
+
+    /// <summary>The row element to put the focus back on once the host has
+    /// applied a keyboard move, or null when nothing is waiting for it.</summary>
+    private string? _focusAfterMove;
+
+    /// <summary>
+    /// Distinguishes this list's row ids from another list's.
+    /// <para>
+    /// Two lists on one page can hold the same task ids — an open list and an
+    /// archive of the same work is the ordinary case — and an id is unique to a
+    /// document rather than to a component. Without this the two lists would mint
+    /// the same ids and a move in one could put the focus in the other.
+    /// </para>
+    /// </summary>
+    private readonly string _listId = "task-list-" + Guid.NewGuid().ToString("N");
 
     /// <summary>The row with the editor open, while quick edit is on. Held here
     /// rather than in the row for the same reason the drag state is: the fact a
@@ -238,7 +278,9 @@
                    OnToggle="OnToggle"
                    OnSelected="OnSelected"
                    OnRename="OnRename"
+                   DirectRename="@DirectRename"
                    OnBodyChanged="OnBodyChanged"
+                   Actions="@RowActions"
                    QuickEdit="@QuickEdit"
                    Editing="@(QuickEdit && string.Equals(_editingId, task.Id, StringComparison.Ordinal))"
                    EditingChanged="editing => SetEditing(task.Id, editing)"
@@ -253,6 +295,9 @@
                    OnDragOver="DragOver"
                    OnDrop="Drop"
                    OnDragEnd="EndDrag"
+                   RowElementId="@RowElementId(task)"
+                   OnTabForward="@TabForwardFor(task)"
+                   OnKeyboardMove="delta => MoveByKeyboardAsync(task, delta)"
                    TestId="@RowTestId(task)" />;
 
     [Parameter, EditorRequired]
@@ -279,6 +324,13 @@
 
     [Parameter]
     public EventCallback<TaskRename> OnRename { get; set; }
+
+    /// <summary>Whether every row's title is a field from the start rather than
+    /// behind a pencil. Straight through to every row, exactly like OnRename: how a
+    /// title is edited is one answer for the whole list, and a list that decided it
+    /// per row would put a pencil on some titles and a caret on others.</summary>
+    [Parameter]
+    public bool DirectRename { get; set; }
 
     /// <summary>
     /// A new task, by title. The title is all of it: minting an id, deciding where
@@ -336,11 +388,30 @@
     [Parameter]
     public EventCallback<TaskBodyChange> OnBodyChanged { get; set; }
 
+    /// <summary>The host's own controls for each row, handed the task they are
+    /// about. Straight through to every row for the same reason OnRename is: what a
+    /// host can do to a task is one answer for the whole list, and a list that
+    /// decided it per row would be deciding which tasks are actionable.</summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? RowActions { get; set; }
+
     /// <summary>Whether finished rows move to a section of their own at the
     /// bottom. On by default: a list whose done rows stay in place is a list you
     /// read past to find the work.</summary>
     [Parameter]
     public bool GroupCompleted { get; set; } = true;
+
+    /// <summary>
+    /// The host's own content between the open rows and the Completed section.
+    /// <para>
+    /// For the control that adds one more of whatever these are. The list owns the
+    /// Completed section, so a host rendering that control after the component put
+    /// it below a fold of finished work — which is the one place in the list where
+    /// nothing new is going to appear.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? AfterOpenRows { get; set; }
 
     [Parameter]
     public string CompletedLabel { get; set; } = "Completed";
@@ -350,6 +421,19 @@
     /// new order is saved anywhere.</summary>
     [Parameter]
     public EventCallback<TaskMove> OnReorder { get; set; }
+
+    /// <summary>
+    /// The reader tabbed forward off the selected row.
+    /// <para>
+    /// Offered for the selected row alone, because it is the only row a host has
+    /// somewhere else to send the focus to: what a host puts beside a list is
+    /// about the row that is open. Every other row keeps plain Tab, which is the
+    /// next row — so this narrows the hand-off to the one case where the document
+    /// order is the wrong answer, rather than taking Tab away from the list.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnSelectedTabForward { get; set; }
 
     /// <summary>Whether rows can be picked up at all. Off for a list whose order
     /// is not the reader's to choose — one sorted by date, or a search result.</summary>
@@ -495,21 +579,33 @@
     }
 
     /// <summary>
-    /// The two things the add field needs the browser for, both of them after the
-    /// render rather than at the moment they are decided: this is the one place
-    /// Blazor guarantees runs with the batch already applied, and the field either
-    /// does not exist yet or is about to be replaced anywhere earlier.
+    /// Everything this list needs the browser for, all of it after the render
+    /// rather than at the moment it is decided: this is the one place Blazor
+    /// guarantees runs with the batch already applied, and every element named here
+    /// either does not exist yet or is about to be replaced anywhere earlier.
     /// <para>
-    /// The guard is armed once, as soon as there is a field to arm — including for a
-    /// reader who never touches the chain and just clicks into the composer. Which
-    /// Tab it keeps has to be settled before the first keystroke, because a keydown
-    /// that has reached C# is a keydown the browser has already acted on.
+    /// Three jobs and one method, because Blazor calls this hook once: anything owed
+    /// after a render is owed here, whichever feature it belongs to.
+    /// </para>
+    /// <para>
+    /// The add field's guard is armed once, as soon as there is a field to arm —
+    /// including for a reader who never touches the chain and just clicks into the
+    /// composer. Which Tab it keeps has to be settled before the first keystroke,
+    /// because a keydown that has reached C# is a keydown the browser has already
+    /// acted on.
     /// </para>
     /// <para>
     /// The caret is asked for only when something has just earned it. Focusing on
     /// every render would drag it back out of the row a reader is renaming, and
     /// focusing on the first would open the page with the caret in a field nobody
     /// asked to type in.
+    /// </para>
+    /// <para>
+    /// A row that has just been moved gets its focus ring back, by the same handle
+    /// and for the same reason: once the host has applied the move the row is a
+    /// different element, so the ring has gone and the next press would move
+    /// whatever slid into the old slot. An id is the only thing that survives the
+    /// re-render.
     /// </para>
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -521,11 +617,28 @@
             await QuickEditField.GuardTabAsync(Js, _addFieldId, TabGuard.WhileFilled);
         }
 
-        if (!_focusAdd) return;
+        if (_focusAdd)
+        {
+            _focusAdd = false;
 
-        _focusAdd = false;
+            await QuickEditField.FocusAsync(Js, _addFieldId);
+        }
 
-        await QuickEditField.FocusAsync(Js, _addFieldId);
+        if (_focusAfterMove is not { } target) return;
+
+        _focusAfterMove = null;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", target);
+        }
+        catch (Exception)
+        {
+            // Losing the focus ring is not worth tearing down the page. Broad on
+            // purpose, and the same call is guarded the same way where the desktop
+            // pane moves a sub-item: the row is still there and still usable, so
+            // there is no failure here worth propagating.
+        }
     }
 
     /// <summary>
@@ -673,4 +786,98 @@
 
         await OnReorder.InvokeAsync(new TaskMove(moved, target));
     }
+
+    /// <summary>This row's focusable element, named so the focus can be put back
+    /// on it after a move. Derived from the task id rather than generated, because
+    /// the id has to be computable here — this is the only place that knows which
+    /// row was just moved.</summary>
+    private string RowElementId(TaskRow task) => RowElementId(task.Id);
+
+    private string RowElementId(string taskId) => $"{_listId}-{Slug(taskId)}";
+
+    /// <summary>Which rows are offered the forward hand-off: the selected one, and
+    /// an empty callback — so <c>HasDelegate</c> is false and the row keeps plain
+    /// Tab — for all the others.</summary>
+    private EventCallback TabForwardFor(TaskRow task) =>
+        string.Equals(SelectedId, task.Id, StringComparison.Ordinal) ? OnSelectedTabForward : default;
+
+    /// <summary>
+    /// Puts the focus back on the selected row.
+    /// <para>
+    /// The way back in from wherever a host sent the focus when
+    /// <see cref="OnSelectedTabForward"/> fired, and the reason it is a method here
+    /// rather than an id the host holds: row elements are named from a list-private
+    /// prefix so two lists showing the same task ids cannot mint the same ids, and
+    /// that prefix is not the host's to know.
+    /// </para>
+    /// <para>
+    /// The row's line rather than the circle in front of it, exactly like the
+    /// focus restored after a keyboard move: the line is what carries the
+    /// selection and where Alt+Arrow is heard.
+    /// </para>
+    /// </summary>
+    public async Task FocusSelectedAsync()
+    {
+        if (SelectedId is not { Length: > 0 } id) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", RowElementId(id));
+        }
+        catch (Exception)
+        {
+            // Guarded exactly as the post-move focus below is: the row is still
+            // there and still usable without its focus ring.
+        }
+    }
+
+    /// <summary>An id an HTML document will accept. Task ids are the host's and
+    /// may hold anything; everything outside the safe set becomes a hyphen.</summary>
+    private static string Slug(string id) =>
+        new([.. id.Select(character =>
+            char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '-')]);
+
+    /// <summary>
+    /// A keyboard move: the row the reader was on, and which way they asked.
+    /// <para>
+    /// The neighbour comes from the order on screen rather than from Tasks, so
+    /// the row swaps with the row above or below the one the reader can see. With
+    /// finished rows folded into their own section those two orders differ, and
+    /// using the underlying one would move a row past something invisible.
+    /// </para>
+    /// <para>
+    /// Clamped at both ends rather than wrapped. A row at the top that jumped to
+    /// the bottom on one more press would be a move nobody asked for, and the
+    /// reader would have to notice it happened before they could undo it.
+    /// </para>
+    /// <para>
+    /// The move is raised, not applied, exactly as the drag is: the host owns the
+    /// order. What is held here is only where to put the focus once the host has
+    /// answered.
+    /// </para>
+    /// </summary>
+    private async Task MoveByKeyboardAsync(TaskRow task, int delta)
+    {
+        var order = Open;
+
+        var from = -1;
+        for (var index = 0; index < order.Count; index++)
+        {
+            if (!string.Equals(order[index].Id, task.Id, StringComparison.Ordinal)) continue;
+
+            from = index;
+            break;
+        }
+
+        if (from < 0) return;
+
+        var to = from + delta;
+        if (to < 0 || to >= order.Count) return;
+
+        _announcement = $"Moved {task.Title} to {to + 1} of {order.Count}.";
+        _focusAfterMove = RowElementId(task);
+
+        await OnReorder.InvokeAsync(new TaskMove(task.Id, order[to].Id));
+    }
+
 }

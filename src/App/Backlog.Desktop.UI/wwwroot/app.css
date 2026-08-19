@@ -222,6 +222,13 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/* My Day keeps its room. It is the one chip in the bar that is not one of a set —
+   turning it off is only possible from the chip itself, so a scope squeezed out of
+   view would take the way back with it. */
+.filter-group--scope {
+    flex: 0 0 auto;
+}
+
 .filter-group--areas {
     flex: 1 1 auto;
 }
@@ -304,76 +311,277 @@ h1, h2, h3 {
 }
 
 
-/* --- Entry list: markdown documents ------------------------------------- */
+/* --- Backlog split: a list and the entry beside it ----------------------- */
 /*
-  An entry is one block of markdown. Unfocused it reads as a rendered document;
-  focused it becomes the raw text, in place, at the same size and position. The
-  only chrome is the metadata strip and the two grab rails — there is no
-  <select>, <input>, or <button> standing in for a field.
+  A column of entries on the left and the open one on the right, the shape
+  Microsoft To Do settled on. Both halves are library components — SplitPane,
+  TaskListView, TaskItem, TaskAction, MarkdownEditor — so almost everything that
+  used to be here has gone with the markup it styled: the entry card and its four
+  grab rails, the drop zones, the sub-item cards and their rails, and every
+  one-line-versus-expanded variant of the metadata strip. What is left is where
+  the two panes sit, and the chrome around the controls the pane still owns
+  itself.
 */
 
-.entry-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+.backlog-split {
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+/* Nothing open, so there is nothing to divide: the list takes the whole width and
+   the separator has no second pane to drag against. A modifier rather than a
+   different element — the split stays mounted so the list keeps its scroll
+   position and its focused row while the pane comes and goes.
+
+   It overrides the split's own template either way, so it needs no anchor variant:
+   the list is the leading pane in both, and both the separator and the trailing
+   pane are hidden below. */
+.backlog-split--solo {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.backlog-split--solo > .split-pane__separator,
+.backlog-split--solo > .split-pane__end {
+    display: none;
+}
+
+/* Each half scrolls on its own. One scrollbar for both would mean scrolling the
+   list to reach the bottom of the entry beside it, which is the whole reason
+   the pane is not simply a longer page. */
+/* container-type is what makes the filter bar below responsive to the column it
+   is in rather than to the window. The bar lives in this half of the split, which
+   is the window minus the open entry's panel — so it is never the window's width
+   and a viewport query fires at the wrong moment or not at all. It used to be a
+   fixed 30rem, which made the mismatch total; it is a remainder now, which makes
+   it variable, and a container query is the only thing that reads either. */
+.backlog-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
+    min-height: 0;
+    min-width: 0;
+    overflow-y: auto;
+    container-type: inline-size;
+    container-name: backlog-list;
 }
 
-.entry-doc {
-    position: relative;
+.entry-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--spacing-sm) var(--spacing-md);
     background: var(--color-background-alt);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
-    transition: border-color var(--transition-fast), opacity var(--transition-fast);
-
-    /* Rails on all four sides, wrapped around the content. */
-    display: grid;
-    grid-template-columns: 14px minmax(0, 1fr) 14px;
-    grid-template-rows: 12px minmax(2.75rem, auto) 12px;
-    container-type: inline-size;
 }
 
-.entry-doc__body {
-    grid-column: 2;
-    grid-row: 2;
+/* The entry wearing the same row the list wears. A list of one, so it gets no
+   gap of its own and reads as the pane's heading rather than as a list. */
+/*
+  One row, for the entry this panel is about. Not the library's task-list class:
+  a list wearing that is a second TaskListView as far as the adoption rule is
+  concerned, and this is a container for exactly one row rather than a list of
+  them. TaskItem renders an li, so it still needs a list element around it, and
+  the reset it used to inherit lives here instead.
+*/
+.entry-detail__row {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.entry-detail__row .task-item__title {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.entry-detail__step-input {
+    align-self: flex-start;
+    margin-left: var(--spacing-lg);
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+}
+
+.entry-detail__note {
     min-width: 0;
-    padding: var(--spacing-sm) 0;
 }
 
-.entry-doc--one-line .entry-doc__body {
-    display: grid;
-    grid-template-columns: minmax(8rem, 1fr) auto;
+/* --- The body's two readings -------------------------------------------- */
+/*
+  The steps and the markdown block are two views of one text, so they share a
+  region and only one of them is ever in it. The switch above them is the filter
+  bar's chip shape, because it is the same kind of decision: one of a set, and the
+  chosen one has to be legible at a glance.
+*/
+.entry-detail__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.entry-detail__views {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+}
+
+/*
+  "There is text here this view is not showing."
+
+  Quiet on purpose: it is a fact about the view rather than about the work, so it
+  reads as a footnote and not as a warning. Loud would be worse than silent — an
+  entry with a paragraph and two steps is completely ordinary, and an alert on
+  every one of them would be an alert nobody reads.
+*/
+.entry-detail__elsewhere {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    margin-left: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.entry-detail__elsewhere-link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.entry-detail__elsewhere-link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* --- The raw-markdown escape hatch --------------------------------------- */
+/*
+  Always available and never the default, per
+  .design/content-editing.md#raw-markdown-escape-hatch. The toggle reads as
+  chrome rather than as content: it is the one control here that changes what
+  kind of surface you are looking at.
+*/
+
+.entry-detail__raw-toggle {
+    align-self: flex-start;
+    display: inline-flex;
     align-items: center;
-    column-gap: var(--spacing-sm);
-    padding: var(--spacing-sm) 0;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
 }
 
-.entry-doc--dragged {
-    opacity: 0.4;
+.entry-detail__raw-toggle:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
 }
 
-.entry-doc--saved-flash {
-    animation: saved-flash var(--transition-slow) var(--ease-saved-flash);
+.entry-detail__raw-toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
 }
 
-@keyframes saved-flash {
-    0% { box-shadow: 0 0 0 var(--border-width-2) rgba(242, 193, 78, 0.35); }
-    100% { box-shadow: none; }
+.entry-detail__raw-toggle--on {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .entry-doc--saved-flash {
-        animation: none;
-    }
+.entry-detail__raw {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.entry-detail__raw-grow {
+    min-width: 0;
+}
+
+/* The exact canonical markdown that will be stored, in font-family-mono —
+   which is the hatch's other promise. */
+.entry-detail__raw-input {
+    width: 100%;
+    min-height: 10rem;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    resize: none;
+}
+
+.entry-detail__raw-input:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+/* Closing and deleting are the two things that act on the entry as a whole, so
+   they sit together at the end rather than among the controls that act on one
+   field of it. */
+.entry-detail__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-xs);
+}
+
+.entry-detail__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    background: transparent;
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-disabled);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    line-height: 1;
+}
+
+.entry-detail__close:hover {
+    border-color: var(--color-border);
+    color: var(--color-text-primary);
+}
+
+.entry-detail__close:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* --- Meta reading hint ---------------------------------------------------- */
 /*
   What the app understood, in words, while you type. Muted enough to ignore once
   the syntax is second nature; present enough to answer the question the first
-  time it comes up.
+  time it comes up. It lives under the escape hatch now rather than under an
+  editor that opened on click, which is the only thing about it that changed.
 */
 
 .entry-doc__reading {
@@ -434,360 +642,13 @@ h1, h2, h3 {
     font-style: italic;
 }
 
-/* --- Drop zones ----------------------------------------------------------- */
-/*
-  Only present while a drag is in flight. Each covers half a card, so releasing
-  anywhere over an entry lands somewhere sensible instead of demanding a hit on
-  a thin rail. The active edge draws the line the entry will land on.
-*/
-
-.entry-doc__drops {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    display: grid;
-    grid-template-rows: 1fr 1fr;
-    border-radius: inherit;
-}
-
-.entry-doc__drop {
-    position: relative;
-}
-
-.entry-doc__drop::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 3px;
-    border-radius: 9999px;
-    background: var(--color-primary);
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-}
-
-.entry-doc__drop--before::after { top: -2px; }
-.entry-doc__drop--after::after { bottom: -2px; }
-
-.entry-doc__drop:hover::after {
-    opacity: 1;
-}
-
-/* --- Grab rails ---------------------------------------------------------- */
-/*
-  A thin rail on every side of an entry. Each one is a real <button>, so the
-  same control that starts a drag also takes focus and moves the entry with the
-  arrow keys. Top and left drop the dragged entry above this one; bottom and
-  right drop it below.
-*/
-
-.entry-doc__grip {
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: grab;
-    border-radius: var(--border-radius-sm);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.entry-doc__grip--top { grid-area: 1 / 1 / 2 / 4; }
-.entry-doc__grip--bottom { grid-area: 3 / 1 / 4 / 4; }
-.entry-doc__grip--left { grid-area: 2 / 1 / 3 / 2; }
-.entry-doc__grip--right { grid-area: 2 / 3 / 3 / 4; }
-
-.entry-doc__grip:active {
-    cursor: grabbing;
-}
-
-.entry-doc__grip-dots {
-    display: block;
-    border-radius: 9999px;
-    background: var(--color-border);
-    opacity: 0;
-    transition: opacity var(--transition-fast), background var(--transition-fast);
-}
-
-.entry-doc__grip--top .entry-doc__grip-dots,
-.entry-doc__grip--bottom .entry-doc__grip-dots {
-    width: 28px;
-    height: 3px;
-}
-
-.entry-doc__grip--left .entry-doc__grip-dots,
-.entry-doc__grip--right .entry-doc__grip-dots {
-    width: 3px;
-    height: 28px;
-}
-
-.entry-doc:hover .entry-doc__grip-dots,
-.entry-list--dragging .entry-doc__grip-dots {
-    opacity: 1;
-}
-
-.entry-doc__grip:hover .entry-doc__grip-dots {
-    background: var(--color-border-strong);
-}
-
-.entry-doc__grip--top:hover .entry-doc__grip-dots,
-.entry-doc__grip--bottom:hover .entry-doc__grip-dots { width: 44px; }
-
-.entry-doc__grip--left:hover .entry-doc__grip-dots,
-.entry-doc__grip--right:hover .entry-doc__grip-dots { height: 44px; }
-
-.entry-doc__grip:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: -2px;
-}
-
-.entry-doc__grip:focus-visible .entry-doc__grip-dots {
-    opacity: 1;
-}
-
-/* While a drag is in flight the rails read as the drop slots they are. */
-.entry-list--dragging .entry-doc__grip:hover .entry-doc__grip-dots {
-    background: var(--color-primary);
-}
-
-.entry-list--dragging .entry-doc__grip--top:hover .entry-doc__grip-dots,
-.entry-list--dragging .entry-doc__grip--bottom:hover .entry-doc__grip-dots {
-    height: 4px;
-    width: 100%;
-}
-
-.entry-list--dragging .entry-doc__grip--left:hover .entry-doc__grip-dots,
-.entry-list--dragging .entry-doc__grip--right:hover .entry-doc__grip-dots {
-    width: 4px;
-    height: 100%;
-}
-
-/* --- Sub-item cards ------------------------------------------------------ */
-/*
-  A sub-item is an item, not a paragraph. It sits below its entry rather than
-  inside it, indented so the ownership is obvious without a line of explanation,
-  and carries its own grab rail. The indent is the only thing saying "belongs
-  to" — no connector art, no nesting boxes.
-*/
-
-.entry-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-}
-
-.subitem-list {
-    list-style: none;
-    margin: var(--spacing-xs) 0 0 clamp(1rem, 4vw, 2rem);
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-}
-
-.subitem-card {
-    position: relative;
-    display: grid;
-    grid-template-columns: 1.125rem minmax(0, 1fr);
-    align-items: stretch;
-    background: var(--color-background-alt);
-    border: var(--border-width) solid var(--color-border);
-    border-left: var(--border-width-2) solid var(--color-border-strong);
-    border-radius: var(--border-radius-sm);
-    transition: border-color var(--transition-fast), opacity var(--transition-fast);
-}
-
-.subitem-card--level-3 {
-    margin-left: clamp(0.75rem, 3vw, 1.5rem);
-}
-
-.subitem-card--dragged {
-    opacity: 0.4;
-}
-
-.subitem-card__body {
-    min-width: 0;
-    padding: var(--spacing-sm);
-}
-
-.subitem-card__title-row {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--spacing-xs);
-    min-width: 0;
-}
-
-.subitem-card__check {
-    margin-top: 0.05em;
-}
-
-.subitem-card__title {
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    line-height: var(--line-height-tight);
-    letter-spacing: -0.01em;
-    color: var(--color-text-primary);
-    margin: 0;
-    min-width: 0;
-}
-
-.subitem-card__notes {
-    margin-top: var(--spacing-xs);
-}
-
-.subitem-card__editor {
-    min-height: 7rem;
-    padding: 0;
-}
-
-.subitem-card__notes > :last-child {
-    margin-bottom: 0;
-}
-.subitem-card__body:hover,
-.subitem-card__body:focus-visible {
-    background: color-mix(in srgb, var(--color-background-raised) 55%, transparent);
-}
-
-.subitem-card__body:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: -2px;
-    border-radius: var(--border-radius-sm);
-}
-
-.subitem-card__meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-    margin-top: var(--spacing-xs);
-    min-width: 0;
-}
-
-.subitem-card__state {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-disabled);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.subitem-card__actions {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.subitem-card__action {
-    height: 1.375rem;
-    padding: 0 var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: transparent;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    cursor: pointer;
-}
-
-.subitem-card__action:hover,
-.subitem-card__action:focus-visible {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
-
-.subitem-card--done {
-    border-left-color: var(--color-primary);
-}
-
-.subitem-card--done .subitem-card__title {
-    color: var(--color-text-disabled);
-    text-decoration: line-through;
-}
-
-/* The same rail as an entry has, on the side the indent already draws. */
-.subitem-card__grip {
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: grab;
-    border-radius: var(--border-radius-sm);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.subitem-card__grip:active {
-    cursor: grabbing;
-}
-
-.subitem-card__grip-dots {
-    display: block;
-    width: 3px;
-    height: 22px;
-    border-radius: 9999px;
-    background: var(--color-border);
-    opacity: 0;
-    transition: opacity var(--transition-fast), background var(--transition-fast);
-}
-
-.subitem-card:hover .subitem-card__grip-dots,
-.subitem-list--dragging .subitem-card__grip-dots {
-    opacity: 1;
-}
-
-.subitem-card__grip:hover .subitem-card__grip-dots {
-    background: var(--color-border-strong);
-    height: 34px;
-}
-
-.subitem-card__grip:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: -2px;
-}
-
-.subitem-card__grip:focus-visible .subitem-card__grip-dots {
-    opacity: 1;
-}
-
-.subitem-list--dragging .subitem-card__grip:hover .subitem-card__grip-dots {
-    background: var(--color-primary);
-    width: 4px;
-    height: 100%;
-}
-
-.subitem-card__drops {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    display: grid;
-    grid-template-rows: 1fr 1fr;
-    border-radius: inherit;
-}
-
-.subitem-card__drop {
-    position: relative;
-}
-
-.subitem-card__drop::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 3px;
-    border-radius: 9999px;
-    background: var(--color-primary);
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-}
-
-.subitem-card__drop--before::after { top: -2px; }
-.subitem-card__drop--after::after { bottom: -2px; }
-
-.subitem-card__drop:hover::after {
-    opacity: 1;
-}
-
-
 /* --- Metadata strip ------------------------------------------------------ */
+/*
+  One strip, one layout. The one-line variants that used to sit here existed
+  because an entry in the list had two shapes to squeeze this into; the list row
+  is the shared task row now and this strip only ever appears in the pane beside
+  it, at one width.
+*/
 
 .entry-doc__meta {
     display: flex;
@@ -813,11 +674,6 @@ h1, h2, h3 {
     flex: 0 1 auto;
 }
 
-.entry-doc__meta-start {
-    margin-left: auto;
-    justify-content: flex-end;
-}
-
 .entry-doc__tags--end {
     margin-right: var(--spacing-xs);
     justify-content: flex-end;
@@ -825,54 +681,10 @@ h1, h2, h3 {
 }
 
 .entry-doc__meta-end {
-    margin-left: 0;
+    margin-left: auto;
     justify-content: flex-end;
 }
 
-.entry-doc--one-line .entry-doc__meta {
-    display: grid;
-    grid-template-columns: minmax(0, auto) auto auto;
-    align-items: center;
-    gap: var(--spacing-xs) var(--spacing-sm);
-    min-width: 0;
-    width: auto;
-    overflow: visible;
-}
-
-.entry-doc--one-line .entry-doc__meta-start {
-    grid-column: 2;
-    grid-row: 1;
-    min-width: 0;
-    overflow: visible;
-    margin-left: 0;
-    flex-wrap: nowrap;
-}
-
-.entry-doc--one-line .entry-doc__tags {
-    grid-column: 1;
-    grid-row: 1;
-    justify-content: flex-end;
-    max-width: 16rem;
-    overflow: hidden;
-    white-space: nowrap;
-    flex-wrap: nowrap;
-}
-
-.entry-doc--one-line .entry-doc__meta-end {
-    grid-column: 3;
-    grid-row: 1;
-    margin-left: 0;
-    justify-content: flex-end;
-    min-width: 0;
-    overflow: visible;
-    flex-wrap: nowrap;
-    gap: var(--spacing-xs);
-}
-
-.entry-doc--one-line .badge,
-.entry-doc--one-line .tag-chip {
-    white-space: nowrap;
-}
 .entry-doc__delete {
     display: inline-flex;
     align-items: center;
@@ -900,136 +712,45 @@ h1, h2, h3 {
     outline-offset: 2px;
 }
 
-/* --- Read view ----------------------------------------------------------- */
+/* --- Scheduling and dependency rows -------------------------------------- */
 
-.entry-doc__read {
-    padding: var(--spacing-xs) 0 var(--spacing-sm);
-    cursor: text;
-}
-
-.entry-doc--one-line .entry-doc__read {
-    grid-column: 1;
-    grid-row: 1;
-    padding: 0;
-    min-width: 0;
-    align-self: center;
-}
-
-.entry-doc--editing .entry-doc__body {
-    min-height: max-content;
-}
-
-.entry-doc--one-line .entry-doc__meta {
-    grid-column: 2;
-    grid-row: 1;
-    align-self: center;
-}
-
-.entry-doc__read:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 4px;
-    border-radius: var(--border-radius-sm);
-}
-
-.entry-doc__title-line {
+/* A column, because that is the shape TaskAction is: one row per fact, each
+   saying either what it is set to or what it would do. The rows are already
+   styled by components.css; what is left here is where the block sits and how
+   far it is allowed to grow. */
+.entry-doc__schedule {
     display: flex;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: var(--spacing-xs);
-    min-width: 0;
-    overflow: visible;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    max-width: 24rem;
 }
 
-.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line {
-    align-items: center;
-    margin-bottom: var(--spacing-sm);
+.entry-doc__schedule-input,
+.entry-doc__schedule-select {
+    align-self: flex-start;
+    margin-left: var(--spacing-lg);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
 }
 
-.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta {
-    flex: 0 1 auto;
-    flex-wrap: nowrap;
-    justify-content: flex-end;
-    margin-left: auto;
-    min-width: 0;
-    padding-top: 1px;
+.entry-doc__schedule-input {
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
 }
 
-.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,
-.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end {
-    flex-wrap: nowrap;
+.entry-doc__schedule-depends {
+    margin-left: var(--spacing-lg);
 }
 
-.entry-doc__title {
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-xl);
-    overflow: visible;
-    overflow-wrap: anywhere;
-    line-height: var(--line-height-tight);
-    margin: 0 0 var(--spacing-xs);
-    min-width: 0;
-}
-
-.entry-doc__title-line .entry-doc__title {
-    flex: 1 1 auto;
-    margin: 0;
-    overflow-wrap: anywhere;
-    text-overflow: clip;
-    white-space: normal;
-}
-
-.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__title {
-    flex: 1 1 auto;
-    margin: 0;
-    overflow-wrap: anywhere;
-    text-overflow: clip;
-    white-space: normal;
-}
-
-.entry-doc--one-line .entry-doc__title {
-    margin: 0;
-    text-overflow: clip;
-    white-space: normal;
-}
-
-.entry-doc__title--empty {
-    color: var(--color-text-disabled);
-}
-
-
-
-
-
-.entry-doc--read-only .entry-doc__read {
-    cursor: default;
-}
-
-.entry-doc--read-only .entry-doc__grip {
-    cursor: default;
-    opacity: 0.35;
-}
-
-.entry-doc--read-only .subitem-card__grip {
-    cursor: default;
-    opacity: 0.35;
-}
-
-/* A disabled control still takes part in hit testing, so the metadata badges
-   would swallow clicks meant for the fold caret they sit over. On a read-only
-   row none of them respond to a click anyway, so let the click fall through. */
-.entry-doc--read-only .metadata-editor__select:disabled,
-.entry-doc--read-only .entry-doc__tag-input[readonly] {
-    pointer-events: none;
-}
-
-.knowledge-stack__repository {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-
-/* Pushing and re-checking are actions, not metadata, so they read as controls
-   sitting among the badges rather than as badges themselves. */
+/* --- Small icon actions -------------------------------------------------- */
+/*
+  Pushing and re-checking are actions, not metadata, so they read as controls
+  sitting among the badges rather than as badges themselves. Shared with the
+  domain knowledge panel, which carries the same classes for the same reason.
+*/
 .entry-doc__actions {
     display: inline-flex;
     align-items: center;
@@ -1087,6 +808,7 @@ h1, h2, h3 {
 .entry-doc__icon-action--push { border-style: dashed; }
 
 .entry-doc__icon-action--copilot { border-color: var(--color-primary-dark); }
+
 .entry-doc__gh-error {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);
@@ -1094,6 +816,7 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
+/* --- Tags -------------------------------------------------------------- */
 
 .entry-doc__tag-picker {
     display: inline-flex;
@@ -1146,76 +869,59 @@ h1, h2, h3 {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 1px;
 }
-@container (max-width: 58rem) {
-    .entry-doc__tags {
-        display: none;
-    }
+
+.knowledge-stack__repository {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
-@container (max-width: 58rem) {
-    .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta {
-        justify-content: flex-end;
-        margin-left: var(--spacing-xs);
-    }
-}
-
-@container (max-width: 50rem) {
-    .entry-doc__title-line .metadata-editor--priority,
-    .entry-doc--one-line .metadata-editor--priority {
-        display: none;
-    }
-}
-
-@container (max-width: 40rem) {
-    .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start .metadata-editor--type,
-    .entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end .entry-doc__tag-picker,
-    .entry-doc--one-line .metadata-editor--type,
-    .entry-doc--one-line .entry-doc__tag-picker {
-        display: none;
-    }
-}
-@container (max-width: 44rem) {
-    .entry-doc--one-line .entry-doc__body {
-        grid-template-columns: minmax(8rem, 1fr) minmax(0, max-content);
-    }
-
-    .entry-doc--one-line .entry-doc__meta {
+/* Narrow enough and the split stops being one: the list stacks above the entry
+   rather than each half being too narrow to read. */
+@media (max-width: 60rem) {
+    .backlog-split {
         display: flex;
-        justify-content: flex-end;
+        flex-direction: column;
     }
 
-    .entry-doc--one-line .entry-doc__tags {
+    .backlog-split .split-pane__separator {
         display: none;
     }
 }
 
-@container (max-width: 34rem) {
-    .entry-doc--one-line .entry-doc__body {
-        grid-template-columns: minmax(0, 1fr) auto;
-    }
+/*
+  The filter bar answers to its column, not to the window.
 
-    .entry-doc--one-line .entry-doc__meta-start .badge:not(.badge--area) {
+  It sits in the split's list half, which is the window minus the open entry's
+  panel, so the viewport steps this used to have never fired: at a 1400px viewport
+  nothing matched and `.filter-bar { overflow: hidden }` quietly clipped the bar
+  instead. Measured live at that width against the old fixed 480px column, the six
+  status chips took 369 of it and squeezed the area group down to one chip — the
+  case a viewport query cannot see, and the case these two steps are for. The
+  column is wider now that the panel is the fixed half, which makes that squeeze
+  rarer rather than impossible: the reader can still drag the panel out to 48rem.
+
+  Status collapses first and areas never do. An area exists because somebody typed
+  it and its count is where the work is; status is one of a fixed six, and the
+  chosen one is the only one that has to stay legible. Collapsing gives back most
+  of those 369px, which is the only move here that actually buys the areas their
+  room — tightening the gaps first would have bought about 20px of it.
+*/
+
+/* 38rem: the full status strip (369px) plus the gap between the groups plus the
+   ~200px an "All" chip and a pile or two need comes to roughly 585px, so the strip
+   stops fitting a shade above that. Below this the group shows the chosen status
+   and nothing else, which is the one chip a reader is looking for. */
+@container backlog-list (max-width: 38rem) {
+    .filter-group--status .chip:not(.chip--active):not(:first-child) {
         display: none;
     }
-
-    .entry-doc--one-line .entry-doc__meta-start .badge--area {
-        display: inline-flex;
-    }
-
-    .entry-doc--one-line .entry-doc__meta-start {
-        display: inline-flex;
-    }
-
-    .entry-doc--one-line .entry-doc__meta-end {
-        gap: var(--spacing-xs);
-    }
-
-    .entry-doc--one-line .badge--status {
-        min-width: auto;
-        margin-left: 0;
-    }
 }
-@media (max-width: 48rem) {
+
+/* 26rem: down here the column is close to the 20rem the separator can drag it to,
+   and one chip per group is all that fits. The count goes with the padding — a
+   name and a number in a chip this narrow is neither. */
+@container backlog-list (max-width: 26rem) {
     .filter-bar {
         gap: var(--spacing-xs);
     }
@@ -1227,11 +933,10 @@ h1, h2, h3 {
     .chip__count {
         display: none;
     }
-}
 
-@media (max-width: 34rem) {
-    .filter-group .chip:not(.chip--active):not(:first-child) {
-        display: none;
+    /* Nothing left to push away from: the groups are one chip each. */
+    .filter-group--status {
+        margin-left: 0;
     }
 }
 
@@ -1243,16 +948,6 @@ h1, h2, h3 {
     .app-header {
         flex-wrap: wrap;
         gap: var(--spacing-sm);
-    }
-
-    .subitem-list {
-        padding-left: var(--spacing-md);
-    }
-}
-
-@media (max-width: 720px) {
-    .filter-group--status {
-        margin-left: 0;
     }
 }
 
