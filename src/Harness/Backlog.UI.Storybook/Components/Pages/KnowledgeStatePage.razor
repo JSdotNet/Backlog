@@ -1,0 +1,375 @@
+@page "/knowledge-base/state"
+
+<PageTitle>State in the knowledge base — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="State"
+           Summary="A subpage of Knowledge base, about the third axis: status is the one field every block must carry, and what it is allowed to say depends on which folder the block came from. KnowledgeStatus holds the five vocabularies, KnowledgeStatusTone is the one visual scale underneath them, and KnowledgeFolder is what connects a document to its own. Adding state support to a component is one parameter — the folder — and everything on this page follows from it.">
+
+    <Alert Message="@FolderNotice" Role="note" CssClass="sb-callout" />
+
+    <Story Name="Five folders, five vocabularies"
+           Description="Nobody agreed on one set of words, and they were right not to. `.tech` runs a tech-radar ladder, `.backlog` tracks a task through to done, `.arc42` and `.domain` describe a standing structure that is never finished — and `.design` describes one that has no proposed stage because a design is either being drawn or it is in force. Renaming any of them to suit a stylesheet would make the folder read wrong to the people who write it.
+
+Each row below is KnowledgeStatus.Values for that folder, in the order the folder's own instructions list them, drawn as live pills so the tone is visible rather than described. Under every row is the source those pills were read from: one `status` line per pill, in the same order, generated from the same call — so the source and the pill above it cannot disagree about what the folder allows. Two folders share a list: architecture and domain knowledge both describe something standing rather than something in flight, which is why neither has a `done`.
+
+These are KnowledgeStatusPill and not a whole metadata view, because a view brings a description list with it. A row built out of one-field blocks read `status draft status proposed status active status deprecated`, the label repeated in front of every pill, because every pill arrived carrying its own list. A pill on its own is the status word and nothing else.
+
+There is a second reason now, and it is the stronger one. A metadata view told which folder a block came from draws its status as a BadgeSelect over that folder's values, because knowing the vocabulary is what makes offering it possible. That is right in a record and wrong here: these rows are showing what a status looks like, and twenty selects would be twenty invitations to change something that is not there to be changed. The pill is the read-only form and stays available for exactly this.
+
+Values also answers for a folder it does not know, and the answer is an empty list. Nothing is asserted about a document from outside the knowledge folders, which is the compatibility guarantee three stories down."
+           Code="@ValuesCode">
+        <div class="sb-stack" data-testid="knowledge-state-vocabularies">
+            @foreach (var folder in Folders)
+            {
+                <div class="sb-stack" data-testid="@($"knowledge-state-vocabulary-{folder.ToString().ToLowerInvariant()}")">
+                    <p class="sb-label">@FolderName(folder)</p>
+                    <div class="sb-row">
+                        @foreach (var value in KnowledgeStatus.Values(folder))
+                        {
+                            <KnowledgeStatusPill Status="@value"
+                                                 Folder="@folder"
+                                                 TestId="@($"knowledge-state-{folder.ToString().ToLowerInvariant()}-{value}")" />
+                        }
+                    </div>
+                    <pre class="sb-story__code"
+                         data-testid="@($"knowledge-state-vocabulary-{folder.ToString().ToLowerInvariant()}-source")"><code>@StatusLines(folder)</code></pre>
+                </div>
+            }
+        </div>
+    </Story>
+
+    <Story Name="One visual scale, underneath all five"
+           Description="A tone is the shared axis the vocabularies have in common: how far along a thing is, and whether it wants attention. It exists so a reader who has learned one folder's colours can read another's at a glance without the folders having to agree on a single word.
+
+The mapping below is computed rather than written down here — every value of every folder, grouped by the tone KnowledgeStatus.Tone gives it. That is why `.tech` reads out of order: a candidate is named but unproven and a trial is being run, so the ladder puts candidate first while the trial is the more tentative of the two.
+
+Under each row is what those pills were written as: the folder, and one `status` line for each of its values that lands on this tone. A pill is the status word alone, so without the folder beside it the row would say which words share a tone and never which files are allowed to use them.
+
+Nothing in the stylesheet invents a colour for this. Each tone sits on a semantic surface token and takes its text from the ramp, and the two quiet tones spend no colour at all — a scale that painted seven distinct hues would be a legend, not a signal.">
+        <dl class="sb-grid" data-testid="knowledge-state-tones">
+            @foreach (var tone in Tones)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@tone.Name — @tone.Meaning</dt>
+                    <dd class="sb-stack">
+                        <div class="sb-row">
+                            @foreach (var member in tone.Members)
+                            {
+                                <KnowledgeStatusPill Status="@member.Value"
+                                                     Folder="@member.Folder"
+                                                     TestId="@($"knowledge-state-tone-{member.Folder.ToString().ToLowerInvariant()}-{member.Value}")" />
+                            }
+                        </div>
+                        <pre class="sb-story__code"
+                             data-testid="@($"knowledge-state-tone-{tone.Name.ToLowerInvariant()}-source")"><code>@tone.Source</code></pre>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="The same word, two verdicts, because the folder differs"
+           Description="`active` is a perfectly good status in `.design` and is not a status at all in `.tech`, where the equivalent rung is called `adopted`. Both statements are below, and the only thing that separates them is the folder parameter.
+
+This is why tone is folder-gated rather than guessed from the word. Two folders spell different meanings with the same spelling, and one of them spells the same meaning with a different word — a guess made without the folder would be wrong about half the time, and a confidently wrong colour is worse than no colour.
+
+So the last cell, with no folder given, is the answer this component gave before any of this existed: the flat pill, its literal `knowledge-status--active` class, no tone and no verdict. Not knowing is a real state and it renders as one.
+
+The folder decides the shape as well, so read the four cells in two pairs. The first two are selects: the folder is known and the status is one of its values, so every state the control can show is a state that file is allowed to say — and `.design` offers three words where `.tech` offers five, which is the vocabularies being different made concrete. The last two are pills and must be. `active` is not on `.tech`'s list, and a select with no option for the value it was handed would show `candidate` instead and report a state nobody wrote; the fourth cell has no list at all. A pill is what says both of those out loud.
+
+Every cell carries the one-line block it was read from, and the badge beside it is handed the status out of that same line rather than a second copy of the word."
+           Code="@FolderCode">
+        <dl class="sb-grid" data-testid="knowledge-state-same-word">
+            @foreach (var verdict in Verdicts)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@verdict.Label</dt>
+                    <dd class="sb-stack">
+                        <pre class="sb-story__code" data-testid="@($"{verdict.TestId}-source")"><code>@verdict.Block</code></pre>
+                        <MetadataBadge Status="@verdict.Status"
+                                       Folder="@verdict.Folder"
+                                       AriaLabel="@verdict.AriaLabel"
+                                       TestId="@verdict.TestId" />
+                        <p class="sb-state">@verdict.Reading</p>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="A status nobody recognises is flagged, not quietly styled"
+           Description="`activ` is one keystroke away from a value `.design` defines, and that is exactly what makes it dangerous: it looks like a status, it sorts near one, and a viewer that painted it like every other unknown word would let it sit in the file indefinitely. Here it takes a surface that says look at this, and its title names the values that were expected — naming them is the whole point of knowing the vocabulary in the first place.
+
+The pill keeps its tone classes while it does this, so a half-recognised value still reads as a pill rather than as an error box. What changed is the surface, not the shape.
+
+An unrecognised status is never an exception and never suppresses the block. What a file says is not something a viewer gets to refuse; it is something a viewer can make visible."
+           Code="@UnrecognisedCode">
+        <div class="sb-columns" data-testid="knowledge-state-unrecognised">
+            <div class="sb-stack">
+                <p class="sb-label">The block, as written</p>
+                <pre class="sb-story__code" data-testid="knowledge-state-unrecognised-source"><code>@TypoBlock</code></pre>
+                <p class="sb-state" data-testid="knowledge-state-unrecognised-check">@TypoSummary</p>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Rendered as a .design chapter</p>
+                <KnowledgeMetaView Metadata="@TypoMetadata"
+                                   Folder="KnowledgeFolder.Design"
+                                   TestId="knowledge-state-unrecognised-view" />
+                <p class="sb-label">The same block with no folder given</p>
+                <KnowledgeMetaView Metadata="@TypoMetadata"
+                                   TestId="knowledge-state-unrecognised-blind" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Adding state support to a component"
+           Description="One parameter. Everything on this page is what a component gets for passing a folder down to the badge or the metadata view — the vocabulary, the tone, the flag on a value that is not in it, and the status control below, which is the vocabulary offered rather than only checked.
+
+That control keeps the reader's choice by itself, so it is honest with nothing wired to it: the block below has no listener and picking a value still changes what the record says. A host that wants the change to outlive the page adds OnStatusChanged and writes it somewhere.
+
+Derive the folder rather than asking for it. It is always the first segment of a repository-relative path, so KnowledgeFolders.FromPath answers from the address a document already carries, and a reference that was parsed already has it on Folder. A component that took the folder as a hand-set enum would eventually be told the wrong one.
+
+Leaving it out is a supported answer, not a missing one. A surface that shows metadata from somewhere other than a knowledge folder passes nothing and gets exactly what it got before."
+           Code="@WiringCode">
+        <div class="sb-stack" data-testid="knowledge-state-wiring">
+            <p class="sb-label">The path, and the block read out of it</p>
+            <pre class="sb-story__code" data-testid="knowledge-state-wiring-source"><code>@WiringSource</code></pre>
+            <KnowledgeMetaView Metadata="@BacklogMetadata"
+                               Folder="@KnowledgeFolders.FromPath(BacklogPath)"
+                               TestId="knowledge-state-wiring-view" />
+            <p class="sb-state" data-testid="knowledge-state-frompath">@FromPathSummary</p>
+        </div>
+    </Story>
+
+    <Story Name="Checking a status before you write one"
+           Description="IsKnown is the same question the badge asks itself, exposed for callers that need the answer before rendering — an editor offering the values a folder allows, a save path that refuses to write a word the folder has never defined, a check that walks the repository.
+
+It is trimmed and case-insensitive, because a stray capital is a spelling of the same status rather than a different one. It answers false for every status when the folder is unknown, which is the same standing-down the tone does: without the folder there is no vocabulary to check against, and false there means not verifiable rather than wrong.
+
+Each row shows the line a file would have carried for the call above it. The call in the label and the line in the block are both built from the same folder and the same status, so a row cannot end up asking one question and showing another."
+           Code="@ValidateCode">
+        <dl class="sb-grid" data-testid="knowledge-state-checks">
+            @foreach (var check in Checks)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@check.Question</dt>
+                    <dd class="sb-stack">
+                        <pre class="sb-story__code"><code>@check.Block</code></pre>
+                        <p class="sb-state">@check.Answer</p>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private const string FolderNotice =
+        "Every behaviour on this page is gated on the folder. With no folder given, the status is still "
+        + "shown and simply not judged — no tone class, no flag, and the same markup the metadata strip "
+        + "rendered before any of this existed.";
+
+    private sealed record ToneRow(string Name, string Meaning, string Source, IReadOnlyList<StatusValue> Members);
+
+    private sealed record StatusValue(KnowledgeFolder Folder, string Value);
+
+    /// <summary>One cell of the same-word story. The status is held once and read
+    /// twice — as the block on screen and as the badge's parameter — so the source
+    /// shown is provably the source being rendered.</summary>
+    private sealed record Verdict(string Label, KnowledgeFolder Folder, string Status, string Reading, string TestId)
+    {
+        public string Block => $"status: {Status}";
+
+        // "no folder status" is what FolderName would give the last cell, and an
+        // accessible name is read aloud rather than skimmed.
+        public string AriaLabel => Folder is KnowledgeFolder.Unknown ? "Status" : $"{FolderName(Folder)} status";
+    }
+
+    /// <summary>One row of the IsKnown table: the call, the line a file would
+    /// have carried for it, and what came back.</summary>
+    private sealed record Check(string Question, string Block, string Answer);
+
+    private static readonly IReadOnlyList<KnowledgeFolder> Folders =
+    [
+        KnowledgeFolder.Arc42,
+        KnowledgeFolder.Domain,
+        KnowledgeFolder.Backlog,
+        KnowledgeFolder.Tech,
+        KnowledgeFolder.Design
+    ];
+
+    private const string TypoBlock = """
+        status: activ
+        related: [".design/design-principles.md"]
+        """;
+
+    private static readonly KnowledgeMetadata TypoMetadata = KnowledgeMeta.Parse(TypoBlock);
+
+    private const string BacklogPath = ".backlog/domain-backlog.md";
+
+    private const string BacklogBlock = """
+        status: in-progress
+        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        """;
+
+    private static readonly KnowledgeMetadata BacklogMetadata = KnowledgeMeta.Parse(BacklogBlock);
+
+    /// <summary>The four cells of the same-word story, in the order they read: two
+    /// folders that define the word, one that does not, and no folder at all.
+    /// The last one keeps MetadataBadge's two-parameter branch, which is the
+    /// markup this claim is about.</summary>
+    private static readonly IReadOnlyList<Verdict> Verdicts =
+    [
+        new(".design — active is in force", KnowledgeFolder.Design, "active",
+            "Known, tone Active.", "knowledge-state-active-design"),
+
+        new(".tech — the same rung is called adopted", KnowledgeFolder.Tech, "adopted",
+            "Known, tone Active — a different word for the same place on the scale.",
+            "knowledge-state-adopted-tech"),
+
+        new(".tech — active, which .tech does not define", KnowledgeFolder.Tech, "active",
+            "Flagged. The same word that was fine one cell to the left.",
+            "knowledge-state-active-tech"),
+
+        new("No folder — no opinion", KnowledgeFolder.Unknown, "active",
+            "The markup this component has always rendered.", "knowledge-state-active-unknown")
+    ];
+
+    /// <summary>The tones, each with every folder value that maps onto it. Read
+    /// out of KnowledgeStatus rather than restated here, so this table cannot
+    /// disagree with the component beside it.</summary>
+    private static readonly IReadOnlyList<ToneRow> Tones =
+    [
+        Row(KnowledgeStatusTone.Provisional, "written down, not agreed"),
+        Row(KnowledgeStatusTone.Planned, "agreed and waiting"),
+        Row(KnowledgeStatusTone.Active, "live and current"),
+        Row(KnowledgeStatusTone.Complete, "finished"),
+        Row(KnowledgeStatusTone.Attention, "stuck, or being avoided"),
+        Row(KnowledgeStatusTone.Retired, "kept for history only")
+    ];
+
+    private static readonly IReadOnlyList<Check> Checks =
+    [
+        Asked(KnowledgeFolder.Backlog, "in-progress", "a value the folder defines."),
+        Asked(KnowledgeFolder.Backlog, "  In-Progress ", "trimmed and case-insensitive."),
+        Asked(KnowledgeFolder.Backlog, "adopted", "a real status, in a different folder."),
+        Asked(KnowledgeFolder.Unknown, "done", "no vocabulary to check against."),
+        Toned(KnowledgeFolder.Design, "active", "in force in .design."),
+        Toned(KnowledgeFolder.Tech, "adopted", "a different word for the same rung."),
+        Toned(KnowledgeFolder.Unknown, "active", "the folder-blind answer.")
+    ];
+
+    /// <summary>An IsKnown row, built from the folder and the status so the call,
+    /// the block and the answer are three readings of the same two values.</summary>
+    private static Check Asked(KnowledgeFolder folder, string status, string note) => new(
+        $"IsKnown({folder}, \"{status}\")",
+        $"status: {status}",
+        $"{KnowledgeStatus.IsKnown(folder, status)} — {note}");
+
+    /// <summary>The same, for Tone. One call per row rather than two to a row,
+    /// because a row shows one block and a block states one status.</summary>
+    private static Check Toned(KnowledgeFolder folder, string status, string note) => new(
+        $"Tone({folder}, \"{status}\")",
+        $"status: {status}",
+        $"{KnowledgeStatus.Tone(folder, status)} — {note}");
+
+    /// <summary>A folder's whole vocabulary as the lines that would carry it, one
+    /// block's worth per pill. Read out of the same call the pills are, so the row
+    /// and its source are one list shown twice rather than two lists.</summary>
+    private static string StatusLines(KnowledgeFolder folder) =>
+        string.Join("\n", KnowledgeStatus.Values(folder).Select(value => $"status: {value}"));
+
+    /// <summary>The path above the block it holds, because the folder is read off
+    /// the path and the block alone would not show where that came from.</summary>
+    private static string WiringSource => $"{BacklogPath}\n\n{BacklogBlock}";
+
+    private static string TypoSummary =>
+        $"IsKnown(.design, \"activ\") is {KnowledgeStatus.IsKnown(KnowledgeFolder.Design, "activ")}. "
+        + $"Expected one of: {string.Join(", ", KnowledgeStatus.Values(KnowledgeFolder.Design))}.";
+
+    private static string FromPathSummary =>
+        $"KnowledgeFolders.FromPath(\"{BacklogPath}\") is "
+        + $"{KnowledgeFolders.FromPath(BacklogPath)}, so `in-progress` is read against that folder.";
+
+    private static ToneRow Row(KnowledgeStatusTone tone, string meaning)
+    {
+        var members = Folders
+            .SelectMany(folder => KnowledgeStatus.Values(folder).Select(value => new StatusValue(folder, value)))
+            .Where(member => KnowledgeStatus.Tone(member.Folder, member.Value) == tone)
+            .ToList();
+
+        // Grouped by folder rather than listed per pill: a folder that spells two
+        // values onto one tone is one heading with two lines under it, which is
+        // how those two blocks would actually be written.
+        var source = string.Join("\n\n", members
+            .GroupBy(member => member.Folder)
+            .Select(group => $"{FolderName(group.Key)}\n"
+                + string.Join("\n", group.Select(member => $"status: {member.Value}"))));
+
+        return new ToneRow(tone.ToString(), meaning, source, members);
+    }
+
+    /// <summary>The folder as it is spelt on disk, which is what an author
+    /// recognises — the enum name is an implementation detail.</summary>
+    private static string FolderName(KnowledgeFolder folder) => folder switch
+    {
+        KnowledgeFolder.Arc42 => ".arc42",
+        KnowledgeFolder.Domain => ".domain",
+        KnowledgeFolder.Backlog => ".backlog",
+        KnowledgeFolder.Tech => ".tech",
+        KnowledgeFolder.Design => ".design",
+        _ => "no folder"
+    };
+
+    private const string ValuesCode = """
+        @* The folder's own list, in the order its instructions give. An editor
+           offering a status should offer these and nothing else. *@
+        foreach (var value in KnowledgeStatus.Values(KnowledgeFolder.Tech))
+        {
+            // candidate, trial, adopted, hold, retired
+        }
+        """;
+
+    private const string FolderCode = """
+        @* One parameter. The vocabulary, the tone and the flag all follow from
+           it, and leaving it off is a supported answer rather than a missing one. *@
+        <MetadataBadge Metadata="@metadata" Folder="KnowledgeFolder.Design" />
+
+        <KnowledgeMetaView Metadata="@metadata" Folder="KnowledgeFolder.Tech" />
+
+        @* Passing nothing keeps the flat pill this component always drew. *@
+        <MetadataBadge Status="@status" Related="@relatedIds" />
+        """;
+
+    private const string UnrecognisedCode = """
+        @* What the badge does with a value the folder does not define: the pill
+           keeps its tone classes and gains a surface that asks to be looked at,
+           and the title names what was expected instead. *@
+        <span class="knowledge-status knowledge-status--activ knowledge-status--tone-unknown knowledge-status--unrecognised"
+              title="Unexpected status. Expected one of: draft, active, deprecated.">activ</span>
+        """;
+
+    private const string WiringCode = """
+        @* Derive the folder from the path rather than asking a caller for it —
+           it is always the first segment, and a parsed reference already carries
+           it on Folder. *@
+        <KnowledgeMetaView Metadata="@metadata"
+                           Folder="@KnowledgeFolders.FromPath(documentPath)" />
+
+        @* The same on a whole document, reaching every block in the body. *@
+        <MarkdownView Blocks="@blocks"
+                      RenderKnowledgeMetadata="true"
+                      KnowledgeFolder="@KnowledgeFolders.FromPath(documentPath)" />
+        """;
+
+    private const string ValidateCode = """
+        @* The same question the badge asks itself, for a caller that needs the
+           answer before it renders anything. *@
+        if (!KnowledgeStatus.IsKnown(folder, status))
+        {
+            var expected = string.Join(", ", KnowledgeStatus.Values(folder));
+            problems.Add($"{path}: status '{status}'. Expected one of: {expected}.");
+        }
+        """;
+}

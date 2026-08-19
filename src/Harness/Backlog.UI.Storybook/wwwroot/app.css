@@ -141,6 +141,30 @@ html, body {
     gap: var(--spacing-md);
 }
 
+/* The same grid, for cells whose content is repository addresses.
+
+   A path is one long token, and `.sb-grid`'s 16rem track is measured for a short
+   label and a sentence. A cell whose own minimum is wider than its track does not
+   widen the track: it spills across the cell beside it, and the cell in the last
+   column spills off the page where nothing can scroll it back. Two things fix
+   that together — tracks wide enough for an address, and cells allowed to shrink
+   below their content so a path breaks rather than sets the width. It is a
+   modifier rather than a change to `.sb-grid` because the other pages lay out
+   labels and prose in that grid and are correct at 16rem. */
+.sb-grid--addresses {
+    grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+}
+
+.sb-grid--addresses > *,
+.sb-grid--addresses dd {
+    min-width: 0;
+}
+
+.sb-grid--addresses .sb-label,
+.sb-grid--addresses .sb-state {
+    overflow-wrap: anywhere;
+}
+
 .sb-columns {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
@@ -460,6 +484,17 @@ html, body {
     .sb-metric:hover .sb-motion {
         transform: none;
     }
+}
+
+/* A pretend host panel for the knowledge stories, so a CssClass handed to
+   KnowledgeMetaView is visibly landing somewhere. Deliberately unlike anything
+   the library owns: a class that failed to reach the element should be
+   noticeable rather than merely untested. */
+.sb-metadata-panel {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-left: 2px solid var(--color-primary);
+    background: var(--color-background-alt);
+    border-radius: var(--border-radius-sm);
 }
 
 /* A reference table inside a story — what a formatter returns for a given call,

@@ -2698,7 +2698,7 @@ h1, h2, h3 {
 
 .knowledge-stack__menu-message {
     margin: 0;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
@@ -2841,6 +2841,10 @@ h1, h2, h3 {
 .domain-metadata__link:focus-visible {
     color: var(--color-primary);
 }
+
+/* Bare error text, with no error surface behind it to carry the meaning, so the
+   colour is the only thing saying this failed. That is the case color-error-text
+   exists for, and the gap the comment here used to describe. */
 .domain-knowledge__action-error {
     color: var(--color-error-text);
     font-size: var(--font-size-xs);

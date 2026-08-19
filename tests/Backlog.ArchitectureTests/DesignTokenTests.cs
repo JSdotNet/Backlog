@@ -94,6 +94,100 @@ public class DesignTokenTests
         }
     }
 
+    /// <summary>Bootstrap's own tokens, which the mobile head inherits from the
+    /// vendored copy under <c>lib/</c>. That file is deliberately not read: keeping
+    /// up with whatever a third party declares is not this suite's job. Exempting
+    /// the prefix is narrower than it looks, because <c>--bs-</c> is Bootstrap's
+    /// reserved namespace and nothing of ours can hide behind it.</summary>
+    private const string VendorTokenPrefix = "--bs-";
+
+    /// <summary>A token reference with no fallback has to resolve to a declaration
+    /// somewhere, or the declaration holding it is invalid at computed-value time.
+    /// That failure is silent in a way that makes it hard to catch by eye: nothing
+    /// reaches the console, the property quietly drops to its inherited value, and
+    /// where the reference sits inside <c>color-mix()</c> the entire declaration is
+    /// discarded rather than just that one value. An error banner styled that way
+    /// loses its border and background altogether and reads as ordinary text.
+    ///
+    /// <para>The comments in the library's token block record two earlier rounds of
+    /// exactly this bug — a spacing step that "resolved to nothing and collapsed to
+    /// zero", and three radius tokens that "had never been declared" and so lived on
+    /// as raw literals. It kept recurring because nothing checked, which is what
+    /// this test is for.</para>
+    ///
+    /// <para>Absence of a fallback is the precise rule, not merely a convenient one.
+    /// <c>var(--split-pane-start, 50%)</c> names a value set at runtime from a Razor
+    /// inline <c>style</c> or from <c>components.js</c>, so no stylesheet can declare
+    /// it and the fallback is what makes the reference legal. Every deliberately
+    /// undeclared token here carries one, so requiring a fallback separates the
+    /// runtime-supplied tokens from the genuine typos without listing either.</para></summary>
+    [Fact]
+    public void No_stylesheet_uses_a_token_that_is_never_declared()
+    {
+        var stylesheets = ProductStylesheets().ToList();
+
+        Assert.NotEmpty(stylesheets);
+
+        var sources = stylesheets.ToDictionary(
+            file => file,
+            file => WithoutComments(File.ReadAllText(file.FullName)));
+
+        // Anchoring on the '{' or ';' that precedes it is what separates a
+        // declaration from a selector: `.button--danger:hover` also reads as
+        // `--danger:` to a looser pattern, and treating that as a declaration would
+        // let a misspelled token pass by matching a BEM modifier of the same name.
+        var declared = sources.Values
+            .SelectMany(css => Regex.Matches(css, @"[{;]\s*(--[a-z0-9-]+)\s*:")
+                .Select(match => match.Groups[1].Value))
+            .ToHashSet();
+
+        Assert.NotEmpty(declared);
+
+        // Declarations are collected from every stylesheet rather than from `:root`
+        // alone, because a rule may legitimately set a token for its own subtree —
+        // `--graph-explorer-status-color` is declared that way and read back by a
+        // descendant.
+        foreach (var (stylesheet, css) in sources)
+        {
+            var unresolved = Regex.Matches(css, @"var\(\s*(--[a-z0-9-]+)\s*(?<fallback>,)?")
+                .Where(match => !match.Groups["fallback"].Success)
+                .Select(match => match.Groups[1].Value)
+                .Where(token => !token.StartsWith(VendorTokenPrefix, StringComparison.Ordinal))
+                .Where(token => !declared.Contains(token))
+                .Distinct()
+                .OrderBy(token => token)
+                .ToList();
+
+            Assert.True(
+                unresolved.Count == 0,
+                $"{Relative(stylesheet)} references tokens no stylesheet declares, and gives them no "
+                + "fallback: " + string.Join(", ", unresolved)
+                + ". Every declaration using one is invalid at computed-value time, so it silently "
+                + "loses its value — declare the token, or correct the reference to the name the "
+                + "design system actually uses.");
+        }
+    }
+
+    /// <summary>Comments are stripped before anything is read out of a stylesheet.
+    /// The storybook's foundations section explains in prose that each specimen
+    /// "sets the property from var(--token)", and that sentence is not a reference
+    /// to a token named <c>token</c>.</summary>
+    private static string WithoutComments(string css) =>
+        Regex.Replace(css, @"/\*.*?\*/", " ", RegexOptions.Singleline);
+
+    /// <summary>Every stylesheet the product ships: the component library's, and
+    /// each host's own. Vendored CSS is left out — see <see cref="VendorTokenPrefix"/>.</summary>
+    private static IEnumerable<FileInfo> ProductStylesheets()
+    {
+        var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src"));
+
+        return root.Exists
+            ? root.EnumerateFiles("*.css", SearchOption.AllDirectories)
+                .Where(NotBuildOutput)
+                .Where(file => !IsVendored(Relative(file)))
+            : [];
+    }
+
     /// <summary>
     /// A rendered heading has to be given its weight, because it is not given one
     /// by the element it is drawn on.

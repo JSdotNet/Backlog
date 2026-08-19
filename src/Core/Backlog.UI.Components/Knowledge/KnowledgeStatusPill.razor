@@ -1,0 +1,78 @@
+@*
+    The one word a metadata block leads with: is this current?
+
+    It lives on its own because the answer is wanted next to the heading, not
+    three rows down a description list. Before this existed the only way to draw
+    a folder-aware status was to hand KnowledgeMetaView a whole block and take
+    the <dl> that came with it, so a row of statuses read "status draft status
+    proposed status active" — the label repeated before every pill because every
+    pill brought its own list with it.
+
+    Nothing here judges the word without knowing where it came from. The same
+    status means different things in different folders, so a tone or a warning
+    guessed without the folder would be wrong as often as right, and a
+    folder-blind pill renders exactly the two classes it always did.
+*@
+
+@if (!string.IsNullOrWhiteSpace(Status))
+{
+    <span class="@ClassValue" title="@StatusTitle" data-testid="@TestId" @attributes="AdditionalAttributes">@Status</span>
+}
+
+@code {
+    /// <summary>The status word, exactly as it was authored. Nothing in,
+    /// nothing out: a block that states no status should not leave an empty
+    /// pill on the line.</summary>
+    [Parameter]
+    public string? Status { get; set; }
+
+    /// <summary>Which folder the status was read from. Without it the status is
+    /// still shown, just not judged.</summary>
+    [Parameter]
+    public KnowledgeFolder Folder { get; set; } = KnowledgeFolder.Unknown;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private KnowledgeStatusTone Tone => KnowledgeStatus.Tone(Folder, Status);
+
+    private bool Unrecognised => Folder is not KnowledgeFolder.Unknown && !KnowledgeStatus.IsKnown(Folder, Status);
+
+    private string ClassValue
+    {
+        get
+        {
+            var slug = BadgeSlug.Of(Status, "unknown");
+            var classes = $"knowledge-status knowledge-status--{slug}";
+
+            // The tone only means something once the folder is known, so a
+            // folder-blind view renders exactly the classes it always did.
+            if (Folder is not KnowledgeFolder.Unknown)
+            {
+                classes += $" knowledge-status--tone-{Tone.ToString().ToLowerInvariant()}";
+            }
+
+            if (Unrecognised)
+            {
+                classes += " knowledge-status--unrecognised";
+            }
+
+            // Appended last so a caller's class never displaces one the
+            // stylesheet or a test matches on by exact position.
+            return string.IsNullOrWhiteSpace(CssClass) ? classes : $"{classes} {CssClass}";
+        }
+    }
+
+    /// <summary>Naming the values that were expected is the whole point of
+    /// knowing the vocabulary: a status nobody recognises is nearly always a
+    /// typo, and a typo is only useful once it is visible.</summary>
+    private string? StatusTitle => Unrecognised
+        ? $"Unexpected status. Expected one of: {string.Join(", ", KnowledgeStatus.Values(Folder))}."
+        : null;
+}

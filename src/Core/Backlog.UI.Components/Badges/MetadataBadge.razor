@@ -2,9 +2,38 @@
     The metadata strip a knowledge document carries: one status pill and the
     files it relates to. Empty in, nothing out — the strip should not leave a gap
     where a document has no metadata.
+
+    Two branches, deliberately kept apart. Given nothing but a status and a list
+    of strings it renders exactly the markup it always has, down to the attribute
+    order; given a parsed block, a folder, or a way to follow a reference it
+    renders the typed view instead. Layering the new behaviour onto the old
+    markup would have risked shifting the very thing every existing caller
+    depends on staying still.
+
+    That split is why the legacy branch's status is still a bare span and never
+    the select the typed record's headline now draws for a folder with a
+    vocabulary. A two-parameter caller passes a loose string and has no way to
+    hear about a change, so a control there would be an affordance that leads
+    nowhere — and it would replace markup those callers were written against.
 *@
 
-@if (HasFields)
+@if (Typed)
+{
+    @if (!EffectiveMetadata.IsEmpty)
+    {
+        @* No label on this wrapper. The record inside is the thing being
+           labelled and it carries the label itself, so setting it here too
+           announced the same block twice under the same name. *@
+        <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+            <KnowledgeMetaView Metadata="@EffectiveMetadata"
+                               Folder="@Folder"
+                               OnNavigate="@OnNavigate"
+                               HrefFor="@HrefFor"
+                               AriaLabel="@AriaLabel" />
+        </div>
+    }
+}
+else if (HasFields)
 {
     <div class="@ClassValue" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
         @if (!string.IsNullOrWhiteSpace(Status))
@@ -34,10 +63,45 @@
     [Parameter]
     public string? TestId { get; set; }
 
+    /// <summary>A parsed metadata block. When given it supersedes
+    /// <see cref="Status"/> and <see cref="Related"/> entirely: the block already
+    /// carries both, plus the fields the two-parameter form cannot express.</summary>
+    [Parameter]
+    public KnowledgeMetadata? Metadata { get; set; }
+
+    /// <summary>Which knowledge folder the block came from, so the status can be
+    /// read against that folder's vocabulary rather than merely printed.</summary>
+    [Parameter]
+    public KnowledgeFolder Folder { get; set; } = KnowledgeFolder.Unknown;
+
+    /// <summary>Raised with the reference a reader activated.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+
+    /// <summary>Resolves a reference to a link target.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private bool HasFields => !string.IsNullOrWhiteSpace(Status) || Related.Count > 0;
+
+    /// <summary>Whether anything asked for more than the strip has always drawn.
+    /// While the answer is no, every existing caller keeps the markup it had.</summary>
+    private bool Typed => Metadata is not null
+        || Folder is not KnowledgeFolder.Unknown
+        || OnNavigate.HasDelegate
+        || HrefFor is not null;
+
+    /// <summary>The block to render. Without one, the loose parameters are read
+    /// as the block they describe — a caller that only wanted a folder-aware
+    /// status should not have to hand over a parsed block to get one.</summary>
+    private KnowledgeMetadata EffectiveMetadata => Metadata ?? new KnowledgeMetadata
+    {
+        Status = Status,
+        Related = [.. Related.Select(KnowledgeReference.Parse).OfType<KnowledgeReference>()]
+    };
 
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "knowledge-meta" : $"knowledge-meta {CssClass}";
 }

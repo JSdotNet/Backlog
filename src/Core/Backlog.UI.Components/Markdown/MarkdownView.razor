@@ -59,9 +59,24 @@
             </div>
         </div>
     }
-    else
+    @* A `meta` fence describes the heading it sits under, so where it can be it
+       is drawn as part of that heading rather than as the block after it: the
+       heading becomes the record's headline and the fence's own turn is
+       skipped. Only outside annotated mode — see PairedMetaFence. *@
+    else if (!OwnedByHeadingBefore(index))
     {
-        @RenderBlock(block)
+        @if (block is MdHeading paired && PairedMetaFence(index) is { } fence)
+        {
+            <KnowledgeMetaView Metadata="@MetadataOf(fence)"
+                               Folder="@KnowledgeFolder"
+                               OnNavigate="@OnKnowledgeNavigate"
+                               HrefFor="@KnowledgeHrefFor"
+                               Heading="@RenderHeading(paired)" />
+        }
+        else
+        {
+            @RenderBlock(block)
+        }
     }
 }
 </div>
@@ -76,14 +91,23 @@
 }
 
 @code {
+    /// <summary>A heading, in one place. Still a paragraph, so it never joins
+    /// the host page's own outline, but carrying its level so heading
+    /// navigation works at all.
+    ///
+    /// <para>It is emitted both as a block of its own and as the headline of a
+    /// metadata record, and the two have to be the same markup: navigation
+    /// matches on this element, so a second hand-written copy would silently
+    /// drift out of reach.</para></summary>
+    private RenderFragment RenderHeading(MdHeading heading) =>
+        @<p class="md-heading md-heading--@heading.Level" role="heading" aria-level="@heading.Level">@RenderInlines(heading.Content)</p>;
+
     private RenderFragment RenderBlock(MdBlock block) => __builder =>
     {
     switch (block)
     {
         case MdHeading heading:
-            @* Still a <p>, so this never joins the host page's own outline, but
-               carrying its level so heading navigation works at all. *@
-            <p class="md-heading md-heading--@heading.Level" role="heading" aria-level="@heading.Level">@RenderInlines(heading.Content)</p>
+            @RenderHeading(heading)
             break;
 
         case MdParagraph paragraph:
@@ -98,7 +122,18 @@
             <blockquote class="md-quote">@RenderInlines(quote.Content)</blockquote>
             break;
         case MdCode codeBlock:
-            @if (DiagramView.IsDiagram(codeBlock.Language))
+            @* A `meta` fence is a record, not a listing — but only where a host
+               has said it is reading a knowledge document. Everywhere else the
+               fence is still just a fenced block, which is what it has always
+               rendered as. *@
+            @if (RenderKnowledgeMetadata && KnowledgeMeta.IsMetaBlock(codeBlock.Language))
+            {
+                <KnowledgeMetaView Metadata="@MetadataOf(codeBlock)"
+                                   Folder="@KnowledgeFolder"
+                                   OnNavigate="@OnKnowledgeNavigate"
+                                   HrefFor="@KnowledgeHrefFor" />
+            }
+            else if (DiagramView.IsDiagram(codeBlock.Language))
             {
                 <DiagramView Title="Backlog diagram" Source="@codeBlock.Text" Language="@codeBlock.Language" />
             }
@@ -402,6 +437,65 @@
     /// beside the body.</summary>
     [Parameter]
     public MarkdownCommentLayout Layout { get; set; } = MarkdownCommentLayout.Inline;
+
+    /// <summary>Whether a fenced <c>meta</c> block is read as the metadata record
+    /// it is. Off by default: most markdown in this product is not a knowledge
+    /// document, and where it is not, a `meta` fence is only a fenced block.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadata { get; set; }
+
+    /// <summary>Which knowledge folder the document was read from, so a status
+    /// can be checked against that folder's vocabulary.</summary>
+    [Parameter]
+    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+
+    /// <summary>Raised with the reference a reader activated in a metadata
+    /// block.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+
+    /// <summary>Resolves a metadata reference to a link target.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
+
+    /// <summary>Parsed metadata blocks, kept per block. A view re-renders far
+    /// more often than its blocks change — every comment edit redraws all of
+    /// them — and re-parsing the same fence each time buys nothing.</summary>
+    private readonly Dictionary<MdCode, KnowledgeMetadata> _metadata = [];
+
+    protected override void OnParametersSet() => _metadata.Clear();
+
+    private KnowledgeMetadata MetadataOf(MdCode block)
+    {
+        if (_metadata.TryGetValue(block, out var parsed)) return parsed;
+
+        parsed = KnowledgeMeta.Parse(block.Text);
+        _metadata[block] = parsed;
+        return parsed;
+    }
+
+    /// <summary>The <c>meta</c> fence a heading at this index owns, if it wrote
+    /// one directly underneath — which is where the convention puts it.
+    ///
+    /// <para>Never in annotated mode. There every block is wrapped in a row
+    /// carrying its own index and comments are anchored to those indices;
+    /// folding two blocks into one row would leave the fence's comments pointing
+    /// at a row that no longer exists. Annotated documents keep the stacked
+    /// rendering, and the status simply stays in its own block.</para></summary>
+    private MdCode? PairedMetaFence(int index) =>
+        !Annotated
+        && RenderKnowledgeMetadata
+        && index + 1 < Blocks.Count
+        && Blocks[index + 1] is MdCode fence
+        && KnowledgeMeta.IsMetaBlock(fence.Language)
+            ? fence
+            : null;
+
+    /// <summary>Whether the block at this index has already been drawn as the
+    /// heading above it — in which case its own turn in the loop is a no-op
+    /// rather than a second rendering.</summary>
+    private bool OwnedByHeadingBefore(int index) =>
+        index > 0 && Blocks[index - 1] is MdHeading && PairedMetaFence(index - 1) is not null;
 
     private bool CanToggle => OnTaskItemToggled.HasDelegate;
 
