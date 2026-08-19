@@ -19,7 +19,7 @@
 
     @if (_loading)
     {
-        <p class="knowledge-empty" role="status">Loading architecture knowledge...</p>
+        <Alert Message="Loading architecture knowledge..." BaseClass="knowledge-empty" Role="status" />
     }
     else if (_catalog is null || !_catalog.Exists)
     {

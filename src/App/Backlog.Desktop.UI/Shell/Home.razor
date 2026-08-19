@@ -59,10 +59,18 @@
                 Version <code>@Updates.CurrentVersion</code>
             </AppButton>
         </div>
-        <div class="save-indicator save-indicator--@State.SaveState.ToString().ToLowerInvariant()" id="save-state-indicator" data-testid="save-state-indicator" role="status">
-            <span class="save-indicator__dot" aria-hidden="true"></span>
-            @State.SaveStateLabel
-        </div>
+        @* The library's indicator, not a second copy of it. The hand-rolled block
+           that used to sit here emitted the same two elements and the same
+           classes, and got aria-live wrong by omission: a live region that never
+           announces is the one thing this control exists to do. AppSaveState has
+           no Idle, so the mapping below never reaches SaveState.Idle and the
+           indicator is never the hidden shape. The wording stays the app's. *@
+        <SaveIndicator State="@SaveIndicatorState"
+                       SavingText="Saving…"
+                       SavedText="Saved"
+                       FailedText="Couldn't save"
+                       id="save-state-indicator"
+                       TestId="save-state-indicator" />
 
         @* Monitoring is a deliberate act, not a background poll: the backlog has
            to open instantly and offline, so nothing here waits on GitHub until
@@ -495,6 +503,23 @@
     private bool _aiBusy;
 
     private bool _updateBusy => _checkingForAppUpdate || _installingAppUpdate;
+
+    // The shell's save state in the library's vocabulary. The two enums are
+    // deliberately not the same type: AppSaveState is the backlog's, named for
+    // what the store did, and SaveState is what an indicator draws. Error maps
+    // onto Failed, which is the same word in the other vocabulary — and the same
+    // "save-indicator--error" modifier the hand-rolled block emitted, so the
+    // stylesheet is untouched.
+    //
+    // There is no Idle arm because AppSaveState has none: the backlog is always
+    // in one of these three states, so the indicator's hidden shape is
+    // unreachable from here and the header never loses the line.
+    private SaveState SaveIndicatorState => State.SaveState switch
+    {
+        AppSaveState.Saving => SaveState.Saving,
+        AppSaveState.Error => SaveState.Failed,
+        _ => SaveState.Saved
+    };
 
     protected override async Task OnInitializedAsync()
     {
