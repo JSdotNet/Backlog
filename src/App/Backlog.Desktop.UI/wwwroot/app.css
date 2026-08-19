@@ -2403,21 +2403,18 @@ h1, h2, h3 {
     margin-bottom: var(--spacing-md);
 }
 
-.knowledge-pane__eyebrow,
+/* .knowledge-pane__eyebrow was here until the knowledge panels stopped opening
+   with a "Knowledge base" line and a title of their own. The tab strip names the
+   section and the knowledge menu heads its column with the same word, so the
+   eyebrow labelled a pane the reader was already standing in. Nothing renders
+   the class now. */
 .knowledge-pane__subtitle,
+.knowledge-pane__count,
 .knowledge-pane__source,
 .knowledge-empty,
 .knowledge-concern__header code,
 .knowledge-meta__chip span {
     color: var(--color-text-secondary);
-}
-
-.knowledge-pane__eyebrow {
-    margin: 0;
-    font-size: var(--font-size-xs);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
 }
 
 .knowledge-pane h2,
@@ -2429,6 +2426,14 @@ h1, h2, h3 {
 .knowledge-pane__subtitle,
 .knowledge-empty p {
     margin: 0;
+}
+
+/* The chapter count used to ride in the arc42 header beside the title. With the
+   title gone it is the line on its own, so it carries the gap the header used to
+   put under it. */
+.knowledge-pane__count {
+    margin: 0 0 var(--spacing-md);
+    font-size: var(--font-size-sm);
 }
 
 .knowledge-pane__source {
@@ -2972,10 +2977,8 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
-.design-knowledge__header,
 .design-document__header,
 .design-section__header,
-.domain-knowledge__header,
 .domain-context__header,
 .domain-document__header,
 .domain-section__header,
@@ -3000,10 +3003,8 @@ h1, h2, h3 {
     margin-left: auto;
 }
 
-.design-knowledge__header h2,
 .design-document__header h3,
 .design-section__header h4,
-.domain-knowledge__header h2,
 .domain-context__header h3,
 .domain-document__header h3,
 .domain-section__header h4,
@@ -3107,7 +3108,6 @@ h1, h2, h3 {
    chapter's path to the file view's own header, which sets it as a path rather
    than as an eyebrow — monospaced and right-aligned, because a reader checks one
    segment of a path instead of reading it. Nothing renders the class now. */
-.design-knowledge__eyebrow,
 .design-document__file,
 .domain-knowledge__eyebrow {
     margin: 0 0 var(--spacing-xs);
@@ -3127,6 +3127,14 @@ h1, h2, h3 {
 .knowledge-pane__summary {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+}
+
+/* Both of these were the last line of a header that also carried an eyebrow and
+   a title. With those gone the line stands on its own, so it stops relying on a
+   wrapper for the gap under it. */
+.design-knowledge__source,
+.domain-knowledge__source {
+    margin: 0 0 var(--spacing-md);
 }
 
 .design-token-strip {
@@ -3355,8 +3363,7 @@ h1, h2, h3 {
     margin-bottom: 0;
 }
 
-.instructions-knowledge .knowledge-pane__header {
-    gap: 0.25rem;
+.instructions-knowledge .knowledge-pane__subtitle {
     margin-bottom: var(--spacing-sm);
 }
 
