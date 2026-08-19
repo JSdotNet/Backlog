@@ -1,0 +1,187 @@
+@typeparam TItem
+
+@*
+    Rows of records under column headings, optionally carved into named sections.
+
+    The first table in this library that is not a chart. The Metric family already
+    holds five of them, and every one is a table of *figures* — its columns are
+    named by the measure, its cells are formatted numbers, and it draws a bar in
+    the last one. A list of records is the other question: which things are there,
+    and what does each one say. Sharing one component between the two would mean a
+    Rows parameter that is either MetricRow or anything at all, and the version
+    that is anything at all stops being able to format its own cells.
+
+    So the cells are the caller's and the frame is this component's. That split is
+    the whole design:
+
+      this owns   the scroll box, the heading row, the section headings and their
+                  counts, the empty state, and the row element
+      the caller  owns what goes in a cell, which is where a provider mark, a
+                  state chip or an em dash for "not reported" belongs
+
+    Sections rather than a GroupBy parameter, for the reason MetricBreakdown gives
+    about sorting: the reader asked for a grouping using a control somewhere above
+    this table, and a component that re-derived the grouping from the rows would be
+    a second definition of it, free to disagree with the first.
+
+    Grouped or not is one shape, not two. An ungrouped table is a single section
+    whose name is null, so nothing here — and nothing in the CSS — branches on
+    whether grouping is on.
+
+    A section heading is a th with scope="colgroup", not a td dressed as one. It
+    labels every column beneath it, and that is the element that says so; a
+    reader on a screen reader gets the group announced as they cross into it
+    rather than having to infer a boundary from a bold row.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (Resolved.Count == 0)
+    {
+        <EmptyState Title="@EmptyMessage"
+                    Description="@EmptyDescription"
+                    CssClass="@(Part("empty"))"
+                    TestId="@(TestId is null ? null : TestId + "-empty")" />
+    }
+    else
+    {
+        @* The columns do not wrap — a folder path and a branch name are both
+           long, and wrapping them turns eight short rows into eight paragraphs —
+           so on a narrow surface the table is wider than its box and scrolls
+           inside it rather than taking the page sideways with it. *@
+        <div class="@(Part("scroll"))">
+            <table class="@(Part("table"))"
+                   aria-label="@AriaLabel"
+                   data-testid="@(TestId is null ? null : TestId + "-table")">
+                <thead>
+                    <tr>
+                        @foreach (var column in Columns)
+                        {
+                            <th scope="col" class="@column.CssClass">@column.Header</th>
+                        }
+                    </tr>
+                </thead>
+                @foreach (var section in Resolved)
+                {
+                    @* A tbody per section. Semantically it is what a group of rows
+                       is, and it also gives the CSS something to hang the section
+                       separator on without a modifier class on the first row. *@
+                    @* Keyed by the section's name, not the section: the record holds
+                       a list, whose equality is by reference, so keying on the
+                       record itself would hand Blazor a new key on every refresh
+                       and throw the whole section away rather than diff it. *@
+                    <tbody class="@(Part("section"))" @key="@(section.Name ?? string.Empty)">
+                        @if (!string.IsNullOrWhiteSpace(section.Name))
+                        {
+                            <tr class="@(Part("group"))">
+                                <th scope="colgroup" colspan="@Columns.Count" class="@(Part("group-heading"))">
+                                    <span class="@(Part("group-name"))">@section.Name</span>
+                                    @* The count is why grouping is worth having: it
+                                       answers "how many on that PC" without the
+                                       reader counting rows. *@
+                                    <span class="@(Part("group-count"))">@Counted(section.Items.Count)</span>
+                                </th>
+                            </tr>
+                        }
+                        @foreach (var item in section.Items)
+                        {
+                            <tr class="@(Part("row"))" @key="Key(item)">
+                                @Row(item)
+                            </tr>
+                        }
+                    </tbody>
+                }
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The headings, left to right. The row template has to emit a cell
+    /// per column in the same order; nothing here can check that for it, which is
+    /// the cost of letting a cell hold a chip rather than a string.</summary>
+    [Parameter]
+    public IReadOnlyList<DataTableColumn> Columns { get; set; } = [];
+
+    /// <summary>An ungrouped table's rows. Ignored when <see cref="Sections"/> is
+    /// set, so a caller switching a grouping control on does not have to remember
+    /// to clear the other parameter.</summary>
+    [Parameter]
+    public IReadOnlyList<TItem> Items { get; set; } = [];
+
+    /// <summary>A grouped table's sections, in the order they should read.</summary>
+    [Parameter]
+    public IReadOnlyList<DataTableSection<TItem>>? Sections { get; set; }
+
+    /// <summary>The cells of one row: a run of <c>td</c> elements. The <c>tr</c> is
+    /// this component's, so a caller cannot accidentally put two rows where the
+    /// section expects one.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment<TItem> Row { get; set; } = default!;
+
+    /// <summary>
+    /// What identifies a row across renders. Without it Blazor keys rows by position,
+    /// and a list that reorders itself — which a list ordered by recency does on every
+    /// refresh — re-renders every cell below the first change.
+    /// <para>
+    /// <b>It has to be unique within a section.</b> Two siblings with the same key
+    /// corrupt Blazor's keyed diff and take the circuit down with an
+    /// <c>ArgumentException</c> about a pooled instance, which names nothing a reader
+    /// of this component would recognise. That is not defended against here on
+    /// purpose: swallowing it would mean quietly dropping a row the caller believes it
+    /// is showing, and the duplicate is a fact about the caller's data that only the
+    /// caller can resolve correctly.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<TItem, object>? RowKey { get; set; }
+
+    /// <summary>Names the table when no visible caption does.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>Shown instead of an empty table. A heading row over nothing reads
+    /// as a failure; a sentence says which it is.</summary>
+    [Parameter]
+    public string EmptyMessage { get; set; } = "Nothing to show.";
+
+    /// <summary>The second line of the empty state, where "why not" is worth
+    /// saying — an unread source, a filter that excludes everything.</summary>
+    [Parameter]
+    public string? EmptyDescription { get; set; }
+
+    /// <summary>What one row is, singular, for the count beside a section heading:
+    /// "session", "machine", "entry". Pluralised by adding an s, which is all the
+    /// nouns a table of records has needed so far; the day one of them is
+    /// irregular this becomes two parameters rather than a rule.</summary>
+    [Parameter]
+    public string RowNoun { get; set; } = "row";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>data-table</c> as the class this block carries, and
+    /// every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "data-table";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>Sections as given, or the flat rows as one nameless section. An
+    /// empty flat list collapses to no sections at all, which is what makes the
+    /// empty state above the single check it is.</summary>
+    private IReadOnlyList<DataTableSection<TItem>> Resolved => Sections
+        ?? (Items.Count == 0 ? [] : [new DataTableSection<TItem>(null, Items)]);
+
+    private object Key(TItem item) => RowKey?.Invoke(item) ?? item!;
+
+    private string Counted(int count) => count == 1 ? $"1 {RowNoun}" : $"{count} {RowNoun}s";
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+}

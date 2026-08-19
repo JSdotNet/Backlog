@@ -18,6 +18,7 @@ using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
@@ -109,6 +110,12 @@ builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
 builder.Services.AddSingleton<ICopilotToolService, LocalDevelopmentCopilotToolService>();
+
+// The session list reads the two agents' own folders in the profile of whoever is
+// signed in, and the harness runs as that person on that machine — so unlike the
+// tool service above there is nothing for a local-development variant to differ
+// about, and both hosts compose the same adapter.
+builder.Services.AddAgentSessionSource();
 
 var app = builder.Build();
 

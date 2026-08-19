@@ -103,7 +103,17 @@ internal static class StorybookIndex
             new("markdown/rich-text", "Rich text editing", "MarkdownEditor: a formatting toolbar over the markdown source, and what each button writes."),
             new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
             new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
-            new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model.")
+            new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
+
+            // Last in the group, and the one place the ordering rule is bent rather
+            // than followed: a DataTable cell is a template the caller fills, and the
+            // examples fill some of theirs with a provider mark and a state chip from
+            // the Integrations chapter below. The component is a base content item —
+            // rows of records under headings — so it belongs here by kind, and what it
+            // borrows is borrowed in exactly the part it declines to own. Recorded
+            // rather than resolved: moving the page under Integrations would file a
+            // table under a subject it is not about.
+            new("data-table", "Data table", "DataTable: rows of records under column headings, in sections or flat — the frame is the component's and the cells are the caller's.")
         ]),
 
         // Directly after Content, because that is what it extends: the chapter view

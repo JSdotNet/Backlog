@@ -18,7 +18,7 @@ status: draft
 | [Repository Management](../repository-management/domain.md#aggregate-repository-registry) | Customer/Supplier (Monitoring = customer) | Health and scan feed | `.domain/repository-management/domain.md#aggregate-repository-registry` | Repo health scores, package freshness, and issue backlog feed the dashboard. |
 | GitHub (external) | ACL | Polling / webhook | `.domain/backlog/domain.md#domain-event-statuschanged` | Issue status feeds progress signals and is compared against backlog status. |
 | Application Insights (external) | ACL | Metric pull | `.domain/monitoring/features.md#sub-feature-project-dashboard-application-insights` | App performance/error metrics populate the project dashboard. |
-| Copilot sessions (external / Dev PC) | ACL | Read through Dev PC tracking adapters | `.domain/dev-pc-management/domain.md#domain-service-copilot-session-tracking` | Session activity/status is shown alongside related issues/backlog items. |
+| [Sessions](../sessions/domain.md#aggregate-session-log) | Customer/Supplier (Sessions = supplier) | Reads the session record an environment holds | `.domain/sessions/domain.md#aggregate-session-log` | Session activity and state are shown alongside related issues/backlog items, and a `stalled` session is what an inactivity alert is raised on. Not built: this row replaced an ACL through Dev PC tracking adapters when the session subject moved to its own context. |
 
 ## Inbound dependents (known)
 
