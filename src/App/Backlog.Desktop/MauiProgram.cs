@@ -9,6 +9,9 @@ using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Backlog.Extensions;
+using Backlog.Modules.Roadmap;
+using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -54,6 +57,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<IBacklogRepository>(sp =>
             new RootedFileBacklogRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         builder.Services.AddBacklogModule();
+
+        // The same arrangement for the plan: the Roadmap module brings its use
+        // cases, and the host picks the adapter. One JSON document under the same
+        // storage root, following the same folder, so moving the storage folder
+        // moves the plan with the backlog rather than leaving it behind.
+        builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
+            new RootedJsonRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        builder.Services.AddRoadmapModule();
         builder.Services.AddSingleton<GitHubSettingsStore>();
         builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());

@@ -1,14 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    The Roadmap module's UI: the forward-looking planning view over entries that
-    are roadmap-ready — Now/Next/Later, milestones and planning lanes (see
-    .domain/backlog/features.md#feature-roadmap-planning). Scaffolding only for
-    now; the project exists so the module has somewhere to grow that is not the
-    desktop shell.
+    The Roadmap module's UI: the planning band that sits above the panes, and the
+    mapping from a stored plan onto the shared timeline control
+    (.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline).
 
-    It references the shared control library rather than growing its own
-    controls, which is the rule every module UI project follows.
+    It references the shared control library rather than growing its own controls,
+    which is the rule every module UI project follows.
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Modules.Roadmap.UI</RootNamespace>
@@ -20,6 +18,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <!-- The module's published surface only: the DTOs, the planning vocabulary and
+         the IRoadmapPlanning port. The plan, its repository and the use-case
+         handlers stay behind that line — the host wires them up, the band does not
+         see them. -->
+    <ProjectReference Include="..\Backlog.Modules.Roadmap.Abstractions\Backlog.Modules.Roadmap.Abstractions.csproj" />
+    <!-- Which repositories are configured, so the plan can be read one project at a
+         time. Repository Management is the supplier of that registry and today the
+         GitHub settings store is where it lives; the band conforms to it and holds
+         no repository state of its own. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
   </ItemGroup>
 
 </Project>

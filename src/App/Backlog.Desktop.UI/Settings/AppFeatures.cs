@@ -2,7 +2,7 @@ using Backlog.Modules.Backlog.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Monitoring.UI;
-using Backlog.Modules.Roadmap.UI;
+using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.SharedKernel;
 
 // The namespace deliberately does not match the folder, for the reason

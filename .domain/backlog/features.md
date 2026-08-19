@@ -154,21 +154,44 @@ from default views but always accessible and restorable.
 ## Feature: Roadmap planning
 
 ```meta
-status: draft
+status: deprecated
 depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
-related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+related: [.domain/roadmap/features.md, .domain/roadmap/domain.md#aggregate-roadmap-plan, .domain/backlog/domain.md#aggregate-backlog-entry]
 ```
 
-Organize selected backlog entries into a forward-looking roadmap without turning
-the roadmap into a separate execution system. The roadmap groups planned work by
-theme, horizon, target environment, or repository while Backlog Entry remains the
-source of truth for status and priority.
+**Superseded.** Roadmap planning is a bounded context of its own — see
+[Roadmap Planning](../roadmap/features.md). This chapter is kept, at this heading,
+because other chapters reference it; it is not the model any more.
+
+What this chapter used to say was that the roadmap groups *selected backlog
+entries* by theme, horizon, environment or repository, and that its progress is
+derived from those entries rather than stored. The first half turned out to be too
+narrow: a plan has to be able to hold work that has not been refined into an entry
+yet, which is most of what planning is, so the plan is stored in its own right and
+a planned item may *optionally* name the entry that executes it.
+
+The second half survives, and is the part worth carrying forward: **Backlog Entry
+remains the source of truth for a work item's status and execution priority.**
+Roadmap Planning owns planning priority and sequence; it never writes an entry's
+status or priority, and the progress it shows for a linked item is read from the
+entry rather than maintained by hand.
+
+What Backlog Management keeps from this feature is the
+[refinement and prioritization](#feature-refinement-and-prioritization) that makes
+an entry ready in the first place, and the
+[Partnership link](../roadmap/dependencies.md) that lets a plan point at it.
 
 ### Sub-feature: Roadmap views
 
 ```meta
-status: draft
+status: deprecated
+related: [.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline]
 ```
 
-Show roadmap-ready entries by Now/Next/Later, milestone, or custom planning lane,
-with progress derived from the underlying entries instead of maintained manually.
+**Superseded** by
+[reading and rescheduling on a timeline](../roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline)
+and
+[reading the plan by repository](../roadmap/features.md#sub-feature-reading-the-plan-by-repository)
+in Roadmap Planning. Now/Next/Later is not how the plan is read — a horizon is a
+grouping, and the plan is read against dates, in repository bands with the
+person's own lanes inside them.

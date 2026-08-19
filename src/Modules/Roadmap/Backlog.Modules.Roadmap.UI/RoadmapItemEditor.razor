@@ -1,0 +1,310 @@
+@*
+    Adding and editing one piece of planned work.
+
+    A dialog rather than an inline form, for the reason the band exists at all: the
+    band gets three tenths of the window and spends all of it on the chart. A form
+    unfolding inside it would push the plan it is editing off screen.
+
+    The same component does both jobs. "Add" and "edit" differ by whether there is an
+    id to send and whether Delete is offered; every field, every validation and every
+    refusal is identical, and two components would mean two places for them to drift.
+
+    It edits a copy and reports it on save. Nothing here writes to the plan: the band
+    dispatches the use case, the module decides, and the dialog is told whether to
+    close or to show why not — the same arrangement as a drag on the chart.
+*@
+@implements IDisposable
+
+<Modal Open="@Open"
+       OpenChanged="OpenChanged"
+       Title="@(IsNew ? "Plan work" : "Edit planned work")"
+       CssClass="roadmap-editor"
+       TestId="roadmap-editor">
+    <ChildContent>
+        <div class="roadmap-editor__fields">
+            <TextField Label="Title"
+                       Value="@_title"
+                       ValueChanged="value => _title = value"
+                       Placeholder="What is being planned"
+                       ErrorMessage="@_titleError"
+                       TestId="roadmap-editor-title" />
+
+            <div class="roadmap-editor__row">
+                <TextField Label="Starts"
+                           Type="date"
+                           Value="@_start"
+                           ValueChanged="value => _start = value"
+                           TestId="roadmap-editor-start" />
+
+                <TextField Label="Ends"
+                           Type="date"
+                           Value="@_end"
+                           ValueChanged="value => _end = value"
+                           HelpText="The last day, included."
+                           ErrorMessage="@_windowError"
+                           TestId="roadmap-editor-end" />
+            </div>
+
+            <div class="roadmap-editor__row">
+                <SelectField Label="Priority"
+                             CurrentValue="@_priority"
+                             Options="@PriorityOptions"
+                             OnChanged="value => _priority = value ?? MediumPriority"
+                             TestId="roadmap-editor-priority" />
+
+                <TextField Label="Lane"
+                           Value="@_lane"
+                           ValueChanged="value => _lane = value"
+                           Placeholder="@DefaultLanePlaceholder"
+                           HelpText="The row inside the band. Yours to name."
+                           TestId="roadmap-editor-lane" />
+            </div>
+
+            <TagMultiSelect Label="Repositories"
+                            Options="@RepositoryOptions"
+                            SelectedValues="@_repositories"
+                            SelectedValuesChanged="values => _repositories = values"
+                            Placeholder="@(RepositoryOptions.Count == 0 ? "No repositories configured" : "Unfiled")"
+                            Disabled="@(RepositoryOptions.Count == 0)"
+                            TestId="roadmap-editor-repositories" />
+
+            @if (!IsNew && DependencyOptions.Count > 0)
+            {
+                <TagMultiSelect Label="Waits for"
+                                Options="@DependencyOptions"
+                                SelectedValues="@_dependsOn"
+                                SelectedValuesChanged="OnDependenciesChangedAsync"
+                                Placeholder="Nothing"
+                                TestId="roadmap-editor-depends-on" />
+            }
+
+            <TextArea Label="Notes"
+                      Value="@_notes"
+                      ValueChanged="value => _notes = value"
+                      Rows="2"
+                      TestId="roadmap-editor-notes" />
+
+            @* Refusals from the module land here rather than beside a field, because
+               a cycle is not any one field being wrong. *@
+            <Alert Message="@_error" Role="status" TestId="roadmap-editor-error" />
+        </div>
+    </ChildContent>
+    <Footer>
+        @if (!IsNew)
+        {
+            <AppButton Variant="ButtonVariant.Danger"
+                       OnClick="DeleteAsync"
+                       TestId="roadmap-editor-delete">
+                Delete
+            </AppButton>
+        }
+
+        <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-editor-cancel">
+            Cancel
+        </AppButton>
+
+        <AppButton Variant="ButtonVariant.Primary" OnClick="SaveAsync" TestId="roadmap-editor-save">
+            @(IsNew ? "Plan it" : "Save")
+        </AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    private const string MediumPriority = nameof(PlanningPriority.Medium);
+    private const string DefaultLanePlaceholder = "Planned";
+
+    private string _title = string.Empty;
+    private string _start = string.Empty;
+    private string _end = string.Empty;
+    private string _priority = MediumPriority;
+    private string _lane = string.Empty;
+    private string _notes = string.Empty;
+    private IReadOnlyList<string> _repositories = [];
+    private IReadOnlyList<string> _dependsOn = [];
+
+    private string? _titleError;
+    private string? _windowError;
+    private string? _error;
+
+    private Guid? _loadedId;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The item being edited, or null to plan something new.</summary>
+    [Parameter]
+    public RoadmapItemDto? Item { get; set; }
+
+    /// <summary>The repositories the plan may be filed against, in Settings order.</summary>
+    [Parameter]
+    public IReadOnlyList<PlannedRepository> Repositories { get; set; } = [];
+
+    /// <summary>Everything else in the plan, so an item can be told what it waits
+    /// for. Milestones included: work waits on a release as readily as on work.</summary>
+    [Parameter]
+    public IReadOnlyList<SelectorOption> DependencyOptions { get; set; } = [];
+
+    /// <summary>What today is, for a new item's default window. A parameter so a test
+    /// does not have to agree with the clock.</summary>
+    [Parameter]
+    public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
+    [Parameter]
+    public EventCallback<RoadmapEditorSubmission> OnSave { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnDelete { get; set; }
+
+    /// <summary>Raised when a dependency is added or removed. Its own callback rather
+    /// than part of the save, because the plan can refuse an edge for a reason none of
+    /// the fields explain, and it answers immediately.</summary>
+    [Parameter]
+    public EventCallback<RoadmapDependencyChange> OnDependencyChanged { get; set; }
+
+    private bool IsNew => Item is null;
+
+    private static IReadOnlyList<SelectorOption> PriorityOptions =>
+    [
+        new(nameof(PlanningPriority.Low), "Low"),
+        new(nameof(PlanningPriority.Medium), "Medium"),
+        new(nameof(PlanningPriority.High), "High"),
+        new(nameof(PlanningPriority.Critical), "Critical")
+    ];
+
+    private IReadOnlyList<SelectorOption> RepositoryOptions =>
+        [.. Repositories.Select(repository => new SelectorOption(repository.Alias, repository.Title))];
+
+    public void Dispose() => GC.SuppressFinalize(this);
+
+    protected override void OnParametersSet()
+    {
+        // Reloaded when the dialog opens on a different item, and not on every
+        // parameter set: re-reading the item mid-edit would throw away what somebody
+        // is part-way through typing every time the band reloaded behind the dialog.
+        if (!Open)
+        {
+            _loadedId = null;
+            return;
+        }
+
+        if (_loadedId == (Item?.Id ?? Guid.Empty)) return;
+
+        _loadedId = Item?.Id ?? Guid.Empty;
+        Load();
+    }
+
+    private void Load()
+    {
+        _titleError = null;
+        _windowError = null;
+        _error = null;
+
+        if (Item is null)
+        {
+            _title = string.Empty;
+            // A fortnight from today, which is a plan-shaped default: long enough to
+            // be a piece of work, short enough that nobody leaves it as it arrived.
+            _start = Iso(Today);
+            _end = Iso(Today.AddDays(13));
+            _priority = MediumPriority;
+            _lane = string.Empty;
+            _notes = string.Empty;
+            _repositories = [];
+            _dependsOn = [];
+            return;
+        }
+
+        _title = Item.Title;
+        _start = Iso(Item.Start);
+        _end = Iso(Item.End);
+        _priority = Item.Priority.ToString();
+        _lane = Item.Lane ?? string.Empty;
+        _notes = Item.Notes ?? string.Empty;
+        _repositories = [.. Item.RepositoryAliases];
+        _dependsOn = [.. Item.DependsOn.Select(id => id.ToString())];
+    }
+
+    /// <summary>Shows a refusal the module came back with, and keeps the dialog
+    /// open so the person can act on it.</summary>
+    public void Refuse(string message)
+    {
+        _error = message;
+        StateHasChanged();
+    }
+
+    private async Task SaveAsync()
+    {
+        _titleError = string.IsNullOrWhiteSpace(_title) ? "Give it a title." : null;
+        _windowError = null;
+        _error = null;
+
+        var start = Parse(_start);
+        var end = Parse(_end);
+
+        if (start is null || end is null)
+        {
+            _windowError = "Both dates are needed.";
+        }
+        else if (end < start)
+        {
+            // Caught here as well as in the plan. The plan is the authority, but a
+            // date the person can see is wrong should not need a round trip to say so.
+            _windowError = "The end cannot come before the start.";
+        }
+
+        if (_titleError is not null || _windowError is not null) return;
+
+        await OnSave.InvokeAsync(new RoadmapEditorSubmission(
+            Item?.Id,
+            _title.Trim(),
+            start!.Value,
+            end!.Value,
+            Enum.TryParse<PlanningPriority>(_priority, out var priority) ? priority : PlanningPriority.Medium,
+            _repositories,
+            string.IsNullOrWhiteSpace(_lane) ? null : _lane.Trim(),
+            Item?.BacklogEntryId,
+            string.IsNullOrWhiteSpace(_notes) ? null : _notes));
+    }
+
+    private async Task OnDependenciesChangedAsync(IReadOnlyList<string> values)
+    {
+        if (Item is null) return;
+
+        var before = _dependsOn.ToHashSet(StringComparer.Ordinal);
+        var after = values.ToHashSet(StringComparer.Ordinal);
+
+        _dependsOn = values;
+
+        foreach (var added in after.Except(before))
+        {
+            await Raise(added, added: true);
+        }
+
+        foreach (var removed in before.Except(after))
+        {
+            await Raise(removed, added: false);
+        }
+    }
+
+    private async Task Raise(string id, bool added)
+    {
+        if (Item is null || !Guid.TryParse(id, out var dependsOnId)) return;
+
+        await OnDependencyChanged.InvokeAsync(new RoadmapDependencyChange(Item.Id, dependsOnId, added));
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (Item is not null) await OnDelete.InvokeAsync(Item.Id);
+    }
+
+    private async Task CancelAsync() => await OpenChanged.InvokeAsync(false);
+
+    private static string Iso(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static DateOnly? Parse(string? value) =>
+        DateOnly.TryParse(value, CultureInfo.InvariantCulture, out var date) ? date : null;
+}

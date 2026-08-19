@@ -12,6 +12,9 @@ using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Backlog.Extensions;
+using Backlog.Modules.Roadmap;
+using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
@@ -40,6 +43,13 @@ builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
 builder.Services.AddSingleton<IBacklogRepository>(sp =>
     new RootedFileBacklogRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddBacklogModule();
+
+// The same arrangement for the plan: the Roadmap module brings its use cases, and
+// the host picks the adapter. One JSON document under the same storage root,
+// following the same folder.
+builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
+    new RootedJsonRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+builder.Services.AddRoadmapModule();
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());

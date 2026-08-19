@@ -6,29 +6,29 @@
     ".design"
   ],
   "stats": {
-    "nodes": 95,
-    "edges": 179,
+    "nodes": 97,
+    "edges": 183,
     "nodesByFolder": {
-      "design": 85,
+      "design": 86,
       "arc42": 5,
-      "tech": 1,
-      "domain": 4
+      "domain": 5,
+      "tech": 1
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 80,
+      "chapter": 82,
       "heading": 5
     },
     "nodesByStatus": {
-      "active": 84,
+      "active": 85,
       "none": 5,
+      "draft": 5,
       "accepted": 1,
-      "candidate": 1,
-      "draft": 4
+      "candidate": 1
     },
     "edgesByType": {
-      "contains": 77,
-      "related": 102
+      "contains": 78,
+      "related": 105
     }
   },
   "problems": [],
@@ -404,11 +404,29 @@
           "path": ".design/color-scheme.md",
           "slug": "syntax-highlighting-tokens",
           "level": 2,
-          "line": 232,
+          "line": 233,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
             ".design/content-editing.md#supported-constructs"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#band-identity-tokens",
+          "label": "Band Identity Tokens",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "band-identity-tokens",
+          "level": 2,
+          "line": 271,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#dark-mode-only",
+            ".design/accessibility.md#contrast",
+            ".domain/roadmap/features.md#feature-repository-scoped-planning"
           ]
         }
       },
@@ -421,7 +439,7 @@
           "path": ".design/color-scheme.md",
           "slug": "role-tokens",
           "level": 2,
-          "line": 270,
+          "line": 351,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -438,7 +456,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 357,
+          "line": 442,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -454,7 +472,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 384,
+          "line": 469,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -470,7 +488,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 411,
+          "line": 496,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -487,7 +505,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 447,
+          "line": 532,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -1380,6 +1398,27 @@
       },
       {
         "data": {
+          "id": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "label": "Feature: Repository-scoped planning",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-repository-scoped-planning",
+          "level": 2,
+          "line": 124,
+          "status": "draft",
+          "depends-on": [
+            ".domain/roadmap/features.md#feature-owning-a-stored-plan"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#repository-scope",
+            ".domain/repository-management/features.md#feature-repository-registration"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "label": "ADR 0001: Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3",
           "type": "file",
@@ -1680,6 +1719,14 @@
           "id": "contains:.design/color-scheme.md->.design/color-scheme.md#syntax-highlighting-tokens",
           "source": ".design/color-scheme.md",
           "target": ".design/color-scheme.md#syntax-highlighting-tokens",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#band-identity-tokens",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#band-identity-tokens",
           "type": "contains"
         }
       },
@@ -2336,6 +2383,30 @@
           "id": "related:.design/color-scheme.md#syntax-highlighting-tokens->.design/content-editing.md#supported-constructs",
           "source": ".design/color-scheme.md#syntax-highlighting-tokens",
           "target": ".design/content-editing.md#supported-constructs",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#band-identity-tokens->.design/design-principles.md#dark-mode-only",
+          "source": ".design/color-scheme.md#band-identity-tokens",
+          "target": ".design/design-principles.md#dark-mode-only",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#band-identity-tokens->.design/accessibility.md#contrast",
+          "source": ".design/color-scheme.md#band-identity-tokens",
+          "target": ".design/accessibility.md#contrast",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#band-identity-tokens->.domain/roadmap/features.md#feature-repository-scoped-planning",
+          "source": ".design/color-scheme.md#band-identity-tokens",
+          "target": ".domain/roadmap/features.md#feature-repository-scoped-planning",
           "type": "related"
         }
       },
