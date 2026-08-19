@@ -2473,6 +2473,23 @@ button.task-item__check:focus-visible {
     border-bottom-color: var(--color-border-focus);
 }
 
+/*
+   The add row at the bottom of the list. Dashed, because it is not a task until it
+   is named — the same border every unsettled thing in this component wears — and
+   because the row is permanent now, the dashes are also what keep it from reading
+   as a task somebody forgot to fill in.
+
+   Padded across to where the titles start rather than given the circle's column
+   back: the field is the only thing on the row, so without the inset it would be
+   the one line in the list that begins at the edge, and the list would read as
+   having lost its left margin at the exact moment the reader is typing.
+*/
+.task-item--add {
+    border-style: dashed;
+    border-color: var(--color-border);
+    padding-inline-start: calc(var(--spacing-md) + 1.25rem + var(--spacing-sm));
+}
+
 .task-item__edit {
     display: inline-flex;
     align-items: center;

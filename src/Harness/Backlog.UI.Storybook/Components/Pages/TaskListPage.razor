@@ -52,6 +52,33 @@ The rows below are also reorderable, and that is the part worth trying. A dragga
         <p class="sb-state" data-testid="task-list-direct-state">@(_lastDirect ?? "nothing renamed or moved yet")</p>
     </Story>
 
+    <Story Name="Quick edit, straight down the list"
+           Description="Retitling is one thing done many times over, so the keystroke that finishes a rename is also the one that starts the next: Tab commits this row and opens the field on the row below it, Shift+Tab walks back up. That is the spreadsheet bargain, and it is the whole reason anybody retitles six rows instead of giving up after two — a rename that handed the reader back to the pencil would cost a round trip per row, and the pencil is the smallest target on it.
+
+Arriving is arriving ready to type. The field takes the caret and selects the title with it, so the first keystroke replaces the old title instead of being added to the end of it — which is what renaming means everywhere else, and one rule rather than two: the pencil opens the same field the same way. It is done after the render rather than as the editor opens, because at that point the input does not exist yet; asking earlier put the focus on a node the next render threw away and left the reader looking at a field with the caret nowhere in it.
+
+Which row Tab lands on is the list's fact rather than the row's, held there exactly as the selected row is: a field asked “who comes after you” cannot see the rows around it to answer. Everything else stays where it already was. The draft is the row's, Enter settles this one and stops, and an empty or unchanged title raises nothing — so a row tabbed straight through is a row nothing happened to, which is what makes Tab safe to hold down. Escape abandons the title and hands the focus ring back to the pencil it came from, because that is what a dismissal owes its trigger; a dismissal that dropped the focus instead would end a keyboard reader's afternoon at the top of the document.
+
+The last line of the list is a place, not a step in the chain — which is the decision worth arguing here. It could have been a draft row that appeared the moment somebody tabbed off the last title and vanished again when they left it, and that is what this was first. It read well and it was wrong: a field that only exists part-way through a keystroke chain is a field nobody who is not already mid-chain can find, and a chain that conjures its own last step then has to invent an exit from it too. So the add row is drawn from the start and sits in the tab order like any other control. You reach it the way you reach everything else — Tab from the row before it — and it is visibly there before you need it.
+
+That is also the exit. Tab out of an empty add field is left entirely to the browser: the focus goes on to whatever follows the list, exactly as Tab does everywhere else, so leaving is ordinary forward tabbing rather than a special rule the list had to make up. The one keystroke this field takes off the browser is a forward Tab with something typed in it, and it takes that one in the browser rather than after the fact — by the time a keydown has crossed to .NET the focus ring has already moved, which is the whole reason the suppression is conditional and not a value returned per keystroke. Tab adds the title, clears the field and stays in it, so “type a title, Tab, type a title, Tab” keeps going and the second Tab on nothing is the way out. Enter adds and stays too, because a permanent field has nothing to close.
+
+What is typed is the list's own state and never a row in the data, which is the other decision worth arguing. An empty row put into the tasks would make thinking better of a title cost the host a delete — and it would have to guess whether a blank title meant “still thinking” or “save this”. This way the only thing that ever crosses the boundary is a title, as OnAdd, on exactly the terms OnRename and OnReorder already set: the list says what happened, the host decides what it costs. Escape clears the field and reports nothing; leaving it with something typed settles that title, the same promise the rename directly above it makes, because Escape should be the only way typed text disappears.
+
+With nobody listening to OnAdd there is no add row at all and Tab off the last row simply stops, exactly as it did before: whether a list offers to add tasks is the host's answer, not the list's. Opt-in throughout, because Tab means “the next control” in every other field in the product — a list that took the key without being asked would be a list some people cannot get out of."
+           Code="@QuickEditCode">
+        <div class="sb-menu-wide" data-testid="task-list-quick-edit">
+            <TaskListView Tasks="@_quick"
+                          QuickEdit="true"
+                          OnRename="RenameQuick"
+                          OnAdd="AddQuick"
+                          AddLabel="Add a task"
+                          AriaLabel="Quick edit tasks"
+                          TestId="quick" />
+        </div>
+        <p class="sb-state" data-testid="task-list-quick-edit-renames">@(_quickSettled.Count == 0 ? "nothing settled yet" : string.Join(" → ", _quickSettled))</p>
+    </Story>
+
     <Story Name="The host's own row above Completed"
            Description="AfterOpenRows is the host's place in the list, under the open rows and above the finished ones. It exists because “add one more” belongs at the end of the work rather than at the end of the document: the list owns the Completed section, so a button the host rendered after the whole component landed underneath a fold of things already done — the one place in the list where nothing new is ever going to appear.
 
@@ -293,6 +320,27 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
         new("s2", "The button stays where it is"),
         new("s3", "Already finished", Done: true)
     ];
+    private IReadOnlyList<TaskRow> _quick =
+    [
+        new("q1", "Pencil me, then press Tab", Group: "Tasks"),
+        new("q2", "Tab lands here next", Group: "Tasks"),
+        new("q3", "Shift+Tab goes back up", Group: "Tasks"),
+        new("q4", "Tab off the end into the add row", Group: "Tasks"),
+        new("q5", "Finished, so not in the chain", Done: true, Group: "Tasks")
+    ];
+
+    /// <summary>Ids for the tasks the add row produces. A counter is enough here:
+    /// what a real host mints them from is its own business, and that is the point
+    /// of the list only ever handing over a title.</summary>
+    private int _quickAdded;
+
+    /// <summary>Every rename and every add, in the order they settled, which is
+    /// what makes the chain visible: one Tab down the list should read as one
+    /// rename per row, a row tabbed through without a change should leave no trace
+    /// at all, and the adds should arrive on the end in the order they were typed.
+    /// The two are in one line rather than two because the order they happened in
+    /// is the thing worth reading.</summary>
+    private readonly List<string> _quickSettled = [];
 
     private IReadOnlyList<TaskRow> _completable =
     [
@@ -415,6 +463,21 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
     private void AddSlotted() =>
         _slotted = [.. _slotted, new TaskRow($"s{++_slotCounter + 3}", "One more, added from the slot")];
 
+    private void RenameQuick(TaskRename rename)
+    {
+        _quick = [.. _quick.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
+        _quickSettled.Add($"renamed {rename.Id} to “{rename.Title}”");
+    }
+
+    /// <summary>A title, and the host does the rest. The list never held a row for
+    /// this task and never will: it handed over a string and forgot about it.</summary>
+    private void AddQuick(string title)
+    {
+        var id = $"q{100 + ++_quickAdded}";
+        _quick = [.. _quick, new TaskRow(id, title, Group: "Tasks")];
+        _quickSettled.Add($"added {id} as “{title}”");
+    }
+
     private void ToggleCompletable(string id) =>
         _completable = [.. _completable.Select(t => t.Id == id ? t with { Done = !t.Done } : t)];
 
@@ -447,6 +510,31 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
                 <AppButton OnClick="Add">+ New task</AppButton>
             </AfterOpenRows>
         </TaskListView>
+        """;
+
+    private const string QuickEditCode = """
+        @* Tab commits a rename and opens the next row's field; Shift+Tab goes back
+           up. OnAdd is what puts the add row on the end of the list and so what
+           makes Tab off the last row land somewhere — leave OnAdd off and there is
+           no add row and the chain stops at the bottom. *@
+        <TaskListView Tasks="@tasks"
+                      QuickEdit="true"
+                      OnRename="Rename"
+                      OnAdd="Add"
+                      AddLabel="Add a task" />
+
+        @code {
+            // Still one rename per row when it settles. Tab is only what settles
+            // it — and what opens the next one.
+            private void Rename(TaskRename rename) =>
+                _tasks = [.. _tasks.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
+
+            // A title, nothing else. The field it was typed into was never a row in
+            // _tasks, so a title nobody finished leaves nothing here to clean up —
+            // and an empty field is Tab's way out of the list, not an add.
+            private void Add(string title) =>
+                _tasks = [.. _tasks, new TaskRow(NewId(), title)];
+        }
         """;
 
     private const string TagCode = """
