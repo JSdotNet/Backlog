@@ -212,6 +212,28 @@ html, body {
     }
 }
 
+/* The three comparison components laid out the way a host composes them: two
+   fixed-width lists that pick one thing each, and the document they choose,
+   taking everything that is left. Equal columns would make the picker and the
+   comparison look like peers, which is exactly what they are not.
+
+   No md-compare-* or change-scope-* rule appears in this file. The library owns
+   the palette, the type scale and every component's own styling; this is only
+   where the storybook stands three of them next to each other. */
+.sb-compare-surface {
+    display: grid;
+    grid-template-columns: 16rem 18rem minmax(0, 1fr);
+    gap: var(--spacing-md);
+    height: 100%;
+}
+
+@media (max-width: 64rem) {
+    .sb-compare-surface {
+        grid-template-columns: minmax(0, 1fr);
+        height: auto;
+    }
+}
+
 /* Gives an example a definite height to fill. A component that sizes itself to
    its container has nothing to show inside a box that just grows to fit it. */
 .sb-tall {

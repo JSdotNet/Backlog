@@ -13,6 +13,7 @@
              Disabled="@Disabled"
              BadgeKind="status"
              FallbackSlug="draft"
+             Slug="@Slug"
              OnChanged="OnChanged" />
 
 @code {
@@ -33,6 +34,13 @@
 
     [Parameter]
     public bool Disabled { get; set; }
+
+    /// <summary>Passed straight to <c>BadgeSelect</c>: the badge modifier to
+    /// wear instead of the one the value spells. A caller whose statuses are not
+    /// the application's own words needs it — see the knowledge record's
+    /// headline.</summary>
+    [Parameter]
+    public string? Slug { get; set; }
 
     [Parameter]
     public EventCallback<string> OnChanged { get; set; }

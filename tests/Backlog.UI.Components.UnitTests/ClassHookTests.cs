@@ -96,6 +96,109 @@ public sealed class ClassHookTests
     }
 
     [Fact]
+    public void A_badge_select_given_no_slug_wears_the_modifier_its_value_spells()
+    {
+        // The application path, and the majority of callers: a status, a priority
+        // or an area whose values *are* the words the stylesheet knows. Nothing
+        // has to be told anything for the badge to be right.
+        using var context = new BunitContext();
+
+        var select = context.Render<BadgeSelect>(parameters => parameters
+            .Add(s => s.CurrentValue, "ready")
+            .Add(s => s.Options, [new SelectorOption("ready", "Ready")]));
+
+        Assert.Equal(
+            "status-editor badge badge--status badge--status-ready",
+            select.Find("label").GetAttribute("class"));
+        Assert.Equal("status-editor__select", select.Find("select").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void A_badge_select_handed_a_slug_wears_that_modifier_instead()
+    {
+        // For a caller whose vocabulary is not the badge's. `adopted` is a real
+        // status in `.tech` and no rule anywhere defines
+        // `.badge--status-adopted`, so left to spell its own modifier it would
+        // land on plain grey beside a read-only badge that had been told which
+        // state it meant. Same meaning as Slug on Badge, and only the modifier
+        // moves: `.status-editor` and `.status-editor__select` are how the
+        // stylesheet strips the control's chrome and places it on the line.
+        using var context = new BunitContext();
+
+        var select = context.Render<BadgeSelect>(parameters => parameters
+            .Add(s => s.CurrentValue, "adopted")
+            .Add(s => s.Slug, "active")
+            .Add(s => s.Options, [new SelectorOption("adopted", "adopted")]));
+
+        Assert.Equal(
+            "status-editor badge badge--status badge--status-active",
+            select.Find("label").GetAttribute("class"));
+        Assert.Equal("status-editor__select", select.Find("select").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void An_empty_slug_leaves_the_badge_with_no_state_modifier_at_all()
+    {
+        // Null and empty are different answers, exactly as on Badge. Null is
+        // "not specified", so the value spells the modifier; empty is a caller
+        // saying there is no state to claim, and claiming one would be painting
+        // a verdict nobody reached.
+        using var context = new BunitContext();
+
+        var select = context.Render<BadgeSelect>(parameters => parameters
+            .Add(s => s.CurrentValue, "adopted")
+            .Add(s => s.Slug, string.Empty)
+            .Add(s => s.Options, [new SelectorOption("adopted", "adopted")]));
+
+        Assert.Equal(
+            "status-editor badge badge--status",
+            select.Find("label").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void A_status_selector_passes_a_slug_through_and_derives_one_without()
+    {
+        // StatusSelector is a thin wrapper by design, so the only thing worth
+        // pinning is that neither half of the contract is lost on the way down.
+        using var context = new BunitContext();
+
+        var told = context.Render<StatusSelector>(parameters => parameters
+            .Add(s => s.CurrentValue, "adopted")
+            .Add(s => s.Slug, "active")
+            .Add(s => s.Options, [new SelectorOption("adopted", "adopted")]));
+
+        Assert.Equal(
+            "status-editor badge badge--status badge--status-active",
+            told.Find("label").GetAttribute("class"));
+
+        var untold = context.Render<StatusSelector>(parameters => parameters
+            .Add(s => s.CurrentValue, "done")
+            .Add(s => s.Options, [new SelectorOption("done", "Done")]));
+
+        Assert.Equal(
+            "status-editor badge badge--status badge--status-done",
+            untold.Find("label").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void A_badge_select_holding_nothing_a_class_can_be_made_of_falls_back()
+    {
+        // The slug is a class name, so a value that survives filtering as an
+        // empty string would leave a dangling `badge--status-`. This used to be
+        // written inline here and only checked for a blank value; it is
+        // BadgeSlug now, which is the same rule the static badges have always
+        // used.
+        using var context = new BunitContext();
+
+        var select = context.Render<BadgeSelect>(parameters => parameters
+            .Add(s => s.CurrentValue, "!!!")
+            .Add(s => s.FallbackSlug, "draft")
+            .Add(s => s.Options, []));
+
+        Assert.Contains("badge--status-draft", select.Find("label").ClassList);
+    }
+
+    [Fact]
     public void A_button_wearing_a_hosts_base_class_keeps_none_of_ours()
     {
         using var context = new BunitContext();

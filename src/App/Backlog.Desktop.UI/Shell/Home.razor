@@ -10,13 +10,20 @@
 
 @*
     The shell. It owns the app chrome — header, update and feedback windows, the
-    AI panel — and decides which of the three global panes is on screen, plus
-    whether there is room beside them for the separately-toggled tools pane.
+    AI panel — and decides which surface sits below it.
 
-    What is inside a pane is not its business: Inbox, Backlog Management, Second
-    Brain and Dev PC Management each render themselves from their own project,
-    and the only thing that crosses between them here is the repository scope
-    handed to the knowledge pane and the triaged item handed back from the inbox.
+    There are three, and exactly one of them renders: the workspace, which is the
+    roadmap band above the global panes; the tools surface; and the dashboard. The
+    last two are takeovers — Dev PC Management and Monitoring are whole domains,
+    and opening one means the reader has stopped looking at the backlog, so it
+    takes the screen and hides every other domain concern rather than docking
+    beside them. Whichever branch renders owns the page's single <main> landmark.
+
+    What is inside a surface is not the shell's business: Inbox, Backlog
+    Management, Second Brain, Roadmap, Dev PC Management and Monitoring each
+    render themselves from their own project, and the only thing that crosses
+    between them here is the repository scope handed to the knowledge pane and the
+    triaged item handed back from the inbox.
 *@
 
 <div class="shell shell--wide">
@@ -72,7 +79,33 @@
             </IconButton>
         }
 
-        <div class="pane-multiselect" role="group" aria-label="Visible panes" data-testid="global-pane-multiselect">
+        @* What is on screen below, in one strip. "Sections" rather than "panes"
+           because the first option is the roadmap band, and a band is a row above
+           the panes rather than one of them.
+
+           That difference is also why it is not a GlobalPane. The selection holds a
+           viewport-driven capacity and a "one is always on screen" invariant, both
+           of which exist because the three panes compete for the same width; the
+           band competes for nothing — it is a horizontal row with its own grid
+           track. Folding it in would put it in TrimToCapacity's reach and let a
+           narrowed window silently evict the reader's roadmap. So it looks and feels
+           like its siblings and keeps its own shell field, the same split that keeps
+           WorkspaceSurface out of the selection. It is the one option here with no
+           Disabled binding, because it is the one with no capacity rule to block it. *@
+        <div class="pane-multiselect" role="group" aria-label="Visible sections" data-testid="global-pane-multiselect">
+            @if (RoadmapPaneOptionVisible)
+            {
+                <ToggleButton BaseClass="pane-multiselect__option"
+                              PressedCssClass="pane-multiselect__option--selected"
+                              Pressed="RoadmapBandVisible"
+                              id="roadmap-pane-option"
+                              TestId="roadmap-pane-option"
+                              aria-controls="roadmap-band"
+                              PressedChanged="ToggleRoadmapBand">
+                    Roadmap
+                </ToggleButton>
+            }
+
             @if (InboxPaneOptionVisible)
             {
                 <ToggleButton BaseClass="pane-multiselect__option"
@@ -126,6 +159,9 @@
                 Ask AI
             </AppButton>
         }
+        @* The two takeovers are toggled from here and only from here, which is why
+           the header stays on screen while one is open: it carries the control
+           that closes it. Same disclosure shape as Ask AI. *@
         @if (IsFeatureEnabled(DevPcFeatures.SystemTools))
         {
             <AppButton BaseClass="header-tool-toggle"
@@ -134,8 +170,20 @@
                        TestId="tools-toggle-button"
                        aria-controls="tools-pane"
                        aria-expanded="@(ToolsVisible ? "true" : "false")"
-                       OnClick="ToggleToolsPane">
+                       OnClick="ToggleTools">
                 Tools
+            </AppButton>
+        }
+        @if (IsFeatureEnabled(MonitoringFeatures.Dashboard))
+        {
+            <AppButton BaseClass="header-tool-toggle"
+                       Variant="ButtonVariant.None"
+                       id="dashboard-toggle-button"
+                       TestId="dashboard-toggle-button"
+                       aria-controls="dashboard-pane"
+                       aria-expanded="@(DashboardVisible ? "true" : "false")"
+                       OnClick="ToggleDashboard">
+                Dashboard
             </AppButton>
         }
 
@@ -310,67 +358,122 @@
         </section>
     }
 
-    <main class="knowledge-layout @((BacklogPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeBacklogVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
-        @if (InboxBeforeBacklogVisible)
-        {
-            <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" />
-        }
-
-        @if (BacklogPaneVisible)
-        {
-            <BacklogPane />
-        }
-
-        @if (RightSidePaneVisible)
-        {
-            @if (BacklogPaneVisible)
+    @* Exactly one of these three renders, and each one's root is the page's only
+       <main>. A takeover is deliberately not a Modal: there is no scrim and no
+       focus trap, because the header behind it is not inert — it is where the
+       control that closes the surface lives. Modal.razor still owns the modal
+       semantics for the update and feedback dialogs, which really are modal. *@
+    @if (ToolsVisible)
+    {
+        <main class="workspace-surface"
+              data-testid="tools-surface"
+              tabindex="-1"
+              @ref="_surfaceElement"
+              @onkeydown="OnSurfaceKeyDown"
+              aria-label="System tools">
+            <ToolsPane OnClose="CloseSurface" />
+        </main>
+    }
+    else if (DashboardVisible)
+    {
+        <main class="workspace-surface"
+              data-testid="dashboard-surface"
+              tabindex="-1"
+              @ref="_surfaceElement"
+              @onkeydown="OnSurfaceKeyDown"
+              aria-label="Dashboard">
+            <DashboardPane OnClose="CloseSurface" />
+        </main>
+    }
+    else
+    {
+        <main class="@WorkspaceClass" data-testid="workspace">
+            @if (RoadmapBandVisible)
             {
-                @* The pane edge is the handle. Dragging it is the obvious gesture, so
-                   the slider that used to sit inside the pane is gone; arrow keys on
-                   the same separator carry the keyboard equivalent. *@
-                <div class="pane-resizer"
-                     data-testid="side-pane-resizer"
-                     data-pane-resizer="true"
-                     role="separator"
-                     aria-orientation="vertical"
-                     aria-label="Side pane width"
-                     aria-valuemin="@MinSidePaneWidthRem"
-                     aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                     aria-valuenow="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                     tabindex="0"
-                     @onkeydown="OnResizerKeyDown"
-                     @onkeydown:preventDefault="true">
-                    <span class="pane-resizer__grip" aria-hidden="true"></span>
-                </div>
+                <RoadmapBand />
             }
 
-            <aside @key=@("side-pane-stack") class="side-pane-stack @(BacklogPaneVisible ? string.Empty : "side-pane-stack--full") @(ToolsVisible ? "side-pane-stack--right-docked" : string.Empty)" data-testid="side-pane-stack" aria-label="Backlog side panes">
-                @if (!BacklogPaneVisible && InboxPaneVisible)
+            @* The pane row. It was the <main> itself until the band arrived above
+               it; the class, the width variable and the test id are unchanged,
+               because the resizer's JavaScript finds the layout by that test id. *@
+            <div class="knowledge-layout @((BacklogPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeBacklogVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
+                @if (InboxBeforeBacklogVisible)
                 {
                     <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" />
                 }
 
-                @if (ToolsVisible)
+                @if (BacklogPaneVisible)
                 {
-                    <ToolsPane OnClose="ToggleToolsPane" />
+                    <BacklogPane />
                 }
 
-                @if (KnowledgePaneVisible)
+                @if (RightSidePaneVisible)
                 {
-                    <KnowledgePane RepositoryAlias="@State.SelectedRepositoryAlias" />
+                    @if (BacklogPaneVisible)
+                    {
+                        @* The pane edge is the handle. Dragging it is the obvious gesture, so
+                           the slider that used to sit inside the pane is gone; arrow keys on
+                           the same separator carry the keyboard equivalent. *@
+                        <div class="pane-resizer"
+                             data-testid="side-pane-resizer"
+                             data-pane-resizer="true"
+                             role="separator"
+                             aria-orientation="vertical"
+                             aria-label="Side pane width"
+                             aria-valuemin="@MinSidePaneWidthRem"
+                             aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                             aria-valuenow="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                             tabindex="0"
+                             @onkeydown="OnResizerKeyDown"
+                             @onkeydown:preventDefault="true">
+                            <span class="pane-resizer__grip" aria-hidden="true"></span>
+                        </div>
+                    }
+
+                    <aside @key=@("side-pane-stack") class="side-pane-stack @(BacklogPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Backlog side panes">
+                        @if (!BacklogPaneVisible && InboxPaneVisible)
+                        {
+                            <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" />
+                        }
+
+                        @if (KnowledgePaneVisible)
+                        {
+                            <KnowledgePane RepositoryAlias="@State.SelectedRepositoryAlias" />
+                        }
+                    </aside>
                 }
-            </aside>
-        }
-    </main>
+            </div>
+        </main>
+    }
 </div>
 
 @code {
-    private bool _toolsExpanded;
+    private WorkspaceSurface _surface = WorkspaceSurface.Workspace;
     private bool _aiExpanded;
     private readonly GlobalPaneSelection _globalPanes = new();
     private double _knowledgePanelWidthRem = SidePaneWidth.DefaultRem;
+
+    // Whether the roadmap band is on screen. Session-only and deliberately so:
+    // WorkspaceSettingsStore scopes itself to where the backlog lives, which GitHub
+    // repository backs that folder and which knowledge folders are configured —
+    // three settings that are one decision, and what the reader currently has in
+    // view is not that decision. The precedent for shell view state is
+    // _knowledgePanelWidthRem above, which is session-only for the same reason. It
+    // is not a feature flag either: the flag decides whether a band exists at all,
+    // this decides whether the one that exists is showing, so nothing here is reset
+    // when the flag changes.
+    //
+    // Its own field rather than a GlobalPane, for the reason written on the
+    // multiselect group in the markup above: the band has no capacity rule and must
+    // not acquire one by joining a selection that has.
+    //
+    // Shown by default, so nobody who never touches the toggle sees a change.
+    private bool _roadmapVisible = true;
     private double _maxSidePaneWidthRem = SidePaneWidth.MaxRem;
     private DotNetObjectReference<Home>? _selfReference;
+    private ElementReference _surfaceElement;
+    private bool _focusSurfacePending;
+    private bool _workspaceWasHidden;
 
     private const double MinSidePaneWidthRem = SidePaneWidth.MinRem;
     private string? _appUpdateMessage;
@@ -403,28 +506,128 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
+        if (firstRender)
+        {
+            _selfReference = DotNetObjectReference.Create(this);
+            try
+            {
+                await JS.InvokeVoidAsync("backlogPaneResizer.initialize", _selfReference);
+            }
+            catch (Exception)
+            {
+                // Without the interop the separator still resizes by keyboard.
+            }
+        }
 
-        _selfReference = DotNetObjectReference.Create(this);
+        // The two branches below run on every render, not only the first: a
+        // surface can open and close any number of times after it.
+        if (WorkspaceVisible)
+        {
+            _focusSurfacePending = false;
+
+            if (_workspaceWasHidden)
+            {
+                _workspaceWasHidden = false;
+
+                // A takeover unmounts the pane layout, and the bounds are measured
+                // from that element, so the window's resize listener has nothing to
+                // report for as long as one is open. Without this, a window resized
+                // during a takeover would leave the pane capacity describing the
+                // window as it was before — until the next resize happened to
+                // correct it. Re-measuring here applies the capacity rule for the
+                // window the reader actually came back to.
+                try
+                {
+                    await JS.InvokeVoidAsync("backlogPaneResizer.refresh");
+                }
+                catch (Exception)
+                {
+                    // Non-fatal for the same reason initialize is: without the
+                    // interop the capacity simply stays where it was.
+                }
+            }
+
+            return;
+        }
+
+        _workspaceWasHidden = true;
+
+        // Moving focus onto the surface is what announces the context change and
+        // makes Escape work without a click first. Once per open — guarded on the
+        // flag rather than on firstRender, because a re-render inside an open
+        // surface must not drag focus back out of whatever it is now on.
+        if (!_focusSurfacePending) return;
+
+        _focusSurfacePending = false;
         try
         {
-            await JS.InvokeVoidAsync("backlogPaneResizer.initialize", _selfReference);
+            await _surfaceElement.FocusAsync();
         }
         catch (Exception)
         {
-            // Without the interop the separator still resizes by keyboard.
+            // Focus is an improvement on where the browser would have left it,
+            // not something the surface depends on.
         }
     }
 
-    /// <summary>Whether there is a tools pane on screen. Unlike the three global
-    /// panes this is a plain disclosure with no capacity rule — it docks to the
-    /// right of whatever else is in the side stack — but it is still gated on the
-    /// feature, so turning the feature off closes an open pane.</summary>
-    private bool ToolsVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) && _toolsExpanded;
+    /// <summary>Whether the tools surface is on screen. Unlike the three global
+    /// panes this is a plain disclosure with no capacity rule — it takes the whole
+    /// screen instead of a place in the side stack, so nothing else renders beside
+    /// it — but it is still gated on the feature, so turning the feature off
+    /// returns the reader to the workspace.</summary>
+    private bool ToolsVisible => _surface == WorkspaceSurface.Tools && IsFeatureEnabled(DevPcFeatures.SystemTools);
+
+    /// <summary>Whether the dashboard is on screen. The same shape as
+    /// <see cref="ToolsVisible"/>, and mutually exclusive with it by construction
+    /// rather than by a rule written here: both read the one surface field.</summary>
+    private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && IsFeatureEnabled(MonitoringFeatures.Dashboard);
+
+    /// <summary>Whether the panes are on screen. Anything that is not a takeover
+    /// is the workspace, including a surface whose feature has been switched off.</summary>
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible;
+
+    /// <summary>Whether the Roadmap option is offered at all. The same two-level
+    /// split as <see cref="InboxPaneOptionVisible"/>: the feature decides whether
+    /// there is an option, the option decides what is on screen.</summary>
+    private bool RoadmapPaneOptionVisible => IsFeatureEnabled(RoadmapFeatures.Roadmap);
+
+    /// <summary>Whether the roadmap band renders above the panes. Only inside the
+    /// workspace: a takeover hides every other domain concern, the band included.
+    /// The flag is read first, so turning the feature off hides the band whatever
+    /// the toggle says — and leaves the toggle's own state untouched for when it
+    /// comes back.</summary>
+    private bool RoadmapBandVisible => RoadmapPaneOptionVisible && _roadmapVisible;
+
+    /// <summary>The workspace grid's classes. One modifier, because show and hide is
+    /// binary: with no band on screen its track goes rather than being left empty
+    /// above the panes, and there is no in-between size for a second variant to
+    /// describe. The feature being off and the toggle being off are the same
+    /// layout.</summary>
+    private string WorkspaceClass => RoadmapBandVisible ? "workspace" : "workspace workspace--no-roadmap";
 
     private void ToggleAiPanel() => _aiExpanded = !_aiExpanded;
 
-    private void ToggleToolsPane() => _toolsExpanded = !_toolsExpanded;
+    private void ToggleTools() => ToggleSurface(WorkspaceSurface.Tools);
+
+    private void ToggleDashboard() => ToggleSurface(WorkspaceSurface.Dashboard);
+
+    /// <summary>Opens a surface, or returns to the workspace if it was already the
+    /// one on screen. Assigning rather than flipping a flag is what makes the
+    /// takeovers exclusive: opening one is the same act as closing the other.</summary>
+    private void ToggleSurface(WorkspaceSurface surface)
+    {
+        _surface = _surface == surface ? WorkspaceSurface.Workspace : surface;
+        _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
+    }
+
+    /// <summary>Back to the panes. The pane selection was never touched, so there
+    /// is nothing to restore — it is simply visible again.</summary>
+    private void CloseSurface() => _surface = WorkspaceSurface.Workspace;
+
+    private void OnSurfaceKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") CloseSurface();
+    }
 
     private async Task AskAiAsync()
     {
@@ -492,7 +695,10 @@
 
     private bool InboxBeforeBacklogVisible => BacklogPaneVisible && InboxPaneVisible;
 
-    private bool RightSidePaneVisible => ToolsVisible || KnowledgePaneVisible || (InboxPaneVisible && !BacklogPaneVisible);
+    /// <summary>Whether the side stack has anything in it. Tools used to count
+    /// here; it no longer lives in the stack at all, so a stack holding only the
+    /// tools pane can no longer happen and the split cannot open for it.</summary>
+    private bool RightSidePaneVisible => KnowledgePaneVisible || (InboxPaneVisible && !BacklogPaneVisible);
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
     private string FeedbackStatusClass => $"feedback-status {(_feedbackSucceeded ? "feedback-status--ok" : "feedback-status--error")}";
@@ -681,6 +887,12 @@
 
         return !_globalPanes.CanEnable(pane);
     }
+
+    /// <summary>Show or hide the band. A plain flip of a shell field rather than a
+    /// call into <see cref="GlobalPaneSelection"/>, and it never consults capacity:
+    /// the band is always freely toggleable because it takes no width from the panes.
+    /// See the multiselect group in the markup for why it stays out of the selection.</summary>
+    private void ToggleRoadmapBand() => _roadmapVisible = !_roadmapVisible;
 
     private void ToggleInboxPane() => _globalPanes.Toggle(GlobalPane.Inbox);
 

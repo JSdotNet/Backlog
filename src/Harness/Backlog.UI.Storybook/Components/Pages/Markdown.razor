@@ -24,15 +24,19 @@ It is the same control the code block uses — one CopyButton, one clipboard cal
     <Story Name="Reading, then editing"
            Description="MarkdownDocument is the read view with a way into the editor. Read is the resting state, and that is the decision the component is: these bodies are read far more often than they are written, so the rendering is the default and writing is a thing you ask for.
 
-One text either way. Editing hands the same string to the editor that the parser was reading, so there is no moment where a body exists twice and the two can disagree — and the copy button is offered in read mode only, because in edit mode the text is already in front of you and selectable."
+One text either way. Editing hands the same string to the editor that the parser was reading, so there is no moment where a body exists twice and the two can disagree — and the copy button is offered in read mode only, because in edit mode the text is already in front of you and selectable.
+
+Focus leaving the text is a save, not an exit. The formatting buttons sit outside the textarea, so every reach for bold blurs it, and a surface that read blur as &quot;finished&quot; would close itself on the way to the click that was about to format the selection. So blur flushes whatever is pending and the mode stays exactly where the author left it; **Done** remains the only thing that ends an edit. Press **Edit**, type, then click a toolbar button or out of the box: the line below moves and the editor is still open."
            Code="@DocumentCode">
         <div class="sb-surface" data-testid="markdown-document">
             <MarkdownDocument @bind-Value="_documentSource"
                               @bind-Editing="_editing"
+                              OnBlur="FlushDocument"
                               Title="release-checklist.md"
                               TestId="doc" />
         </div>
         <p class="sb-state" data-testid="markdown-document-mode">@(_editing ? "editing" : "reading")</p>
+        <p class="sb-state" data-testid="markdown-document-flush">@DocumentFlushState</p>
     </Story>
 
     <Story Name="Commenting on a section"
@@ -428,6 +432,37 @@ Each mark is a real anchor into the note, and each note carries a link back. Fol
         """;
 
     private bool _editing;
+    private int _documentFlushes;
+    private string? _documentFlushed;
+
+    /// <summary>A real host would write the body somewhere. The storybook writes
+    /// it to a line under the editor, because the part worth watching is not
+    /// where it went — it is that the flush happened and the editor is still
+    /// open afterwards.</summary>
+    private void FlushDocument()
+    {
+        _documentFlushes++;
+        _documentFlushed = _documentSource;
+    }
+
+    private string DocumentFlushState
+    {
+        get
+        {
+            if (_documentFlushes == 0)
+            {
+                return "nothing flushed yet — edit the text, then click a toolbar button or out of the box";
+            }
+
+            var flushes = _documentFlushes == 1 ? "one flush" : $"{_documentFlushes} flushes";
+            var drift = _documentFlushed == _documentSource
+                ? "the saved copy matches the editor"
+                : "with edits typed since the last one";
+
+            return $"{flushes}, {drift}";
+        }
+    }
+
     private int _nextComment = 3;
 
     private IReadOnlyList<MarkdownComment> _comments =
@@ -486,7 +521,16 @@ Each mark is a real anchor into the note, and each note carries a link back. Fol
         """;
 
     private const string DocumentCode = """
-        <MarkdownDocument @bind-Value="_source" @bind-Editing="_editing" Title="notes.md" />
+        <MarkdownDocument @bind-Value="_source"
+                          @bind-Editing="_editing"
+                          OnBlur="Flush"
+                          Title="notes.md" />
+
+        @code {
+            // Blur is a save, not an exit. The toolbar is outside the textarea, so
+            // reaching for bold blurs it and the editor has to still be there.
+            private void Flush() => Save(_source);
+        }
         """;
 
     private const string CommentCode = """

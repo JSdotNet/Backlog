@@ -83,6 +83,10 @@
     private readonly Dictionary<string, string> _copilotErrors = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
     private DomainKnowledgeView? _view;
+    private KnowledgeChapterContent _chapter = KnowledgeChapterContent.None;
+    private DomainKnowledgeDocument? _chapterDocument;
+    private KnowledgeChapterEditor? _editor;
+    private string? _chapterSaveError;
     private string? _selectedContextSlug;
     private string? _loadedRepositoryAlias;
 
@@ -119,27 +123,26 @@
         }
         else if (_view is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
         {
-            await LoadAsync();
+            _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
+            _loadedRepositoryAlias = RepositoryAlias;
         }
         SelectDefaultContext();
+
+        await LoadSelectedChapterAsync();
     }
 
-    /// <summary>The configured folder moved, so the cached read is stale. A
+    /// <summary>The configured folder moved, so every cached read is stale —
+    /// including the open chapter, which is why this goes through
+    /// <see cref="ReloadAsync"/> rather than re-reading the view alone. A
     /// parent-supplied <see cref="View"/> is the parent's to refresh, not
     /// ours.</summary>
     private async void OnKnowledgeChanged()
     {
         if (View is not null) return;
 
-        await LoadAsync();
+        await ReloadAsync();
         SelectDefaultContext();
         await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task LoadAsync()
-    {
-        _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
-        _loadedRepositoryAlias = RepositoryAlias;
     }
 
     /// <summary>A reload can drop the selected context, so the selection is
@@ -152,6 +155,81 @@
             _selectedContextSlug = Compact ? _view.Contexts.FirstOrDefault()?.Slug : null;
         }
     }
+
+    /// <summary>
+    /// Reads the selected chapter off disk, once per selection.
+    /// <para>
+    /// The root is the view's own <see cref="DomainKnowledgeView.RootPath"/> —
+    /// the <c>.domain</c> folder the port resolved, not the repository above it —
+    /// and the selection is the document's path, which names a file and so never
+    /// carries an anchor. Sections do carry one, in <c>path#slug</c> form, but a
+    /// section is not a chapter: it is the same file, and only its state and its
+    /// Copilot launch are addressed that way.
+    /// </para>
+    /// <para>
+    /// Guarded on reference identity so a parameter set that changed nothing
+    /// costs no read. A reload forces past it, because a view handed in by a
+    /// parent can come back with the same records after the file underneath them
+    /// changed.
+    /// </para>
+    /// </summary>
+    private async Task LoadSelectedChapterAsync(bool force = false)
+    {
+        var document = SelectedDocument;
+        if (!force && ReferenceEquals(_chapterDocument, document)) return;
+
+        _chapterDocument = document;
+        _chapterSaveError = null;
+        _chapter = _view is null || document is null
+            ? KnowledgeChapterContent.None
+            : await KnowledgeChapterContent.LoadAsync("domain", _view.RootPath, document.Path);
+
+        // Blazor assigns a component reference but never clears it, so an editor
+        // that has stopped rendering would still be reachable here. Cleared with
+        // the chapter it belonged to, which is the condition the markup renders it
+        // on.
+        if (_chapter.Chapter is null) _editor = null;
+    }
+
+    /// <summary>
+    /// The view again, past the repository-alias guard.
+    /// <para>
+    /// <see cref="OnParametersSetAsync"/> reloads only when the scope changed,
+    /// which is the right rule for a parameter set and the wrong one after a
+    /// save: the file changed and the alias did not, so that guard would skip
+    /// precisely the reload that is needed.
+    /// </para>
+    /// </summary>
+    private async Task ReloadAsync()
+    {
+        _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
+        _loadedRepositoryAlias = RepositoryAlias;
+        await LoadSelectedChapterAsync(force: true);
+    }
+
+    /// <summary>Everything the panel derives from the chapter — the status beside
+    /// the title, the metadata rows, the section list — is read from the file, so
+    /// a save makes all of it stale at once.</summary>
+    private Task OnChapterSavedAsync() => ReloadAsync();
+
+    /// <summary>A save that failed after the editor stopped being able to say so.
+    /// It is shown here because this panel is still on screen when that
+    /// happens.</summary>
+    private void OnChapterSaveFailed(string message) => _chapterSaveError = message;
+
+    /// <summary>Flushes the editing surface if there is one. Guarded on the same
+    /// condition the markup renders it on, because a captured reference outlives
+    /// the component it points at.</summary>
+    private Task FlushEditorAsync() =>
+        _editor is not null && _chapter.Chapter is not null ? _editor.FlushAsync() : Task.CompletedTask;
+
+    /// <summary>Whether this is the document the editing surface is holding — the
+    /// very record the text was read for, so the buffer on screen and the body it
+    /// replaced can never turn out to be about different files. The context
+    /// documents render through the same fragment, and only one of them is the
+    /// selected chapter.</summary>
+    private bool IsEditedChapter(DomainKnowledgeDocument document) =>
+        _chapter.Chapter is not null && ReferenceEquals(document, _chapterDocument);
 
     private void SelectContext(DomainKnowledgeContext? context) => _selectedContextSlug = context?.Slug;
 
@@ -184,17 +262,60 @@
         _ => string.Empty
     };
 
-    private RenderFragment RenderDocument(DomainKnowledgeDocument document, string cssClass) => @<article class="domain-document @cssClass" id="@ElementId(document.Path)" data-testid="domain-document">
+    /// <summary>The chapter as a buffer, for the file view's body. No Title is
+    /// handed over: the file view's header above it already names the document, and
+    /// the document bar inside it is there for the actions.</summary>
+    private RenderFragment ChapterEditor() => @<KnowledgeChapterEditor @ref="_editor"
+                                                                       Chapter="@_chapter.Chapter"
+                                                                       InitialText="@_chapter.Text"
+                                                                       OnSaved="OnChapterSavedAsync"
+                                                                       OnSaveFailed="OnChapterSaveFailed" />;
+
+    @* The chapter's article gives up its card, because the file view inside it
+       draws one and a card inside a card reads as a document inside a document —
+       which is what was reported. The article itself stays: it is the scroll
+       container the knowledge stack sizes, the anchor the knowledge menu jumps to,
+       and the only thing holding the chapter's controls, metadata and sections
+       together. Every other document in the pane is still a card, since a list of
+       files needs its entries told apart. *@
+    private RenderFragment RenderDocument(DomainKnowledgeDocument document, string cssClass) => @<article class="domain-document @cssClass @(IsEditedChapter(document) ? "domain-document--chapter" : string.Empty)" id="@ElementId(document.Path)" data-testid="domain-document">
         <header class="domain-document__header">
-            <div>
-                <p class="domain-document__kind">@document.KindLabel</p>
-                <h3>@document.Title</h3>
-                <p class="domain-document__path"><code>@document.Path</code></p>
-            </div>
+            @* Kind, title and path move into the file view's header for the one
+               document the file view shows, because that header says all three and
+               saying them twice is what made the pane look like it had lost count.
+               Every other document on screen — a context's other files, the folder
+               overview — still names itself here, since nothing else does. *@
+            @if (!IsEditedChapter(document))
+            {
+                <div>
+                    <p class="domain-document__kind">@document.KindLabel</p>
+                    <h3>@document.Title</h3>
+                    <p class="domain-document__path"><code>@document.Path</code></p>
+                </div>
+            }
             @RenderKnowledgeActions(new KnowledgeActionItem(document.Title, document.KindLabel, document.Path, document.Metadata, document.Summary))
         </header>
 
-        @if (!string.IsNullOrWhiteSpace(document.Summary))
+        @if (IsEditedChapter(document))
+        {
+            @* The chapter as the file has it, in place of the summary and the
+               section excerpts that retold it. Those are a reading of this same
+               text, and two readings on one screen disagree the moment either is
+               typed into. Everything that is not prose stays: the metadata rows,
+               the rendered diagrams, and each section's action row — a section's
+               state and its Copilot launch are controls, not content, and there
+               is nowhere else in the product to reach them. All of it stays
+               outside the file view, above and below it, because the file view's
+               body is the file and nothing else belongs in it. *@
+            <Alert Message="@_chapterSaveError" TestId="domain-chapter-save-error" Role="status" />
+            <FileView Name="@document.Title"
+                      Kind="@document.KindLabel"
+                      Path="@document.Path"
+                      MaxHeight="@(null)"
+                      TestId="domain-chapter-file"
+                      BodyContent="@ChapterEditor()" />
+        }
+        else if (!string.IsNullOrWhiteSpace(document.Summary))
         {
             <p class="domain-document__summary">@document.Summary</p>
         }
@@ -221,7 +342,7 @@
                     {
                         @RenderMetadata(section.Metadata, section.Links, "Section metadata")
                     }
-                    @if (!string.IsNullOrWhiteSpace(section.Excerpt))
+                    @if (!IsEditedChapter(document) && !string.IsNullOrWhiteSpace(section.Excerpt))
                     {
                         <p class="domain-section__excerpt">@section.Excerpt</p>
                     }
@@ -326,8 +447,11 @@
         _statusErrors.Remove(item.Path);
         try
         {
+            // The body goes first; KnowledgeChapterEditor.FlushAsync says why.
+            await FlushEditorAsync();
+
             await DomainKnowledge.UpdateStatusAsync(RepositoryAlias, item.Path, status);
-            await LoadAsync();
+            await ReloadAsync();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {

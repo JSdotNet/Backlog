@@ -1,0 +1,271 @@
+@*
+    The files in the selected scope, and what happened to each.
+
+    Deliberately the same widget as ChangeScopePicker: the same
+    `ul[role=listbox]` / `li[role=none]` / `button[role=option]` shape, the same
+    roving tabindex, the same always-rendered tick slot, the same
+    selected/hover/focus treatment, the same surface and row height. Two lists
+    side by side, each picking one thing, must not be two different widgets — a
+    reader who learns the arrow keys in the left pane should not have to relearn
+    them in the middle one, and a screen-reader user should not meet a listbox
+    and then a tree.
+
+    Presentational. The host computes the list; nothing here reads a repository.
+
+    File-level kinds are Added, Removed and Modified only. There is deliberately
+    no `Renamed`: this feature detects renames of *headings*, not of paths, so a
+    file-rename badge would be a claim the model cannot support. The omission is
+    written down here rather than left to be discovered by whoever goes looking
+    for it.
+
+    No truncation, and that is a considered departure from FileView. There the
+    path shares a line with the name and has to give up room, and its tail is
+    its least informative part. Here the name has a line to itself and never
+    truncates, and the directory has a second line and *wraps* rather than
+    ellipsing — because in a narrow list truncating a directory eats exactly the
+    segment that distinguishes `…/Markdown` from `…/Layout`. Wrapping costs a row
+    height; ellipsing costs the answer.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (Files.Count == 0)
+    {
+        @* The library's own empty state rather than a bare sentence, and no
+           call to action: nothing to look at here is a complete, and usually
+           welcome, answer, not a task someone has failed to start. *@
+        <EmptyState Title="@EmptyTitle"
+                    Description="@EmptyDescription"
+                    ActionCssClass="@null"
+                    CssClass="changed-files__empty"
+                    TestId="@EmptyTestId" />
+    }
+    else
+    {
+        <ul class="changed-files__list" role="listbox" aria-label="@AriaLabel">
+            @for (var position = 0; position < Files.Count; position++)
+            {
+                var index = position;
+                var file = Files[index];
+
+                <li role="none">
+                    <button type="button"
+                            class="@RowClass(file)"
+                            role="option"
+                            aria-selected="@Selected(file)"
+                            tabindex="@Tabbable(index)"
+                            data-testid="@RowTestId(file)"
+                            @ref="_elements[index]"
+                            @onfocus="() => _active = index"
+                            @onclick="() => SelectAsync(file)"
+                            @onkeydown="args => OnKeyDownAsync(args, index)"
+                            @onkeydown:preventDefault="_preventDefault">
+                        <span class="changed-file__mark" aria-hidden="true">@Mark(file)</span>
+
+                        @* The glyph is shape, the word beside it is text, and the
+                           tint under the row is colour: three channels for one
+                           fact. The glyph is hidden from assistive tech and the
+                           word is only in the accessibility tree, so neither is
+                           read twice and neither is the only carrier. *@
+                        <span class="changed-file__kind" aria-hidden="true">@Glyph(file.Kind)</span>
+                        <span class="sr-only">@Word(file.Kind)</span>
+
+                        <span class="changed-file__body">
+                            <span class="changed-file__name">@file.Name</span>
+                            @if (!string.IsNullOrWhiteSpace(file.Directory))
+                            {
+                                <span class="changed-file__directory">@file.Directory</span>
+                            }
+                        </span>
+
+                        @* "plus three minus one plus-or-minus two" is not a
+                           sentence, so the run is hidden and a written-out
+                           expansion sits beside it. Tabular figures keep the
+                           columns lined up down the list, as .md-block__count
+                           already does. *@
+                        <span class="changed-file__counts" aria-hidden="true">@Counts(file)</span>
+                        <span class="sr-only">@SpokenCounts(file)</span>
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private ElementReference[] _elements = [];
+
+    private int _active = -1;
+    private int _focusTarget = -1;
+    private bool _preventDefault;
+
+    /// <summary>The files in the selected scope, in the order the host wants
+    /// them. Sorting belongs to the caller for the same reason it does in
+    /// FolderView: which files matter, and in what order, is the one thing about
+    /// a list of files that is never generic.</summary>
+    [Parameter]
+    public IReadOnlyList<ChangedFile> Files { get; set; } = [];
+
+    /// <summary>The selected file's path. Two-way bindable.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> SelectedPathChanged { get; set; }
+
+    /// <summary>The whole record behind the row, for a host that needs more than
+    /// the path to go and fetch the comparison.</summary>
+    [Parameter]
+    public EventCallback<ChangedFile> OnFileSelected { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Changed files";
+
+    /// <summary>What is shown when the scope holds no files. The default is the
+    /// celebratory, action-free reading: an empty scope is an answer.</summary>
+    [Parameter]
+    public string EmptyTitle { get; set; } = "Nothing uncommitted";
+
+    [Parameter]
+    public string? EmptyDescription { get; set; } = "Every change in this scope is already committed.";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (_elements.Length != Files.Count) _elements = new ElementReference[Files.Count];
+    }
+
+    /// <summary>Moving the roving tabindex is not moving focus; see the same
+    /// method on ChangeScopePicker for why both are needed.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusTarget < 0) return;
+
+        var target = _focusTarget;
+        _focusTarget = -1;
+
+        if (target >= _elements.Length) return;
+
+        try
+        {
+            await _elements[target].FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private int ActiveIndex
+    {
+        get
+        {
+            if (_active >= 0 && _active < Files.Count) return _active;
+
+            var selected = Files.ToList().FindIndex(IsSelected);
+
+            return selected >= 0 ? selected : 0;
+        }
+    }
+
+    private string Tabbable(int index) => index == ActiveIndex ? "0" : "-1";
+
+    private bool IsSelected(ChangedFile file) => string.Equals(SelectedPath, file.Path, StringComparison.Ordinal);
+
+    private string Selected(ChangedFile file) => IsSelected(file) ? "true" : "false";
+
+    private string Mark(ChangedFile file) => IsSelected(file) ? "✔" : string.Empty;
+
+    private string RowClass(ChangedFile file) =>
+        $"changed-file changed-file--{Slug(file.Kind)}{(IsSelected(file) ? " changed-file--selected" : string.Empty)}";
+
+    private string? RowTestId(ChangedFile file) => TestId is null ? null : $"{TestId}-{Slug(file.Kind)}-{file.Name}";
+
+    private string? EmptyTestId => TestId is null ? null : $"{TestId}-empty";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "changed-files" : $"changed-files {CssClass}";
+
+    /// <summary>The three glyphs, chosen so the shapes differ at a glance and
+    /// none of them needs a colour to be read. U+2212 rather than a hyphen: a
+    /// minus sign is the same width as a plus, so the column does not wobble.</summary>
+    private static string Glyph(ChangeKind kind) => kind switch
+    {
+        ChangeKind.Added => "+",
+        ChangeKind.Removed => "−",
+        _ => "±"
+    };
+
+    /// <summary>What the glyph says, for the accessibility tree. "Modified"
+    /// rather than "Changed" because it is what a reader of a file list expects
+    /// to hear about a file; inside a document, a block is Changed.</summary>
+    private static string Word(ChangeKind kind) => kind switch
+    {
+        ChangeKind.Added => "Added",
+        ChangeKind.Removed => "Removed",
+        _ => "Modified"
+    };
+
+    private static string Slug(ChangeKind kind) => kind switch
+    {
+        ChangeKind.Added => "added",
+        ChangeKind.Removed => "removed",
+        _ => "modified"
+    };
+
+    private static string Counts(ChangedFile file) =>
+        $"+{file.AddedSections} −{file.RemovedSections} ±{file.ChangedSections}";
+
+    private static string SpokenCounts(ChangedFile file) =>
+        $"{file.AddedSections} sections added, {file.RemovedSections} removed, {file.ChangedSections} changed";
+
+    private async Task SelectAsync(ChangedFile file)
+    {
+        if (!IsSelected(file))
+        {
+            SelectedPath = file.Path;
+            await SelectedPathChanged.InvokeAsync(SelectedPath);
+        }
+
+        await OnFileSelected.InvokeAsync(file);
+    }
+
+    /// <summary>Selection follows focus, exactly as in ChangeScopePicker.</summary>
+    private async Task OnKeyDownAsync(KeyboardEventArgs args, int index)
+    {
+        _preventDefault = args.Key is "ArrowDown" or "ArrowUp" or "Home" or "End" or " " or "Enter";
+
+        if (args.Key is "Enter" or " ")
+        {
+            await SelectAsync(Files[index]);
+            return;
+        }
+
+        var target = args.Key switch
+        {
+            "ArrowDown" => Step(index, 1),
+            "ArrowUp" => Step(index, -1),
+            "Home" => Files.Count == 0 ? -1 : 0,
+            "End" => Files.Count - 1,
+            _ => -1
+        };
+
+        if (target < 0) return;
+
+        _active = target;
+        _focusTarget = target;
+
+        await SelectAsync(Files[target]);
+    }
+
+    private int Step(int from, int direction) =>
+        Files.Count == 0 ? -1 : ((from + direction) % Files.Count + Files.Count) % Files.Count;
+}

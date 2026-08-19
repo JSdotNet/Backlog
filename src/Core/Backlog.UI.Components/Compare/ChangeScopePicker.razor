@@ -1,0 +1,309 @@
+@*
+    Which change to look at: a short list of ranges — committed, last commit,
+    uncommitted — and under a divider, the individual commits.
+
+    Presentational, like everything in this folder. No IGitService, no
+    System.IO, no LibGit2Sharp: the host hands over the ranges and the commits
+    already computed, and this draws them and reports which one was chosen.
+    Read-only in the same sense FolderView is read-only — nothing here checks
+    anything out, and an affordance that looked like it might would be a lie.
+
+    A listbox, and the alternatives were weighed:
+
+      * A plain list of buttons. Eight tab stops between this and the file list
+        beside it, and no way to say which one is *in effect* — `aria-current`
+        means "current within a set of links", which this is not.
+      * A `radiogroup`. Semantically defensible, but ARIA gives `radiogroup` no
+        sanctioned nested labelled subgroup, so the ranges/commits distinction
+        would exist visually and not in the accessibility tree — the same
+        failure as "colour alone", one level up. Radios also read as a form
+        value, and this is a filter that takes effect immediately.
+
+    Roving tabindex rather than `aria-activedescendant`, because Tabs and
+    MenuList already do it that way; one keyboard idiom across the library beats
+    a marginal difference in how one screen reader announces it. One tab stop
+    for the whole picker; arrows move *and* select, because selection following
+    focus is what makes a filter feel like a filter; Home and End jump to the
+    ends; Enter and Space re-select the focused row; arrows wrap, as
+    MenuList.Step already does.
+
+    The zero-file scope — "Uncommitted — 0 files" — is selectable, not disabled
+    and not dimmed. The count is the answer: the reader's question was "show me
+    the uncommitted changes", and "there are none" answers it completely and
+    often reassuringly. A disabled row puts that fact behind a wall, because
+    MenuList.Step already skips disabled rows rather than focusing and refusing
+    them, so the reader could not even land on it to read the count. It also
+    inverts the control's meaning — disabled means *you may not*, and there is
+    nothing here the reader may not do. The label stays in secondary text rather
+    than dropping to --color-text-disabled, which would read as unavailable; the
+    "0 files" is the whole cue, and it is a text cue.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <ul class="change-scope__list" role="listbox" aria-label="@AriaLabel">
+        @* Ranges as direct options, with no group around them. They are the
+           default set and the listbox's own name already covers them; a group
+           wrapper here would need an aria-label with no visible counterpart,
+           which is a mismatch invented to fill a slot. *@
+        @for (var position = 0; position < Scopes.Count; position++)
+        {
+            var index = position;
+            var scope = Scopes[index];
+
+            <li role="none">
+                <button type="button"
+                        class="@RowClass(scope.Id, false)"
+                        role="option"
+                        aria-selected="@Selected(scope.Id)"
+                        tabindex="@Tabbable(index)"
+                        data-testid="@RowTestId("scope", scope.Id)"
+                        @ref="_elements[index]"
+                        @onfocus="() => _active = index"
+                        @onclick="() => SelectAsync(scope.Id)"
+                        @onkeydown="args => OnKeyDownAsync(args, index)"
+                        @onkeydown:preventDefault="_preventDefault">
+                    @* aria-hidden because aria-selected already carries the
+                       state; reading both says "checked" twice in different
+                       words. The slot is always rendered, empty when unselected,
+                       so selecting never shifts the labels sideways. U+2714 is
+                       the glyph MarkdownView already uses for a done task — the
+                       product has no icon set, and a text glyph is the standing
+                       convention. *@
+                    <span class="change-scope__mark" aria-hidden="true">@Mark(scope.Id)</span>
+                    <span class="change-scope__label">@scope.Label</span>
+                    @* "0 files" is a complete answer and stays in secondary
+                       text, never disabled text — see the header. *@
+                    <span class="change-scope__count">@Plural(scope.FileCount, "file")</span>
+                </button>
+            </li>
+        }
+
+        @if (Commits.Count > 0)
+        {
+            @* The divider separates a computed range from a point in history.
+               Those are different kinds of thing, and a bare rule leaves the
+               reader to work that out; two words of caption cost one line and
+               remove the guess. The caption also names the group, so the
+               accessibility tree gets the same separation the eye does. *@
+            <li class="change-scope__caption" role="presentation" id="@CommitsCaptionId">@CommitsLabel</li>
+            <li role="none">
+                <ul class="change-scope__group" role="group" aria-labelledby="@CommitsCaptionId">
+                    @for (var position = 0; position < Commits.Count; position++)
+                    {
+                        var index = Scopes.Count + position;
+                        var commit = Commits[position];
+
+                        <li role="none">
+                            <button type="button"
+                                    class="@RowClass(commit.Id, true)"
+                                    role="option"
+                                    aria-selected="@Selected(commit.Id)"
+                                    tabindex="@Tabbable(index)"
+                                    data-testid="@RowTestId("commit", commit.Id)"
+                                    @ref="_elements[index]"
+                                    @onfocus="() => _active = index"
+                                    @onclick="() => SelectAsync(commit.Id)"
+                                    @onkeydown="args => OnKeyDownAsync(args, index)"
+                                    @onkeydown:preventDefault="_preventDefault">
+                                <span class="change-scope__mark" aria-hidden="true">@Mark(commit.Id)</span>
+                                @* Sha first because it is the row's identity,
+                                   subject second because it is what a human
+                                   recognises, age last because it is the
+                                   tiebreaker. The accessible name is the three
+                                   read in that order. *@
+                                <span class="change-scope__sha">@commit.ShortSha</span>
+                                <span class="change-scope__subject">@commit.Subject</span>
+                                <span class="change-scope__age">@commit.Age</span>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    private readonly string _id = "change-scope-" + Guid.NewGuid().ToString("N");
+
+    private readonly List<string> _order = [];
+
+    private ElementReference[] _elements = [];
+
+    private int _active = -1;
+    private int _focusTarget = -1;
+    private bool _preventDefault;
+
+    /// <summary>The ranges at the top of the list.</summary>
+    [Parameter]
+    public IReadOnlyList<ChangeScope> Scopes { get; set; } = [];
+
+    /// <summary>The commits under the divider. Empty draws neither the caption
+    /// nor the group: a heading over nothing is furniture.</summary>
+    [Parameter]
+    public IReadOnlyList<ChangeCommit> Commits { get; set; } = [];
+
+    /// <summary>What the divider's caption says, and what names the commit
+    /// group to a screen reader.</summary>
+    [Parameter]
+    public string CommitsLabel { get; set; } = "Commits";
+
+    /// <summary>The selected row. One id space across ranges and commits,
+    /// because exactly one thing is selected across both — a picker where a
+    /// range and a commit could each be "the selected one" would need the reader
+    /// to hold two selections in their head to know what the panes beside it are
+    /// showing. Two-way bindable, like <see cref="FolderView.SelectedPath"/>, so
+    /// a host that only wants the rows to be clickable does not have to hold the
+    /// selection itself.</summary>
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> SelectedIdChanged { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Change scope";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>The rows as one flat sequence, which is what the keyboard walks:
+    /// the divider is a visual and semantic grouping, not a boundary the arrow
+    /// keys should stop at.</summary>
+    protected override void OnParametersSet()
+    {
+        _order.Clear();
+        _order.AddRange(Scopes.Select(scope => scope.Id));
+        _order.AddRange(Commits.Select(commit => commit.Id));
+
+        if (_elements.Length != _order.Count) _elements = new ElementReference[_order.Count];
+    }
+
+    /// <summary>
+    /// Moving the roving tabindex is not moving focus. Without this the ring
+    /// stays on the row the reader arrived at while the selection walks away
+    /// from it, and the next arrow steps from the stale row rather than the
+    /// visible one.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusTarget < 0) return;
+
+        var target = _focusTarget;
+        _focusTarget = -1;
+
+        if (target >= _elements.Length) return;
+
+        try
+        {
+            await _elements[target].FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    /// <summary>Which row Tab reaches: the one last focused, or failing that the
+    /// selected one, or the first. Exactly one, which is the whole point of a
+    /// roving tabindex.</summary>
+    private int ActiveIndex
+    {
+        get
+        {
+            if (_active >= 0 && _active < _order.Count) return _active;
+
+            var selected = SelectedId is null ? -1 : _order.IndexOf(SelectedId);
+
+            return selected >= 0 ? selected : 0;
+        }
+    }
+
+    private string Tabbable(int index) => index == ActiveIndex ? "0" : "-1";
+
+    private bool IsSelected(string id) => string.Equals(SelectedId, id, StringComparison.Ordinal);
+
+    private string Selected(string id) => IsSelected(id) ? "true" : "false";
+
+    private string Mark(string id) => IsSelected(id) ? "✔" : string.Empty;
+
+    /// <summary>Selection is carried by four channels, none of them colour on its
+    /// own: <c>aria-selected</c>, the tick — which survives Windows High Contrast
+    /// where a background tint is dropped — the border and accent strip this
+    /// class brings, and the heavier label weight, which is allowed only because
+    /// it is the fourth and is redundant.</summary>
+    private string RowClass(string id, bool isCommit)
+    {
+        var kind = isCommit ? " change-scope__row--commit" : string.Empty;
+        var selected = IsSelected(id) ? " change-scope__row--selected" : string.Empty;
+
+        return $"change-scope__row{kind}{selected}";
+    }
+
+    private string? RowTestId(string kind, string id) => TestId is null ? null : $"{TestId}-{kind}-{id}";
+
+    private string CommitsCaptionId => _id + "-commits";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "change-scope" : $"change-scope {CssClass}";
+
+    private static string Plural(int count, string noun) => $"{count} {noun}{(count == 1 ? string.Empty : "s")}";
+
+    private async Task SelectAsync(string id)
+    {
+        if (IsSelected(id)) return;
+
+        SelectedId = id;
+        await SelectedIdChanged.InvokeAsync(id);
+    }
+
+    /// <summary>
+    /// Selection follows focus. A picker whose arrows move a cursor and need a
+    /// second key to commit makes the keyboard reader do two things where the
+    /// mouse reader does one, and there is nothing destructive here to protect
+    /// them from — changing the scope only changes what the panes beside it show.
+    /// </summary>
+    /// <remarks>
+    /// <c>_preventDefault</c> is read at render time rather than from this
+    /// handler, so it takes effect from the next keystroke — the same shape
+    /// MenuList uses, kept identical on purpose rather than fixed here alone.
+    /// </remarks>
+    private async Task OnKeyDownAsync(KeyboardEventArgs args, int index)
+    {
+        _preventDefault = args.Key is "ArrowDown" or "ArrowUp" or "Home" or "End" or " " or "Enter";
+
+        if (args.Key is "Enter" or " ")
+        {
+            await SelectAsync(_order[index]);
+            return;
+        }
+
+        var target = args.Key switch
+        {
+            "ArrowDown" => Step(index, 1),
+            "ArrowUp" => Step(index, -1),
+            "Home" => _order.Count == 0 ? -1 : 0,
+            "End" => _order.Count - 1,
+            _ => -1
+        };
+
+        if (target < 0) return;
+
+        _active = target;
+        _focusTarget = target;
+
+        await SelectAsync(_order[target]);
+    }
+
+    /// <summary>Wraps, because a list this short has no bottom worth stopping
+    /// at and a reader who overshoots should not have to travel back.</summary>
+    private int Step(int from, int direction) =>
+        _order.Count == 0 ? -1 : ((from + direction) % _order.Count + _order.Count) % _order.Count;
+}
