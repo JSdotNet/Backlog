@@ -81,8 +81,15 @@ public sealed class DesignKnowledgeViewTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
 
         component.Find("[data-testid='knowledge-chapter-edit']").Click();
-        component.Find("textarea").Input("# Colors\n\nTyped into the design chapter.\n");
-        component.Find("textarea").Blur();
+
+        // Waited for rather than found: the click is dispatched onto a renderer
+        // that may still be finishing the view's own load, and the render that
+        // puts the textarea there is then not the one the click returned from.
+        // Kept afterwards, because the blur belongs to the element the text was
+        // typed into.
+        var editor = component.WaitForElement("textarea");
+        editor.Input("# Colors\n\nTyped into the design chapter.\n");
+        editor.Blur();
 
         // The gestures are dispatched without awaiting the write, so the file is
         // polled rather than read once.
@@ -107,7 +114,12 @@ public sealed class DesignKnowledgeViewTests : IDisposable
         File.Delete(Path.Combine(harness.DesignFolder, "colors.md"));
         harness.Rerender(component, "colors.md");
 
-        Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
+        // Waited away rather than asserted away: the view re-reads the file before
+        // it can conclude there is nothing to edit, so the surface leaves on a
+        // later render than the parameter set returned from. The wait is not
+        // vacuous — the surface was pinned on screen above, so what is waited for
+        // is a disappearance and not an absence that was always true.
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-surface']")));
         Assert.Contains("Palette", component.Markup, StringComparison.Ordinal);
     }
 

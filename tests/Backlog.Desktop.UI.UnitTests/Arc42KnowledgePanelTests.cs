@@ -111,12 +111,16 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
 
         component.Find("[data-testid='knowledge-chapter-edit']").Click();
 
+        // Waited for rather than found: the click is dispatched onto a renderer
+        // that may still be finishing the panel's own load, and the render that
+        // puts the textarea there is then not the one the click returned from.
+        //
         // The typed body moves the status field too, which is what makes the
         // order decidable from the file alone. The writer's merge lets the text
         // win a field the text changed, so a body written *after* the dropdown
         // leaves "candidate" behind; flushed first, the dropdown is the last word
         // and it reads "accepted".
-        component.Find("textarea").Input("# ADR 0001: Test decision\n\n```meta\nstatus: candidate\n```\n\nTyped prose.\n");
+        component.WaitForElement("textarea").Input("# ADR 0001: Test decision\n\n```meta\nstatus: candidate\n```\n\nTyped prose.\n");
 
         // From here on, the first thing to ask the folder source where .arc42 is
         // will be the status write, so what the chapter says at that moment is

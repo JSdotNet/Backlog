@@ -17,7 +17,11 @@ public sealed class HomeKnowledgePaneTests
         var component = harness.Context.Render<Home>();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='knowledge-pane-option']")));
 
-        component.Find("[data-testid='repository-filter-option']").Click();
+        // Waited for rather than found: the pane option and the repository chips
+        // are gated on different things — the option on which knowledge areas are
+        // visible, the chips on the repositories the shared state loads — so the
+        // option being on screen says nothing about the chip beside it.
+        component.WaitForElement("[data-testid='repository-filter-option']").Click();
         var knowledgeButton = component.Find("[data-testid='knowledge-pane-option']");
         knowledgeButton.Click();
 

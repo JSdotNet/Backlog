@@ -43,8 +43,18 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         // The grid is what the panel was for before it could be written to, so
         // both are asserted together: the surface is an addition, and an addition
         // that took the grid's place would pass either check on its own.
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-node']")));
-        Assert.NotEmpty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
+        //
+        // Both inside the wait, because they do not arrive together. The grid is
+        // parsed out of the folder and the surface waits on the layer file being
+        // read after it, so "grid, no surface" is a state this panel passes
+        // through — asserted outside the wait it is a green run on an idle machine
+        // and a red one on a busy machine.
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='technology-node']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
+        });
+
         Assert.True(
             component.Markup.IndexOf("technology-node", StringComparison.Ordinal)
             < component.Markup.IndexOf("knowledge-chapter-surface", StringComparison.Ordinal),
@@ -87,8 +97,15 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
 
         component.Find("[data-testid='knowledge-chapter-edit']").Click();
-        component.Find("textarea").Input("# Shared Technologies\n\nTyped into the shared layer.\n");
-        component.Find("textarea").Blur();
+
+        // Waited for rather than found: the click is dispatched onto a renderer
+        // that may still be finishing the panel's own load, and the render that
+        // puts the textarea there is then not the one the click returned from.
+        // Kept afterwards, because the blur belongs to the element the text was
+        // typed into.
+        var editor = component.WaitForElement("textarea");
+        editor.Input("# Shared Technologies\n\nTyped into the shared layer.\n");
+        editor.Blur();
 
         component.WaitForAssertion(
             () => Assert.Contains(
@@ -141,7 +158,13 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
 
         var component = harness.Render();
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-knowledge-panel']")));
+        // The panel's own element is on screen from the first render, loading or
+        // not, so waiting for it was waiting for nothing: the two absences below
+        // were read off a panel that had not finished looking for the folder yet,
+        // and would have held for one that went on to offer an editor. The
+        // settings link belongs to the answer "there is no folder here", which is
+        // the state they are about.
+        component.WaitForAssertion(() => Assert.Contains("Open repository settings", component.Markup, StringComparison.Ordinal));
         Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
         Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-edit']"));
     }
