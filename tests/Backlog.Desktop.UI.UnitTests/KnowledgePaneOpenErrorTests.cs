@@ -99,6 +99,9 @@ public sealed class KnowledgePaneOpenErrorTests
         context.Services.AddSingleton<KnowledgeScope>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
+        // The pane renders a panel, and a panel renders the shared editing
+        // surface, which writes. Composing the pane means composing the writer.
+        context.Services.AddSingleton<KnowledgeChapterWriter>();
 
         return new Harness(root, context, configuredRepository.Alias);
     }

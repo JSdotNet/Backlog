@@ -75,6 +75,10 @@ public sealed class HomeKnowledgePaneTests
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<KnowledgeMenu>();
         context.Services.AddSingleton<Arc42KnowledgeStore>();
+        // Every knowledge panel now renders its selected chapter through the
+        // shared editing surface, and that surface writes. A host that composes
+        // the pane composes the writer with it.
+        context.Services.AddSingleton<KnowledgeChapterWriter>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
         context.Services.AddSingleton<KnowledgeScope>();

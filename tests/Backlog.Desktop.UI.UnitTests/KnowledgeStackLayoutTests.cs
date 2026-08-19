@@ -73,6 +73,62 @@ public sealed class KnowledgeStackLayoutTests
     }
 
     [Fact]
+    public void A_chapter_shown_through_the_file_view_is_framed_once()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var cardRuleStart = css.IndexOf(".design-token,\n.design-section,\n.domain-document,\n", StringComparison.Ordinal);
+        Assert.True(cardRuleStart >= 0, "The knowledge card rule should still exist for the documents that are lists of files rather than one file.");
+
+        var cardRuleEnd = css.IndexOf("}\n", cardRuleStart, StringComparison.Ordinal);
+        Assert.True(cardRuleEnd > cardRuleStart, "The knowledge card rule should be complete.");
+
+        var cardRule = css[cardRuleStart..cardRuleEnd];
+
+        // The architecture article holds a file view on every render, and the file
+        // view draws its own edge, so a card here is a card around a card.
+        Assert.DoesNotContain(".knowledge-document", cardRule, StringComparison.Ordinal);
+
+        var withdrawalStart = css.IndexOf(".domain-document--chapter {", StringComparison.Ordinal);
+        Assert.True(withdrawalStart > cardRuleStart,
+            "The domain chapter must withdraw the card after the rule that sets it, or the card wins on source order.");
+
+        var withdrawal = css[withdrawalStart..css.IndexOf("}\n", withdrawalStart, StringComparison.Ordinal)];
+
+        // The inset goes with the edge. A frame's padding without its border is a
+        // gap with nothing to explain it.
+        Assert.Contains("padding: 0;", withdrawal, StringComparison.Ordinal);
+        Assert.Contains("border: 0;", withdrawal, StringComparison.Ordinal);
+        Assert.Contains("background: transparent;", withdrawal, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Domain_metadata_keeps_consecutive_relations_apart()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        // Both rules were deleted once already, by a commit that was replacing the
+        // block beneath them, and the strip spent that time rendering its chips as
+        // one unbroken run of text — two relation paths reading as one. The gap is
+        // the whole of what was lost, so the gap is what is pinned.
+        var stripStart = css.IndexOf(".domain-metadata {", StringComparison.Ordinal);
+        Assert.True(stripStart >= 0, "The domain metadata strip needs its own rule; without one its chips run together.");
+
+        var strip = css[stripStart..css.IndexOf("}\n", stripStart, StringComparison.Ordinal)];
+
+        Assert.Contains("display: flex;", strip, StringComparison.Ordinal);
+        Assert.Contains("gap: var(--spacing-xs);", strip, StringComparison.Ordinal);
+
+        var itemStart = css.IndexOf(".domain-metadata__item {", StringComparison.Ordinal);
+        Assert.True(itemStart >= 0, "A metadata chip needs its own rule; a chip pinning two relations has to keep them apart inside it.");
+
+        var item = css[itemStart..css.IndexOf("}\n", itemStart, StringComparison.Ordinal)];
+
+        Assert.Contains("display: inline-flex;", item, StringComparison.Ordinal);
+        Assert.Contains("gap: var(--spacing-xs);", item, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Knowledge_body_constrains_tall_panels_to_the_available_pane_height()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
