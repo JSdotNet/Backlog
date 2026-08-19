@@ -13,6 +13,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+    <!-- The Dashboard module implementation, for AddDashboardModule(). The host is
+         the only thing that sees it: the parts ask through the abstractions project. -->
+    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
     <!-- Dev PC Management's published surface. LocalDevelopmentCopilotToolService
          answers the same ICopilotToolService port from the JSON alone, which is
          this harness's own adapter; the port and the catalog format come from

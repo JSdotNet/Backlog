@@ -1,0 +1,183 @@
+@*
+    Zero, one or eleven references, grouped by the repository they live in.
+
+    A list rather than a parameter on the reference, because "many, grouped, with
+    something to say when there are none" is a layout and an EmptyState — neither
+    of which a chip can be talked into being.
+
+    A repository heading appears only when there is more than one repository. One
+    heading over one group is a heading over nothing: it says "these are all from
+    somewhere" to a reader who could already see that, and it costs a line on
+    every surface that only ever has one. Groups sort by full name so the order
+    does not shuffle between reads, and references with no repository come last
+    under their own heading rather than being silently dropped into the first
+    group they resemble.
+*@
+
+<section class="@ClassValue" aria-label="@AriaLabel" data-testid="@TestId">
+    @if (ShowFreshness)
+    {
+        <IntegrationFreshness Reading="@Reading"
+                              Density="@Density"
+                              OnRefresh="@OnRefresh"
+                              TestId="@FreshnessTestId" />
+    }
+
+    @* Stated once, above, rather than on every reference. The references stay:
+       a pull request read last Tuesday is still open today, and blanking the
+       list because a token expired would tell the reader something false. *@
+    @if (Readiness is { } cluster && !cluster.IsAvailable)
+    {
+        <IntegrationUnavailable Readiness="@cluster" Density="@Density" />
+    }
+
+    @if (Links.Count == 0)
+    {
+        <EmptyState Title="@EmptyText" Action="@EmptyActions" TestId="@EmptyTestId" />
+    }
+    else
+    {
+        @foreach (var group in Groups)
+        {
+            <div class="integration-link-list__group" data-testid="@GroupTestId(group)">
+                @if (Headed)
+                {
+                    <p class="integration-link-list__heading">@group.Heading</p>
+                }
+
+                <ul class="integration-link-list__items">
+                    @foreach (var link in group.Links)
+                    {
+                        <li class="integration-link-list__item">
+                            <IntegrationLink Link="@link"
+                                             Density="@Density"
+                                             OnOpen="@OnOpen"
+                                             TestId="@ItemTestId(link)" />
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    /// <summary>What a reference with no repository is filed under. Named rather
+    /// than written twice, because the heading and the sort key have to agree.</summary>
+    private const string Unfiled = "Not in a repository";
+
+    [Parameter]
+    public IReadOnlyList<IntegrationLinkRef> Links { get; set; } = [];
+
+    [Parameter]
+    public bool GroupByRepository { get; set; } = true;
+
+    [Parameter]
+    public IntegrationReading Reading { get; set; } = IntegrationReading.Never;
+
+    /// <summary>The cluster's readiness. It suppresses nothing: the references
+    /// are what was already read, and they stay true after the thing that read
+    /// them stopped being available.</summary>
+    [Parameter]
+    public IntegrationReadiness? Readiness { get; set; }
+
+    [Parameter]
+    public IntegrationDensity Density { get; set; } = IntegrationDensity.Inline;
+
+    [Parameter]
+    public string EmptyText { get; set; } = "Nothing linked yet.";
+
+    /// <summary>What a reader can do about there being nothing here — usually the
+    /// act that would create the first one. It lands in EmptyState's own action
+    /// slot, so the zero case is the library's empty state rather than a second
+    /// one shaped like it.</summary>
+    [Parameter]
+    public RenderFragment? EmptyActions { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; } = "Linked elsewhere";
+
+    [Parameter]
+    public EventCallback<IntegrationLinkRef> OnOpen { get; set; }
+
+    [Parameter]
+    public EventCallback OnRefresh { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? EmptyTestId { get; set; }
+
+    [Parameter]
+    public string? FreshnessTestId { get; set; }
+
+    [Parameter]
+    public string? GroupTestIdPrefix { get; set; }
+
+    private sealed record Group(string Key, string Heading, IReadOnlyList<IntegrationLinkRef> Links);
+
+    private string ClassValue
+    {
+        get
+        {
+            var stem = $"integration-link-list integration-link-list--{IntegrationStates.SlugOf(Density)}";
+            return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
+        }
+    }
+
+    /// <summary>The line only earns its place when there is something to say or
+    /// something to press. A surface that never reads and never offers to would
+    /// otherwise carry a permanent "Not checked yet" that is true and useless.</summary>
+    private bool ShowFreshness => OnRefresh.HasDelegate || Reading != IntegrationReading.Never;
+
+    private bool Headed => GroupByRepository && Groups.Count > 1;
+
+    /// <summary>Grouped once per parameter change. Both the heading rule and the
+    /// loop ask for this, and a grouping recomputed per read is a grouping with
+    /// two chances to disagree with itself inside one render.</summary>
+    private List<Group> Groups { get; set; } = [];
+
+    protected override void OnParametersSet() => Groups = Grouped();
+
+    /// <summary>
+    /// Grouped by repository, ordered by full name, with the unfiled references
+    /// last.
+    /// <para>
+    /// Grouping by the repository's id and heading with its display name are two
+    /// different jobs: two references may name the same repository through
+    /// different aliases, and grouping on what is written on screen would split
+    /// them.
+    /// </para>
+    /// </summary>
+    private List<Group> Grouped()
+    {
+        if (!GroupByRepository) return [new Group("all", string.Empty, Links)];
+
+        return
+        [
+            .. Links
+                .GroupBy(link => link.Repository?.Id ?? string.Empty, StringComparer.Ordinal)
+                .Select(group => new Group(
+                    group.Key,
+                    group.First().Repository?.DisplayName ?? Unfiled,
+                    [.. group]))
+                // The empty key sorts last rather than first, which is what "with
+                // no repository come last" has to mean once the rest are in name
+                // order.
+                .OrderBy(group => group.Key.Length == 0)
+                .ThenBy(group => group.Links[0].Repository?.FullName ?? Unfiled, StringComparer.OrdinalIgnoreCase)
+        ];
+    }
+
+    private string? GroupTestId(Group group) =>
+        string.IsNullOrWhiteSpace(GroupTestIdPrefix)
+            ? null
+            : $"{GroupTestIdPrefix}-{BadgeSlug.Of(group.Key, "unfiled")}";
+
+    private string? ItemTestId(IntegrationLinkRef link) =>
+        string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{link.Id}";
+}

@@ -1,0 +1,120 @@
+@*
+    The calm one-line statement that a whole cluster is not on offer, and what
+    to do about it.
+
+    Separate from IntegrationAction's disabled state because the two are
+    different elements with different semantics, not two looks. An unavailable
+    act is a control that stays where it was, disabled, with a described-by
+    reason attached to it. An unavailable cluster is prose: there is no control
+    to attach anything to, and rendering four disabled buttons to say one thing
+    would be four times the noise and no more information.
+
+    role="status", never role="alert", in all four causes. Not authorized, not
+    installed, offline and turned off in settings are standing conditions rather
+    than events — nothing just happened, and an interruption is only warranted
+    when something went wrong. .design/design-principles.md is explicit that
+    offline must read as "a calm, persistent status", and the other three are the
+    same shape of fact.
+
+    Four causes, one component. The temptation is four, because the causes are
+    unrelated and the remedies differ. From the reader's side they are the same
+    sentence in the same place — this cannot happen right now, here is why, here
+    is what to do — and splitting them would put that sentence in four positions
+    and four voices.
+*@
+
+<p class="@ClassValue" role="status" data-testid="@TestId">
+    <span class="integration-unavailable__glyph" aria-hidden="true">@Glyph()</span>
+
+    <span class="integration-unavailable__text" data-testid="@TextTestId">@Reason</span>
+
+    @if (OnRemedy.HasDelegate && Remedy is { Length: > 0 } remedy)
+    {
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Size="ButtonSize.Small"
+                   CssClass="integration-unavailable__remedy"
+                   TestId="@RemedyTestId"
+                   OnClick="() => OnRemedy.InvokeAsync(Readiness)">@remedy</AppButton>
+    }
+</p>
+
+@code {
+    [Parameter, EditorRequired]
+    public IntegrationReadiness Readiness { get; set; } = default!;
+
+    [Parameter]
+    public IntegrationDensity Density { get; set; } = IntegrationDensity.Inline;
+
+    /// <summary>Without a delegate there is no remedy button, whatever the label
+    /// says. A way out that leads nowhere is worse than no way out offered.</summary>
+    [Parameter]
+    public EventCallback<IntegrationReadiness> OnRemedy { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? TextTestId { get; set; }
+
+    [Parameter]
+    public string? RemedyTestId { get; set; }
+
+    private string Reason => IntegrationStates.ReasonFor(Readiness);
+
+    private string? Remedy => IntegrationStates.RemedyFor(Readiness);
+
+    private string ClassValue
+    {
+        get
+        {
+            var stem = "integration-unavailable "
+                     + $"integration-unavailable--{IntegrationStates.SlugOf(Readiness.Availability)} "
+                     + $"integration-unavailable--{IntegrationStates.SlugOf(Density)}";
+
+            return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
+        }
+    }
+
+    /// <summary>One glyph per cause. It is the third carrier beside the ink and
+    /// the sentence: this is the one place in the family where the ink is
+    /// --color-text-disabled, which .design/color-scheme.md exempts from contrast
+    /// precisely because it signals unavailability — so the icon and the words
+    /// have to be doing the work.</summary>
+    private RenderFragment Glyph() =>
+        @<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true" focusable="false">
+            @if (Readiness.Availability is IntegrationAvailability.NotAuthorized)
+            {
+                @* A padlock. *@
+                <rect x="3.5" y="7" width="9" height="6.25" rx="1.25" />
+                <path d="M5.75 7V5.25a2.25 2.25 0 0 1 4.5 0V7" />
+            }
+            else if (Readiness.Availability is IntegrationAvailability.NotInstalled)
+            {
+                @* A box with something coming down into it. *@
+                <path d="M2.75 9.75v2.5a1 1 0 0 0 1 1h8.5a1 1 0 0 0 1-1v-2.5" />
+                <path d="M8 2.75v7" />
+                <path d="M5.5 7.25 8 9.75l2.5-2.5" />
+            }
+            else if (Readiness.Availability is IntegrationAvailability.Offline)
+            {
+                @* cloud-off — the glyph .design/interaction-guidelines.md already
+                   names for this state, so an offline integration and an offline
+                   anything-else are the same picture. *@
+                <path d="M5.5 12.25h5.25a2.75 2.75 0 0 0 .55-5.44" />
+                <path d="M4.4 6.6A2.75 2.75 0 0 0 5 12.2" />
+                <path d="M6.1 4.4A3.75 3.75 0 0 1 11.3 6.8" />
+                <path d="M2.5 2.5 13.5 13.5" />
+            }
+            else
+            {
+                @* A toggle in the off position. *@
+                <rect x="2.25" y="5.25" width="11.5" height="5.5" rx="2.75" />
+                <circle cx="5" cy="8" r="1.5" fill="currentColor" stroke="none" />
+            }
+        </svg>;
+}

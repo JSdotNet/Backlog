@@ -14,13 +14,13 @@
 
     There are three, and exactly one of them renders: the workspace, which is the
     roadmap band above the global panes; the tools surface; and the dashboard. The
-    last two are takeovers — Dev PC Management and Monitoring are whole domains,
-    and opening one means the reader has stopped looking at the backlog, so it
+    last two are takeovers — Dev PC Management and the Dashboard are whole
+    domains, and opening one means the reader has stopped looking at the backlog, so it
     takes the screen and hides every other domain concern rather than docking
     beside them. Whichever branch renders owns the page's single <main> landmark.
 
     What is inside a surface is not the shell's business: Inbox, Backlog
-    Management, Second Brain, Roadmap, Dev PC Management and Monitoring each
+    Management, Second Brain, Roadmap, Dev PC Management and the Dashboard each
     render themselves from their own project, and the only thing that crosses
     between them here is the repository scope handed to the knowledge pane and the
     triaged item handed back from the inbox.
@@ -59,10 +59,18 @@
                 Version <code>@Updates.CurrentVersion</code>
             </AppButton>
         </div>
-        <div class="save-indicator save-indicator--@State.SaveState.ToString().ToLowerInvariant()" id="save-state-indicator" data-testid="save-state-indicator" role="status">
-            <span class="save-indicator__dot" aria-hidden="true"></span>
-            @State.SaveStateLabel
-        </div>
+        @* The library's indicator, not a second copy of it. The hand-rolled block
+           that used to sit here emitted the same two elements and the same
+           classes, and got aria-live wrong by omission: a live region that never
+           announces is the one thing this control exists to do. AppSaveState has
+           no Idle, so the mapping below never reaches SaveState.Idle and the
+           indicator is never the hidden shape. The wording stays the app's. *@
+        <SaveIndicator State="@SaveIndicatorState"
+                       SavingText="Saving…"
+                       SavedText="Saved"
+                       FailedText="Couldn't save"
+                       id="save-state-indicator"
+                       TestId="save-state-indicator" />
 
         @* Monitoring is a deliberate act, not a background poll: the backlog has
            to open instantly and offline, so nothing here waits on GitHub until
@@ -174,7 +182,7 @@
                 Tools
             </AppButton>
         }
-        @if (IsFeatureEnabled(MonitoringFeatures.Dashboard))
+        @if (IsFeatureEnabled(DashboardFeatures.Dashboard))
         {
             <AppButton BaseClass="header-tool-toggle"
                        Variant="ButtonVariant.None"
@@ -496,6 +504,23 @@
 
     private bool _updateBusy => _checkingForAppUpdate || _installingAppUpdate;
 
+    // The shell's save state in the library's vocabulary. The two enums are
+    // deliberately not the same type: AppSaveState is the backlog's, named for
+    // what the store did, and SaveState is what an indicator draws. Error maps
+    // onto Failed, which is the same word in the other vocabulary — and the same
+    // "save-indicator--error" modifier the hand-rolled block emitted, so the
+    // stylesheet is untouched.
+    //
+    // There is no Idle arm because AppSaveState has none: the backlog is always
+    // in one of these three states, so the indicator's hidden shape is
+    // unreachable from here and the header never loses the line.
+    private SaveState SaveIndicatorState => State.SaveState switch
+    {
+        AppSaveState.Saving => SaveState.Saving,
+        AppSaveState.Error => SaveState.Failed,
+        _ => SaveState.Saved
+    };
+
     protected override async Task OnInitializedAsync()
     {
         State.Changed += HandleStateChanged;
@@ -580,7 +605,7 @@
     /// <summary>Whether the dashboard is on screen. The same shape as
     /// <see cref="ToolsVisible"/>, and mutually exclusive with it by construction
     /// rather than by a rule written here: both read the one surface field.</summary>
-    private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && IsFeatureEnabled(MonitoringFeatures.Dashboard);
+    private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && IsFeatureEnabled(DashboardFeatures.Dashboard);
 
     /// <summary>Whether the panes are on screen. Anything that is not a takeover
     /// is the workspace, including a surface whose feature has been switched off.</summary>

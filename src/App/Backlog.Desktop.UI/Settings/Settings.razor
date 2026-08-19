@@ -106,10 +106,10 @@
                     }
                 }
             </div>
-            @if (!string.IsNullOrWhiteSpace(_featureMessage))
-            {
-                <p class="setting__note" role="status">@_featureMessage</p>
-            }
+            @* The library's alert wearing this page's note class. It renders
+               nothing when the message is empty, which is what the @@if around the
+               hand-rolled paragraph used to do. *@
+            <Alert Message="@_featureMessage" BaseClass="setting__note" Role="status" />
         </TabPanel>
 
     @if (IsSettingsPageAvailable(SettingsPage.Ai))
@@ -155,6 +155,27 @@
                                @onchange="ApplyUsageEndpoints"
                                @onkeydown="OnUsageEndpointKeyDown" />
 
+                    @* Which actor in the Claude organization is you. Not an endpoint
+                       and not a secret, but it belongs beside them rather than in a
+                       section of its own: it is the third thing needed before an
+                       organization-scoped usage report can be read as a personal one.
+                       The Claude Code report lists every actor in the organization, and
+                       there is no endpoint that says which one an admin key belongs to
+                       — an admin key belongs to the organization, not to a person. *@
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Your Claude account"
+                               Id="claude-usage-actor"
+                               data-testid="claude-usage-actor-input"
+                               Type="email"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Value="@_draftClaudeUsageActor"
+                               ValueChanged="value => _draftClaudeUsageActor = value"
+                               @onchange="ApplyUsageEndpoints"
+                               @onkeydown="OnUsageEndpointKeyDown" />
+
                     <p class="setting__status" data-testid="usage-api-endpoints-status" role="status">
                         @if (_usageEndpointsMessage is not null)
                         {
@@ -162,7 +183,17 @@
                         }
                         else
                         {
-                            <span>Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code> and GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>.</span>
+                            <span>
+                                Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code> and GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>.
+                                @if (string.IsNullOrWhiteSpace(Claude.Current.Actor))
+                                {
+                                    <text> The dashboard needs your Claude account before it can show your spend rather than the whole organization's.</text>
+                                }
+                                else
+                                {
+                                    <text> The dashboard reports Claude usage for <code>@Claude.Current.Actor</code>.</text>
+                                }
+                            </span>
                         }
                     </p>
                     <p class="setting__note">
@@ -690,6 +721,7 @@
     private string _draftAzureFoundryApiKey = string.Empty;
     private string? _azureFoundryMessage;
     private string _draftClaudeUsageEndpoint = string.Empty;
+    private string _draftClaudeUsageActor = string.Empty;
     private string _draftGitHubUsageEndpoint = string.Empty;
     private string? _usageEndpointsMessage;
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
@@ -815,9 +847,10 @@
     private void ApplyUsageEndpoints()
     {
         var claudeError = Claude.SetApiEndpoint(_draftClaudeUsageEndpoint);
+        var actorError = Claude.SetActor(_draftClaudeUsageActor);
         var githubError = GitHub.Settings.SetApiEndpoint(_draftGitHubUsageEndpoint);
 
-        _usageEndpointsMessage = string.Join(" ", new[] { claudeError, githubError }.Where(message => !string.IsNullOrWhiteSpace(message)));
+        _usageEndpointsMessage = string.Join(" ", new[] { claudeError, actorError, githubError }.Where(message => !string.IsNullOrWhiteSpace(message)));
         if (string.IsNullOrWhiteSpace(_usageEndpointsMessage))
         {
             _usageEndpointsMessage = "AI usage API settings updated.";
@@ -835,6 +868,7 @@
     private void SyncUsageEndpointDrafts()
     {
         _draftClaudeUsageEndpoint = Claude.Current.ApiEndpoint;
+        _draftClaudeUsageActor = Claude.Current.Actor ?? string.Empty;
         _draftGitHubUsageEndpoint = GitHub.Settings.Current.ApiEndpoint;
     }
     private void EnsureActiveSettingsPage()

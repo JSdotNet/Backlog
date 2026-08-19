@@ -313,8 +313,8 @@
             "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
             "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" />,
             "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
-            "backlog" => @<p class="knowledge-empty" role="status">Select a backlog folder in the knowledge menu, or open it in VS Code.</p>,
-            _ => @<p class="knowledge-empty" role="status">Turn on knowledge sections in Settings to read repository knowledge here.</p>
+            "backlog" => @<Alert Message="Select a backlog folder in the knowledge menu, or open it in VS Code." BaseClass="knowledge-empty" Role="status" />,
+            _ => @<Alert Message="Turn on knowledge sections in Settings to read repository knowledge here." BaseClass="knowledge-empty" Role="status" />
         };
     }
 }

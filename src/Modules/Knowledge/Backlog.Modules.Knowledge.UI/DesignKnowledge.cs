@@ -13,7 +13,15 @@ namespace Backlog.Desktop.UI.Knowledge;
 /// </summary>
 public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
 {
-public Task<DesignKnowledgeModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
+    /// <summary>Re-published from the folder source so an open panel can reload
+    /// when the configured folder moves.</summary>
+    public event Action? Changed
+    {
+        add => source.Changed += value;
+        remove => source.Changed -= value;
+    }
+
+    public Task<DesignKnowledgeModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var location = source.Resolve(".design", repositoryAlias);

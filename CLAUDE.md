@@ -97,9 +97,24 @@ dotnet test Backlog.sln
 `desktop`, `mobile-android`, `ide-vscode-build`, and `ide-vscode-host` use
 `WithExplicitStart()`. Them sitting `NotStarted` is expected, not a failed startup.
 
+## UI components
+
+A screen under `src/App/` or `src/Modules/` renders the shared library's component
+(`src/Core/Backlog.UI.Components`) rather than writing its own version of one. That covers
+both a raw `button`/`input`/`select`/`textarea` and a plain `div`/`span`/`p` wearing a
+component's own class. When a component cannot wear the screen's classes, add the hook to
+the library — `BaseClass`, `CssClass`, `Bare`, or a per-part class parameter usually
+already exists — rather than hand-rolling a second implementation.
+
+`tests/Backlog.ArchitectureTests/SharedControlAdoptionTests.cs` enforces this and holds the
+documented exceptions. See `.github/instructions/ui-components.instructions.md` for the full
+rule, including what the test cannot see.
+
 ## Further guidance
 
 - `.github/instructions/context-loading.instructions.md` — the full gate and the policy on
   which knowledge folders a workflow may load.
+- `.github/instructions/ui-components.instructions.md` — shared component adoption in the
+  application screens.
 - `.github/instructions/mcp-usage.instructions.md` — MCP server authority order.
 - `.github/copilot-orch-context.md` — repo runtime and QA context.

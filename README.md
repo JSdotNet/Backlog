@@ -106,9 +106,11 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI` | Second Brain's desktop face — the knowledge menu and the arc42, domain, design, technology, and instruction panels |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap planning over roadmap-ready entries — scaffolding only so far |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.UI` | Dev PC Management's desktop face — scaffolding only so far |
-| `src/Modules/Monitoring/Backlog.Modules.Monitoring.UI` | Monitoring & Dashboard's desktop face — scaffolding only so far |
+| `src/Modules/Dashboard/Backlog.Modules.Dashboard` | Dashboard module — the derivations behind the dashboard: productivity scoring, weekly bucketing, churn rates, month-to-date spend, and the session cache in front of the providers |
+| `src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions` | The Dashboard module's published surface — the scope, the insight DTOs, `IProductivityInsights` and `ICostInsights`, and the four ports its adapters answer |
+| `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | The Dashboard's face — the full-screen surface, its seven independent parts, and the adapters over GitHub and Anthropic |
 | `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — Markdown + JSON file storage (canonical local data), and the workspace settings behind `IBacklogStore`, `IKnowledgeFolderSource` and `IAppFeatureSettings` |
-| `src/Infrastructure/Backlog.Infrastructure.GitHub` | Cross-cutting adapter — GitHub issue projection |
+| `src/Infrastructure/Backlog.Infrastructure.GitHub` | Cross-cutting adapter — GitHub issue projection, pull request and issue activity with review detail, Copilot seats, and AI-credit billing |
 | `src/App/Backlog.Desktop.UI` | Desktop shell — layout, routes, settings, and the composition that decides which context panes are on screen |
 | `src/App/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
 | `src/App/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |
@@ -118,6 +120,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
 | `src/Harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
 | `tests/Backlog.Modules.Backlog.UnitTests` | Unit tests for the Backlog module domain |
+| `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
 | `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the file storage adapter |
 | `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services and GitHub integration |
 | `tests/Backlog.ArchitectureTests` | Executable structure rules — module boundaries, desktop context boundaries, and "harness is never shipped" |
@@ -133,14 +136,16 @@ rather than a folder inside the shell. The split follows
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox — what has been captured but not decided on. Publishes `InboxItem`; reads nothing back |
 | `src/Modules/Backlog/Backlog.Modules.Backlog.UI` | Backlog Management — the entry pane, its drafts, and its GitHub and Copilot CLI projections |
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI` | Second Brain — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
-| `src/App/Backlog.Desktop.UI` | Not a context — app chrome, routes, settings, and the composition root. The one place allowed to see all three at once |
+| `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | Dashboard — productivity and cost insight over what the other systems already hold. Reads only; writes nothing back |
+| `src/App/Backlog.Desktop.UI` | Not a context — app chrome, routes, settings, and the composition root. The one place allowed to see all of them at once |
 
 Making each context a project turns most of the boundary into a reference graph:
 the Inbox references nothing but the shared control library, Backlog Management
-and Second Brain each reference only their own module's Abstractions, and the one
-context-to-context edge the context map allows — Backlog Management conforming to
-the Inbox's published `InboxItem` — is a project reference somebody had to write
-down. `DesktopDomainBoundaryTests` covers what the graph alone cannot.
+and Second Brain each reference only their own module's Abstractions, the Dashboard
+references its own Abstractions plus the two adapters it reads providers through
+and no sibling context at all, and the one context-to-context edge the context map
+allows — Backlog Management conforming to the Inbox's published `InboxItem` — is a
+project reference somebody had to write down. `DesktopDomainBoundaryTests` covers what the graph alone cannot.
 
 There used to be a `Backlog.Desktop.Workspace` project underneath the contexts
 holding where the backlog lives, which repositories are configured and which

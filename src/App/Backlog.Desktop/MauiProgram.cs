@@ -9,6 +9,8 @@ using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Backlog.Extensions;
+using Backlog.Modules.Dashboard.Extensions;
+using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -66,6 +68,17 @@ public static class MauiProgram
         builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
         builder.Services.AddSingleton<ICopilotUsageClient>(sp => new CopilotUsageClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 
+        // The three GitHub clients the dashboard reads. Identity is shared by the other
+        // two: the activity client filters to the signed-in author, and the billing client
+        // chooses between the user and organization endpoints by the same login, so
+        // neither needs a setting for it.
+        builder.Services.AddSingleton<IGitHubIdentityClient>(sp => new GitHubIdentityClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+        builder.Services.AddSingleton<IGitHubActivityClient>(sp => new GitHubActivityClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+        builder.Services.AddSingleton<IGitHubBillingClient>(sp => new GitHubBillingClient(
+            sp.GetRequiredService<ResolvingGitHubTransport>(),
+            sp.GetRequiredService<IGitHubIdentityClient>(),
+            sp.GetRequiredService<GitHubSettingsStore>()));
+
         // Claude usage reporting is registered unconditionally; it reports
         // itself unavailable until an Admin API key is configured, and the
         // "usage-metrics" feature decides whether anything asks it.
@@ -74,6 +87,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
             sp.GetRequiredService<IClaudeTransport>(),
             sp.GetRequiredService<ClaudeSettingsStore>()));
+
+        // The Dashboard module brings its derivations; the adapters beside it decide which
+        // providers are behind them. Registered after the provider clients above, which is
+        // all the adapters hold. Every part reports itself unavailable with a reason until
+        // the credential it needs exists, so this is safe to register unconditionally.
+        builder.Services.AddDashboardModule();
+        builder.Services.AddDashboardAdapters();
+
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<FeedbackReporter>();
         builder.Services.AddSingleton<DesignKnowledgeProvider>();

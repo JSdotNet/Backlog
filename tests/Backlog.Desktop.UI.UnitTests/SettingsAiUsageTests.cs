@@ -36,6 +36,51 @@ public sealed class SettingsAiUsageTests
         Assert.Contains("AI usage API settings updated.", context.Component.Find("[data-testid='usage-api-endpoints-status']").TextContent);
     }
 
+    /// <summary>
+    /// The one fact about an Anthropic admin key that cannot be discovered from it:
+    /// which actor in the organization is you. Without it the dashboard would have to
+    /// show the whole organization's spend under the heading "your usage", so it shows
+    /// nothing and says why.
+    /// </summary>
+    [Fact]
+    public void The_claude_account_is_saved_and_the_status_line_says_whose_usage_will_be_reported()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='usage-api-endpoints-settings']")));
+
+        var status = context.Component.Find("[data-testid='usage-api-endpoints-status']");
+        Assert.Contains("needs your Claude account", status.TextContent, StringComparison.Ordinal);
+
+        var actorInput = context.Component.Find("[data-testid='claude-usage-actor-input']");
+        actorInput.Input("  person@example.com  ");
+        actorInput.Change();
+
+        Assert.Equal("person@example.com", context.ClaudeStore.Current.Actor);
+    }
+
+    [Fact]
+    public void Clearing_the_claude_account_forgets_it_rather_than_storing_blank_space()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='usage-api-endpoints-settings']")));
+
+        var actorInput = context.Component.Find("[data-testid='claude-usage-actor-input']");
+        actorInput.Input("person@example.com");
+        actorInput.Change();
+
+        actorInput = context.Component.Find("[data-testid='claude-usage-actor-input']");
+        actorInput.Input("   ");
+        actorInput.Change();
+
+        Assert.Null(context.ClaudeStore.Current.Actor);
+    }
+
     [Fact]
     public void Ai_tab_shows_azure_foundry_only_when_only_ai_assistant_enabled()
     {

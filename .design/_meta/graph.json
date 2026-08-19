@@ -6,21 +6,21 @@
     ".design"
   ],
   "stats": {
-    "nodes": 100,
-    "edges": 185,
+    "nodes": 101,
+    "edges": 188,
     "nodesByFolder": {
-      "design": 85,
+      "design": 86,
       "arc42": 5,
       "tech": 1,
       "domain": 9
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 85,
+      "chapter": 86,
       "heading": 5
     },
     "nodesByStatus": {
-      "active": 84,
+      "active": 85,
       "none": 5,
       "accepted": 1,
       "candidate": 1,
@@ -28,8 +28,8 @@
       "proposed": 5
     },
     "edgesByType": {
-      "contains": 77,
-      "related": 108
+      "contains": 78,
+      "related": 110
     }
   },
   "problems": [],
@@ -405,11 +405,28 @@
           "path": ".design/color-scheme.md",
           "slug": "syntax-highlighting-tokens",
           "level": 2,
-          "line": 231,
+          "line": 232,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
             ".design/content-editing.md#supported-constructs"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#role-tokens",
+          "label": "Role Tokens",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "role-tokens",
+          "level": 2,
+          "line": 270,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#dark-mode-only",
+            ".design/accessibility.md#contrast"
           ]
         }
       },
@@ -422,7 +439,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 269,
+          "line": 357,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -438,7 +455,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 296,
+          "line": 384,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -454,7 +471,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 323,
+          "line": 411,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -471,7 +488,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 359,
+          "line": 447,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -770,7 +787,7 @@
           "path": ".design/content-editing.md",
           "slug": "live-parse-confirmation",
           "level": 2,
-          "line": 191,
+          "line": 195,
           "status": "active",
           "related": [
             ".design/content-editing.md#editing-feedback-and-state"
@@ -786,7 +803,7 @@
           "path": ".design/content-editing.md",
           "slug": "paste-behavior",
           "level": 2,
-          "line": 209,
+          "line": 213,
           "status": "active"
         }
       },
@@ -799,7 +816,7 @@
           "path": ".design/content-editing.md",
           "slug": "slash-and-inline-commands",
           "level": 2,
-          "line": 231,
+          "line": 235,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#feedback-and-toasts",
@@ -816,7 +833,7 @@
           "path": ".design/content-editing.md",
           "slug": "unsupported-syntax-preservation",
           "level": 2,
-          "line": 247,
+          "line": 251,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#reorder--auto-save"
@@ -832,7 +849,7 @@
           "path": ".design/content-editing.md",
           "slug": "editing-feedback-and-state",
           "level": 2,
-          "line": 264,
+          "line": 268,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
@@ -849,7 +866,7 @@
           "path": ".design/content-editing.md",
           "slug": "materialization",
           "level": 2,
-          "line": 279,
+          "line": 283,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -1806,6 +1823,14 @@
       },
       {
         "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#role-tokens",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#role-tokens",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.design/color-scheme.md->.design/color-scheme.md#contrast-rules-wcag-aa-minimum",
           "source": ".design/color-scheme.md",
           "target": ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
@@ -2457,6 +2482,22 @@
           "id": "related:.design/color-scheme.md#syntax-highlighting-tokens->.design/content-editing.md#supported-constructs",
           "source": ".design/color-scheme.md#syntax-highlighting-tokens",
           "target": ".design/content-editing.md#supported-constructs",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#role-tokens->.design/design-principles.md#dark-mode-only",
+          "source": ".design/color-scheme.md#role-tokens",
+          "target": ".design/design-principles.md#dark-mode-only",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#role-tokens->.design/accessibility.md#contrast",
+          "source": ".design/color-scheme.md#role-tokens",
+          "target": ".design/accessibility.md#contrast",
           "type": "related"
         }
       },

@@ -62,7 +62,7 @@ public sealed class AppFeatureSettingsStoreTests
                 KnowledgeFeatures.RepositoryKnowledge,
                 BacklogFeatures.AdditionalRepositories,
                 DevPcFeatures.SystemTools,
-                MonitoringFeatures.Dashboard,
+                DashboardFeatures.Dashboard,
                 BacklogFeatures.GitHubIntegration,
                 AppFeatures.FeedbackReporting,
                 AppFeatureKeys.CopilotCli,

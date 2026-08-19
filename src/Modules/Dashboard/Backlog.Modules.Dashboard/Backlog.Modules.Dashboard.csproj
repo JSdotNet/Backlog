@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Dashboard module — the Dashboard bounded context. It derives, and it owns
+    nothing else:
+      Services/    the derivations — scoring, week bucketing, churn rates,
+                   month-to-date aggregation, and the session cache in front of
+                   the providers
+      Extensions/  AddDashboardModule() composition root for hosts
+
+    There is no aggregate here and no repository, because there is nothing to
+    store. Every figure on this dashboard is computed from what another system
+    already holds, which is why this project is services over ports rather than a
+    domain model over a repository.
+
+    Ports live in the Abstractions project, so adapters need the contract and not
+    this. This project may reference the shared kernel and its own Abstractions,
+    and nothing else — least of all src/Infrastructure, which is where the
+    provider clients the adapters wrap actually live.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Dashboard</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddDashboardModule(); the derivations know nothing about the
+         container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Dashboard.UnitTests" />
+  </ItemGroup>
+
+</Project>

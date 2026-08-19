@@ -79,7 +79,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-service-projection",
           "level": 2,
-          "line": 159,
+          "line": 178,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#aggregate-progress-signal",
@@ -96,7 +96,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-service-recurrence",
           "level": 2,
-          "line": 172,
+          "line": 191,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -114,7 +114,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-statuschanged",
           "level": 2,
-          "line": 213,
+          "line": 232,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -131,7 +131,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entryprojected",
           "level": 2,
-          "line": 239,
+          "line": 258,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -149,7 +149,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entrycompleted",
           "level": 2,
-          "line": 266,
+          "line": 285,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -167,7 +167,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-occurrencespawned",
           "level": 2,
-          "line": 291,
+          "line": 310,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -185,7 +185,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-aiworklogged",
           "level": 2,
-          "line": 319,
+          "line": 338,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -4133,7 +4133,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "sub-item",
           "level": 4,
-          "line": 82
+          "line": 97
         }
       },
       {
@@ -4145,7 +4145,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-type",
           "level": 4,
-          "line": 120
+          "line": 139
         }
       },
       {
@@ -4157,7 +4157,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-status",
           "level": 4,
-          "line": 124
+          "line": 143
         }
       },
       {
@@ -4169,7 +4169,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "recurrence",
           "level": 4,
-          "line": 104
+          "line": 123
         }
       },
       {
@@ -4181,7 +4181,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "readiness",
           "level": 4,
-          "line": 145
+          "line": 164
         }
       },
       {

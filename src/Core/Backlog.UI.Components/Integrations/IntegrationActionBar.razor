@@ -1,0 +1,297 @@
+@*
+    A set of acts at one density, and the rule that decides which of them a
+    reader can see.
+
+    The collapse decision belongs to the set and not to a member. A single act
+    cannot know whether it is the fifth on a crowded row, and a bar that
+    delegated the decision downward would have no budget left to enforce — every
+    act would decide it was the important one, which is how a "toolbar" becomes
+    eleven buttons again.
+
+    Overflow-first by intent. .design/design-principles.md#low-chrome-content-first
+    asks for "contextual and on-demand affordances over always-visible button
+    rows", and the budgets are deliberately tighter than the six acts this family
+    ships, so the resting state of a busy surface is a short row and a menu.
+
+    No new menu component: the overflow projects each spec into the MenuItem
+    record the library already has and hands the list to ContextMenu, which
+    already owns backdrop dismissal, Escape and the roving tabindex inside it.
+*@
+
+<div class="@ClassValue" role="group" aria-label="@AriaLabel" data-testid="@TestId">
+    @foreach (var spec in Visible)
+    {
+        @if (spec.IsCopy)
+        {
+            @* CopyButton, not IntegrationAction. It already owns the clipboard
+               interop, the prerender and JSException swallowing, the
+               role="status" line and the three-second clear; re-implementing any
+               of that inside the lifecycle is the exact duplication this family
+               exists to prevent, so the bar steps out of the way.
+
+               It stays enabled even when the cluster is not: the clipboard is
+               local, and refusing a copy because a token expired would be the
+               product withholding something it can plainly still do. *@
+            <CopyButton Text="@spec.CopyText"
+                        Label="@spec.Label"
+                        CssClass="integration-bar__copy"
+                        ButtonTestId="@TestIdFor(spec)"
+                        StatusTestId="@($"{TestIdFor(spec)}-status")" />
+        }
+        else
+        {
+            <IntegrationAction Action="@Effective(spec)"
+                               Density="@Density"
+                               OnInvoke="OnInvoke"
+                               OnCancel="OnCancel"
+                               OnRetry="OnRetry"
+                               OnRemedy="OnRemedy"
+                               ButtonTestId="@TestIdFor(spec)"
+                               ReasonTestId="@($"{TestIdFor(spec)}-reason")"
+                               StatusTestId="@($"{TestIdFor(spec)}-status")"
+                               CancelTestId="@($"{TestIdFor(spec)}-cancel")"
+                               RetryTestId="@($"{TestIdFor(spec)}-retry")" />
+        }
+    }
+
+    @if (ShowOverflow)
+    {
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Size="@IntegrationStates.SizeFor(Density)"
+                   CssClass="integration-bar__overflow"
+                   Disabled="@(!ClusterReady.IsAvailable)"
+                   TestId="@OverflowTestId"
+                   title="@(ClusterReady.IsAvailable ? null : IntegrationStates.ReasonFor(ClusterReady))"
+                   aria-label="@OverflowLabel"
+                   aria-haspopup="menu"
+                   OnClick="OpenMenu">
+            <Icon>
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"
+                     aria-hidden="true" focusable="false">
+                    <circle cx="3.25" cy="8" r="1.35" />
+                    <circle cx="8" cy="8" r="1.35" />
+                    <circle cx="12.75" cy="8" r="1.35" />
+                </svg>
+            </Icon>
+        </AppButton>
+
+        <ContextMenu Open="_open"
+                     OpenChanged="value => _open = value"
+                     X="@_x"
+                     Y="@_y"
+                     Items="@MenuItems"
+                     AriaLabel="@OverflowLabel"
+                     TestId="@MenuTestId"
+                     OnItemSelected="SelectAsync" />
+    }
+</div>
+
+@code {
+    private bool _open;
+    private double _x;
+    private double _y;
+
+    [Parameter]
+    public IReadOnlyList<IntegrationActionSpec> Actions { get; set; } = [];
+
+    [Parameter]
+    public IntegrationDensity Density { get; set; } = IntegrationDensity.Toolbar;
+
+    /// <summary>How many acts stay visible. Zero takes the density's own budget,
+    /// which is what nearly every surface wants — the parameter exists for the
+    /// storybook and for the rare header that genuinely has the room.</summary>
+    [Parameter]
+    public int VisibleLimit { get; set; }
+
+    /// <summary>The whole cluster's readiness. An expired token blocks every act
+    /// that goes through it, so it is stated once here rather than copied onto
+    /// each spec, and it overrides each act's own: nothing can be individually
+    /// ready when the thing they all go through is not.</summary>
+    [Parameter]
+    public IntegrationReadiness? Readiness { get; set; }
+
+    [Parameter]
+    public string OverflowLabel { get; set; } = "More actions";
+
+    [Parameter]
+    public string? AriaLabel { get; set; } = "Integrations";
+
+    [Parameter]
+    public EventCallback<IntegrationActionSpec> OnInvoke { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationActionSpec> OnCancel { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationActionSpec> OnRetry { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationReadiness> OnRemedy { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? OverflowTestId { get; set; }
+
+    [Parameter]
+    public string? MenuTestId { get; set; }
+
+    /// <summary>Stem for each act's own test id, completed with the spec's id.
+    /// A bar addressed by one opaque root id would make every assertion about a
+    /// particular act a substring search over the whole row.</summary>
+    [Parameter]
+    public string? ActionTestIdPrefix { get; set; }
+
+    private IntegrationReadiness ClusterReady => Readiness ?? IntegrationReadiness.Ready;
+
+    private string ClassValue
+    {
+        get
+        {
+            var stem = $"integration-bar integration-bar--{IntegrationStates.SlugOf(Density)}";
+            return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
+        }
+    }
+
+    private string? TestIdFor(IntegrationActionSpec spec) =>
+        string.IsNullOrWhiteSpace(ActionTestIdPrefix) ? null : $"{ActionTestIdPrefix}-{spec.Id}";
+
+    /// <summary>The spec as this bar sees it: its own readiness, unless the
+    /// cluster has one that overrides.</summary>
+    private IntegrationActionSpec Effective(IntegrationActionSpec spec) =>
+        ClusterReady.IsAvailable ? spec : spec with { Readiness = ClusterReady };
+
+    private IReadOnlyList<IntegrationActionSpec> Visible { get; set; } = [];
+
+    private IReadOnlyList<IntegrationActionSpec> Overflow { get; set; } = [];
+
+    /// <summary>Split once per parameter change rather than once per read. Four
+    /// places in this file ask what collapsed — the row, the trigger, the menu
+    /// and its items — and a rule recomputed four times is a rule with four
+    /// chances to answer differently within one render.</summary>
+    protected override void OnParametersSet() => (Visible, Overflow) = Split();
+
+    /// <summary>The trigger appears when there is something behind it. The one
+    /// exception is a Menu-density cluster that is wholly unavailable: rule 10
+    /// asks for a disabled trigger carrying the cluster's reason rather than a
+    /// bar that quietly disappears, because a reader who finds nothing concludes
+    /// the product cannot do the thing at all.</summary>
+    private bool ShowOverflow =>
+        Overflow.Count > 0 || (Density is IntegrationDensity.Menu && !ClusterReady.IsAvailable);
+
+    /// <summary>
+    /// The collapse rule, in the order it is written down.
+    ///
+    /// <list type="number">
+    /// <item>Acts render in the order they were given. The bar never reorders:
+    /// ordering is a host judgement about that surface, and a bar that sorted
+    /// would fight it.</item>
+    /// <item><see cref="IntegrationProminence.Overflow"/> is removed
+    /// unconditionally.</item>
+    /// <item>A copy is pinned at every density and costs no budget. Its whole
+    /// justification is that <c>CopyButton</c> owns interop a <c>MenuItem</c>
+    /// does not have — a copy in the menu would be a row that claims to copy and
+    /// silently does not.</item>
+    /// <item><see cref="IntegrationProminence.Primary"/> is pinned and costs 1.
+    /// This is the entire mechanism behind "Ask AI is invokable from any
+    /// section".</item>
+    /// <item>The rest fill what budget is left, in order.</item>
+    /// <item>An overflow of exactly one collapses to zero: a menu holding one
+    /// item costs a click and buys nothing. Not at Menu density, where there is
+    /// no second menu to save the reader from, and not for an act the host
+    /// explicitly marked Overflow, which asked to be there.</item>
+    /// <item>An unavailable act is never hidden <em>by</em> being unavailable. It
+    /// stays where the rule put it, disabled, with its reason.</item>
+    /// <item>A running act never collapses. Collapse is recomputed on every
+    /// render, and a bar whose contents change mid-act could otherwise push a
+    /// spinner into a closed menu while the reader is watching it.</item>
+    /// </list>
+    /// </summary>
+    private (IReadOnlyList<IntegrationActionSpec> Visible, IReadOnlyList<IntegrationActionSpec> Overflow) Split()
+    {
+        var budget = VisibleLimit > 0 ? VisibleLimit : IntegrationStates.BudgetFor(Density);
+        var remaining = budget;
+        var decisions = new List<(IntegrationActionSpec Spec, bool Shown, bool Asked)>(Actions.Count);
+
+        foreach (var spec in Actions)
+        {
+            if (spec.IsCopy)
+            {
+                decisions.Add((spec, true, false));
+            }
+            else if (spec.Prominence is IntegrationProminence.Overflow)
+            {
+                decisions.Add((spec, false, true));
+            }
+            else if (spec.Prominence is IntegrationProminence.Primary
+                  || spec.State is IntegrationActionState.Running)
+            {
+                decisions.Add((spec, true, false));
+                remaining = Math.Max(0, remaining - 1);
+            }
+            else if (remaining > 0)
+            {
+                decisions.Add((spec, true, false));
+                remaining--;
+            }
+            else
+            {
+                decisions.Add((spec, false, false));
+            }
+        }
+
+        if (Density is not IntegrationDensity.Menu)
+        {
+            var spilled = decisions.FindAll(decision => !decision.Shown);
+
+            if (spilled.Count == 1 && !spilled[0].Asked)
+            {
+                var index = decisions.FindIndex(decision => !decision.Shown);
+                decisions[index] = (decisions[index].Spec, true, false);
+            }
+        }
+
+        return (
+            [.. decisions.Where(decision => decision.Shown).Select(decision => decision.Spec)],
+            [.. decisions.Where(decision => !decision.Shown).Select(decision => decision.Spec)]);
+    }
+
+    /// <summary>A menu row has no second line for a described-by, so an
+    /// unavailable act carries its reason in the label itself. Losing the reason
+    /// on the way into the menu would leave the one shape this family exists to
+    /// prevent — a greyed row that says nothing about why.</summary>
+    private IReadOnlyList<MenuItem> MenuItems =>
+    [
+        .. Overflow.Select(spec =>
+        {
+            var readiness = Effective(spec).ReadinessOrReady;
+
+            return new MenuItem(
+                spec.Id,
+                readiness.IsAvailable ? spec.Label : $"{spec.Label} — {IntegrationStates.ReasonFor(readiness)}",
+                Disabled: !readiness.IsAvailable,
+                Destructive: spec.Destructive);
+        })
+    ];
+
+    /// <summary>The pointer's position, handed to ContextMenu, which is what that
+    /// component's X and Y are for. A menu that opened at a fixed corner would
+    /// make the reader's eye travel back to where they clicked.</summary>
+    private void OpenMenu(MouseEventArgs e)
+    {
+        _x = e.ClientX;
+        _y = e.ClientY;
+        _open = true;
+    }
+
+    private Task SelectAsync(MenuItem item)
+    {
+        var spec = Actions.FirstOrDefault(candidate => string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+
+        return spec is null ? Task.CompletedTask : OnInvoke.InvokeAsync(spec);
+    }
+}

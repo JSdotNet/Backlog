@@ -119,7 +119,12 @@ public class RazorComponentResolutionTests
             var imports = new FileInfo(Path.Combine(folder.FullName, "_Imports.razor"));
             if (imports.Exists)
             {
-                foreach (Match match in Regex.Matches(File.ReadAllText(imports.FullName), @"@using\s+([A-Za-z0-9_.]+)"))
+                // global:: is optional and carries no meaning for this rule. Several
+                // modules write every import as `@using global::Backlog.Something`
+                // so a bare "Backlog" cannot bind to Backlog.Modules; reading the
+                // name without stripping the prefix saw "global" and reported every
+                // one of those imports as missing.
+                foreach (Match match in Regex.Matches(File.ReadAllText(imports.FullName), @"@using\s+(?:global::)?([A-Za-z0-9_.]+)"))
                 {
                     namespaces.Add(match.Groups[1].Value);
                 }

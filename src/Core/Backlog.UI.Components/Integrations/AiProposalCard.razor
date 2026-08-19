@@ -1,0 +1,151 @@
+@*
+    Something an AI wrote, held for review.
+
+    Separate from the act that produced it because the two have different
+    lifetimes. The act starts the work and is finished the moment it returns; the
+    proposal is the result and outlives it, sitting in the document until a
+    person decides. A sixth state on IntegrationActionSpec would have tied the
+    suggestion to a button that has already moved on.
+
+    Nothing is applied in place. .design/design-principles.md#ai-first-surfaces
+    requires AI actions that modify content to be reversible, and the cheap
+    reading of that is an undo stack; this takes the strict one, where the change
+    does not happen until somebody says so. Original and Body render as "Now" and
+    "Suggested", and rejecting leaves the document byte-identical rather than
+    restored — which are not the same thing, because a restore is a second edit
+    and this is no edit at all.
+
+    Two carriers for one fact, on purpose. The principles ask that AI content be
+    visually distinguishable *and* labelled for assistive technology, and those
+    are different requirements: a tinted edge is invisible to a screen reader and
+    an aria-label is invisible to everyone else, so the card carries both.
+
+    Accept is Primary and Reject is Ghost — never Danger. Discarding a suggestion
+    destroys nothing: the document is exactly as it was, and painting the refusal
+    red would make declining a machine's offer feel like deleting something.
+*@
+
+<article class="@ClassValue" aria-label="@($"Suggested by {ProviderName}")" data-testid="@TestId">
+    @* The attribution outlives the decision. Accepting sets the state and keeps
+       this line, because six months later "did a person write this paragraph" is
+       a question the document has to be able to answer — which is the whole
+       difference between provenance and a confirmation dialog. *@
+    <p class="ai-proposal__attribution" data-testid="@AttributionTestId">
+        <ProviderMark Provider="@Proposal.Provider" CssClass="ai-proposal__mark" />
+        <span class="ai-proposal__provider">@ProviderName</span>
+
+        @if (!string.IsNullOrWhiteSpace(Proposal.Model))
+        {
+            <span class="ai-proposal__model">@Proposal.Model</span>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Proposal.Timestamp))
+        {
+            <span class="ai-proposal__when">@Proposal.Timestamp</span>
+        }
+
+        @if (Proposal.State is not AiProposalState.Proposed)
+        {
+            <span class="ai-proposal__state">@StateLabel</span>
+        }
+    </p>
+
+    @if (ShowOriginal && !string.IsNullOrWhiteSpace(Proposal.Original))
+    {
+        <div class="ai-proposal__original" data-testid="@OriginalTestId">
+            <span class="ai-proposal__caption">Now</span>
+            <p class="ai-proposal__text">@Proposal.Original</p>
+        </div>
+    }
+
+    <div class="ai-proposal__body" data-testid="@BodyTestId">
+        <span class="ai-proposal__caption">Suggested</span>
+        <p class="ai-proposal__text">@Proposal.Body</p>
+    </div>
+
+    @if (Proposal.State is AiProposalState.Proposed)
+    {
+        <div class="ai-proposal__actions">
+            <AppButton Variant="ButtonVariant.Primary"
+                       Size="ButtonSize.Small"
+                       TestId="@AcceptTestId"
+                       OnClick="() => OnAccept.InvokeAsync(Proposal)">@AcceptLabel</AppButton>
+
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="@RejectTestId"
+                       OnClick="() => OnReject.InvokeAsync(Proposal)">@RejectLabel</AppButton>
+        </div>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public AiProposal Proposal { get; set; } = default!;
+
+    /// <summary>Whether to show what would be replaced. On by default, because
+    /// without it accepting is a gamble rather than a review — but an Answer
+    /// replaces nothing, and a "Now" heading over an empty block would be the
+    /// card inventing a before that never existed.</summary>
+    [Parameter]
+    public bool ShowOriginal { get; set; } = true;
+
+    /// <summary>"Use this" rather than "Accept". Accept reads as agreeing with
+    /// the machine; the reader is choosing a wording, not conceding a point.</summary>
+    [Parameter]
+    public string AcceptLabel { get; set; } = "Use this";
+
+    [Parameter]
+    public string RejectLabel { get; set; } = "Discard";
+
+    /// <summary>Raised with the whole proposal. The host applies it and hands
+    /// back new content; nothing here writes into a document, for the same reason
+    /// MarkdownView's OnEditComment raises the record rather than storing it.</summary>
+    [Parameter]
+    public EventCallback<AiProposal> OnAccept { get; set; }
+
+    [Parameter]
+    public EventCallback<AiProposal> OnReject { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? AttributionTestId { get; set; }
+
+    [Parameter]
+    public string? OriginalTestId { get; set; }
+
+    [Parameter]
+    public string? BodyTestId { get; set; }
+
+    [Parameter]
+    public string? AcceptTestId { get; set; }
+
+    [Parameter]
+    public string? RejectTestId { get; set; }
+
+    private string ProviderName => IntegrationStates.NameOf(Proposal.Provider);
+
+    private string StateLabel => Proposal.State switch
+    {
+        AiProposalState.Accepted => "Used",
+        AiProposalState.Rejected => "Discarded",
+        _ => string.Empty
+    };
+
+    private string ClassValue
+    {
+        get
+        {
+            var stem = "ai-proposal "
+                     + $"ai-proposal--{IntegrationStates.SlugOf(Proposal.Provider)} "
+                     + $"ai-proposal--{Proposal.State.ToString().ToLowerInvariant()}";
+
+            return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
+        }
+    }
+}
