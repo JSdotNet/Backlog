@@ -26,10 +26,21 @@
        That is what had happened: a brighter red, green and blue had grown up
        beside these under other names, so the palette carried two reds and two
        greens for the same two meanings. Anything that needs to be legible sits
-       *on* one of these as text-primary rather than being painted in it. */
+       *on* one of these as text-primary rather than being painted in it.
+
+       The error foreground below is the one deliberate exception, and it is here
+       because that rule left a hole. Sitting on a surface answers a banner, but a
+       bare error status line, an error icon, or an error input outline has no
+       error surface under it, so nothing sanctioned said what colour it should
+       be. Code answered anyway: a raw literal in the desktop stylesheet, and a
+       stronger-red token name that several rules referenced and nothing ever
+       declared. The semantic colours stay surfaces; this is the single
+       sanctioned foreground for the error meaning, and it is never painted as a
+       background. */
     --color-success: #1A3A22;
     --color-warning: #3D2E00;
     --color-error: #3D0A0D;
+    --color-error-text: #EC8E97;
     --color-info: #0A2C31;
 
     --color-text-primary: #F8F9FA;
@@ -1707,7 +1718,11 @@ button.md-check {
 .app-error-message {
     margin: 0;
     padding: var(--spacing-xs) var(--spacing-sm);
-    border: var(--border-width) solid color-mix(in srgb, var(--color-error) 55%, transparent);
+    /* The banner case, so the rule applies as written: an error surface with
+       text-primary on it. The border is the exception - mixed from color-error
+       it lands at 1.04:1 against the page, which is not a boundary anyone can
+       see. color-error-text is the same meaning at a visible weight. */
+    border: var(--border-width) solid color-mix(in srgb, var(--color-error-text) 55%, transparent);
     border-radius: var(--border-radius-md);
     background: color-mix(in srgb, var(--color-error) 14%, transparent);
     color: var(--color-text-primary);

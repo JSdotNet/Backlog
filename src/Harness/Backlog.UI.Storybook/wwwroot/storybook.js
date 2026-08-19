@@ -13,8 +13,8 @@
     // text, 3:1 for focus rings and control boundaries, and explicitly exempts
     // --color-text-disabled, which signals unavailability on purpose.
     //
-    // These are the twenty colour tokens that file defines, which is also exactly
-    // what components.css declares — the code theme in
+    // These are the twenty-one colour tokens that file defines, which is also
+    // exactly what components.css declares — the code theme in
     // .design/color-scheme.md#syntax-highlighting-tokens is the only other colour
     // in the stylesheet, and it is scored where it is used, on a code block.
     // Grouped by role, in the order a reader needs them: what the brand is, what
@@ -38,6 +38,11 @@
                 { name: '--color-success', against: '--color-text-primary', threshold: 4.5 },
                 { name: '--color-warning', against: '--color-text-primary', threshold: 4.5 },
                 { name: '--color-error', against: '--color-text-primary', threshold: 4.5 },
+                // The one foreground in this group, so it is scored the other way
+                // round: against the surface it has to stay legible on. The raised
+                // surface is the binding pair — it is the lightest thing this ink
+                // sits on, and it is what fixed the value.
+                { name: '--color-error-text', against: '--color-background-raised', threshold: 4.5 },
                 { name: '--color-info', against: '--color-text-primary', threshold: 4.5 }
             ]
         },

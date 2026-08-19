@@ -178,7 +178,7 @@ h1, h2, h3 {
 
 .app-version__status--ok { color: var(--color-text-secondary); }
 .app-version__status--available { color: var(--color-primary); }
-.app-version__status--error { color: #E4626F; }
+.app-version__status--error { color: var(--color-error-text); }
 
 .app-update-dialog__actions {
     justify-content: flex-start;
@@ -1090,7 +1090,7 @@ h1, h2, h3 {
 .entry-doc__gh-error {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);
-    color: #E4626F;
+    color: var(--color-error-text);
     overflow-wrap: anywhere;
 }
 
@@ -1392,7 +1392,7 @@ h1, h2, h3 {
 }
 
 .setting__input--error {
-    border-color: #E4626F;
+    border-color: var(--color-error-text);
 }
 
 .setting__input--multiline {
@@ -1412,7 +1412,7 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
-.setting__status--error { color: #E4626F; }
+.setting__status--error { color: var(--color-error-text); }
 .setting__status--ok { color: var(--color-success); }
 
 .setting__actions {
@@ -2843,11 +2843,10 @@ h1, h2, h3 {
 }
 
 /* Bare error text, with no error surface behind it to carry the meaning, so the
-   colour is the only thing saying this failed. The literal is what the file's
-   other three bare error statuses already use; .design names no error
-   *foreground* at all, which is the gap that let --color-danger be invented. */
+   colour is the only thing saying this failed. That is the case color-error-text
+   exists for, and the gap the comment here used to describe. */
 .domain-knowledge__action-error {
-    color: #E4626F;
+    color: var(--color-error-text);
     font-size: var(--font-size-xs);
 }
 

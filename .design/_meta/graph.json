@@ -374,7 +374,7 @@
           "path": ".design/color-scheme.md",
           "slug": "surface-and-border-deviation",
           "level": 2,
-          "line": 95,
+          "line": 140,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast",
@@ -391,7 +391,7 @@
           "path": ".design/color-scheme.md",
           "slug": "full-token-reference",
           "level": 2,
-          "line": 150,
+          "line": 195,
           "status": "active"
         }
       },
@@ -404,7 +404,7 @@
           "path": ".design/color-scheme.md",
           "slug": "syntax-highlighting-tokens",
           "level": 2,
-          "line": 186,
+          "line": 232,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -421,7 +421,7 @@
           "path": ".design/color-scheme.md",
           "slug": "role-tokens",
           "level": 2,
-          "line": 224,
+          "line": 270,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -438,7 +438,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 311,
+          "line": 357,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -454,7 +454,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 338,
+          "line": 384,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -470,7 +470,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 365,
+          "line": 411,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -487,7 +487,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 401,
+          "line": 447,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
