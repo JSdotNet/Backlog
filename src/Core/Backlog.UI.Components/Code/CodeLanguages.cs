@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.Code;
+﻿namespace Backlog.UI.Components.Code;
 
 /// <summary>A language the highlighter knows, by the name a fenced code block
 /// would use and by the name a person would read.</summary>
@@ -62,6 +62,7 @@ public static class CodeLanguages
         ["yaml"] = "yaml", ["yml"] = "yaml",
         ["css"] = "css",
         ["html"] = "html", ["htm"] = "html",
+        ["razor"] = "razor", ["cshtml"] = "razor",
         ["xml"] = "xml", ["xaml"] = "xml", ["csproj"] = "xml", ["svg"] = "xml",
         ["sql"] = "sql",
         ["bash"] = "bash", ["sh"] = "bash", ["shell"] = "bash", ["zsh"] = "bash", ["console"] = "bash",
@@ -186,6 +187,12 @@ public static class CodeLanguages
 
         ["css"] = new(Syntax.Css, None, None),
         ["html"] = new(Syntax.Markup, None, None),
+
+        // Razor is markup plus `@` expressions, and the markup tokenizer is
+        // what a reader of a component is looking at: tags, attributes and
+        // attribute values. The `@` parts stay uncoloured rather than being
+        // guessed at as C#, which is honest about what this knows.
+        ["razor"] = new(Syntax.Markup, None, None),
         ["xml"] = new(Syntax.Markup, None, None),
         ["yaml"] = new(Syntax.Yaml, None, None)
     };
@@ -199,6 +206,7 @@ public static class CodeLanguages
         ["yaml"] = "YAML",
         ["css"] = "CSS",
         ["html"] = "HTML",
+        ["razor"] = "Razor",
         ["xml"] = "XML",
         ["sql"] = "SQL",
         ["bash"] = "Shell",
@@ -210,7 +218,7 @@ public static class CodeLanguages
     /// shows them: the ones the product itself is written in first.</summary>
     public static IReadOnlyList<CodeLanguage> All { get; } =
     [
-        .. new[] { "csharp", "typescript", "javascript", "json", "yaml", "css", "html", "xml", "sql", "bash", "powershell", "mermaid" }
+        .. new[] { "csharp", "typescript", "javascript", "json", "yaml", "css", "html", "razor", "xml", "sql", "bash", "powershell", "mermaid" }
             .Select(id => new CodeLanguage(id, Labels[id]))
     ];
 

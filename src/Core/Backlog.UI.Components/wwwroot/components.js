@@ -680,8 +680,13 @@
         return backlogG6Promise;
     }
 
-    function backlogRenderDiagramError(element, message) {
-        element.innerHTML = `<div class="diagram-view__fallback" role="note">${backlogEscapeHtml(message)} Source is available below.</div>`;
+    // `sourceShown` is whether the component kept its source disclosure. A host that
+    // prints the fence itself turns that off, and the fallback must not then point a
+    // reader at something that is not there — the promise is the part of this message
+    // that has to be true.
+    function backlogRenderDiagramError(element, message, sourceShown = true) {
+        const promise = sourceShown ? ' Source is available below.' : '';
+        element.innerHTML = `<div class="diagram-view__fallback" role="note">${backlogEscapeHtml(message)}${promise}</div>`;
     }
 
     // mermaid.render() works in a scratch element it appends to <body>. It removes
@@ -1198,10 +1203,10 @@
         escapeHtml: backlogEscapeHtml,
         renderError: backlogRenderDiagramError,
 
-        async render(element, id, language, source) {
+        async render(element, id, language, source, sourceShown = true) {
             const normalized = String(language ?? '').trim().toLowerCase();
             if (normalized !== 'mermaid' && normalized !== 'mmd') {
-                backlogRenderDiagramError(element, `${language ?? 'Diagram'} rendering is not configured yet.`);
+                backlogRenderDiagramError(element, `${language ?? 'Diagram'} rendering is not configured yet.`, sourceShown);
                 return;
             }
 
@@ -1213,7 +1218,7 @@
                 element.innerHTML = result.svg;
                 result.bindFunctions?.(element);
             } catch (error) {
-                backlogRenderDiagramError(element, error instanceof Error ? error.message : 'Mermaid rendering failed.');
+                backlogRenderDiagramError(element, error instanceof Error ? error.message : 'Mermaid rendering failed.', sourceShown);
             } finally {
                 backlogRemoveMermaidScratchNodes(element, id);
             }

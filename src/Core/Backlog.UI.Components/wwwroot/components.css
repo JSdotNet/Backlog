@@ -5070,21 +5070,15 @@ button.tag-chip__label {
   FoldControl also carries the app's `entry-doc__title-button` classes, which
   are styled above; these are the generic names for hosts that do not have
   them.
-*/
 
-.fold {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    min-width: 0;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
+  There is no `.fold` rule here. There used to be one — a button reset, centred
+  and inline — and it was a second declaration of the wrapper further down the
+  file than the real one, so it won: every disclosure in the library rendered as
+  an inline, centre-aligned box, which put the trigger in the middle of the
+  region it controls and made the text jump sideways as a fold opened. The
+  button reset it was written for belongs to `.fold__trigger`, which already has
+  it; the wrapper is the flex column declared under `#fold-control` above.
+*/
 
 .fold__label {
     min-width: 0;

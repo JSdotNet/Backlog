@@ -1,0 +1,47 @@
+@*
+    One rule from `.design`, drawn out of the repository's own file.
+
+    Collapsed until asked for, because a page links three to six chapters and a
+    reviewer opens the one they are checking against. Parsed on first open rather
+    than on render, so a page carrying six of these does not parse six chapters
+    nobody looked at.
+
+    Knowledge metadata is on, and the folder is Design: these files *are* knowledge
+    chapters, so their `meta` fences are drawn as the records they are rather than
+    as code blocks. It is also the honest setting — reading `.design` as anything
+    else would render the rule differently here from the way the product renders
+    the same file.
+*@
+
+<div class="sb-guideline">
+    <FoldControl @bind-Expanded="_open"
+                 CssClass="sb-fold sb-fold--guideline"
+                 TestId="@TestId">
+        <LabelContent>
+            <span class="sb-guideline__path">@Guideline.Label</span>
+            <span class="sb-guideline__governs">@Guideline.Governs</span>
+        </LabelContent>
+        <ChildContent>
+            <div class="sb-guideline__body" data-testid="@($"{TestId}-body")">
+                <MarkdownView Blocks="@Blocks"
+                              RenderKnowledgeMetadata="true"
+                              KnowledgeFolder="KnowledgeFolder.Design" />
+            </div>
+        </ChildContent>
+    </FoldControl>
+</div>
+
+@code {
+    private bool _open;
+    private IReadOnlyList<MdBlock>? _blocks;
+
+    [Parameter, EditorRequired]
+    public DesignGuideline Guideline { get; set; } = default!;
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Parsed once, the first time the chapter is actually opened.</summary>
+    private IReadOnlyList<MdBlock> Blocks =>
+        _blocks ??= MarkdownPreview.ParseDocument(Guideline.Markdown);
+}

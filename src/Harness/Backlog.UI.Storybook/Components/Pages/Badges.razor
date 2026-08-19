@@ -1,9 +1,10 @@
-@page "/badges"
+﻿@page "/badges"
 
 <PageTitle>Badges — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Badges"
-           Summary="A badge is a class plus the value it holds. StatusBadge and PriorityBadge are the same component with the slug already worked out.">
+           Summary="A badge is a class plus the value it holds. StatusBadge and PriorityBadge are the same component with the slug already worked out."
+           Guidelines="@Rules">
 
     <Story Name="Badge kinds"
            Description="Kind picks the family of styling; Slug picks the value inside it. Anything unslugifiable falls back, so a badge never renders a dangling modifier."
@@ -89,6 +90,14 @@
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#badge-and-chip-tones", "What each badge family and each value tone means."),
+        new("color-scheme.md#contrast-rules-wcag-aa-minimum", "The ratio a badge's small text has to clear."),
+        new("typography-and-layout.md#metadata-lines", "How small a chip is set, and how it sits beside prose."),
+        new("accessibility.md#iconography-accessibility", "Why a glyph never carries the meaning on its own.")
+    ];
+
     private static readonly string[] Kinds = ["status", "priority", "type"];
     private static readonly string[] Slugs = ["draft", "ready", "active", "blocked", "done"];
     private static readonly string[] StatusValues = ["draft", "ready", "active", "blocked", "done"];

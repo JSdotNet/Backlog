@@ -3,18 +3,16 @@
 <PageTitle>Availability and lifecycle — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Availability and lifecycle"
-           Summary="The substrate under every integration affordance. An act on an external tool is never a bare button: it is a readiness — whether the product can do the thing at all, and if not why — and a lifecycle running from idle to succeeded or failed. Both live on this page because both are the reason the same six acts can look the same on a backlog entry, a knowledge chapter and a roadmap bar. The acts themselves are on Actions; the artifacts they produce are on References.">
-
+           Summary="The substrate under every integration affordance: a readiness — whether the product can perform an outward act at all, and if not why — and a lifecycle running from idle to succeeded or failed. Both are records the host hands in; no component here advances anything on its own. The acts themselves are on Actions; the artifacts they produce are on References."
+           Guidelines="@Rules">
     <Alert Message="@AbsorbsNotice" Role="note" CssClass="sb-callout" />
 
     <Alert Message="@MarkRule" Role="note" CssClass="sb-callout" />
 
     <Story Name="Nothing here takes a bare Disabled"
-           Description="Every other button in this library takes a bool Disabled, and that is why an unavailable integration looks different on every surface that has one: a greyed button says nothing about why, so each host invents its own tooltip, or its own hidden branch, or nothing at all. IntegrationAction has no Disabled parameter. The only way to make one inert is to hand it an IntegrationReadiness, and that record cannot be constructed without a cause.
+           Description="IntegrationAction has no `Disabled` parameter. The only way to make one inert is to hand it an `IntegrationReadiness`, and that record cannot be constructed without a cause — so an unavailable act always carries the reason it is unavailable.
 
-The rejected alternative was a Disabled plus an optional DisabledReason — which is the same shape with a nicer name, because optional means a host can skip it and every host eventually will. Making the reason the only route is what turns consistency from a habit into a compile-time fact.
-
-The two cells below are the same unavailable act drawn both ways. On the left is what the library allows anywhere else; on the right is the only thing this family can produce. Under each is what a reader gets: nothing, and a sentence that reaches the pointer through title and assistive technology through aria-describedby, because neither route alone reaches everybody."
+The reason reaches a pointer through `title` and assistive technology through `aria-describedby`. The two cells below are the same unavailable act drawn as a plain disabled button and as this family draws it."
            Code="@NoDisabledCode">
         <div class="sb-columns" data-testid="integrations-no-disabled">
             <div class="sb-stack">
@@ -37,11 +35,9 @@ The two cells below are the same unavailable act drawn both ways. On the left is
     </Story>
 
     <Story Name="Four ways to be unavailable, one primitive"
-           Description="Not authorized, not installed, offline, and turned off in settings are four unrelated causes with four different remedies, and the temptation is four components. They are one, because from the reader's side they are the same sentence in the same place: this cannot happen right now, here is why, here is what to do about it. Splitting them would put the sentence in four positions and four voices.
+           Description="One component, four causes: `NotAuthorized`, `NotInstalled`, `Offline` and `Disabled` in settings. Hand `IntegrationUnavailable` a cause and a subject and the sentence is derived from the pair; pass `Message` to override it where a surface has better words.
 
-The sentences below were not written into these rows. Each row was handed a cause and a subject, and the sentence is derived from the pair — which is what stops an optional reason from going missing the way an optional DisabledReason could. A host that has a better sentence for its surface can still pass one; the point is that it never has to.
-
-Offline is the one with no remedy, and that is deliberate rather than an omission. There is no button a reader can press that puts a network back, and offering one would be the product pretending it can do something it cannot."
+`Offline` is the one cause with no remedy to offer, so nothing is rendered for one."
            Code="@UnavailableCode">
         <div class="sb-stack" data-testid="integrations-unavailable">
             <IntegrationUnavailable Readiness="@IntegrationFixtures.GitHubNotConnected"
@@ -64,11 +60,9 @@ Offline is the one with no remedy, and that is deliberate rather than an omissio
     </Story>
 
     <Story Name="Offline is a status, not an alert"
-           Description="The alert role interrupts. It is right for a save that failed and wrong for a network that is not there, and the design principles are explicit that offline must be a calm, persistent status rather than an error modal. All four unavailable causes are standing conditions rather than events, so IntegrationUnavailable is a status region in every one of them and never escalates.
+           Description="`IntegrationUnavailable` renders a status region for all four causes and never an alert — an unavailable integration is a standing condition rather than an event. The one thing in this family that escalates is an act that was invoked and failed, which is the story below.
 
-The one place in this family that does escalate is an act that was invoked and failed, which is the story below — because that one is an event, and it happened because the reader pressed something. Toast already draws that line between Error and Warning on one side and everything else on the other, so this follows it rather than inventing a second rule.
-
-The freshness line takes the same side. A read that could not reach GitHub is the same class of thing as being offline, so it stays a status too, and that is the References page's ninth story."
+The freshness line on the References page takes the same side: a read that could not reach GitHub is a status."
            Code="@RolesCode">
         <div class="sb-columns" data-testid="integrations-roles">
             <div class="sb-stack">
@@ -90,11 +84,9 @@ The freshness line takes the same side. A read that could not reach GitHub is th
     </Story>
 
     <Story Name="Idle, confirming, running, succeeded, failed"
-           Description="Five states of one act, and the reason they are one component rather than a host's five branches. Running is AppButton.Busy unchanged — it already embeds the spinner, sets aria-busy, and disables the button without removing it from the tab order, so focus survives the round trip. Building a second loading button here would have been a second thing to get wrong in a family whose entire point is not having two of anything.
+           Description="Five states of one act, all five handed in by the host as an `IntegrationActionState`. Running is `AppButton.Busy` unchanged, so it embeds the spinner, sets `aria-busy` and keeps the button in the tab order.
 
-The host owns the state and hands it in; the component advances nothing on its own. That is the same discipline MarkdownView keeps with comments, and for the same reason: the truth is upstream, and a component that guessed at it would eventually disagree with the thing that knows.
-
-One thing worth watching across the row is what does not move. The button is present in all five, including the last two: the state glyph lives on the status line beside it rather than replacing the control, so a reader who has just pressed something finds the pointer target exactly where they left it, whether it worked or not."
+The component advances nothing on its own — the truth is upstream. The button is present in all five states: the state glyph goes on the status line beside it rather than replacing the control."
            Code="@LifecycleCode">
         <dl class="sb-grid" data-testid="integrations-lifecycle">
             @foreach (var step in Lifecycle)
@@ -117,11 +109,9 @@ One thing worth watching across the row is what does not move. The button is pre
     </Story>
 
     <Story Name="Succeeding leaves something behind"
-           Description="CopyButton clears its confirmation after three seconds, and that is right for a copy: the act is finished the moment the clipboard returns and there is nothing further to do. An outward act is not like that. Creating an issue produces an issue, and a line that says done and then vanishes takes the link to it with it.
+           Description="The success line does not auto-clear, and `SuccessContent` is where the host puts what the act produced — the issue it created, the session it opened. Clearing is the host's, driven by the state it already owns; there is no timer in here.
 
-So the status line here does not auto-clear, and SuccessContent lets the host put the consequence into it. Clearing is the host's, driven by the state it already owns — this component holds no timer, and the one place in the family that would need one, the stalled session, is computed by the host for the same reason.
-
-The default line is built from the label, so a host that has nothing to add still gets a sentence rather than a bare check. What it cannot get is a line that disappears with the link in it."
+With nothing supplied, the default line is built from the act's label."
            Code="@SuccessCode">
         <div class="sb-stack" data-testid="integrations-success">
             <div class="sb-stack">
@@ -149,11 +139,9 @@ The default line is built from the label, so a host that has nothing to add stil
     </Story>
 
     <Story Name="Retry is part of failing"
-           Description="A failed act with no way to try again is a dead end, and the reader's only recourse is to reload something and hope. Failure therefore renders in an alert region — following Toast's existing rule that Error and Warning are alerts and everything else is a status — plus a Retry that raises its own callback rather than re-raising invoke, so a host can distinguish a first attempt from a second in whatever it logs.
+           Description="Failure renders in an alert region and offers Retry, which raises `OnRetry` rather than re-raising `OnInvoke` — so a host can tell a first attempt from a second in whatever it logs, without keeping its own count.
 
-Retry is a third callback and not a second invoke for a practical reason as much as a logging one. A host that retried through OnInvoke would have to keep its own count to know whether to back off, and every host would keep it differently.
-
-Press it: the line below reports which callback arrived, and the act is left in Failed rather than being advanced, because advancing it is the host's job and this page is the host."
+Press it: the line below reports which callback arrived, and the act stays `Failed`, because advancing it is the host's job and this page is the host."
            Code="@RetryCode">
         <div class="sb-stack" data-testid="integrations-retry">
             <IntegrationAction Action="@FailedHandOff"
@@ -167,11 +155,9 @@ Press it: the line below reports which callback arrived, and the act is left in 
     </Story>
 
     <Story Name="Confirming is a button, not a dialog"
-           Description="Pressing an act that reaches outside the product should not fire on the first click, so Confirming is a state in the lifecycle: the button becomes Create the issue with a Cancel beside it, in place, and the second press is the one that acts.
+           Description="`Confirming` is a state in the lifecycle rather than a dialog: the button becomes “Create the issue” with a Cancel beside it, in place, and the second press is the one that acts.
 
-A confirm dialog that previews what would be sent — the issue title and body before they leave — is not yet built. It is the right home for the preview, and ConfirmDialog already routes Escape and backdrop dismissal through Cancel so it would inherit that for free. The inline confirm is the floor, not the ceiling.
-
-The act below is live and this page is its host: it advances on press because the handler under it advances it, and Cancel puts it back to Idle. Nothing in the component moves on its own, which is the whole claim — pressing Confirm here reaches a handler in this file that decides what happens next."
+A dialog that previews what would be sent is not built yet; `ConfirmDialog` is where it would go. The act below advances because the handler in this file advances it, and Cancel puts it back to `Idle`."
            Code="@ConfirmCode">
         <div class="sb-stack" data-testid="integrations-confirm">
             <IntegrationAction Action="@_confirmable"
@@ -200,11 +186,9 @@ The act below is live and this page is its host: it advances on press because th
     </Story>
 
     <Story Name="What a surface actually mounts"
-           Description="IntegrationsPanel is thin on purpose: it owns the order of the four parts and one precedence rule, and nothing else. The order is header and freshness, then the acts, then the references, then whatever the surface adds — acts before references because an act is what a reader came to do and a reference is what already happened.
+           Description="`IntegrationsPanel` owns the order of the four parts — header and freshness, then acts, then references, then whatever the surface adds — and one precedence rule: a cluster readiness that is not available replaces the acts with the reason and leaves the references in place.
 
-The rule is that when the whole cluster is unavailable the actions are replaced by the reason but the links stay. A pull request read last Tuesday is still open today, and blanking it because a token expired would tell the reader something false. The fourth panel below is that case: identical references, no acts, one sentence and one way out.
-
-The first three are the same panel on three pretend surfaces at three densities, which is the consistency claim made visible — a reader who learns where the acts are on a backlog entry does not have to learn it again on a knowledge chapter. Refresh is wired to this page, so pressing Check now on any of them moves that panel's reading."
+The first three panels below are the same panel on three pretend surfaces at three densities; the fourth is the unavailable case. Refresh is wired to this page, so Check now moves that panel's reading."
            Code="@PanelCode">
         <div class="sb-stack" data-testid="integrations-panels">
             <div class="sb-surface sb-stack">
@@ -268,6 +252,14 @@ The first three are the same panel on three pretend surfaces at three densities,
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#integration-roles", "The tones availability and each lifecycle state are drawn in."),
+        new("interaction-guidelines.md#offline", "What the product says when it cannot reach anything."),
+        new("interaction-guidelines.md#error-states", "What a failed act shows, and what it offers next."),
+        new("design-principles.md#local-first-offline-first-ux", "Why an outward act is never the thing that has to work.")
+    ];
+
     /// <summary>What this family is for, stated once at the top of the section
     /// rather than in a story — it is the reason the whole chapter exists and not
     /// a property of any one component on it.</summary>

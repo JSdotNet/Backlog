@@ -1,9 +1,10 @@
-@page "/data-table"
+﻿@page "/data-table"
 
 <PageTitle>Data table — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Data table"
-           Summary="DataTable: rows of records under column headings, optionally carved into named sections. The first table in this library that is not a chart — the Metric family already holds five, and every one of those is a table of figures whose columns are named by a measure and whose cells are formatted numbers. This one answers the other question: which things are there, and what does each one say.">
+           Summary="DataTable: rows of records under column headings, optionally carved into named sections. The first table in this library that is not a chart — the Metric family already holds five, and every one of those is a table of figures whose columns are named by a measure and whose cells are formatted numbers. This one answers the other question: which things are there, and what does each one say."
+           Guidelines="@Rules">
 
     <Story Name="Rows under headings"
            Description="The frame is the component's and the cells are the caller's. That split is the whole design: this owns the scroll box, the heading row, the section headings, the empty state and the row element, and the caller owns what goes in a cell — which is where a provider mark, a state chip, or an em dash for “not reported” belongs.
@@ -97,6 +98,15 @@ Two lines rather than one, because “no rows” and “no rows yet, and here is
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("typography-and-layout.md#density", "Row heights, and how tight a table of records may be."),
+        new("typography-and-layout.md#metadata-lines", "How a second line under a cell's value is set."),
+        new("interaction-guidelines.md#focus-and-selection", "What a selected row looks like, and what keeps it."),
+        new("interaction-guidelines.md#empty-loading-and-error-states", "What a table with nothing in it shows."),
+        new("accessibility.md#keyboard-navigation", "What a scrolling table has to be reachable with.")
+    ];
+
     /// <summary>
     /// A row of the kind this component was built for, declared here rather than
     /// imported. The storybook renders the library with nothing behind it — no app,

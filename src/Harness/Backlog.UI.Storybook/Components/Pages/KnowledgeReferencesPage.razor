@@ -1,16 +1,15 @@
-@page "/knowledge-base/references"
+﻿@page "/knowledge-base/references"
 
 <PageTitle>References in the knowledge base — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="References"
-           Summary="A subpage of Knowledge base: the entries under related, depends-on and implements are addresses rather than labels, and that is what makes them followable. KnowledgeReference parses one; KnowledgeReferenceLink draws it as a link, a button or inert text depending on what the host can actually do with it. Which fields hold references at all is on the parent page; what a status word means is the State subpage.">
+           Summary="A subpage of Knowledge base: the entries under related, depends-on and implements are addresses rather than labels, and that is what makes them followable. KnowledgeReference parses one; KnowledgeReferenceLink draws it as a link, a button or inert text depending on what the host can actually do with it. Which fields hold references at all is on the parent page; what a status word means is the State subpage."
+           Guidelines="@Rules">
 
     <Story Name="An address is a path, and optionally a heading"
-           Description="Two forms, and one character tells them apart. A bare path addresses a whole file; a path followed by `#` and a heading slug addresses one chapter of it. Chapters have no stored id — the path plus the heading's anchor slug is the address — which is why `#` is a separator here and never a comment marker. A parser that treated it as one would truncate every chapter reference in this repository to its file.
+           Description="Two forms, and one character tells them apart: a bare path addresses a whole file, and a path followed by `#` and a heading slug addresses one chapter of it. The split is on the first hash, so a heading whose own slug carries a second one still resolves to a single chapter; a trailing hash addresses no chapter.
 
-The split is on the first hash, so a heading whose own slug carries a second one still resolves to a single chapter. A trailing hash with nothing after it addresses no chapter at all and reads back as the file it plainly points at. Folder falls out of the path for free: it is always the first segment, so nothing has to be told which folder it is looking at as long as it has the address. Label is the short form for display and Raw is what was authored — Raw stays on the title either way, so shortening hides nothing.
-
-Each cell leads with the `related` entry the address was read out of, because that is the only place one is ever written: nothing in this repository holds a bare address, it holds a list under a relation field."
+`Folder` falls out of the path — always its first segment. `Label` is the short display form and `Raw` is what was authored, and `Raw` stays on the `title` either way."
            Code="@ParseCode">
         <dl class="sb-grid sb-grid--addresses" data-testid="knowledge-references-parsed">
             @foreach (var sample in Samples)
@@ -18,8 +17,8 @@ Each cell leads with the `related` entry the address was read out of, because th
                 <div class="sb-stack" data-testid="@($"knowledge-references-parsed-{sample.Slug}")">
                     <dt class="sb-label">@sample.Name</dt>
                     <dd class="sb-stack">
-                        <pre class="sb-story__code"
-                             data-testid="@($"knowledge-references-parsed-{sample.Slug}-source")"><code>@sample.Block</code></pre>
+                        <CodeView Source="@sample.Block" Language="markdown" AllowCopy="false" CssClass="sb-raw__code"
+                                  TestId="@($"knowledge-references-parsed-{sample.Slug}-source")" />
                         <p class="sb-state">@Describe(sample.Raw)</p>
                         <p>@sample.Note</p>
                     </dd>
@@ -29,18 +28,14 @@ Each cell leads with the `related` entry the address was read out of, because th
     </Story>
 
     <Story Name="Three shapes, and the host decides which"
-           Description="KnowledgeReferenceLink renders what the host can do with a reference, not what the reference is. Given an href it is an anchor; given a callback it is a button; given neither it is inert text — a `code` element carrying the address and making no offer.
+           Description="`KnowledgeReferenceLink` renders what the host can do with a reference: an `Href` makes an anchor, an `OnActivate` callback makes a button, neither makes a `code` element carrying the address and making no offer.
 
-The inert shape is the case worth defending. A reference nobody can follow should not look like it invites a click, and it should not take a tab stop to do nothing when it gets one. A reference that can be followed is a link, so the two followable shapes look like every other link in this product and the third looks like the quiet text it is.
-
-A URL is an anchor and a callback is a button because those are different affordances, not two styles of one. An anchor can be middle-clicked, copied, opened in a new window and read out as a link; a button cannot, and pretending otherwise breaks all four. When both are given the anchor wins and the callback is ignored — a link already navigates, and two ways to reach one place is one too many.
-
-The block under the four shapes is the callback wired the way a host wires it: once, on the block. Both MetadataBadge and KnowledgeMetaView forward OnNavigate down to every reference they draw, so click any of them and the line underneath reports what arrived. It is the whole KnowledgeReference rather than the string it was written as, which is the difference between a host that can route and one that has to re-parse — the path, the chapter slug and the folder are already separated, and the folder is usually what decides which surface should open."
+An anchor can be middle-clicked, copied, opened in a new window and read out as a link; a button cannot. When both are given the anchor wins and the callback is ignored."
            Code="@ShapesCode">
         <div class="sb-stack">
             <div class="sb-stack">
                 <p class="sb-label">The entry every cell below was read from</p>
-                <pre class="sb-story__code" data-testid="knowledge-references-shapes-source"><code>@ChapterBlock</code></pre>
+                <CodeView Source="@ChapterBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-references-shapes-source" />
             </div>
             <dl class="sb-grid sb-grid--addresses" data-testid="knowledge-references-shapes">
                 <div class="sb-stack">
@@ -86,7 +81,7 @@ The block under the four shapes is the callback wired the way a host wires it: o
             </dl>
             <div class="sb-stack" data-testid="knowledge-references-live">
                 <p class="sb-label">One handler on the block — click any reference in it</p>
-                <pre class="sb-story__code" data-testid="knowledge-references-live-source"><code>@RoadmapBlock</code></pre>
+                <CodeView Source="@RoadmapBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-references-live-source" />
                 <MetadataBadge Metadata="@RoadmapMetadata"
                                Folder="KnowledgeFolder.Backlog"
                                OnNavigate="Follow"
@@ -98,15 +93,13 @@ The block under the four shapes is the callback wired the way a host wires it: o
     </Story>
 
     <Story Name="The same block, as links"
-           Description="HrefFor is the other wiring, and the one to prefer when the target has a URL. The host owns the mapping from repository path to route — only it knows what it serves and where — so it hands the answer in rather than having this component guess at one. Returning null for a reference leaves that one as inert text while its siblings stay links, which matters more than it sounds: a block routinely points at one chapter the host can show and another it cannot, and a resolver that had to answer for all of them or none would turn the whole record into dead text. This storybook serves no route for a repository path, so the resolver here sends every reference to one line further down the page.
+           Description="`KnowledgeHrefFor` maps a reference to a route; the host owns that mapping because only it knows what it serves. Returning null leaves that one reference inert while its siblings stay links, which is the ordinary case for a block pointing at one chapter the host can show and one it cannot.
 
-This block names one target twice, under two different fields, which is why the line under it counts fewer references than there are links above it. References is the whole block's addresses in field order — related, then depends-on, then implements — de-duplicated on the form they were authored in, so a caller walking the block to build a graph visits each target once.
-
-It is the authored form that de-duplicates, not the resolved target. Two spellings of the same file stay two entries, deliberately: this component cannot know whether a path is the same file under a different prefix, and silently merging two things an author wrote differently would be a guess."
+The block below names one target twice under two fields, which is why the line under it counts fewer references than there are links: `References` is the whole block's addresses in field order, de-duplicated on the form they were authored in."
            Code="@HrefCode">
         <div class="sb-stack" data-testid="knowledge-references-hrefs">
             <p class="sb-label">The block, as written in .domain</p>
-            <pre class="sb-story__code" data-testid="knowledge-references-hrefs-source"><code>@DuplicateBlock</code></pre>
+            <CodeView Source="@DuplicateBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-references-hrefs-source" />
             <KnowledgeMetaView Metadata="@DuplicateMetadata"
                                Folder="KnowledgeFolder.Domain"
                                HrefFor="@ResolveHref"
@@ -122,7 +115,8 @@ It is the authored form that de-duplicates, not the resolved target. Two spellin
            Description="The same two parameters exist on MarkdownView, and they travel down to every metadata block in the body. A knowledge document read out of a folder therefore gets followable references throughout without the page walking the blocks itself.
 
 The resolver here answers only for `.domain` and returns null for everything else, so the file-level block's `.arc42` reference stays inert text while the chapter's `.domain` targets become links. That is the mixed case from the story above, in a real body."
-           Code="@MarkdownCode">
+           Code="@MarkdownCode"
+           Source="@BacklogSample">
         <MarkdownStory Source="@BacklogSample"
                        RenderKnowledgeMetadata="true"
                        KnowledgeFolder="KnowledgeFolder.Backlog"
@@ -133,6 +127,13 @@ The resolver here answers only for `.domain` and returns null for everything els
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#structured-metadata-sigils", "How an address is written, and what may follow it."),
+        new("color-scheme.md#badge-and-chip-tones", "The tone a reference wears for each thing it points at."),
+        new("accessibility.md#keyboard-navigation", "What a reference has to be followable with.")
+    ];
+
     /// <summary>One address, and the `related` entry it would have been written
     /// as. The name is what the cell is called; the address itself belongs in the
     /// source under it rather than in a label, where it was long enough to set the

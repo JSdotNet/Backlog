@@ -1,45 +1,47 @@
-@*
-    Read view on the left, the markdown that produced it on the right.
+﻿@*
+    A read view of one markdown sample.
 
-    Chrome, not a component: it frames an example and has no behaviour of its
-    own. Every markdown story wants this same pairing, and repeating the two
-    columns in each one is how the source and the rendering drift apart — one
-    story showing a sample it no longer renders is worse than no sample.
+    Chrome, not a component: it frames an example and has no behaviour of its own.
+    Every markdown story wants the same parse-and-render, and repeating it in each
+    one is how a sample and its rendering drift apart.
 
-    The source is a `pre`, so it is read-only by construction rather than by a
-    flag someone has to remember to set. ParseDocument, not Parse: this chapter
-    is about markdown, where a `##` is a heading.
+    The source is not here any more. It lives in the story's own Code and source
+    disclosure, beside the markup that produced the view, because the call and the
+    text it was handed are one thing to read — so a page passes the same sample to
+    `Story.Source` and to this. ParseDocument, not Parse: this chapter is about
+    markdown, where a `##` is a heading.
 
     The knowledge parameters are forwarded verbatim rather than reinterpreted.
-    A knowledge story wants the same source-beside-rendering pairing every other
-    markdown story gets, and a frame that quietly rendered a `meta` fence
-    differently from the MarkdownView it wraps would be documenting itself.
+    A knowledge story wants the same rendering every other markdown story gets, and
+    a frame that quietly rendered a `meta` fence differently from the MarkdownView
+    it wraps would be documenting itself.
 *@
 
-<div class="sb-columns">
-    <div class="sb-stack">
-        <p class="sb-label">Read view</p>
-        <div data-testid="@TestId">
-            <MarkdownView Blocks="Blocks"
-                          RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
-                          KnowledgeFolder="@KnowledgeFolder"
-                          OnKnowledgeNavigate="@OnKnowledgeNavigate"
-                          KnowledgeHrefFor="@KnowledgeHrefFor" />
-        </div>
-    </div>
-    <div class="sb-stack">
-        <p class="sb-label">Source</p>
-        <pre class="sb-story__code" data-testid="@SourceTestId"><code>@Source.Trim()</code></pre>
-    </div>
+<div class="sb-stack" data-testid="@TestId">
+    <MarkdownView Blocks="Blocks"
+                  ShowDiagramSource="@ShowDiagramSource"
+                  RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
+                  KnowledgeFolder="@KnowledgeFolder"
+                  OnKnowledgeNavigate="@OnKnowledgeNavigate"
+                  KnowledgeHrefFor="@KnowledgeHrefFor" />
 </div>
 
 @code {
-    /// <summary>The markdown, shown verbatim and rendered beside itself.</summary>
+    /// <summary>The markdown to render. The same string goes to the story's
+    /// <c>Source</c>, which is where a reader reads it.</summary>
     [Parameter, EditorRequired]
     public string Source { get; set; } = string.Empty;
 
     [Parameter]
     public string? TestId { get; set; }
+
+    /// <summary>Whether a diagram drawn from a fence keeps its own source
+    /// disclosure. Off by default here, unlike in the library: a story shows the
+    /// sample's markdown in its own Code and source column, so the disclosure
+    /// under the picture would be the same fence a second time. The one story
+    /// that is about the disclosure turns it back on.</summary>
+    [Parameter]
+    public bool ShowDiagramSource { get; set; }
 
     /// <summary>Passed straight to <c>MarkdownView</c>. Off here for the same
     /// reason it is off there: most markdown is not a knowledge document.</summary>
@@ -57,8 +59,6 @@
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]
     public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
-
-    private string? SourceTestId => TestId is null ? null : $"{TestId}-source";
 
     // Parsed when the source changes rather than on every render. These are
     // constants in practice, so this parses once.

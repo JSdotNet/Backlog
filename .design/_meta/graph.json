@@ -6,30 +6,30 @@
     ".design"
   ],
   "stats": {
-    "nodes": 103,
-    "edges": 192,
+    "nodes": 110,
+    "edges": 213,
     "nodesByFolder": {
-      "design": 87,
+      "design": 94,
       "arc42": 5,
       "domain": 10,
       "tech": 1
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 88,
-      "heading": 5
+      "chapter": 93,
+      "heading": 7
     },
     "nodesByStatus": {
-      "active": 86,
-      "none": 5,
+      "active": 91,
+      "none": 7,
       "draft": 5,
       "accepted": 1,
       "candidate": 1,
       "proposed": 5
     },
     "edgesByType": {
-      "contains": 79,
-      "related": 113
+      "contains": 86,
+      "related": 127
     }
   },
   "problems": [],
@@ -116,7 +116,7 @@
           "path": ".design/README.md",
           "slug": "table-of-contents",
           "level": 2,
-          "line": 118,
+          "line": 141,
           "status": "active"
         }
       },
@@ -129,7 +129,7 @@
           "path": ".design/README.md",
           "slug": "provenance",
           "level": 2,
-          "line": 134,
+          "line": 157,
           "status": "active"
         }
       },
@@ -142,7 +142,7 @@
           "path": ".design/README.md",
           "slug": "status-vocabulary",
           "level": 2,
-          "line": 147,
+          "line": 170,
           "status": "active"
         }
       },
@@ -457,7 +457,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 442,
+          "line": 493,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -473,7 +473,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 469,
+          "line": 520,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -489,7 +489,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 496,
+          "line": 547,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -506,7 +506,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 532,
+          "line": 583,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -877,6 +877,24 @@
       },
       {
         "data": {
+          "id": ".design/content-editing.md#ai-proposals-in-a-document",
+          "label": "AI Proposals in a Document",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "ai-proposals-in-a-document",
+          "level": 2,
+          "line": 283,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#ai-first-surfaces",
+            ".design/content-editing.md#editing-model",
+            ".design/accessibility.md#screen-reader--announcements"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/content-editing.md#materialization",
           "label": "Materialization",
           "type": "chapter",
@@ -884,7 +902,7 @@
           "path": ".design/content-editing.md",
           "slug": "materialization",
           "level": 2,
-          "line": 283,
+          "line": 308,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -1143,6 +1161,60 @@
       },
       {
         "data": {
+          "id": ".design/interaction-guidelines.md#task-rows",
+          "label": "Task Rows",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "task-rows",
+          "level": 2,
+          "line": 307,
+          "status": "active",
+          "related": [
+            ".design/typography-and-layout.md#metadata-lines",
+            ".design/content-editing.md#backlog-entry-structure",
+            ".design/interaction-guidelines.md#auto-save-no-save-buttons"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#action-density-and-overflow",
+          "label": "Action Density and Overflow",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "action-density-and-overflow",
+          "level": 2,
+          "line": 336,
+          "status": "active",
+          "related": [
+            ".design/typography-and-layout.md#density",
+            ".design/accessibility.md#target-sizes-and-text",
+            ".design/design-principles.md#low-chrome-content-first"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md#timelines-and-roadmaps",
+          "label": "Timelines and Roadmaps",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "timelines-and-roadmaps",
+          "level": 2,
+          "line": 388,
+          "status": "active",
+          "related": [
+            ".design/color-scheme.md#chart-roles",
+            ".design/interaction-guidelines.md#keyboard-accessible-reordering",
+            ".design/accessibility.md#keyboard-navigation"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/interaction-guidelines.md#materialization",
           "label": "Materialization",
           "type": "chapter",
@@ -1150,7 +1222,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "materialization",
           "level": 2,
-          "line": 307,
+          "line": 418,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -1291,6 +1363,23 @@
       },
       {
         "data": {
+          "id": ".design/typography-and-layout.md#metadata-lines",
+          "label": "Metadata Lines",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/typography-and-layout.md",
+          "slug": "metadata-lines",
+          "level": 2,
+          "line": 252,
+          "status": "active",
+          "related": [
+            ".design/color-scheme.md#badge-and-chip-tones",
+            ".design/accessibility.md#iconography-accessibility"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/typography-and-layout.md#materialization",
           "label": "Materialization",
           "type": "chapter",
@@ -1298,7 +1387,7 @@
           "path": ".design/typography-and-layout.md",
           "slug": "materialization",
           "level": 2,
-          "line": 252,
+          "line": 279,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -1364,6 +1453,30 @@
           "slug": "heading-defaults",
           "level": 3,
           "line": 78
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#chart-roles",
+          "label": "Chart roles",
+          "type": "heading",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "chart-roles",
+          "level": 3,
+          "line": 418
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#badge-and-chip-tones",
+          "label": "Badge and chip tones",
+          "type": "heading",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "badge-and-chip-tones",
+          "level": 3,
+          "line": 367
         }
       },
       {
@@ -2078,6 +2191,14 @@
       },
       {
         "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#ai-proposals-in-a-document",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#ai-proposals-in-a-document",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.design/content-editing.md->.design/content-editing.md#materialization",
           "source": ".design/content-editing.md",
           "target": ".design/content-editing.md#materialization",
@@ -2198,6 +2319,30 @@
       },
       {
         "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#task-rows",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#task-rows",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#action-density-and-overflow",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#action-density-and-overflow",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#timelines-and-roadmaps",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#timelines-and-roadmaps",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#materialization",
           "source": ".design/interaction-guidelines.md",
           "target": ".design/interaction-guidelines.md#materialization",
@@ -2265,6 +2410,14 @@
           "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#iconography",
           "source": ".design/typography-and-layout.md",
           "target": ".design/typography-and-layout.md#iconography",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/typography-and-layout.md->.design/typography-and-layout.md#metadata-lines",
+          "source": ".design/typography-and-layout.md",
+          "target": ".design/typography-and-layout.md#metadata-lines",
           "type": "contains"
         }
       },
@@ -2926,6 +3079,30 @@
       },
       {
         "data": {
+          "id": "related:.design/content-editing.md#ai-proposals-in-a-document->.design/design-principles.md#ai-first-surfaces",
+          "source": ".design/content-editing.md#ai-proposals-in-a-document",
+          "target": ".design/design-principles.md#ai-first-surfaces",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#ai-proposals-in-a-document->.design/content-editing.md#editing-model",
+          "source": ".design/content-editing.md#ai-proposals-in-a-document",
+          "target": ".design/content-editing.md#editing-model",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#ai-proposals-in-a-document->.design/accessibility.md#screen-reader--announcements",
+          "source": ".design/content-editing.md#ai-proposals-in-a-document",
+          "target": ".design/accessibility.md#screen-reader--announcements",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/content-editing.md#materialization->.design/README.md#living-reference-the-ui-storybook",
           "source": ".design/content-editing.md#materialization",
           "target": ".design/README.md#living-reference-the-ui-storybook",
@@ -3134,6 +3311,86 @@
       },
       {
         "data": {
+          "id": "related:.design/interaction-guidelines.md#task-rows->.design/typography-and-layout.md#metadata-lines",
+          "source": ".design/interaction-guidelines.md#task-rows",
+          "target": ".design/typography-and-layout.md#metadata-lines",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#task-rows->.design/content-editing.md#backlog-entry-structure",
+          "source": ".design/interaction-guidelines.md#task-rows",
+          "target": ".design/content-editing.md#backlog-entry-structure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#task-rows->.design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "source": ".design/interaction-guidelines.md#task-rows",
+          "target": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#action-density-and-overflow->.design/typography-and-layout.md#density",
+          "source": ".design/interaction-guidelines.md#action-density-and-overflow",
+          "target": ".design/typography-and-layout.md#density",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#action-density-and-overflow->.design/accessibility.md#target-sizes-and-text",
+          "source": ".design/interaction-guidelines.md#action-density-and-overflow",
+          "target": ".design/accessibility.md#target-sizes-and-text",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#action-density-and-overflow->.design/design-principles.md#low-chrome-content-first",
+          "source": ".design/interaction-guidelines.md#action-density-and-overflow",
+          "target": ".design/design-principles.md#low-chrome-content-first",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md#role-tokens->.design/color-scheme.md#chart-roles",
+          "source": ".design/color-scheme.md#role-tokens",
+          "target": ".design/color-scheme.md#chart-roles",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#timelines-and-roadmaps->.design/color-scheme.md#chart-roles",
+          "source": ".design/interaction-guidelines.md#timelines-and-roadmaps",
+          "target": ".design/color-scheme.md#chart-roles",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#timelines-and-roadmaps->.design/interaction-guidelines.md#keyboard-accessible-reordering",
+          "source": ".design/interaction-guidelines.md#timelines-and-roadmaps",
+          "target": ".design/interaction-guidelines.md#keyboard-accessible-reordering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#timelines-and-roadmaps->.design/accessibility.md#keyboard-navigation",
+          "source": ".design/interaction-guidelines.md#timelines-and-roadmaps",
+          "target": ".design/accessibility.md#keyboard-navigation",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/interaction-guidelines.md#materialization->.design/README.md#living-reference-the-ui-storybook",
           "source": ".design/interaction-guidelines.md#materialization",
           "target": ".design/README.md#living-reference-the-ui-storybook",
@@ -3201,6 +3458,30 @@
           "id": "related:.design/typography-and-layout.md#iconography->.design/accessibility.md#target-sizes-and-text",
           "source": ".design/typography-and-layout.md#iconography",
           "target": ".design/accessibility.md#target-sizes-and-text",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md#role-tokens->.design/color-scheme.md#badge-and-chip-tones",
+          "source": ".design/color-scheme.md#role-tokens",
+          "target": ".design/color-scheme.md#badge-and-chip-tones",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md#metadata-lines->.design/color-scheme.md#badge-and-chip-tones",
+          "source": ".design/typography-and-layout.md#metadata-lines",
+          "target": ".design/color-scheme.md#badge-and-chip-tones",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/typography-and-layout.md#metadata-lines->.design/accessibility.md#iconography-accessibility",
+          "source": ".design/typography-and-layout.md#metadata-lines",
+          "target": ".design/accessibility.md#iconography-accessibility",
           "type": "related"
         }
       },

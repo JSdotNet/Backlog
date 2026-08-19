@@ -1,10 +1,11 @@
-@page "/feedback"
+﻿@page "/feedback"
 @implements IDisposable
 
 <PageTitle>Feedback — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Feedback"
-           Summary="What the UI says when something is loading, missing, saving, or worth announcing.">
+           Summary="What the UI says when something is loading, missing, saving, or worth announcing."
+           Guidelines="@Rules">
 
     <Story Name="Alert"
            Description="Renders nothing at all when there is no message, so a host can bind it straight to a nullable error without guarding."
@@ -126,6 +127,15 @@
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#feedback-and-toasts", "When something is a toast, an alert, or neither."),
+        new("interaction-guidelines.md#save-state-indicator-vocabulary", "The words the save state is allowed to say."),
+        new("interaction-guidelines.md#empty-loading-and-error-states", "What an empty, loading or failed surface shows."),
+        new("accessibility.md#save-state-announcements", "What a save announces, and how often."),
+        new("color-scheme.md#semantic-soft-surface-tokens", "The tone each severity is drawn in.")
+    ];
+
     private static readonly SaveState[] SaveStates =
         [SaveState.Idle, SaveState.Saving, SaveState.Saved, SaveState.Failed];
 

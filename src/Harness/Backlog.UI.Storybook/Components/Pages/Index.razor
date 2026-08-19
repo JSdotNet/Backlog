@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 
 <PageTitle>Backlog UI Storybook</PageTitle>
 
@@ -25,13 +25,21 @@
                 adds only page chrome of its own.
             </p>
             <p>
-                The rules being reviewed are written down in the repository's <code>.design</code>
-                folder — <code>color-scheme.md</code> and <code>typography-and-layout.md</code> hold
-                the tokens <a href="foundations">Foundations</a> measures,
-                <code>interaction-guidelines.md</code> holds the save and reorder behaviour, and
-                <code>accessibility.md</code> holds the bar every component is expected to clear.
-                Each of those files names the pages here that show it, and says which of its rules
-                are not built yet, so the two are meant to be read together.
+                What is <em>not</em> here is the design and UX rules. Those live in the repository's
+                <code>.design</code> folder, and every page in this storybook links the chapters
+                that govern it from a <strong>Design rules</strong> block in its header — so a page
+                says how a component is used, and one click away says what it is allowed to look
+                like. A rule restated here would be a second copy of a rule nobody diffs against
+                the first, which is how the two used to disagree.
+            </p>
+            <p>
+                <code>color-scheme.md</code> and <code>typography-and-layout.md</code> hold the
+                tokens <a href="foundations">Foundations</a> measures,
+                <code>interaction-guidelines.md</code> holds the save, reorder, density and
+                timeline behaviour, <code>content-editing.md</code> holds what may be done to a
+                markdown body, and <code>accessibility.md</code> holds the bar every component
+                clears. Each of those files names the pages here that show it, and says which of
+                its rules are not built yet.
             </p>
         </div>
     </Story>
@@ -55,7 +63,7 @@
     </Story>
 
     <Story Name="Component groups"
-           Description="Grouped by what the components do, except where one subject reads better as a chapter than as rows scattered across several groups — Knowledge base and Integrations are the two. Foundations comes first: everything below is built from those tokens.">
+           Description="In the order they can be read: the parts first — input and action, structure, feedback, content, knowledge metadata — then the subjects each of which is a convention rather than a component (Integrations, Task list, Roadmap, Dashboard), then Combined usage, where whole surfaces are composed out of everything above. Nothing is shown before its parts, so a page only ever uses components a page above it has already introduced.">
         @* The loop variable is not called "page": Razor reads @page.Href as the
            @page directive and the file stops compiling. *@
         <div class="sb-grid">
