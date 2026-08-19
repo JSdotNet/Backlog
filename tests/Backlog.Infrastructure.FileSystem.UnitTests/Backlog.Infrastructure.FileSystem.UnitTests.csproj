@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
-    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
-  </ItemGroup>
-
-</Project>

@@ -37,20 +37,19 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
         var store = Store();
 
         Assert.False(string.IsNullOrWhiteSpace(store.RootDirectory));
-        Assert.True(Directory.Exists(store.EntriesDirectory));
         Assert.True(Directory.Exists(store.RootDirectory));
         Assert.True(Directory.Exists(store.InboxDirectory));
     }
 
     [Fact]
-    public void Entries_live_in_a_backlog_folder_under_the_root()
+    public void Tasks_live_in_a_database_under_the_root()
     {
         var store = Store();
         var target = TempDir();
 
         Assert.Null(store.TryUseRoot(target));
 
-        Assert.Equal(Path.Combine(target, "_backlog"), store.EntriesDirectory);
+        Assert.Equal(Path.Combine(target, "backlog.db"), store.DatabasePath);
     }
 
     [Fact]
@@ -62,7 +61,7 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
         Assert.False(Directory.Exists(target));
         Assert.Null(store.TryUseRoot(target));
 
-        Assert.True(Directory.Exists(Path.Combine(target, "_backlog")));
+        Assert.True(Directory.Exists(target));
         Assert.True(Directory.Exists(Path.Combine(target, "_inbox")));
         Assert.Equal(target, store.RootDirectory);
     }
@@ -76,7 +75,7 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
         Assert.Null(store.TryUseRoot(target));
 
         // Which repository reads that folder is not the store's business — it
-        // owns the pointer, and RootedFileBacklogRepository follows it.
+        // owns the pointer, and RootedSqliteTaskRepository follows it.
         Assert.Equal(target, store.RootDirectory);
     }
 

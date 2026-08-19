@@ -190,7 +190,7 @@ public class StatusReadingTests
     [InlineData(EntryStatus.Archived, EntryStatus.Draft, true)]
     [InlineData(EntryStatus.Done, EntryStatus.Draft, false)]
     public void The_lifecycle_graph_is_what_the_readme_documents(EntryStatus from, EntryStatus to, bool allowed)
-        => Assert.Equal(allowed, BacklogEntry.IsTransitionAllowed(from, to));
+        => Assert.Equal(allowed, TaskItem.IsTransitionAllowed(from, to));
 
     [Fact]
     public void Every_status_has_somewhere_to_go()
@@ -198,7 +198,7 @@ public class StatusReadingTests
         // A dead-end status would strand guided lifecycle callers with no next step.
         foreach (var status in Enum.GetValues<EntryStatus>())
         {
-            Assert.NotEmpty(BacklogEntry.NextStatusesFrom(status));
+            Assert.NotEmpty(TaskItem.NextStatusesFrom(status));
         }
     }
 }

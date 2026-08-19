@@ -722,7 +722,7 @@ public class EntryTextParserTests
     [Fact]
     public void The_canonical_form_written_back_uses_sigils()
     {
-        var entry = new BacklogEntry("Ship it", string.Empty, EntryType.Task, Priority.High);
+        var entry = new TaskItem("Ship it", string.Empty, EntryType.Task, Priority.High);
 
         var raw = EntryTextParser.ToRawText(entry.ToDto());
 
@@ -736,7 +736,7 @@ public class EntryTextParserTests
     {
         var before = EntryTextParser.Parse("# Ship it\n`idea` `critical` `draft`\n");
 
-        var entry = new BacklogEntry("Ship it", string.Empty, before.Type!.Value, before.Priority!.Value);
+        var entry = new TaskItem("Ship it", string.Empty, before.Type!.Value, before.Priority!.Value);
         var after = EntryTextParser.Parse(EntryTextParser.ToRawText(entry.ToDto()));
 
         Assert.Equal(before.Type, after.Type);
@@ -747,7 +747,7 @@ public class EntryTextParserTests
     [Fact]
     public void Raw_text_round_trips_through_an_entry()
     {
-        var entry = new BacklogEntry("Ship it", "Body with #alpha\n\n## A sub-item\nnotes", EntryType.Idea, Priority.High);
+        var entry = new TaskItem("Ship it", "Body with #alpha\n\n## A sub-item\nnotes", EntryType.Idea, Priority.High);
         entry.SetArea("repos");
         entry.SetTags(["beta"]);
 
@@ -771,7 +771,7 @@ public class EntryTextParserTests
     [Fact]
     public void The_canonical_form_carries_the_scheduling_and_dependency_tokens()
     {
-        var entry = new BacklogEntry("Deploy SpecManager", string.Empty, EntryType.Task, Priority.High);
+        var entry = new TaskItem("Deploy SpecManager", string.Empty, EntryType.Task, Priority.High);
         entry.SetDueOn(new DateOnly(2026, 8, 21));
         entry.SetReminder(new DateTime(2026, 8, 21, 9, 0, 0, DateTimeKind.Unspecified));
         entry.SetRecurrence(new Recurrence(1, RecurrenceUnit.Week));
@@ -796,12 +796,12 @@ public class EntryTextParserTests
     [Fact]
     public void Syncing_adds_removes_and_renames_sub_items_to_match_the_text()
     {
-        var entry = new BacklogEntry("Title", string.Empty, EntryType.Task);
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task);
 
-        EntryTextSync.SyncSubItems(entry, EntryTextParser.Parse("# Title\n\n## one\n\n## two\n").SubItems);
+        TaskTextSync.SyncSubItems(entry, EntryTextParser.Parse("# Title\n\n## one\n\n## two\n").SubItems);
         Assert.Equal(["one", "two"], entry.SubItems.Select(s => s.Title));
 
-        EntryTextSync.SyncSubItems(entry, EntryTextParser.Parse("# Title\n\n## renamed\n").SubItems);
+        TaskTextSync.SyncSubItems(entry, EntryTextParser.Parse("# Title\n\n## renamed\n").SubItems);
         var item = Assert.Single(entry.SubItems);
         Assert.Equal("renamed", item.Title);
     }
@@ -809,9 +809,9 @@ public class EntryTextParserTests
     [Fact]
     public void Syncing_carries_the_done_state_across()
     {
-        var entry = new BacklogEntry("Title", string.Empty, EntryType.Task);
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task);
 
-        EntryTextSync.SyncSubItems(entry, EntryTextParser.Parse("# Title\n\n## [x] done one\n- [x] done two\n").SubItems);
+        TaskTextSync.SyncSubItems(entry, EntryTextParser.Parse("# Title\n\n## [x] done one\n- [x] done two\n").SubItems);
 
         Assert.Equal(2, entry.TotalSubItemCount);
         Assert.Equal(2, entry.CompletedSubItemCount);
@@ -820,9 +820,9 @@ public class EntryTextParserTests
     [Fact]
     public void Syncing_carries_notes_across()
     {
-        var entry = new BacklogEntry("Title", string.Empty, EntryType.Task);
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task);
 
-        EntryTextSync.SyncSubItems(entry, EntryTextParser.Parse("# Title\n\n## one\nsome notes\n").SubItems);
+        TaskTextSync.SyncSubItems(entry, EntryTextParser.Parse("# Title\n\n## one\nsome notes\n").SubItems);
 
         Assert.Equal("some notes", Assert.Single(entry.SubItems).Notes);
     }

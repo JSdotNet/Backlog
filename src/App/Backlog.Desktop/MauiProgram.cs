@@ -15,6 +15,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -46,15 +47,14 @@ public static class MauiProgram
             sp.GetRequiredService<GitHubSettingsStore>(),
             sp.GetRequiredService<WorkspaceSettingsStore>()));
         builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
-            sp.GetRequiredService<WorkspaceSettingsStore>(),
-            sp.GetRequiredService<IKnowledgeFolderSource>()));
+            sp.GetRequiredService<WorkspaceSettingsStore>()));
 
         // Composition: the Backlog module brings its own use cases, and the host
         // decides which adapter is behind them. The repository follows the
         // storage folder rather than being pinned to wherever it was at startup,
         // because somebody can move their backlog while the app is open.
-        builder.Services.AddSingleton<IBacklogRepository>(sp =>
-            new RootedFileBacklogRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        builder.Services.AddSingleton<ITaskRepository>(sp =>
+            new RootedSqliteTaskRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         builder.Services.AddBacklogModule();
         builder.Services.AddSingleton<GitHubSettingsStore>();
         builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
@@ -99,7 +99,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<FeedbackReporter>();
         builder.Services.AddSingleton<DesignKnowledgeProvider>();
-        builder.Services.AddSingleton<RepositoryBacklogSource>();
         builder.Services.AddSingleton<TechnologyKnowledgeService>();
         builder.Services.AddSingleton<InstructionSourceDiscovery>();
         builder.Services.AddSingleton<KnowledgeMenu>();

@@ -55,6 +55,7 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />

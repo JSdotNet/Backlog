@@ -554,7 +554,7 @@
                             id="@($"delete-entry-{row.Key}")"
                             TestId="delete-entry-button"
                             AriaLabel="Delete entry"
-                            OnClick="() => OnDeleteEntryAsync(row)">🗑</IconButton>
+                            OnClick="() => OnDeleteTaskAsync(row)">🗑</IconButton>
             </div>
         </div>;
     /// <summary>The selected entry as a row. The same shape the list draws, minus
@@ -855,13 +855,7 @@
                     }
                 }
 
-                @if (row.Origin is { } origin)
-                {
-                    <Badge Kind="source" data-testid="entry-source-badge" Title="@($"{origin.RepositoryFullName} · {origin.RelativePath}")">
-                        <code>@origin.RelativePath</code>
-                    </Badge>
-                }
-                else if (!row.IsPersisted)
+                @if (!row.IsPersisted)
                 {
                     <Badge Kind="draft" data-testid="draft-hint">Unsaved — give it a title line</Badge>
                 }
@@ -1040,33 +1034,26 @@
                              OnChanged="value => OnRepeatPickedAsync(row, value)" />
             }
 
-            @* Repository-authored rows are read out of a committed .backlog file
-               and never got a Guid, so they can neither be waited on nor name
-               something to wait for. A control over a value that cannot round-trip
-               is a control that lies, so there is none. *@
-            @if (row.Origin is null)
-            {
-                <TaskAction Icon="⏳"
-                            Label="Waiting for"
-                            Value="@FormatDependencies(row)"
-                            Set="@(row.PreviewDependsOn.Count > 0)"
-                            OnSet="() => TogglePicker(SchedulePicker.DependsOn)"
-                            OnClear="() => State.ChangeDependsOnAsync(row, [])"
-                            TestId="entry-action-depends" />
+            <TaskAction Icon="⏳"
+                        Label="Waiting for"
+                        Value="@FormatDependencies(row)"
+                        Set="@(row.PreviewDependsOn.Count > 0)"
+                        OnSet="() => TogglePicker(SchedulePicker.DependsOn)"
+                        OnClear="() => State.ChangeDependsOnAsync(row, [])"
+                        TestId="entry-action-depends" />
 
-                @if (IsPickerOpen(SchedulePicker.DependsOn))
-                {
-                    @* The library ships no dependency editor and is not going to:
-                       a chain is data the host owns, so the picker is built here
-                       out of TagMultiSelect, its options the other entries in view
-                       and its chips this entry's own ids. *@
-                    <TagMultiSelect Options="@DependencyOptions(row)"
-                                    SelectedValues="@row.PreviewDependsOn"
-                                    SelectedValuesChanged="ids => State.ChangeDependsOnAsync(row, ids)"
-                                    Placeholder="Add an entry"
-                                    CssClass="entry-doc__schedule-depends"
-                                    TestId="entry-depends-select" />
-                }
+            @if (IsPickerOpen(SchedulePicker.DependsOn))
+            {
+                @* The library ships no dependency editor and is not going to:
+                   a chain is data the host owns, so the picker is built here
+                   out of TagMultiSelect, its options the other entries in view
+                   and its chips this entry's own ids. *@
+                <TagMultiSelect Options="@DependencyOptions(row)"
+                                SelectedValues="@row.PreviewDependsOn"
+                                SelectedValuesChanged="ids => State.ChangeDependsOnAsync(row, ids)"
+                                Placeholder="Add an entry"
+                                CssClass="entry-doc__schedule-depends"
+                                TestId="entry-depends-select" />
             }
 
             @* Deliberately not here, and both for the same reason: the star and
@@ -1204,7 +1191,7 @@
 
     // --- Writes ------------------------------------------------------------
 
-    private async Task OnDeleteEntryAsync(EntryRow row) => await State.DeleteRowAsync(row);
+    private async Task OnDeleteTaskAsync(EntryRow row) => await State.DeleteRowAsync(row);
 
     private async Task OnTypeChangedAsync(EntryRow row, string? value)
     {
