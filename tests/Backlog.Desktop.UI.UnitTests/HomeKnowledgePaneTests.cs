@@ -9,15 +9,19 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class HomeKnowledgePaneTests
 {
     [Fact]
-    public void Clicking_knowledge_pane_renders_without_throwing()
+    public async Task Clicking_knowledge_pane_renders_without_throwing()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
         harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var component = harness.Context.Render<Home>();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='knowledge-pane-option']")));
 
-        component.Find("[data-testid='repository-filter-option']").Click();
+        // Waited for rather than found: the pane option and the repository chips
+        // are gated on different things — the option on which knowledge areas are
+        // visible, the chips on the repositories the shared state loads — so the
+        // option being on screen says nothing about the chip beside it.
+        component.WaitForElement("[data-testid='repository-filter-option']").Click();
         var knowledgeButton = component.Find("[data-testid='knowledge-pane-option']");
         knowledgeButton.Click();
 
@@ -75,6 +79,10 @@ public sealed class HomeKnowledgePaneTests
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<KnowledgeMenu>();
         context.Services.AddSingleton<Arc42KnowledgeStore>();
+        // Every knowledge panel now renders its selected chapter through the
+        // shared editing surface, and that surface writes. A host that composes
+        // the pane composes the writer with it.
+        context.Services.AddSingleton<KnowledgeChapterWriter>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
         context.Services.AddSingleton<KnowledgeScope>();
@@ -92,17 +100,25 @@ public sealed class HomeKnowledgePaneTests
 
     private static string FindRepositoryRoot() => RepositoryRoot.Root.FullName;
 
-    private sealed record Harness(string Root, BunitContext Context) : IDisposable
+    private sealed record Harness(string Root, BunitContext Context) : IAsyncDisposable
     {
-        public void Dispose()
+        /// <summary>
+        /// Awaited disposal, because the editing surface this harness renders
+        /// writes its last pending save on the way out. A synchronous
+        /// <c>Dispose</c> hands that save to the renderer's dispatcher and returns
+        /// before it lands, so the folder delete that follows could arrive while
+        /// the file was still being replaced — a locked temp file on a slow
+        /// machine and a green suite on a fast one.
+        /// </summary>
+        public async ValueTask DisposeAsync()
         {
-            Context.Dispose();
+            await Context.DisposeAsync();
 
             try
             {
                 if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
             }
         }

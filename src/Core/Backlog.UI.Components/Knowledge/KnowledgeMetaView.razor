@@ -9,8 +9,13 @@
     it sits underneath, quieter and tighter, close enough to be taken in with the
     same glance.
 
-    The status is a BadgeSelect wherever it can honestly be one, and the static
-    pill everywhere else. A select is only honest when every state it can show is
+    The status is a StatusSelector wherever it can honestly be one — the same
+    control the knowledge panels already edit a chapter's status with — and the
+    static badge everywhere else. Both are the application's status badge, and
+    both take the modifier from KnowledgeStatusBadge, so the folder's word is
+    drawn the same whether or not it happens to be editable.
+
+    A select is only honest when every state it can show is
     a state the folder actually allows and the value it is showing is one of
     them, so it appears when the folder is known *and* the current status is in
     that folder's vocabulary. Neither of the other two cases can clear that bar:
@@ -37,9 +42,10 @@
             @Heading
             @if (StatusIsSelectable)
             {
-                <BadgeSelect CurrentValue="@_status"
-                             Options="@StatusOptions"
-                             OnChanged="SelectStatus" />
+                <StatusSelector CurrentValue="@_status"
+                                Options="@StatusOptions"
+                                Slug="@KnowledgeStatusBadge.Slug(Folder, _status)"
+                                OnChanged="SelectStatus" />
             }
             else
             {
@@ -184,7 +190,7 @@
     /// The status on screen, which is the authored one until a reader picks
     /// another.
     ///
-    /// <para>BadgeSelect is one-way: it shows the value it is handed and reports
+    /// <para>The selector is one-way: it shows the value it is handed and reports
     /// the one that was chosen. Rendered against <c>Metadata.Status</c> directly
     /// it would snap back to the authored value on the very next render, so a
     /// reader who picked something would watch the control undo them — and with

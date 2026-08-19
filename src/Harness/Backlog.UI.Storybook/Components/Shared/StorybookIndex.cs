@@ -18,9 +18,11 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// rather than a job, and they are also the two that are a parent page with
 /// subpages under them. Both facts follow from the same thing in both cases:
 /// their pages document one convention from several angles, so they are read as
-/// a chapter and not picked out of a list. Knowledge base set the shape;
-/// Integrations follows it rather than inventing a second arrangement, and the
-/// comment above that group records why it qualifies on both counts.
+/// a chapter and not picked out of a list. Knowledge base's three pages take the
+/// meta block, then the two parts of it separable enough to adopt on their own;
+/// Integrations follows the shape Knowledge base set rather than inventing a
+/// second arrangement, and the comment above that group records why it qualifies
+/// on both counts.
 /// </para>
 /// </remarks>
 internal static class StorybookIndex
@@ -63,6 +65,8 @@ internal static class StorybookIndex
             new("markdown", "Markdown", "MarkdownView: every block and inline the read view renders, and how each is styled.", Exact: true),
             new("markdown/diagrams", "Diagrams in markdown", "What happens when a fenced block names a diagram language: MarkdownView hands it to DiagramView."),
             new("markdown/rich-text", "Rich text editing", "MarkdownEditor: a formatting toolbar over the markdown source, and where it stops short of a WYSIWYG."),
+            new("compare", "Section comparison",
+                "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it \u2014 aligned by heading, never by line."),
             new("entry-edit", "Entry edit", "The same markdown being written: source beside read view, auto-save, task toggling, sub-items."),
             new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
             new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge."),
@@ -77,25 +81,19 @@ internal static class StorybookIndex
             new("productivity", "Productivity over time", "MetricScore, MetricTrellis, MetricHeatmap, MetricSpotlight, MetricStackedArea: a score, where the time went, and the ways one hue can compare them across repositories.")
         ]),
 
-        // Its own group rather than four rows at the bottom of Content, and
+        // Its own group rather than three rows at the bottom of Content, and
         // placed directly after Content because that is what it is built on:
         // the chapter view is MarkdownView with one fence read differently, so
         // a reader arrives here having just met the component it extends.
         // Feedback stays last — it is a small utility group, and burying a
         // subject area behind it would read as an afterthought.
         //
-        // The parent page is titled for its subject and not "Knowledge base".
-        // The group title is already that, uppercased, directly above it, and
-        // the same words twice in two type styles read as a rendering fault. It
-        // is not "Overview" either: "Overview" is an existing group title, so
-        // filtering on it would light up that whole group (Matches keeps every
-        // page of a group whose title matches) *and* one row here; and on the
-        // introduction's card grid every other card is named for its subject —
-        // a lone structural word there says nothing about what is behind it.
+        // The parent page is named for its subject rather than repeating the
+        // group's name: the group title sits uppercased directly above it, and
+        // the same words twice in two type styles read as a rendering fault.
         new("Knowledge base",
         [
-            new("knowledge-base", "The meta block", "The fenced meta block a knowledge chapter carries, and the three separable things read out of it. Opt-in throughout: nothing already rendering changed.", Exact: true),
-            new("knowledge-base/metadata", "Metadata", "KnowledgeMeta reads the fence into a KnowledgeMetadata and KnowledgeMetaView draws it — every field, and why an unknown one is kept rather than dropped."),
+            new("knowledge-base", "Metadata", "The fenced meta block a knowledge chapter carries: every field drawn as a record, and how MarkdownView and MetadataBadge were extended to draw it. Opt-in throughout — nothing already rendering changed.", Exact: true),
             new("knowledge-base/references", "References", "Why related, depends-on and implements hold addresses rather than labels, and what KnowledgeReferenceLink renders for each thing a host can do with one."),
             new("knowledge-base/state", "State", "Five folders spell their lifecycle five ways. What the folder parameter buys: the vocabulary, one tone scale under all of them, and a flag on a value that is in none.")
         ]),

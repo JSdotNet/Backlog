@@ -3,6 +3,16 @@
     default. BadgeKind drives both the badge class and the per-value modifier, so
     the same component can dress a priority, an area or anything else that has a
     slug.
+
+    The badge is always the application's own: `badge badge--{BadgeKind}` plus the
+    modifier for the value. A caller that needs a different modifier than the one
+    the value spells hands in `Slug`, exactly as it would to Badge — the same
+    value drawn read-only and drawn editable is the same value, and a reader
+    should never be told by colour or by shape that a status they can change is a
+    different kind of thing from one they cannot.
+
+    The structural classes stay ours either way, because the stylesheet reaches
+    the control and the wrapper through them.
 *@
 
 <label class="@WrapperClass" data-testid="@TestId">
@@ -43,17 +53,45 @@
     [Parameter]
     public string BadgeKind { get; set; } = "status";
 
+    /// <summary>The badge modifier to wear, in place of the one
+    /// <see cref="CurrentValue"/> spells. Means what it means on
+    /// <c>Badge</c>: given, the badge is <c>badge--{BadgeKind}-{Slug}</c>; given
+    /// empty, the modifier is left off and the badge is the plain
+    /// <c>badge badge--{BadgeKind}</c>.
+    ///
+    /// <para>For a caller whose vocabulary is not the badge's. A knowledge
+    /// folder names its lifecycle in its own words, so <c>adopted</c> has to be
+    /// told which of the application's states it is; left to spell its own
+    /// modifier it would ask for <c>badge--status-adopted</c>, which no rule
+    /// defines, and land on plain grey next to a pill that had been told.</para>
+    ///
+    /// <para>Null is not the same as empty. Null is "not specified", and the
+    /// modifier is derived from the value as usual; empty is a caller saying
+    /// there is no modifier to wear.</para></summary>
+    [Parameter]
+    public string? Slug { get; set; }
+
     [Parameter]
     public string FallbackSlug { get; set; } = "draft";
 
     [Parameter]
     public EventCallback<string> OnChanged { get; set; }
 
-    private string Slug => string.IsNullOrWhiteSpace(CurrentValue)
-        ? FallbackSlug
-        : new string(CurrentValue.Trim().ToLowerInvariant().Where(ch => char.IsLetterOrDigit(ch) || ch == '-').ToArray());
+    private string? EffectiveSlug => Slug ?? BadgeSlug.Of(CurrentValue, FallbackSlug);
 
-    private string WrapperClass => $"{BadgeKind}-editor badge badge--{BadgeKind} badge--{BadgeKind}-{Slug}";
+    private string Appearance
+    {
+        get
+        {
+            var slug = string.IsNullOrWhiteSpace(EffectiveSlug)
+                ? string.Empty
+                : $" badge--{BadgeKind}-{EffectiveSlug}";
+
+            return $"badge badge--{BadgeKind}{slug}";
+        }
+    }
+
+    private string WrapperClass => $"{BadgeKind}-editor {Appearance}";
 
     private string SelectClass => $"{BadgeKind}-editor__select";
 

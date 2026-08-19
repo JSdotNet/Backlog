@@ -10,19 +10,34 @@
 
     Nothing here judges the word without knowing where it came from. The same
     status means different things in different folders, so a tone or a warning
-    guessed without the folder would be wrong as often as right, and a
-    folder-blind pill renders exactly the two classes it always did.
+    guessed without the folder would be wrong as often as right.
+
+    What it wears is the application's status badge, and it is composed from
+    Badge rather than assembled here so there is one implementation of what a
+    badge's classes are. KnowledgeStatusBadge says which modifier the folder's
+    word maps onto, and the record's headline dresses its StatusSelector out of
+    the same call: this is the read-only form of the status, not a second opinion
+    about what the status looks like.
+
+    The name is now the one thing about this component that is wrong — it renders
+    a badge, not a pill — but renaming it ripples through the storybook coverage
+    rule and several test files, so it is left for its own change.
 *@
 
 @if (!string.IsNullOrWhiteSpace(Status))
 {
-    <span class="@ClassValue" title="@StatusTitle" data-testid="@TestId" @attributes="AdditionalAttributes">@Status</span>
+    <Badge Kind="status"
+           Slug="@KnowledgeStatusBadge.Slug(Folder, Status)"
+           Title="@StatusTitle"
+           CssClass="@ExtraClasses"
+           TestId="@TestId"
+           @attributes="AdditionalAttributes">@Status</Badge>
 }
 
 @code {
     /// <summary>The status word, exactly as it was authored. Nothing in,
     /// nothing out: a block that states no status should not leave an empty
-    /// pill on the line.</summary>
+    /// badge on the line.</summary>
     [Parameter]
     public string? Status { get; set; }
 
@@ -40,32 +55,21 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private KnowledgeStatusTone Tone => KnowledgeStatus.Tone(Folder, Status);
+    private bool Unrecognised => KnowledgeStatusBadge.IsUnrecognised(Folder, Status);
 
-    private bool Unrecognised => Folder is not KnowledgeFolder.Unknown && !KnowledgeStatus.IsKnown(Folder, Status);
-
-    private string ClassValue
+    /// <summary>The flag, then the caller's own class. Badge appends this whole
+    /// string after the badge classes, and the caller's part goes last within it,
+    /// so nothing a caller passes displaces a class the stylesheet or a test
+    /// matches on by exact position.</summary>
+    private string? ExtraClasses
     {
         get
         {
-            var slug = BadgeSlug.Of(Status, "unknown");
-            var classes = $"knowledge-status knowledge-status--{slug}";
+            var flag = Unrecognised ? "knowledge-status--unrecognised" : string.Empty;
 
-            // The tone only means something once the folder is known, so a
-            // folder-blind view renders exactly the classes it always did.
-            if (Folder is not KnowledgeFolder.Unknown)
-            {
-                classes += $" knowledge-status--tone-{Tone.ToString().ToLowerInvariant()}";
-            }
+            if (string.IsNullOrWhiteSpace(CssClass)) return flag.Length == 0 ? null : flag;
 
-            if (Unrecognised)
-            {
-                classes += " knowledge-status--unrecognised";
-            }
-
-            // Appended last so a caller's class never displaces one the
-            // stylesheet or a test matches on by exact position.
-            return string.IsNullOrWhiteSpace(CssClass) ? classes : $"{classes} {CssClass}";
+            return flag.Length == 0 ? CssClass : $"{flag} {CssClass}";
         }
     }
 

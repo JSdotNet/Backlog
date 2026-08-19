@@ -138,6 +138,44 @@ public sealed class MetadataBadgeCompatibilityTests
     }
 
     [Fact]
+    public void A_status_change_reaches_the_caller_that_asked_to_hear_about_it()
+    {
+        // The badge wraps a record and the record raises this, but the badge was
+        // not passing it on — so a typed caller could watch the headline's select
+        // change and never hear about it, and the choice lived on screen and
+        // nowhere else. The record keeps the value showing either way, which is
+        // exactly what made the gap invisible.
+        using var context = new BunitContext();
+        var chosen = new List<string>();
+
+        var badge = context.Render<MetadataBadge>(parameters => parameters
+            .Add(b => b.Metadata, KnowledgeMeta.Parse("status: draft"))
+            .Add(b => b.Folder, KnowledgeFolder.Backlog)
+            .Add(b => b.OnStatusChanged, EventCallback.Factory.Create<string>(this, chosen.Add)));
+
+        badge.Find(".status-editor select").Change("in-progress");
+
+        Assert.Equal("in-progress", Assert.Single(chosen));
+        Assert.Equal("in-progress", badge.Find(".status-editor select").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void Wanting_to_hear_about_a_status_change_is_itself_asking_for_the_typed_form()
+    {
+        // Consistent with the rule the other three follow: asking for a block, a
+        // folder, a link resolver or a callback is asking for the record. A
+        // caller that wires this up and gets the legacy strip would be handed
+        // markup with nothing in it that could ever raise the callback.
+        using var context = new BunitContext();
+
+        var badge = context.Render<MetadataBadge>(parameters => parameters
+            .Add(b => b.Status, "ready")
+            .Add(b => b.OnStatusChanged, EventCallback.Factory.Create<string>(this, _ => { })));
+
+        Assert.NotNull(badge.Find(".knowledge-record"));
+    }
+
+    [Fact]
     public void A_parsed_block_supersedes_the_loose_status_and_relations()
     {
         using var context = new BunitContext();
@@ -147,7 +185,7 @@ public sealed class MetadataBadgeCompatibilityTests
             .Add(b => b.Related, ["ignored"])
             .Add(b => b.Metadata, KnowledgeMeta.Parse("status: adopted\nkind: format")));
 
-        Assert.Equal("adopted", badge.Find(".knowledge-status").TextContent);
+        Assert.Equal("adopted", badge.Find(".badge--status").TextContent);
         Assert.DoesNotContain("ignored", badge.Markup, StringComparison.Ordinal);
         Assert.Contains("format", badge.Markup, StringComparison.Ordinal);
     }

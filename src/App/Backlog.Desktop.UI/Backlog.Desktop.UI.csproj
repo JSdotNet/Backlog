@@ -29,15 +29,19 @@
          contract every context shares, so it lives in the kernel. -->
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The contexts the shell composes. It is the one place allowed to see all
-         of them at once, because wiring them together is its whole job. Dev PC
-         Management is the odd one out: its pane is not a global pane, it is
-         toggled on its own and docks to the right of the stack — but it is
-         composed here the same way, as a pane the shell makes room for and
+         of them at once, because wiring them together is its whole job. The
+         three global panes sit side by side; Dev PC Management and Monitoring
+         are the odd ones out, because each takes the whole screen instead of a
+         column and hides everything else while it is open. Roadmap is a third
+         shape again — a band above the panes rather than a pane. All of them are
+         composed here the same way: a surface the shell makes room for and
          otherwise knows nothing about. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog.UI\Backlog.Modules.Backlog.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Knowledge\Backlog.Modules.Knowledge.UI\Backlog.Modules.Knowledge.UI.csproj" />
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.UI\Backlog.Modules.DevPc.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Monitoring\Backlog.Modules.Monitoring.UI\Backlog.Modules.Monitoring.UI.csproj" />
     <!-- Three published surfaces, for the feature catalog and nothing else. The
          catalog gathers keys that belong to the contexts they are features of,
          so the shell that renders the list of switches names them where they are

@@ -39,7 +39,7 @@ public sealed class MarkdownViewMetaFenceTests
             .Add(v => v.RenderKnowledgeMetadata, true));
 
         Assert.NotNull(view.Find("dl.knowledge-fields"));
-        Assert.Equal("adopted", view.Find(".knowledge-status").TextContent);
+        Assert.Equal("adopted", view.Find(".badge--status").TextContent);
         Assert.Equal(".tech/technology-graph.md", view.Find("code.knowledge-ref--inert").TextContent);
         Assert.Empty(view.FindAll("pre.md-code"));
 
@@ -77,7 +77,10 @@ public sealed class MarkdownViewMetaFenceTests
             .Add(v => v.RenderKnowledgeMetadata, true));
 
         Assert.Empty(view.FindAll("select"));
-        Assert.Equal("knowledge-status knowledge-status--adopted", view.Find(".knowledge-status").GetAttribute("class"));
+
+        // No state modifier: the tone is what maps a folder's word onto one, and
+        // a folder-blind view has no tone to map from.
+        Assert.Equal("badge badge--status", view.Find(".badge--status").GetAttribute("class"));
     }
 
     [Fact]
@@ -147,7 +150,7 @@ public sealed class MarkdownViewMetaFenceTests
 
         var headline = view.Find(".knowledge-record__headline");
         Assert.Equal("Shared Technologies", headline.QuerySelector("p.md-heading")?.TextContent);
-        Assert.Equal("adopted", headline.QuerySelector(".knowledge-status")?.TextContent);
+        Assert.Equal("adopted", headline.QuerySelector(".badge--status")?.TextContent);
 
         // Drawn once each: the heading is not also emitted as its own block, and
         // the fence is not also emitted as a second record.
