@@ -106,6 +106,21 @@
     --code-attribute: #7FD1C1;
     --code-line-number: #7A8AA3;
 
+    /* Band identity.
+       One hue per configured repository, so a portfolio plan can be read one
+       project at a time. See .design/color-scheme.md#band-identity-tokens: this is
+       a theme rather than a second palette — each token says *which* repository a
+       row belongs to, never what anything means — and it introduces no new colour,
+       because every value here is one the palette or the code theme already
+       carries. Written out rather than aliased to those tokens on purpose: the code
+       theme's own rule is that nothing outside a code block uses one of its names,
+       and a band is not a run of code. */
+    --color-band-1: #F2C14E;
+    --color-band-2: #7FD1C1;
+    --color-band-3: #9BD17F;
+    --color-band-4: #F0A868;
+    --color-band-5: #8595AD;
+
     /* Chart roles.
        A chart needs role names the twenty palette tokens do not provide: a
        series colour, a track, a gridline, a baseline. Like the code theme this
@@ -2493,6 +2508,25 @@ button.task-panel__check:focus-visible {
 }
 
 /*
+  A field that is the title rather than an edit of it.
+
+  The focus rule below the box is what says "this is editable", and on a row whose
+  title is always a field that line would be permanent underlining on every row —
+  chrome shouting at a reader who is only reading. So it is quiet until the caret
+  is actually in it, which is the same bargain the pencil's field makes: the border
+  appears when the edit does.
+*/
+.task-item__rename--direct .task-item__rename-input {
+    border-bottom-color: transparent;
+    transition: border-color var(--transition-fast);
+}
+
+.task-item__rename--direct .task-item__rename-input:hover,
+.task-item__rename--direct .task-item__rename-input:focus {
+    border-bottom-color: var(--color-border-focus);
+}
+
+/*
    The add row at the bottom of the list. Dashed, because it is not a task until it
    is named — the same border every unsettled thing in this component wears — and
    because the row is permanent now, the dashes are also what keep it from reading
@@ -2611,6 +2645,16 @@ button.task-panel__check:focus-visible {
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+}
+
+/* The host's own controls, at the end of the row. A fixed track like the copy
+   button beside it: whatever the host puts here must not be what gives up room
+   when the title is long. */
+.task-item__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
 }
 
 /* --- Task actions -------------------------------------------------------- */
@@ -5057,9 +5101,22 @@ button.tag-chip__label {
 
 .split-pane {
     display: grid;
-    grid-template-columns: var(--split-pane-start, 36rem) auto minmax(0, 1fr);
+    grid-template-columns: var(--split-pane-fixed, 36rem) auto minmax(0, 1fr);
     align-items: stretch;
     min-height: 0;
+}
+
+/*
+  Anchored to the trailing edge instead: the fixed column moves to the end and the
+  leading pane takes what is left.
+
+  Set together with data-pane-anchor="end" from one field on the component, because
+  a grid whose fixed column is last while the attribute still says "start" is a drag
+  that runs backwards — the resizer measures the pane from whichever edge the
+  attribute names.
+*/
+.split-pane--end {
+    grid-template-columns: minmax(0, 1fr) auto var(--split-pane-fixed, 36rem);
 }
 
 .split-pane__start,
@@ -7198,6 +7255,26 @@ button.tag-chip__label {
     bottom: 0;
     width: var(--border-width);
     background: var(--color-border);
+}
+
+/* A milestone's rule down the whole chart. Quieter than the today line and louder
+   than a quarter rule, which is the order of how much each one means: a quarter is
+   the ruler, a milestone is a date somebody chose, and today is the only one that
+   moves on its own. Dashed so that a milestone crossing a bar reads as passing behind
+   it rather than cutting it in two. */
+.roadmap-timeline__milestone-rule {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--border-width);
+    background: linear-gradient(
+        to bottom,
+        var(--color-border-strong) 0,
+        var(--color-border-strong) 4px,
+        transparent 4px,
+        transparent 8px
+    );
+    background-size: var(--border-width) 8px;
 }
 
 /* Today is the one line on the chart that is not a quarter, so it is the one

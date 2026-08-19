@@ -120,6 +120,81 @@ public class FileBacklogRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task Save_Then_Get_RoundTripsSchedulingAndDependencies()
+    {
+        var entry = new BacklogEntry("Scheduled", "body", EntryType.Task);
+        entry.SetDueOn(new DateOnly(2026, 8, 21));
+        entry.SetReminder(new DateTime(2026, 8, 21, 9, 0, 0, DateTimeKind.Unspecified));
+        entry.SetRecurrence(new Recurrence(2, RecurrenceUnit.Week));
+        entry.SetInMyDayOn(new DateOnly(2026, 8, 19));
+        entry.SetDependsOn(["a1b2c3", "not-a-guid"]);
+
+        await _repo.SaveAsync(entry);
+        var loaded = await _repo.GetAsync(entry.Id);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(new DateOnly(2026, 8, 21), loaded!.DueOn);
+        Assert.Equal(new DateTime(2026, 8, 21, 9, 0, 0, DateTimeKind.Unspecified), loaded.RemindAt);
+        Assert.Equal(DateTimeKind.Unspecified, loaded.RemindAt!.Value.Kind);
+        Assert.Equal(new Recurrence(2, RecurrenceUnit.Week), loaded.Recurrence);
+        Assert.Equal(new DateOnly(2026, 8, 19), loaded.InMyDayOn);
+
+        // A dependency id is an opaque string: one that names nothing, and one
+        // that is not even shaped like an id, both have to come back out again.
+        Assert.Equal(["a1b2c3", "not-a-guid"], loaded.DependsOn);
+    }
+
+    /// <summary>
+    /// The reason <c>created_at</c> is a string on the frontmatter DTO, restated
+    /// for the two new dates: a date-shaped .NET type serializes to a nested map
+    /// of alternative renderings, and a file that needs a repair pass on the way
+    /// back in is not round-tripping.
+    /// </summary>
+    [Fact]
+    public async Task MarkdownFile_KeepsTheSchedulingDatesAsFlatScalars()
+    {
+        var entry = new BacklogEntry("Scheduled", "body", EntryType.Task);
+        entry.SetDueOn(new DateOnly(2026, 8, 21));
+        entry.SetReminder(new DateTime(2026, 8, 21, 9, 0, 0, DateTimeKind.Unspecified));
+        entry.SetRecurrence(new Recurrence(1, RecurrenceUnit.Week, [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday]));
+
+        await _repo.SaveAsync(entry);
+
+        var text = await File.ReadAllTextAsync(Path.Combine(_dir, "_backlog", $"{entry.Id}.md"));
+
+        Assert.Contains("due_on: 2026-08-21", text);
+        Assert.Contains("remind_at: 2026-08-21T09:00:00", text);
+        Assert.Contains("recurrence: weekdays", text);
+        Assert.DoesNotContain("utc_date_time:", text);
+        Assert.DoesNotContain("local_date_time:", text);
+        Assert.DoesNotContain("in_my_day_on:", text);
+        Assert.DoesNotContain("depends_on:", text);
+    }
+
+    [Fact]
+    public async Task Save_Then_Get_RoundTripsTheRecurrenceProvenanceId()
+    {
+        var source = Guid.NewGuid();
+        var entry = new BacklogEntry(
+            Guid.NewGuid(),
+            "Occurrence two",
+            "body",
+            EntryType.Task,
+            EntryStatus.Ready,
+            Priority.Medium,
+            repoIds: null,
+            tags: null,
+            sourceInboxId: null,
+            createdAt: DateTimeOffset.UtcNow,
+            recurrenceSourceId: source);
+
+        await _repo.SaveAsync(entry);
+        var loaded = await _repo.GetAsync(entry.Id);
+
+        Assert.Equal(source, loaded!.RecurrenceSourceId);
+    }
+
+    [Fact]
     public async Task MarkdownFile_IsCanonicalSourceWithFrontmatter()
     {
         var a = new BacklogEntry("A", "body text", EntryType.Task);

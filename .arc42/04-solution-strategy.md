@@ -38,7 +38,8 @@ related: [".arc42/01-introduction-and-goals.md#requirements-overview"]
 ```
 
 The system is split into independent functional domains (Capture, Inbox, Backlog,
-Second Brain, Monitoring, Technology Stack, Dev PC Management, Repository Management).
+Roadmap Planning, Second Brain, Monitoring, Technology Stack, Dev PC Management,
+Repository Management).
 Each is separately designable and deployable within the desktop client. A thin,
 one-directional pipeline (Capture → Inbox → route to Backlog / Second Brain →
 signals to Monitoring) keeps coupling low and lets channels expose a subset of

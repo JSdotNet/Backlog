@@ -35,7 +35,7 @@ The heading line is the same three things a row in the list is: the circle that 
 
 The status sits beside the title rather than under it, because a status is what the title is currently doing and a reader who wants one wants both. Tags come next as chips, the same chips as everywhere else in the product: the panel draws them rather than taking a slot for them, because a slot there would be an invitation to draw a second kind of tag. What those chips can do is still the host's, said the way this library always says it — a chip is removable when somebody is listening for the removal and clickable when somebody is listening for the click, and nobody listening leaves plain text rather than a control that goes nowhere. Drop all three and the strip goes with them.
 
-The sub-items are TaskListView with two things turned on. Quick edit, because retitling them is one thing done many times over: Tab settles this one and opens the field on the next, Shift+Tab walks back up, and off the end is the add row, so “type a title, Tab, type a title, Tab” fills a checklist without the pointer ever coming back. And RenameOnClick, because these rows carry no pencil: a sub-item has no pane to open, so there is nothing else the click could have meant, and a pencil on every one of them is a column of the smallest target on the panel down the side of a list whose rows are one short line each. Click the text, type, Tab.
+The sub-items are TaskListView with two things turned on. Quick edit, because retitling them is one thing done many times over: Tab settles this one and opens the field on the next, Shift+Tab walks back up, and off the end is the add row, so “type a title, Tab, type a title, Tab” fills a checklist without the pointer ever coming back. And DirectRename, so these rows carry no pencil at all — the title is a field from the start. A sub-item has no pane to open, so the click a pencil protects was never going anywhere, and a pencil on every one of them is a column of the smallest target on the panel down the side of a list whose rows are one short line each. Type, Tab, type.
 
 There is no word over the list, and there is none over the markdown in the story below either. What is in the body is plainly a list or plainly prose, and a label would be a label to keep true — “Steps” over a body that turned out to be a paragraph is worse than nothing over either.
 
@@ -57,7 +57,7 @@ Done sub-items stay where they are, which is the one thing set differently here 
                 <Body>
                     <TaskListView Tasks="@_subItems"
                                   QuickEdit="true"
-                                  RenameOnClick="true"
+                                  DirectRename="true"
                                   GroupCompleted="false"
                                   OnToggle="ToggleSubItem"
                                   OnRename="RenameSubItem"
@@ -314,10 +314,10 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
                 <TaskActionPane>...</TaskActionPane>
             </Details>
             <Body>
-                @* No pencils: the title is the way in. Tab settles one and opens the next. *@
+                @* No pencils: the title is already the field. Tab settles one and opens the next. *@
                 <TaskListView Tasks="@subItems"
                               QuickEdit="true"
-                              RenameOnClick="true"
+                              DirectRename="true"
                               GroupCompleted="false"
                               OnToggle="ToggleSubItem"
                               OnRename="RenameSubItem"

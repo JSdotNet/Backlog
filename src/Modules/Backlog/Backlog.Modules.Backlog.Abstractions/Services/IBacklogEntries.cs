@@ -27,8 +27,14 @@ public interface IBacklogEntries
     /// <summary>Writes one block of entry markdown down — creating the entry when
     /// <paramref name="id"/> is null. Fails with a validation error while the
     /// text still has no title, which is an ordinary state for something
-    /// half-typed.</summary>
-    Task<Result<BacklogEntryDto>> SaveFromTextAsync(
+    /// half-typed.
+    /// <para>
+    /// The result is a <see cref="SavedEntryDto"/> rather than the entry alone
+    /// because one save can produce two entries: completing a repeating entry
+    /// leaves it completed and creates the next occurrence, and the caller has no
+    /// other way to hear about the second one.
+    /// </para></summary>
+    Task<Result<SavedEntryDto>> SaveFromTextAsync(
         Guid? id,
         string rawText,
         int order,

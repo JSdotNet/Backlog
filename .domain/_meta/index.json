@@ -5,13 +5,7 @@
   "sources": [
     ".domain"
   ],
-  "problems": [
-    {
-      "severity": "warning",
-      "path": ".domain/backlog/domain.md",
-      "message": ".domain/backlog/assets is missing from `order` in domain.md; appended alphabetically. Add it to pin its position."
-    }
-  ],
+  "problems": [],
   "entries": [
     {
       "type": "file",
@@ -171,6 +165,57 @@
           "path": ".domain/backlog/assets",
           "title": "assets",
           "children": []
+        }
+      ]
+    },
+    {
+      "type": "directory",
+      "name": "roadmap",
+      "path": ".domain/roadmap",
+      "title": "Domain: Roadmap Planning",
+      "children": [
+        {
+          "type": "file",
+          "name": "domain.md",
+          "path": ".domain/roadmap/domain.md",
+          "title": "Domain: Roadmap Planning",
+          "status": "draft",
+          "root": true
+        },
+        {
+          "type": "file",
+          "name": "features.md",
+          "path": ".domain/roadmap/features.md",
+          "title": "Features: Roadmap Planning",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "model.md",
+          "path": ".domain/roadmap/model.md",
+          "title": "Domain Model: Roadmap Planning",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "flow.md",
+          "path": ".domain/roadmap/flow.md",
+          "title": "Flow: Roadmap Planning",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "dependencies.md",
+          "path": ".domain/roadmap/dependencies.md",
+          "title": "Dependencies: Roadmap Planning",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "naming.md",
+          "path": ".domain/roadmap/naming.md",
+          "title": "Naming: Roadmap Planning",
+          "status": "draft"
         }
       ]
     },

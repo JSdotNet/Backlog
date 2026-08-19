@@ -18,7 +18,7 @@ namespace Backlog.Modules.Backlog.Services;
 /// </summary>
 internal sealed class BacklogEntries(
     IQueryHandler<ListEntriesQuery, IReadOnlyList<BacklogEntryDto>> list,
-    ICommandHandler<SaveEntryFromTextCommand, Result<BacklogEntryDto>> save,
+    ICommandHandler<SaveEntryFromTextCommand, Result<SavedEntryDto>> save,
     ICommandHandler<LinkEntryToIssueCommand, Result<BacklogEntryDto>> link,
     ICommandHandler<DeleteEntryCommand> delete,
     ICommandHandler<ReorderEntriesCommand> reorder,
@@ -27,7 +27,7 @@ internal sealed class BacklogEntries(
     public Task<IReadOnlyList<BacklogEntryDto>> ListAsync(CancellationToken cancellationToken = default) =>
         list.Handle(new ListEntriesQuery(), cancellationToken);
 
-    public Task<Result<BacklogEntryDto>> SaveFromTextAsync(
+    public Task<Result<SavedEntryDto>> SaveFromTextAsync(
         Guid? id,
         string rawText,
         int order,

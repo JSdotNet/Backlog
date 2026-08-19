@@ -305,22 +305,63 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("</>", home, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The entry list is the shared task list, and which row is open is the pane's
+    /// to say.
+    /// <para>
+    /// This replaces a fact about a fold button on the entry title. There is no fold
+    /// left to press: a row in the list is one line and the expansion is the detail
+    /// pane beside it, so what used to be "the title integrates its own collapse
+    /// button" is now "the title is a row in <c>TaskListView</c>, and the pane hands
+    /// it <c>SelectedId</c>". The storybook says why the row cannot decide that for
+    /// itself — which one is open is a fact about the pane, not about the row.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Expandable_entry_title_uses_an_integrated_collapse_button()
+    public void The_entry_list_is_the_shared_task_list_and_the_pane_owns_the_selection()
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        Assert.Contains("TestId=\"entry-title-button\"", pane, StringComparison.Ordinal);
+        Assert.Contains("<TaskListView", pane, StringComparison.Ordinal);
+        Assert.Contains("SelectedId=\"@SelectedTaskId\"", pane, StringComparison.Ordinal);
+        Assert.Contains("OnSelected=\"OnEntrySelectedAsync\"", pane, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"entry-list\"", pane, StringComparison.Ordinal);
+
+        // No fold of the pane's own came back beside the list.
         Assert.DoesNotContain("entry-fold-button", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("entry-title-button", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToggleEntry", pane, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// There is no click-to-edit surface for a badge to have to keep its clicks away
+    /// from.
+    /// <para>
+    /// This replaces the pin on the metadata row's <c>stopPropagation</c> pair. Those
+    /// existed because the badges sat inside a read view that opened the raw editor
+    /// on click and on Enter, so a status change that reached the card swapped the
+    /// entry for a textarea mid-edit. The read view is gone: the pane is opened by
+    /// selecting a row, and the source is a toggle of its own. Guarding the same
+    /// intent now means asserting the surface has not come back, because a
+    /// propagation stop is only ever a fix for one.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Entry_metadata_keeps_focus_events_out_of_read_view_editor()
+    public void No_control_sits_inside_a_surface_that_opens_an_editor_on_click()
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        Assert.Contains("class=\"entry-doc__meta\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", pane, StringComparison.Ordinal);
-        Assert.Contains("class=\"entry-doc__meta subitem-card__meta\" aria-label=\"Sub-item metadata and actions\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", pane, StringComparison.Ordinal);
+        // Quoted, because `entry-doc__reading` under the escape hatch is a prefix of
+        // it and is a different thing: a hint about what the source parses to, not a
+        // surface that opens an editor.
+        Assert.DoesNotContain("\"entry-doc__read\"", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("entry-read-view", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("State.BeginEdit", pane, StringComparison.Ordinal);
+
+        // The source is reached deliberately instead — a toggle, and the shortcut
+        // .design/content-editing.md#raw-markdown-escape-hatch asks for.
+        Assert.Contains("TestId=\"entry-raw-toggle\"", pane, StringComparison.Ordinal);
+        Assert.Contains("Ctrl+Shift+M", pane, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -352,13 +393,66 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("dashboard-panel__content", home, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The two halves of the split scroll on their own, and the CSS the entry card
+    /// needed is gone rather than left behind.
+    /// <para>
+    /// This replaces a pin on how the entry title line laid its metadata out without
+    /// wrapping. There is no title line: a row in the list is the shared task row and
+    /// the metadata strip only ever appears in the pane beside it, at one width. What
+    /// is worth pinning about the new layout is the thing that would be wrong if
+    /// somebody simplified it — one scrollbar for both halves, which would mean
+    /// scrolling the list to reach the bottom of the entry next to it.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Title_line_css_aligns_title_and_metadata_without_wrapping_controls()
+    public void Each_half_of_the_backlog_split_scrolls_on_its_own()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        Assert.Contains(".entry-doc__title-line .entry-doc__title {\n    flex: 1 1 auto;\n    margin: 0;", css, StringComparison.Ordinal);
-        Assert.Contains(".entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-start,\n.entry-doc:not(.entry-doc--one-line) .entry-doc__title-line .entry-doc__meta-end {\n    flex-wrap: nowrap;\n}", css, StringComparison.Ordinal);
+        Assert.Contains(".backlog-list {", css, StringComparison.Ordinal);
+        Assert.Contains(".entry-detail {", css, StringComparison.Ordinal);
+
+        foreach (var block in new[] { ".backlog-list {", ".entry-detail {" })
+        {
+            var start = css.IndexOf(block, StringComparison.Ordinal);
+            var rules = css[start..css.IndexOf('}', start)];
+
+            Assert.Contains("overflow-y: auto;", rules, StringComparison.Ordinal);
+            Assert.Contains("min-height: 0;", rules, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// The entry card, its four grab rails, its drop zones and the sub-item cards
+    /// are gone from the stylesheet as well as from the markup.
+    /// <para>
+    /// Dead CSS is not harmless: it is the next reader's evidence that a shape still
+    /// exists. Every selector below styled something the shared components now draw,
+    /// and a rule for it surviving would describe a card nobody renders.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_replaced_entry_card_css_was_removed_rather_than_left_behind()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        foreach (var dead in new[]
+                 {
+                     ".entry-list {",
+                     ".entry-group {",
+                     ".entry-doc {",
+                     ".entry-doc--one-line",
+                     ".entry-doc__grip",
+                     ".entry-doc__drop",
+                     ".entry-doc__read {",
+                     ".entry-doc__title-line",
+                     ".subitem-card",
+                     ".subitem-list"
+                 })
+        {
+            Assert.DoesNotContain(dead, css, StringComparison.Ordinal);
+        }
     }
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");

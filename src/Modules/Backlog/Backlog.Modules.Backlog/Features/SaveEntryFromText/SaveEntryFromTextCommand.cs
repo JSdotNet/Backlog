@@ -21,7 +21,7 @@ namespace Backlog.Modules.Backlog.Features.SaveEntryFromText;
 public sealed record SaveEntryFromTextCommand(Guid? Id, string RawText, int Order);
 
 public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
-    : ICommandHandler<SaveEntryFromTextCommand, Result<BacklogEntryDto>>
+    : ICommandHandler<SaveEntryFromTextCommand, Result<SavedEntryDto>>
 {
     /// <summary>An entry needs a title before it can exist. Somebody halfway
     /// through typing one has not failed at anything, so this is an ordinary
@@ -34,7 +34,7 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
         "entry.not_found",
         "That entry no longer exists.");
 
-    public async Task<Result<BacklogEntryDto>> Handle(
+    public async Task<Result<SavedEntryDto>> Handle(
         SaveEntryFromTextCommand command,
         CancellationToken cancellationToken = default)
     {
@@ -47,7 +47,7 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
             : await CreateAsync(parsed, command.Order, cancellationToken);
     }
 
-    private async Task<Result<BacklogEntryDto>> CreateAsync(
+    private async Task<Result<SavedEntryDto>> CreateAsync(
         EntryTextParser.ParsedEntry parsed,
         int order,
         CancellationToken cancellationToken)
@@ -68,19 +68,34 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
 
         entry.SetOrder(Math.Max(order, 0));
         entry.SetArea(parsed.Area);
+        ApplyScheduling(entry, parsed);
+        ApplyPresentation(entry, parsed);
         EntryTextSync.SyncSubItems(entry, parsed.SubItems);
 
         await entries.SaveAsync(entry, cancellationToken);
-        return entry.ToDto();
+
+        // Deliberately no successor here, even for an entry typed straight in as
+        // `!done` with a repeat on it. Spawning is what happens when a save
+        // *completes* an occurrence, and a create has no previous state for the
+        // save to have moved it from — an entry arriving already finished is a
+        // record of something done, not an occurrence just now finishing.
+        return new SavedEntryDto(entry.ToDto());
     }
 
-    private async Task<Result<BacklogEntryDto>> UpdateAsync(
+    private async Task<Result<SavedEntryDto>> UpdateAsync(
         Guid id,
         EntryTextParser.ParsedEntry parsed,
         CancellationToken cancellationToken)
     {
         var entry = await entries.GetAsync(id, cancellationToken);
         if (entry is null) return NotFound;
+
+        // Read before anything is applied, because "this save completed the
+        // entry" is a statement about the step from one status to another. An
+        // entry that was already Done stays Done and spawns nothing: without this
+        // the next keystroke on a finished repeating entry would spawn a second
+        // successor, and the one after that a third.
+        var wasDone = entry.Status is EntryStatus.Done;
 
         // A title that has momentarily been deleted is not an instruction to
         // rename the entry to nothing — the aggregate would refuse anyway.
@@ -91,12 +106,66 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
         entry.ChangePriority(parsed.Priority ?? entry.Priority);
         entry.SetTags(parsed.Tags);
         entry.SetArea(parsed.Area);
+        ApplyScheduling(entry, parsed);
+        ApplyPresentation(entry, parsed);
 
         if (parsed.Status is { } targetStatus) entry.SetStatus(targetStatus);
 
         EntryTextSync.SyncSubItems(entry, parsed.SubItems);
 
         await entries.SaveAsync(entry, cancellationToken);
-        return entry.ToDto();
+
+        if (!wasDone && entry.Status is EntryStatus.Done && entry.Recurrence is not null)
+        {
+            // Saved after the completed occurrence, so a failure here cannot lose
+            // the completion that has already been recorded.
+            var successor = RecurrencePolicy.NextOccurrence(entry);
+            await entries.SaveAsync(successor, cancellationToken);
+
+            // Named in the result rather than left for the caller to notice. A
+            // list that only ever refreshes the row it saved has no other way to
+            // learn that a second entry now exists.
+            return new SavedEntryDto(entry.ToDto(), successor.Id);
+        }
+
+        return new SavedEntryDto(entry.ToDto());
     }
+
+    /// <summary>
+    /// Writes the scheduling and dependency fields on unconditionally, so a token
+    /// that is no longer on the metadata line clears the field it named. This
+    /// follows <c>SetTags</c> and <c>SetArea</c> rather than the
+    /// <c>?? entry.Type</c> fallback that Type and Priority use, and the
+    /// difference is deliberate: type and priority are values an entry always has,
+    /// while these five are absent by default — and "delete the token to clear the
+    /// due date" is only true if an absent token means absent.
+    /// </summary>
+    private static void ApplyScheduling(BacklogEntry entry, EntryTextParser.ParsedEntry parsed)
+    {
+        entry.SetDueOn(parsed.DueOn);
+        entry.SetReminder(parsed.RemindAt);
+        entry.SetRecurrence(parsed.Recurrence);
+        entry.SetInMyDayOn(parsed.InMyDayOn);
+        entry.SetDependsOn(parsed.DependsOn ?? []);
+    }
+
+    /// <summary>
+    /// Writes the one token on the metadata line that is about the reader rather
+    /// than about the work: which reading of the body they last asked for.
+    /// <para>
+    /// Its own method rather than a sixth line in <see cref="ApplyScheduling"/>,
+    /// because grouping it with the due date would quietly claim it is the same kind
+    /// of fact. A due date is a promise about the work; this is a preference about
+    /// looking at it, and the only reason the aggregate holds it at all is that the
+    /// canonical rewrite composes the metadata line from the entry — see
+    /// <see cref="EntryView"/>.
+    /// </para>
+    /// <para>
+    /// Unconditional for the same reason the scheduling fields are: deleting the
+    /// token is how a reader goes back to having expressed no preference, and that
+    /// is only true if an absent token means absent.
+    /// </para>
+    /// </summary>
+    private static void ApplyPresentation(BacklogEntry entry, EntryTextParser.ParsedEntry parsed) =>
+        entry.SetView(parsed.View);
 }

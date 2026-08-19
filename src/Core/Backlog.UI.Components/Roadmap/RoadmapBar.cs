@@ -71,13 +71,23 @@ public sealed record RoadmapBar(
 /// <param name="Marker">Which glyph. Three shapes rather than three colours,
 /// because colour alone must not be what tells two kinds of marker apart.</param>
 /// <param name="Detail">A second line for the tooltip and accessible name.</param>
+/// <param name="Line">Whether a rule is drawn down the whole chart at this date,
+/// through every row rather than only the one the marker sits on.
+/// <para>
+/// For the dates the whole plan is read against. A release or a freeze is not a fact
+/// about one lane, and a reader checking what lands before it should not have to hold
+/// a vertical position in their head while their eye travels down the chart. It is
+/// the caller's choice because only the caller knows which dates are that kind of
+/// date: a chart where every milestone drew a line would be a chart of lines.
+/// </para></param>
 public sealed record RoadmapMilestone(
     string Id,
     string RowId,
     string Title,
     DateOnly On,
     RoadmapMarker Marker = RoadmapMarker.Diamond,
-    string? Detail = null);
+    string? Detail = null,
+    bool Line = false);
 
 /// <summary>Which glyph a milestone is drawn as.</summary>
 public enum RoadmapMarker

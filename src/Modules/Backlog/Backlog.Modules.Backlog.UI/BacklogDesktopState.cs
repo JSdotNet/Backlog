@@ -24,17 +24,22 @@ public enum AppSaveState
 }
 
 /// <summary>
-/// Drives the quick-edit backlog list. An entry is a single block of plain
-/// markdown text — there is no title/type/priority/status/tags form control
-/// anywhere. Focus one entry and you get the raw text; leave it and you get the
-/// rendered document, so the markdown is always right there but never in the
-/// way.
+/// Drives the backlog list and the detail pane beside it. An entry is still a
+/// single block of plain markdown text, and every control over one is still a
+/// rewrite of that text: a title, a note, a step's name, a step's notes, a token
+/// on the metadata line. The text is the entry, so a field-shaped control whose
+/// write did not go through it would be a second source of truth.
+/// <para>
+/// The markdown itself is one toggle away rather than what a click opens — an
+/// escape hatch per <c>.design/content-editing.md#raw-markdown-escape-hatch</c>
+/// rather than the primary mode <c>#editing-model</c> rules out.
+/// </para>
 /// <para>
 /// Text saves on a debounce while typing and flushes the moment focus leaves,
-/// per <c>.design/interaction-guidelines.md#auto-save-no-save-buttons</c>.
-/// Entries can be re-ranked by dragging either grip, or from the keyboard with
-/// the arrow keys while a grip is focused — every drag has a keyboard
-/// equivalent.
+/// per <c>.design/interaction-guidelines.md#auto-save-no-save-buttons</c>;
+/// discrete changes save immediately. Re-ranking — for entries and for steps —
+/// is the shared task list's gesture, pointer and keyboard alike, and arrives
+/// here as "this row landed on that one".
 /// </para>
 /// </summary>
 public sealed class BacklogDesktopState : IDisposable
@@ -59,6 +64,10 @@ public sealed class BacklogDesktopState : IDisposable
     /// opened, or -1 when no entry is being written in. See
     /// <see cref="BeginEdit"/>.</summary>
     private int _editingSubItemCount = -1;
+
+    /// <summary>Whether a save has reported a recurrence successor that is not in
+    /// <see cref="Rows"/> yet. See <see cref="ShowSpawnedOccurrenceAsync"/>.</summary>
+    private bool _spawnedOccurrencePending;
 
     public BacklogDesktopState(
         IBacklogStore store,
@@ -103,6 +112,12 @@ public sealed class BacklogDesktopState : IDisposable
 
     public List<EntryRow> FilteredRows { get; private set; } = [];
 
+    /// <summary>The rows the repository scope leaves in view, before status, area
+    /// and My Day narrow them. What the filter chips count: a count that shrank
+    /// with the selection would answer "how many are left" rather than "how much
+    /// is over there", which is the only question a chip is asked.</summary>
+    public List<EntryRow> ScopedRows { get; private set; } = [];
+
     public string SelectedStatusFilterWire { get; private set; } = string.Empty;
 
     /// <summary>The repository currently scoping repository-authored backlog and
@@ -118,6 +133,20 @@ public sealed class BacklogDesktopState : IDisposable
     /// space.</summary>
     public const string UnfiledArea = " unfiled";
 
+    /// <summary>
+    /// The date the My Day scope is narrowing to, or null while the scope is off.
+    /// <para>
+    /// A date rather than a flag, and one this class is told rather than one it
+    /// works out. <c>.domain/backlog/features.md#feature-my-day</c> makes My Day
+    /// membership arithmetic against "the reader's current local date", and the
+    /// clock that answers that belongs to the pane — one place reads it, so there
+    /// is one answer. Holding the date the reader turned the scope on with keeps
+    /// this class free of a clock and still says exactly which day is being asked
+    /// about.
+    /// </para>
+    /// </summary>
+    public DateOnly? MyDayOn { get; private set; }
+
     /// <summary>The areas actually in use, in alphabetical order. There is no
     /// fixed taxonomy: an area exists because somebody typed it.</summary>
     public List<AreaFilterOption> AreaFilters { get; private set; } = [];
@@ -130,10 +159,86 @@ public sealed class BacklogDesktopState : IDisposable
     /// shows the rendered document.</summary>
     public EntryRow? EditingRow { get; private set; }
 
-    public EditingSubItem? EditingSubItem { get; private set; }
+    /// <summary>
+    /// The entry the detail pane is open on, or null when nothing is selected.
+    /// <para>
+    /// A separate fact from <see cref="EditingRow"/>, and the reason the raw
+    /// editor stopped being the way in. Which row is open is about the pane beside
+    /// the list rather than about the row, and it survives the reader closing the
+    /// raw escape hatch — an entry stays selected while it is read.
+    /// </para>
+    /// </summary>
+    public EntryRow? SelectedRow { get; private set; }
 
-    /// <summary>The row being dragged, if any — drives the drop indicators.</summary>
-    public EntryRow? DraggedRow { get; private set; }
+    /// <summary>
+    /// Opens an entry in the detail pane, or closes the pane when handed null.
+    /// <para>
+    /// Flushes whatever the previous selection had open on the way out, because
+    /// the raw hatch below is that row's editor: leaving it behind would keep a
+    /// live caret pointed at an entry that is no longer on screen, and the
+    /// debounce would then save it 750ms after the reader moved on.
+    /// </para>
+    /// </summary>
+    public async Task SelectAsync(EntryRow? row)
+    {
+        if (ReferenceEquals(SelectedRow, row)) return;
+
+        if (EditingRow is { } editing && !ReferenceEquals(editing, row)) await EndEditAsync(editing);
+
+        SelectedRow = row;
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Whether the selected entry is showing its canonical markdown rather than
+    /// its fields — the escape hatch `.design/content-editing.md#raw-markdown-escape-hatch`
+    /// requires be always available.
+    /// <para>
+    /// Derived rather than held: the hatch <em>is</em> the selected row being the
+    /// row with an editor open. A second flag saying so would be the same fact
+    /// arriving twice, with two chances to disagree about whose source is on
+    /// screen.
+    /// </para>
+    /// </summary>
+    public bool RawHatchOpen => SelectedRow is { } row && ReferenceEquals(EditingRow, row);
+
+    /// <summary>
+    /// Shows or hides the selected entry's canonical markdown.
+    /// <para>
+    /// The whole document, sub-items included — <c>#raw-markdown-escape-hatch</c>
+    /// asks for "the exact canonical Markdown that will be stored", and an entry's
+    /// steps are stored in it. That is the one difference from
+    /// <see cref="BeginEdit"/>, which scopes its editor to the parent chapter
+    /// because the cards beside it were editing the rest.
+    /// </para>
+    /// <para>
+    /// Closing flushes through <see cref="EndEditAsync"/>, so the hatch saves on
+    /// the same terms as every other editor here and there is still no save
+    /// button.
+    /// </para>
+    /// </summary>
+    public async Task ToggleRawHatchAsync()
+    {
+        if (SelectedRow is not { } row) return;
+
+        if (ReferenceEquals(EditingRow, row))
+        {
+            await EndEditAsync(row);
+            Changed?.Invoke();
+            return;
+        }
+
+        if (row.IsReadOnly) return;
+
+        EditingRow = row;
+
+        // Zero, not CountSubItems: the hatch hands over the entry entire, so there
+        // are no chapters to hold back. See ChildStartLine — a count of zero is
+        // what says "the boundary is the end of the document".
+        _editingSubItemCount = 0;
+        FocusPending = true;
+        Changed?.Invoke();
+    }
 
     /// <summary>Set when a newly opened editor still needs the caret placed in
     /// it; the component consumes this after its next render.</summary>
@@ -231,6 +336,15 @@ public sealed class BacklogDesktopState : IDisposable
         ApplyFilter();
     }
 
+    /// <summary>Turns the My Day scope on for a date, or off when handed null. The
+    /// caller supplies the date because the caller is what has the clock; see
+    /// <see cref="MyDayOn"/>.</summary>
+    public void SetMyDayFilter(DateOnly? date)
+    {
+        MyDayOn = date;
+        ApplyFilter();
+    }
+
     /// <summary>Appends a new, unsaved draft row at the end of the list and
     /// opens it for editing. It is only persisted once a title line is typed
     /// (the domain requires a title), so free typing before that is held
@@ -247,6 +361,12 @@ public sealed class BacklogDesktopState : IDisposable
         }
 
         Rows.Add(row);
+
+        // Selected as well as opened. A brand-new entry has nothing but source —
+        // no title to rename, no steps, no metadata line worth a control — so the
+        // detail pane opens straight on the escape hatch, and the fields appear as
+        // soon as there is something for them to be about.
+        SelectedRow = row;
         BeginEdit(row);
         ApplyFilter();
     }
@@ -260,7 +380,6 @@ public sealed class BacklogDesktopState : IDisposable
         // backlog rows are both editable.
         if (row.IsReadOnly) return;
         if (ReferenceEquals(EditingRow, row)) return;
-        EditingSubItem = null;
         EditingRow = row;
 
         // The editor shows the entry without its sub-items, so it has to be
@@ -326,49 +445,11 @@ public sealed class BacklogDesktopState : IDisposable
         Changed?.Invoke();
     }
 
-    public bool IsEditingSubItem(EntryRow row, int subItemIndex) =>
-        EditingSubItem is { } editing && ReferenceEquals(editing.Row, row) && editing.Index == subItemIndex;
-
-    public string SubItemEditText(EntryRow row, int subItemIndex) =>
-        EntryTextParser.GetSubItemText(row.RawText, subItemIndex);
-
-    public void BeginSubItemEdit(EntryRow row, int subItemIndex)
-    {
-        if (row.IsReadOnly) return;
-        if (subItemIndex < 0 || subItemIndex >= row.PreviewSubItems.Count) return;
-
-        EditingRow = null;
-        _editingSubItemCount = -1;
-        EditingSubItem = new EditingSubItem(row, subItemIndex);
-        FocusPending = true;
-        Changed?.Invoke();
-    }
-
-    public void OnSubItemRawTextInput(EntryRow row, int subItemIndex, string value)
-    {
-        if (!IsEditingSubItem(row, subItemIndex)) return;
-
-        row.RawText = EntryTextParser.ReplaceSubItemText(row.RawText, subItemIndex, value);
-        ScheduleDebouncedSave(row);
-    }
-
-    public async Task EndSubItemEditAsync(EntryRow row, int subItemIndex)
-    {
-        CancelDebounce(row);
-
-        if (IsEditingSubItem(row, subItemIndex))
-        {
-            EditingSubItem = null;
-        }
-
-        if (row.Origin is { } origin)
-            await SaveRepositoryRowAsync(row, origin);
-        else
-            await SaveRowAsync(row, isFlush: true);
-
-        ApplyFilter();
-        Changed?.Invoke();
-    }
+    // The sub-item raw editor is gone, and its capability is not: a step's notes
+    // are edited in the shared task row's own body editor, which reports every
+    // keystroke to ChangeSubItemNote below. That is the same rewrite through the
+    // same ReplaceSubItemText, arriving from a library control instead of a
+    // hand-rolled textarea — so what went is an implementation, not a way in.
 
     /// <summary>Explicit, deliberate destructive action — distinct from the
     /// forbidden "Save" gesture, so it stays as a confirmed button.</summary>
@@ -384,7 +465,10 @@ public sealed class BacklogDesktopState : IDisposable
             _editingSubItemCount = -1;
         }
 
-        if (EditingSubItem is { } editing && ReferenceEquals(editing.Row, row)) EditingSubItem = null;
+        // A detail pane open on a deleted entry is a pane about nothing. Closed
+        // here rather than left to the view to notice, so there is one answer to
+        // "what is selected" and the list is it.
+        if (ReferenceEquals(SelectedRow, row)) SelectedRow = null;
 
         if (row.Id is { } id)
         {
@@ -435,49 +519,40 @@ public sealed class BacklogDesktopState : IDisposable
     }
 
     // --- Reordering ------------------------------------------------------
+    //
+    // No drag state here any more. The shared task list owns the whole gesture —
+    // which row is moving, which one it is over, the previewed order, the keyboard
+    // equivalent and the announcement — and tells the host one thing: this row
+    // landed on that one. Holding a DraggedRow beside that would be the same fact
+    // twice, with the pane's copy able to disagree with the list's.
 
-    public void BeginDrag(EntryRow row)
+    /// <summary>
+    /// Moves <paramref name="row"/> into <paramref name="target"/>'s place.
+    /// <para>
+    /// A destination rather than a direction, because that is what a drop is: the
+    /// moved row takes the target's slot. "Before" and "after" stop meaning what
+    /// the reader saw at the ends of a list, which is why the shared list reports
+    /// a target and nothing else.
+    /// </para>
+    /// </summary>
+    public async Task MoveEntryAsync(EntryRow row, EntryRow target)
     {
-        if (row.IsReadOnly) return;
-        DraggedRow = row;
-    }
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(target);
 
-    public void EndDrag() => DraggedRow = null;
+        if (row.IsReadOnly || ReferenceEquals(row, target)) return;
 
-    /// <summary>Drops the dragged row immediately before or after
-    /// <paramref name="target"/>.</summary>
-    public async Task DropAsync(EntryRow target, bool before)
-    {
-        var dragged = DraggedRow;
-        DraggedRow = null;
+        var from = Rows.IndexOf(row);
+        var to = Rows.IndexOf(target);
+        if (from < 0 || to < 0 || from == to) return;
 
-        if (dragged is null || ReferenceEquals(dragged, target)) return;
-
-        Rows.Remove(dragged);
-        var index = Rows.IndexOf(target);
-        if (index < 0) index = Rows.Count;
-        Rows.Insert(before ? index : index + 1, dragged);
-
-        await NormalizeOrderAsync();
-        ApplyFilter();
-        Changed?.Invoke();
-    }
-
-    /// <summary>Keyboard equivalent of a drag: moves a row one slot up or down
-    /// among the rows currently visible under the active filter.</summary>
-    public async Task MoveAsync(EntryRow row, int delta)
-    {
-        if (row.IsReadOnly) return;
-
-        var visible = FilteredRows;
-        var from = visible.IndexOf(row);
-        var to = from + delta;
-        if (from < 0 || to < 0 || to >= visible.Count) return;
-
-        var anchor = visible[to];
-        Rows.Remove(row);
-        var anchorIndex = Rows.IndexOf(anchor);
-        Rows.Insert(delta < 0 ? anchorIndex : anchorIndex + 1, row);
+        // Remove first, then insert at the index the target held *before* the
+        // removal. That is exactly what TaskMove.ApplyTo does, and it has to be:
+        // the list previews a drop by applying that method to the rows it was
+        // handed, so any other arithmetic here would put the row somewhere the
+        // reader had not been shown.
+        Rows.RemoveAt(from);
+        Rows.Insert(to, row);
 
         await NormalizeOrderAsync();
         ApplyFilter();
@@ -485,29 +560,6 @@ public sealed class BacklogDesktopState : IDisposable
     }
 
     // --- Sub-items -------------------------------------------------------
-
-    /// <summary>The entry whose sub-item is being dragged, if any. Sub-items only
-    /// ever re-rank within their own entry — a sub-item belongs to the thing it
-    /// is written under, so dropping one on a different entry would mean moving
-    /// text between two documents, which is a rewrite, not a re-rank.</summary>
-    public EntryRow? SubItemDragRow { get; private set; }
-
-    /// <summary>Index of the sub-item being dragged within
-    /// <see cref="SubItemDragRow"/>, or -1.</summary>
-    public int SubItemDragIndex { get; private set; } = -1;
-
-    public bool IsDraggingSubItem(EntryRow row, int index) =>
-        ReferenceEquals(SubItemDragRow, row) && SubItemDragIndex == index;
-
-    /// <summary>Folds an entry's details away, or brings them back. Metadata and
-    /// title stay visible, so the compact view remains scannable.</summary>
-    public void ToggleEntry(EntryRow row)
-    {
-        if (!row.HasExpandableContent) return;
-
-        row.EntryCollapsed = !row.EntryCollapsed;
-        Changed?.Invoke();
-    }
 
     /// <summary>Toggles a rendered checklist item directly from read mode. This
     /// is a discrete edit, so it persists immediately rather than waiting for the
@@ -535,7 +587,30 @@ public sealed class BacklogDesktopState : IDisposable
     {
         if (row.IsReadOnly) return;
 
+        // Two ways a sub-item can be finished, and which one applies is decided by
+        // what the author wrote rather than by this method. A heading carrying a
+        // literal `[ ]` has its marker flipped, because the checkbox glyph is
+        // reserved for literal task-list syntax
+        // (.design/content-editing.md#backlog-entry-structure). A plain heading has
+        // no marker to flip, and inventing one would put checkbox syntax into
+        // somebody's document because they pressed a control — so its completion
+        // goes on its own metadata line as `!done`, which is the same form the
+        // cascading parent status change already writes and the same form the read
+        // view already reads back.
         var rewritten = EntryTextParser.ToggleSubItem(row.RawText, subItemIndex);
+
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal))
+        {
+            var done = subItemIndex >= 0
+                && subItemIndex < row.PreviewSubItems.Count
+                && row.PreviewSubItems[subItemIndex].Done;
+
+            rewritten = EntryTextParser.WithSubItemStatus(
+                row.RawText,
+                subItemIndex,
+                done ? EntryStatus.Ready : EntryStatus.Done);
+        }
+
         if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
 
         CancelDebounce(row);
@@ -559,17 +634,83 @@ public sealed class BacklogDesktopState : IDisposable
     public async Task ChangeStatusAsync(EntryRow row, EntryStatus status) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status, cascadeSubItems: true), forceWhenEqual: row.Status != status);
 
-    public async Task ChangeSubItemTypeAsync(EntryRow row, int subItemIndex, EntryType type) =>
-        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemType(row.RawText, subItemIndex, type));
+    /// <summary>
+    /// Completes the entry, or puts a completed one back to work.
+    /// <para>
+    /// Done and back to InProgress, which are the two moves
+    /// <c>.domain/backlog/flow.md#backlog-entry-lifecycle</c> allows either side of
+    /// the finish line. Nothing else is invented: an entry still in Draft cannot
+    /// legally reach Done, the module refuses that transition exactly as it refuses
+    /// it from the status selector, and the refusal comes back through the same
+    /// "reads as" line — the circle does not tick, and the entry says why.
+    /// </para>
+    /// </summary>
+    public async Task ToggleDoneAsync(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
 
-    public async Task ChangeSubItemPriorityAsync(EntryRow row, int subItemIndex, Priority priority) =>
-        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemPriority(row.RawText, subItemIndex, priority));
+        await ChangeStatusAsync(
+            row,
+            row.PreviewStatus is EntryStatus.Done ? EntryStatus.InProgress : EntryStatus.Done);
+    }
 
-    public async Task ChangeSubItemStatusAsync(EntryRow row, int subItemIndex, EntryStatus status) =>
-        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemStatus(row.RawText, subItemIndex, status));
+    /// <summary>Renames the entry — its first line, which is its title. A discrete
+    /// change rather than a keystroke, so it saves immediately.</summary>
+    public async Task RenameEntryAsync(EntryRow row, string title)
+    {
+        ArgumentNullException.ThrowIfNull(row);
 
-    public async Task ChangeSubItemTagsAsync(EntryRow row, int subItemIndex, string tags) =>
-        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemTags(row.RawText, subItemIndex, tags));
+        await RewriteMetadataAsync(row, EntryTextParser.WithTitle(row.RawText, title));
+    }
+
+    // ChangeNote was here: the entry's prose, scoped to the region in front of the
+    // first chapter. It is gone because the pane's markdown block is a view of the
+    // whole body rather than of that region — see ChangeBody below — which left this
+    // method with no caller and no test. An orphan that still compiles reads as a
+    // supported way in, so it went with its caller rather than after it.
+
+    /// <summary>Renames one step. Same shape as renaming the entry, one level
+    /// down, and indexed the way every other sub-item write here is indexed — the
+    /// nth chapter.</summary>
+    public async Task RenameSubItemAsync(EntryRow row, int subItemIndex, string title)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemTitle(row.RawText, subItemIndex, title));
+    }
+
+    /// <summary>One step's notes, per keystroke, debounced for the same reason the
+    /// entry's note is.</summary>
+    public void ChangeSubItemNote(EntryRow row, int subItemIndex, string note)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (row.IsReadOnly) return;
+
+        var rewritten = EntryTextParser.WithSubItemNote(row.RawText, subItemIndex, note);
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+
+        row.RawText = rewritten;
+        ScheduleDebouncedSave(row);
+        Changed?.Invoke();
+    }
+
+    /// <summary>Adds a step to the end of the entry. Nothing happens on an empty
+    /// name: there is no such thing as a step with no name, and adding one would
+    /// leave a chapter the reader cannot see or remove.</summary>
+    public async Task AddSubItemAsync(EntryRow row, string title)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        await RewriteMetadataAsync(row, EntryTextParser.AppendSubItem(row.RawText, title));
+    }
+
+    // No per-sub-item type, priority, status or tag edits. A sub-item carries a
+    // title, a status, notes and an order and nothing else, and the four
+    // rewrites that used to live here wrote tokens that EntryTextSync then
+    // discarded on the next save — the UI was editing values the domain had no
+    // room for. Sub-item completion is still expressible, through the checkbox
+    // and ToggleSubItemAsync above.
 
     public async Task ChangeAreaAsync(EntryRow row, string? area) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithArea(row.RawText, area));
@@ -579,6 +720,75 @@ public sealed class BacklogDesktopState : IDisposable
 
     public async Task ChangeTagsAsync(EntryRow row, string tags) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithTags(row.RawText, tags));
+
+    // The five scheduling and dependency fields, each written the same way every
+    // other control on this pane writes: rewrite the metadata line, save the
+    // text. Null clears, because absent means absent and an unset field carries
+    // no token rather than an empty one.
+    //
+    // Deliberately no "today" anywhere below. Which day it is belongs to whatever
+    // is reading a clock, and a state object that took DateTime.Now would be one
+    // no test could pin down.
+
+    public async Task ChangeDueAsync(EntryRow row, DateOnly? dueOn) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithDue(row.RawText, dueOn));
+
+    public async Task ChangeReminderAsync(EntryRow row, DateTime? remindAt) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithReminder(row.RawText, remindAt));
+
+    public async Task ChangeRepeatAsync(EntryRow row, Recurrence? recurrence) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithRepeat(row.RawText, recurrence));
+
+    /// <summary>Stamps the entry for a particular day, or clears the stamp.
+    /// Taking an entry out of My Day is clearing the date rather than writing a
+    /// different one: the entry is in My Day exactly while the stamp is the
+    /// reader's current local date, so there is no "not today" to write.</summary>
+    public async Task ChangeMyDayAsync(EntryRow row, DateOnly? inMyDayOn) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithMyDay(row.RawText, inMyDayOn));
+
+    public async Task ChangeDependsOnAsync(EntryRow row, IEnumerable<string>? dependsOn) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithDependsOn(row.RawText, dependsOn));
+
+    /// <summary>
+    /// Remembers which reading of the body the person asked for.
+    /// <para>
+    /// A metadata rewrite like every other one on this list, and flushed rather than
+    /// debounced for the same reason a status change is: it is one discrete decision,
+    /// not typing. The entry is where it is kept because the markdown is canonical —
+    /// a preference held anywhere else would not survive the file being shared, and
+    /// the next person to open it from a clone would get somebody else's default.
+    /// </para>
+    /// </summary>
+    public async Task ChangeViewAsync(EntryRow row, EntryView? view)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        await RewriteMetadataAsync(row, EntryTextParser.WithView(row.RawText, view));
+    }
+
+    /// <summary>
+    /// The whole body, per keystroke, debounced for the same reason a note is
+    /// (see <c>interaction-guidelines.md#auto-save-no-save-buttons</c>) — prose is prose, and a save per character would be a save per character.
+    /// <para>
+    /// The body rather than the note, because the markdown block in the pane is a
+    /// view of the same text the steps list is a view of. A writer scoped to the
+    /// prose half would silently discard a <c>##</c> chapter somebody typed into the
+    /// block, which is the one thing a raw-ish surface must never do.
+    /// </para>
+    /// </summary>
+    public void ChangeBody(EntryRow row, string body)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (row.IsReadOnly) return;
+
+        var rewritten = EntryTextParser.WithBody(row.RawText, body);
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+
+        row.RawText = rewritten;
+        ScheduleDebouncedSave(row);
+        Changed?.Invoke();
+    }
 
     private async Task RewriteMetadataAsync(EntryRow row, string rewritten, bool forceWhenEqual = false)
     {
@@ -601,50 +811,26 @@ public sealed class BacklogDesktopState : IDisposable
         Changed?.Invoke();
     }
 
-    public void BeginSubItemDrag(EntryRow row, int index)
+    /// <summary>
+    /// Moves one step into another step's place, within the same entry.
+    /// <para>
+    /// Two indices rather than a direction, and no drag state to consult: the
+    /// shared task list holds the whole gesture and reports where the step landed,
+    /// exactly as it does for the entries above. Steps only ever re-rank inside
+    /// their own entry — a step belongs to what it is written under, so dropping
+    /// one on another entry would be moving text between two documents, which is a
+    /// rewrite rather than a re-rank, and no list here offers it.
+    /// </para>
+    /// <para>
+    /// The re-focus the keyboard move needs is the list's now too. It puts the
+    /// caret back on the row it moved, by an id only it knows, which is why there
+    /// is nothing left here for a pane to consume.
+    /// </para>
+    /// </summary>
+    public async Task MoveSubItemAsync(EntryRow row, int from, int to)
     {
-        if (row.IsReadOnly) return;
+        ArgumentNullException.ThrowIfNull(row);
 
-        SubItemDragRow = row;
-        SubItemDragIndex = index;
-    }
-
-    public void EndSubItemDrag()
-    {
-        SubItemDragRow = null;
-        SubItemDragIndex = -1;
-    }
-
-    /// <summary>Drops the dragged sub-item immediately before or after the
-    /// sub-item at <paramref name="targetIndex"/> in the same entry.</summary>
-    public async Task DropSubItemAsync(EntryRow row, int targetIndex, bool before)
-    {
-        var from = SubItemDragIndex;
-        var source = SubItemDragRow;
-        EndSubItemDrag();
-
-        if (source is null || !ReferenceEquals(source, row) || from < 0) return;
-
-        var to = before ? targetIndex : targetIndex + 1;
-        if (to > from) to--;
-
-        await ReorderSubItemAsync(row, from, to);
-    }
-
-    /// <summary>Keyboard equivalent of a sub-item drag. The moved card is
-    /// re-focused afterwards so a run of arrow presses keeps carrying the same
-    /// sub-item instead of grabbing whatever slid into the old slot.</summary>
-    public async Task MoveSubItemAsync(EntryRow row, int index, int delta) =>
-        await ReorderSubItemAsync(row, index, index + delta, focusAfter: true);
-
-    /// <summary>The sub-item grip waiting to be re-focused after a keyboard
-    /// move, or null. The component consumes it on its next render.</summary>
-    public (EntryRow Row, int Index)? SubItemFocus { get; private set; }
-
-    public void ConsumeSubItemFocus() => SubItemFocus = null;
-
-    private async Task ReorderSubItemAsync(EntryRow row, int from, int to, bool focusAfter = false)
-    {
         if (row.IsReadOnly) return;
         if (from == to || from < 0 || to < 0 || to >= row.PreviewSubItems.Count) return;
 
@@ -653,7 +839,6 @@ public sealed class BacklogDesktopState : IDisposable
 
         CancelDebounce(row);
         row.RawText = rewritten;
-        if (focusAfter) SubItemFocus = (row, to);
 
         // A re-rank is a finished gesture, not a keystroke: save it now rather
         // than on a debounce that a drag never generates.
@@ -754,40 +939,14 @@ public sealed class BacklogDesktopState : IDisposable
         }
     }
 
-    public async Task PushSubItemToGitHubAsync(EntryRow row, int subItemIndex, GitHubRepositoryRef? repositoryOverride = null)
-    {
-        if (row.GitHubBusy) return;
-        if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry)) return;
-
-        var repository = repositoryOverride ?? RepositoryFor(row);
-        if (repository is null) return;
-
-        var subItem = EntryTextParser.Parse(row.RawText).SubItems.ElementAtOrDefault(subItemIndex);
-        if (subItem is null) return;
-
-        row.GitHubBusy = true;
-        row.GitHubError = null;
-        Changed?.Invoke();
-
-        try
-        {
-            await _issues.PushSubItemAsync(entry.Title, subItem, repository);
-            SetSaveState(AppSaveState.Saved);
-        }
-        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
-        {
-            row.GitHubError = ex.Message;
-        }
-        catch (Exception)
-        {
-            row.GitHubError = "Couldn't push that sub-item to GitHub.";
-        }
-        finally
-        {
-            row.GitHubBusy = false;
-            Changed?.Invoke();
-        }
-    }
+    // PushSubItemToGitHubAsync used to sit here, filing one step as an issue of its
+    // own. It is gone with the two buttons that reached it, and deliberately this
+    // time: `.domain/backlog/domain.md` gives ProjectionRef to BacklogEntry and says
+    // a Sub-Item "may project to GitHub issue task-list checkboxes" — checkboxes
+    // inside the entry's issue. A step that was its own issue had nowhere to record
+    // the link, so nothing could tell that it had already been pushed. The method
+    // and its test went together rather than leaving an orphan on one side or a test
+    // guarding a path no reader can take.
 
     /// <summary>Re-reads one entry's issue state and the pull requests that
     /// reference it.</summary>
@@ -881,9 +1040,6 @@ public sealed class BacklogDesktopState : IDisposable
     {
         EditingRow = null;
         _editingSubItemCount = -1;
-        EditingSubItem = null;
-        DraggedRow = null;
-        EndSubItemDrag();
         _entries.Clear();
 
         await ReloadRowsAsync();
@@ -965,7 +1121,11 @@ public sealed class BacklogDesktopState : IDisposable
 
         await ApplySegmentAsync(row, segments.Count > 0 ? segments[0] : row.RawText, rewriteText: isFlush);
 
-        if (!isFlush || overflow.Count == 0) return;
+        if (!isFlush || overflow.Count == 0)
+        {
+            await ShowSpawnedOccurrenceAsync();
+            return;
+        }
 
         var insertAt = Rows.IndexOf(row) + 1;
         foreach (var segment in overflow)
@@ -977,6 +1137,7 @@ public sealed class BacklogDesktopState : IDisposable
 
         await NormalizeOrderAsync();
         ApplyFilter();
+        await ShowSpawnedOccurrenceAsync();
     }
 
     /// <summary>Hands one entry's text to the module and takes back whatever it
@@ -987,7 +1148,7 @@ public sealed class BacklogDesktopState : IDisposable
     {
         SetSaveState(AppSaveState.Saving);
 
-        Result<BacklogEntryDto> saved;
+        Result<SavedEntryDto> saved;
         try
         {
             saved = await _entryUseCases.SaveFromTextAsync(row.Id, text, Math.Max(Rows.IndexOf(row), 0));
@@ -1007,12 +1168,40 @@ public sealed class BacklogDesktopState : IDisposable
             return;
         }
 
-        var entry = saved.Value;
+        var entry = saved.Value.Entry;
         _entries[entry.Id] = entry;
         row.Id = entry.Id;
         RefreshRowFromEntry(row, entry, rewriteText);
         SetSaveState(AppSaveState.Saved);
         FlashSaved(row);
+
+        // Completing a repeating entry left a second entry in the store that this
+        // list has never seen. Refreshing the saved row cannot show it, because the
+        // successor is not that row — so the save has to say a spawn happened, and
+        // it does.
+        if (saved.Value.SpawnedOccurrenceId is not null) _spawnedOccurrencePending = true;
+    }
+
+    /// <summary>
+    /// Reloads the list when a save spawned the next occurrence of a repeating
+    /// entry, so the successor appears rather than waiting for the next reload
+    /// somebody else happens to trigger.
+    /// <para>
+    /// Deferred while an editor is open. A reload replaces every row object, and
+    /// doing that under a live caret would take the editor out from under whoever
+    /// is typing. The flag survives instead, and blurring the editor flushes
+    /// through here on its way out — a debounced save that completed the entry
+    /// therefore shows its successor the moment focus leaves, which is also the
+    /// first moment the reader could have looked at the list.
+    /// </para>
+    /// </summary>
+    private async Task ShowSpawnedOccurrenceAsync()
+    {
+        if (!_spawnedOccurrencePending) return;
+        if (EditingRow is not null) return;
+
+        _spawnedOccurrencePending = false;
+        await ReloadRowsAsync();
     }
 
     /// <summary>Writes each row's list position back as its rank. Which of them
@@ -1069,6 +1258,10 @@ public sealed class BacklogDesktopState : IDisposable
 
     private async Task ReloadRowsAsync()
     {
+        // Whatever a save was waiting to show is about to be on screen, whoever
+        // asked for the reload and for whatever reason.
+        _spawnedOccurrencePending = false;
+
         var rows = new List<EntryRow>();
 
         foreach (var entry in await _entryUseCases.ListAsync())
@@ -1154,7 +1347,16 @@ public sealed class BacklogDesktopState : IDisposable
 
         var repositoryScopedRows = rows.ToList();
         RebuildAreaFilters(repositoryScopedRows);
+        ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
+
+        // My Day narrows what area and status have already left in view rather
+        // than replacing either: it is a decision about today taken on top of
+        // wherever the reader is looking, so all three compose.
+        if (MyDayOn is { } myDay)
+        {
+            rows = rows.Where(x => x.PreviewInMyDayOn == myDay);
+        }
 
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
@@ -1243,8 +1445,6 @@ public sealed record AreaFilterOption(string Label, string Value, int Count);
 /// asked for.</summary>
 public sealed record MetaReading(string Kind, string Value, bool Explicit, string? Note = null);
 
-public sealed record EditingSubItem(EntryRow Row, int Index);
-
 /// <summary>A row in the quick-edit list. <see cref="Key"/> is a stable
 /// client-side identity used for <c>@key</c> and debounce tracking, independent
 /// of <see cref="Id"/> which is null until the row is first saved.
@@ -1257,7 +1457,6 @@ public sealed class EntryRow
     private IReadOnlyList<MdBlock> _blocks = [];
     private IReadOnlyList<MdBlock> _bodyBlocks = [];
     private IReadOnlyList<MdSubItem> _subItems = [];
-    private readonly HashSet<int> _collapsedSubItems = [];
     private EntryTextParser.ParsedEntry? _parsed;
 
     public Guid Key { get; } = Guid.NewGuid();
@@ -1348,23 +1547,6 @@ public sealed class EntryRow
         get { Render(); return _subItems; }
     }
 
-    /// <summary>Whether the rendered body and sub-item cards under this entry are
-    /// folded away. Per row and in memory only — a fold is a way of looking at
-    /// the list right now, not something worth writing into someone's markdown.</summary>
-    public bool EntryCollapsed { get; set; }
-
-    public bool IsSubItemCollapsed(int subItemIndex) => _collapsedSubItems.Contains(subItemIndex);
-
-    public void ToggleSubItemCollapsed(int subItemIndex)
-    {
-        if (subItemIndex < 0 || subItemIndex >= PreviewSubItems.Count) return;
-
-        if (!_collapsedSubItems.Add(subItemIndex))
-        {
-            _collapsedSubItems.Remove(subItemIndex);
-        }
-    }
-
     public bool HasExpandableContent
     {
         get
@@ -1373,10 +1555,6 @@ public sealed class EntryRow
             return _bodyBlocks.Count > 0 || _subItems.Count > 0;
         }
     }
-
-    /// <summary>Title-only entries are naturally single-line. Any richer entry
-    /// can opt into that same layout by being folded.</summary>
-    public bool UsesOneLineLayout => !HasExpandableContent || EntryCollapsed;
 
     public string PreviewTitle
     {
@@ -1423,9 +1601,105 @@ public sealed class EntryRow
         get { Render(); return _parsed!.Area ?? Area; }
     }
 
+    // The scheduling and dependency fields, read from the text and nowhere else.
+    // Unlike type, priority and status there is no saved value to fall back to:
+    // these five are absent by default, so "no token" is the answer rather than a
+    // gap to fill from the last save. Whether a My Day stamp is *today* needs a
+    // clock and is therefore the caller's question, not this row's.
+
+    public DateOnly? PreviewDueOn
+    {
+        get { Render(); return _parsed!.DueOn; }
+    }
+
+    public DateTime? PreviewRemindAt
+    {
+        get { Render(); return _parsed!.RemindAt; }
+    }
+
+    public Recurrence? PreviewRecurrence
+    {
+        get { Render(); return _parsed!.Recurrence; }
+    }
+
+    public DateOnly? PreviewInMyDayOn
+    {
+        get { Render(); return _parsed!.InMyDayOn; }
+    }
+
+    public IReadOnlyList<string> PreviewDependsOn
+    {
+        get { Render(); return _parsed!.DependsOn ?? []; }
+    }
+
+    /// <summary>
+    /// Which reading of the body this entry was last looked at in, as written down.
+    /// Null when nobody has said, which is a different answer from either view —
+    /// see <see cref="EffectiveView"/> for what the pane does with that.
+    /// </summary>
+    public EntryView? PreviewView
+    {
+        get { Render(); return _parsed!.View; }
+    }
+
+    /// <summary>
+    /// The view to actually draw: the one that was asked for, or the one that has
+    /// something to show.
+    /// <para>
+    /// An entry with no <c>##</c> chapters has no steps for the steps view to list,
+    /// so defaulting it there would open every prose entry on an empty list with a
+    /// line underneath explaining that its text is somewhere else. Derived rather
+    /// than written down, because a default written into the text is a preference
+    /// the reader never expressed — and it would then have to be unwritten from
+    /// every entry before this default could ever change.
+    /// </para>
+    /// </summary>
+    public EntryView EffectiveView
+    {
+        get
+        {
+            Render();
+
+            // Off the cached parse rather than re-locating the chapters. The pane
+            // asks this several times per render, and the text has not changed
+            // while it did.
+            return _parsed!.View ?? (_subItems.Count > 0 ? EntryView.Steps : EntryView.Notes);
+        }
+    }
+
+    /// <summary>
+    /// Whether the steps view is leaving body text off the screen.
+    /// <para>
+    /// The steps view lists chapters, and the prose an entry opens with is not one.
+    /// A view that quietly hid it would make the markdown look like it had lost
+    /// text, so the pane says so instead and puts the block one press away —
+    /// <c>.design/content-editing.md#round-trip-fidelity</c> is about the text
+    /// surviving, and a reader who cannot see it has no way to know that it did.
+    /// </para>
+    /// </summary>
+    public bool StepsViewHidesProse
+    {
+        get
+        {
+            Render();
+
+            // The blocks in front of the first chapter, which is exactly the prose
+            // the steps have no row for. Read off the same cached parse the steps
+            // themselves come from, so the two cannot disagree about where the first
+            // chapter starts.
+            return _bodyBlocks.Count > 0;
+        }
+    }
+
     /// <summary>What the app actually understood from the meta line, in plain
     /// words. Shown live under the editor so nobody has to guess which token
-    /// became the status.</summary>
+    /// became the status.
+    /// <para>
+    /// Values are the canonical token forms rather than anything localized,
+    /// because the hint restates what will be <em>saved</em> — and what gets
+    /// saved is the metadata line. A reader comparing the hint to the text they
+    /// just typed is comparing like with like.
+    /// </para></summary>
     public IReadOnlyList<MetaReading> MetaReadings
     {
         get
@@ -1449,9 +1723,70 @@ public sealed class EntryRow
                 readings.Add(new MetaReading("tag", tag, true));
             }
 
+            // Absent means absent: an unset scheduling field contributes nothing
+            // rather than a reading saying "none". These are the only readings
+            // that are always explicit — there is no default due date for one of
+            // them to be mistaken for.
+            if (PreviewDueOn is { } due)
+            {
+                readings.Add(new MetaReading("due", EntryTextParser.DateToken(due), true));
+            }
+
+            if (PreviewRemindAt is { } remindAt)
+            {
+                readings.Add(new MetaReading("reminder", EntryTextParser.ReminderToken(remindAt), true));
+            }
+
+            if (PreviewRecurrence is { } recurrence)
+            {
+                readings.Add(new MetaReading("repeat", EntryTextParser.RepeatToken(recurrence), true));
+            }
+
+            if (PreviewInMyDayOn is { } myDay)
+            {
+                readings.Add(new MetaReading("my day", EntryTextParser.DateToken(myDay), true));
+            }
+
+            foreach (var id in PreviewDependsOn)
+            {
+                readings.Add(new MetaReading("after", id, true));
+            }
+
+            // Last, and only when it was written down. The reading line restates
+            // what will be saved, and the view the pane happens to be showing
+            // because nobody has chosen one is not on the line to be saved.
+            if (PreviewView is { } view)
+            {
+                readings.Add(new MetaReading("view", EntryTextParser.ViewToken(view), true));
+            }
+
+            // A token whose kind was understood and whose value was not reads as
+            // refused rather than disappearing. Silence here would be the worst
+            // of the options: the field is not saved either way, and a hint that
+            // simply omitted `due:friday` would look exactly like a hint for an
+            // entry that never had a due date typed on it.
+            foreach (var token in _parsed.Unreadable ?? [])
+            {
+                readings.Add(new MetaReading(
+                    RefusedKind(token.Name),
+                    token.Value.Length == 0 ? "(empty)" : token.Value,
+                    Explicit: true,
+                    Note: "not understood — the field is left unset"));
+            }
+
             return readings;
         }
     }
+
+    /// <summary>The words a refused token is filed under, matching the kind the
+    /// same field reads as when it parses — so "due" appears once in the hint
+    /// whether the value was accepted or refused.</summary>
+    private static string RefusedKind(string tokenName) => tokenName switch
+    {
+        "remind" => "reminder",
+        "myday" => "my day",
+        _ => tokenName
+    };
 
     private void Render()
     {
@@ -1462,6 +1797,5 @@ public sealed class EntryRow
         _blocks = MarkdownPreview.Parse(_parsed.Body, PreviewArea, EntryMarkdownMetadataReader.Instance);
         _bodyBlocks = [.. _blocks.TakeWhile(b => b is not MdSubItem)];
         _subItems = [.. _blocks.OfType<MdSubItem>()];
-        _collapsedSubItems.RemoveWhere(index => index < 0 || index >= _subItems.Count);
     }
 }

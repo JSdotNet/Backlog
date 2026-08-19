@@ -2,7 +2,7 @@ using Backlog.Modules.Backlog.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions;
-using Backlog.Modules.Roadmap.UI;
+using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.SharedKernel;
 
 // The namespace deliberately does not match the folder, for the reason
@@ -26,21 +26,14 @@ namespace Backlog.Desktop.UI.Shell;
 /// any context also reads is that context's, and is referenced from there.
 /// </para>
 /// <para>
-/// Roadmap is the one that reads as an exception and is not. Only the Shell gates
-/// on its key today, so by the rule above it could sit here — but it declares its
-/// own in its <c>.UI</c> project, because that is where the context itself
-/// currently lives. It has no domain module yet, so there is no abstractions
-/// project to hold the key and no reason to create one for a single constant; when
-/// the module arrives the key moves with it, and nothing here has to be untangled
-/// first. See <c>RoadmapFeatures</c>.
-/// </para>
-/// <para>
-/// The dashboard key is what that looks like once it has happened. It sat on
-/// <c>MonitoringFeatures</c> under exactly the reasoning above until the Dashboard
-/// became its own context with a module behind it; the key then moved to
-/// <c>DashboardFeatures</c> in that module's abstractions project, and the string
-/// stayed the same so nobody's settings file forgot that they had switched the
-/// dashboard off.
+/// Two of the keys here have now made the same journey, which is worth recording
+/// because it is the shape the rule predicts. Both sat in a <c>.UI</c> project
+/// while their context had no domain module — no abstractions project to hold the
+/// key, and one constant is no reason to create one. Both moved when the module
+/// arrived: the dashboard key from <c>MonitoringFeatures</c> to
+/// <c>DashboardFeatures</c>, and the roadmap key from the Roadmap <c>.UI</c>
+/// project to <c>RoadmapFeatures</c> in its abstractions project. Neither string
+/// changed, so nobody's settings file forgot what they had switched off.
 /// </para>
 /// </summary>
 public static class AppFeatures

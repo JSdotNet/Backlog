@@ -506,6 +506,10 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
+        // The Roadmap module the way a host wires it: a real plan document under the
+        // same storage root, so the band draws what was stored rather than a fixture.
+        context.Services.AddSingleton<IRoadmapPlanning>(sp =>
+            BacklogTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
         context.Services.AddSingleton(repositoryBacklog);
         context.Services.AddSingleton<DesignKnowledgeProvider>();
         context.Services.AddSingleton<TechnologyKnowledgeService>();

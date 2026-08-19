@@ -1,0 +1,244 @@
+@*
+    Adding and editing one fixed date.
+
+    Its own component rather than a mode of the item editor, because the fields really
+    are different: one day instead of a window, a kind instead of a priority, and the
+    question of whether the whole plan is read against it. A single dialog switching
+    half its fields on a flag would be two forms wearing one name.
+
+    Like the item editor it edits a copy and reports it on save. The band dispatches,
+    the module decides, and the dialog is told whether to close or to show why not.
+*@
+
+<Modal Open="@Open"
+       OpenChanged="OpenChanged"
+       Title="@(IsNew ? "Add a date" : "Edit a date")"
+       CssClass="roadmap-editor"
+       TestId="roadmap-milestone-editor">
+    <ChildContent>
+        <div class="roadmap-editor__fields">
+            <TextField Label="Title"
+                       Value="@_title"
+                       ValueChanged="value => _title = value"
+                       Placeholder="What happens on this date"
+                       ErrorMessage="@_titleError"
+                       TestId="roadmap-milestone-editor-title" />
+
+            <div class="roadmap-editor__row">
+                <TextField Label="On"
+                           Type="date"
+                           Value="@_on"
+                           ValueChanged="value => _on = value"
+                           ErrorMessage="@_dateError"
+                           TestId="roadmap-milestone-editor-on" />
+
+                <SelectField Label="Kind"
+                             CurrentValue="@_kind"
+                             Options="@KindOptions"
+                             OnChanged="value => _kind = value ?? ReleaseKind"
+                             TestId="roadmap-milestone-editor-kind" />
+            </div>
+
+            <TagMultiSelect Label="Repositories"
+                            Options="@RepositoryOptions"
+                            SelectedValues="@_repositories"
+                            SelectedValuesChanged="values => _repositories = values"
+                            Placeholder="@(RepositoryOptions.Count == 0 ? "No repositories configured" : "The whole plan")"
+                            Disabled="@(RepositoryOptions.Count == 0)"
+                            TestId="roadmap-milestone-editor-repositories" />
+
+            <Checkbox Label="Draw a line down the whole plan"
+                      Checked="@_planWide"
+                      CheckedChanged="value => _planWide = value"
+                      TestId="roadmap-milestone-editor-plan-wide" />
+
+            @if (!IsNew && DependencyOptions.Count > 0)
+            {
+                <TagMultiSelect Label="Waits for"
+                                Options="@DependencyOptions"
+                                SelectedValues="@_dependsOn"
+                                SelectedValuesChanged="OnDependenciesChangedAsync"
+                                Placeholder="Nothing"
+                                TestId="roadmap-milestone-editor-depends-on" />
+            }
+
+            <Alert Message="@_error" Role="status" TestId="roadmap-milestone-editor-error" />
+        </div>
+    </ChildContent>
+    <Footer>
+        @if (!IsNew)
+        {
+            <AppButton Variant="ButtonVariant.Danger"
+                       OnClick="DeleteAsync"
+                       TestId="roadmap-milestone-editor-delete">
+                Delete
+            </AppButton>
+        }
+
+        <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-milestone-editor-cancel">
+            Cancel
+        </AppButton>
+
+        <AppButton Variant="ButtonVariant.Primary" OnClick="SaveAsync" TestId="roadmap-milestone-editor-save">
+            @(IsNew ? "Add it" : "Save")
+        </AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    private const string ReleaseKind = nameof(MilestoneKind.Release);
+
+    private string _title = string.Empty;
+    private string _on = string.Empty;
+    private string _kind = ReleaseKind;
+    private bool _planWide;
+    private IReadOnlyList<string> _repositories = [];
+    private IReadOnlyList<string> _dependsOn = [];
+
+    private string? _titleError;
+    private string? _dateError;
+    private string? _error;
+
+    private Guid? _loadedId;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The date being edited, or null to add one.</summary>
+    [Parameter]
+    public RoadmapMilestoneDto? Milestone { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<PlannedRepository> Repositories { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<SelectorOption> DependencyOptions { get; set; } = [];
+
+    [Parameter]
+    public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
+    [Parameter]
+    public EventCallback<RoadmapMilestoneSubmission> OnSave { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnDelete { get; set; }
+
+    [Parameter]
+    public EventCallback<RoadmapDependencyChange> OnDependencyChanged { get; set; }
+
+    private bool IsNew => Milestone is null;
+
+    private static IReadOnlyList<SelectorOption> KindOptions =>
+    [
+        new(nameof(MilestoneKind.Release), "Release"),
+        new(nameof(MilestoneKind.Freeze), "Freeze"),
+        new(nameof(MilestoneKind.Review), "Review"),
+        new(nameof(MilestoneKind.Commitment), "Commitment")
+    ];
+
+    private IReadOnlyList<SelectorOption> RepositoryOptions =>
+        [.. Repositories.Select(repository => new SelectorOption(repository.Alias, repository.Title))];
+
+    protected override void OnParametersSet()
+    {
+        if (!Open)
+        {
+            _loadedId = null;
+            return;
+        }
+
+        if (_loadedId == (Milestone?.Id ?? Guid.Empty)) return;
+
+        _loadedId = Milestone?.Id ?? Guid.Empty;
+        Load();
+    }
+
+    private void Load()
+    {
+        _titleError = null;
+        _dateError = null;
+        _error = null;
+
+        if (Milestone is null)
+        {
+            _title = string.Empty;
+            // A month out. A date being added is usually one somebody already has in
+            // mind, so this is a starting point to overwrite rather than a guess.
+            _on = Iso(Today.AddDays(28));
+            _kind = ReleaseKind;
+            _planWide = false;
+            _repositories = [];
+            _dependsOn = [];
+            return;
+        }
+
+        _title = Milestone.Title;
+        _on = Iso(Milestone.On);
+        _kind = Milestone.Kind.ToString();
+        _planWide = Milestone.IsPlanWide;
+        _repositories = [.. Milestone.RepositoryAliases];
+        _dependsOn = [.. Milestone.DependsOn.Select(id => id.ToString())];
+    }
+
+    /// <summary>Shows a refusal the module came back with, keeping the dialog open.</summary>
+    public void Refuse(string message)
+    {
+        _error = message;
+        StateHasChanged();
+    }
+
+    private async Task SaveAsync()
+    {
+        _titleError = string.IsNullOrWhiteSpace(_title) ? "Give the date a name." : null;
+        _dateError = null;
+        _error = null;
+
+        var on = Parse(_on);
+        if (on is null) _dateError = "A date is needed.";
+
+        if (_titleError is not null || _dateError is not null) return;
+
+        await OnSave.InvokeAsync(new RoadmapMilestoneSubmission(
+            Milestone?.Id,
+            _title.Trim(),
+            on!.Value,
+            Enum.TryParse<MilestoneKind>(_kind, out var kind) ? kind : MilestoneKind.Release,
+            _repositories,
+            _planWide));
+    }
+
+    private async Task OnDependenciesChangedAsync(IReadOnlyList<string> values)
+    {
+        if (Milestone is null) return;
+
+        var before = _dependsOn.ToHashSet(StringComparer.Ordinal);
+        var after = values.ToHashSet(StringComparer.Ordinal);
+
+        _dependsOn = values;
+
+        foreach (var added in after.Except(before)) await Raise(added, added: true);
+        foreach (var removed in before.Except(after)) await Raise(removed, added: false);
+    }
+
+    private async Task Raise(string id, bool added)
+    {
+        if (Milestone is null || !Guid.TryParse(id, out var dependsOnId)) return;
+
+        await OnDependencyChanged.InvokeAsync(new RoadmapDependencyChange(Milestone.Id, dependsOnId, added));
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (Milestone is not null) await OnDelete.InvokeAsync(Milestone.Id);
+    }
+
+    private async Task CancelAsync() => await OpenChanged.InvokeAsync(false);
+
+    private static string Iso(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static DateOnly? Parse(string? value) =>
+        DateOnly.TryParse(value, CultureInfo.InvariantCulture, out var date) ? date : null;
+}

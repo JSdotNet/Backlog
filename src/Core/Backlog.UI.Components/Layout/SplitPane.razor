@@ -9,15 +9,22 @@
     every drag in this product owes the keyboard an equivalent.
 *@
 
-@* data-pane-anchor tells the shared resizer that the value it is setting is the
-   width of the *leading* pane, so it measures from the left edge. Without it the
-   drag ran backwards: the resizer defaults to the trailing anchor the app's
-   right-hand knowledge panel needs. *@
+@* data-pane-anchor tells the shared resizer which edge the measured pane is
+   fixed to, and it is written from Anchor rather than hard-coded so that it and
+   the grid template can never disagree. They are one decision: a grid that put the
+   fixed column last while the attribute still said "start" would run the drag
+   backwards, which is exactly the bug the attribute was added to fix. *@
+@* data-pane-drag: a split that does not own the JS resizer does not take part in
+   the JS drag either. The pointer handler is one document-level listener with one
+   owner, so a second split dragging through it would report its width to whoever
+   registered first — the host's own layout, not this one. The keyboard resize
+   below is unaffected, so the gesture still has an equivalent. *@
 <div class="@ClassValue"
      data-testid="@TestId"
      data-pane-split="true"
-     data-pane-anchor="start"
-     style="--split-pane-start: @Rem(StartWidthRem)rem"
+     data-pane-anchor="@AnchorAttribute"
+     data-pane-drag="@(UseJsResizer ? null : "off")"
+     style="--split-pane-fixed: @Rem(FixedWidthRem)rem"
      @attributes="AdditionalAttributes">
     <div class="split-pane__start">@Start</div>
 
@@ -29,7 +36,7 @@
          aria-label="@AriaLabel"
          aria-valuemin="@Rem(MinRem)"
          aria-valuemax="@Rem(MaxRem)"
-         aria-valuenow="@Rem(StartWidthRem)"
+         aria-valuenow="@Rem(FixedWidthRem)"
          tabindex="0"
          @onkeydown="OnKeyDownAsync"
          @onkeydown:preventDefault="true">
@@ -48,11 +55,34 @@
     [Parameter]
     public RenderFragment? End { get; set; }
 
+    /// <summary>
+    /// Which of the two panes is the fixed-width one. The other takes what is left.
+    /// <para>
+    /// Start by default, which is what a split whose left column is a list of things
+    /// and whose right column is one of them wants. End is for the other shape: a
+    /// detail panel of a settled width beside content that should have every pixel
+    /// the panel does not need — the arrangement the app's own knowledge panel
+    /// already has, which is why the shared JS resizer measures from the trailing
+    /// edge unless told otherwise.
+    /// </para>
+    /// </summary>
     [Parameter]
-    public double StartWidthRem { get; set; } = 36;
+    public SplitPaneAnchor Anchor { get; set; } = SplitPaneAnchor.Start;
+
+    /// <summary>
+    /// How wide the fixed pane is, in rem — the one <see cref="Anchor"/> names.
+    /// <para>
+    /// One value rather than one per anchor. There is exactly one width in a
+    /// two-pane split, because the other pane is whatever is left of the row; a
+    /// second parameter would be the same number written twice with two chances to
+    /// disagree about which pane it described.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public double FixedWidthRem { get; set; } = 36;
 
     [Parameter]
-    public EventCallback<double> StartWidthRemChanged { get; set; }
+    public EventCallback<double> FixedWidthRemChanged { get; set; }
 
     [Parameter]
     public double MinRem { get; set; } = 24;
@@ -82,7 +112,19 @@
 
     private DotNetObjectReference<SplitPane>? _self;
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "split-pane" : $"split-pane {CssClass}";
+    /// <summary>The anchor as the shared resizer spells it. One expression, so the
+    /// attribute and the modifier class below are two readings of one field rather
+    /// than two facts that can drift.</summary>
+    private string AnchorAttribute => Anchor is SplitPaneAnchor.End ? "end" : "start";
+
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "split-pane",
+        // The grid template lives in CSS and the fixed column has to be first or
+        // last, which is a thing a stylesheet can only know from a class.
+        Anchor is SplitPaneAnchor.End ? "split-pane--end" : null,
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     private static string Rem(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
@@ -118,15 +160,27 @@
     [JSInvokable]
     public Task SetGlobalPaneCapacityAsync(int capacity) => Task.CompletedTask;
 
+    /// <summary>
+    /// Which way an arrow moves the number.
+    /// <para>
+    /// The arrow keys describe the separator's travel, not the value: Left drags the
+    /// separator left, and that narrows a pane fixed to the left edge while widening
+    /// one fixed to the right. Reading them as "less" and "more" regardless of anchor
+    /// is precisely the bug the <c>data-pane-anchor</c> attribute was added to fix on
+    /// the pointer side, and the keyboard owes every drag an equivalent — including
+    /// the direction it goes in.
+    /// </para>
+    /// </summary>
+    private double Step => Anchor is SplitPaneAnchor.End ? -StepRem : StepRem;
+
     private Task OnKeyDownAsync(KeyboardEventArgs e) => e.Key switch
     {
-        // Left drags the separator left, which narrows the start pane. (The
-        // comment here used to claim the opposite, describing the app's
-        // right-hand panel rather than this component's leading one.)
-        "ArrowLeft" => CommitAsync(StartWidthRem - StepRem),
-        "ArrowRight" => CommitAsync(StartWidthRem + StepRem),
-        "PageUp" => CommitAsync(StartWidthRem - (StepRem * 3)),
-        "PageDown" => CommitAsync(StartWidthRem + (StepRem * 3)),
+        "ArrowLeft" => CommitAsync(FixedWidthRem - Step),
+        "ArrowRight" => CommitAsync(FixedWidthRem + Step),
+        "PageUp" => CommitAsync(FixedWidthRem - (Step * 3)),
+        "PageDown" => CommitAsync(FixedWidthRem + (Step * 3)),
+        // Home and End are about the value's ends rather than about the screen's, so
+        // they mean the same thing whichever edge the pane is fixed to.
         "Home" => CommitAsync(MinRem),
         "End" => CommitAsync(MaxRem),
         _ => Task.CompletedTask
@@ -135,11 +189,11 @@
     private Task CommitAsync(double widthRem)
     {
         var clamped = Math.Clamp(widthRem, MinRem, Math.Max(MinRem, MaxRem));
-        if (Math.Abs(clamped - StartWidthRem) < 0.001) return Task.CompletedTask;
+        if (Math.Abs(clamped - FixedWidthRem) < 0.001) return Task.CompletedTask;
 
-        StartWidthRem = clamped;
+        FixedWidthRem = clamped;
         StateHasChanged();
-        return StartWidthRemChanged.InvokeAsync(clamped);
+        return FixedWidthRemChanged.InvokeAsync(clamped);
     }
 
     public async ValueTask DisposeAsync()

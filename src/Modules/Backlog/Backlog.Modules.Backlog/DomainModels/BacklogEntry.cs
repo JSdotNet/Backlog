@@ -25,6 +25,7 @@ public sealed class BacklogEntry
     private readonly List<ProjectionRef> _projectionRefs = new();
     private readonly List<string> _repoIds = new();
     private readonly List<string> _tags = new();
+    private readonly List<string> _dependsOn = new();
 
     /// <summary>Creates a new, manually authored entry. It starts at
     /// <see cref="EntryStatus.Draft"/> with no source inbox id.</summary>
@@ -60,7 +61,8 @@ public sealed class BacklogEntry
         IEnumerable<string>? repoIds,
         IEnumerable<string>? tags,
         string? sourceInboxId,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        Guid? recurrenceSourceId = null)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title is required.", nameof(title));
@@ -73,6 +75,7 @@ public sealed class BacklogEntry
         Priority = priority;
         SourceInboxId = sourceInboxId;
         CreatedAt = createdAt;
+        RecurrenceSourceId = recurrenceSourceId;
 
         if (repoIds is not null) _repoIds.AddRange(repoIds);
         if (tags is not null) _tags.AddRange(tags);
@@ -92,6 +95,13 @@ public sealed class BacklogEntry
 
     public string? SourceInboxId { get; }
 
+    /// <summary>The entry this one was spawned from as the next occurrence of a
+    /// repeat, or null when it was not. Provenance in the same spirit as
+    /// <see cref="SourceInboxId"/> and carrying no invariant: the entry it names
+    /// is a separate aggregate that may since have been archived or deleted, so
+    /// this is set once at birth and never edited afterwards.</summary>
+    public Guid? RecurrenceSourceId { get; }
+
     public DateTimeOffset CreatedAt { get; }
 
     /// <summary>Manual rank within the backlog. Lower sorts first. Entries that
@@ -104,9 +114,52 @@ public sealed class BacklogEntry
     /// unfiled.</summary>
     public string? Area { get; private set; }
 
+    /// <summary>The calendar day the entry is committed to, or null when it is not
+    /// committed to one. A date rather than an instant: "due Friday" is a promise
+    /// about a day, and an instant would move the deadline whenever the device
+    /// changed timezone.</summary>
+    public DateOnly? DueOn { get; private set; }
+
+    /// <summary>When the person asked to be reminded, held as wall-clock intent —
+    /// <see cref="DateTimeKind.Unspecified"/> on purpose, so 09:00 means 09:00
+    /// wherever they are when it arrives. Deliberately not a
+    /// <see cref="DateTimeOffset"/>: an offset would pin the reminder to the zone
+    /// it was written in, which is the opposite of what was asked for. Recording
+    /// the request is all the aggregate does; delivering it is somebody
+    /// else's job.</summary>
+    public DateTime? RemindAt { get; private set; }
+
+    /// <summary>The shape of the repeat, or null when the entry happens once. The
+    /// date of the next occurrence is never stored — it is calculated from
+    /// <see cref="DueOn"/> when an occurrence completes.</summary>
+    public Recurrence? Recurrence { get; private set; }
+
+    /// <summary>The date this entry was picked for My Day, or null when it was
+    /// not picked. A date rather than a flag, so membership is a comparison
+    /// against the reader's current local date and yesterday's list expires by
+    /// arithmetic rather than by an overnight sweep.</summary>
+    public DateOnly? InMyDayOn { get; private set; }
+
+    /// <summary>Which reading of the body the person last asked for, or null when
+    /// they have never said. Held on the aggregate and not in a view-model because
+    /// the entry's markdown is canonical: the preference is written on the metadata
+    /// line, so it has to survive the round trip through here or the next save
+    /// deletes it. It carries no invariant and nothing in the lifecycle reads it —
+    /// see <see cref="EntryView"/> for why a presentation preference lives in the
+    /// text at all.</summary>
+    public EntryView? View { get; private set; }
+
     public IReadOnlyList<string> RepoIds => _repoIds;
 
     public IReadOnlyList<string> Tags => _tags;
+
+    /// <summary>The entries this one waits on, named by id. Plain strings for the
+    /// same reason <see cref="RepoIds"/> are: every entry is its own aggregate
+    /// root, so a dependency is a weak reference across a boundary rather than an
+    /// object graph — and an id that resolves to nothing still blocks, because
+    /// dropping it would let a chain claim to be ready when the step it waits on
+    /// is merely out of view.</summary>
+    public IReadOnlyList<string> DependsOn => _dependsOn;
 
     public IReadOnlyList<SubItem> SubItems => _subItems;
 
@@ -147,6 +200,46 @@ public sealed class BacklogEntry
     {
         _tags.Clear();
         if (tags is not null) _tags.AddRange(tags);
+    }
+
+    // --- Scheduling ---------------------------------------------------------
+    //
+    // None of these is load-bearing for the lifecycle, and all of them are
+    // clearable: an entry losing its due date is an ordinary edit rather than an
+    // exception, so null is a value here and not a missing argument.
+
+    public void SetDueOn(DateOnly? dueOn) => DueOn = dueOn;
+
+    /// <summary>Records the reminder as wall-clock intent. A value that arrives
+    /// tagged Utc or Local is stripped back to Unspecified rather than converted:
+    /// the clock reading is what was asked for, and honouring the tag would
+    /// silently move the reminder.</summary>
+    public void SetReminder(DateTime? remindAt) =>
+        RemindAt = remindAt is { } value ? DateTime.SpecifyKind(value, DateTimeKind.Unspecified) : null;
+
+    public void SetRecurrence(Recurrence? recurrence) => Recurrence = recurrence;
+
+    public void SetInMyDayOn(DateOnly? inMyDayOn) => InMyDayOn = inMyDayOn;
+
+    /// <summary>Records which reading of the body was asked for, or clears it back
+    /// to "never said". Grouped with the scheduling setters because it behaves like
+    /// them — absent by default, clearable, and load-bearing for nothing — not
+    /// because it is one of them.</summary>
+    public void SetView(EntryView? view) => View = view;
+
+    /// <summary>Replaces the whole dependency list. Ids are stored as written —
+    /// trimmed of surrounding space and of blanks, but never validated against
+    /// anything, because an id naming no visible entry is precisely the case that
+    /// must keep blocking.</summary>
+    public void SetDependsOn(IEnumerable<string>? dependsOn)
+    {
+        _dependsOn.Clear();
+        if (dependsOn is null) return;
+
+        _dependsOn.AddRange(dependsOn
+            .Select(id => (id ?? string.Empty).Trim())
+            .Where(id => id.Length > 0)
+            .Distinct(StringComparer.Ordinal));
     }
 
     // --- Lifecycle ----------------------------------------------------------

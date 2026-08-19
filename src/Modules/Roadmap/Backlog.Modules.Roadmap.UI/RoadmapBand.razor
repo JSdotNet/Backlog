@@ -3,37 +3,509 @@
     beside them, because a plan is read across time and the panes are read down a
     list.
 
-    It is empty on purpose. The band exists so the layout has the row a timeline
-    will be drawn in — the shell caps it at a quarter of the screen and the
-    content div below owns the scrollbar, so RoadmapTimeline can be dropped
-    straight in without the outer layout moving. What it will draw is selected
-    Backlog Entries placed by their dates; a Roadmap owns neither status nor
-    priority, it reads both from the entries it displays, which is why nothing
-    here promises a plan of its own.
+    It draws the stored plan (.domain/roadmap) through the shared timeline
+    control: a band per configured repository, the person's own lanes inside each,
+    spans and milestones placed by their dates, and an arrow from each thing that
+    has to land first to the thing waiting on it. The shell caps the band at a
+    quarter of the screen, and the chart itself owns whatever scrollbar that cap
+    makes necessary — so the heading and the filters above it stay put rather than
+    scrolling away from the plan they describe.
 
-    The placeholder carries roadmap-band__empty because the library's empty state
-    is shaped for a large empty pane and does not fit a quarter of a short window;
-    the shell compacts it through that hook, drops its description below a 48rem
-    viewport height, and hides the band altogether below 34rem.
+    What the band never does is edit the plan it was handed. RoadmapTimeline
+    proposes a placement when something is dragged or moved with the keyboard;
+    this asks the module whether that placement stands, and redraws from what
+    comes back. Only the plan knows whether a window is valid and what else the
+    change means.
+
+    A plan with nothing in it still gets an empty state rather than an empty
+    chart. The placeholder carries roadmap-band__empty because the library's
+    empty state is shaped for a large empty pane and does not fit a quarter of a
+    short window; the shell compacts it through that hook, drops its description
+    below a 48rem viewport height, and hides the band altogether below 34rem.
 
     Whether the band is on screen is decided in the shell's header, in the same
     strip that shows and hides Inbox and Backlog. That is a binary: the band is
     either here at its normal size or it is not rendered at all. So there is no
-    affordance on the band itself and no state of its own to hold — no parameters,
-    nothing to fold, and the shell's grid has one track to drop rather than one to
-    shrink.
+    affordance on the band itself and no visibility state of its own to hold.
 *@
+@implements IDisposable
+@inject IRoadmapPlanning Planning
+@inject GitHubSettingsStore Repositories
 
 <section class="roadmap-band" id="roadmap-band" aria-labelledby="roadmap-band-title" data-testid="roadmap-band">
-    <header class="roadmap-band__header">
-        <p class="roadmap-band__eyebrow">Planning</p>
-        <h2 id="roadmap-band-title" class="roadmap-band__title">Roadmap</h2>
-    </header>
+    @* The heading lives in one of two places, and which one depends on whether
+       there is a chart to head.
 
+       With a plan, it is handed to RoadmapTimeline as its own heading. The chart's
+       header is already a row with a heading at one end and the filter controls at
+       the other, so giving it this one puts "Roadmap" and the filters on the same
+       line — where a separate band header above the chart would have cost a whole
+       line of a band that only gets a quarter of the window, and a chart heading of
+       its own would have been a second title saying the same thing.
+
+       With nothing planned there is no chart, so the band carries its own header
+       above the empty state. Either way the h2 keeps the id this section's
+       aria-labelledby names. *@
     <div class="roadmap-band__content" data-testid="roadmap-band-content">
-        <EmptyState TestId="roadmap-band-empty-state"
-                    CssClass="roadmap-band__empty"
-                    Title="No roadmap yet"
-                    Description="Planned backlog entries will appear here on a timeline. Status and priority are read from the entries themselves." />
+        @if (_view.HasAnythingToDraw)
+        {
+            <RoadmapTimeline Groups="@_view.Groups"
+                             Bars="@_view.Bars"
+                             Milestones="@_view.Milestones"
+                             Links="@_view.Links"
+                             Today="@Today"
+                             TitleContent="@BandHeading"
+                             LabelledBy="roadmap-band-title"
+                             RowHeight="@CompactRowHeight"
+                             BarHeight="@CompactBarHeight"
+                             SelectedId="@_selectedId"
+                             OnBarSelected="Select"
+                             OnBarChanged="Apply"
+                             CssClass="roadmap-band__timeline"
+                             TestId="roadmap-timeline" />
+
+            @* Refusals are shown, not swallowed. The library's alert renders nothing
+               when there is no message, so there is no empty element in the band on
+               the ordinary path — and role="status" rather than "alert" because the
+               chart has already redrawn the bar back to where it was, so this is the
+               explanation rather than the news. *@
+            <Alert Message="@_error" Role="status" TestId="roadmap-band-error" />
+        }
+        else
+        {
+            @* Nothing planned, so the only affordance is the one that starts a plan.
+               It sits in the band's own header here, because there is no chart header
+               for it to live in. *@
+            <header class="roadmap-band__header">
+                @BandHeading
+            </header>
+
+            <EmptyState TestId="roadmap-band-empty-state"
+                        CssClass="roadmap-band__empty"
+                        Title="No roadmap yet"
+                        Description="Planned work appears here on a timeline, in a band per configured repository. Priorities and dependencies are the plan's own; status is read from the backlog entry a plan item is linked to." />
+        }
     </div>
+
+    <RoadmapItemEditor @ref="_editor"
+                       Open="@_editing"
+                       OpenChanged="EditingChanged"
+                       Item="@_edited"
+                       Repositories="@Configured()"
+                       DependencyOptions="@DependencyOptions()"
+                       Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                       OnSave="SaveAsync"
+                       OnDelete="DeleteAsync"
+                       OnDependencyChanged="ChangeDependencyAsync" />
+
+    <RoadmapMilestoneEditor @ref="_dateEditor"
+                            Open="@_editingDate"
+                            OpenChanged="EditingDateChanged"
+                            Milestone="@_editedDate"
+                            Repositories="@Configured()"
+                            DependencyOptions="@DependencyOptions()"
+                            Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                            OnSave="SaveDateAsync"
+                            OnDelete="DeleteDateAsync"
+                            OnDependencyChanged="ChangeDependencyAsync" />
+
+    <RoadmapBandColours @ref="_colours"
+                        Open="@_colouring"
+                        OpenChanged="value => _colouring = value"
+                        Repositories="@Configured()"
+                        ChosenColours="@_plan.Bands"
+                        OnChoose="ChooseColourAsync" />
 </section>
+
+@code {
+    // The plan as the timeline needs it. Rebuilt from the module after every
+    // change rather than patched in place: the plan decides what a reschedule did,
+    // and a locally applied guess is one more thing that can disagree with it.
+    private RoadmapTimelineModel _view = RoadmapTimelineModel.Empty;
+
+    // The plan itself as well as the view of it. The editor needs the items — their
+    // titles, their dependencies — and a bar on the chart carries only what it takes
+    // to draw one.
+    private RoadmapPlanDto _plan = RoadmapPlanDto.Empty;
+
+    private RoadmapItemEditor? _editor;
+    private RoadmapItemDto? _edited;
+    private bool _editing;
+
+    private RoadmapMilestoneEditor? _dateEditor;
+    private RoadmapMilestoneDto? _editedDate;
+    private bool _editingDate;
+
+    private RoadmapBandColours? _colours;
+    private bool _colouring;
+
+    private string? _selectedId;
+    private string? _error;
+
+    /// <summary>
+    /// Shorter rows than the library's 2.75rem default.
+    /// <para>
+    /// The band is capped at a quarter of the window, so every rem of row height is a
+    /// lane that has to be scrolled to rather than seen. At 2rem the axis and five
+    /// rows fit in the space the default spent on three, which is the difference
+    /// between reading a plan and paging through one.
+    /// </para>
+    /// </summary>
+    private const double CompactRowHeight = 2;
+
+    /// <summary>The bar inside a 2rem row, leaving 0.375rem above and below. Kept
+    /// proportional to the row rather than at the library's 1.5rem: the gap either
+    /// side is what makes two stacked bars read as two.</summary>
+    private const double CompactBarHeight = 1.25;
+
+    /// <summary>
+    /// The band's heading, in one place because it is rendered in two.
+    /// <para>
+    /// The years the plan covers used to be the chart's title, on the reasoning that
+    /// the band already said "Roadmap" and a second copy of the word would read as a
+    /// different thing. Both headings are now one heading, so the year has nowhere to
+    /// go that is worth a line — the quarters are ruled across the axis with their
+    /// years on them, which is where a reader looks for a date anyway.
+    /// </para>
+    /// </summary>
+    private RenderFragment BandHeading => @<text>
+        <div class="roadmap-band__title-lines">
+            <p class="roadmap-band__eyebrow">Planning</p>
+            <h2 id="roadmap-band-title" class="roadmap-band__title">Roadmap</h2>
+        </div>
+
+        @* Beside the heading rather than out at the end with the filters: these add to
+           the plan, and the filters only change what is shown of it. *@
+        <AppButton Variant="ButtonVariant.Secondary"
+                   Size="ButtonSize.Small"
+                   OnClick="PlanSomething"
+                   TestId="roadmap-band-add">
+            Plan work
+        </AppButton>
+
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Size="ButtonSize.Small"
+                   OnClick="AddADate"
+                   TestId="roadmap-band-add-date">
+            Add a date
+        </AppButton>
+
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Size="ButtonSize.Small"
+                   OnClick="() => _colouring = true"
+                   TestId="roadmap-band-colours">
+            Colours
+        </AppButton>
+    </text>;
+
+    /// <summary>Where the "now" line is drawn. A parameter so a test can put
+    /// today somewhere it chooses rather than wherever the clock happens to
+    /// be.</summary>
+    [Parameter]
+    public DateOnly? Today { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Repositories.Changed += OnRepositoriesChanged;
+        await Load();
+    }
+
+    public void Dispose() => Repositories.Changed -= OnRepositoriesChanged;
+
+    private async Task Load()
+    {
+        _plan = await Planning.GetPlanAsync();
+        _view = RoadmapPlanView.From(_plan, Configured());
+    }
+
+    /// <summary>The configured repositories, in the order Settings lists them. The
+    /// band asks per load rather than caching: a repository added while the app is
+    /// open should show up when the plan is next read, not after a restart.</summary>
+    private List<PlannedRepository> Configured() =>
+        [.. Repositories.Current.Repositories.Select(repository =>
+            new PlannedRepository(repository.Alias, repository.FullName))];
+
+    /// <summary>
+    /// A bar was opened — clicked, or Enter pressed on it, which the chart's own
+    /// keyboard help calls "open". So it opens the editor for that item.
+    /// <para>
+    /// A milestone is selectable too and has no editor yet, so opening one selects it
+    /// and stops there rather than showing a dialog with the wrong fields in it.
+    /// </para>
+    /// </summary>
+    private void Select(string barId)
+    {
+        _selectedId = barId;
+
+        var id = RoadmapPlanView.NodeIdOf(barId);
+        if (id is null) return;
+
+        var item = _plan.Items.FirstOrDefault(candidate => candidate.Id == id);
+        if (item is not null)
+        {
+            _edited = item;
+            _editing = true;
+            return;
+        }
+
+        var milestone = _plan.Milestones.FirstOrDefault(candidate => candidate.Id == id);
+        if (milestone is null) return;
+
+        _editedDate = milestone;
+        _editingDate = true;
+    }
+
+    private void PlanSomething()
+    {
+        _edited = null;
+        _editing = true;
+    }
+
+    private void AddADate()
+    {
+        _editedDate = null;
+        _editingDate = true;
+    }
+
+    private void EditingDateChanged(bool open)
+    {
+        _editingDate = open;
+        if (!open) _editedDate = null;
+    }
+
+    private void EditingChanged(bool open)
+    {
+        _editing = open;
+        if (!open) _edited = null;
+    }
+
+    /// <summary>Everything in the plan an item could be told to wait for, itself
+    /// excluded — the plan would refuse that, but offering it at all is the kind of
+    /// choice a control should not present.</summary>
+    private List<SelectorOption> DependencyOptions() =>
+    [
+        .. _plan.Items
+            .Where(item => item.Id != _edited?.Id)
+            .Select(item => new SelectorOption(item.Id.ToString(), item.Title)),
+        .. _plan.Milestones
+            .Where(milestone => milestone.Id != _edited?.Id)
+            .Select(milestone => new SelectorOption(milestone.Id.ToString(), milestone.Title))
+    ];
+
+    /// <summary>
+    /// Add or edit, decided by whether the submission carries an id.
+    /// <para>
+    /// The dialog closes only when the module accepted it. A refusal is shown inside
+    /// the dialog, on the fields that caused it, rather than behind a dialog that
+    /// closed as though the save had worked.
+    /// </para>
+    /// </summary>
+    private async Task SaveAsync(RoadmapEditorSubmission submission)
+    {
+        _error = null;
+
+        var saved = submission.ItemId is null
+            ? await Planning.AddItemAsync(
+                submission.Title,
+                submission.Start,
+                submission.End,
+                submission.Priority,
+                submission.RepositoryAliases,
+                submission.Lane,
+                submission.BacklogEntryId,
+                submission.Notes)
+            : await Planning.UpdateItemAsync(
+                submission.ItemId.Value,
+                submission.Title,
+                submission.Start,
+                submission.End,
+                submission.Priority,
+                submission.RepositoryAliases,
+                submission.Lane,
+                submission.BacklogEntryId,
+                submission.Notes);
+
+        if (saved.IsFailure)
+        {
+            _editor?.Refuse(saved.Error.Message);
+            return;
+        }
+
+        _editing = false;
+        _edited = null;
+        await Load();
+    }
+
+    private async Task DeleteAsync(Guid itemId)
+    {
+        _error = null;
+
+        var removed = await Planning.RemoveItemAsync(itemId);
+
+        if (removed.IsFailure)
+        {
+            _editor?.Refuse(removed.Error.Message);
+            return;
+        }
+
+        _editing = false;
+        _edited = null;
+        _selectedId = null;
+        await Load();
+    }
+
+    private async Task SaveDateAsync(RoadmapMilestoneSubmission submission)
+    {
+        _error = null;
+
+        var saved = submission.MilestoneId is null
+            ? await Planning.AddMilestoneAsync(
+                submission.Title,
+                submission.On,
+                submission.Kind,
+                submission.RepositoryAliases,
+                null,
+                submission.IsPlanWide)
+            : await Planning.UpdateMilestoneAsync(
+                submission.MilestoneId.Value,
+                submission.Title,
+                submission.On,
+                submission.Kind,
+                submission.RepositoryAliases,
+                null,
+                submission.IsPlanWide);
+
+        if (saved.IsFailure)
+        {
+            _dateEditor?.Refuse(saved.Error.Message);
+            return;
+        }
+
+        _editingDate = false;
+        _editedDate = null;
+        await Load();
+    }
+
+    private async Task DeleteDateAsync(Guid milestoneId)
+    {
+        _error = null;
+
+        var removed = await Planning.RemoveMilestoneAsync(milestoneId);
+
+        if (removed.IsFailure)
+        {
+            _dateEditor?.Refuse(removed.Error.Message);
+            return;
+        }
+
+        _editingDate = false;
+        _editedDate = null;
+        _selectedId = null;
+        await Load();
+    }
+
+    /// <summary>
+    /// A colour chosen for one band. Applied one at a time rather than on a Done
+    /// button, so the chart behind the dialog shows the choice as it is made — which is
+    /// the only way to judge whether it was the right one.
+    /// </summary>
+    private async Task ChooseColourAsync(RoadmapBandColourChoice choice)
+    {
+        var coloured = await Planning.ColourBandAsync(choice.Alias, choice.Colour);
+
+        if (coloured.IsFailure)
+        {
+            _colours?.Refuse(coloured.Error.Message);
+            return;
+        }
+
+        await Load();
+    }
+
+    /// <summary>
+    /// One dependency, added or taken away, answered while the dialog is still open.
+    /// <para>
+    /// A refused edge — one that would close a cycle — is reported in the dialog and
+    /// the plan is reloaded, so the tick the person just made goes back to where the
+    /// stored plan says it should be.
+    /// </para>
+    /// </summary>
+    private async Task ChangeDependencyAsync(RoadmapDependencyChange change)
+    {
+        var result = change.Added
+            ? await Planning.AddDependencyAsync(change.NodeId, change.DependsOnId)
+            : await Planning.RemoveDependencyAsync(change.NodeId, change.DependsOnId);
+
+        await Load();
+
+        if (result.IsFailure)
+        {
+            // Whichever dialog raised it: a milestone waits on things just as an item
+            // does, and the refusal has to land where the person is looking.
+            if (_editingDate) _dateEditor?.Refuse(result.Error.Message);
+            else _editor?.Refuse(result.Error.Message);
+
+            return;
+        }
+
+        // Re-point the dialog at the reloaded node, so what it shows and what is
+        // stored cannot disagree about which dependencies exist.
+        if (_edited is not null)
+        {
+            _edited = _plan.Items.FirstOrDefault(item => item.Id == _edited.Id) ?? _edited;
+        }
+
+        if (_editedDate is not null)
+        {
+            _editedDate = _plan.Milestones.FirstOrDefault(date => date.Id == _editedDate.Id) ?? _editedDate;
+        }
+    }
+
+    /// <summary>
+    /// A drag or a keyboard move, settled. The timeline has already snapped the
+    /// dates to the week and told us where the bar landed; the plan decides whether
+    /// that stands.
+    /// <para>
+    /// The lane only travels when the bar actually changed row. Passing the current
+    /// lane on every move would refile work that merely moved in time, and passing
+    /// null on a row change would drop the one thing the gesture was about.
+    /// </para>
+    /// </summary>
+    private async Task Apply(RoadmapChange change)
+    {
+        var itemId = RoadmapPlanView.NodeIdOf(change.BarId);
+        if (itemId is null) return;
+
+        _error = null;
+
+        var rescheduled = await Planning.RescheduleItemAsync(
+            itemId.Value,
+            change.Start,
+            change.End,
+            LaneOf(change.RowId));
+
+        // Reload either way. On success the plan is the truth; on failure the
+        // redraw is what puts the bar back where it was, so a refused change never
+        // leaves the chart showing something that was not stored.
+        if (rescheduled.IsFailure) _error = rescheduled.Error.Message;
+
+        await Load();
+    }
+
+    /// <summary>The lane out of a row id, or null when the bar stayed on the row it
+    /// was on. Row ids are built as <c>group::lane</c> by the view.</summary>
+    private string? LaneOf(string rowId)
+    {
+        var separator = rowId.IndexOf("::", StringComparison.Ordinal);
+        if (separator < 0) return null;
+
+        var lane = rowId[(separator + 2)..];
+        return lane.Length == 0 ? null : lane;
+    }
+
+    private void OnRepositoriesChanged() => InvokeAsync(async () =>
+    {
+        await Load();
+        StateHasChanged();
+    });
+}

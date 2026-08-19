@@ -34,8 +34,19 @@
                 <p class="sb-state" data-testid="input-estimate-value">@Show(_estimate)</p>
             </div>
             <div>
-                <TextField Label="Due date" Type="date" Value="@_due" ValueChanged="v => _due = v" />
-                <p class="sb-state">@Show(_due)</p>
+                @* A real date field, which it was not until recently: the type
+                   allowlist did not include "date", so this story quietly rendered
+                   a text box for as long as it has existed. The value is the
+                   native wire format, yyyy-MM-dd, and stays invariant — what the
+                   date is called on screen is the browser's from the locale. *@
+                <TextField Label="Due date" Type="date" Value="@_due" ValueChanged="v => _due = v" TestId="input-due" />
+                <p class="sb-state" data-testid="input-due-value">@Show(_due)</p>
+            </div>
+            <div>
+                @* datetime-local, and deliberately local: it carries no zone and
+                   no offset, which is what a wall-clock reminder is. *@
+                <TextField Label="Remind me at" Type="datetime-local" Value="@_remindAt" ValueChanged="v => _remindAt = v" TestId="input-remind" />
+                <p class="sb-state" data-testid="input-remind-value">@Show(_remindAt)</p>
             </div>
             <div>
                 <TextField Label="Alias"
@@ -223,6 +234,7 @@
     private string _url = "https://github.com/JSdotNet/Backlog";
     private string _estimate = "3";
     private string _due = "2026-08-31";
+    private string _remindAt = "2026-08-31T09:00";
     private string _alias = "backlog";
     private string _notes = "The read view and the editor show the same text.\nAdd a line to see AutoGrow work.";
     private string _query = string.Empty;

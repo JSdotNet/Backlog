@@ -491,21 +491,22 @@ public sealed class TaskPanelTests
     }
 
     [Fact]
-    public void Sub_items_carry_no_pencil_and_open_on_their_titles()
+    public void Sub_items_carry_no_pencil_because_the_title_is_already_the_field()
     {
-        // A sub-item has no pane to open, so there is nothing else the click could
-        // have meant — and a pencil on every one of them is a column of the smallest
-        // target on the panel down the side of one-line rows.
+        // A sub-item has no pane to open, so the click a pencil protects was never
+        // going anywhere — and a pencil on every one of them is a column of the
+        // smallest target on the panel down the side of one-line rows.
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var view = context.Render<TaskPanelHarness>();
 
         Assert.Empty(view.FindAll("[data-testid='item-s1-edit']"));
+        Assert.Empty(view.FindAll("[data-testid='item-s1-title']"));
 
-        view.Find("[data-testid='item-s1-open']").Click();
-
-        Assert.NotNull(view.Find("[data-testid='item-s1-rename']"));
+        Assert.Equal(
+            "First sub-item",
+            view.Find("[data-testid='item-s1-rename']").GetAttribute("value"));
     }
 
     [Fact]
@@ -519,7 +520,6 @@ public sealed class TaskPanelTests
 
         var view = context.Render<TaskPanelHarness>();
 
-        view.Find("[data-testid='item-s1-open']").Click();
         view.Find("[data-testid='item-s1-rename']").Input("First sub-item, renamed");
         view.Find("[data-testid='item-s1-rename']").KeyDown(new KeyboardEventArgs { Key = "Tab" });
 
@@ -527,8 +527,9 @@ public sealed class TaskPanelTests
         Assert.Equal("s1", rename.Id);
         Assert.Equal("First sub-item, renamed", rename.Title);
 
-        // The row it left is a row again, and the next one is the field.
-        Assert.Empty(view.FindAll("[data-testid='item-s1-rename']"));
+        // Both are fields throughout — every row's title is one — so what says the
+        // edit moved on is which one the list is holding open, not which one exists.
+        Assert.Equal("First sub-item, renamed", view.Find("[data-testid='item-s1-rename']").GetAttribute("value"));
         Assert.NotNull(view.Find("[data-testid='item-s2-rename']"));
     }
 

@@ -146,8 +146,8 @@
     <Story Name="SplitPane"
            Description="Drag the separator, or focus it and use Left/Right, PageUp/PageDown, Home/End. Every drag in this product owes the keyboard an equivalent, and this is that equivalent."
            Code="@SplitCode">
-        <SplitPane StartWidthRem="_startWidth"
-                   StartWidthRemChanged="v => _startWidth = v"
+        <SplitPane FixedWidthRem="_startWidth"
+                   FixedWidthRemChanged="v => _startWidth = v"
                    MinRem="12"
                    MaxRem="48"
                    AriaLabel="Storybook pane width"
@@ -168,6 +168,36 @@
             </End>
         </SplitPane>
         <p class="sb-state" data-testid="split-state">Start width: @_startWidth.ToString("0.##") rem</p>
+    </Story>
+
+    <Story Name="SplitPane, anchored to the end"
+           Description="The other shape: a panel of a settled width beside content that takes every pixel the panel does not need. Anchor decides which pane the bound width belongs to, and it moves the grid template and the resizer&#39;s `data-pane-anchor` hint together — one decision, because a grid whose fixed column is last while the attribute still says “start” is a drag that runs backwards.
+
+Left and Right still describe the separator rather than the number, so here Left is the arrow that makes the panel wider. That is not a special case: it is the same gesture as before, and the number under it goes up instead of down because the pane it measures is fixed to the other edge. Home and End are about the value&#39;s ends rather than the screen&#39;s, so they mean the same thing in both anchors."
+           Code="@SplitEndCode">
+        <SplitPane Anchor="SplitPaneAnchor.End"
+                   FixedWidthRem="_endWidth"
+                   FixedWidthRemChanged="v => _endWidth = v"
+                   MinRem="12"
+                   MaxRem="48"
+                   AriaLabel="Storybook panel width"
+                   CssClass="sb-pane"
+                   TestId="demo-split-end"
+                   SeparatorTestId="demo-split-end-separator">
+            <Start>
+                <div class="sb-surface">
+                    <p class="sb-label">Start pane</p>
+                    <p>Takes whatever is left, and gets wider as the window does.</p>
+                </div>
+            </Start>
+            <End>
+                <div class="sb-surface">
+                    <p class="sb-label">End pane</p>
+                    <p>Fixed. One thing is shown here, and one thing does not need more room in a bigger window.</p>
+                </div>
+            </End>
+        </SplitPane>
+        <p class="sb-state" data-testid="split-end-state">End width: @_endWidth.ToString("0.##") rem</p>
     </Story>
 
     <Story Name="Scrollbar"
@@ -204,6 +234,11 @@
     private bool _foldOpen = true;
     private bool _hostFoldOpen;
     private double _startWidth = 20;
+
+    /// <summary>Held apart from the start-anchored story's width so the two
+    /// separators cannot move each other — they are two layouts on one page, not one
+    /// layout twice.</summary>
+    private double _endWidth = 20;
 
     private const string TabsCode = """
         <Tabs ActiveId="@_activeTab" ActiveIdChanged="id => _activeTab = id" AriaLabel="Entry views">
@@ -257,10 +292,20 @@
         """;
 
     private const string SplitCode = """
-        <SplitPane StartWidthRem="_startWidth" StartWidthRemChanged="v => _startWidth = v"
+        <SplitPane FixedWidthRem="_startWidth" FixedWidthRemChanged="v => _startWidth = v"
                    MinRem="12" MaxRem="48" AriaLabel="Storybook pane width">
             <Start>...</Start>
             <End>...</End>
+        </SplitPane>
+        """;
+
+    private const string SplitEndCode = """
+        @* The bound width is whichever pane Anchor names, so this is the end one. *@
+        <SplitPane Anchor="SplitPaneAnchor.End"
+                   FixedWidthRem="_width" FixedWidthRemChanged="v => _width = v"
+                   MinRem="12" MaxRem="48">
+            <Start>...takes what is left...</Start>
+            <End>...fixed...</End>
         </SplitPane>
         """;
 }

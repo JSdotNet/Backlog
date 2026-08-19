@@ -65,6 +65,10 @@ nunit-*.xml
 # Local QA validation evidence (screenshots, scenario results)
 .qa-evidence/
 
+# Playwright MCP browser output (screenshots, page snapshots, console logs),
+# written to the working directory of whichever session drove the browser.
+.playwright-mcp/
+
 # Claude Code worktree sessions. The rest of .claude/ (orch-context.md,
 # model-selection.md) is tracked team configuration.
 .claude/worktrees/
