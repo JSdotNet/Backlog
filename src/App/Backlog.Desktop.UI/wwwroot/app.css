@@ -1297,8 +1297,17 @@ h1, h2, h3 {
 
 /* --- Settings -------------------------------------------------------------- */
 
-.shell--narrow {
-    max-width: 720px;
+/* The settings screen's own container. It was 720px wide and named `--narrow`
+   for it, which on a 1600px window spent more than half the screen on margin
+   and pushed tabs that had room to spare into a scrollbar. The cap is now the
+   design system's default container - 1280px, `.design/typography-and-layout.md`
+   - and the blocks inside a tab spread into columns rather than stacking into
+   one long ribbon, so a tab whose content fits shows no scrollbar at all.
+   `auto` still gives one to the tabs that genuinely overflow, and the stable
+   gutter keeps the columns from shifting sideways as you move between a tab
+   that scrolls and one that does not. */
+.shell--settings {
+    max-width: 1280px;
     overflow-y: auto;
     scrollbar-gutter: stable;
 }
@@ -1315,6 +1324,44 @@ h1, h2, h3 {
     overflow: visible;
 }
 
+/* Blocks that sit side by side inside a settings tab. `auto-fit` is what lets
+   one rule serve every width: the tracks collapse back to a single column once
+   the content box drops under roughly 46rem, which is the stacked layout this
+   page had everywhere before, so no breakpoint has to name it. The `min()` is
+   what keeps a phone honest - a bare 22rem minimum is a floor the track cannot
+   go under, so on a 375px screen it would push the column past the edge. */
+.setting-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+    gap: var(--spacing-lg);
+    align-items: start;
+}
+
+/* A grid item will not shrink below its content unless told to, and these hold
+   folder paths and endpoints that have nowhere to wrap.
+
+   The max-width is for the other end. `auto-fit` collapses the tracks nothing
+   landed in and hands their space to the ones that did, which is what makes two
+   blocks split the row evenly - but a tab that renders a single block, as the AI
+   tab does whenever one of its two features is off, would then get one card
+   stretched across the full 1280px with a text field the width of the window for
+   a value like `2024-10-21`. Capped, that lone card falls back to the design
+   system's narrow container (640px) and reads as it did before. Two or more
+   blocks are already narrower than the cap, so it only ever binds on the one. */
+.setting-columns > * {
+    min-width: 0;
+    max-width: 640px;
+}
+
+/* The knowledge-folder block carries a rule above it to separate it from the
+   setting it follows. Beside that setting rather than below it, the rule is
+   separating nothing. */
+.setting-columns > .knowledge-folders {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+}
+
 
 .settings-tabs {
     display: flex;
@@ -1326,8 +1373,12 @@ h1, h2, h3 {
     border-radius: var(--border-radius-md);
 }
 
+/* The pills share the strip evenly and wrap when they run out of room, but
+   they stop growing at 14rem: four tabs stretched across a 1280px container
+   read as a toolbar rather than as a set of pages. */
 .settings-tab {
     flex: 1 1 9rem;
+    max-width: 14rem;
     font: inherit;
     font-size: var(--font-size-sm);
     font-weight: 600;
@@ -1441,10 +1492,23 @@ h1, h2, h3 {
 }
 
 
+/* Thirteen flags stacked one per row is what made this the tallest tab on the
+   page. A flag needs room for its title and a line or two of description, which
+   minmax puts at 22rem, and the same auto-fit collapse returns it to one column
+   on a window that cannot hold two. */
 .feature-flags {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
     gap: var(--spacing-sm);
     margin-top: var(--spacing-md);
+}
+
+/* The note the usage-metrics flag brings with it is about that flag, not about
+   the column the flag happens to land in, so it takes the full width beneath
+   the row instead of standing in for a flag in the next cell. */
+.feature-flags > .setting__note {
+    grid-column: 1 / -1;
+    margin-top: 0;
 }
 
 .repo-subpages {
@@ -1550,6 +1614,16 @@ h1, h2, h3 {
     margin-top: var(--spacing-md);
     padding-top: var(--spacing-md);
     border-top: var(--border-width) solid var(--color-border);
+}
+
+/* The folder rows are independent of one another, so they column up with
+   nothing that has to be kept together; the heading and the note explaining
+   the block stay outside the list and keep the full width. */
+.knowledge-folder-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr));
+    column-gap: var(--spacing-lg);
+    align-items: start;
 }
 
 .knowledge-folders__title {
