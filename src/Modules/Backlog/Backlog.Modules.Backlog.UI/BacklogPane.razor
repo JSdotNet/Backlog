@@ -410,6 +410,9 @@
             @if (State.RawHatchOpen)
             {
                 <div class="entry-detail__raw">
+                    @* data-testid goes on the textarea rather than through TestId,
+                       which lives on a wrapper Bare does not render — the same way
+                       the date and reminder pickers below are named. *@
                     <TextArea Bare="true"
                               Id="@RawEditorId"
                               AriaLabel="Entry markdown"
@@ -418,10 +421,6 @@
                               GrowCssClass="entry-detail__raw-grow"
                               AutoGrow="true"
                               Rows="8"
-                              @* On the textarea rather than through TestId, which
-                                 lives on a wrapper Bare does not render — the same
-                                 way the date and reminder pickers below are
-                                 named. *@
                               data-testid="entry-raw-input"
                               Value="@State.EntryEditText(row)"
                               ValueChanged="value => State.OnRawTextInput(row, value)"

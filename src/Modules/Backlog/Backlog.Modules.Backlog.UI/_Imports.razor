@@ -17,6 +17,10 @@
 @using Backlog.UI.Components.Badges
 @using Backlog.UI.Components.Buttons
 @using Backlog.UI.Components.Inputs
+@* SplitPane. Without this the pane rendered a literal <splitpane> element -
+   Razor treats an unimported component as unknown HTML rather than failing, so
+   the list and the detail pane stacked instead of sitting side by side. *@
+@using Backlog.UI.Components.Layout
 @* TaskAction is the shape the storybook settled on for "add a step, put it in my
    day, remind me, give it a due date, repeat it" — one control for all of them,
    because a row that is set and a row that is not are two states of one thing. *@

@@ -92,14 +92,14 @@
            short string, so a Save button beside it would be a second thing to
            reach for after the one that already finished the job. *@
         <div class="task-item__rename">
+            @* data-testid goes on the input rather than through TestId, which
+               lives on a wrapper Bare does not render — so the name went nowhere
+               and the field could only be found by its class. *@
             <TextField Value="@_draft"
                        ValueChanged="v => _draft = v"
                        AriaLabel="@($"Rename {Task.Title}")"
                        Bare="true"
                        InputCssClass="task-item__rename-input"
-                       @* On the input rather than through TestId, which lives on a
-                          wrapper Bare does not render — so the name went nowhere and
-                          the field could only be found by its class. *@
                        data-testid="@Suffix("rename")"
                        Id="@_renameId"
                        @onkeydown="OnRenameKeyAsync"
