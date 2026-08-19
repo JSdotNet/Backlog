@@ -23,9 +23,9 @@ public sealed class DesignKnowledgeViewTests : IDisposable
     private readonly List<string> _roots = [];
 
     [Fact]
-    public void A_selected_design_chapter_renders_the_editing_surface()
+    public async Task A_selected_design_chapter_renders_the_editing_surface()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render("colors.md");
 
@@ -34,9 +34,9 @@ public sealed class DesignKnowledgeViewTests : IDisposable
     }
 
     [Fact]
-    public void The_selected_chapter_is_shown_through_the_shared_file_view()
+    public async Task The_selected_chapter_is_shown_through_the_shared_file_view()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render("colors.md");
 
@@ -58,9 +58,9 @@ public sealed class DesignKnowledgeViewTests : IDisposable
     }
 
     [Fact]
-    public void The_selected_chapter_is_offered_whole_rather_than_reassembled_from_its_sections()
+    public async Task The_selected_chapter_is_offered_whole_rather_than_reassembled_from_its_sections()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render("colors.md");
 
@@ -74,9 +74,9 @@ public sealed class DesignKnowledgeViewTests : IDisposable
     }
 
     [Fact]
-    public void A_typed_design_chapter_reaches_the_file()
+    public async Task A_typed_design_chapter_reaches_the_file()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
         var component = harness.Render("colors.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
 
@@ -95,9 +95,9 @@ public sealed class DesignKnowledgeViewTests : IDisposable
     }
 
     [Fact]
-    public void A_chapter_that_left_the_folder_offers_no_way_in()
+    public async Task A_chapter_that_left_the_folder_offers_no_way_in()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
         var component = harness.Render("colors.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-surface']")));
 
@@ -112,9 +112,9 @@ public sealed class DesignKnowledgeViewTests : IDisposable
     }
 
     [Fact]
-    public void With_nothing_selected_the_folder_overview_is_still_the_whole_folder()
+    public async Task With_nothing_selected_the_folder_overview_is_still_the_whole_folder()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render(selectedPath: null);
 
@@ -130,11 +130,19 @@ public sealed class DesignKnowledgeViewTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
     }
 
+    /// <summary>
+    /// Deletes the temp folders once every test has awaited its harness away, so
+    /// nothing this class rendered can still be writing into one of them. The
+    /// catch stays as a courtesy for a lock this class does not own — a scanner
+    /// or an indexer holding a file open — rather than as the thing keeping the
+    /// suite green.
+    /// </summary>
     public void Dispose()
     {
         foreach (var root in _roots.Where(Directory.Exists))
         {
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+            try { Directory.Delete(root, recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
 
@@ -202,7 +210,7 @@ public sealed class DesignKnowledgeViewTests : IDisposable
         Bodies persist on a debounce.
         """;
 
-    private sealed record Harness(BunitContext Context, string DesignFolder) : IDisposable
+    private sealed record Harness(BunitContext Context, string DesignFolder) : IAsyncDisposable
     {
         public IRenderedComponent<DesignKnowledgeView> Render(string? selectedPath) =>
             Context.Render<DesignKnowledgeView>(parameters => parameters
@@ -214,6 +222,14 @@ public sealed class DesignKnowledgeViewTests : IDisposable
                 .Add(view => view.RepositoryAlias, "backlog")
                 .Add(view => view.SelectedPath, selectedPath));
 
-        public void Dispose() => Context.Dispose();
+        /// <summary>
+        /// Awaited disposal, because the editing surface this harness renders
+        /// writes its last pending save on the way out. A synchronous
+        /// <c>Dispose</c> hands that save to the renderer's dispatcher and returns
+        /// before it lands, so the folder delete that follows could arrive while
+        /// the file was still being replaced — a locked temp file on a slow
+        /// machine and a green suite on a fast one.
+        /// </summary>
+        public async ValueTask DisposeAsync() => await Context.DisposeAsync();
     }
 }

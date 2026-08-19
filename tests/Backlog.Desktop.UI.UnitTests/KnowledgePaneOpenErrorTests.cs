@@ -13,9 +13,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class KnowledgePaneOpenErrorTests
 {
     [Fact]
-    public void Knowledge_pane_shows_no_open_error_before_a_folder_open_fails()
+    public async Task Knowledge_pane_shows_no_open_error_before_a_folder_open_fails()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render();
 
@@ -26,7 +26,7 @@ public sealed class KnowledgePaneOpenErrorTests
     [Fact]
     public async Task Knowledge_pane_shows_the_real_reason_when_opening_a_folder_fails()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".knowledge-menu__item")));
@@ -106,20 +106,28 @@ public sealed class KnowledgePaneOpenErrorTests
         return new Harness(root, context, configuredRepository.Alias);
     }
 
-    private sealed record Harness(string Root, BunitContext Context, string RepositoryAlias) : IDisposable
+    private sealed record Harness(string Root, BunitContext Context, string RepositoryAlias) : IAsyncDisposable
     {
         public IRenderedComponent<KnowledgePane> Render() =>
             Context.Render<KnowledgePane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
 
-        public void Dispose()
+        /// <summary>
+        /// Awaited disposal, because the editing surface this harness renders
+        /// writes its last pending save on the way out. A synchronous
+        /// <c>Dispose</c> hands that save to the renderer's dispatcher and returns
+        /// before it lands, so the folder delete that follows could arrive while
+        /// the file was still being replaced — a locked temp file on a slow
+        /// machine and a green suite on a fast one.
+        /// </summary>
+        public async ValueTask DisposeAsync()
         {
-            Context.Dispose();
+            await Context.DisposeAsync();
 
             try
             {
                 if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
             }
         }

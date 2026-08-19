@@ -19,9 +19,9 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     private readonly List<string> _tempDirs = [];
 
     [Fact]
-    public void A_chapter_that_could_not_be_resolved_offers_no_way_in()
+    public async Task A_chapter_that_could_not_be_resolved_offers_no_way_in()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
 
         var component = context.Render<KnowledgeChapterEditor>(parameters => parameters
             .Add(editor => editor.Chapter, null)
@@ -32,9 +32,9 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     }
 
     [Fact]
-    public void A_resolved_chapter_offers_a_way_in()
+    public async Task A_resolved_chapter_offers_a_way_in()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (_, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
 
         var component = Render(context, chapter, "# Notes\n\nProse.\n");
@@ -43,9 +43,9 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     }
 
     [Fact]
-    public void Blur_flushes_the_pending_body_without_leaving_the_editor()
+    public async Task Blur_flushes_the_pending_body_without_leaving_the_editor()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
         var component = Render(context, chapter, "# Notes\n\nProse.\n");
 
@@ -63,9 +63,9 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     }
 
     [Fact]
-    public void Done_flushes_the_pending_body_and_returns_to_reading()
+    public async Task Done_flushes_the_pending_body_and_returns_to_reading()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
         var component = Render(context, chapter, "# Notes\n\nProse.\n");
 
@@ -80,9 +80,9 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     }
 
     [Fact]
-    public void Typing_and_waiting_saves_on_its_own()
+    public async Task Typing_and_waiting_saves_on_its_own()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
         var component = Render(context, chapter, "# Notes\n\nProse.\n");
 
@@ -97,9 +97,9 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     }
 
     [Fact]
-    public void Moving_to_another_chapter_flushes_the_one_being_left()
+    public async Task Moving_to_another_chapter_flushes_the_one_being_left()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (root, first) = Chapter("first.md", "# First\n\nProse.\n");
         var second = new KnowledgeChapterRef("arc42", root, "second.md");
         File.WriteAllText(Path.Combine(root, "second.md"), "# Second\n\nOther prose.\n");
@@ -119,9 +119,9 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     }
 
     [Fact]
-    public void A_write_that_fails_says_so_rather_than_looking_saved()
+    public async Task A_write_that_fails_says_so_rather_than_looking_saved()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
         var component = Render(context, chapter, "# Notes\n\nProse.\n");
 
@@ -137,9 +137,9 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     }
 
     [Fact]
-    public void A_saved_chapter_says_so()
+    public async Task A_saved_chapter_says_so()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (_, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
         var component = Render(context, chapter, "# Notes\n\nProse.\n");
 
@@ -156,9 +156,9 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     }
 
     [Fact]
-    public void A_reload_of_the_same_chapter_does_not_take_the_text_being_typed()
+    public async Task A_reload_of_the_same_chapter_does_not_take_the_text_being_typed()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (_, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
         var component = Render(context, chapter, "# Notes\n\nProse.\n");
 
@@ -178,7 +178,7 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     [Fact]
     public async Task A_write_that_lands_after_the_next_keystroke_leaves_the_newer_text_alone()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
         var component = Render(context, chapter, "# Notes\n\nProse.\n");
 
@@ -213,9 +213,9 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     }
 
     [Fact]
-    public void A_debounced_save_that_fails_unexpectedly_says_so_rather_than_saving_forever()
+    public async Task A_debounced_save_that_fails_unexpectedly_says_so_rather_than_saving_forever()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (_, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
 
         var component = context.Render<KnowledgeChapterEditor>(parameters => parameters
@@ -243,7 +243,7 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
     [Fact]
     public async Task A_save_that_fails_on_the_way_out_is_reported_to_the_host()
     {
-        using var context = NewContext();
+        await using var context = NewContext();
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
 
         var reported = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -267,11 +267,22 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
         Assert.Contains("notes.md", message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Deletes the temp folders once every test has awaited its context away, so
+    /// the editor's disposal save has landed before the folder it was aimed at
+    /// goes. That ordering is the point: a synchronous <c>Dispose</c> hands the
+    /// save to the renderer's dispatcher and returns without it, which on a slow
+    /// machine put the delete inside the file replace and left the run red for a
+    /// reason none of the assertions were about. The catch stays as a courtesy
+    /// for a lock this class does not own — a scanner or an indexer holding a
+    /// file open — rather than as the thing keeping the suite green.
+    /// </summary>
     public void Dispose()
     {
         foreach (var dir in _tempDirs.Where(Directory.Exists))
         {
-            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
+            try { Directory.Delete(dir, recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
 

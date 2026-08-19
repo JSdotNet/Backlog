@@ -25,9 +25,9 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     private readonly List<string> _roots = [];
 
     [Fact]
-    public void A_selected_chapter_renders_the_editing_surface()
+    public async Task A_selected_chapter_renders_the_editing_surface()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render(ContextMapPath);
 
@@ -39,9 +39,9 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void The_selected_chapter_is_shown_through_the_shared_file_view()
+    public async Task The_selected_chapter_is_shown_through_the_shared_file_view()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render(ContextMapPath);
 
@@ -62,9 +62,9 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void The_chapter_article_gives_up_its_card_to_the_file_view()
+    public async Task The_chapter_article_gives_up_its_card_to_the_file_view()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-surface']")));
@@ -80,9 +80,9 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void A_document_the_file_view_is_not_showing_keeps_its_card()
+    public async Task A_document_the_file_view_is_not_showing_keeps_its_card()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         // No selection, so this is the folder overview and every document on it is
         // one entry in a list. There the card is what tells the entries apart, and
@@ -97,9 +97,9 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void Consecutive_relations_are_separate_tokens()
+    public async Task Consecutive_relations_are_separate_tokens()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         // Two relations that differ only in their anchor, which is the pair that
         // was reported: run together they read as one path of twice the length,
@@ -114,9 +114,9 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void The_edited_chapter_keeps_the_per_section_actions()
+    public async Task The_edited_chapter_keeps_the_per_section_actions()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-surface']")));
@@ -130,9 +130,9 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void A_chapter_whose_folder_is_not_there_offers_no_way_in()
+    public async Task A_chapter_whose_folder_is_not_there_offers_no_way_in()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         // A view handed in by a parent, naming a root this machine does not have.
         // The panel keeps rendering what it was given and offers no way in, which
@@ -145,9 +145,9 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void Changing_the_state_writes_the_pending_body_before_the_status()
+    public async Task Changing_the_state_writes_the_pending_body_before_the_status()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
         var chapterPath = Path.Combine(harness.Root, ".domain", "context-map.md");
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
@@ -190,11 +190,19 @@ public sealed class DomainKnowledgePanelTests : IDisposable
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Deletes the temp folders once every test has awaited its harness away, so
+    /// nothing this class rendered can still be writing into one of them. The
+    /// catch stays as a courtesy for a lock this class does not own — a scanner
+    /// or an indexer holding a file open — rather than as the thing keeping the
+    /// suite green.
+    /// </summary>
     public void Dispose()
     {
         foreach (var root in _roots.Where(Directory.Exists))
         {
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+            try { Directory.Delete(root, recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
 
@@ -290,7 +298,7 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         return new Harness(root, context, repository.Alias, folders);
     }
 
-    private sealed record Harness(string Root, BunitContext Context, string RepositoryAlias, RecordingKnowledgeFolderSource Folders) : IDisposable
+    private sealed record Harness(string Root, BunitContext Context, string RepositoryAlias, RecordingKnowledgeFolderSource Folders) : IAsyncDisposable
     {
         public IRenderedComponent<DomainKnowledgePanel> Render(string? selectedPath) =>
             Context.Render<DomainKnowledgePanel>(parameters => parameters
@@ -302,6 +310,14 @@ public sealed class DomainKnowledgePanelTests : IDisposable
                 .Add(panel => panel.View, view)
                 .Add(panel => panel.SelectedPath, selectedPath));
 
-        public void Dispose() => Context.Dispose();
+        /// <summary>
+        /// Awaited disposal, because the editing surface this harness renders
+        /// writes its last pending save on the way out. A synchronous
+        /// <c>Dispose</c> hands that save to the renderer's dispatcher and returns
+        /// before it lands, so the folder delete that follows could arrive while
+        /// the file was still being replaced — a locked temp file on a slow
+        /// machine and a green suite on a fast one.
+        /// </summary>
+        public async ValueTask DisposeAsync() => await Context.DisposeAsync();
     }
 }

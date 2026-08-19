@@ -25,9 +25,9 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
     private readonly List<string> _roots = [];
 
     [Fact]
-    public void A_selected_chapter_renders_the_editing_surface()
+    public async Task A_selected_chapter_renders_the_editing_surface()
     {
-        using var harness = CreateHarness(withArc42Folder: true);
+        await using var harness = CreateHarness(withArc42Folder: true);
 
         var component = harness.Render(DecisionPath);
 
@@ -39,9 +39,9 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void The_selected_chapter_is_shown_through_the_shared_file_view()
+    public async Task The_selected_chapter_is_shown_through_the_shared_file_view()
     {
-        using var harness = CreateHarness(withArc42Folder: true);
+        await using var harness = CreateHarness(withArc42Folder: true);
 
         var component = harness.Render(DecisionPath);
 
@@ -57,9 +57,9 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void The_document_state_survives_the_move_onto_the_file_view()
+    public async Task The_document_state_survives_the_move_onto_the_file_view()
     {
-        using var harness = CreateHarness(withArc42Folder: true);
+        await using var harness = CreateHarness(withArc42Folder: true);
 
         var component = harness.Render(DecisionPath);
 
@@ -72,9 +72,9 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void The_chapter_nav_and_the_summary_strip_survive_the_body_swap()
+    public async Task The_chapter_nav_and_the_summary_strip_survive_the_body_swap()
     {
-        using var harness = CreateHarness(withArc42Folder: true);
+        await using var harness = CreateHarness(withArc42Folder: true);
 
         // No SelectedPath is the browsing shape: the chapter list on the left and
         // the summary counts above it are what makes the pane navigable, and they
@@ -87,12 +87,12 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void A_chapter_that_cannot_be_placed_offers_no_way_in()
+    public async Task A_chapter_that_cannot_be_placed_offers_no_way_in()
     {
         // Nothing to place it against: without an .arc42 folder the panel has no
         // chapter to resolve, so it must not put an editing surface on screen for
         // the reader to type into.
-        using var harness = CreateHarness(withArc42Folder: false);
+        await using var harness = CreateHarness(withArc42Folder: false);
 
         var component = harness.Render(DecisionPath);
 
@@ -102,9 +102,9 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void Changing_the_state_writes_the_pending_body_before_the_status()
+    public async Task Changing_the_state_writes_the_pending_body_before_the_status()
     {
-        using var harness = CreateHarness(withArc42Folder: true);
+        await using var harness = CreateHarness(withArc42Folder: true);
         var chapterPath = Path.Combine(harness.Root, ".arc42", "adr", "0001-decision.md");
         var component = harness.Render(DecisionPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
@@ -145,9 +145,9 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void A_debounced_save_leaves_the_editor_open_where_it_was()
+    public async Task A_debounced_save_leaves_the_editor_open_where_it_was()
     {
-        using var harness = CreateHarness(withArc42Folder: true);
+        await using var harness = CreateHarness(withArc42Folder: true);
         var chapterPath = Path.Combine(harness.Root, ".arc42", "adr", "0001-decision.md");
         var component = harness.Render(DecisionPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
@@ -174,11 +174,19 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
         Assert.Single(component.FindAll("[data-testid='knowledge-chapter-done']"));
     }
 
+    /// <summary>
+    /// Deletes the temp folders once every test has awaited its harness away, so
+    /// nothing this class rendered can still be writing into one of them. The
+    /// catch stays as a courtesy for a lock this class does not own — a scanner
+    /// or an indexer holding a file open — rather than as the thing keeping the
+    /// suite green.
+    /// </summary>
     public void Dispose()
     {
         foreach (var root in _roots.Where(Directory.Exists))
         {
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+            try { Directory.Delete(root, recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
 
@@ -239,13 +247,21 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
         return new Harness(root, context, repository.Alias, folders);
     }
 
-    private sealed record Harness(string Root, BunitContext Context, string RepositoryAlias, RecordingKnowledgeFolderSource Folders) : IDisposable
+    private sealed record Harness(string Root, BunitContext Context, string RepositoryAlias, RecordingKnowledgeFolderSource Folders) : IAsyncDisposable
     {
         public IRenderedComponent<Arc42KnowledgePanel> Render(string? selectedPath) =>
             Context.Render<Arc42KnowledgePanel>(parameters => parameters
                 .Add(panel => panel.RepositoryAlias, RepositoryAlias)
                 .Add(panel => panel.SelectedPath, selectedPath));
 
-        public void Dispose() => Context.Dispose();
+        /// <summary>
+        /// Awaited disposal, because the editing surface this harness renders
+        /// writes its last pending save on the way out. A synchronous
+        /// <c>Dispose</c> hands that save to the renderer's dispatcher and returns
+        /// before it lands, so the folder delete that follows could arrive while
+        /// the file was still being replaced — a locked temp file on a slow
+        /// machine and a green suite on a fast one.
+        /// </summary>
+        public async ValueTask DisposeAsync() => await Context.DisposeAsync();
     }
 }

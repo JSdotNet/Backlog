@@ -7,9 +7,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class InstructionsKnowledgePanelTests
 {
     [Fact]
-    public void Instructions_panel_renders_repository_instructions_without_throwing()
+    public async Task Instructions_panel_renders_repository_instructions_without_throwing()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog"));
@@ -24,9 +24,9 @@ public sealed class InstructionsKnowledgePanelTests
     /// the editing surface's bar directly below it.
     /// </summary>
     [Fact]
-    public void The_selected_document_is_shown_through_the_shared_file_view()
+    public async Task The_selected_document_is_shown_through_the_shared_file_view()
     {
-        using var harness = CreateCloneHarness();
+        await using var harness = CreateCloneHarness();
 
         var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog")
@@ -46,9 +46,9 @@ public sealed class InstructionsKnowledgePanelTests
     }
 
     [Fact]
-    public void The_file_view_header_carries_the_agent_the_scope_and_the_size()
+    public async Task The_file_view_header_carries_the_agent_the_scope_and_the_size()
     {
-        using var harness = CreateCloneHarness();
+        await using var harness = CreateCloneHarness();
 
         var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog")
@@ -67,9 +67,9 @@ public sealed class InstructionsKnowledgePanelTests
     }
 
     [Fact]
-    public void The_selected_document_is_edited_from_the_file_and_not_from_the_discovery_pass()
+    public async Task The_selected_document_is_edited_from_the_file_and_not_from_the_discovery_pass()
     {
-        using var harness = CreateCloneHarness();
+        await using var harness = CreateCloneHarness();
         var claude = Path.Combine(harness.Root, "clone", "CLAUDE.md");
 
         var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
@@ -153,17 +153,25 @@ public sealed class InstructionsKnowledgePanelTests
 
     private static string FindRepositoryRoot() => RepositoryRoot.Root.FullName;
 
-    private sealed record Harness(string Root, BunitContext Context) : IDisposable
+    private sealed record Harness(string Root, BunitContext Context) : IAsyncDisposable
     {
-        public void Dispose()
+        /// <summary>
+        /// Awaited disposal, because the editing surface this harness renders
+        /// writes its last pending save on the way out. A synchronous
+        /// <c>Dispose</c> hands that save to the renderer's dispatcher and returns
+        /// before it lands, so the folder delete that follows could arrive while
+        /// the file was still being replaced — a locked temp file on a slow
+        /// machine and a green suite on a fast one.
+        /// </summary>
+        public async ValueTask DisposeAsync()
         {
-            Context.Dispose();
+            await Context.DisposeAsync();
 
             try
             {
                 if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
             }
         }

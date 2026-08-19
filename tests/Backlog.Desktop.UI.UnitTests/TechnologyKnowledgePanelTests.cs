@@ -23,9 +23,9 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     private readonly List<string> _roots = [];
 
     [Fact]
-    public void The_active_layer_renders_the_editing_surface()
+    public async Task The_active_layer_renders_the_editing_surface()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render();
 
@@ -34,9 +34,9 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void The_editing_surface_sits_below_the_node_grid_rather_than_replacing_it()
+    public async Task The_editing_surface_sits_below_the_node_grid_rather_than_replacing_it()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render();
 
@@ -52,9 +52,9 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void The_surface_shows_the_layer_whose_tab_is_pressed()
+    public async Task The_surface_shows_the_layer_whose_tab_is_pressed()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
 
         var component = harness.Render();
 
@@ -65,9 +65,9 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void Switching_layer_switches_the_chapter_being_edited()
+    public async Task Switching_layer_switches_the_chapter_being_edited()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".tech-layer-tab").Count));
 
@@ -80,9 +80,9 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void A_typed_layer_chapter_reaches_the_file()
+    public async Task A_typed_layer_chapter_reaches_the_file()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
 
@@ -99,9 +99,9 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void A_status_change_does_not_cost_the_pending_body_edit()
+    public async Task A_status_change_does_not_cost_the_pending_body_edit()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
 
@@ -135,9 +135,9 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public void An_unavailable_technology_folder_offers_no_way_in()
+    public async Task An_unavailable_technology_folder_offers_no_way_in()
     {
-        using var harness = CreateHarness(withTechFolder: false);
+        await using var harness = CreateHarness(withTechFolder: false);
 
         var component = harness.Render();
 
@@ -146,11 +146,19 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-edit']"));
     }
 
+    /// <summary>
+    /// Deletes the temp folders once every test has awaited its harness away, so
+    /// nothing this class rendered can still be writing into one of them. The
+    /// catch stays as a courtesy for a lock this class does not own — a scanner
+    /// or an indexer holding a file open — rather than as the thing keeping the
+    /// suite green.
+    /// </summary>
     public void Dispose()
     {
         foreach (var root in _roots.Where(Directory.Exists))
         {
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+            try { Directory.Delete(root, recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
 
@@ -239,12 +247,20 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         Component model.
         """;
 
-    private sealed record Harness(BunitContext Context, string TechFolder, RecordingKnowledgeFolderSource Folders) : IDisposable
+    private sealed record Harness(BunitContext Context, string TechFolder, RecordingKnowledgeFolderSource Folders) : IAsyncDisposable
     {
         public IRenderedComponent<TechnologyKnowledgePanel> Render() =>
             Context.Render<TechnologyKnowledgePanel>(parameters => parameters
                 .Add(panel => panel.RepositoryAlias, "backlog"));
 
-        public void Dispose() => Context.Dispose();
+        /// <summary>
+        /// Awaited disposal, because the editing surface this harness renders
+        /// writes its last pending save on the way out. A synchronous
+        /// <c>Dispose</c> hands that save to the renderer's dispatcher and returns
+        /// before it lands, so the folder delete that follows could arrive while
+        /// the file was still being replaced — a locked temp file on a slow
+        /// machine and a green suite on a fast one.
+        /// </summary>
+        public async ValueTask DisposeAsync() => await Context.DisposeAsync();
     }
 }

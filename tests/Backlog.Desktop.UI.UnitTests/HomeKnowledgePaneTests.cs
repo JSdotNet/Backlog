@@ -9,9 +9,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class HomeKnowledgePaneTests
 {
     [Fact]
-    public void Clicking_knowledge_pane_renders_without_throwing()
+    public async Task Clicking_knowledge_pane_renders_without_throwing()
     {
-        using var harness = CreateHarness();
+        await using var harness = CreateHarness();
         harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var component = harness.Context.Render<Home>();
@@ -96,17 +96,25 @@ public sealed class HomeKnowledgePaneTests
 
     private static string FindRepositoryRoot() => RepositoryRoot.Root.FullName;
 
-    private sealed record Harness(string Root, BunitContext Context) : IDisposable
+    private sealed record Harness(string Root, BunitContext Context) : IAsyncDisposable
     {
-        public void Dispose()
+        /// <summary>
+        /// Awaited disposal, because the editing surface this harness renders
+        /// writes its last pending save on the way out. A synchronous
+        /// <c>Dispose</c> hands that save to the renderer's dispatcher and returns
+        /// before it lands, so the folder delete that follows could arrive while
+        /// the file was still being replaced — a locked temp file on a slow
+        /// machine and a green suite on a fast one.
+        /// </summary>
+        public async ValueTask DisposeAsync()
         {
-            Context.Dispose();
+            await Context.DisposeAsync();
 
             try
             {
                 if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
             }
         }
