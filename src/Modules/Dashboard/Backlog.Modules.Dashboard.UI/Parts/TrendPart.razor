@@ -1,0 +1,84 @@
+@*
+    The score per repository per week.
+
+    Two components over the same series rather than one, because they answer
+    different questions and the wrong one cannot express the other. The trellis
+    answers "which repositories moved" — every repository at once, each panel to a
+    shared maximum so the heights are comparable. The spotlight answers "how does
+    this one compare to the rest", which is the question somebody has the moment
+    they pick a repository in the filter.
+
+    Every repository stays in both, even when one is in focus. Zooming in narrows
+    every other part on the surface; here it moves a highlight instead, because a
+    single line with nothing around it says nothing about whether a dip was this
+    repository or a quiet fortnight everywhere.
+
+    SharedMax is passed explicitly rather than left per panel. A trellis that draws
+    each panel to its own scale makes an erratic repository look like the busiest
+    one, which is the specific way small multiples mislead.
+*@
+@inherits DashboardPartBase<ProductivityTrend>
+@inject IProductivityInsights Insights
+
+<PartFrame Title="Score over time"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-trend">
+    @if (IsReady)
+    {
+        <div class="dashboard-part__stack">
+            <MetricTrellis Series="@Series"
+                           Label="Score per repository per week"
+                           Highlight="@Value!.Highlight"
+                           SharedMax="@MetricScoring.MaxScore"
+                           FormatValue="MetricFormat.Score"
+                           TestId="dashboard-trend-trellis" />
+
+            @* Only worth drawing when there is a pack to stand against. One
+               repository against itself is the trellis panel again. *@
+            @if (Series.Count > 1)
+            {
+                <MetricSpotlight Series="@Series"
+                                 Selected="@Value!.Highlight"
+                                 Label="@SpotlightLabel"
+                                 NameHeading="Repository"
+                                 SharedMax="@MetricScoring.MaxScore"
+                                 FormatValue="MetricFormat.Score"
+                                 TestId="dashboard-trend-spotlight" />
+            }
+        </div>
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-trend-status" />
+    }
+</PartFrame>
+
+@code {
+    private string Note => Scope.RepositoryAlias is { } alias
+        ? $"Every repository stays on screen so {alias} can be read against the rest."
+        : "One panel per repository that reported anything, on a shared scale.";
+
+    private string SpotlightLabel => Value?.Highlight is { } alias
+        ? $"{alias} against the rest"
+        : "Every repository against the rest";
+
+    private IReadOnlyList<MetricSeries> Series =>
+        IsReady
+            ? [.. Value!.ByRepository.Select(series => new MetricSeries(
+                series.Name,
+                [.. series.Points.Select(point => new MetricPoint(point.Label, point.Value))],
+                series.Detail))]
+            : [];
+
+    protected override Task<InsightResult<ProductivityTrend>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetTrendAsync(Scope, cancellationToken);
+
+    protected override bool IsEmpty(ProductivityTrend value) => value.ByRepository.Count == 0;
+
+    protected override string EmptyMessage =>
+        "No repository reported anything in this window.";
+
+    protected override void InvalidateSource() => Insights.Invalidate(Scope);
+}

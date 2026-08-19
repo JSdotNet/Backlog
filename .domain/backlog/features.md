@@ -45,6 +45,142 @@ notes. Sub-items can be toggled between open and done from the rendered entry,
 reorder/add/remove independently, parent progress reflects completion (e.g. 3/5
 done), and they can project to GitHub issue task lists.
 
+A step is a sub-item; the product has one concept here, not two. A sub-item
+carries those four attributes and nothing more — it has no type, priority, entry
+status or tags of its own, and none of the entry's scheduling or dependency
+attributes. A breakdown step needing its own priority is an entry rather than a
+step, and a step inherits its parent's deadline by belonging to it.
+
+## Feature: Scheduling and recurrence
+
+```meta
+status: proposed
+depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
+related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+```
+
+Say when an entry is due, when to be reminded of it, and whether it comes back.
+Three separate facts rather than one: a deadline, an alarm, and a shape. A
+backlog that could only say "Friday" could not distinguish the entry that is due
+that day from the one that should interrupt you that morning.
+
+All three are optional and none of them changes the entry lifecycle. An entry
+with a due date in the past is overdue, which is read by comparison rather than
+recorded as a status, so nothing has to sweep the backlog to keep status honest.
+
+The scheduling fields are written on the entry's metadata line as named tokens
+— `due:2026-08-21`, `remind:2026-08-21T09:00`, `repeat:weekly` — alongside the
+existing sigil tokens for type, priority, status, area and tags. Named rather
+than sigil-prefixed because the punctuation namespace is nearly exhausted and
+five one-character marks for five date-shaped concepts would be unreadable in a
+file people hand-edit.
+
+### Sub-feature: Due dates
+
+```meta
+status: proposed
+```
+
+Commit an entry to a calendar day. A due date is a date and not an instant: it
+carries no time and no timezone, so "due Friday" stays Friday when the device
+moves. How that date is said on screen — "Today", "Friday, 21 August", or a
+localized format — belongs to the channel showing it, not to the entry.
+
+### Sub-feature: Reminders
+
+```meta
+status: proposed
+```
+
+Ask to be reminded of an entry at a chosen local date and time. A reminder is
+wall-clock intent: 09:00 means 09:00 wherever the person is when it arrives,
+rather than the instant 09:00 once meant somewhere else.
+
+A reminder is a request recorded on the entry, not a promise about delivery. One
+whose time has passed reads as overdue and keeps reading that way until it is
+cleared or the entry is completed, so a reminder that came due while the app was
+closed surfaces rather than being silently missed.
+
+### Sub-feature: Recurring entries
+
+```meta
+status: proposed
+related: [.domain/backlog/domain.md#domain-service-recurrence, .domain/backlog/features.md#feature-archive-and-lifecycle]
+```
+
+Repeat an entry on a schedule: every day, every week, every month, every year,
+optionally restricted to particular weekdays so "every weekday" is expressible.
+The repeat is anchored to the due date rather than to when the work actually
+finished, so an entry completed three days late still falls due on its original
+weekday.
+
+Completing a recurring entry leaves it completed and creates the next occurrence
+as a new entry. The finished occurrence stays as the record of what was done
+rather than being rolled forward and overwritten, which means a repeating entry
+accumulates one completed entry per occurrence — archiving is what keeps that
+from crowding the default views.
+
+## Feature: My Day
+
+```meta
+status: proposed
+depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
+related: [.domain/backlog/features.md#feature-scheduling-and-recurrence]
+```
+
+Pick the entries to work on today, separately from when they are due. My Day is
+this morning's decision about what to look at, and it is deliberately not a
+deadline: an entry due next Friday can be in today's My Day, and an entry due
+today need not be.
+
+Because it is a decision about a particular day, it expires on its own. An entry
+carries the date it was picked for, and it is in My Day exactly while that date
+is the reader's current local date — so yesterday's list clears itself with no
+timer, no timezone rule and no overnight sweep, and a device that was switched
+off for a week comes back to an empty My Day rather than a stale one.
+
+## Feature: Entry dependencies
+
+```meta
+status: proposed
+depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
+related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/backlog/features.md#sub-feature-manual-ordering]
+```
+
+Record that an entry waits on other entries, so a set of prompts or tasks meant
+to be worked in order says so instead of relying on the reader remembering.
+An entry can wait on several others: needing two things finished before it can
+start is ordinary, and asking which of the two is the real predecessor has no
+answer.
+
+This is a different fact from manual ordering. Ordering is the sequence a person
+arranged the backlog in; a dependency is a constraint that holds whatever order
+the list happens to be shown in.
+
+### Sub-feature: Readiness and chain order
+
+```meta
+status: proposed
+```
+
+Read off what can actually be started. An entry is done, ready when everything
+it waits on is finished, or blocked when something is not — and a blocked entry
+says what it is waiting for rather than only that it cannot proceed. Readiness is
+derived every time it is read, never stored, so finishing one entry unblocks its
+dependents with nothing to recalculate or keep in sync.
+
+Two questions get separate answers because they are separate questions: which
+entry to pick up first, and which entries could be started now. In a straight
+chain those are the same entry; when finishing one step unblocks three, they are
+not, and a view that answered only the first would leave the other two to be
+noticed by their waiting lines disappearing.
+
+A dependency naming an entry that cannot be found still blocks. Treating an
+unresolvable id as satisfied would let a chain report itself ready when the step
+it waits on is merely missing from view, which is the one failure that looks
+exactly like success. Dependency loops are named rather than broken: which edge
+in a loop is the wrong one is answerable only by the person who wrote them.
+
 ## Feature: Multi-repo targeting
 
 ```meta

@@ -133,6 +133,17 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
 
+    /// <summary>
+    /// Editing one step touches that chapter and nothing around it.
+    /// <para>
+    /// The route changed and the claim did not. There used to be a raw textarea per
+    /// sub-item card, handed the chapter's whole text; a step's title and its notes
+    /// are now two controls in the detail pane, each reporting through the shared
+    /// task row. Both still end in a <c>ReplaceSubItemText</c> against the same
+    /// index, which is exactly what this has always been about: an edit that reached
+    /// the wrong chapter would overwrite a neighbour with no error anywhere.
+    /// </para>
+    /// </summary>
     [Fact]
     public async Task Editing_a_sub_item_updates_only_that_chapter()
     {
@@ -147,12 +158,12 @@ public sealed class GitHubPushFlowTests : IDisposable
             "## Last\n" +
             "Keep last.\n");
 
-        harness.State.BeginSubItemEdit(row, 1);
-        harness.State.OnSubItemRawTextInput(row, 1, "### Updated target\nNew target notes.");
-        await harness.State.EndSubItemEditAsync(row, 1);
+        await harness.State.RenameSubItemAsync(row, 1, "Updated target");
+        harness.State.ChangeSubItemNote(row, 1, "New target notes.");
 
-        Assert.False(harness.State.IsEditingSubItem(row, 1));
         Assert.Contains("## First\nKeep this.", row.RawText);
+        // Same line break the chapter already had. Writing notes back must not
+        // introduce a blank line the author did not type.
         Assert.Contains("### Updated target\nNew target notes.", row.RawText);
         Assert.DoesNotContain("Old target notes.", row.RawText);
         Assert.Contains("## Last\nKeep last.", row.RawText);
@@ -184,8 +195,23 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.Contains("### Nested\nKeep nested.", row.RawText);
     }
 
+    /// <summary>
+    /// A sub-item push used to be asserted here, filing one chapter as its own issue
+    /// in the parent's repository. It has gone with the method behind it, and the
+    /// reason is the model rather than the plumbing: <c>.domain/backlog/domain.md</c>
+    /// gives <c>ProjectionRef</c> to the entry and says a Sub-Item "may project to
+    /// GitHub issue task-list checkboxes" — checkboxes inside the entry's issue. A
+    /// step filed as its own issue had nowhere to record the link, so nothing could
+    /// tell it had already been filed.
+    /// <para>
+    /// Deleted rather than left behind, deliberately, and in the same change as the
+    /// method: a passing test over an unreachable method reads as coverage of a
+    /// feature that no longer exists, which is the state that made these buttons
+    /// disappear-and-reappear twice already.
+    /// </para>
+    /// </summary>
     [Fact]
-    public async Task A_sub_item_push_uses_the_parent_repository()
+    public async Task An_entry_push_still_uses_the_repository_its_area_names()
     {
         var harness = Build("backlog = JSdotNet/Backlog", "other = someone/else");
         var row = await WriteEntryAsync(harness.State,
@@ -195,14 +221,15 @@ public sealed class GitHubPushFlowTests : IDisposable
             "`task` `*high` `!ready` `@other` `#child`\n" +
             "Child notes.\n");
 
-        await harness.State.PushSubItemToGitHubAsync(row, 0);
+        await harness.State.PushToGitHubAsync(row);
 
         Assert.Null(row.GitHubError);
         Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
-        Assert.Equal("Child", harness.Client.CreatedTitle);
-        Assert.Contains("From backlog entry: Parent", harness.Client.CreatedBody);
-        Assert.Contains("Child notes.", harness.Client.CreatedBody);
-        Assert.Equal(["child"], harness.Client.CreatedLabels);
+
+        // The whole entry: its own title, and the chapter carried inside its body
+        // rather than filed separately.
+        Assert.Equal("Parent", harness.Client.CreatedTitle);
+        Assert.Contains("## Child", harness.Client.CreatedBody);
     }
 
     [Fact]

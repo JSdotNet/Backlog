@@ -173,26 +173,56 @@ public sealed class MarkdownViewMetaFenceTests
     }
 
     [Fact]
-    public void Annotated_the_heading_and_the_fence_stay_two_blocks()
+    public void Annotated_the_heading_and_the_fence_are_still_drawn_as_one_record()
     {
-        // Comments are anchored to block indices and every block is wrapped in a
-        // row carrying its own. Folding two blocks into one row would leave the
-        // fence's comments pointing at a row that is no longer there, so the
-        // annotated view keeps the stacked rendering.
+        // The annotated view used to keep the two stacked, on the grounds that
+        // folding two blocks into one row would leave the fence's comments
+        // pointing at a row that no longer exists. True, and answered by the row
+        // taking both indices' notes instead — see the anchoring test below. The
+        // cost of giving the pairing up was that a reviewed chapter, the one
+        // document whose currency a reader most needs to see, was the only one
+        // showing its status as a raw code fence.
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
             .Add(v => v.RenderKnowledgeMetadata, true)
             .Add(v => v.OnAddComment, EventCallback.Factory.Create<int>(this, _ => { })));
 
-        Assert.NotNull(view.Find("[data-block='0'] p.md-heading"));
-        Assert.NotNull(view.Find("[data-block='1'] .knowledge-record"));
-        Assert.Empty(view.FindAll(".knowledge-record__headline p.md-heading"));
+        Assert.NotNull(view.Find("[data-block='0'] .knowledge-record__headline p.md-heading"));
+        Assert.Empty(view.FindAll("pre.md-code"));
+
+        // The fence's own turn in the loop is a no-op rather than a second row.
+        Assert.Empty(view.FindAll("[data-block='1']"));
 
         // Still exactly one of each — the heading is not dropped for want of a
         // record to sit in.
         Assert.Single(view.FindAll("p.md-heading"));
         Assert.Single(view.FindAll(".knowledge-record"));
+    }
+
+    [Fact]
+    public void A_comment_on_the_paired_fence_is_drawn_in_the_row_it_was_folded_into()
+    {
+        // The anchor is untouched: a comment on the fence still says the fence's
+        // index and the host that wrote it has nothing to fix up. Only where it is
+        // drawn moves, into the row of the heading the fence became part of, which
+        // is the row level with it on the screen. The alternative was a row
+        // carrying notes for a block the reader can no longer see.
+        using var context = new BunitContext();
+
+        var view = Render(context, Document, parameters => parameters
+            .Add(v => v.RenderKnowledgeMetadata, true)
+            .Add(v => v.Comments, new MarkdownComment[]
+            {
+                new("c0", 0, "About the heading."),
+                new("c1", 1, "About the fence.")
+            }));
+
+        var notes = view.FindAll("[data-block='0'] .md-block-row__notes .md-comment__body")
+            .Select(body => body.TextContent);
+
+        Assert.Equal(["About the heading.", "About the fence."], notes);
+        Assert.Empty(view.FindAll("[data-testid='markdown-orphaned-comments']"));
     }
 
     [Fact]

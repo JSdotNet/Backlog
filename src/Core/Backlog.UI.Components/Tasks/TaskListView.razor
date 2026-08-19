@@ -1,3 +1,5 @@
+@inject IJSRuntime Js
+
 @*
     A list of tasks that can be reordered.
 
@@ -13,6 +15,10 @@
     focused row, and the focus goes with it — the row is a different element
     after the list re-renders, so it is found again by id.
 
+    A move is also said out loud. The visible answer to "where did it go" is the
+    row having moved, which is no answer at all to somebody who cannot see the
+    list, so each move announces the position it landed in.
+
     When rows name the ids they wait on, the list works out what that comes to
     and draws it: which rows are blocked, what each of them is waiting for, which
     ones could be started, and which one of those to pick up next. In a linear
@@ -26,6 +32,48 @@
     the host from TaskChain without rendering anything. A list where nobody
     declared a dependency derives nothing at all, so its markup is exactly what
     it was before chains existed.
+
+    Quick edit is retitling as one keystroke per row: Tab settles the rename in
+    the field and opens the field on the next row, Shift+Tab walks back up. Which
+    row that is has to be held here, exactly as the selected row is, because a
+    row asked "who is after you" cannot see the rows around it to answer. The
+    rename itself stays entirely the row's — the draft, the trimming, and the rule
+    that an empty or unchanged title is not a rename are all where they already
+    were, so a row tabbed straight through reports nothing.
+
+    The chain runs down the rows on offer and never wraps. Completed rows are not
+    in it, because they are not in the list the reader is tabbing down; and coming
+    off the last row does not start again at the top, since that would quietly hand
+    the reader back the row they began with, retitled once already. Off unless
+    asked for: Tab means "the next control" everywhere else in the product.
+
+    Off the bottom of the chain is the add row, which is a control and not a mode.
+    It is drawn from the moment the list is, whenever a host is listening for new
+    tasks, and it sits in the tab order at the end of the open rows like any other
+    field on the page — so the way into it is Tab, from the row before it, with no
+    script involved. That is the difference between an add row and the transient
+    draft this used to be: a thing that only exists part-way through a keystroke
+    chain is a thing a reader cannot find, and a chain that conjures its own last
+    step has to invent an exit from it too.
+
+    The exit is now that there is nothing to exit. Tab on an empty add field is
+    left entirely to the browser — the focus goes on to whatever follows the list,
+    which is what Tab does everywhere — and the only keystroke this list takes off
+    the browser is a forward Tab with something typed in the field. That is also
+    what stops a held-down Tab from filling the list with rows nobody named: the
+    second Tab has an empty field to leave.
+
+    What is typed is this view's own state and never a row in Tasks, exactly like
+    the drag preview. A composer nobody finished therefore leaves nothing behind:
+    the host is never handed a blank task it did not ask for and then has to go and
+    delete, which is what putting a real empty row into the data would have cost.
+    Only the title goes out, as OnAdd, on the terms OnRename and OnReorder already
+    set — the list says what happened and the host decides what it means.
+
+    With nobody listening to OnAdd there is no add row at all, and Tab off the last
+    row commits and stops exactly as it did before any of this existed. Whether a
+    list offers to add tasks is the host's answer, and a field whose title nobody
+    would hear is the same broken promise as a pencil with no OnRename behind it.
 *@
 
 <ul class="@ClassValue" data-testid="@TestId" aria-label="@AriaLabel">
@@ -43,7 +91,58 @@
     {
         @RenderRow(task)
     }
+
+    @* A row in the markup and not in the data, and there for as long as the list
+       is: the place you add tasks is a control the reader can find, not a state the
+       list is briefly in. Nothing on it but the field — a circle would offer to
+       complete a task that does not exist, a copy button would copy nothing, and a
+       pencil would open the editor that is already open.
+
+       Named twice over, because it is the one field in this list with no title to
+       borrow: the label is what a screen reader says, and the same words as
+       placeholder are what everybody else reads. One word from the host for one
+       thing, rather than asking twice for the same answer.
+
+       Keyed so that the element survives the list growing above it. Adding a task
+       re-renders the rows in front of this one, and an unkeyed last child is the
+       one Blazor is entitled to reuse for something else — which would take the
+       caret out of the field mid-sentence. *@
+    @if (CanAdd)
+    {
+        <li @key="_addFieldId" class="task-item task-item--add" data-testid="@Suffix("add")">
+            <div class="task-item__rename">
+                <TextField Value="@_addTitle"
+                           ValueChanged="value => _addTitle = value"
+                           AriaLabel="@AddLabel"
+                           Placeholder="@AddLabel"
+                           Bare="true"
+                           InputCssClass="task-item__rename-input"
+                           TestId="@Suffix("add-input")"
+                           Id="@_addFieldId"
+                           @onkeydown="OnAddKeyAsync"
+                           @onblur="CommitAddAsync" />
+            </div>
+        </li>
+    }
 </ul>
+
+@* The host's own place in the list, under the open rows and above the finished
+   ones.
+
+   It exists because "add one more" belongs at the end of the work rather than at
+   the end of the document: this list owns the Completed section, so a control the
+   host rendered after the whole component landed underneath a fold of things
+   already done. A slot rather than an AddLabel parameter — what a host adds, and
+   what it calls it, is not a list this library can finish — and an unfilled one
+   renders nothing at all, so the markup is exactly what it was before the slot
+   existed. *@
+@AfterOpenRows
+
+@* Where the row landed, for anyone who cannot see that it moved. Always
+   rendered rather than appearing with the first move: a live region has to be in
+   the DOM before it changes, or the first announcement is the one nobody
+   hears. *@
+<p class="sr-only" role="status" aria-live="polite" data-testid="@Suffix("announcement")">@_announcement</p>
 
 @* Finished work goes to the bottom, behind a count you can fold away. A list
    whose done rows stay where they were becomes a list you have to read past to
@@ -78,6 +177,52 @@
     private string? _dragging;
     private string? _over;
     private bool _showCompleted;
+
+    /// <summary>What to say about the last keyboard move, if there was one.</summary>
+    private string? _announcement;
+
+    /// <summary>The row element to put the focus back on once the host has
+    /// applied a keyboard move, or null when nothing is waiting for it.</summary>
+    private string? _focusAfterMove;
+
+    /// <summary>
+    /// Distinguishes this list's row ids from another list's.
+    /// <para>
+    /// Two lists on one page can hold the same task ids — an open list and an
+    /// archive of the same work is the ordinary case — and an id is unique to a
+    /// document rather than to a component. Without this the two lists would mint
+    /// the same ids and a move in one could put the focus in the other.
+    /// </para>
+    /// </summary>
+    private readonly string _listId = "task-list-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The row with the editor open, while quick edit is on. Held here
+    /// rather than in the row for the same reason the drag state is: the fact a
+    /// Tab needs is which row comes after this one, and only the list has the
+    /// other rows. The row still owns the draft inside it.</summary>
+    private string? _editingId;
+
+    /// <summary>The field the add row uses. One element for the life of the list,
+    /// which is what makes the guard on it a thing that can be armed once.</summary>
+    private readonly string _addFieldId = "task-add-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>What has been typed into the add row and not yet added. Held here
+    /// and nowhere else — it is a view thing, like the drag preview, so a title
+    /// nobody finished is not a change anybody has to undo.</summary>
+    private string _addTitle = string.Empty;
+
+    /// <summary>The add field is owed the caret: the chain has just come off the
+    /// last row, or a title has just gone out and the next one is expected in the
+    /// same place. Once, after the render, and never on the first one — a list that
+    /// grabbed the focus as the page drew it would take it off whatever the reader
+    /// was actually doing.</summary>
+    private bool _focusAdd;
+
+    /// <summary>Whether the browser has been told which Tab the add field keeps.
+    /// Once is enough and once is all it gets: the listener lives on an element that
+    /// is never replaced, so re-arming it per render would be an interop call per
+    /// render to say what it already said.</summary>
+    private bool _guardedAdd;
 
     /// <summary>The chain as it stands, by id, and the row to pick up next.
     /// Derived once when the parameters land rather than per row per render:
@@ -133,7 +278,13 @@
                    OnToggle="OnToggle"
                    OnSelected="OnSelected"
                    OnRename="OnRename"
+                   DirectRename="@DirectRename"
                    OnBodyChanged="OnBodyChanged"
+                   Actions="@RowActions"
+                   QuickEdit="@QuickEdit"
+                   Editing="@(QuickEdit && string.Equals(_editingId, task.Id, StringComparison.Ordinal))"
+                   EditingChanged="editing => SetEditing(task.Id, editing)"
+                   OnEditMove="MoveEdit"
                    AllowCopy="@AllowCopy"
                    BodyLabel="@BodyLabel"
                    Status="@StatusOf(task)"
@@ -144,6 +295,9 @@
                    OnDragOver="DragOver"
                    OnDrop="Drop"
                    OnDragEnd="EndDrag"
+                   RowElementId="@RowElementId(task)"
+                   OnTabForward="@TabForwardFor(task)"
+                   OnKeyboardMove="delta => MoveByKeyboardAsync(task, delta)"
                    TestId="@RowTestId(task)" />;
 
     [Parameter, EditorRequired]
@@ -171,6 +325,62 @@
     [Parameter]
     public EventCallback<TaskRename> OnRename { get; set; }
 
+    /// <summary>Whether every row's title is a field from the start rather than
+    /// behind a pencil. Straight through to every row, exactly like OnRename: how a
+    /// title is edited is one answer for the whole list, and a list that decided it
+    /// per row would put a pencil on some titles and a caret on others.</summary>
+    [Parameter]
+    public bool DirectRename { get; set; }
+
+    /// <summary>
+    /// A new task, by title. The title is all of it: minting an id, deciding where
+    /// the task is stored and whether it survives a reload are the host's, exactly
+    /// as saving a rename and applying a reorder are.
+    /// <para>
+    /// It is also what puts the add row on the list at all, and so what turns Tab
+    /// off the last row into carrying on rather than stopping. Unsupplied, there is
+    /// no add row and the chain ends at the bottom of the list as it always did — a
+    /// list nobody asked to add tasks does not start offering to, and a field whose
+    /// title nobody would hear is the same broken promise as a pencil with no
+    /// <see cref="OnRename"/> behind it.
+    /// </para>
+    /// <para>
+    /// Raised once per title, and never for an empty one. What arrives is trimmed,
+    /// on the same rule the rename follows: a task whose title is all spaces is a
+    /// row nobody can identify afterwards.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnAdd { get; set; }
+
+    /// <summary>What the add row's field is called, both to a screen reader and on
+    /// the face of it: it is the accessible name and the placeholder, because it is
+    /// one answer to one question and asking the host twice would invite two. Unlike
+    /// every other field in this list it has no title to borrow, so it needs a name
+    /// of its own — and the name is the host's word rather than this component's, for
+    /// the same reason <see cref="CompletedLabel"/> is.</summary>
+    [Parameter]
+    public string AddLabel { get; set; } = "New task";
+
+    /// <summary>
+    /// Whether Tab in a rename settles it and opens the next row's, so a list can
+    /// be retitled top to bottom without going back to the pencil between rows.
+    /// Shift+Tab goes the other way.
+    /// <para>
+    /// Opt-in, because it takes a key that means something else everywhere: Tab
+    /// leaves a field, and a list that took it over without being asked would be
+    /// one some readers cannot get out of. A list without it is the list it was
+    /// before quick edit existed, down to the markup.
+    /// </para>
+    /// <para>
+    /// It needs <see cref="OnRename"/> to mean anything, on the same terms the
+    /// pencil does: with nobody listening no row offers an editor, so there is
+    /// nothing for Tab to chain.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool QuickEdit { get; set; }
+
     /// <summary>Straight through to every row, exactly like OnRename: whether a
     /// body can be edited is one answer for the whole list, and a list that
     /// decided it per row would be deciding which tasks are the reader's.
@@ -178,11 +388,30 @@
     [Parameter]
     public EventCallback<TaskBodyChange> OnBodyChanged { get; set; }
 
+    /// <summary>The host's own controls for each row, handed the task they are
+    /// about. Straight through to every row for the same reason OnRename is: what a
+    /// host can do to a task is one answer for the whole list, and a list that
+    /// decided it per row would be deciding which tasks are actionable.</summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? RowActions { get; set; }
+
     /// <summary>Whether finished rows move to a section of their own at the
     /// bottom. On by default: a list whose done rows stay in place is a list you
     /// read past to find the work.</summary>
     [Parameter]
     public bool GroupCompleted { get; set; } = true;
+
+    /// <summary>
+    /// The host's own content between the open rows and the Completed section.
+    /// <para>
+    /// For the control that adds one more of whatever these are. The list owns the
+    /// Completed section, so a host rendering that control after the component put
+    /// it below a fold of finished work — which is the one place in the list where
+    /// nothing new is going to appear.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? AfterOpenRows { get; set; }
 
     [Parameter]
     public string CompletedLabel { get; set; } = "Completed";
@@ -192,6 +421,19 @@
     /// new order is saved anywhere.</summary>
     [Parameter]
     public EventCallback<TaskMove> OnReorder { get; set; }
+
+    /// <summary>
+    /// The reader tabbed forward off the selected row.
+    /// <para>
+    /// Offered for the selected row alone, because it is the only row a host has
+    /// somewhere else to send the focus to: what a host puts beside a list is
+    /// about the row that is open. Every other row keeps plain Tab, which is the
+    /// next row — so this narrows the hand-off to the one case where the document
+    /// order is the wrong answer, rather than taking Tab away from the list.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnSelectedTabForward { get; set; }
 
     /// <summary>Whether rows can be picked up at all. Off for a list whose order
     /// is not the reader's to choose — one sorted by date, or a search result.</summary>
@@ -255,12 +497,246 @@
 
     private string? RowTestId(TaskRow task) => TestId is null ? null : $"{TestId}-{task.Id}";
 
+    /// <summary>Whether this list has an add row. Both halves matter: quick edit is
+    /// what makes Tab the list's key at all, and without a listener there is nothing
+    /// for a typed title to report to.</summary>
+    private bool CanAdd => QuickEdit && OnAdd.HasDelegate;
+
     /// <summary>This row's status, or null when nothing here declared a
     /// dependency. Null rather than a Ready everyone gets by default, because
     /// "ready" said about a list nobody chained is an answer to a question the
     /// reader never asked.</summary>
     private TaskChainStatus? StatusOf(TaskRow task) =>
         _statuses.TryGetValue(task.Id, out var status) ? status : null;
+
+    /// <summary>
+    /// Which row has the editor, as the row itself reports it. Told rather than
+    /// decided, because the row is where a rename is opened and closed.
+    /// <para>
+    /// A row may only put down the editor it is actually holding. By the time the
+    /// field a Tab was pressed in reports itself closed the editor has usually
+    /// moved on already, and honouring that late report would shut the row that
+    /// just opened.
+    /// </para>
+    /// </summary>
+    private void SetEditing(string id, bool editing)
+    {
+        if (editing)
+        {
+            _editingId = id;
+            return;
+        }
+
+        if (string.Equals(_editingId, id, StringComparison.Ordinal)) _editingId = null;
+    }
+
+    /// <summary>
+    /// The row a Tab hands the editor to: the next one down, or the one above for
+    /// Shift+Tab, in the order the reader can see.
+    /// <para>
+    /// Open, not Tasks. A chain that ran through the completed section would send
+    /// the caret to a row that is not on screen — folded away behind a count — and
+    /// the reader would type into nothing they can see.
+    /// </para>
+    /// <para>
+    /// Neither end wraps, and a row that is not in the chain at all stops. Starting
+    /// again at the top would hand the reader back the row they began with,
+    /// retitled once already.
+    /// </para>
+    /// <para>
+    /// Off the bottom, with a host listening for new tasks, the caret carries on
+    /// into the add row. Nothing opens — the field was already there — so this is
+    /// only the list agreeing to do by hand what the browser would have done had the
+    /// rename not taken the key off it. Off the top the chain ends: there is no
+    /// "before the first row" to add anything to, and a reader walking back up is
+    /// reading rather than extending.
+    /// </para>
+    /// </summary>
+    private void MoveEdit(TaskEditMove move)
+    {
+        var rows = Open;
+        var from = rows.ToList().FindIndex(row => string.Equals(row.Id, move.Id, StringComparison.Ordinal));
+
+        // Not in the chain at all: a finished row, renamed from the section at the
+        // bottom, or a row the host has taken away from under the edit.
+        if (from < 0)
+        {
+            _editingId = null;
+            return;
+        }
+
+        var next = from + (move.Forward ? 1 : -1);
+
+        if (next >= 0 && next < rows.Count)
+        {
+            _editingId = rows[next].Id;
+            return;
+        }
+
+        _editingId = null;
+
+        if (move.Forward && CanAdd) _focusAdd = true;
+    }
+
+    /// <summary>
+    /// Everything this list needs the browser for, all of it after the render
+    /// rather than at the moment it is decided: this is the one place Blazor
+    /// guarantees runs with the batch already applied, and every element named here
+    /// either does not exist yet or is about to be replaced anywhere earlier.
+    /// <para>
+    /// Three jobs and one method, because Blazor calls this hook once: anything owed
+    /// after a render is owed here, whichever feature it belongs to.
+    /// </para>
+    /// <para>
+    /// The add field's guard is armed once, as soon as there is a field to arm —
+    /// including for a reader who never touches the chain and just clicks into the
+    /// composer. Which Tab it keeps has to be settled before the first keystroke,
+    /// because a keydown that has reached C# is a keydown the browser has already
+    /// acted on.
+    /// </para>
+    /// <para>
+    /// The caret is asked for only when something has just earned it. Focusing on
+    /// every render would drag it back out of the row a reader is renaming, and
+    /// focusing on the first would open the page with the caret in a field nobody
+    /// asked to type in.
+    /// </para>
+    /// <para>
+    /// A row that has just been moved gets its focus ring back, by the same handle
+    /// and for the same reason: once the host has applied the move the row is a
+    /// different element, so the ring has gone and the next press would move
+    /// whatever slid into the old slot. An id is the only thing that survives the
+    /// re-render.
+    /// </para>
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (CanAdd && !_guardedAdd)
+        {
+            _guardedAdd = true;
+
+            await QuickEditField.GuardTabAsync(Js, _addFieldId, TabGuard.WhileFilled);
+        }
+
+        if (_focusAdd)
+        {
+            _focusAdd = false;
+
+            await QuickEditField.FocusAsync(Js, _addFieldId);
+        }
+
+        if (_focusAfterMove is not { } target) return;
+
+        _focusAfterMove = null;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", target);
+        }
+        catch (Exception)
+        {
+            // Losing the focus ring is not worth tearing down the page. Broad on
+            // purpose, and the same call is guarded the same way where the desktop
+            // pane moves a sub-item: the row is still there and still usable, so
+            // there is no failure here worth propagating.
+        }
+    }
+
+    /// <summary>
+    /// The add field's keys, which are deliberately fewer than a row's.
+    /// <para>
+    /// Tab with something typed adds it, clears the field and keeps the caret in it,
+    /// which is what makes "type a title, Tab, type a title, Tab" a thing a reader
+    /// can do without their hands leaving the keys. It is the one keystroke this
+    /// field takes off the browser, and it is taken in the browser rather than here
+    /// — see the guard — because a keydown that has reached C# has already moved the
+    /// focus ring.
+    /// </para>
+    /// <para>
+    /// Tab with the field empty does nothing at all, and that is the feature. The
+    /// guard let the keystroke through, so the browser is already moving the focus on
+    /// to whatever follows the list: leaving the composer is ordinary forward tabbing
+    /// rather than a special exit this component has to invent, and there is nothing
+    /// for it to drop the reader onto. It is also what stops a held-down Tab from
+    /// filling the list with rows nobody named — the field it left is the field the
+    /// next Tab finds empty.
+    /// </para>
+    /// <para>
+    /// Enter adds and stays, because with a permanent field there is nothing to
+    /// close: the reader is still standing in the composer either way, so the only
+    /// honest difference between it and Tab is that Tab is also allowed to leave.
+    /// Empty, it does nothing — there is no task in an empty field, and Enter is not
+    /// a way out of anywhere.
+    /// </para>
+    /// <para>
+    /// Shift+Tab is the browser's outright, typed in or not. Backwards out of the
+    /// composer is a reader going back up the page, and there is nothing above the
+    /// field for this list to hand them: the row above is about to change identity if
+    /// a title is committed here, so re-opening "the last row" would re-open a
+    /// different row from the one they saw. What was typed is settled on the way out,
+    /// by the blur that leaving causes, which is the same promise every other field
+    /// in this list makes.
+    /// </para>
+    /// </summary>
+    private async Task OnAddKeyAsync(KeyboardEventArgs e)
+    {
+        // Abandon what was typed and stay put. There is nothing to close — the
+        // field is not a thing that was opened — so Escape means the one thing left
+        // for it to mean, and it means it without reporting anything.
+        if (e.Key == "Escape")
+        {
+            _addTitle = string.Empty;
+            return;
+        }
+
+        if (e.Key is not ("Tab" or "Enter")) return;
+
+        if (e.Key == "Tab" && e.ShiftKey) return;
+
+        // The same trim the guard tests on, and it has to be: a field of spaces the
+        // browser was stopped from leaving and this method then declined to act on
+        // would be a field with no way out of it.
+        var title = _addTitle.Trim();
+
+        if (title.Length == 0) return;
+
+        _addTitle = string.Empty;
+
+        // Asked for again rather than assumed. The render that empties this field is
+        // the same render that grows the list above it, and the caret staying put is
+        // the whole bargain — so it is stated rather than left to the diff.
+        _focusAdd = true;
+
+        await OnAdd.InvokeAsync(title);
+    }
+
+    /// <summary>
+    /// Leaving the field settles what was typed, the way leaving a rename does.
+    /// <para>
+    /// The alternative — a composer that clears itself when the reader looks away —
+    /// was weighed and rejected. With a field that closed behind it there was a
+    /// moment you could point at and call abandonment; a permanent composer never
+    /// closes, so "abandoned" is indistinguishable from "parked while I check
+    /// something", and clearing would mean a title that is still plainly on screen
+    /// disappearing because the reader clicked a row to read it. Against that,
+    /// committing costs a task the reader can see, complete or delete. Escape stays
+    /// the one way to throw typed text away, here and in the rename directly above
+    /// it — two fields side by side with opposite blur rules would be worse than
+    /// either rule.
+    /// </para>
+    /// <para>
+    /// It cannot double up with the keys, because they clear the field before they
+    /// report: a blur that follows a commit finds nothing left to commit.
+    /// </para>
+    /// </summary>
+    private async Task CommitAddAsync()
+    {
+        var title = _addTitle.Trim();
+        _addTitle = string.Empty;
+
+        if (title.Length == 0) return;
+
+        await OnAdd.InvokeAsync(title);
+    }
 
     private void StartDrag(string id)
     {
@@ -310,4 +786,98 @@
 
         await OnReorder.InvokeAsync(new TaskMove(moved, target));
     }
+
+    /// <summary>This row's focusable element, named so the focus can be put back
+    /// on it after a move. Derived from the task id rather than generated, because
+    /// the id has to be computable here — this is the only place that knows which
+    /// row was just moved.</summary>
+    private string RowElementId(TaskRow task) => RowElementId(task.Id);
+
+    private string RowElementId(string taskId) => $"{_listId}-{Slug(taskId)}";
+
+    /// <summary>Which rows are offered the forward hand-off: the selected one, and
+    /// an empty callback — so <c>HasDelegate</c> is false and the row keeps plain
+    /// Tab — for all the others.</summary>
+    private EventCallback TabForwardFor(TaskRow task) =>
+        string.Equals(SelectedId, task.Id, StringComparison.Ordinal) ? OnSelectedTabForward : default;
+
+    /// <summary>
+    /// Puts the focus back on the selected row.
+    /// <para>
+    /// The way back in from wherever a host sent the focus when
+    /// <see cref="OnSelectedTabForward"/> fired, and the reason it is a method here
+    /// rather than an id the host holds: row elements are named from a list-private
+    /// prefix so two lists showing the same task ids cannot mint the same ids, and
+    /// that prefix is not the host's to know.
+    /// </para>
+    /// <para>
+    /// The row's line rather than the circle in front of it, exactly like the
+    /// focus restored after a keyboard move: the line is what carries the
+    /// selection and where Alt+Arrow is heard.
+    /// </para>
+    /// </summary>
+    public async Task FocusSelectedAsync()
+    {
+        if (SelectedId is not { Length: > 0 } id) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", RowElementId(id));
+        }
+        catch (Exception)
+        {
+            // Guarded exactly as the post-move focus below is: the row is still
+            // there and still usable without its focus ring.
+        }
+    }
+
+    /// <summary>An id an HTML document will accept. Task ids are the host's and
+    /// may hold anything; everything outside the safe set becomes a hyphen.</summary>
+    private static string Slug(string id) =>
+        new([.. id.Select(character =>
+            char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '-')]);
+
+    /// <summary>
+    /// A keyboard move: the row the reader was on, and which way they asked.
+    /// <para>
+    /// The neighbour comes from the order on screen rather than from Tasks, so
+    /// the row swaps with the row above or below the one the reader can see. With
+    /// finished rows folded into their own section those two orders differ, and
+    /// using the underlying one would move a row past something invisible.
+    /// </para>
+    /// <para>
+    /// Clamped at both ends rather than wrapped. A row at the top that jumped to
+    /// the bottom on one more press would be a move nobody asked for, and the
+    /// reader would have to notice it happened before they could undo it.
+    /// </para>
+    /// <para>
+    /// The move is raised, not applied, exactly as the drag is: the host owns the
+    /// order. What is held here is only where to put the focus once the host has
+    /// answered.
+    /// </para>
+    /// </summary>
+    private async Task MoveByKeyboardAsync(TaskRow task, int delta)
+    {
+        var order = Open;
+
+        var from = -1;
+        for (var index = 0; index < order.Count; index++)
+        {
+            if (!string.Equals(order[index].Id, task.Id, StringComparison.Ordinal)) continue;
+
+            from = index;
+            break;
+        }
+
+        if (from < 0) return;
+
+        var to = from + delta;
+        if (to < 0 || to >= order.Count) return;
+
+        _announcement = $"Moved {task.Title} to {to + 1} of {order.Count}.";
+        _focusAfterMove = RowElementId(task);
+
+        await OnReorder.InvokeAsync(new TaskMove(task.Id, order[to].Id));
+    }
+
 }

@@ -9,13 +9,7 @@
     ".tech",
     ".design"
   ],
-  "problems": [
-    {
-      "severity": "warning",
-      "path": ".domain/backlog/domain.md",
-      "message": ".domain/backlog/assets is missing from `order` in domain.md; appended alphabetically. Add it to pin its position."
-    }
-  ],
+  "problems": [],
   "entries": [
     {
       "type": "area",

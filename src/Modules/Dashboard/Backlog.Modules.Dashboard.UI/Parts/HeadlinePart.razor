@@ -1,0 +1,104 @@
+@*
+    The four figures a reader looks for first: what shipped, what closed, how much
+    came back after review, and how long a review took to arrive.
+
+    Every tile carries the part's status rather than the part hiding behind one
+    status of its own, which is what lets the grid stay on screen while it loads
+    instead of the row appearing from nowhere when the data lands.
+
+    The trends are passed as a fragment rather than written as child content, so a
+    tile with nothing to draw yet has no trend area at all instead of an empty one
+    holding space for a line that may never arrive.
+*@
+@inherits DashboardPartBase<ProductivityHeadline>
+@inject IProductivityInsights Insights
+
+<PartFrame Title="Throughput"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-headline">
+    <MetricGrid Label="Throughput over the selected window" TestId="dashboard-headline-tiles">
+        <MetricTile Label="Pull requests merged"
+                    Value="@(IsReady ? MetricFormat.Compact(Value!.PullRequestsMerged) : null)"
+                    Emphasis="true"
+                    Trend="@(IsReady ? Sparkline(Value!.PullRequestsPerWeek, "Pull requests merged per week", "dashboard-headline-pulls-trend") : null)"
+                    Status="Status"
+                    StatusMessage="@StatusMessage"
+                    TestId="dashboard-headline-pulls" />
+
+        <MetricTile Label="Issues closed"
+                    Value="@(IsReady ? MetricFormat.Compact(Value!.IssuesClosed) : null)"
+                    Trend="@(IsReady ? Sparkline(Value!.IssuesPerWeek, "Issues closed per week", "dashboard-headline-issues-trend") : null)"
+                    Status="Status"
+                    StatusMessage="@StatusMessage"
+                    TestId="dashboard-headline-issues" />
+
+        @* Max is pinned to 1 because this series is a share, not a count. Left to
+           scale itself, a quarter whose worst week churned a tenth of its pull
+           requests would draw the same shape as one that churned all of them. *@
+        <MetricTile Label="Came back after review"
+                    Value="@(IsReady ? MetricFormat.Percent(Value!.ReworkRate) : null)"
+                    Footnote="@(IsReady ? "Of the pull requests that were reviewed" : null)"
+                    Trend="@(IsReady ? Sparkline(Value!.ReworkRatePerWeek, "Share of reviewed pull requests that churned, per week", "dashboard-headline-rework-trend", max: 1m) : null)"
+                    Status="Status"
+                    StatusMessage="@StatusMessage"
+                    TestId="dashboard-headline-rework" />
+
+        <MetricTile Label="First review arrived in"
+                    Value="@(IsReady ? Turnaround(Value!.MedianReviewTurnaround) : null)"
+                    Footnote="@(IsReady ? "Median, across reviewed pull requests" : null)"
+                    Status="Status"
+                    StatusMessage="@StatusMessage"
+                    TestId="dashboard-headline-turnaround" />
+    </MetricGrid>
+</PartFrame>
+
+@code {
+    private string Note => Scope.IsAllRepositories
+        ? $"Your own work, across every configured repository, over {Scope.Weeks} weeks."
+        : $"Your own work in {Scope.RepositoryAlias}, over {Scope.Weeks} weeks.";
+
+    protected override Task<InsightResult<ProductivityHeadline>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetHeadlineAsync(Scope, cancellationToken);
+
+    /// <summary>
+    /// Empty when nothing merged and nothing closed. Not "when every figure is
+    /// zero": a rework rate of zero over a quarter with fifty merges is the best
+    /// possible reading, and treating it as an empty part would hide the good news.
+    /// </summary>
+    protected override bool IsEmpty(ProductivityHeadline value) =>
+        value.PullRequestsMerged == 0 && value.IssuesClosed == 0;
+
+    protected override string EmptyMessage =>
+        "Nothing merged and nothing closed in this window.";
+
+    protected override void InvalidateSource() => Insights.Invalidate(Scope);
+
+    private RenderFragment Sparkline(
+        IReadOnlyList<InsightPoint> points,
+        string description,
+        string testId,
+        decimal? max = null) =>
+        @<MetricSparkline Points="@(points.Select(point => new MetricPoint(point.Label, point.Value)).ToList())"
+                          Max="max"
+                          Description="@description"
+                          TestId="@testId" />;
+
+    /// <summary>
+    /// A duration a person reads rather than a decimal number of hours. Under an
+    /// hour it is minutes, under a day hours, above that days — nobody needs to know
+    /// a review took 19.4 hours.
+    /// </summary>
+    private static string Turnaround(TimeSpan? span)
+    {
+        if (span is not { } value) return "—";
+
+        return value.TotalHours switch
+        {
+            < 1 => $"{Math.Max(1, (int)value.TotalMinutes)}m",
+            < 24 => $"{(int)value.TotalHours}h",
+            _ => $"{value.TotalDays:0.#}d"
+        };
+    }
+}

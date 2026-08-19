@@ -2,30 +2,38 @@
 @using Backlog.Infrastructure.Copilot
 @inject DomainKnowledgeStore DomainKnowledge
 @inject KnowledgeCopilotCli KnowledgeCopilot
+@inject IGitFileHistoryService GitHistory
 @inject IAppFeatureSettings Features
 
-<section class="domain-knowledge @(Compact ? "domain-knowledge--compact" : string.Empty)" data-testid="domain-knowledge-panel" aria-labelledby="domain-knowledge-title">
+@*
+    The pane above already says which section this is — the tab strip names it and
+    the knowledge menu heads its column with it — so this panel no longer opens
+    with a "Knowledge base" eyebrow and a title repeating the same word a third
+    time. It names itself to a screen reader instead, the way every other labelled
+    region in this product does (.design/accessibility.md, "Names & roles"). The
+    same rule the chapter documents already follow, one level up: the article
+    header gives up kind, title and path to the file view that says all three.
+*@
+
+<section class="domain-knowledge @(Compact ? "domain-knowledge--compact" : string.Empty)" data-testid="domain-knowledge-panel" aria-label="Domain knowledge">
     @if (_view is null)
     {
-        <p class="domain-knowledge__state" role="status">Loading domain knowledge...</p>
+        <Alert Message="Loading domain knowledge..." BaseClass="domain-knowledge__state" Role="status" />
     }
     else if (_view.Error is not null)
     {
         <div class="domain-knowledge__empty" role="status">
-            <h2 id="domain-knowledge-title">Domain knowledge</h2>
             <p>@_view.Error</p>
             <a class="md-link" href="settings">Configure repository knowledge folders</a>
         </div>
     }
     else
     {
-        <header class="domain-knowledge__header">
-            <div>
-                <p class="domain-knowledge__eyebrow">Knowledge base</p>
-                <h2 id="domain-knowledge-title">Domain model</h2>
-                <p class="domain-knowledge__source">@_view.RepositoryLabel - <code>@_view.RootPath</code></p>
-            </div>
-        </header>
+        @* Where the folder is, and nothing else. The repository it belongs to is
+           the pane's line above the tabs; repeating it here said the same name
+           twice on one screen, because the label this view carries resolves to
+           that very repository's full name. *@
+        <p class="domain-knowledge__source"><code>@_view.RootPath</code></p>
 
         @if (string.IsNullOrWhiteSpace(SelectedPath))
         {
@@ -60,7 +68,12 @@
                         <p class="domain-knowledge__eyebrow">Bounded context</p>
                         <h3>@SelectedContext.DisplayName</h3>
                     </div>
-                    <span class="badge badge--domain-status badge--domain-status-@SelectedContext.Status">@SelectedContext.Status</span>
+                    @* The library's status badge, which composes exactly the three
+                       classes this span spelled out. FallbackSlug is the domain's own
+                       word rather than the component's "draft" default: a context with
+                       no status reads "none" everywhere else in this panel, and a badge
+                       that invented "draft" would disagree with the store. *@
+                    <StatusBadge Kind="domain-status" Status="@SelectedContext.Status" FallbackSlug="none" />
                 </header>
 
                 <div class="domain-context__documents">
@@ -79,9 +92,45 @@
     private static readonly HashSet<string> HeaderMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "status", "knowledge-issue", "github-issue", "issue" };
     private static readonly HashSet<string> NavigableMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "implements", "implemented-by", "related", "depends-on", "refines", "supersedes" };
 
+    /// <summary>The chapter as it was when it was opened, and the chapter as it
+    /// was last committed. Two answers to "compared with what?", and the two a
+    /// reader of a knowledge folder actually asks: what have I changed in this
+    /// sitting, and what has changed since this was agreed.</summary>
+    private const string OpenedBaselineId = "opened";
+
+    private const string CommittedBaselineId = "committed";
+
     private readonly HashSet<string> _copilotBusy = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _copilotErrors = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Remarks on a chapter, kept per chapter path and only for as long as the app
+    /// is running.
+    /// <para>
+    /// Deliberately not written anywhere. A comment anchored to a block index needs
+    /// a home that can be re-anchored when the file is edited, and choosing that
+    /// home — a sidecar file beside the chapter, or markers inside it — is a
+    /// decision about a governed knowledge folder rather than a detail of this
+    /// panel. Session-scoped remarks are useful now and commit the repository to
+    /// nothing.
+    /// </para>
+    /// </summary>
+    private readonly Dictionary<string, List<MarkdownComment>> _chapterComments = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Which of the chapter's headings state a status of their own, and
+    /// so which of them the read view is already showing a control for.</summary>
+    private HashSet<string> _statusHeadings = new(StringComparer.OrdinalIgnoreCase);
+
+    private string? _chapterRoot;
+    private string? _openedText;
+    private string? _committedText;
+    private string? _committedUnavailable;
+    private bool _committedRead;
+    private int _nextComment = 1;
+    private bool _editing;
+    private bool _comparing;
+    private string _baselineId = OpenedBaselineId;
     private DomainKnowledgeView? _view;
     private KnowledgeChapterContent _chapter = KnowledgeChapterContent.None;
     private DomainKnowledgeDocument? _chapterDocument;
@@ -178,11 +227,44 @@
         var document = SelectedDocument;
         if (!force && ReferenceEquals(_chapterDocument, document)) return;
 
+        // By path and not by reference: a reload re-parses the folder, so the same
+        // file comes back as a different record every time. Reference identity is
+        // the right test for "is there anything to do" above and the wrong one for
+        // "is this a different chapter" — which is the question the baselines, the
+        // modes and the committed read all hang off.
+        // The root belongs in the comparison too: the same relative path under a
+        // folder that has moved is a different file, and a baseline read from the
+        // one before it would compare a chapter against somebody else's copy of it.
+        var sameChapter = string.Equals(document?.Path, _chapterDocument?.Path, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(_view?.RootPath, _chapterRoot, StringComparison.OrdinalIgnoreCase);
+
+        _chapterRoot = _view?.RootPath;
+
         _chapterDocument = document;
         _chapterSaveError = null;
         _chapter = _view is null || document is null
             ? KnowledgeChapterContent.None
             : await KnowledgeChapterContent.LoadAsync("domain", _view.RootPath, document.Path);
+
+        _statusHeadings = HeadingsWithStatus(_chapter.Text);
+
+        if (sameChapter)
+        {
+            // The working copy moved on; the commit did not. Re-running git on
+            // every debounce would spend a process to be told the same thing.
+            _openedText ??= _chapter.Text;
+        }
+        else
+        {
+            // A different file: every one of these was about the last one.
+            _openedText = _chapter.Text;
+            _committedText = null;
+            _committedUnavailable = null;
+            _committedRead = false;
+            _baselineId = OpenedBaselineId;
+            _editing = false;
+            _comparing = false;
+        }
 
         // Blazor assigns a component reference but never clears it, so an editor
         // that has stopped rendering would still be reachable here. Cleared with
@@ -211,6 +293,242 @@
     /// the title, the metadata rows, the section list — is read from the file, so
     /// a save makes all of it stale at once.</summary>
     private Task OnChapterSavedAsync() => ReloadAsync();
+
+    /// <summary>
+    /// Into the editor, or back out of it.
+    /// <para>
+    /// Leaving writes whatever the debounce still owes and re-reads the folder, so
+    /// the rendering the reader lands back on is the file as it now is — including
+    /// the statuses, diagrams and chapter titles this panel derives from it. Coming
+    /// back to a rendering of the text as it was before they typed is the bug this
+    /// avoids, and it is not a hypothetical: the read view is drawn from the parse,
+    /// and the parse was made before the keystrokes.
+    /// </para>
+    /// </summary>
+    private async Task OnEditingChangedAsync(bool editing)
+    {
+        if (editing)
+        {
+            _editing = true;
+            return;
+        }
+
+        // The body goes first, while the surface that owns the pending write is
+        // still the thing on screen — the same order the status handler keeps, and
+        // for the same reason.
+        await FlushEditorAsync();
+        _editing = false;
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// Into the comparison, or back out.
+    /// <para>
+    /// The file goes to disk first, for the same reason the status handler flushes:
+    /// a comparison is between two versions of a file, and a keystroke the debounce
+    /// has not written yet is not a version of anything. The committed side is read
+    /// here rather than on every render — it costs a git process, and this is the
+    /// moment the reader asked for it.
+    /// </para>
+    /// </summary>
+    private async Task OnComparingChangedAsync(bool comparing)
+    {
+        if (!comparing)
+        {
+            _comparing = false;
+            return;
+        }
+
+        await FlushEditorAsync();
+        _comparing = true;
+        await ReloadAsync();
+        await ReadCommittedBaselineAsync();
+    }
+
+    private async Task OnBaselineChangedAsync(string baselineId)
+    {
+        _baselineId = baselineId;
+        await ReadCommittedBaselineAsync();
+    }
+
+    /// <summary>
+    /// The chapter's committed version, read once per chapter and only when a
+    /// reader asks for it.
+    /// <para>
+    /// "Never committed" is an ordinary answer and not a failure — a chapter written
+    /// this morning has no earlier version — so it is said in the reader's terms
+    /// instead of being reported as an error. What git says when it genuinely fails
+    /// is passed through unchanged: this panel has no better wording for it than
+    /// git's own.
+    /// </para>
+    /// </summary>
+    private async Task ReadCommittedBaselineAsync()
+    {
+        if (!string.Equals(_baselineId, CommittedBaselineId, StringComparison.Ordinal)) return;
+        if (_committedRead || _chapter.Chapter is not { } chapter) return;
+
+        _committedRead = true;
+        var result = await GitHistory.ReadAtHeadAsync(chapter.FullPath);
+
+        (_committedText, _committedUnavailable) = result.State switch
+        {
+            GitFileAtRevisionState.Committed => (result.Content, (string?)null),
+            GitFileAtRevisionState.NotTracked => (null, "This chapter has not been committed yet, so there is no earlier version of it to compare with."),
+            GitFileAtRevisionState.NotARepository => (null, result.Message ?? "The knowledge folder is not inside a git repository."),
+            _ => (null, result.Message ?? "Git could not read the committed version of this chapter.")
+        };
+    }
+
+    /// <summary>What the chapter can be compared against, in the order a reader
+    /// reaches for them.</summary>
+    private IReadOnlyList<FileCompareBaseline> ChapterBaselines() =>
+    [
+        new FileCompareBaseline(
+            OpenedBaselineId,
+            "As opened",
+            _openedText,
+            _openedText is null ? "Nothing was read from this chapter when it was opened." : null),
+        new FileCompareBaseline(
+            CommittedBaselineId,
+            "Last commit",
+            _committedText,
+            _committedRead ? _committedUnavailable : "Reading the committed version of this chapter...")
+    ];
+
+    /// <summary>The remarks on the open chapter. A different chapter's remarks stay
+    /// with that chapter — they are about its blocks and mean nothing against
+    /// another file's.</summary>
+    private IReadOnlyList<MarkdownComment> ChapterComments() =>
+        _chapterDocument is { } document && _chapterComments.TryGetValue(document.Path, out var comments)
+            ? comments
+            : [];
+
+    /// <summary>
+    /// A remark, where it was asked for.
+    /// <para>
+    /// It arrives with wording rather than empty, because the read view offers no
+    /// way to write one before it exists: a reader presses the affordance on a
+    /// block and then edits what appears. An empty comment would render as a blank
+    /// note beside the prose, which reads as something having gone wrong.
+    /// </para>
+    /// </summary>
+    private void AddChapterComment(int blockIndex)
+    {
+        if (_chapterDocument is not { } document) return;
+
+        if (!_chapterComments.TryGetValue(document.Path, out var comments))
+        {
+            comments = [];
+            _chapterComments[document.Path] = comments;
+        }
+
+        comments.Add(new MarkdownComment(
+            $"remark-{_nextComment++}",
+            blockIndex,
+            "A new remark. Edit it to say what it is.",
+            "You",
+            "just now"));
+    }
+
+    /// <summary>Resolved rather than removed, for the reason MarkdownComment
+    /// records: the reason a paragraph reads the way it does is usually in the
+    /// remark that got it there.</summary>
+    private void ResolveChapterComment(string id) =>
+        ReplaceChapterComment(id, comment => comment with { Resolved = !comment.Resolved });
+
+    private void EditChapterComment(MarkdownComment edited) =>
+        ReplaceChapterComment(edited.Id, _ => edited);
+
+    private void ReplaceChapterComment(string id, Func<MarkdownComment, MarkdownComment> replace)
+    {
+        if (_chapterDocument is not { } document) return;
+        if (!_chapterComments.TryGetValue(document.Path, out var comments)) return;
+
+        var index = comments.FindIndex(comment => string.Equals(comment.Id, id, StringComparison.Ordinal));
+        if (index < 0) return;
+
+        comments[index] = replace(comments[index]);
+    }
+
+    /// <summary>
+    /// A status changed in the body, written to whichever chapter it belongs to.
+    /// <para>
+    /// The read view reports the heading, and the knowledge writer addresses a
+    /// status by path — the document's own path for the file's top heading, and the
+    /// <c>path#anchor</c> the parse produced for a section. So the heading is
+    /// matched back to one of those here; this panel already holds both lists, and
+    /// it is the only thing that does.
+    /// </para>
+    /// </summary>
+    private Task ChangeChapterStatusAsync(DomainKnowledgeDocument document, KnowledgeStatusChange change)
+    {
+        if (change.Heading is not { } heading) return Task.CompletedTask;
+
+        if (string.Equals(heading, document.Title, StringComparison.OrdinalIgnoreCase))
+        {
+            return ChangeKnowledgeStatusAsync(
+                new KnowledgeActionItem(document.Title, document.KindLabel, document.Path, document.Metadata, document.Summary),
+                change.Status);
+        }
+
+        if (document.Sections.FirstOrDefault(section => string.Equals(section.Title, heading, StringComparison.OrdinalIgnoreCase)) is { } section)
+        {
+            return ChangeKnowledgeStatusAsync(
+                new KnowledgeActionItem(section.Title, $"{document.KindLabel} section", section.Anchor, section.Metadata, section.Excerpt),
+                change.Status);
+        }
+
+        // Nothing on screen answers to that heading, which means the parse this
+        // panel is holding and the text the body rendered have drifted apart. Said
+        // rather than swallowed: the alternative is a control that appears to work
+        // and writes nowhere.
+        _statusErrors[document.Path] = $"Could not tell which chapter \"{heading}\" is, so its state was not saved. Reopen the chapter and try again.";
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Which headings state a status of their own — the ones whose control the read
+    /// view draws beside the heading.
+    /// <para>
+    /// Read through <see cref="MarkdownChapters"/> rather than with a second
+    /// regular expression over the file, so that "the heading owns the fence under
+    /// it" means the same thing here as it does in the view: a <c>```meta</c> in a
+    /// quoted fence is not a status, and neither view nor panel should be fooled by
+    /// one.
+    /// </para>
+    /// </summary>
+    private static HashSet<string> HeadingsWithStatus(string? markdown)
+    {
+        var headings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var chapter in MarkdownChapters.Split(markdown))
+        {
+            foreach (var line in chapter.Text.Split('\n').Skip(1).Select(line => line.Trim()))
+            {
+                if (line.Length == 0) continue;
+
+                if ((line.StartsWith("```", StringComparison.Ordinal) || line.StartsWith("~~~", StringComparison.Ordinal))
+                    && Backlog.UI.Components.Knowledge.KnowledgeMeta.IsMetaBlock(line[3..]))
+                {
+                    headings.Add(chapter.Title);
+                }
+
+                break;
+            }
+        }
+
+        return headings;
+    }
+
+    /// <summary>Whether the open file view is already showing this heading's status
+    /// where the heading is. False in every mode but reading, because that is the
+    /// only mode the record is drawn in — and a status must stay reachable while a
+    /// reader is editing or comparing.</summary>
+    private bool ShowsStatusInBody(DomainKnowledgeDocument document, string heading) =>
+        IsEditedChapter(document)
+        && !_editing
+        && !_comparing
+        && _statusHeadings.Contains(heading);
 
     /// <summary>A save that failed after the editor stopped being able to say so.
     /// It is shown here because this panel is still on screen when that
@@ -262,12 +580,14 @@
         _ => string.Empty
     };
 
-    /// <summary>The chapter as a buffer, for the file view's body. No Title is
-    /// handed over: the file view's header above it already names the document, and
-    /// the document bar inside it is there for the actions.</summary>
+    /// <summary>The chapter as a buffer, and nothing else: no title, because the
+    /// file view's header above it names the document, and Bare because that header
+    /// now carries the way in and out of editing too. This is only on screen while
+    /// the reader is writing.</summary>
     private RenderFragment ChapterEditor() => @<KnowledgeChapterEditor @ref="_editor"
                                                                        Chapter="@_chapter.Chapter"
                                                                        InitialText="@_chapter.Text"
+                                                                       Bare="true"
                                                                        OnSaved="OnChapterSavedAsync"
                                                                        OnSaveFailed="OnChapterSaveFailed" />;
 
@@ -293,7 +613,9 @@
                     <p class="domain-document__path"><code>@document.Path</code></p>
                 </div>
             }
-            @RenderKnowledgeActions(new KnowledgeActionItem(document.Title, document.KindLabel, document.Path, document.Metadata, document.Summary))
+            @RenderKnowledgeActions(
+                new KnowledgeActionItem(document.Title, document.KindLabel, document.Path, document.Metadata, document.Summary),
+                showStatus: !ShowsStatusInBody(document, document.Title))
         </header>
 
         @if (IsEditedChapter(document))
@@ -301,19 +623,48 @@
             @* The chapter as the file has it, in place of the summary and the
                section excerpts that retold it. Those are a reading of this same
                text, and two readings on one screen disagree the moment either is
-               typed into. Everything that is not prose stays: the metadata rows,
-               the rendered diagrams, and each section's action row — a section's
-               state and its Copilot launch are controls, not content, and there
-               is nowhere else in the product to reach them. All of it stays
-               outside the file view, above and below it, because the file view's
-               body is the file and nothing else belongs in it. *@
+               typed into.
+
+               And now the same argument, applied to the rest of what this panel
+               used to draw around the file. A chapter's status, its diagrams and
+               a way to copy it are all *in* the file, so they are rendered from
+               the file: the status beside the heading it describes, the diagram
+               where its fence is, a copy button on each chapter, and remarks in
+               the margin beside the block they are about. Drawing them outside
+               meant a diagram appeared below the file that contained it and a
+               status appeared twice — once as this panel's select and once as the
+               raw `meta` fence in the body — which is the drift the file view now
+               removes by being the only one rendering them.
+
+               What stays outside is what is genuinely not in the file: the save
+               state, a failed write, the Copilot launch, and the linked knowledge
+               issue. *@
             <Alert Message="@_chapterSaveError" TestId="domain-chapter-save-error" Role="status" />
             <FileView Name="@document.Title"
                       Kind="@document.KindLabel"
                       Path="@document.Path"
+                      Body="@_chapter.Text"
                       MaxHeight="@(null)"
                       TestId="domain-chapter-file"
-                      BodyContent="@ChapterEditor()" />
+                      AllowCopy="true"
+                      AllowChapterCopy="true"
+                      RenderKnowledgeMetadata="true"
+                      KnowledgeFolder="KnowledgeFolder.Domain"
+                      OnKnowledgeStatusChanged="change => ChangeChapterStatusAsync(document, change)"
+                      OnKnowledgeNavigate="reference => NavigateKnowledgeLink(reference.Path)"
+                      Comments="@ChapterComments()"
+                      OnAddComment="index => AddChapterComment(index)"
+                      OnResolveComment="ResolveChapterComment"
+                      OnEditComment="EditChapterComment"
+                      CanEdit="@(_chapter.Chapter is not null)"
+                      Editing="@_editing"
+                      EditingChanged="OnEditingChangedAsync"
+                      EditBodyContent="@ChapterEditor()"
+                      Comparing="@_comparing"
+                      ComparingChanged="OnComparingChangedAsync"
+                      CompareBaselines="@ChapterBaselines()"
+                      CompareBaselineId="@_baselineId"
+                      CompareBaselineIdChanged="OnBaselineChangedAsync" />
         }
         else if (!string.IsNullOrWhiteSpace(document.Summary))
         {
@@ -325,9 +676,14 @@
             @RenderMetadata(document.Metadata, document.Links, "Document metadata")
         }
 
-        @foreach (var diagram in document.Diagrams)
+        @* Only for a document the file view is not showing. The chapter's own
+           diagrams are rendered where they were written, inside the body. *@
+        @if (!IsEditedChapter(document))
         {
-            <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
+            @foreach (var diagram in document.Diagrams)
+            {
+                <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
+            }
         }
 
         <div class="domain-sections">
@@ -336,7 +692,9 @@
                 <section class="domain-section" id="@ElementId(section.Anchor)">
                     <header class="domain-section__header">
                         <h4>@section.Title</h4>
-                        @RenderKnowledgeActions(new KnowledgeActionItem(section.Title, $"{document.KindLabel} section", section.Anchor, section.Metadata, section.Excerpt))
+                        @RenderKnowledgeActions(
+                            new KnowledgeActionItem(section.Title, $"{document.KindLabel} section", section.Anchor, section.Metadata, section.Excerpt),
+                            showStatus: !ShowsStatusInBody(document, section.Title))
                     </header>
                     @if (HasVisibleMetadata(section.Metadata, section.Links))
                     {
@@ -346,23 +704,37 @@
                     {
                         <p class="domain-section__excerpt">@section.Excerpt</p>
                     }
-                    @foreach (var diagram in section.Diagrams)
+                    @* As above: a diagram written inside this chapter is drawn
+                       inside it, and only a chapter nobody has open is retold out
+                       here. *@
+                    @if (!IsEditedChapter(document))
                     {
-                        <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
+                        @foreach (var diagram in section.Diagrams)
+                        {
+                            <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
+                        }
                     }
                 </section>
             }
         </div>
     </article>;
 
-    private RenderFragment RenderKnowledgeActions(KnowledgeActionItem item) => @<div class="domain-knowledge__actions" aria-label="Knowledge item actions">
-        @{ var status = KnowledgeActionMetadata.Status(item.Metadata); }
-        <StatusSelector Id="@StateSelectId(item)"
-                        CurrentValue="@status"
-                        Options="@KnowledgeStatusOptions()"
-                        Label="@($"State for {item.Title}")"
-                        TestId="knowledge-state-select"
-                        OnChanged="value => ChangeKnowledgeStatusAsync(item, value)" />
+    @* showStatus is false for a heading whose status the open file view is already
+       drawing beside it. Two selects for one field is how the pane used to
+       disagree with itself: the reader changed one and the other went on showing
+       the old word until something reloaded. Conditional on the file rather than
+       on the mode, because a chapter that states no status has no record in the
+       body either, and the only way to give it one is still this select. *@
+    private RenderFragment RenderKnowledgeActions(KnowledgeActionItem item, bool showStatus = true) => @<div class="domain-knowledge__actions" aria-label="Knowledge item actions">
+        @if (showStatus)
+        {
+            <StatusSelector Id="@StateSelectId(item)"
+                            CurrentValue="@KnowledgeActionMetadata.Status(item.Metadata)"
+                            Options="@KnowledgeStatusOptions()"
+                            Label="@($"State for {item.Title}")"
+                            TestId="knowledge-state-select"
+                            OnChanged="value => ChangeKnowledgeStatusAsync(item, value)" />
+        }
 
         @if (KnowledgeActionMetadata.Issue(item.Metadata, _view?.RepositoryLabel) is { } issue)
         {

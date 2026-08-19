@@ -1822,6 +1822,40 @@ button.md-check {
     color: var(--color-text-primary);
 }
 
+/* A chapter's own copy, beside the heading that names it rather than at an end a
+   long chapter does not have on the screen. Baseline-aligned so it sits on the
+   heading's line and not above it. */
+.md-chapter-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* Quiet until it is wanted, the same bargain the per-block comment affordance
+   makes: a document with a heading every few paragraphs would otherwise read as a
+   column of buttons with prose between them. Focus brings it back, so a keyboard
+   never reaches a control it cannot see. */
+.md-chapter-head__copy {
+    flex: 0 0 auto;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.md-chapter-head:hover .md-chapter-head__copy,
+.md-chapter-head__copy:focus-within {
+    opacity: 1;
+}
+
+.md-chapter-copy {
+    color: var(--color-text-disabled);
+}
+
+.md-chapter-copy:hover,
+.md-chapter-copy:focus-visible {
+    color: var(--color-text-primary);
+}
+
 /* --- Comments on a read view --------------------------------------------- */
 /*
    A block you can comment on, and the comments hanging off it. The wrapper only
@@ -2469,6 +2503,42 @@ button.task-item__check:focus-visible {
     outline: none;
 }
 
+/*
+  A field that is the title rather than an edit of it.
+
+  The focus rule below the box is what says "this is editable", and on a row whose
+  title is always a field that line would be permanent underlining on every row —
+  chrome shouting at a reader who is only reading. So it is quiet until the caret
+  is actually in it, which is the same bargain the pencil's field makes: the border
+  appears when the edit does.
+*/
+.task-item__rename--direct .task-item__rename-input {
+    border-bottom-color: transparent;
+    transition: border-color var(--transition-fast);
+}
+
+.task-item__rename--direct .task-item__rename-input:hover,
+.task-item__rename--direct .task-item__rename-input:focus {
+    border-bottom-color: var(--color-border-focus);
+}
+
+/*
+   The add row at the bottom of the list. Dashed, because it is not a task until it
+   is named — the same border every unsettled thing in this component wears — and
+   because the row is permanent now, the dashes are also what keep it from reading
+   as a task somebody forgot to fill in.
+
+   Padded across to where the titles start rather than given the circle's column
+   back: the field is the only thing on the row, so without the inset it would be
+   the one line in the list that begins at the edge, and the list would read as
+   having lost its left margin at the exact moment the reader is typing.
+*/
+.task-item--add {
+    border-style: dashed;
+    border-color: var(--color-border);
+    padding-inline-start: calc(var(--spacing-md) + 1.25rem + var(--spacing-sm));
+}
+
 .task-item__edit {
     display: inline-flex;
     align-items: center;
@@ -2571,6 +2641,16 @@ button.task-item__check:focus-visible {
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+}
+
+/* The host's own controls, at the end of the row. A fixed track like the copy
+   button beside it: whatever the host puts here must not be what gives up room
+   when the title is long. */
+.task-item__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
 }
 
 /* --- Task actions -------------------------------------------------------- */
@@ -4171,6 +4251,73 @@ button.tag-chip__label {
     margin-bottom: 0;
 }
 
+/* The path and the file's own actions share the right-hand side of the header:
+   the path says which file, the buttons act on it, and stacking them keeps both
+   out of the name's way when the header is narrow. */
+.file-view__aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.file-view__actions,
+.file-view__baselines {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
+/* Chrome, not content: these are the quiet weight the read view's own copy
+   button takes, and they come forward on hover and focus like it does. */
+.file-view__action {
+    color: var(--color-text-secondary);
+}
+
+.file-view__action:hover,
+.file-view__action:focus-visible {
+    color: var(--color-text-primary);
+}
+
+.file-view__copy-status {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* Which version is being compared against — the same segmented shape the
+   knowledge panes use for their context tabs, because it is the same question:
+   one of these, and you can see which. */
+.file-view__baseline {
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+
+.file-view__baseline:hover,
+.file-view__baseline:focus-visible {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.file-view__baseline--current {
+    border-color: var(--color-border-focus);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+}
+
+.file-view__empty {
+    margin: var(--spacing-md) 0;
+}
+
 @media (max-width: 40rem) {
     .file-view__header,
     .folder-view__header,
@@ -4178,6 +4325,15 @@ button.tag-chip__label {
         flex-direction: column;
         align-items: stretch;
         gap: var(--spacing-xs);
+    }
+
+    .file-view__aside {
+        align-items: stretch;
+    }
+
+    .file-view__actions,
+    .file-view__baselines {
+        justify-content: flex-start;
     }
 
     .file-view__path,
@@ -4219,6 +4375,24 @@ button.tag-chip__label {
     align-items: center;
     gap: var(--spacing-sm);
     min-width: 0;
+}
+
+/* Bare: the host drew the card, the header and the scroll region, so all that is
+   left is the comparison and the strip that says which two versions it is of.
+   Same reasoning as .code-view--bare, and the same shape. */
+.md-compare__bare {
+    min-width: 0;
+}
+
+.md-compare__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .folder-view__error {
@@ -4728,9 +4902,22 @@ button.tag-chip__label {
 
 .split-pane {
     display: grid;
-    grid-template-columns: var(--split-pane-start, 36rem) auto minmax(0, 1fr);
+    grid-template-columns: var(--split-pane-fixed, 36rem) auto minmax(0, 1fr);
     align-items: stretch;
     min-height: 0;
+}
+
+/*
+  Anchored to the trailing edge instead: the fixed column moves to the end and the
+  leading pane takes what is left.
+
+  Set together with data-pane-anchor="end" from one field on the component, because
+  a grid whose fixed column is last while the attribute still says "start" is a drag
+  that runs backwards — the resizer measures the pane from whichever edge the
+  attribute names.
+*/
+.split-pane--end {
+    grid-template-columns: minmax(0, 1fr) auto var(--split-pane-fixed, 36rem);
 }
 
 .split-pane__start,

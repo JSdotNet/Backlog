@@ -110,6 +110,26 @@ public sealed class SampleEntryTests
         Assert.Equal([false, true, false, true], parsed.SubItems.Select(s => s.Done));
     }
 
+    /// <summary>
+    /// The scheduling sample is documentation for a grammar, so the grammar is
+    /// what it is checked against: every named token in it has to read back as the
+    /// field it claims to carry, or the file is teaching a syntax the app does not
+    /// have.
+    /// </summary>
+    [Fact]
+    public void The_scheduled_sample_reads_every_named_token()
+    {
+        var parsed = EntryTextParser.Parse(Read("scheduled.md"));
+
+        Assert.Equal("Deploy SpecManager", parsed.Title);
+        Assert.Equal(new DateOnly(2026, 8, 21), parsed.DueOn);
+        Assert.Equal(new DateTime(2026, 8, 21, 9, 0, 0, DateTimeKind.Unspecified), parsed.RemindAt);
+        Assert.Equal(new Recurrence(1, RecurrenceUnit.Week), parsed.Recurrence);
+        Assert.Equal(new DateOnly(2026, 8, 19), parsed.InMyDayOn);
+        Assert.Equal(["a1b2c3"], parsed.DependsOn);
+        Assert.Equal("repos", parsed.Area);
+    }
+
     [Fact]
     public void A_heading_sub_item_keeps_the_notes_written_under_it()
     {

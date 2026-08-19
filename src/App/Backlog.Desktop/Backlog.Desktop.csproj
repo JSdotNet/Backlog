@@ -63,6 +63,9 @@
          AddRoadmapModule() means seeing both sides of the Roadmap module, which only
          an executable head does. -->
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <!-- The Dashboard module implementation, for AddDashboardModule(). The host is
+         the only thing that sees it: the parts ask through the abstractions project. -->
+    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
     <!-- Dev PC Management's published surface. CopilotToolService implements its
          ICopilotToolService port against the Copilot and dotnet CLIs, which is a
          host's job; the port and the catalog format it reads come from here, not

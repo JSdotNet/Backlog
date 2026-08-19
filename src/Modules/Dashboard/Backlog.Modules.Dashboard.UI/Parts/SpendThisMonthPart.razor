@@ -1,0 +1,96 @@
+@*
+    What your assistants have cost this calendar month.
+
+    A calendar month rather than a rolling thirty days, because a bill arrives per
+    calendar month and "this month" has to mean what the invoice will mean.
+
+    One tile per provider, never a total. The two figures are not the same kind of
+    number: Anthropic reports an estimate against its own published rates, GitHub
+    reports what it charged. Adding them would produce a single authoritative-looking
+    figure that is partly an estimate, and nothing on screen would say which part.
+    So each tile says whose it is and whether it is estimated, and the reader does
+    the addition knowing that.
+
+    The meter appears only for a provider that reported a discount, which today
+    means Copilot: GitHub says how much of the month's consumption the plan already
+    covered, so value-against-consumed is a real ratio. Anthropic reports no
+    allowance, and a meter there would need a ceiling nobody published.
+*@
+@inherits DashboardPartBase<SpendThisMonthInsight>
+@inject ICostInsights Costs
+
+<PartFrame Title="Spend this month"
+           Note="Your own usage, across everything. Neither provider reports spend per repository, so the repository filter does not change these figures."
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-spend-month">
+    @if (IsReady)
+    {
+        <div class="dashboard-part__stack">
+            <MetricGrid Label="Spend so far this month" TestId="dashboard-spend-month-tiles">
+                @foreach (var provider in Value!.Providers)
+                {
+                    <MetricTile Label="@Name(provider.Provider)"
+                                Value="@MetricFormat.Money(new MoneyAmount(provider.Spend.Amount, provider.Spend.Currency))"
+                                Emphasis="@(provider.Provider == SpendProvider.Claude)"
+                                Footnote="@Footnote(provider)"
+                                TestId="@($"dashboard-spend-month-{Slug(provider.Provider)}")" />
+                }
+            </MetricGrid>
+
+            @foreach (var provider in Value!.Providers.Where(one => one.Allowance is not null))
+            {
+                <MetricMeter Label="@($"{Name(provider.Provider)} — charged against consumed")"
+                             Value="@provider.Spend.Amount"
+                             Max="@(provider.Spend.Amount + provider.Allowance!.Amount)"
+                             FormatValue="@(amount => MetricFormat.Money(new MoneyAmount(amount, provider.Spend.Currency)))"
+                             Caption="@Covered(provider)"
+                             TestId="@($"dashboard-spend-month-meter-{Slug(provider.Provider)}")" />
+            }
+        </div>
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-spend-month-status" />
+    }
+</PartFrame>
+
+@code {
+    /// <summary>Spend does not narrow by repository, so the filter must not make
+    /// this part fetch again. See <see cref="DashboardPartBase{T}.FollowsScope"/>.</summary>
+    protected override bool FollowsScope => false;
+
+    protected override Task<InsightResult<SpendThisMonthInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Costs.GetThisMonthAsync(cancellationToken);
+
+    /// <summary>
+    /// Empty when neither provider is in the list. A provider present with a spend
+    /// of nothing is a real answer — you used no credits this month — and shows as
+    /// a zero rather than as an empty part.
+    /// </summary>
+    protected override bool IsEmpty(SpendThisMonthInsight value) => value.Providers.Count == 0;
+
+    protected override string EmptyMessage =>
+        "Neither assistant reported any spend this month.";
+
+    protected override void InvalidateSource() => Costs.Invalidate();
+
+    private static string Name(SpendProvider provider) =>
+        provider == SpendProvider.Claude ? "Claude" : "Copilot";
+
+    private static string Slug(SpendProvider provider) =>
+        provider == SpendProvider.Claude ? "claude" : "copilot";
+
+    private static string Footnote(MonthlySpend provider)
+    {
+        var through = $"1–{provider.Through.Day} {provider.Through:MMM}";
+
+        return provider.IsEstimate
+            ? $"{through}, estimated by the provider"
+            : through;
+    }
+
+    private static string Covered(MonthlySpend provider) =>
+        $"{MetricFormat.Money(new MoneyAmount(provider.Allowance!.Amount, provider.Allowance.Currency))} "
+        + "of this month's consumption was already covered by the plan.";
+}

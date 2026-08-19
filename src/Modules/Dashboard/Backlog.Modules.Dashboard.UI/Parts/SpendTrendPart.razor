@@ -1,0 +1,93 @@
+@*
+    Spend over time — the question "is this month unusual" needs the months before
+    it on screen.
+
+    Monthly buckets over seven months, not daily over two hundred. Two hundred
+    daily bars in this space is a texture rather than a chart, and the decision
+    somebody makes from this part is about a month.
+
+    MetricStackedArea when both providers reported, MetricBars when only one did.
+    The stack answers "what is the shape of the whole and who is in it", which needs
+    a whole; with one series it would be an area chart pretending to be a
+    composition, and bars say the same thing without the implication.
+
+    The currency is on the label rather than formatted into every value, because
+    both providers report United States dollars and repeating the symbol on every
+    bucket label is noise. If they ever disagree the module reports "mixed" and the
+    label says so instead of picking one.
+*@
+@inherits DashboardPartBase<SpendTrendInsight>
+@inject ICostInsights Costs
+
+<PartFrame Title="Spend over time"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-spend-trend">
+    @if (IsReady)
+    {
+        @if (Series.Count > 1)
+        {
+            <MetricStackedArea Series="@Series"
+                               Label="@Label"
+                               NameHeading="Provider"
+                               FormatTotal="Money"
+                               TestId="dashboard-spend-trend-stack" />
+        }
+        else
+        {
+            <MetricBars Points="@Series[0].Points"
+                        Label="@Label"
+                        BucketHeading="Month"
+                        ValueHeading="Spend"
+                        HighlightLast="true"
+                        FormatValue="Money"
+                        TestId="dashboard-spend-trend-bars" />
+        }
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-spend-trend-status" />
+    }
+</PartFrame>
+
+@code {
+    protected override bool FollowsScope => false;
+
+    private string Note =>
+        "Your own usage, by calendar month. The last bucket is the month so far, so it is not yet comparable "
+        + "with the ones before it.";
+
+    private string Label => IsReady
+        ? $"Spend per month, {Value!.Currency}"
+        : "Spend per month";
+
+    private IReadOnlyList<MetricSeries> Series =>
+        IsReady
+            ? [.. Value!.ByProvider.Select(series => new MetricSeries(
+                series.Name,
+                [.. series.Points.Select(point => new MetricPoint(point.Label, point.Value))],
+                series.Detail))]
+            : [];
+
+    protected override Task<InsightResult<SpendTrendInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Costs.GetTrendAsync(cancellationToken);
+
+    /// <summary>
+    /// Empty when no provider produced a series, or when every bucket in every
+    /// series is zero. A flat zero trend is drawn as an empty part rather than as a
+    /// chart of nothing, which is the one place here where all-zero really does mean
+    /// there is nothing to show.
+    /// </summary>
+    protected override bool IsEmpty(SpendTrendInsight value) =>
+        value.ByProvider.Count == 0
+        || value.ByProvider.All(series => series.Points.All(point => point.Value == 0m));
+
+    protected override string EmptyMessage =>
+        "No spend in any month of this window.";
+
+    protected override void InvalidateSource() => Costs.Invalidate();
+
+    private string Money(decimal amount) =>
+        MetricFormat.Money(new MoneyAmount(amount, Value?.Currency ?? "USD"));
+}

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <!--
+      The component library, for one test and one reason: the module restates the
+      metrics library's scoring formula because a module may not reference a UI
+      library, and two formulas that drift produce a score card and a trend chart
+      that disagree. Nothing stops a test project from seeing both, so the
+      agreement is asserted rather than assumed.
+    -->
+    <ProjectReference Include="..\..\src\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+  </ItemGroup>
+
+</Project>

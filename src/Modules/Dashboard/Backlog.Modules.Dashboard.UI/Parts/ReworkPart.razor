@@ -1,0 +1,112 @@
+@*
+    Rework, which on this dashboard means post-review churn: what happened to a
+    pull request after somebody had already reviewed it.
+
+    Three measures, all read from GitHub rather than inferred — commits whose time
+    is after the first review, force pushes after it, and files touched on both
+    sides of it. The denominator throughout is pull requests that were reviewed at
+    all, never every merge: a pull request nobody reviewed cannot have churned after
+    a review, and counting it as clean would let a quarter of unreviewed merges read
+    as a quarter of good ones.
+
+    When the per-commit inspection hit its cap, the note says the files figure is a
+    floor. A capped number presented as a total is how a dashboard quietly stops
+    being trusted, and there is no version of that worth the tidier sentence.
+*@
+@inherits DashboardPartBase<ReworkInsight>
+@inject IProductivityInsights Insights
+
+<PartFrame Title="Rework"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-rework">
+    @if (IsReady)
+    {
+        <div class="dashboard-part__stack">
+            <MetricGrid Label="Post-review churn" MinColumnWidth="12rem" TestId="dashboard-rework-tiles">
+                <MetricTile Label="Pull requests that churned"
+                            Value="@MetricFormat.Compact(Value!.PullRequestsWithChurn)"
+                            Unit="@($"of {Value!.PullRequestsReviewed} reviewed")"
+                            Emphasis="true"
+                            TestId="dashboard-rework-count" />
+                <MetricTile Label="Commits after first review"
+                            Value="@MetricFormat.Compact(Value!.CommitsAfterFirstReview)"
+                            TestId="dashboard-rework-commits" />
+                <MetricTile Label="Force pushes after first review"
+                            Value="@MetricFormat.Compact(Value!.ForcePushesAfterFirstReview)"
+                            TestId="dashboard-rework-forcepushes" />
+                <MetricTile Label="Files touched again"
+                            Value="@MetricFormat.Compact(Value!.FilesRetouched)"
+                            Footnote="@(Value!.ChurnComplete ? null : "At least — some commits were not inspected")"
+                            TestId="dashboard-rework-files" />
+            </MetricGrid>
+
+            <MetricBars Points="@Churned"
+                        Label="Pull requests that churned, per week"
+                        BucketHeading="Week"
+                        ValueHeading="Churned"
+                        HighlightLast="true"
+                        FormatValue="MetricFormat.Compact"
+                        TestId="dashboard-rework-bars" />
+
+            @* Only when there is more than one repository in the answer. A
+               one-row breakdown of the repository already named in the filter is a
+               restatement, not a comparison. *@
+            @if (Value!.ByRepository.Count > 1)
+            {
+                <MetricBreakdown Rows="@ByRepository"
+                                 Label="Churn by repository"
+                                 NameHeading="Repository"
+                                 TokensHeading="Commits after review"
+                                 ShareOf="MetricShareOf.Tokens"
+                                 ShowTotal="true"
+                                 TestId="dashboard-rework-breakdown" />
+            }
+        </div>
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-rework-status" />
+    }
+</PartFrame>
+
+@code {
+    private string Note
+    {
+        get
+        {
+            var basis = "Commits, force pushes and files touched after the first review.";
+
+            return IsReady && !Value!.ChurnComplete
+                ? basis + " Some pull requests had more commits than were inspected, so the files figure is a floor."
+                : basis;
+        }
+    }
+
+    private IReadOnlyList<MetricPoint> Churned =>
+        IsReady
+            ? [.. Value!.ChurnedPullRequestsPerWeek.Select(point => new MetricPoint(point.Label, point.Value))]
+            : [];
+
+    private IReadOnlyList<MetricRow> ByRepository =>
+        IsReady
+            ? [.. Value!.ByRepository.Select(row => new MetricRow(row.Name, row.Tokens, Cost: null, row.Detail))]
+            : [];
+
+    protected override Task<InsightResult<ReworkInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetReworkAsync(Scope, cancellationToken);
+
+    /// <summary>
+    /// Empty when nothing was reviewed. Zero churn over twenty reviewed pull
+    /// requests is a result and renders as one — it is the answer this part exists
+    /// to be able to give.
+    /// </summary>
+    protected override bool IsEmpty(ReworkInsight value) => value.PullRequestsReviewed == 0;
+
+    protected override string EmptyMessage =>
+        "No pull request in this window was reviewed, so there is no post-review churn to report. "
+        + "That is not the same as none: work nobody reviewed cannot come back from a review.";
+
+    protected override void InvalidateSource() => Insights.Invalidate(Scope);
+}

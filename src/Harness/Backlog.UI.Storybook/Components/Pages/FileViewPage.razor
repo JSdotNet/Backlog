@@ -3,7 +3,7 @@
 <PageTitle>File view — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="File view"
-           Summary="FileView shows one file: what it is in the header, what it says in the body. The body scrolls on its own so the header never leaves the screen. What the body is read as comes from the file's own name — markdown for prose, coloured and numbered source for everything the highlighter has a grammar for.">
+           Summary="FileView shows one file: what it is in the header, what it says in the body, and what you can do to it — copy it, edit it, compare it — beside the name in that same header. The body scrolls on its own so the header never leaves the screen. What the body is read as comes from the file's own name: markdown for prose, coloured and numbered source for everything the highlighter has a grammar for. A markdown file is read whole — each chapter's status where its heading is, each diagram where its fence is, a copy button per chapter, and remarks in the margin — so a host never has to parse the same text a second time to draw those around the outside.">
 
     <Story Name="The file's name decides how it is read"
            Description="Same component, same parameters, three files. A name the highlighter knows is shown as source: coloured, numbered, and never run through the markdown parser — a `#` in a shell script is a comment, and reading it as a heading is how a file view loses the file. A name it does not know is shown as markdown, which is also what a file of plain prose wants. Nothing here had to be told which was which."
@@ -126,6 +126,63 @@
         </div>
     </Story>
 
+    <Story Name="A knowledge chapter, whole"
+           Description="Every capability at once, on the file that prompted them: a `.domain` chapter. Each chapter's `meta` fence is drawn as the record it is — the status beside the heading it describes, as a select where the folder has a vocabulary to offer — and each heading offers to copy its own chapter, hover it to see. The mermaid fence renders where it was written rather than below the file that contains it. Remarks sit in the margin, level with the block they are about; narrow the window and they fall back to inline on their own.
+
+Read is the resting state. Edit swaps the body for the one this page supplies and the header says Done; Compare swaps it for the two versions aligned by heading. One at a time, and the pane keeps the same header and the same single scroll region through all three — which is the whole reason for putting the buttons up there rather than in a second bar underneath.
+
+Status and comments used to be mutually exclusive: a document anybody had annotated kept the stacked rendering, so its `meta` fences showed as raw code. A reviewed chapter is exactly the one whose currency a reader needs, so the paired row now carries both indices' notes instead."
+           Code="@ChapterCode">
+        <div class="sb-tall" data-testid="file-view-knowledge">
+            <FileView Name="Domain: Backlog Management"
+                      Kind="Domain model narrative"
+                      Path=".domain/backlog/domain.md"
+                      Body="@_domain"
+                      Fill="true"
+                      TestId="file-view-domain"
+                      AllowCopy="true"
+                      AllowChapterCopy="true"
+                      RenderKnowledgeMetadata="true"
+                      KnowledgeFolder="KnowledgeFolder.Domain"
+                      OnKnowledgeStatusChanged="OnStatusChanged"
+                      Comments="@_remarks"
+                      OnAddComment="AddRemark"
+                      OnResolveComment="ResolveRemark"
+                      OnEditComment="EditRemark"
+                      CanEdit="true"
+                      @bind-Editing="_editing"
+                      @bind-Comparing="_comparing"
+                      @bind-CompareBaselineId="_baseline"
+                      CompareBaselines="@Baselines">
+                <EditBodyContent>
+                    <MarkdownEditor Value="@_domain"
+                                    ValueChanged="value => _domain = value"
+                                    AriaLabel="Chapter source"
+                                    Rows="16"
+                                    TestId="file-view-domain-editor" />
+                </EditBodyContent>
+            </FileView>
+        </div>
+    </Story>
+
+    <Story Name="Compared against two versions of itself"
+           Description="A comparison is the same body with its history beside it, so it lands in the same frame: MarkdownCompareView is handed the result Bare, which gives up its own card, header and scroll region because this pane already has all three. Without that, a comparison inside a file view named the file twice and put a second scrollbar inside the one the reader can see.
+
+What a baseline *is* stays the host's. This page holds two strings; the domain panel holds one string and asks git for the other, and neither arrangement is something the component needs to know about. A baseline that has nothing to offer says so — press Compare, then pick 'Never committed' — because 'this file has no earlier version' is an ordinary answer for a chapter written this morning, and it is not the same answer as an empty file."
+           Code="@CompareCode">
+        <div class="sb-tall" data-testid="file-view-compare">
+            <FileView Name="context-map.md"
+                      Kind="Domain context map"
+                      Path=".domain/context-map.md"
+                      Body="@ContextMapAfter"
+                      Fill="true"
+                      TestId="file-view-compare-example"
+                      Comparing="true"
+                      CompareBaselines="@CompareExamples"
+                      @bind-CompareBaselineId="_exampleBaseline" />
+        </div>
+    </Story>
+
     <Story Name="A body the host brings itself"
            Description="Aligning the knowledge panes on this component ran straight into the story above: the body it renders is read-only, and a chapter you can edit in place is not. BodyContent is the answer that does not turn FileView into an editor — the host hands in the body and keeps everything that comes with writing, while the frame, the identity, the path and the one scroll region stay here. Which is the point of using this component at all: an author editing `05-building-block-view.md` should still be able to see which file that is, without scrolling back up to find out. Type in it and watch the size in the header move — the header describes the file, and what the file now says is the host's to report.
 
@@ -156,6 +213,65 @@ Tab through this one and then through the story above it. A supplied body gives 
     // The one piece of state on this page: the hosted-body story is only worth
     // looking at if it can actually be typed in.
     private string _chapter = ChapterSource;
+
+    // The knowledge story's state. Editing and comparing are the component's
+    // modes; the rest is what a host owns — the text, the remarks, and which
+    // version is being compared against.
+    private string _domain = DomainChapter;
+    private bool _editing;
+    private bool _comparing;
+    private string _baseline = "opened";
+    private string _exampleBaseline = "commit";
+    private int _nextRemark = 3;
+
+    private IReadOnlyList<MarkdownComment> _remarks =
+    [
+        new("r1", 2, "Is \"triaged\" the word we settled on, or is it still \"refined\"?", "Reviewer", "yesterday"),
+        new("r2", 6, "This invariant is the one the writer enforces — worth naming it here.", "You", "2 hours ago", Resolved: true)
+    ];
+
+    /// <summary>Two versions to compare the chapter against. "As opened" is the
+    /// text this page loaded with, which is what "what have I changed" means on a
+    /// surface that auto-saves; the committed one is a fixture, because a
+    /// storybook has no repository behind it.</summary>
+    private IReadOnlyList<FileCompareBaseline> Baselines =>
+    [
+        new("opened", "As opened", DomainChapter),
+        new("committed", "Last commit", CommittedDomainChapter)
+    ];
+
+    private IReadOnlyList<FileCompareBaseline> CompareExamples =>
+    [
+        new("commit", "Last commit", ContextMapBefore),
+        new("empty", "Never committed", null, "This chapter has not been committed yet, so there is no earlier version of it to compare with.")
+    ];
+
+    /// <summary>A status change reports the block it came from and the chapter
+    /// title, which is what lets a host find the file's own heading again. Written
+    /// into the text here so the story keeps telling the truth about itself.</summary>
+    private void OnStatusChanged(KnowledgeStatusChange change) =>
+        _domain = _domain.Replace($"status: {StatusOf(change.Heading)}", $"status: {change.Status}", StringComparison.Ordinal);
+
+    /// <summary>What the fence under a heading currently says, so the replacement
+    /// above rewrites that chapter's line and not the first one in the file.</summary>
+    private string StatusOf(string? heading)
+    {
+        var lines = _domain.Replace("\r\n", "\n").Split('\n');
+        var start = Array.FindIndex(lines, line => heading is not null && line.TrimStart('#', ' ') == heading);
+        if (start < 0) return "draft";
+
+        var status = lines.Skip(start + 1).Take(4).FirstOrDefault(line => line.TrimStart().StartsWith("status:", StringComparison.Ordinal));
+        return status?.Split(':', 2)[1].Trim() ?? "draft";
+    }
+
+    private void AddRemark(int blockIndex) =>
+        _remarks = [.. _remarks, new MarkdownComment($"r{_nextRemark++}", blockIndex, "A new remark. Edit it to say what it is.", "You", "just now")];
+
+    private void ResolveRemark(string id) =>
+        _remarks = [.. _remarks.Select(remark => remark.Id == id ? remark with { Resolved = !remark.Resolved } : remark)];
+
+    private void EditRemark(MarkdownComment edited) =>
+        _remarks = [.. _remarks.Select(remark => remark.Id == edited.Id ? edited : remark)];
 
     // Read off the text rather than written down, so the header keeps telling the
     // truth while the story is being edited. A host that owns the body owns
@@ -368,6 +484,150 @@ Tab through this one and then through the story above it. A supplied body gives 
                 <MarkdownEditor Value="@source" ValueChanged="OnChanged" Rows="12" />
             </BodyContent>
         </FileView>
+        """;
+
+    // The chapter from the request that prompted the header actions, trimmed to
+    // the parts that show them off: two chapters with a status of their own, a
+    // diagram written inside one of them, and enough prose to have somewhere to
+    // hang a remark.
+    private const string DomainChapter = """
+        # Domain: Backlog Management
+
+        ```meta
+        status: draft
+        order: ["features.md", "model.md", "flow.md"]
+        ```
+
+        Backlog Management maintains a personal backlog of prompts, tasks, ideas and
+        follow-ups across multiple projects and repos. It converts triaged Inbox
+        Items into actionable, prioritised Backlog Entries and projects them to
+        external systems such as GitHub and the Copilot CLI.
+
+        ## Aggregate: Backlog Entry
+
+        ```meta
+        status: proposed
+        related: [.domain/inbox/domain.md#aggregate-inbox-item]
+        ```
+
+        A refined, actionable item in the personal backlog and the consistency
+        boundary for all of its sub-items, projections and usage history. It is the
+        single source of truth: one logical item with one priority and one status
+        even when it targets multiple repositories.
+
+        ```mermaid
+        stateDiagram-v2
+            [*] --> Draft
+            Draft --> Ready
+            Ready --> InProgress: EntryProjected
+            InProgress --> Done: EntryCompleted
+            Done --> [*]
+        ```
+
+        Invariants: status only moves through the defined lifecycle; all mutations
+        to sub-items go through the root; parent progress reflects sub-item
+        completion.
+        """;
+
+    /// <summary>The same chapter as a commit has it: one status agreed, one
+    /// paragraph shorter, and a lifecycle state nobody had added yet.</summary>
+    private const string CommittedDomainChapter = """
+        # Domain: Backlog Management
+
+        ```meta
+        status: active
+        order: ["features.md", "model.md", "flow.md"]
+        ```
+
+        Backlog Management maintains a personal backlog of prompts, tasks, ideas and
+        follow-ups across multiple projects and repos.
+
+        ## Aggregate: Backlog Entry
+
+        ```meta
+        status: proposed
+        related: [.domain/inbox/domain.md#aggregate-inbox-item]
+        ```
+
+        A refined, actionable item in the personal backlog and the consistency
+        boundary for all of its sub-items, projections and usage history.
+
+        ```mermaid
+        stateDiagram-v2
+            [*] --> Draft
+            Draft --> Ready
+            Ready --> InProgress: EntryProjected
+            InProgress --> Done: EntryCompleted
+            Done --> [*]
+        ```
+        """;
+
+    private const string ContextMapBefore = """
+        # Context map
+
+        Two bounded contexts, one of them shared.
+
+        ## Backlog Management
+
+        Owns the personal backlog and everything projected out of it.
+
+        ## Second Brain
+
+        Owns the checked-in knowledge folders.
+        """;
+
+    private const string ContextMapAfter = """
+        # Context map
+
+        Three bounded contexts, and the language each of them owns.
+
+        ## Backlog Management
+
+        Owns the personal backlog and everything projected out of it.
+
+        ## Second Brain
+
+        Owns the checked-in knowledge folders and the chapters inside them.
+
+        ## Shell
+
+        Owns the window, the panes in it, and nothing a pane renders.
+        """;
+
+    private const string ChapterCode = """
+        @* One component. The file decides what the body shows — a status where a
+           `meta` fence is, a diagram where a diagram fence is — and the header
+           decides which of the three modes it is in. *@
+        <FileView Name="Domain: Backlog Management"
+                  Path=".domain/backlog/domain.md"
+                  Body="@markdown"
+                  Fill="true"
+                  AllowCopy="true"
+                  AllowChapterCopy="true"
+                  RenderKnowledgeMetadata="true"
+                  KnowledgeFolder="KnowledgeFolder.Domain"
+                  OnKnowledgeStatusChanged="OnStatusChanged"
+                  Comments="@remarks"
+                  OnAddComment="Add"
+                  OnResolveComment="Resolve"
+                  CanEdit="true"
+                  @bind-Editing="editing"
+                  @bind-Comparing="comparing"
+                  CompareBaselines="@baselines">
+            <EditBodyContent>
+                <MarkdownEditor Value="@markdown" ValueChanged="OnChanged" Rows="16" />
+            </EditBodyContent>
+        </FileView>
+        """;
+
+    private const string CompareCode = """
+        @* Reading a version is the host's — a string it kept, or a blob it asked
+           git for. A baseline with nothing to offer says why instead. *@
+        private IReadOnlyList<FileCompareBaseline> Baselines =>
+        [
+            new("commit", "Last commit", committedText),
+            new("empty", "Never committed", null, "This chapter has not been committed yet.")
+        ];
         """;
 
     private const string LongPathCode = """

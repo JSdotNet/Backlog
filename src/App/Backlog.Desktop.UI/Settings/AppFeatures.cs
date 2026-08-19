@@ -1,7 +1,7 @@
 using Backlog.Modules.Backlog.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Knowledge.Abstractions;
-using Backlog.Modules.Monitoring.UI;
+using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.SharedKernel;
 
@@ -26,14 +26,14 @@ namespace Backlog.Desktop.UI.Shell;
 /// any context also reads is that context's, and is referenced from there.
 /// </para>
 /// <para>
-/// Roadmap and Monitoring are the two that read as exceptions and are not. Only
-/// the Shell gates on their keys today, so by the rule above they could sit here
-/// — but each declares its own in its <c>.UI</c> project, because that is where
-/// the context itself currently lives. Neither has a domain module yet, so there
-/// is no abstractions project to hold the key and no reason to create one for a
-/// single constant; when the module arrives the key moves with it, and nothing
-/// here has to be untangled first. See <c>RoadmapFeatures</c> and
-/// <c>MonitoringFeatures</c>.
+/// Two of the keys here have now made the same journey, which is worth recording
+/// because it is the shape the rule predicts. Both sat in a <c>.UI</c> project
+/// while their context had no domain module — no abstractions project to hold the
+/// key, and one constant is no reason to create one. Both moved when the module
+/// arrived: the dashboard key from <c>MonitoringFeatures</c> to
+/// <c>DashboardFeatures</c>, and the roadmap key from the Roadmap <c>.UI</c>
+/// project to <c>RoadmapFeatures</c> in its abstractions project. Neither string
+/// changed, so nobody's settings file forgot what they had switched off.
 /// </para>
 /// </summary>
 public static class AppFeatures
@@ -63,7 +63,7 @@ public static class AppFeatures
         new(KnowledgeFeatures.RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
         new(BacklogFeatures.AdditionalRepositories, "Additional repositories", "Configure multiple repositories and switch repository-specific knowledge."),
         new(DevPcFeatures.SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers."),
-        new(MonitoringFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of progress across projects and repositories."),
+        new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost."),
         new(BacklogFeatures.GitHubIntegration, "GitHub integration", "Configure GitHub access, push entries to issues, and refresh issue or pull request state."),
         new(FeedbackReporting, "Feedback reporting", "Report Desktop app issues to GitHub with current-screen context and a screenshot."),
         new(AppFeatureKeys.CopilotCli, "Copilot CLI", "Start GitHub Copilot CLI from Backlog workflows."),

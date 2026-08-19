@@ -71,13 +71,14 @@ public sealed class ResolvingGitHubTransport(
         HttpMethod method,
         string path,
         object? body = null,
+        string? apiVersion = null,
         CancellationToken cancellationToken = default)
     {
         var transport = await ResolveAsync(cancellationToken)
             ?? throw new GitHubNotConfiguredException(
                 "No way to reach GitHub. Sign in with `gh auth login`, or add a personal access token in repository settings.");
 
-        return await transport.SendAsync(method, path, body, cancellationToken);
+        return await transport.SendAsync(method, path, body, apiVersion, cancellationToken);
     }
 
     private async Task<IGitHubTransport?> ResolveAsync(CancellationToken cancellationToken)

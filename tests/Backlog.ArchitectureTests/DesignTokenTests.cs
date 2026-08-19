@@ -116,7 +116,7 @@ public class DesignTokenTests
     /// this test is for.</para>
     ///
     /// <para>Absence of a fallback is the precise rule, not merely a convenient one.
-    /// <c>var(--split-pane-start, 50%)</c> names a value set at runtime from a Razor
+    /// <c>var(--split-pane-fixed, 50%)</c> names a value set at runtime from a Razor
     /// inline <c>style</c> or from <c>components.js</c>, so no stylesheet can declare
     /// it and the fallback is what makes the reference legal. Every deliberately
     /// undeclared token here carries one, so requiring a fallback separates the

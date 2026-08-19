@@ -33,11 +33,48 @@
     Every keystroke is reported, and there is no Save button and no Escape. That
     is the opposite of the rename directly above, deliberately, and the whole
     argument is on OnBodyChanged.
+
+    DirectRename turns the title into that same field from the start, for a surface
+    whose subject is this one row. It also takes the row's own draggable away, which
+    is why the grip is draggable in its own right and Alt+Arrow is heard inside the
+    field: a title that is always an input cannot share the pointer with a drag, and
+    a row that could only be reordered by pointer would be a row some people cannot
+    reorder at all.
+
+    Quick edit is the same rename with Tab wired into it: the key commits this
+    row and asks for the next one, so a reader retitling a list types titles
+    instead of hunting pencils. Which row that lands on is the list's answer and
+    arrives back as Editing — a row cannot see the rows around it, so it cannot
+    work out its own successor. Everything the pencil already decided still holds
+    inside it: the draft is the row's, Escape abandons it, Enter settles it, and
+    an empty or unchanged title raises nothing, so a row tabbed straight through
+    is a row nothing happened to. Escape also puts the focus ring back on the
+    pencil it came from, which is what a dismissal owes its trigger anywhere —
+    and here it is also what stops the end of a chain being a dead end.
+
+    Editing is an invitation and not a state this row is held in. The list asks
+    for the editor to open; putting it down is the row's, because only the row
+    knows whether there is a draft in it and what its keys promised to do with
+    one. That is why the row reports EditingChanged rather than waiting to be
+    told: a list left thinking a field is open would refuse to open it again.
+
+    Three ways in, one field, and one predicate deciding whether it is open — see
+    RenameOpen. Everything that has to stand out of the field's way asks that one
+    question instead of testing the three ways in, which is what keeps the pencil,
+    the row's draggable and the line the title would otherwise be from disagreeing
+    about whether there is a field there.
 *@
 
+@* draggable is off while a field is open, and the grip below picks the gesture up
+   instead. A draggable row swallows the pointer inside its own input: press and
+   move to select a word and the browser starts a drag of the row rather than a
+   selection, so renaming in place stopped being possible with a mouse at all.
+
+   aria-grabbed stays on the row either way — it describes what the row *is*
+   rather than which element the pointer has to start on. *@
 <li class="@ClassValue"
     data-testid="@TestId"
-    draggable="@(Draggable ? "true" : null)"
+    draggable="@(Draggable && !RenameOpen ? "true" : null)"
     aria-grabbed="@(Draggable ? (Dragging ? "true" : "false") : null)"
     @ondragstart="() => OnDragStart.InvokeAsync(Task.Id)"
     @ondragend="() => OnDragEnd.InvokeAsync()"
@@ -50,19 +87,34 @@
     {
         @* A handle as well as the row: dragging the whole row is what a pointer
            expects, and a handle is what says the row can be dragged at all. It
-           is aria-hidden because the keyboard path is the buttons below, not a
-           drag nobody can perform without a pointer. *@
-        <span class="task-item__grip" aria-hidden="true">⠿</span>
+           is aria-hidden and unfocusable because it is the pointer's affordance
+           only — the keyboard reorders with Alt+Arrow on the row itself, so a
+           second tab stop here would be a control that duplicates one that is
+           already reachable.
+
+           It is also draggable in its own right, and that is what keeps a row
+           whose title is a field reorderable by pointer at all: the row above
+           turns its own draggable off while an input is open, and without this
+           the gesture would simply have gone. No handler of its own — dragstart
+           bubbles to the row, which already knows what to do with it, and a
+           second one here would report the same pick-up twice. *@
+        <span class="task-item__grip" draggable="true" aria-hidden="true">⠿</span>
     }
 
     @if (CanToggle)
     {
+        @* The circle is the row's first tab stop, so it is where a reader tabbing
+           backwards leaves the row — and it takes an id of its own for the same
+           reason the body does: a host that has to put the focus on the start of
+           this row has to be able to name it. *@
         <button type="button"
                 class="task-item__check"
                 role="checkbox"
+                id="@CheckElementId"
                 aria-checked="@(Task.Done ? "true" : "false")"
                 aria-label="@Task.Title"
                 data-testid="@Suffix("check")"
+                @onkeydown="OnCheckKeyDownAsync"
                 @onclick="() => OnToggle.InvokeAsync(Task.Id)"
                 @onclick:stopPropagation="true">
             @if (Task.Done)
@@ -84,90 +136,65 @@
         </span>
     }
 
-    @if (_editing)
+    @if (RenameOpen)
     {
         @* Committed on Enter or on leaving, abandoned on Escape. A rename is one
            short string, so a Save button beside it would be a second thing to
-           reach for after the one that already finished the job. *@
-        <div class="task-item__rename">
+           reach for after the one that already finished the job.
+
+           The same field serves the pencil, DirectRename and the list's own
+           request. Three implementations of one control diverge, and the first
+           thing to diverge would have been which keys commit.
+
+           Under quick edit, Tab settles it too — and there is deliberately no
+           @onkeydown:preventDefault here: it is read now, before anybody has
+           pressed anything, so the only constant that could catch a Tab would
+           also swallow every letter typed into the field. The browser is stopped
+           from moving the focus on by backlogGuardTab instead. *@
+        <div class="task-item__rename @(DirectRename ? "task-item__rename--direct" : null)">
+            @* data-testid goes on the input rather than through TestId, which
+               lives on a wrapper Bare does not render — so the name went nowhere
+               and the field could only be found by its class. *@
             <TextField Value="@_draft"
                        ValueChanged="v => _draft = v"
                        AriaLabel="@($"Rename {Task.Title}")"
                        Bare="true"
                        InputCssClass="task-item__rename-input"
-                       TestId="@Suffix("rename")"
-                       Id="@_renameId"
+                       data-testid="@Suffix("rename")"
+                       Id="@RenameFieldId"
                        @onkeydown="OnRenameKeyAsync"
                        @onblur="CommitRenameAsync" />
         </div>
+
+        @* Beside the field rather than gone. The metadata line lives inside the
+           line the field replaces, so a row whose title is always a field would
+           otherwise have quietly stopped saying when it is due or what it waits
+           on — the same facts, dropped by the choice of how to edit the title. *@
+        @RenderMeta()
     }
     else
     {
+        @* The row's own focusable element, and so where Alt+Arrow is heard. It
+           carries an id because after a move this is a different element and the
+           focus has to be put back on the row that moved rather than on whatever
+           slid into its old place. *@
         <button type="button"
                 class="task-item__body"
+                id="@RowElementId"
                 data-testid="@Suffix("open")"
+                @onkeydown="OnRowKeyDownAsync"
                 @onclick="() => OnSelected.InvokeAsync(Task.Id)">
-            <span class="task-item__title">@Task.Title</span>
+            <span class="task-item__title" data-testid="@Suffix("title")">@Task.Title</span>
 
-            @if (Task.TagList.Count > 0 || Details.Count > 0 || Next || ReadyToStart)
-            {
-                <span class="task-item__meta">
-                    @if (Next)
-                    {
-                        @* Which one to pick up has to be answerable at a glance,
-                           so the answer is on the row rather than something the
-                           reader works out by reading every row above it. It is
-                           first on the line because it is the only part of it
-                           that is about the list rather than about this task. *@
-                        <span class="task-item__next" data-testid="@Suffix("next")">
-                            <span class="task-item__glyph" aria-hidden="true">▶</span>
-                            <span>Next</span>
-                        </span>
-                    }
-                    else if (ReadyToStart)
-                    {
-                        @* Startable, but not the one the list nominated. Its own
-                           class rather than a quieter "next": there is exactly
-                           one next, and a marker that shared the name would make
-                           "which one do I start" answerable only by counting.
-
-                           The hollow triangle beside the filled one is the same
-                           shape twice, so the two read as one family with one
-                           primary rather than as two unrelated badges. *@
-                        <span class="task-item__ready" data-testid="@Suffix("ready")">
-                            <span class="task-item__glyph" aria-hidden="true">▷</span>
-                            <span>Ready</span>
-                        </span>
-                    }
-
-                    @foreach (var detail in Details)
-                    {
-                        <span class="@detail.CssClass" title="@detail.Name">
-                            @if (detail.Glyph.Length > 0)
-                            {
-                                @* The glyph is decoration on top of the words:
-                                   a screen reader hears "Reminder 09:00", not
-                                   "alarm clock emoji". *@
-                                <span class="task-item__glyph" aria-hidden="true">@detail.Glyph</span>
-                                <span class="sr-only">@detail.Name</span>
-                            }
-                            <span>@detail.Text</span>
-                        </span>
-                    }
-
-                    @foreach (var tag in Task.TagList)
-                    {
-                        <span class="tag-chip task-item__tag">#@tag</span>
-                    }
-                </span>
-            }
+            @RenderMeta()
         </button>
     }
 
-    @if (CanRename && !_editing)
+    @if (CanRename && !RenameOpen)
     {
         <button type="button"
                 class="task-item__edit"
+                id="@_editId"
                 aria-label="@($"Rename {Task.Title}")"
                 data-testid="@Suffix("edit")"
                 @onclick="StartRenameAsync"
@@ -188,6 +215,26 @@
                     StatusCssClass="task-item__copy-status"
                     ButtonTestId="@Suffix("copy")"
                     StatusTestId="@Suffix("copy-status")" />
+    }
+
+    @if (Actions is not null)
+    {
+        @* What the host can do to this task that this library has no opinion
+           about: push it somewhere, hand it to a tool, open it in an editor. The
+           row cannot know what those are, and a host that had nowhere to put them
+           would build a second row beside this one to hold them.
+
+           At the end, after the copy button, because everything to the left of
+           here is about the task's own text or state and these are about what
+           happens to it elsewhere. Clicks stop here for the same reason the pencil
+           stops them: pushing a task is not opening it. *@
+        <span class="task-item__actions"
+              role="group"
+              aria-label="@($"Actions for {Task.Title}")"
+              @onmousedown:stopPropagation="true"
+              @onclick:stopPropagation="true">
+            @Actions(Task)
+        </span>
     }
 
     @if (HasFold)
@@ -258,9 +305,98 @@
 </li>
 
 @code {
+    /// <summary>
+    /// Everything the row knows about itself, in the order a reader asks for it:
+    /// its place in the chain, then its own dates and tags.
+    /// <para>
+    /// A fragment rather than markup written twice, because the line belongs to the
+    /// row and not to whichever element happens to be holding the title. It used to
+    /// live inside the title button, which meant a row whose title became a field
+    /// stopped saying when it was due — the same facts lost to a decision about how
+    /// the title is edited.
+    /// </para>
+    /// <para>
+    /// Nothing at all when there is nothing to say. An empty span here would be a
+    /// metadata line about no metadata, and CSS cannot stand in for the test: a
+    /// fragment whose branches are all false still leaves whitespace.
+    /// </para>
+    /// </summary>
+    private RenderFragment RenderMeta() =>
+        @<text>
+        @if (Task.TagList.Count > 0 || Details.Count > 0 || Next || ReadyToStart)
+        {
+            <span class="task-item__meta">
+                @if (Next)
+                {
+                    @* Which one to pick up has to be answerable at a glance,
+                       so the answer is on the row rather than something the
+                       reader works out by reading every row above it. It is
+                       first on the line because it is the only part of it
+                       that is about the list rather than about this task. *@
+                    <span class="task-item__next" data-testid="@Suffix("next")">
+                        <span class="task-item__glyph" aria-hidden="true">▶</span>
+                        <span>Next</span>
+                    </span>
+                }
+                else if (ReadyToStart)
+                {
+                    @* Startable, but not the one the list nominated. Its own
+                       class rather than a quieter "next": there is exactly
+                       one next, and a marker that shared the name would make
+                       "which one do I start" answerable only by counting.
+
+                       The hollow triangle beside the filled one is the same
+                       shape twice, so the two read as one family with one
+                       primary rather than as two unrelated badges. *@
+                    <span class="task-item__ready" data-testid="@Suffix("ready")">
+                        <span class="task-item__glyph" aria-hidden="true">▷</span>
+                        <span>Ready</span>
+                    </span>
+                }
+
+                @foreach (var detail in Details)
+                {
+                    <span class="@detail.CssClass" title="@detail.Name">
+                        @if (detail.Glyph.Length > 0)
+                        {
+                            @* The glyph is decoration on top of the words:
+                               a screen reader hears "Reminder 09:00", not
+                               "alarm clock emoji". *@
+                            <span class="task-item__glyph" aria-hidden="true">@detail.Glyph</span>
+                            <span class="sr-only">@detail.Name</span>
+                        }
+                        <span>@detail.Text</span>
+                    </span>
+                }
+
+                @foreach (var tag in Task.TagList)
+                {
+                    <span class="tag-chip task-item__tag">#@tag</span>
+                }
+            </span>
+        }
+        </text>;
+
     private readonly string _renameId = "task-rename-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The pencil, by id, so a dismissed rename can put the focus ring
+    /// back where it came from. Named even when nothing is going to ask for it: the
+    /// button is one element for the life of the row, so the id costs an attribute
+    /// and saves a conditional.</summary>
+    private readonly string _editId = "task-edit-" + Guid.NewGuid().ToString("N");
     private bool _editing;
     private string _draft = string.Empty;
+
+    /// <summary>The title the always-open field's draft was seeded from, so a
+    /// render caused by something else in the list cannot overwrite what the reader
+    /// is typing. Null when the row has no such field.</summary>
+    private string? _seededFrom;
+
+    /// <summary>What the list last asked for, so that only a change of mind acts.
+    /// Comparing against <c>_editing</c> instead would re-open the field the
+    /// moment a reader pressed Escape in it, because the list's request is still
+    /// standing at that point — it has not been told yet.</summary>
+    private bool _asked;
 
     /// <summary>Whether the body is open. Held here rather than raised, because
     /// which rows a reader has unfolded is not a fact about the tasks — it dies
@@ -274,6 +410,18 @@
     /// case is reading, and a list that opened every editor at once would be a
     /// list of textareas.</summary>
     private bool _editingBody;
+
+    /// <summary>The field has just been opened and has not been focused yet.
+    /// A request rather than a state, and cleared the first time it is honoured:
+    /// the caret belongs in the field once, when it appears, and a row that put it
+    /// back on every render would fight whoever is typing in it.</summary>
+    private bool _focusRename;
+
+    /// <summary>The rename has just been dismissed and the focus ring has not been
+    /// put back yet. The same shape as <see cref="_focusRename"/> deliberately —
+    /// one mechanism for "after the next render, touch this element", because the
+    /// element in both cases is one a render has to create first.</summary>
+    private bool _focusEdit;
 
     private IReadOnlyList<MdBlock>? _blocks;
     private string? _parsed;
@@ -310,6 +458,18 @@
     /// </summary>
     [Parameter]
     public string? CopyValue { get; set; }
+
+    /// <summary>
+    /// The host's own controls for this row, handed the task they are about.
+    /// <para>
+    /// A slot rather than a set of parameters, because what a host wants to do to
+    /// a task is not a list this library can finish. Unset, the row renders exactly
+    /// the markup it rendered before the slot existed — an empty group would be an
+    /// element with an aria-label about nothing.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? Actions { get; set; }
 
     /// <summary>What the disclosure calls the body. "Body" by default, because
     /// this library does not know what a host writes there — a prompt, a brief,
@@ -351,6 +511,79 @@
     /// in — a pencil that opened a field nobody would save is worse than none.</summary>
     [Parameter]
     public EventCallback<TaskRename> OnRename { get; set; }
+
+    /// <summary>
+    /// Whether the title is a field from the start, with no pencil to press first.
+    /// <para>
+    /// Off by default, because a list of ten rows that opened ten inputs is not a
+    /// list anybody skims — the same argument the body editor makes one parameter
+    /// further down. On for a row that is the subject of the surface it is on: a
+    /// detail pane showing one entry has nothing to scan, so a pencil there is a
+    /// press between the reader and a title they came to change.
+    /// </para>
+    /// <para>
+    /// It settles on exactly the same terms as the pencil's field — Enter and blur
+    /// commit, Escape puts it back, an empty or unchanged title raises nothing —
+    /// because a rename that meant two different things depending on how the field
+    /// opened would be two controls wearing one name.
+    /// </para>
+    /// <para>
+    /// Nothing without <see cref="OnRename"/>. A field nobody is listening to is
+    /// this component's definition of a control that lies, and here it would be one
+    /// the reader cannot even avoid opening.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool DirectRename { get; set; }
+
+    /// <summary>
+    /// Whether Tab settles the rename and asks for the next row instead of
+    /// leaving the field. Off by default, and that is not caution: Tab means "the
+    /// next control" in every other field in the product, and a list that quietly
+    /// took it over would be a list some people cannot tab out of.
+    /// <para>
+    /// The list turns it on for every row at once. Whether Tab chains is a fact
+    /// about the list being retitled rather than about any one task in it, and a
+    /// row that decided for itself would make the key mean two different things
+    /// on two rows of the same list.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool QuickEdit { get; set; }
+
+    /// <summary>
+    /// The list asking this row to be the one with the editor open — how a Tab
+    /// pressed in the row above arrives here, since that row could not know which
+    /// row it was handing on to.
+    /// <para>
+    /// An invitation rather than a state. Turning it on opens the field and puts
+    /// the caret in it; turning it off does nothing, because by then the row has
+    /// already closed the field itself. A list that could shut the editor from
+    /// outside would be a list that can throw away a draft the row promised
+    /// Escape was the only way to lose.
+    /// </para>
+    /// <para>
+    /// Ignored when nobody is listening to <see cref="OnRename"/>, on exactly the
+    /// terms the pencil is: a field whose rename would go nowhere is worse than
+    /// no field, whoever asked for it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Editing { get; set; }
+
+    /// <summary>Raised when the row opens or closes its editor, so the list's idea
+    /// of which row is being edited is the row's. Without it a list would go on
+    /// believing a field it asked for is still open after Escape closed it, and
+    /// asking for the same row again — the same request twice — would change
+    /// nothing at all.</summary>
+    [Parameter]
+    public EventCallback<bool> EditingChanged { get; set; }
+
+    /// <summary>Raised after a Tab has settled the rename: this row, and which way
+    /// the reader was going. It is a question rather than an instruction — the
+    /// list owns the order, so only the list can turn "onwards" into a row.</summary>
+    [Parameter]
+    public EventCallback<TaskEditMove> OnEditMove { get; set; }
 
     /// <summary>
     /// Raised on every keystroke in the body, with the whole of it. Without it
@@ -396,6 +629,66 @@
     [Parameter]
     public bool Dragging { get; set; }
 
+    /// <summary>
+    /// The id to put on the row's focusable element, so a caller that moved this
+    /// row can give it the focus back.
+    /// <para>
+    /// Supplied by the list rather than minted here. After a move the row is a
+    /// different element, and only the list knows which row it just moved — a
+    /// per-instance id generated in here would be unknowable to the one thing
+    /// that needs to name it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? RowElementId { get; set; }
+
+    /// <summary>
+    /// The reader asked to move this row: -1 for up, 1 for down.
+    /// <para>
+    /// A direction rather than a destination, because a row cannot see its
+    /// neighbours. The list turns it into a <see cref="TaskMove"/>, which is also
+    /// why nothing happens when no list is listening.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> OnKeyboardMove { get; set; }
+
+    /// <summary>
+    /// The reader tabbed forward off this row and a host wants the focus
+    /// somewhere other than the next thing in the document.
+    /// <para>
+    /// A row sits in a list, and what comes after a list in reading order is the
+    /// rest of the list. A host showing one row's detail beside the list cannot
+    /// be reached by tabbing without walking every remaining row first, and only
+    /// the row knows that the reader has just tried — which is why this is the
+    /// row's event rather than something a host could listen for itself.
+    /// </para>
+    /// <para>
+    /// Nothing is prevented. Blazor resolves <c>preventDefault</c> when the row
+    /// renders rather than when the key arrives (see
+    /// <see cref="OnRowKeyDownAsync"/>), so suppressing Tab here would suppress
+    /// Shift+Tab and Enter with it — a keyboard trap in exchange for a tidier
+    /// hand-off. The browser's own move therefore still happens, and the focus a
+    /// host sets afterwards is the one that lasts.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnTabForward { get; set; }
+
+    /// <summary>
+    /// The reader tabbed backward off the front of this row: the way back out of
+    /// a row a host tabbed them into.
+    /// <para>
+    /// Raised from the row's <em>first</em> control only — the circle when there
+    /// is one, the line itself when there is not. Raising it from the line as
+    /// well would put the circle behind a Shift+Tab that no longer goes there and
+    /// so out of reach of the keyboard altogether, which is a worse bargain than
+    /// one extra stop on the way out.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnTabBackward { get; set; }
+
     [Parameter]
     public EventCallback<string> OnDragStart { get; set; }
 
@@ -419,7 +712,75 @@
     /// and it is state instead.</summary>
     private bool CanToggle => OnToggle.HasDelegate && !Blocked;
 
+    /// <summary>The circle's element id, derived from the row's rather than named
+    /// separately: a host that supplied one handle for this row should not have to
+    /// supply a second one for the control at the start of it.</summary>
+    private string? CheckElementId => RowElementId is { Length: > 0 } row ? $"{row}-check" : null;
+
+    /// <summary>Where <see cref="FocusFirstAsync"/> aims: the circle when the row
+    /// has one, otherwise the line. Null when the host never named the row, in
+    /// which case there is nothing here to name either.</summary>
+    private string? FirstControlId =>
+        RowElementId is { Length: > 0 } row ? (CanToggle ? CheckElementId : row) : null;
+
+    /// <summary>
+    /// Puts the focus on the first control in this row.
+    /// <para>
+    /// The counterpart to <see cref="OnTabForward"/>: a host that moves the focus
+    /// into a region because of one row wants a way to move it onto a row, and the
+    /// row's internals — whether the circle is a control today — are exactly what
+    /// it should not have to know. Needs <see cref="RowElementId"/>, because the
+    /// element to focus is named rather than held: it is a different node after
+    /// every render.
+    /// </para>
+    /// </summary>
+    public async Task FocusFirstAsync()
+    {
+        if (FirstControlId is not { } id) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", id);
+        }
+        catch (Exception)
+        {
+            // Losing the focus ring is not worth tearing down the page, and the
+            // same call is guarded the same way where a rename opens its field.
+        }
+    }
+
     private bool CanRename => OnRename.HasDelegate;
+
+    /// <summary>
+    /// Whether the title is a field right now. One predicate, because everything
+    /// that has to stand out of the field's way — the pencil, the row's own
+    /// draggable, the line the title would otherwise be — asks the same question,
+    /// and three separate tests would be three chances to disagree about whether
+    /// there is a field there.
+    /// <para>
+    /// Two terms for three ways in. The pencil sets <c>_editing</c> and so does the
+    /// list's <see cref="Editing"/> request, because that request is honoured by
+    /// opening the field rather than by standing over it — reading
+    /// <see cref="Editing"/> here as well would re-open a field the reader had just
+    /// pressed Escape in, since the request outlives the dismissal by exactly one
+    /// round trip. <see cref="DirectRename"/> is a term of its own because in that
+    /// mode nothing was ever opened.
+    /// </para>
+    /// </summary>
+    private bool RenameOpen => _editing || (DirectRename && CanRename);
+
+    /// <summary>
+    /// The field's element id.
+    /// <para>
+    /// The row's own id in direct mode, because in that mode the field <em>is</em>
+    /// the row's focusable element: it is what a list has to aim at to give a moved
+    /// row its focus back, and a privately minted id would be unknowable to the one
+    /// thing that needs to name it. The private one otherwise, where the field is a
+    /// temporary thing the pencil opened.
+    /// </para>
+    /// </summary>
+    private string RenameFieldId =>
+        DirectRename && RowElementId is { Length: > 0 } row ? row : _renameId;
 
     /// <summary>Whether the body is the reader's to change, on the same terms as
     /// the pencil: somebody is listening, or there is nothing to offer.</summary>
@@ -525,6 +886,55 @@
     protected override void OnInitialized() => _expanded = BodyExpanded;
 
     /// <summary>
+    /// Two answers to "what should the field show", and both of them have to be
+    /// given as the parameters land rather than while they stand.
+    /// <para>
+    /// The always-open field is seeded from <c>Task.Title</c> whenever that changes
+    /// and never otherwise, so the reader's half-typed draft survives every render
+    /// the list around it causes. Reasserting the title on each render instead would
+    /// delete a character a moment after it was typed, because a row in a list
+    /// re-renders whenever anything near it moves.
+    /// </para>
+    /// <para>
+    /// The list's request opens the editor when it has just changed, and only then,
+    /// for the same reason read the other way round: a row that re-read a standing
+    /// request would re-open the field — and reset the draft — under a reader who
+    /// had already pressed Escape in it.
+    /// </para>
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        SeedDirectDraft();
+
+        if (Editing == _asked) return;
+
+        _asked = Editing;
+
+        // Already open, which is the pencil having got there first: the list is
+        // only agreeing with what the row is doing. Re-opening would put the
+        // title back over whatever has been typed since.
+        if (Editing && !_editing) await StartRenameAsync();
+    }
+
+    /// <summary>The always-open field's draft, kept level with the host's title.
+    /// Its own method because the seeding and the list's request are two unrelated
+    /// answers that happen to be owed at the same moment, and reading them as one
+    /// block invited the idea that one gates the other.</summary>
+    private void SeedDirectDraft()
+    {
+        if (!DirectRename)
+        {
+            _seededFrom = null;
+            return;
+        }
+
+        if (string.Equals(_seededFrom, Task.Title, StringComparison.Ordinal)) return;
+
+        _seededFrom = Task.Title;
+        _draft = Task.Title;
+    }
+
+    /// <summary>
     /// Renaming in place, rather than in the pane the row opens.
     /// <para>
     /// The draft is held here and the row is only told about it when it settles.
@@ -535,53 +945,236 @@
     /// </summary>
     private async Task StartRenameAsync()
     {
+        // The pencil is not rendered without a listener, but the list can ask as
+        // well, and the answer has to be the same either way.
+        if (!CanRename) return;
+
         _draft = Task.Title;
         _editing = true;
 
-        // The field is a different element every time it appears, so it is found
-        // again by id after the render that creates it.
-        await InvokeAsync(StateHasChanged);
-        await FocusRenameAsync();
+        // Asked for here, done after the render. There is no field to focus at
+        // this point in the method — opening the editor is a change to this row's
+        // state, and the input it describes is a node some later batch creates.
+        _focusRename = true;
+
+        await EditingChanged.InvokeAsync(true);
     }
 
-    private async Task FocusRenameAsync()
+    /// <summary>
+    /// Puts the caret in the field, once, after the render that created it.
+    /// <para>
+    /// Here rather than in <see cref="StartRenameAsync"/> because this is the one
+    /// point Blazor guarantees runs with the batch already applied. Focusing where
+    /// the editor opens read correctly and was not: the render had only been
+    /// queued, so the id resolved to nothing or to the node the next batch
+    /// replaced — while the guard call one statement behind it, arriving after that
+    /// batch, landed on the field that survived. The symptom was a field that was
+    /// plainly there, with the focus on nothing and the caret at the end of the
+    /// old title.
+    /// </para>
+    /// <para>
+    /// Once per opening, which is what the flag is for and not a detail. A row
+    /// re-renders whenever anything in the list moves, and a focus on every render
+    /// would drag the caret back over the title while somebody was typing.
+    /// </para>
+    /// <para>
+    /// Putting the ring back on the pencil after a dismissal is the same problem
+    /// again and so it is the same mechanism: the button does not exist while the
+    /// field is open, so the earliest anything can focus it is the render that
+    /// brought it back.
+    /// </para>
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        try
+        if (_focusRename)
         {
-            await Js.InvokeVoidAsync("backlogFocus", _renameId);
+            _focusRename = false;
+
+            await FocusRenameAsync();
+
+            if (QuickEdit) await GuardTabAsync();
         }
-        catch (JSException)
+
+        if (_focusEdit)
         {
-            // The field is there and typeable; it just did not take focus.
-        }
-        catch (JSDisconnectedException)
-        {
-        }
-        catch (InvalidOperationException)
-        {
+            _focusEdit = false;
+
+            await RestoreFocusAsync();
         }
     }
+
+    /// <summary>The caret in the field, with the title selected so the first
+    /// keystroke replaces it rather than being added to the end of it. One rule for
+    /// both ways in: a reader who reached for the pencil reached for it to change
+    /// what is there, exactly as a reader tabbing down the list did.</summary>
+    private Task FocusRenameAsync() => QuickEditField.FocusAsync(Js, RenameFieldId);
+
+    /// <summary>Stops the browser moving the focus on while this field has it, so
+    /// Tab is the list's key rather than the browser's for as long as the editor is
+    /// open. Both directions: forward hands the editor down the list and Shift+Tab
+    /// hands it back up, so neither is the browser's to answer.</summary>
+    private Task GuardTabAsync() => QuickEditField.GuardTabAsync(Js, RenameFieldId);
+
+    /// <summary>The focus ring back on the pencil the field was opened from, with
+    /// nothing selected — it is a button, and there is nothing on it to select.
+    /// <para>
+    /// A dismissal restores the focus to its trigger, which is the rule for every
+    /// other thing in the product that can be dismissed, and it is what stops
+    /// Escape being a dead end: without it the field that had the focus is simply
+    /// gone, the ring lands on the document body, and a reader using the keyboard
+    /// has to tab in from the top of the page to get back to the row they were
+    /// standing on.
+    /// </para>
+    /// </summary>
+    private Task RestoreFocusAsync() => QuickEditField.FocusAsync(Js, _editId, select: false);
 
     private async Task OnRenameKeyAsync(KeyboardEventArgs e)
     {
         if (e.Key == "Escape")
         {
             // Abandon: the row goes back to what it said, and nothing is raised.
+            // In direct mode there is nothing to close, so putting it back means
+            // putting the title back into the field rather than emptying it.
+            if (DirectRename)
+            {
+                _draft = Task.Title;
+                return;
+            }
+
+            // Otherwise the field closes, and closing it ends a quick edit as
+            // well — which is the only thing here that is about the chain rather
+            // than this row: a reader who has just thrown a title away did not
+            // mean "and now the next one".
+            //
+            // And the focus goes back to the pencil, which is where it came from.
+            // Not a quick-edit rule: it is the same restore-to-the-trigger a
+            // dismissal owes anywhere, and it happens to be what keeps the end of
+            // a chain from dropping the reader onto the document body.
             _editing = false;
             _draft = string.Empty;
+            _focusEdit = CanRename;
+            await EditingChanged.InvokeAsync(false);
             return;
         }
 
-        if (e.Key == "Enter") await CommitRenameAsync();
+        // Settled, and on to the next row — or off the end of the list, which
+        // ends it. Which row that is is not this row's to decide: the id goes out
+        // with the direction, and the list answers with a row or with nothing.
+        //
+        // Read before Enter rather than after it so that the two keys stay one
+        // decision each: this one settles the rename and hands it on, that one
+        // settles it and stops.
+        if (e.Key == "Tab" && QuickEdit)
+        {
+            // Taken before the commit, which is the last moment this row is
+            // certainly still the row the reader was in.
+            var from = Task.Id;
+
+            await CommitRenameAsync();
+            await OnEditMove.InvokeAsync(new TaskEditMove(from, !e.ShiftKey));
+            return;
+        }
+
+        if (e.Key == "Enter")
+        {
+            await CommitRenameAsync();
+            return;
+        }
+
+        // Alt+Arrow reorders from inside the field too, and it has to: with the
+        // title always a field there is no line left to press it on, and the row's
+        // own draggable is off. Alt+Up and Alt+Down mean nothing to a caret on
+        // Windows, so nothing is being taken away to get this — which is exactly
+        // why the keyboard route is the one that survives an always-open input.
+        await TryKeyboardMoveAsync(e);
+    }
+
+    /// <summary>Alt+Arrow, wherever it was pressed. Shared by the row's line and by
+    /// the rename field, because "can this row be picked up" has one answer and a
+    /// second copy of the test would be a second chance for the two to disagree
+    /// about it.</summary>
+    private async Task TryKeyboardMoveAsync(KeyboardEventArgs e)
+    {
+        // Gated on Draggable, which reads as "can be picked up" rather than as
+        // anything about pointers — so one predicate covers every gesture.
+        if (!Draggable || !e.AltKey || !OnKeyboardMove.HasDelegate) return;
+
+        var delta = e.Key switch
+        {
+            "ArrowUp" => -1,
+            "ArrowDown" => 1,
+            _ => 0
+        };
+
+        if (delta != 0) await OnKeyboardMove.InvokeAsync(delta);
+    }
+
+    /// <summary>
+    /// Alt+Arrow asks the list to move this row.
+    /// <para>
+    /// Alt and not a bare arrow. A plain ArrowUp on a focused row is how someone
+    /// reads down a long list, and a row that swallowed it to reorder itself
+    /// would take away scrolling to add moving. Alt is also the one modifier with
+    /// no default action on a button, so nothing has to be prevented — and
+    /// preventing selectively is not expressible here anyway, since Blazor
+    /// resolves preventDefault when the row renders rather than when the key
+    /// arrives.
+    /// </para>
+    /// <para>
+    /// Nothing is raised when no list is listening, on the same terms as the
+    /// circle and the body editor: a row does not offer a control it cannot
+    /// honour.
+    /// </para>
+    /// </summary>
+    private async Task OnRowKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key is "Tab")
+        {
+            // Backward off the line only when the line is the front of the row.
+            // With a circle in front of it, Shift+Tab belongs to the circle.
+            if (e.ShiftKey)
+            {
+                if (!CanToggle) await OnTabBackward.InvokeAsync();
+            }
+            else
+            {
+                await OnTabForward.InvokeAsync();
+            }
+
+            return;
+        }
+
+        await TryKeyboardMoveAsync(e);
+    }
+
+    /// <summary>The circle hears one key, and only because it is the row's first
+    /// tab stop: Shift+Tab is the way back out of a row somebody was tabbed into.
+    /// Everything else about the circle is still a click.</summary>
+    private async Task OnCheckKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key is "Tab" && e.ShiftKey) await OnTabBackward.InvokeAsync();
     }
 
     private async Task CommitRenameAsync()
     {
-        if (!_editing) return;
+        if (!RenameOpen) return;
 
-        _editing = false;
         var title = _draft.Trim();
-        _draft = string.Empty;
+
+        if (DirectRename)
+        {
+            // Nothing to close: the field is the title. An empty one goes back to
+            // what the row says rather than sitting there blank — in this mode the
+            // field is the only place the title appears, so leaving it empty would
+            // read as a row that had lost its name.
+            if (title.Length == 0) _draft = Task.Title;
+        }
+        else
+        {
+            _editing = false;
+            _draft = string.Empty;
+            await EditingChanged.InvokeAsync(false);
+        }
 
         // An empty title would leave a row nobody can identify, and a title that
         // did not change is not a rename.

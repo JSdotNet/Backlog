@@ -51,26 +51,11 @@ public sealed class BacklogIssues(GitHubIntegration gitHub)
         return gitHub.CreateIssueAsync(repository, entry.Title, entry.Body, entry.Tags, cancellationToken);
     }
 
-    public Task<GitHubIssueLink> PushSubItemAsync(
-        string parentTitle,
-        EntryTextParser.ParsedSubItem subItem,
-        GitHubRepositoryRef repository,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(subItem);
-
-        return gitHub.CreateIssueAsync(
-            repository,
-            subItem.Title,
-            BuildSubItemBody(parentTitle, subItem),
-            subItem.MetadataTags,
-            cancellationToken);
-    }
-
-    private static string BuildSubItemBody(string parentTitle, EntryTextParser.ParsedSubItem subItem) =>
-        $"""
-        From backlog entry: {parentTitle}
-
-        {subItem.Notes}
-        """.Trim();
+    // A sub-item used to have a push of its own here, filing the chapter as a
+    // separate issue. It has gone, and not as tidying: `.domain/backlog/domain.md`
+    // says a Sub-Item "may project to GitHub issue task-list checkboxes" — inside
+    // the entry's issue — and ProjectionRef is owned by BacklogEntry, never by
+    // SubItem. There was never a model for a step that is its own issue, so the
+    // link the push handed back had nowhere on a step to be recorded and the same
+    // step could be filed again and again with nothing noticing.
 }

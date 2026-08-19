@@ -46,7 +46,7 @@
                           aria-label="@($"{activeRepository.Repository.FullName} instructions")">
                     <TitleContent>
                         <span>@activeRepository.Repository.FullName</span>
-                        <span class="repo-card__badge">@activeRepository.Documents.Count</span>
+                        <Badge BaseClass="repo-card__badge" Kind="">@activeRepository.Documents.Count</Badge>
                     </TitleContent>
                     <ChildContent>
                 <header class="instructions-repository__header">

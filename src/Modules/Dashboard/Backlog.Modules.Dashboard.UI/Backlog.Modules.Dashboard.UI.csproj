@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Dashboard context's UI: the full-screen surface, its seven parts, and the
+    adapters that answer the module's four ports.
+
+    The adapters live here rather than in src/Infrastructure, and that is the
+    lighter of two options rather than a shortcut. A module's port may be answered
+    from anywhere outside the module, and ModuleBoundaryTests explicitly permits a
+    .UI project to reference an adapter. The alternative — putting them in
+    Backlog.Infrastructure.GitHub and Backlog.Infrastructure.Claude — would give
+    two infrastructure projects a dependency on this module, and the Claude project
+    currently has no project references at all. Nothing is gained by changing that
+    to hold four small mapping classes whose only consumer is this project.
+
+    Two infrastructure references, because the dashboard reads two providers. Both
+    are adapters, not contexts: no sibling module's surface is referenced from here
+    at all, which is why the absent context-map entry for a Dashboard context
+    constrains nothing yet.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Dashboard.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The mapping between what a provider reports and what a part receives is
+         where a currency or a bucket boundary gets lost, so it is worth testing
+         directly rather than only through the pane. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- The module's published surface only: the scope, the DTOs, the two
+         questions the parts ask, and the four ports the adapters answer. The
+         derivations stay behind that line — the host wires them up, the parts do
+         not see them. -->
+    <ProjectReference Include="..\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />
+  </ItemGroup>
+
+</Project>

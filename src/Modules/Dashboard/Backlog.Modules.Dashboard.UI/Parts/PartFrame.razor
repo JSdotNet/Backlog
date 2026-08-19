@@ -1,0 +1,66 @@
+@*
+    The frame every part of the dashboard wears: a title, an optional line saying
+    what the figures do and do not cover, a refresh control, and the part's own
+    content below.
+
+    It exists so the seven parts look like seven parts of one thing without each
+    of them re-deciding what a heading is. There is nothing configurable on it —
+    no fold, no hide, no reorder — because the dashboard's composition is fixed;
+    the only control is refresh, which changes what is shown rather than which
+    parts exist.
+
+    Not a shared-library component. It is the dashboard's own page furniture and a
+    second host would want its own rhythm, which is the same reason the storybook
+    keeps sb-dashboard-panel to itself rather than publishing it.
+*@
+
+<section class="dashboard-part @CssClass" data-testid="@TestId">
+    <header class="dashboard-part__header">
+        <div class="dashboard-part__heading">
+            <h3 class="dashboard-part__title">@Title</h3>
+            @if (!string.IsNullOrWhiteSpace(Note))
+            {
+                <p class="dashboard-part__note" data-testid="@(TestId is null ? null : TestId + "-note")">@Note</p>
+            }
+        </div>
+
+        @* A refresh while one is already in flight would only cancel and restart
+           it, so the control reports the wait rather than offering to duplicate it. *@
+        <IconButton AriaLabel="@($"Refresh {Title}")"
+                    Title="@(Busy ? "Refreshing" : "Refresh")"
+                    CssClass="btn--ghost"
+                    Disabled="Busy"
+                    TestId="@(TestId is null ? null : TestId + "-refresh")"
+                    OnClick="() => OnRefresh.InvokeAsync()">↻</IconButton>
+    </header>
+
+    <div class="dashboard-part__content">
+        @ChildContent
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>One line about what the figures cover. The cost parts use it to say
+    /// they are not filtered by repository, which is the one thing about this
+    /// dashboard a reader could otherwise get wrong.</summary>
+    [Parameter]
+    public string? Note { get; set; }
+
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public EventCallback OnRefresh { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+}

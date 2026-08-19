@@ -52,6 +52,10 @@ The `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/` convention — 
 
 The generator at `.github/tools/knowledge-meta/` and the `knowledge-meta` workflow are installed copies of the plugin's tooling; re-sync them from the plugin rather than editing them locally.
 
+## UI components
+
+See `.github/instructions/ui-components.instructions.md`: a screen under `src/App/` or `src/Modules/` renders the shared library's component (`src/Core/Backlog.UI.Components`) rather than growing its own copy, and a component that cannot wear the screen's classes gets the hook rather than a second implementation. `tests/Backlog.ArchitectureTests/SharedControlAdoptionTests.cs` enforces it and holds the documented exceptions.
+
 ## Naming
 
 See `.github/instructions/naming.instructions.md` for repository-wide file and folder naming. Naming inside the knowledge folders is governed by the plugin's `knowledge-naming.instructions.md`.

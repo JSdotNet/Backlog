@@ -125,7 +125,7 @@ related: [".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/backlog/
 
 ```meta
 status: active
-related: [".domain/backlog/naming.md#term-entry-status", ".domain/backlog/naming.md#term-area", ".design/typography-and-layout.md#font-families"]
+related: [".domain/backlog/naming.md#term-entry-status", ".domain/backlog/naming.md#term-area", ".design/typography-and-layout.md#font-families", ".design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
 > Backlog entries carry structured metadata (type, priority, status, area,
@@ -147,6 +147,50 @@ related: [".domain/backlog/naming.md#term-entry-status", ".domain/backlog/naming
 | Backward compatible | Metadata written before this convention existed (bare, un-sigilled tokens) MUST continue to parse; saving an entry rewrites its metadata line into canonical sigil form so entries self-heal. |
 | Sigil wins over guessing | A sigilled token that does not match a known value for its declared kind (e.g. a priority sigil on a status word) MUST NOT fall through and be reinterpreted as another kind — the sigil already declared intent, so it is simply unrecognized rather than misread. |
 | Monospace | Metadata tokens render in `font-family-mono`, matching inline code, so the syntax reads as structured rather than prose. |
+| The namespace is closed | These five kinds are the whole of the sigil vocabulary. A new kind of metadata takes a named `name:value` token instead — see [Scheduling and Dependency Tokens](#scheduling-and-dependency-tokens). Minting a sixth sigil would trade a readable name for a character nobody remembers. |
+
+## Scheduling and Dependency Tokens
+
+```meta
+status: active
+related: [".design/content-editing.md#structured-metadata-sigils", ".domain/backlog/naming.md#term-due-date", ".domain/backlog/naming.md#term-reminder", ".domain/backlog/naming.md#term-recurrence", ".domain/backlog/naming.md#term-my-day", ".domain/backlog/naming.md#term-dependency"]
+```
+
+> When an entry is scheduled or waits on other entries, those facts ride on the
+> same backtick-quoted metadata line — but as `name:value` tokens rather than
+> one-character sigils. Five date-shaped facts cannot be told apart by
+> punctuation a reader will remember, and this line is hand-edited.
+
+| Token | Kind | Example |
+|---|---|---|
+| `due:` | due date | `` `due:2026-08-21` `` |
+| `remind:` | reminder | `` `remind:2026-08-21T09:00` `` |
+| `repeat:` | recurrence | `` `repeat:weekly` ``, `` `repeat:weekdays` ``, `` `repeat:2w` `` |
+| `myday:` | My Day | `` `myday:2026-08-19` `` |
+| `after:` | dependency | `` `after:a1b2c3` `` — may repeat |
+| `view:` | which reading of the body to open in | `` `view:steps` ``, `` `view:notes` `` |
+
+A full metadata line mixes both forms, sigils first:
+
+```markdown
+# Deploy SpecManager
+
+`task` `*high` `!ready` `@repos` `#deploy` `due:2026-08-21` `remind:2026-08-21T09:00` `after:a1b2c3`
+```
+
+| Rule | Requirement |
+|---|---|
+| Named, not sigilled | A named token says which fact it carries without the reader holding a legend. The sigil namespace is also nearly exhausted, so five more marks would leave nothing for a sixth kind. |
+| A due date is a date | `due:` and `myday:` take a calendar date (`YYYY-MM-DD`) with no time and no timezone. A due date is a commitment to a day, and an instant would move the deadline whenever the device changed zone. |
+| A reminder is wall-clock | `remind:` takes a local date and time (`YYYY-MM-DDTHH:mm`) and deliberately carries no zone or offset: `09:00` means 09:00 wherever the reader is when it arrives, not the instant 09:00 once meant elsewhere. |
+| My Day expires by arithmetic | `myday:` holds the date the entry was picked for, not a flag. The entry is in My Day exactly while that date is the reader's current local date, so yesterday's list clears itself with no timer and no overnight sweep. |
+| Dependencies repeat | `after:` may appear more than once and the order carries no meaning — an entry waiting on two things names both, and asking which is the real predecessor has no answer. An id naming nothing visible still counts, and still blocks. |
+| Unknown tokens survive an edit | A `name:value` token the parser does not recognize MUST be preserved when an unrelated field is changed, on the same terms as the backward-compatibility rule for sigils. It is unrecognized, not invalid. |
+| Absent means absent | An unset field carries no token rather than an empty one. `` `due:` `` with nothing after it is malformed, not "no due date". |
+| Canonical rewrite is destructive by design | Saving rewrites the metadata line into canonical form from the entry model, so a token the model cannot represent does not survive the next save. A new token MUST therefore be added to the domain model, the entry DTO, and the canonical rewrite in the same change — adding it to the parser alone loses data silently, with no error. |
+| `view:` is a preference, not a fact about the work | The steps list and the Markdown block are two readings of the same body (`#backlog-entry-structure`), and `view:` records which one an entry opens in. It is the one token here that says nothing about the task — it is about looking at it. It rides on this line anyway because Markdown is canonical (`#editing-model`): a preference kept in a sidecar would not survive the file being shared, and whoever opened the entry from a clone would get somebody else's default. |
+| A view is chosen, never derived onto the line | An entry nobody has expressed a preference about carries no `view:` token and MUST NOT acquire one by being saved — "absent means absent" applies here too. The surface picks a sensible reading for an entry with no token (an entry with no `##` chapters has no steps to list), and that choice stays in the surface: a default written into the text is a preference nobody made, and it would have to be unwritten from every entry before the default could change. |
+| Neither reading may hide text without saying so | The steps reading lists `##` chapters, so prose an entry opens with has no row. Where a reading omits body text that exists, the surface MUST say so and offer the Markdown block in the same breath. Silently showing less than the entry holds reads as text the app has lost, which is the failure `#round-trip-fidelity` exists to prevent — only on screen rather than on disk. |
 
 ## Live Parse Confirmation
 
@@ -240,27 +284,44 @@ related: [".design/interaction-guidelines.md#save-state-indicator-vocabulary", "
 
 ```meta
 status: active
-related: [".design/README.md#living-reference-the-ui-storybook", ".design/typography-and-layout.md#heading-defaults"]
+related: [".design/README.md#living-reference-the-ui-storybook", ".design/typography-and-layout.md#heading-defaults", ".design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
 | Piece | Where | Review surface |
 |---|---|---|
 | Parser | `MarkdownPreview` (`src/Core/Backlog.UI.Components/Markdown`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
 | Read view | `MarkdownView` | Storybook → *Markdown* |
-| Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header | Storybook → *File view* |
+| Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header. The header also carries what a reader does to the file (copy, edit, compare), and a Markdown body is read whole: each chapter's `meta` status beside its heading, each diagram where its fence is, a copy button per chapter, and remarks in the margin | Storybook → *File view* → **A knowledge chapter, whole** |
+| Comparison surface | `MarkdownCompare` (a pure function over two texts) and `MarkdownCompareView`, aligned by heading and never by line. `Bare` gives up its frame so `FileView` can show it without a second header or a second scroll region | Storybook → *Section comparison*, and *File view* → **Compared against two versions of itself** |
+| Chapter remarks | `MarkdownView` comments, anchored to a block index rather than a character range, drawn inline or in a margin column | Storybook → *Markdown* → **The same comments, in the margin** |
 | Code blocks | `CodeView` — line numbers, copy button, per-language highlighting on the tokens in `color-scheme.md#syntax-highlighting-tokens` | Storybook → *Code* |
 | Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Markdown* → **Edit and read** |
+| Scheduling and dependency tokens | Read and written by `EntryTextParser`; `TaskAction` is the shape a control over one takes | Storybook → *Task list* → **The detail pane's rows** |
+| Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as either a `TaskListView` of steps or one `MarkdownEditor`, the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **Split pane**, **Split pane, anchored to the end** |
+| The body's two readings | One region, switched by `view:` and remembered on the entry; the steps reading says so when the body holds prose it is not showing | Backlog pane → the **Steps** / **Markdown** chips |
+| Raw-Markdown escape hatch | The whole entry's canonical text in a mono `TextArea`, with the live "reads as" hint under it | Backlog pane → the **Markdown** toggle, or Ctrl+Shift+M |
 
 What is true today, and where it differs from the model above:
 
-- **The editing model is inverted.** `#editing-model` specifies WYSIWYG as the
-  primary mode with a raw escape hatch. What exists is the opposite: the source
-  is edited as raw Markdown in a text area, with a live read view beside it. There
-  is no rich-text editor, no slash menu (`#slash-and-inline-commands`), and no
-  inline autoformat. Markdown being canonical is therefore trivially satisfied,
-  and `#round-trip-fidelity` is not yet under pressure — both become real
-  requirements the moment an editor lands.
+- **The editing model is no longer inverted, and is not yet WYSIWYG either.** The
+  backlog's detail pane edits an entry a field at a time — a title, a note, a
+  step, a date, a dependency — and the canonical Markdown is a toggle and a
+  keyboard shortcut away, which is the escape hatch
+  `#raw-markdown-escape-hatch` asks for rather than the primary surface
+  `#editing-model` rules out. What is still missing from `#editing-model` is the
+  rich-text part: the note is a Markdown editor with a formatting toolbar, not a
+  WYSIWYG view, and there is no slash menu (`#slash-and-inline-commands`) and no
+  inline autoformat. Markdown being canonical is therefore still trivially
+  satisfied, and `#round-trip-fidelity` is only under pressure where a field
+  rewrite touches text it was not asked about — which is why each of those
+  rewrites is scoped to one chapter and leaves the rest byte-for-byte.
+- **The metadata line now carries two syntaxes.** Sigil tokens for type, priority,
+  status, area and tags, and named `name:value` tokens for the scheduling and
+  dependency fields — see `#scheduling-and-dependency-tokens` for why the second
+  form exists rather than five more sigils. A reader sees one line either way; the
+  split is about which characters were still available, not about two kinds of
+  fact.
 - **Task toggling is already correct.** Ticking a checkbox writes back into the
   source and saves immediately with no debounce, and a `- [ ]` inside a code
   fence is left alone — it is a code sample, not a task.

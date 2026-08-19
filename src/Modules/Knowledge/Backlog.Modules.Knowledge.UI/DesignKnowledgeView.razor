@@ -1,30 +1,35 @@
 @implements IDisposable
 @inject DesignKnowledgeProvider DesignKnowledge
 
-<section class="design-knowledge" aria-labelledby="design-knowledge-title" data-testid="design-knowledge-view">
+@*
+    Neither branch opens with a "Knowledge base" eyebrow and a title any more: the
+    tab strip says Design and the knowledge menu heads its column with it, so the
+    panel repeating it was the third copy of one word. The name survives as this
+    region's label for a screen reader (.design/accessibility.md, "Names &
+    roles"), the same trade the documents below already made when the file view
+    took over saying a chapter's name.
+*@
+
+<section class="design-knowledge" aria-label="Design knowledge" data-testid="design-knowledge-view">
     @if (_model is null)
     {
-        <p class="design-knowledge__message" role="status">Loading design knowledge...</p>
+        <Alert Message="Loading design knowledge..." BaseClass="design-knowledge__message" Role="status" />
     }
     else if (!_model.IsAvailable)
     {
-        <header class="design-knowledge__header">
-            <p class="design-knowledge__eyebrow">Knowledge base</p>
-            <h2 id="design-knowledge-title">Design knowledge</h2>
-        </header>
-        <p class="design-knowledge__message" role="status">@_model.Message</p>
+        @* Unavailable is only ever constructed with a reason, so this never
+           takes the alert's hidden shape. *@
+        <Alert Message="@_model.Message" BaseClass="design-knowledge__message" Role="status" />
         <a class="design-knowledge__settings" href="settings">Open repository settings</a>
     }
     else
     {
-        <header class="design-knowledge__header">
-            <p class="design-knowledge__eyebrow">Knowledge base</p>
-            <h2 id="design-knowledge-title">Design knowledge</h2>
-            <p class="design-knowledge__source">
-                <span>@_model.RepositoryName</span>
-                <code>@_model.FolderPath</code>
-            </p>
-        </header>
+        @* Where the folder is, and nothing else. The repository it belongs to is
+           the pane's line above the tabs, so naming it again here put the same
+           name twice on one screen. *@
+        <p class="design-knowledge__source">
+            <code>@_model.FolderPath</code>
+        </p>
 
         @if (string.IsNullOrWhiteSpace(SelectedPath))
         {

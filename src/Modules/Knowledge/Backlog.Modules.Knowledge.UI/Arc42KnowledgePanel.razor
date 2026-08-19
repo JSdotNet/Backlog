@@ -2,21 +2,24 @@
 @inject Arc42KnowledgeStore Knowledge
 @inject IKnowledgeFolderSource Folders
 
-<aside class="knowledge-pane knowledge-pane--arc42" data-testid="arc42-knowledge-panel" aria-labelledby="arc42-knowledge-title">
-    <header class="knowledge-pane__header">
-        <div>
-            <p class="knowledge-pane__eyebrow">Knowledge base</p>
-            <h2 id="arc42-knowledge-title">Architecture</h2>
-        </div>
-        @if (_catalog is not null && _catalog.Exists)
-        {
-            <span class="knowledge-pane__count">@_catalog.Documents.Count chapters</span>
-        }
-    </header>
+@*
+    No "Knowledge base" eyebrow and no title of its own: the tab strip above this
+    panel already says Architecture and the knowledge menu heads its column with
+    the same word, so a third copy here was the section announcing itself to a
+    reader who had just clicked it. The name survives for a screen reader as this
+    region's label (.design/accessibility.md, "Names & roles"). The chapter count
+    stays — it is the one thing this header said that nothing else does.
+*@
+
+<aside class="knowledge-pane knowledge-pane--arc42" data-testid="arc42-knowledge-panel" aria-label="Architecture knowledge">
+    @if (_catalog is not null && _catalog.Exists)
+    {
+        <p class="knowledge-pane__count">@_catalog.Documents.Count chapters</p>
+    }
 
     @if (_loading)
     {
-        <p class="knowledge-empty" role="status">Loading architecture knowledge...</p>
+        <Alert Message="Loading architecture knowledge..." BaseClass="knowledge-empty" Role="status" />
     }
     else if (_catalog is null || !_catalog.Exists)
     {

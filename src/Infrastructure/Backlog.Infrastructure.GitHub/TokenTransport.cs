@@ -23,7 +23,12 @@ public sealed class TokenTransport : IGitHubTransport
 
         _http.DefaultRequestHeaders.UserAgent.TryParseAdd("Backlog");
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-        _http.DefaultRequestHeaders.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
+
+        // The API version is deliberately *not* a default header any more. It used
+        // to be, which worked while every endpoint this app called lived on one
+        // version; the billing usage reports do not, so the version travels per
+        // request. A default here would win or lose against the per-request one
+        // depending on header-collection semantics rather than on intent.
     }
 
     public string Description => "personal access token";
@@ -35,6 +40,7 @@ public sealed class TokenTransport : IGitHubTransport
         HttpMethod method,
         string path,
         object? body = null,
+        string? apiVersion = null,
         CancellationToken cancellationToken = default)
     {
         var token = _token(path);
@@ -45,6 +51,9 @@ public sealed class TokenTransport : IGitHubTransport
 
         using var request = new HttpRequestMessage(method, EndpointUri(path));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
+        request.Headers.TryAddWithoutValidation(
+            "X-GitHub-Api-Version",
+            string.IsNullOrWhiteSpace(apiVersion) ? IGitHubTransport.DefaultApiVersion : apiVersion.Trim());
 
         if (body is not null)
         {
