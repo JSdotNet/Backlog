@@ -92,7 +92,13 @@ the same.
 `Backlog.Infrastructure.FileSystem`. Infrastructure projects in this solution are
 named for the technology they wrap, and the file-system project describes itself as
 "markdown + JSON on local disk". It keeps the adapters that really are files: the
-workspace settings, the feature flags, and the knowledge folder resolver.
+workspace settings, the feature flags, the knowledge folder resolver, and Roadmap
+Planning's stored plan document.
+
+This decision is about the task store specifically, and not a claim that a database
+is the right home for everything. Roadmap Planning's plan arrived as JSON on disk in
+the same period and stays there: it is one document per workspace, read and written
+whole, with none of the per-item indexing that made markdown-per-task expensive.
 
 ### No migration
 

@@ -15,8 +15,8 @@ related: [".arc42/03-context-and-scope.md#access-channels-scope", ".domain/conte
 ```
 
 Container boundaries below are the deployable/runtime split; the domains they
-serve (Capture, Inbox, Backlog Management, Second Brain, Monitoring, Technology
-Stack, Dev PC Management, Repository Management) are defined in
+serve (Capture, Inbox, Backlog Management, Roadmap Planning, Second Brain,
+Monitoring, Technology Stack, Dev PC Management, Repository Management) are defined in
 `.domain/context-map.md` and each context's own `.domain/<context>/domain.md` —
 this view does not restate domain responsibilities.
 
@@ -74,6 +74,7 @@ flowchart TB
     subgraph "Desktop App (standalone or connected)"
       InboxQueue["Inbox Queue\n(triage, route)"]
       BacklogSvc["Backlog\n(refine, prioritize)"]
+      RoadmapSvc["Roadmap Planning\n(plan, sequence, dependencies)"]
       KnowledgeSvc["Second Brain\n(PARA, links)"]
       MonitoringSvc["Monitoring\n(dashboards, signals)"]
       TechStackSvc["Technology Stack\n(baselines, adoption)"]
@@ -161,7 +162,7 @@ status: active
 related: [".arc42/06-runtime-view.md#backlog-entry-to-github-issue", ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
-Local-first Windows client. Serves Capture, Inbox, Backlog Management, Second Brain, Monitoring, Technology Stack, Dev PC Management, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
+Local-first Windows client. Serves Capture, Inbox, Backlog Management, Roadmap Planning, Second Brain, Monitoring, Technology Stack, Dev PC Management, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
 **Connected** (adds cloud sync, phone access, and webhook forwarding).
 
 ```mermaid

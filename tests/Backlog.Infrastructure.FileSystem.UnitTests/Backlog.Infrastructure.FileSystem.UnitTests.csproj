@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+  </ItemGroup>
+
+</Project>

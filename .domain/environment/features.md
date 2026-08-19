@@ -47,7 +47,7 @@ name without storing passwords or tokens.
 
 ```meta
 status: draft
-related: [.domain/backlog/features.md#feature-roadmap-planning]
+related: [.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline]
 ```
 
 Let backlog and roadmap views surface relevant environment shortcuts next to work

@@ -190,11 +190,15 @@ entry that moves, so the record of each completion survives.
 ## Term: Roadmap
 
 ```meta
-status: draft
+status: deprecated
 aliases: [Roadmap planning, Roadmap view]
-related: [.domain/backlog/features.md#feature-roadmap-planning]
+related: [.domain/roadmap/naming.md#term-roadmap-plan, .domain/backlog/features.md#feature-roadmap-planning]
 ```
 
-A planning view over selected Backlog Entries, grouped by horizon, milestone,
-theme, target environment, or repository. The roadmap does not own status or
-priority; it reads those from the entries it displays.
+**Not a Backlog Management term any more.** The canonical concept is the
+[Roadmap Plan](../roadmap/naming.md#term-roadmap-plan) in Roadmap Planning, which
+owns a stored plan rather than presenting a view over entries.
+
+What holds inside this context is narrower, and is the half worth keeping: a
+Backlog Entry's status and execution priority are **not** owned by the roadmap.
+A plan may name an entry by id and read its progress; it never writes to it.

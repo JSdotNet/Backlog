@@ -196,6 +196,17 @@ html, body {
     max-width: 34rem;
 }
 
+/* A side panel's real width. Wider than a task list, because the panel holds the
+   rich text control as well as the list — a markdown editor with a dozen toolbar
+   buttons over a line that reflows every third word is an editor nobody writes in.
+   44rem leaves about 41rem of content, which is past the 33rem the detail pane
+   needs for its second column and inside the 72-90 character measure the layout
+   rules ask long-form editing to keep. The panel itself states no width: in the
+   app it is as wide as the pane it is docked in, and this is that pane. */
+.sb-side-panel {
+    max-width: 44rem;
+}
+
 /* A menu beside the thing it opens, laid out the way the app lays it out: a
    fixed gutter and everything else. Equal columns would have made the pane and
    the document look like peers, which is exactly what they are not. */

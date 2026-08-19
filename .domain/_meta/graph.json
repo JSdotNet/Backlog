@@ -6,28 +6,30 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 313,
-    "edges": 463,
+    "nodes": 364,
+    "edges": 562,
     "nodesByFolder": {
-      "domain": 305,
-      "arc42": 8
+      "domain": 354,
+      "arc42": 8,
+      "design": 2
     },
     "nodesByType": {
-      "file": 60,
-      "chapter": 218,
-      "heading": 35
+      "file": 67,
+      "chapter": 253,
+      "heading": 44
     },
     "nodesByStatus": {
-      "draft": 253,
+      "draft": 290,
       "proposed": 16,
+      "deprecated": 3,
       "idea": 1,
-      "none": 35,
-      "active": 8
+      "none": 44,
+      "active": 10
     },
     "edgesByType": {
-      "contains": 245,
-      "related": 196,
-      "depends-on": 22
+      "contains": 288,
+      "related": 245,
+      "depends-on": 29
     }
   },
   "problems": [],
@@ -515,11 +517,13 @@
           "slug": "feature-roadmap-planning",
           "level": 2,
           "line": 290,
-          "status": "draft",
+          "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
           ],
           "related": [
+            ".domain/roadmap/features.md",
+            ".domain/roadmap/domain.md#aggregate-roadmap-plan",
             ".domain/backlog/domain.md#aggregate-backlog-entry"
           ]
         }
@@ -533,8 +537,11 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-roadmap-views",
           "level": 3,
-          "line": 303,
-          "status": "draft"
+          "line": 320,
+          "status": "deprecated",
+          "related": [
+            ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline"
+          ]
         }
       },
       {
@@ -865,12 +872,13 @@
           "slug": "term-roadmap",
           "level": 2,
           "line": 190,
-          "status": "draft",
+          "status": "deprecated",
           "aliases": [
             "Roadmap planning",
             "Roadmap view"
           ],
           "related": [
+            ".domain/roadmap/naming.md#term-roadmap-plan",
             ".domain/backlog/features.md#feature-roadmap-planning"
           ]
         }
@@ -1901,7 +1909,7 @@
           "line": 46,
           "status": "draft",
           "related": [
-            ".domain/backlog/features.md#feature-roadmap-planning"
+            ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline"
           ]
         }
       },
@@ -3513,6 +3521,693 @@
       },
       {
         "data": {
+          "id": ".domain/roadmap/dependencies.md",
+          "label": "Dependencies: Roadmap Planning",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/roadmap/dependencies.md",
+          "status": "draft",
+          "related": [
+            ".domain/context-map.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md",
+          "label": "Domain: Roadmap Planning",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "label": "Aggregate: Roadmap Plan",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "aggregate-roadmap-plan",
+          "level": 2,
+          "line": 34,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/repository-management/domain.md#aggregate-repository-registry",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "label": "Domain Service: Plan Sequencing",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "domain-service-plan-sequencing",
+          "level": 2,
+          "line": 182,
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#aggregate-roadmap-plan"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#domain-service-repository-scope-resolution",
+          "label": "Domain Service: Repository Scope Resolution",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "domain-service-repository-scope-resolution",
+          "level": 2,
+          "line": 205,
+          "status": "draft",
+          "related": [
+            ".domain/repository-management/naming.md#term-repository",
+            ".domain/environment/domain.md#domain-service-environment-shortcut-resolution"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#domain-event-roadmapitemscheduled",
+          "label": "Domain Event: RoadmapItemScheduled",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "domain-event-roadmapitemscheduled",
+          "level": 2,
+          "line": 223,
+          "status": "draft",
+          "related": [
+            ".domain/monitoring/domain.md#aggregate-progress-signal"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md",
+          "label": "Features: Roadmap Planning",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "label": "Feature: Owning a stored plan",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-owning-a-stored-plan",
+          "level": 2,
+          "line": 10,
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#aggregate-roadmap-plan"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-planning-work-that-has-no-backlog-entry-yet",
+          "label": "Sub-feature: Planning work that has no backlog entry yet",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-planning-work-that-has-no-backlog-entry-yet",
+          "level": 3,
+          "line": 23,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-linking-an-item-to-the-entry-that-executes-it",
+          "label": "Sub-feature: Linking an item to the entry that executes it",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-linking-an-item-to-the-entry-that-executes-it",
+          "level": 3,
+          "line": 33,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-milestones",
+          "label": "Sub-feature: Milestones",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-milestones",
+          "level": 3,
+          "line": 45,
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#milestone"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-a-date-the-whole-plan-is-read-against",
+          "label": "Sub-feature: A date the whole plan is read against",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-a-date-the-whole-plan-is-read-against",
+          "level": 3,
+          "line": 59,
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#milestone"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#feature-priority-planning",
+          "label": "Feature: Priority planning",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-priority-planning",
+          "level": 2,
+          "line": 74,
+          "status": "draft",
+          "depends-on": [
+            ".domain/roadmap/features.md#feature-owning-a-stored-plan"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#planning-priority"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#feature-dependency-planning",
+          "label": "Feature: Dependency planning",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-dependency-planning",
+          "level": 2,
+          "line": 88,
+          "status": "draft",
+          "depends-on": [
+            ".domain/roadmap/features.md#feature-owning-a-stored-plan"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#dependency",
+            ".domain/roadmap/domain.md#domain-service-plan-sequencing"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-refusing-a-circular-plan",
+          "label": "Sub-feature: Refusing a circular plan",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-refusing-a-circular-plan",
+          "level": 3,
+          "line": 101,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-surfacing-contradictions-instead-of-fixing-them",
+          "label": "Sub-feature: Surfacing contradictions instead of fixing them",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-surfacing-contradictions-instead-of-fixing-them",
+          "level": 3,
+          "line": 111,
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#domain-service-plan-sequencing"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "label": "Feature: Repository-scoped planning",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-repository-scoped-planning",
+          "level": 2,
+          "line": 124,
+          "status": "draft",
+          "depends-on": [
+            ".domain/roadmap/features.md#feature-owning-a-stored-plan"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#repository-scope",
+            ".domain/repository-management/features.md#feature-repository-registration"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-reading-the-plan-by-repository",
+          "label": "Sub-feature: Reading the plan by repository",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-reading-the-plan-by-repository",
+          "level": 3,
+          "line": 136,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-surviving-a-repository-that-is-no-longer-configured",
+          "label": "Sub-feature: Surviving a repository that is no longer configured",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-surviving-a-repository-that-is-no-longer-configured",
+          "level": 3,
+          "line": 147,
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#domain-service-repository-scope-resolution"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
+          "label": "Feature: Reading and rescheduling on a timeline",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-reading-and-rescheduling-on-a-timeline",
+          "level": 2,
+          "line": 158,
+          "status": "draft",
+          "depends-on": [
+            ".domain/roadmap/features.md#feature-dependency-planning",
+            ".domain/roadmap/features.md#feature-repository-scoped-planning"
+          ],
+          "related": [
+            ".domain/roadmap/flow.md",
+            ".design/interaction-guidelines.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-rescheduling-without-a-mouse",
+          "label": "Sub-feature: Rescheduling without a mouse",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-rescheduling-without-a-mouse",
+          "level": 3,
+          "line": 171,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
+          "label": "Sub-feature: Telling one project from another at a glance",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-telling-one-project-from-another-at-a-glance",
+          "level": 3,
+          "line": 181,
+          "status": "draft",
+          "related": [
+            ".design/color-scheme.md#band-identity-tokens"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#feature-editing-the-plan-in-place",
+          "label": "Feature: Editing the plan in place",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-editing-the-plan-in-place",
+          "level": 2,
+          "line": 204,
+          "status": "draft",
+          "depends-on": [
+            ".domain/roadmap/features.md#feature-owning-a-stored-plan"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+            ".domain/roadmap/features.md#feature-dependency-planning"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-editing-what-something-waits-for",
+          "label": "Sub-feature: Editing what something waits for",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-editing-what-something-waits-for",
+          "level": 3,
+          "line": 221,
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/features.md#sub-feature-refusing-a-circular-plan"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sub-feature-refusing-an-edit-rather-than-half-applying-it",
+          "label": "Sub-feature: Refusing an edit rather than half-applying it",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sub-feature-refusing-an-edit-rather-than-half-applying-it",
+          "level": 3,
+          "line": 234,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#feature-publishing-planned-intent-for-observation",
+          "label": "Feature: Publishing planned intent for observation",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-publishing-planned-intent-for-observation",
+          "level": 2,
+          "line": 244,
+          "status": "draft",
+          "depends-on": [
+            ".domain/roadmap/features.md#feature-owning-a-stored-plan"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#domain-event-roadmapitemscheduled",
+            ".domain/monitoring/features.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/flow.md",
+          "label": "Flow: Roadmap Planning",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/roadmap/flow.md",
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+            ".domain/roadmap/domain.md#domain-service-plan-sequencing"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/model.md",
+          "label": "Domain Model: Roadmap Planning",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/roadmap/model.md",
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#aggregate-roadmap-plan"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md",
+          "label": "Naming: Roadmap Planning",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-roadmap-plan",
+          "label": "Term: Roadmap Plan",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-roadmap-plan",
+          "level": 2,
+          "line": 12,
+          "status": "draft",
+          "aliases": [
+            "RoadmapPlan",
+            "plan",
+            "the plan"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#aggregate-roadmap-plan"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-roadmap-item",
+          "label": "Term: Roadmap Item",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-roadmap-item",
+          "level": 2,
+          "line": 24,
+          "status": "draft",
+          "aliases": [
+            "RoadmapItem",
+            "roadmap_item_id",
+            "planned work",
+            "planned item"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#roadmap-item"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-milestone",
+          "label": "Term: Milestone",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-milestone",
+          "level": 2,
+          "line": 39,
+          "status": "draft",
+          "aliases": [
+            "Milestone",
+            "roadmap_milestone_id",
+            "fixed point"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#milestone"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-roadmap-node",
+          "label": "Term: Roadmap Node",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-roadmap-node",
+          "level": 2,
+          "line": 51,
+          "status": "draft",
+          "aliases": [
+            "RoadmapNodeId",
+            "node",
+            "dependency endpoint"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#dependency"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-planned-window",
+          "label": "Term: Planned Window",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-planned-window",
+          "level": 2,
+          "line": 63,
+          "status": "draft",
+          "aliases": [
+            "PlannedWindow",
+            "start",
+            "end",
+            "span"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#planned-window"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-planning-priority",
+          "label": "Term: Planning Priority",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-planning-priority",
+          "level": 2,
+          "line": 75,
+          "status": "draft",
+          "aliases": [
+            "PlanningPriority",
+            "planning priority"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#planning-priority",
+            ".domain/backlog/domain.md#priority"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-repository-scope",
+          "label": "Term: Repository Scope",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-repository-scope",
+          "level": 2,
+          "line": 91,
+          "status": "draft",
+          "aliases": [
+            "RepositoryScope",
+            "repository_aliases",
+            "repos",
+            "scope"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#repository-scope",
+            ".domain/repository-management/naming.md#term-repository"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-dependency",
+          "label": "Term: Dependency",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-dependency",
+          "level": 2,
+          "line": 104,
+          "status": "draft",
+          "aliases": [
+            "Dependency",
+            "depends_on",
+            "depends_on_id",
+            "waits on",
+            "blocked by"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#dependency",
+            ".domain/roadmap/domain.md#domain-service-plan-sequencing"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-planning-lane",
+          "label": "Term: Planning Lane",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-planning-lane",
+          "level": 2,
+          "line": 116,
+          "status": "draft",
+          "aliases": [
+            "PlanningLane",
+            "lane",
+            "row"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#planning-lane"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-backlog-entry-link",
+          "label": "Term: Backlog Entry Link",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-backlog-entry-link",
+          "level": 2,
+          "line": 128,
+          "status": "draft",
+          "aliases": [
+            "BacklogEntryLink",
+            "backlog_entry_id"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#backlog-entry-link",
+            ".domain/backlog/naming.md#term-backlog-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-contradiction",
+          "label": "Term: Contradiction",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-contradiction",
+          "level": 2,
+          "line": 140,
+          "status": "draft",
+          "aliases": [
+            "contradiction",
+            "conflicting dates"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#domain-service-plan-sequencing"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/second-brain/dependencies.md",
           "label": "Dependencies: Second Brain",
           "type": "file",
@@ -4464,6 +5159,114 @@
       },
       {
         "data": {
+          "id": ".domain/roadmap/domain.md#milestone",
+          "label": "Milestone",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "milestone",
+          "level": 4,
+          "line": 95
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#planning-priority",
+          "label": "Planning Priority",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "planning-priority",
+          "level": 4,
+          "line": 164
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#dependency",
+          "label": "Dependency",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "dependency",
+          "level": 4,
+          "line": 132
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#repository-scope",
+          "label": "Repository Scope",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "repository-scope",
+          "level": 4,
+          "line": 121
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#roadmap-item",
+          "label": "Roadmap Item",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "roadmap-item",
+          "level": 4,
+          "line": 82
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#planned-window",
+          "label": "Planned Window",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "planned-window",
+          "level": 4,
+          "line": 111
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/domain.md#priority",
+          "label": "Priority",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "slug": "priority",
+          "level": 4,
+          "line": 147
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#planning-lane",
+          "label": "Planning Lane",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "planning-lane",
+          "level": 4,
+          "line": 143
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#backlog-entry-link",
+          "label": "Backlog Entry Link",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "backlog-entry-link",
+          "level": 4,
+          "line": 154
+        }
+      },
+      {
+        "data": {
           "id": ".domain/second-brain/domain.md#para-category",
           "label": "PARA Category",
           "type": "heading",
@@ -4688,6 +5491,41 @@
           "related": [
             ".arc42/05-building-block-view.md#desktop-app",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md",
+          "label": "Interaction Guidelines",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
+            ".design/accessibility.md",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#band-identity-tokens",
+          "label": "Band Identity Tokens",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "band-identity-tokens",
+          "level": 2,
+          "line": 271,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#dark-mode-only",
+            ".design/accessibility.md#contrast",
+            ".domain/roadmap/features.md#feature-repository-scoped-planning"
           ],
           "outOfScope": true
         }
@@ -6136,6 +6974,278 @@
       },
       {
         "data": {
+          "id": "contains:.domain/roadmap/domain.md->.domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "source": ".domain/roadmap/domain.md",
+          "target": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md->.domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "source": ".domain/roadmap/domain.md",
+          "target": ".domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md->.domain/roadmap/domain.md#domain-service-repository-scope-resolution",
+          "source": ".domain/roadmap/domain.md",
+          "target": ".domain/roadmap/domain.md#domain-service-repository-scope-resolution",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md->.domain/roadmap/domain.md#domain-event-roadmapitemscheduled",
+          "source": ".domain/roadmap/domain.md",
+          "target": ".domain/roadmap/domain.md#domain-event-roadmapitemscheduled",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md->.domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "source": ".domain/roadmap/features.md",
+          "target": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-owning-a-stored-plan->.domain/roadmap/features.md#sub-feature-planning-work-that-has-no-backlog-entry-yet",
+          "source": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "target": ".domain/roadmap/features.md#sub-feature-planning-work-that-has-no-backlog-entry-yet",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-owning-a-stored-plan->.domain/roadmap/features.md#sub-feature-linking-an-item-to-the-entry-that-executes-it",
+          "source": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "target": ".domain/roadmap/features.md#sub-feature-linking-an-item-to-the-entry-that-executes-it",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-owning-a-stored-plan->.domain/roadmap/features.md#sub-feature-milestones",
+          "source": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "target": ".domain/roadmap/features.md#sub-feature-milestones",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-owning-a-stored-plan->.domain/roadmap/features.md#sub-feature-a-date-the-whole-plan-is-read-against",
+          "source": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "target": ".domain/roadmap/features.md#sub-feature-a-date-the-whole-plan-is-read-against",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md->.domain/roadmap/features.md#feature-priority-planning",
+          "source": ".domain/roadmap/features.md",
+          "target": ".domain/roadmap/features.md#feature-priority-planning",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md->.domain/roadmap/features.md#feature-dependency-planning",
+          "source": ".domain/roadmap/features.md",
+          "target": ".domain/roadmap/features.md#feature-dependency-planning",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-dependency-planning->.domain/roadmap/features.md#sub-feature-refusing-a-circular-plan",
+          "source": ".domain/roadmap/features.md#feature-dependency-planning",
+          "target": ".domain/roadmap/features.md#sub-feature-refusing-a-circular-plan",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-dependency-planning->.domain/roadmap/features.md#sub-feature-surfacing-contradictions-instead-of-fixing-them",
+          "source": ".domain/roadmap/features.md#feature-dependency-planning",
+          "target": ".domain/roadmap/features.md#sub-feature-surfacing-contradictions-instead-of-fixing-them",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md->.domain/roadmap/features.md#feature-repository-scoped-planning",
+          "source": ".domain/roadmap/features.md",
+          "target": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-repository-scoped-planning->.domain/roadmap/features.md#sub-feature-reading-the-plan-by-repository",
+          "source": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "target": ".domain/roadmap/features.md#sub-feature-reading-the-plan-by-repository",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-repository-scoped-planning->.domain/roadmap/features.md#sub-feature-surviving-a-repository-that-is-no-longer-configured",
+          "source": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "target": ".domain/roadmap/features.md#sub-feature-surviving-a-repository-that-is-no-longer-configured",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md->.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
+          "source": ".domain/roadmap/features.md",
+          "target": ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline->.domain/roadmap/features.md#sub-feature-rescheduling-without-a-mouse",
+          "source": ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
+          "target": ".domain/roadmap/features.md#sub-feature-rescheduling-without-a-mouse",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline->.domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
+          "source": ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
+          "target": ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md->.domain/roadmap/features.md#feature-editing-the-plan-in-place",
+          "source": ".domain/roadmap/features.md",
+          "target": ".domain/roadmap/features.md#feature-editing-the-plan-in-place",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-editing-the-plan-in-place->.domain/roadmap/features.md#sub-feature-editing-what-something-waits-for",
+          "source": ".domain/roadmap/features.md#feature-editing-the-plan-in-place",
+          "target": ".domain/roadmap/features.md#sub-feature-editing-what-something-waits-for",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#feature-editing-the-plan-in-place->.domain/roadmap/features.md#sub-feature-refusing-an-edit-rather-than-half-applying-it",
+          "source": ".domain/roadmap/features.md#feature-editing-the-plan-in-place",
+          "target": ".domain/roadmap/features.md#sub-feature-refusing-an-edit-rather-than-half-applying-it",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md->.domain/roadmap/features.md#feature-publishing-planned-intent-for-observation",
+          "source": ".domain/roadmap/features.md",
+          "target": ".domain/roadmap/features.md#feature-publishing-planned-intent-for-observation",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-roadmap-plan",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-roadmap-plan",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-roadmap-item",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-roadmap-item",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-milestone",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-milestone",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-roadmap-node",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-roadmap-node",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-planned-window",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-planned-window",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-planning-priority",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-planning-priority",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-repository-scope",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-repository-scope",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-dependency",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-dependency",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-planning-lane",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-planning-lane",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-backlog-entry-link",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-backlog-entry-link",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-contradiction",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-contradiction",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/second-brain/domain.md->.domain/second-brain/domain.md#aggregate-knowledge-note",
           "source": ".domain/second-brain/domain.md",
           "target": ".domain/second-brain/domain.md#aggregate-knowledge-note",
@@ -6712,9 +7822,33 @@
       },
       {
         "data": {
+          "id": "related:.domain/backlog/features.md#feature-roadmap-planning->.domain/roadmap/features.md",
+          "source": ".domain/backlog/features.md#feature-roadmap-planning",
+          "target": ".domain/roadmap/features.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#feature-roadmap-planning->.domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "source": ".domain/backlog/features.md#feature-roadmap-planning",
+          "target": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/backlog/features.md#feature-roadmap-planning->.domain/backlog/domain.md#aggregate-backlog-entry",
           "source": ".domain/backlog/features.md#feature-roadmap-planning",
           "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#sub-feature-roadmap-views->.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
+          "source": ".domain/backlog/features.md#sub-feature-roadmap-views",
+          "target": ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
           "type": "related"
         }
       },
@@ -6867,6 +8001,14 @@
           "id": "related:.domain/backlog/naming.md#term-occurrence->.domain/backlog/domain.md#domain-service-recurrence",
           "source": ".domain/backlog/naming.md#term-occurrence",
           "target": ".domain/backlog/domain.md#domain-service-recurrence",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-roadmap->.domain/roadmap/naming.md#term-roadmap-plan",
+          "source": ".domain/backlog/naming.md#term-roadmap",
+          "target": ".domain/roadmap/naming.md#term-roadmap-plan",
           "type": "related"
         }
       },
@@ -7320,9 +8462,9 @@
       },
       {
         "data": {
-          "id": "related:.domain/environment/features.md#feature-environment-aware-work-context->.domain/backlog/features.md#feature-roadmap-planning",
+          "id": "related:.domain/environment/features.md#feature-environment-aware-work-context->.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
           "source": ".domain/environment/features.md#feature-environment-aware-work-context",
-          "target": ".domain/backlog/features.md#feature-roadmap-planning",
+          "target": ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
           "type": "related"
         }
       },
@@ -8115,6 +9257,494 @@
           "id": "related:.domain/repository-management/naming.md#term-package-manifest->.domain/repository-management/domain.md#package-manifest",
           "source": ".domain/repository-management/naming.md#term-package-manifest",
           "target": ".domain/repository-management/domain.md#package-manifest",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/dependencies.md->.domain/context-map.md",
+          "source": ".domain/roadmap/dependencies.md",
+          "target": ".domain/context-map.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/repository-management/domain.md#aggregate-repository-registry",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/repository-management/domain.md#aggregate-repository-registry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/domain.md#aggregate-roadmap-plan->.arc42/08-crosscutting-concepts.md#shared-data-types",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/domain.md#domain-service-plan-sequencing->.domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "source": ".domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "target": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/domain.md#domain-service-repository-scope-resolution->.domain/repository-management/naming.md#term-repository",
+          "source": ".domain/roadmap/domain.md#domain-service-repository-scope-resolution",
+          "target": ".domain/repository-management/naming.md#term-repository",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/domain.md#domain-service-repository-scope-resolution->.domain/environment/domain.md#domain-service-environment-shortcut-resolution",
+          "source": ".domain/roadmap/domain.md#domain-service-repository-scope-resolution",
+          "target": ".domain/environment/domain.md#domain-service-environment-shortcut-resolution",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/domain.md#domain-event-roadmapitemscheduled->.domain/monitoring/domain.md#aggregate-progress-signal",
+          "source": ".domain/roadmap/domain.md#domain-event-roadmapitemscheduled",
+          "target": ".domain/monitoring/domain.md#aggregate-progress-signal",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-owning-a-stored-plan->.domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "source": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "target": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sub-feature-linking-an-item-to-the-entry-that-executes-it->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/roadmap/features.md#sub-feature-linking-an-item-to-the-entry-that-executes-it",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/roadmap/domain.md#milestone",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#milestone",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sub-feature-milestones->.domain/roadmap/domain.md#milestone",
+          "source": ".domain/roadmap/features.md#sub-feature-milestones",
+          "target": ".domain/roadmap/domain.md#milestone",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sub-feature-a-date-the-whole-plan-is-read-against->.domain/roadmap/domain.md#milestone",
+          "source": ".domain/roadmap/features.md#sub-feature-a-date-the-whole-plan-is-read-against",
+          "target": ".domain/roadmap/domain.md#milestone",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#feature-priority-planning->.domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "source": ".domain/roadmap/features.md#feature-priority-planning",
+          "target": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/roadmap/domain.md#planning-priority",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#planning-priority",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-priority-planning->.domain/roadmap/domain.md#planning-priority",
+          "source": ".domain/roadmap/features.md#feature-priority-planning",
+          "target": ".domain/roadmap/domain.md#planning-priority",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#feature-dependency-planning->.domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "source": ".domain/roadmap/features.md#feature-dependency-planning",
+          "target": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/roadmap/domain.md#dependency",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#dependency",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-dependency-planning->.domain/roadmap/domain.md#dependency",
+          "source": ".domain/roadmap/features.md#feature-dependency-planning",
+          "target": ".domain/roadmap/domain.md#dependency",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-dependency-planning->.domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "source": ".domain/roadmap/features.md#feature-dependency-planning",
+          "target": ".domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sub-feature-surfacing-contradictions-instead-of-fixing-them->.domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "source": ".domain/roadmap/features.md#sub-feature-surfacing-contradictions-instead-of-fixing-them",
+          "target": ".domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#feature-repository-scoped-planning->.domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "source": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "target": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/roadmap/domain.md#repository-scope",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#repository-scope",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-repository-scoped-planning->.domain/roadmap/domain.md#repository-scope",
+          "source": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "target": ".domain/roadmap/domain.md#repository-scope",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-repository-scoped-planning->.domain/repository-management/features.md#feature-repository-registration",
+          "source": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "target": ".domain/repository-management/features.md#feature-repository-registration",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sub-feature-surviving-a-repository-that-is-no-longer-configured->.domain/roadmap/domain.md#domain-service-repository-scope-resolution",
+          "source": ".domain/roadmap/features.md#sub-feature-surviving-a-repository-that-is-no-longer-configured",
+          "target": ".domain/roadmap/domain.md#domain-service-repository-scope-resolution",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline->.domain/roadmap/features.md#feature-dependency-planning",
+          "source": ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
+          "target": ".domain/roadmap/features.md#feature-dependency-planning",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline->.domain/roadmap/features.md#feature-repository-scoped-planning",
+          "source": ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
+          "target": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline->.domain/roadmap/flow.md",
+          "source": ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
+          "target": ".domain/roadmap/flow.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline->.design/interaction-guidelines.md",
+          "source": ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline",
+          "target": ".design/interaction-guidelines.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance->.design/color-scheme.md#band-identity-tokens",
+          "source": ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
+          "target": ".design/color-scheme.md#band-identity-tokens",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#feature-editing-the-plan-in-place->.domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "source": ".domain/roadmap/features.md#feature-editing-the-plan-in-place",
+          "target": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-editing-the-plan-in-place->.domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "source": ".domain/roadmap/features.md#feature-editing-the-plan-in-place",
+          "target": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-editing-the-plan-in-place->.domain/roadmap/features.md#feature-dependency-planning",
+          "source": ".domain/roadmap/features.md#feature-editing-the-plan-in-place",
+          "target": ".domain/roadmap/features.md#feature-dependency-planning",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sub-feature-editing-what-something-waits-for->.domain/roadmap/features.md#sub-feature-refusing-a-circular-plan",
+          "source": ".domain/roadmap/features.md#sub-feature-editing-what-something-waits-for",
+          "target": ".domain/roadmap/features.md#sub-feature-refusing-a-circular-plan",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#feature-publishing-planned-intent-for-observation->.domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "source": ".domain/roadmap/features.md#feature-publishing-planned-intent-for-observation",
+          "target": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-publishing-planned-intent-for-observation->.domain/roadmap/domain.md#domain-event-roadmapitemscheduled",
+          "source": ".domain/roadmap/features.md#feature-publishing-planned-intent-for-observation",
+          "target": ".domain/roadmap/domain.md#domain-event-roadmapitemscheduled",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-publishing-planned-intent-for-observation->.domain/monitoring/features.md",
+          "source": ".domain/roadmap/features.md#feature-publishing-planned-intent-for-observation",
+          "target": ".domain/monitoring/features.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/flow.md->.domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "source": ".domain/roadmap/flow.md",
+          "target": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/flow.md->.domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "source": ".domain/roadmap/flow.md",
+          "target": ".domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/model.md->.domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "source": ".domain/roadmap/model.md",
+          "target": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-roadmap-plan->.domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "source": ".domain/roadmap/naming.md#term-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/roadmap/domain.md#roadmap-item",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#roadmap-item",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-roadmap-item->.domain/roadmap/domain.md#roadmap-item",
+          "source": ".domain/roadmap/naming.md#term-roadmap-item",
+          "target": ".domain/roadmap/domain.md#roadmap-item",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-milestone->.domain/roadmap/domain.md#milestone",
+          "source": ".domain/roadmap/naming.md#term-milestone",
+          "target": ".domain/roadmap/domain.md#milestone",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-roadmap-node->.domain/roadmap/domain.md#dependency",
+          "source": ".domain/roadmap/naming.md#term-roadmap-node",
+          "target": ".domain/roadmap/domain.md#dependency",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/roadmap/domain.md#planned-window",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#planned-window",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-planned-window->.domain/roadmap/domain.md#planned-window",
+          "source": ".domain/roadmap/naming.md#term-planned-window",
+          "target": ".domain/roadmap/domain.md#planned-window",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-planning-priority->.domain/roadmap/domain.md#planning-priority",
+          "source": ".domain/roadmap/naming.md#term-planning-priority",
+          "target": ".domain/roadmap/domain.md#planning-priority",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/domain.md#aggregate-backlog-entry->.domain/backlog/domain.md#priority",
+          "source": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "target": ".domain/backlog/domain.md#priority",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-planning-priority->.domain/backlog/domain.md#priority",
+          "source": ".domain/roadmap/naming.md#term-planning-priority",
+          "target": ".domain/backlog/domain.md#priority",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-repository-scope->.domain/roadmap/domain.md#repository-scope",
+          "source": ".domain/roadmap/naming.md#term-repository-scope",
+          "target": ".domain/roadmap/domain.md#repository-scope",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-repository-scope->.domain/repository-management/naming.md#term-repository",
+          "source": ".domain/roadmap/naming.md#term-repository-scope",
+          "target": ".domain/repository-management/naming.md#term-repository",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-dependency->.domain/roadmap/domain.md#dependency",
+          "source": ".domain/roadmap/naming.md#term-dependency",
+          "target": ".domain/roadmap/domain.md#dependency",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-dependency->.domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "source": ".domain/roadmap/naming.md#term-dependency",
+          "target": ".domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/roadmap/domain.md#planning-lane",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#planning-lane",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-planning-lane->.domain/roadmap/domain.md#planning-lane",
+          "source": ".domain/roadmap/naming.md#term-planning-lane",
+          "target": ".domain/roadmap/domain.md#planning-lane",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/roadmap/domain.md#backlog-entry-link",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#backlog-entry-link",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-backlog-entry-link->.domain/roadmap/domain.md#backlog-entry-link",
+          "source": ".domain/roadmap/naming.md#term-backlog-entry-link",
+          "target": ".domain/roadmap/domain.md#backlog-entry-link",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-backlog-entry-link->.domain/backlog/naming.md#term-backlog-entry",
+          "source": ".domain/roadmap/naming.md#term-backlog-entry-link",
+          "target": ".domain/backlog/naming.md#term-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-contradiction->.domain/roadmap/domain.md#domain-service-plan-sequencing",
+          "source": ".domain/roadmap/naming.md#term-contradiction",
+          "target": ".domain/roadmap/domain.md#domain-service-plan-sequencing",
           "type": "related"
         }
       },

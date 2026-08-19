@@ -1,0 +1,48 @@
+@*
+    One group of rows in a task's detail pane, under the word that says what they
+    have in common.
+
+    The group is what the pane lays out, not the row. A pane that put its rows
+    straight into columns would break "due date, reminder, repeat" across the gap
+    and stand a due date next to a priority, which reads as a relationship
+    neither of them has. Grouping first is what makes the columns mean something:
+    a column is a subject, so the reader picks the subject and then the row
+    instead of scanning every row for the one they wanted.
+
+    The caption is a paragraph rather than a heading, and the group is named by
+    it through aria-labelledby. A heading would have to guess its own level — a
+    panel does not know how deep in a page it is, and a group that guessed wrong
+    would put a hole in the document outline for the sake of two words. Naming
+    the group from the caption rather than repeating it in aria-label keeps it one
+    string: the same words twice is the same words twice to a screen reader.
+*@
+
+<div class="@ClassValue" role="group" aria-labelledby="@_captionId" data-testid="@TestId">
+    <p class="task-action-group__caption" id="@_captionId">@Label</p>
+    @ChildContent
+</div>
+
+@code {
+    /// <summary>What the rows in it have in common — "Scheduling", "Ranking".
+    /// One word where one will do: this is a caption over three short rows, not
+    /// a section heading.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>The rows. <see cref="TaskAction"/> in every case so far, though
+    /// nothing here requires it — a group is a labelled column, and what goes in
+    /// a column is the pane's business.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private readonly string _captionId = "task-action-group-" + Guid.NewGuid().ToString("N");
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? "task-action-group" : $"task-action-group {CssClass}";
+}
