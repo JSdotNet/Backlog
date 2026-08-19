@@ -89,6 +89,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
         builder.Services.AddSingleton<KnowledgeFolderOpenService>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();
+        builder.Services.AddSingleton<KnowledgeChapterWriter>();
         builder.Services.AddSingleton(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 
         // The MSIX head can manage its own updates when packaged; it degrades to

@@ -51,6 +51,10 @@
            that is real. *@
         <pre class="markdown-editor__highlight" aria-hidden="true"><code>@RenderHighlight</code></pre>
 
+        @* The blur handler rides TextArea's unmatched attributes down onto the
+           textarea itself. Putting it on a wrapper instead would mean waiting for
+           focus to leave a box focus never enters, and the flush would never
+           come. *@
         <TextArea Value="@Value"
                   ValueChanged="OnTypedAsync"
                   AriaLabel="@AriaLabel"
@@ -60,7 +64,8 @@
                   Bare="true"
                   GrowCssClass="markdown-editor__grow"
                   InputCssClass="markdown-editor__input"
-                  TestId="@SurfaceTestId" />
+                  TestId="@SurfaceTestId"
+                  @onblur="OnBlur" />
     </div>
 </div>
 
@@ -108,6 +113,19 @@
 
     [Parameter]
     public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>
+    /// Focus has left the text: whatever is pending should be written now.
+    /// <para>
+    /// It does not mean the author is done. The toolbar is outside the textarea,
+    /// so pressing bold blurs it — a host that read this as "leave the editor"
+    /// would close the surface on the way to the very click that was about to
+    /// format the selection. The save is what belongs at this moment; the mode is
+    /// still the host's to change.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnBlur { get; set; }
 
     [Parameter]
     public string? AriaLabel { get; set; } = "Markdown source";

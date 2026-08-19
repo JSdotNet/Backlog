@@ -43,10 +43,21 @@
             {
                 <article class="design-document" id="@FileAnchor(file)">
                     <header class="design-document__header">
-                        <div>
-                            <p class="design-document__file">@file.FileName</p>
-                            <h3>@file.Title</h3>
-                        </div>
+                        @* The file name and the title move into the file view's
+                           header for the one document that has one, because that
+                           header says both and a name announced twice is what made
+                           this pane look like two documents. Every other file in
+                           the folder overview still names itself here. The status
+                           badge stays either way: it is the file's state, not its
+                           identity, and there is nowhere else in the overview to
+                           read it. *@
+                        @if (EditableChapter(file) is null)
+                        {
+                            <div>
+                                <p class="design-document__file">@file.FileName</p>
+                                <h3>@file.Title</h3>
+                            </div>
+                        }
                         <StatusBadge BaseClass="knowledge-status" Kind="" Status="@file.Meta.Status" />
                     </header>
 
@@ -73,16 +84,40 @@
                         </section>
                     }
 
-                    @foreach (var section in file.Sections)
+                    @if (EditableChapter(file) is { } chapter)
                     {
-                        <section class="design-section" id="@section.Anchor">
-                            <header class="design-section__header">
-                                <h4>@section.Heading</h4>
-                                <StatusBadge BaseClass="knowledge-status" Kind="" Status="@section.Meta.Status" />
-                            </header>
-                            <DesignKnowledgeMetadata Meta="section.Meta" />
-                            <KnowledgeBlocks Blocks="section.Blocks" DiagramTitle="@section.Heading" />
-                        </section>
+                        @* One chapter, so the whole file including its meta fence:
+                           this text is written back over the source, and a buffer
+                           that had the parsed sections stitched back together
+                           would not be the file it came from. Shown through the
+                           same file view the rest of the product shows a file
+                           through, which is where the name and the path now live —
+                           the summary, the metadata and the token strip stay above
+                           it, because they are what a designer opens this section
+                           for and none of them is the file's text. *@
+                        <FileView Name="@file.Title"
+                                  Path="@file.FileName"
+                                  MaxHeight="@(null)"
+                                  TestId="design-chapter-file"
+                                  BodyContent="@ChapterEditor(chapter)" />
+                    }
+                    else
+                    {
+                        @* The overview, and the fallback for a chapter that could
+                           not be read: per-section status and metadata is what the
+                           whole folder is worth reading for, and losing it to make
+                           room for an editor nobody asked for would be the loss. *@
+                        @foreach (var section in file.Sections)
+                        {
+                            <section class="design-section" id="@section.Anchor">
+                                <header class="design-section__header">
+                                    <h4>@section.Heading</h4>
+                                    <StatusBadge BaseClass="knowledge-status" Kind="" Status="@section.Meta.Status" />
+                                </header>
+                                <DesignKnowledgeMetadata Meta="section.Meta" />
+                                <KnowledgeBlocks Blocks="section.Blocks" DiagramTitle="@section.Heading" />
+                            </section>
+                        }
                     }
                 </article>
             }
@@ -93,6 +128,7 @@
 @code {
     private DesignKnowledgeModel? _model;
     private string? _loadedRepositoryAlias;
+    private KnowledgeChapterContent _chapter = KnowledgeChapterContent.None;
 
     [Parameter]
     public string? RepositoryAlias { get; set; }
@@ -102,11 +138,70 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_model is not null && string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal)) return;
+        if (_model is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
+        {
+            await ReloadAsync();
+            return;
+        }
 
+        // The selection can move without the scope moving, and the guard above is
+        // there precisely to skip a re-parse when it does — so the chapter is
+        // read outside it.
+        _chapter = await LoadChapterAsync();
+    }
+
+    /// <summary>Parses the folder again and re-reads the open chapter, whatever
+    /// the guard in <see cref="OnParametersSetAsync"/> would have decided. The
+    /// status badges and the token strip are derived from the file, so after a
+    /// write they are stale until this runs; the editor's own buffer is the one
+    /// thing that does not need telling.</summary>
+    private async Task ReloadAsync()
+    {
         _model = await DesignKnowledge.LoadAsync(RepositoryAlias);
         _loadedRepositoryAlias = RepositoryAlias;
+        _chapter = await LoadChapterAsync();
     }
+
+    private Task OnChapterSavedAsync() => ReloadAsync();
+
+    /// <summary>The chapter as a buffer, for the file view's body. No Title is
+    /// handed over: the file view's header above it already names the file, and the
+    /// document bar inside it is there for the actions.</summary>
+    private RenderFragment ChapterEditor(KnowledgeChapterRef chapter) => @<KnowledgeChapterEditor Chapter="@chapter"
+                                                                                                  InitialText="@_chapter.Text"
+                                                                                                  OnSaved="OnChapterSavedAsync" />;
+
+    /// <summary>
+    /// The chapter behind the document on screen, and its text, or
+    /// <see cref="KnowledgeChapterContent.None"/> when nothing is selected.
+    /// <para>
+    /// Resolved from the rendered file's name rather than from
+    /// <see cref="SelectedPath"/>, because the two can differ: a selection that
+    /// matches no design file still renders a document — the first one — and a
+    /// chapter resolved from the selection would then be pointing at a file
+    /// nobody is looking at.
+    /// </para>
+    /// </summary>
+    private Task<KnowledgeChapterContent> LoadChapterAsync() =>
+        _model is { IsAvailable: true } model && SelectedFile is { } file
+            ? KnowledgeChapterContent.LoadAsync("design", model.FolderPath, file.FileName)
+            : Task.FromResult(KnowledgeChapterContent.None);
+
+    /// <summary>The one document a selection puts on screen, or null while the
+    /// folder overview is showing. Design parses its folder
+    /// <c>TopDirectoryOnly</c>, so a file name is the whole relative path and the
+    /// resolver needs nothing else.</summary>
+    private DesignKnowledgeFile? SelectedFile =>
+        string.IsNullOrWhiteSpace(SelectedPath) ? null : VisibleFiles().FirstOrDefault();
+
+    /// <summary>The ref to hand the editing surface for this document, or null so
+    /// the sections render instead. Matched on the file name because the loaded
+    /// pair belongs to whichever document was on screen when it was read.</summary>
+    private KnowledgeChapterRef? EditableChapter(DesignKnowledgeFile file) =>
+        _chapter is { Chapter: { } chapter, Text: not null }
+        && string.Equals(chapter.RelativePath, file.FileName, StringComparison.OrdinalIgnoreCase)
+            ? chapter
+            : null;
 
     private IReadOnlyList<DesignKnowledgeFile> VisibleFiles()
     {

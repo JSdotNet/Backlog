@@ -2779,6 +2779,18 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
+/* Three of these headers gave their title and path to the file view that now
+   shows the chapter, so for a selected chapter they are left holding only their
+   controls — and space-between pins a lone child to the start, which would have
+   walked every state control in the knowledge panes from the right edge to the
+   left. They stay where the reader has always found them. A header that still
+   names its document has two children and is untouched. */
+.design-document__header > :only-child,
+.domain-document__header > :only-child,
+.knowledge-document__header > :only-child {
+    margin-left: auto;
+}
+
 .design-knowledge__header h2,
 .design-document__header h3,
 .design-section__header h4,
@@ -2825,6 +2837,38 @@ h1, h2, h3 {
     outline-offset: 2px;
 }
 
+/* The strip and its chips. Both rules existed until a tech-knowledge commit
+   deleted them alongside the block it was replacing, and without them the strip
+   is a run of inline spans with no separator: two relation paths in one row read
+   as one path twice as long, which is how it was reported. The gap is the whole
+   fix — the outer gap keeps the chips apart, the inner one keeps a chip's label
+   apart from its values, and a chip that pins two relations keeps them apart
+   too. */
+.domain-metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.domain-metadata__item {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    max-width: 100%;
+    padding: 1px var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    /* A relation is a path, and a path has no spaces to break at. Without this
+       a long one widens the strip past the pane instead of wrapping. */
+    overflow-wrap: anywhere;
+}
+
+.domain-metadata__item strong {
+    color: var(--color-primary);
+}
+
 .domain-metadata__link {
     appearance: none;
     background: transparent;
@@ -2850,10 +2894,13 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
+/* .knowledge-document__path was here until the architecture panel handed the
+   chapter's path to the file view's own header, which sets it as a path rather
+   than as an eyebrow — monospaced and right-aligned, because a reader checks one
+   segment of a path instead of reading it. Nothing renders the class now. */
 .design-knowledge__eyebrow,
 .design-document__file,
-.domain-knowledge__eyebrow,
-.knowledge-document__path {
+.domain-knowledge__eyebrow {
     margin: 0 0 var(--spacing-xs);
     color: var(--color-primary-light);
     font-size: var(--font-size-xs);
@@ -2879,15 +2926,30 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+/* .knowledge-document was a card here until the architecture chapter moved into
+   the file view, which draws its own edge. The article stayed — it is the scroll
+   container the knowledge stack sizes and the anchor the knowledge menu jumps to
+   — but it always holds a file view now, so a card here is a card around a card. */
 .design-token,
 .design-section,
 .domain-document,
-.knowledge-document,
 .tech-node {
     padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
     background: var(--color-background);
+}
+
+/* The same withdrawal, per document rather than per class: a domain article is a
+   card for every file it lists and stops being one for the single file it shows
+   through the file view. Padding goes too, not only the edge — a frame's inset
+   without its border is a gap nothing explains, and the pane around this already
+   holds the content off its own edge. */
+.domain-document--chapter {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
 }
 
 .design-token__name,
@@ -2901,6 +2963,27 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
+/* The chapter body and the one line that reports what happened to it. A grid so
+   the state row sits above the document rather than beside it: the indicator is
+   about the whole chapter, and a save state tucked into a corner of the prose
+   reads as belonging to whichever paragraph it landed next to. */
+.knowledge-chapter-editor {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+/* Right-aligned, following the state selectors in these same panels — a reader
+   scanning for "did that save" looks where the other status lives. Both children
+   render nothing until there is something to say, so the row is zero-height for
+   the whole of a chapter nobody has typed into. */
+.knowledge-chapter-editor__state {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
 .knowledge-outline,
 .knowledge-table-wrap {
     overflow: auto;
@@ -2911,9 +2994,10 @@ h1, h2, h3 {
     margin: 0;
     padding: var(--spacing-md);
     border-radius: var(--border-radius-md);
-    /* One step up the ramp from the .knowledge-document card it sits in. This
-       was a raw #020617 — a step *below* the old base, inventing a fourth
-       surface the palette does not have. */
+    /* One step up the ramp from the file view it sits in — the same base the
+       .knowledge-document card used to give it, now that the card is the file
+       view's. This was a raw #020617 — a step *below* the old base, inventing a
+       fourth surface the palette does not have. */
     background: var(--color-background-alt);
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);

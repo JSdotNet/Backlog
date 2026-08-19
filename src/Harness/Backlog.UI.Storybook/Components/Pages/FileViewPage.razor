@@ -115,7 +115,7 @@
     </Story>
 
     <Story Name="Checklists are state, not controls"
-           Description="Nothing here writes back to disk, so FileView passes MarkdownView no toggle handler and the checkboxes render as state. Tab goes from the body straight past them — a checkbox that silently does nothing is worse than no checkbox.">
+           Description="Neither shape FileView renders itself writes back to disk, so it passes MarkdownView no toggle handler and the checkboxes render as state. Tab goes from the body straight past them — a checkbox that silently does nothing is worse than no checkbox. That is a claim about the two built-in shapes and not about the component: a host that needs a writable body brings one, which is the story below.">
         <div data-testid="file-view-checklist">
             <FileView Name="release-checklist.md"
                       Path="docs\release-checklist.md"
@@ -126,9 +126,42 @@
         </div>
     </Story>
 
+    <Story Name="A body the host brings itself"
+           Description="Aligning the knowledge panes on this component ran straight into the story above: the body it renders is read-only, and a chapter you can edit in place is not. BodyContent is the answer that does not turn FileView into an editor — the host hands in the body and keeps everything that comes with writing, while the frame, the identity, the path and the one scroll region stay here. Which is the point of using this component at all: an author editing `05-building-block-view.md` should still be able to see which file that is, without scrolling back up to find out. Type in it and watch the size in the header move — the header describes the file, and what the file now says is the host's to report.
+
+Tab through this one and then through the story above it. A supplied body gives up the region's tabindex, because the editor inside is a tab stop already and a synthetic stop in front of it announces the pane and then does nothing on the way to typing. The built-in shapes keep the stop: they render nothing focusable, so it is the only way a keyboard reaches the overflow."
+           Code="@HostedBodyCode">
+        <div class="sb-tall" data-testid="file-view-hosted-body">
+            <FileView Name="05-building-block-view.md"
+                      Path=".arc42\05-building-block-view.md"
+                      Source="Repository"
+                      Kind="arc42 chapter"
+                      SizeInBytes="@ChapterSize"
+                      Fill="true"
+                      TestId="file-view-hosted">
+                <BodyContent>
+                    <MarkdownEditor Value="@_chapter"
+                                    ValueChanged="value => _chapter = value"
+                                    AriaLabel="Chapter source"
+                                    Rows="12"
+                                    TestId="file-view-hosted-editor" />
+                </BodyContent>
+            </FileView>
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
+    // The one piece of state on this page: the hosted-body story is only worth
+    // looking at if it can actually be typed in.
+    private string _chapter = ChapterSource;
+
+    // Read off the text rather than written down, so the header keeps telling the
+    // truth while the story is being edited. A host that owns the body owns
+    // saying what the file is now.
+    private long ChapterSize => System.Text.Encoding.UTF8.GetByteCount(_chapter);
+
     private const string CSharpBody = """
         namespace Backlog.UI.Components.Markdown;
 
@@ -307,6 +340,34 @@
     private const string ShortCode = """
         <FileView Name="README.md" Path="src\harness\README.md"
                   Kind="Markdown" SizeInBytes="412" Body="@body" />
+        """;
+
+    private const string ChapterSource = """
+        # Building block view
+
+        The desktop channel is one MAUI Blazor Hybrid shell over the shared
+        component library. The shell owns the window; everything a reader looks
+        at is Razor in a WebView.
+
+        ## Knowledge panes
+
+        A pane shows one folder or one file, and the two use the same furniture
+        so that moving between them does not move the header.
+        """;
+
+    private const string HostedBodyCode = """
+        @* The body is the host's. The frame, the name, the path and the scroll
+           region are not — which is the reason to reach for FileView here
+           instead of building a header that looks like one. *@
+        <FileView Name="05-building-block-view.md"
+                  Path=".arc42\05-building-block-view.md"
+                  Kind="arc42 chapter"
+                  SizeInBytes="@size"
+                  Fill="true">
+            <BodyContent>
+                <MarkdownEditor Value="@source" ValueChanged="OnChanged" Rows="12" />
+            </BodyContent>
+        </FileView>
         """;
 
     private const string LongPathCode = """
