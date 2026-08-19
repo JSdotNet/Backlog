@@ -61,6 +61,24 @@ public abstract class RoadmapBandHarness : IDisposable
         return band;
     }
 
+    /// <summary>
+    /// Clicks a control that opens a dialog, and waits for the dialog to actually be
+    /// there before handing back.
+    /// <para>
+    /// The waiting is the point. A click sets a flag and the dialog appears on the next
+    /// render, and reading the DOM on the line after the click assumes that render has
+    /// already happened. It usually has on a quiet machine, which is exactly why the
+    /// one test that assumed it passed locally in both configurations and failed on a
+    /// loaded CI runner. Waiting for the thing you are about to interact with costs
+    /// nothing when it is already there.
+    /// </para>
+    /// </summary>
+    protected static void Open(IRenderedComponent<RoadmapBand> band, string controlTestId, string dialogTestId)
+    {
+        band.Find($"[data-testid=\"{controlTestId}\"]").Click();
+        band.WaitForElement($"[data-testid=\"{dialogTestId}\"]");
+    }
+
     protected void Configure(params string[] lines)
     {
         var (repositories, errors) = GitHubSettings.ParseText(string.Join('\n', lines));

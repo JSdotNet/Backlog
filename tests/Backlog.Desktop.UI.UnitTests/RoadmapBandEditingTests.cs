@@ -36,7 +36,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     private static RoadmapItemEditor Editor(IRenderedComponent<RoadmapBand> band) =>
         band.FindComponent<RoadmapItemEditor>().Instance;
 
-    private static async Task Open(IRenderedComponent<RoadmapBand> band, Guid itemId)
+    private static async Task Activate(IRenderedComponent<RoadmapBand> band, Guid itemId)
     {
         var timeline = band.FindComponent<RoadmapTimeline>();
         await band.InvokeAsync(() => timeline.Instance.OnBarSelected.InvokeAsync(itemId.ToString()));
@@ -48,7 +48,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         using var context = Context();
         var band = context.Render<RoadmapBand>();
 
-        band.Find("[data-testid=\"roadmap-band-add\"]").Click();
+        Open(band, "roadmap-band-add", "roadmap-editor");
 
         Assert.NotNull(band.Find("[data-testid=\"roadmap-editor\"]"));
         Assert.Equal(string.Empty, band.Find("[data-testid=\"roadmap-editor-title\"] input").GetAttribute("value"));
@@ -72,7 +72,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = context.Render<RoadmapBand>();
-        band.Find("[data-testid=\"roadmap-band-add\"]").Click();
+        Open(band, "roadmap-band-add", "roadmap-editor");
 
         await band.InvokeAsync(() => Editor(band).OnSave.InvokeAsync(Submission(
             title: "Typed into the dialog",
@@ -103,12 +103,12 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, added.Value.Id);
+        await Activate(band, added.Value.Id);
 
         Assert.Equal(added.Value.Id, Editor(band).Item?.Id);
         Assert.Equal(
             "Already planned",
-            band.Find("[data-testid=\"roadmap-editor-title\"] input").GetAttribute("value"));
+            band.WaitForElement("[data-testid=\"roadmap-editor-title\"] input").GetAttribute("value"));
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, added.Value.Id);
+        await Activate(band, added.Value.Id);
 
         await band.InvokeAsync(() => Editor(band).OnSave.InvokeAsync(Submission(
             itemId: added.Value.Id,
@@ -138,7 +138,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     {
         using var context = Context();
         var band = context.Render<RoadmapBand>();
-        band.Find("[data-testid=\"roadmap-band-add\"]").Click();
+        Open(band, "roadmap-band-add", "roadmap-editor");
 
         // A window that ends before it starts. The dialog's own check catches this
         // first in normal use; going straight to the callback proves the band does not
@@ -158,7 +158,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, added.Value.Id);
+        await Activate(band, added.Value.Id);
 
         await band.InvokeAsync(() => Editor(band).OnDelete.InvokeAsync(added.Value.Id));
 
@@ -175,7 +175,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, build.Value.Id);
+        await Activate(band, build.Value.Id);
 
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
             new RoadmapDependencyChange(build.Value.Id, design.Value.Id, Added: true)));
@@ -194,7 +194,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, build.Value.Id);
+        await Activate(band, build.Value.Id);
 
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
             new RoadmapDependencyChange(build.Value.Id, design.Value.Id, Added: false)));
@@ -213,7 +213,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, design.Value.Id);
+        await Activate(band, design.Value.Id);
 
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
             new RoadmapDependencyChange(design.Value.Id, build.Value.Id, Added: true)));
@@ -233,7 +233,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, first.Value.Id);
+        await Activate(band, first.Value.Id);
 
         var options = Editor(band).DependencyOptions;
 
@@ -249,7 +249,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, work.Value.Id);
+        await Activate(band, work.Value.Id);
 
         Assert.Contains("Code freeze", Editor(band).DependencyOptions.Select(option => option.Label));
     }
@@ -265,7 +265,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         // A milestone has no editor of its own yet. Showing the item dialog for one
         // would offer a start date, an end date and a lane for something that has none.
-        await Open(band, release.Value.Id);
+        await Activate(band, release.Value.Id);
 
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
     }
@@ -278,7 +278,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, added.Value.Id);
+        await Activate(band, added.Value.Id);
 
         Assert.Equal(
             ["backlog", "fincent"],

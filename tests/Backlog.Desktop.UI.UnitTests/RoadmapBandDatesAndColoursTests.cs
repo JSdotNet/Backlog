@@ -15,7 +15,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
     private static RoadmapMilestoneEditor DateEditor(IRenderedComponent<RoadmapBand> band) =>
         band.FindComponent<RoadmapMilestoneEditor>().Instance;
 
-    private static async Task Open(IRenderedComponent<RoadmapBand> band, Guid nodeId)
+    private static async Task Activate(IRenderedComponent<RoadmapBand> band, Guid nodeId)
     {
         var timeline = band.FindComponent<RoadmapTimeline>();
         await band.InvokeAsync(() => timeline.Instance.OnBarSelected.InvokeAsync(nodeId.ToString()));
@@ -29,7 +29,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
         using var context = Context();
         var band = context.Render<RoadmapBand>();
 
-        band.Find("[data-testid=\"roadmap-band-add-date\"]").Click();
+        Open(band, "roadmap-band-add-date", "roadmap-milestone-editor");
 
         Assert.NotNull(band.Find("[data-testid=\"roadmap-milestone-editor\"]"));
         Assert.Null(DateEditor(band).Milestone);
@@ -46,7 +46,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = context.Render<RoadmapBand>();
-        band.Find("[data-testid=\"roadmap-band-add-date\"]").Click();
+        Open(band, "roadmap-band-add-date", "roadmap-milestone-editor");
 
         await band.InvokeAsync(() => DateEditor(band).OnSave.InvokeAsync(new RoadmapMilestoneSubmission(
             null,
@@ -76,11 +76,13 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, release.Value.Id);
+        await Activate(band, release.Value.Id);
 
         Assert.Equal(release.Value.Id, DateEditor(band).Milestone?.Id);
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
-        Assert.Equal("1.0", band.Find("[data-testid=\"roadmap-milestone-editor-title\"] input").GetAttribute("value"));
+        Assert.Equal(
+            "1.0",
+            band.WaitForElement("[data-testid=\"roadmap-milestone-editor-title\"] input").GetAttribute("value"));
     }
 
     [Fact]
@@ -90,7 +92,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, release.Value.Id);
+        await Activate(band, release.Value.Id);
 
         await band.InvokeAsync(() => DateEditor(band).OnSave.InvokeAsync(new RoadmapMilestoneSubmission(
             release.Value.Id,
@@ -113,7 +115,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
     {
         using var context = Context();
         var band = context.Render<RoadmapBand>();
-        band.Find("[data-testid=\"roadmap-band-add-date\"]").Click();
+        Open(band, "roadmap-band-add-date", "roadmap-milestone-editor");
 
         await band.InvokeAsync(() => DateEditor(band).OnSave.InvokeAsync(new RoadmapMilestoneSubmission(
             null, "   ", new DateOnly(2026, 3, 31), MilestoneKind.Release, [], IsPlanWide: false)));
@@ -130,7 +132,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, release.Value.Id);
+        await Activate(band, release.Value.Id);
 
         await band.InvokeAsync(() => DateEditor(band).OnDelete.InvokeAsync(release.Value.Id));
 
@@ -184,7 +186,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        await Open(band, release.Value.Id);
+        await Activate(band, release.Value.Id);
 
         await band.InvokeAsync(() => DateEditor(band).OnDependencyChanged.InvokeAsync(
             new RoadmapDependencyChange(release.Value.Id, work.Value.Id, Added: true)));
@@ -208,7 +210,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        band.Find("[data-testid=\"roadmap-band-colours\"]").Click();
+        Open(band, "roadmap-band-colours", "roadmap-colours");
 
         band.Find("[data-testid=\"roadmap-colours-backlog-4\"]").Click();
 
@@ -237,7 +239,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = Drawn(context);
-        band.Find("[data-testid=\"roadmap-band-colours\"]").Click();
+        Open(band, "roadmap-band-colours", "roadmap-colours");
 
         band.Find("[data-testid=\"roadmap-colours-backlog-auto\"]").Click();
 
@@ -255,7 +257,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = context.Render<RoadmapBand>();
-        band.Find("[data-testid=\"roadmap-band-colours\"]").Click();
+        Open(band, "roadmap-band-colours", "roadmap-colours");
 
         for (var colour = 1; colour <= RoadmapPlanView.BandHues; colour++)
         {
@@ -272,7 +274,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         using var context = Context();
         var band = context.Render<RoadmapBand>();
-        band.Find("[data-testid=\"roadmap-band-colours\"]").Click();
+        Open(band, "roadmap-band-colours", "roadmap-colours");
         band.Find("[data-testid=\"roadmap-colours-backlog-2\"]").Click();
 
         // Waited for, not assumed: the choice goes to the module and through the plan
@@ -292,7 +294,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
         using var context = Context();
         var band = context.Render<RoadmapBand>();
 
-        band.Find("[data-testid=\"roadmap-band-colours\"]").Click();
+        Open(band, "roadmap-band-colours", "roadmap-colours");
 
         Assert.NotNull(band.Find("[data-testid=\"roadmap-colours-empty\"]"));
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-colours-row\"]"));
