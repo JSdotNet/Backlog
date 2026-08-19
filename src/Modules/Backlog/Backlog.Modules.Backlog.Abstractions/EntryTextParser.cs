@@ -141,7 +141,8 @@ public static class EntryTextParser
         Recurrence? Recurrence = null,
         DateOnly? InMyDayOn = null,
         IReadOnlyList<string>? DependsOn = null,
-        IReadOnlyList<UnreadableToken>? Unreadable = null);
+        IReadOnlyList<UnreadableToken>? Unreadable = null,
+        EntryView? View = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -154,7 +155,8 @@ public static class EntryTextParser
         Recurrence? Recurrence = null,
         DateOnly? InMyDayOn = null,
         IReadOnlyList<string>? DependsOn = null,
-        IReadOnlyList<UnreadableToken>? Unreadable = null)
+        IReadOnlyList<UnreadableToken>? Unreadable = null,
+        EntryView? View = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -273,7 +275,8 @@ public static class EntryTextParser
             metadata.Recurrence,
             metadata.InMyDayOn,
             metadata.DependsOn ?? [],
-            metadata.Unreadable ?? []);
+            metadata.Unreadable ?? [],
+            metadata.View);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -287,6 +290,7 @@ public static class EntryTextParser
         DateTime? remindAt = null;
         Recurrence? recurrence = null;
         DateOnly? inMyDayOn = null;
+        EntryView? view = null;
         var dependsOn = new List<string>();
         var unreadable = new List<UnreadableToken>();
 
@@ -326,6 +330,17 @@ public static class EntryTextParser
                     case "myday":
                         if (TryParseDateToken(value, out var myDay)) inMyDayOn = myDay;
                         else unreadable.Add(new UnreadableToken("myday", value));
+                        break;
+
+                    case "view":
+                        // The one token on this line that is about the reader
+                        // rather than about the work. It rides here anyway because
+                        // the markdown is canonical — a preference kept anywhere
+                        // else would not survive the file being shared — and it is
+                        // refused the same way every other value is, so
+                        // `view:kanban` leaves the field unset and says so.
+                        if (TryParseViewToken(value, out var chosenView)) view = chosenView;
+                        else unreadable.Add(new UnreadableToken("view", value));
                         break;
 
                     case "after":
@@ -401,7 +416,8 @@ public static class EntryTextParser
             recurrence,
             inMyDayOn,
             dependsOn,
-            unreadable);
+            unreadable,
+            view);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -707,26 +723,11 @@ public static class EntryTextParser
             : string.Join('\n', lines.Skip(start)).Trim('\n');
     }
 
-    /// <summary>Writes the note back, keeping the title, the metadata line and
-    /// every sub-item where they were. Emptying the note removes it rather than
-    /// leaving a blank paragraph behind — absent means absent here for the same
-    /// reason it does on the metadata line.</summary>
-    public static string WithNote(string raw, string note)
-    {
-        var normalized = Normalize(raw);
-        var lines = Normalize(GetParentText(normalized)).Split('\n').ToList();
-        var start = NoteStartLine(lines);
-
-        var head = start < 0 ? lines : lines.Take(start).ToList();
-        while (head.Count > 0 && string.IsNullOrWhiteSpace(head[^1])) head.RemoveAt(head.Count - 1);
-
-        var body = Normalize(note ?? string.Empty).Trim('\n');
-        var parent = body.Length == 0
-            ? string.Join('\n', head)
-            : head.Count == 0 ? body : string.Join('\n', head) + "\n\n" + body;
-
-        return ReplaceParentText(normalized, parent);
-    }
+    // WithNote was here, the writer for that same region. It went with its only
+    // caller: the surface that wrote a note is now a block over the whole body, and
+    // a note-scoped writer left standing would be a supported-looking way to discard
+    // half of one. NoteStartLine below is still shared with GetNote and with the
+    // sub-item note writer.
 
     /// <summary>Where a note begins inside a block of chapter text, or -1 when
     /// there is nothing but a heading. The heading comes first, then an optional
@@ -1048,6 +1049,11 @@ public static class EntryTextParser
             meta += $" `after:{id.Trim()}`";
         }
 
+        // Last, after the dependencies, because it is the only token here that is
+        // about how the entry is read rather than about the work — and an entry
+        // nobody expressed a preference about acquires no token by being saved.
+        if (entry.View is { } view) meta += $" `view:{ViewToken(view)}`";
+
         var body = entry.Body.TrimEnd('\n');
         return body.Length == 0
             ? $"# {entry.Title}\n{meta}\n"
@@ -1138,6 +1144,45 @@ public static class EntryTextParser
     /// once they are gone.</summary>
     public static string WithDependsOn(string raw, IEnumerable<string>? dependsOn) =>
         RewriteMetaLine(raw, dependsOn: NormalizeDependsOn(dependsOn), updateDependsOn: true);
+
+    /// <summary>Records which reading of the body the reader asked for, or clears
+    /// the token. Clearing is expressible for the same reason it is on every other
+    /// named token: "no preference" and "prefers the steps" are different facts,
+    /// and only one of them should survive into an entry nobody chose for.</summary>
+    public static string WithView(string raw, EntryView? view) =>
+        RewriteMetaLine(raw, view: view, updateView: true);
+
+    /// <summary>
+    /// Replaces the whole body, keeping the title and the metadata line exactly as
+    /// written.
+    /// <para>
+    /// A note used to be written separately, scoped to the prose before the first
+    /// sub-item; this is everything after the metadata line —
+    /// prose and <c>##</c> chapters together. It exists because the markdown block
+    /// in the detail pane is a view of the body rather than of a slice of it, and a
+    /// block that could only write the prose half would silently discard the steps
+    /// somebody typed into it.
+    /// </para>
+    /// </summary>
+    public static string WithBody(string raw, string body)
+    {
+        var normalized = Normalize(raw);
+        var lines = normalized.Split('\n').ToList();
+        var titleIndex = FirstContentLine(lines);
+        if (titleIndex < 0) return raw;
+
+        var metaIndex = titleIndex + 1;
+        while (metaIndex < lines.Count && string.IsNullOrWhiteSpace(lines[metaIndex])) metaIndex++;
+
+        var headEnd = metaIndex < lines.Count && MetaLineRegex.IsMatch(lines[metaIndex].Trim())
+            ? metaIndex + 1
+            : titleIndex + 1;
+
+        var head = string.Join('\n', lines.Take(headEnd));
+        var replacement = Normalize(body ?? string.Empty).Trim('\n');
+
+        return replacement.Length == 0 ? head + "\n" : head + "\n\n" + replacement + "\n";
+    }
 
     public static bool IsMetadataLine(string line) => MetaLineRegex.IsMatch((line ?? string.Empty).Trim());
 
@@ -1255,7 +1300,9 @@ public static class EntryTextParser
         DateOnly? inMyDayOn = null,
         bool updateMyDay = false,
         IReadOnlyList<string>? dependsOn = null,
-        bool updateDependsOn = false)
+        bool updateDependsOn = false,
+        EntryView? view = null,
+        bool updateView = false)
     {
         var normalized = Normalize(raw);
         var lines = normalized.Split('\n').ToList();
@@ -1338,6 +1385,12 @@ public static class EntryTextParser
             tokens.AddRange((dependsOn ?? []).Select(id => $"after:{id}"));
         }
 
+        if (updateView)
+        {
+            RemoveNamedToken(tokens, "view");
+            if (view is { } chosenView) tokens.Add($"view:{ViewToken(chosenView)}");
+        }
+
         var metaLine = string.Join(' ', tokens.Select(token => $"`{token}`"));
         if (hasMetaLine)
         {
@@ -1376,6 +1429,7 @@ public static class EntryTextParser
         if (parsed.Recurrence is { } recurrence) tokens.Add($"repeat:{RepeatToken(recurrence)}");
         if (parsed.InMyDayOn is { } inMyDayOn) tokens.Add($"myday:{DateToken(inMyDayOn)}");
         tokens.AddRange((parsed.DependsOn ?? []).Select(id => $"after:{id}"));
+        if (parsed.View is { } view) tokens.Add($"view:{ViewToken(view)}");
 
         return tokens;
     }
@@ -1464,6 +1518,46 @@ public static class EntryTextParser
     /// rather than to a nested map storage would have to normalize back.</summary>
     public static Recurrence? ParseRepeat(string? value) =>
         TryParseRepeatToken((value ?? string.Empty).Trim(), out var recurrence) ? recurrence : null;
+
+    /// <summary>The value half of a <c>view:</c> token. Named after what the reader
+    /// sees rather than after the component that draws it: "steps" and "notes" are
+    /// the two things the pane offers, and a token spelled after a class name would
+    /// be a token nobody could hand-edit.</summary>
+    public static string ViewToken(EntryView view) => view switch
+    {
+        EntryView.Notes => "notes",
+        _ => "steps"
+    };
+
+    /// <summary>Reads a <c>view:</c> value, or null when the words name no view this
+    /// pane has. Public for the same reason <see cref="ParseRepeat"/> is: the file
+    /// store keeps the token rather than the enum, so the assembly that
+    /// deserializes frontmatter needs the same vocabulary the metadata line uses.</summary>
+    public static EntryView? ParseView(string? value) =>
+        TryParseViewToken((value ?? string.Empty).Trim(), out var view) ? view : null;
+
+    private static bool TryParseViewToken(string value, out EntryView view)
+    {
+        switch (NormalizeToken(value))
+        {
+            case "steps":
+                view = EntryView.Steps;
+                return true;
+
+            case "notes":
+            // The block is markdown, and "markdown" is what the toggle in the pane
+            // is labelled — so somebody hand-editing the line will type it. Read,
+            // never written: one canonical spelling per value, or the token stops
+            // being comparable to itself.
+            case "markdown":
+                view = EntryView.Notes;
+                return true;
+
+            default:
+                view = default;
+                return false;
+        }
+    }
 
     private static string IntervalToken(Recurrence recurrence) =>
         recurrence.Interval.ToString(CultureInfo.InvariantCulture) + recurrence.Unit switch

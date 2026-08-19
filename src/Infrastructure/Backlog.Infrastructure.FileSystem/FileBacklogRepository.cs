@@ -236,6 +236,7 @@ public sealed class FileBacklogRepository : IBacklogRepository
             Recurrence = entry.Recurrence is { } recurrence ? EntryTextParser.RepeatToken(recurrence) : null,
             InMyDayOn = entry.InMyDayOn?.ToString("O", CultureInfo.InvariantCulture),
             DependsOn = entry.DependsOn.Count > 0 ? entry.DependsOn.ToList() : null,
+            View = entry.View is { } view ? EntryTextParser.ViewToken(view) : null,
             RecurrenceSourceId = entry.RecurrenceSourceId?.ToString(),
             SubItems = entry.SubItems.Count > 0 ? entry.SubItems.Select(s => new SubItemDto
             {
@@ -294,6 +295,7 @@ public sealed class FileBacklogRepository : IBacklogRepository
         entry.SetRecurrence(EntryTextParser.ParseRepeat(fm.Recurrence));
         entry.SetInMyDayOn(ParseDate(fm.InMyDayOn));
         entry.SetDependsOn(fm.DependsOn ?? []);
+        entry.SetView(EntryTextParser.ParseView(fm.View));
         foreach (var s in (fm.SubItems ?? []).OrderBy(s => s.Order))
         {
             var subItem = entry.CreateSubItemForLoad(

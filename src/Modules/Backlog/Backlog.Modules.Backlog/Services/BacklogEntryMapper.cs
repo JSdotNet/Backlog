@@ -27,5 +27,6 @@ internal static class BacklogEntryMapper
         entry.RemindAt,
         entry.Recurrence,
         entry.InMyDayOn,
-        [.. entry.DependsOn]);
+        [.. entry.DependsOn],
+        entry.View);
 }

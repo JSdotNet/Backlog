@@ -34,6 +34,14 @@ internal sealed class EntryFrontmatter
     public string? Recurrence { get; set; }
     public string? InMyDayOn { get; set; }
     public List<string>? DependsOn { get; set; }
+
+    // Which reading of the body was last asked for, stored as its metadata token
+    // ("steps", "notes") for the same reason the recurrence is: one grammar, and the
+    // same string a person would have typed on the line itself. It is a display
+    // preference rather than a fact about the work and it is here anyway, because the
+    // canonical rewrite composes that line from the entry — a preference this file
+    // did not keep would be deleted by the next save.
+    public string? View { get; set; }
     public string? RecurrenceSourceId { get; set; }
     public List<SubItemDto>? SubItems { get; set; }
     public List<ProjectionRefDto>? Projections { get; set; }

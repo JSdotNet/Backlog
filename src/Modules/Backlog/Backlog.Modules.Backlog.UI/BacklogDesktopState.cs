@@ -112,6 +112,12 @@ public sealed class BacklogDesktopState : IDisposable
 
     public List<EntryRow> FilteredRows { get; private set; } = [];
 
+    /// <summary>The rows the repository scope leaves in view, before status, area
+    /// and My Day narrow them. What the filter chips count: a count that shrank
+    /// with the selection would answer "how many are left" rather than "how much
+    /// is over there", which is the only question a chip is asked.</summary>
+    public List<EntryRow> ScopedRows { get; private set; } = [];
+
     public string SelectedStatusFilterWire { get; private set; } = string.Empty;
 
     /// <summary>The repository currently scoping repository-authored backlog and
@@ -126,6 +132,20 @@ public sealed class BacklogDesktopState : IDisposable
     /// this because the parser lower-cases and would never produce a leading
     /// space.</summary>
     public const string UnfiledArea = " unfiled";
+
+    /// <summary>
+    /// The date the My Day scope is narrowing to, or null while the scope is off.
+    /// <para>
+    /// A date rather than a flag, and one this class is told rather than one it
+    /// works out. <c>.domain/backlog/features.md#feature-my-day</c> makes My Day
+    /// membership arithmetic against "the reader's current local date", and the
+    /// clock that answers that belongs to the pane — one place reads it, so there
+    /// is one answer. Holding the date the reader turned the scope on with keeps
+    /// this class free of a clock and still says exactly which day is being asked
+    /// about.
+    /// </para>
+    /// </summary>
+    public DateOnly? MyDayOn { get; private set; }
 
     /// <summary>The areas actually in use, in alphabetical order. There is no
     /// fixed taxonomy: an area exists because somebody typed it.</summary>
@@ -313,6 +333,15 @@ public sealed class BacklogDesktopState : IDisposable
     public void SetAreaFilter(string? area)
     {
         SelectedArea = area ?? string.Empty;
+        ApplyFilter();
+    }
+
+    /// <summary>Turns the My Day scope on for a date, or off when handed null. The
+    /// caller supplies the date because the caller is what has the clock; see
+    /// <see cref="MyDayOn"/>.</summary>
+    public void SetMyDayFilter(DateOnly? date)
+    {
+        MyDayOn = date;
         ApplyFilter();
     }
 
@@ -634,29 +663,11 @@ public sealed class BacklogDesktopState : IDisposable
         await RewriteMetadataAsync(row, EntryTextParser.WithTitle(row.RawText, title));
     }
 
-    /// <summary>
-    /// The entry's note, per keystroke.
-    /// <para>
-    /// Debounced rather than saved outright, unlike everything else on this pane:
-    /// a note is prose and a save per character would be a save per character. That
-    /// is the same bargain the raw editor already makes, and
-    /// <c>interaction-guidelines.md#auto-save-no-save-buttons</c> asks for exactly
-    /// this split — debounced text, immediate discrete changes.
-    /// </para>
-    /// </summary>
-    public void ChangeNote(EntryRow row, string note)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        if (row.IsReadOnly) return;
-
-        var rewritten = EntryTextParser.WithNote(row.RawText, note);
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
-
-        row.RawText = rewritten;
-        ScheduleDebouncedSave(row);
-        Changed?.Invoke();
-    }
+    // ChangeNote was here: the entry's prose, scoped to the region in front of the
+    // first chapter. It is gone because the pane's markdown block is a view of the
+    // whole body rather than of that region — see ChangeBody below — which left this
+    // method with no caller and no test. An orphan that still compiles reads as a
+    // supported way in, so it went with its caller rather than after it.
 
     /// <summary>Renames one step. Same shape as renaming the entry, one level
     /// down, and indexed the way every other sub-item write here is indexed — the
@@ -737,6 +748,47 @@ public sealed class BacklogDesktopState : IDisposable
 
     public async Task ChangeDependsOnAsync(EntryRow row, IEnumerable<string>? dependsOn) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithDependsOn(row.RawText, dependsOn));
+
+    /// <summary>
+    /// Remembers which reading of the body the person asked for.
+    /// <para>
+    /// A metadata rewrite like every other one on this list, and flushed rather than
+    /// debounced for the same reason a status change is: it is one discrete decision,
+    /// not typing. The entry is where it is kept because the markdown is canonical —
+    /// a preference held anywhere else would not survive the file being shared, and
+    /// the next person to open it from a clone would get somebody else's default.
+    /// </para>
+    /// </summary>
+    public async Task ChangeViewAsync(EntryRow row, EntryView? view)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        await RewriteMetadataAsync(row, EntryTextParser.WithView(row.RawText, view));
+    }
+
+    /// <summary>
+    /// The whole body, per keystroke, debounced for the same reason a note is
+    /// (see <c>interaction-guidelines.md#auto-save-no-save-buttons</c>) — prose is prose, and a save per character would be a save per character.
+    /// <para>
+    /// The body rather than the note, because the markdown block in the pane is a
+    /// view of the same text the steps list is a view of. A writer scoped to the
+    /// prose half would silently discard a <c>##</c> chapter somebody typed into the
+    /// block, which is the one thing a raw-ish surface must never do.
+    /// </para>
+    /// </summary>
+    public void ChangeBody(EntryRow row, string body)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (row.IsReadOnly) return;
+
+        var rewritten = EntryTextParser.WithBody(row.RawText, body);
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
+
+        row.RawText = rewritten;
+        ScheduleDebouncedSave(row);
+        Changed?.Invoke();
+    }
 
     private async Task RewriteMetadataAsync(EntryRow row, string rewritten, bool forceWhenEqual = false)
     {
@@ -887,40 +939,14 @@ public sealed class BacklogDesktopState : IDisposable
         }
     }
 
-    public async Task PushSubItemToGitHubAsync(EntryRow row, int subItemIndex, GitHubRepositoryRef? repositoryOverride = null)
-    {
-        if (row.GitHubBusy) return;
-        if (row.Id is not { } id || !_entries.TryGetValue(id, out var entry)) return;
-
-        var repository = repositoryOverride ?? RepositoryFor(row);
-        if (repository is null) return;
-
-        var subItem = EntryTextParser.Parse(row.RawText).SubItems.ElementAtOrDefault(subItemIndex);
-        if (subItem is null) return;
-
-        row.GitHubBusy = true;
-        row.GitHubError = null;
-        Changed?.Invoke();
-
-        try
-        {
-            await _issues.PushSubItemAsync(entry.Title, subItem, repository);
-            SetSaveState(AppSaveState.Saved);
-        }
-        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
-        {
-            row.GitHubError = ex.Message;
-        }
-        catch (Exception)
-        {
-            row.GitHubError = "Couldn't push that sub-item to GitHub.";
-        }
-        finally
-        {
-            row.GitHubBusy = false;
-            Changed?.Invoke();
-        }
-    }
+    // PushSubItemToGitHubAsync used to sit here, filing one step as an issue of its
+    // own. It is gone with the two buttons that reached it, and deliberately this
+    // time: `.domain/backlog/domain.md` gives ProjectionRef to BacklogEntry and says
+    // a Sub-Item "may project to GitHub issue task-list checkboxes" — checkboxes
+    // inside the entry's issue. A step that was its own issue had nowhere to record
+    // the link, so nothing could tell that it had already been pushed. The method
+    // and its test went together rather than leaving an orphan on one side or a test
+    // guarding a path no reader can take.
 
     /// <summary>Re-reads one entry's issue state and the pull requests that
     /// reference it.</summary>
@@ -1321,7 +1347,16 @@ public sealed class BacklogDesktopState : IDisposable
 
         var repositoryScopedRows = rows.ToList();
         RebuildAreaFilters(repositoryScopedRows);
+        ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
+
+        // My Day narrows what area and status have already left in view rather
+        // than replacing either: it is a decision about today taken on top of
+        // wherever the reader is looking, so all three compose.
+        if (MyDayOn is { } myDay)
+        {
+            rows = rows.Where(x => x.PreviewInMyDayOn == myDay);
+        }
 
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
@@ -1597,6 +1632,65 @@ public sealed class EntryRow
         get { Render(); return _parsed!.DependsOn ?? []; }
     }
 
+    /// <summary>
+    /// Which reading of the body this entry was last looked at in, as written down.
+    /// Null when nobody has said, which is a different answer from either view —
+    /// see <see cref="EffectiveView"/> for what the pane does with that.
+    /// </summary>
+    public EntryView? PreviewView
+    {
+        get { Render(); return _parsed!.View; }
+    }
+
+    /// <summary>
+    /// The view to actually draw: the one that was asked for, or the one that has
+    /// something to show.
+    /// <para>
+    /// An entry with no <c>##</c> chapters has no steps for the steps view to list,
+    /// so defaulting it there would open every prose entry on an empty list with a
+    /// line underneath explaining that its text is somewhere else. Derived rather
+    /// than written down, because a default written into the text is a preference
+    /// the reader never expressed — and it would then have to be unwritten from
+    /// every entry before this default could ever change.
+    /// </para>
+    /// </summary>
+    public EntryView EffectiveView
+    {
+        get
+        {
+            Render();
+
+            // Off the cached parse rather than re-locating the chapters. The pane
+            // asks this several times per render, and the text has not changed
+            // while it did.
+            return _parsed!.View ?? (_subItems.Count > 0 ? EntryView.Steps : EntryView.Notes);
+        }
+    }
+
+    /// <summary>
+    /// Whether the steps view is leaving body text off the screen.
+    /// <para>
+    /// The steps view lists chapters, and the prose an entry opens with is not one.
+    /// A view that quietly hid it would make the markdown look like it had lost
+    /// text, so the pane says so instead and puts the block one press away —
+    /// <c>.design/content-editing.md#round-trip-fidelity</c> is about the text
+    /// surviving, and a reader who cannot see it has no way to know that it did.
+    /// </para>
+    /// </summary>
+    public bool StepsViewHidesProse
+    {
+        get
+        {
+            Render();
+
+            // The blocks in front of the first chapter, which is exactly the prose
+            // the steps have no row for. Read off the same cached parse the steps
+            // themselves come from, so the two cannot disagree about where the first
+            // chapter starts.
+            return _bodyBlocks.Count > 0;
+        }
+    }
+
     /// <summary>What the app actually understood from the meta line, in plain
     /// words. Shown live under the editor so nobody has to guess which token
     /// became the status.
@@ -1656,6 +1750,14 @@ public sealed class EntryRow
             foreach (var id in PreviewDependsOn)
             {
                 readings.Add(new MetaReading("after", id, true));
+            }
+
+            // Last, and only when it was written down. The reading line restates
+            // what will be saved, and the view the pane happens to be showing
+            // because nobody has chosen one is not on the line to be saved.
+            if (PreviewView is { } view)
+            {
+                readings.Add(new MetaReading("view", EntryTextParser.ViewToken(view), true));
             }
 
             // A token whose kind was understood and whose value was not reads as

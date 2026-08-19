@@ -97,24 +97,34 @@ public sealed class SelectorMarkupTests
     }
 
     /// <summary>
-    /// The two hand-offs a step offers reach it through the row's action slot rather
-    /// than through a row of the pane's own beside it.
+    /// The hand-offs are the entry's and there are none on a step.
     /// <para>
-    /// The shared-control rule that governs this says the remedy for a component
-    /// missing a hook is the hook, not a second implementation. A step's GitHub push
-    /// and Copilot hand-off are exactly that case: the library had nowhere for a
-    /// host's own controls to go, and the alternative was a hand-rolled row under
-    /// every step.
+    /// This assertion used to say the opposite: that a step's GitHub push and Copilot
+    /// hand-off arrived through <c>TaskListView.RowActions</c>. The slot is still the
+    /// right answer to "where does a host put its own controls on a row" — that rule
+    /// has not changed — but the question was wrong. A step is not a thing this
+    /// product files as an issue: <c>.domain/backlog/domain.md</c> gives
+    /// <c>ProjectionRef</c> to the entry, and a Sub-Item projects to checkboxes
+    /// <em>inside</em> that entry's issue.
+    /// </para>
+    /// <para>
+    /// Asserted on the markup rather than on a render because the failure this catches
+    /// is somebody adding the buttons back: a rendered test can only fail on the
+    /// entries it happens to build, and this one fails on the source.
     /// </para>
     /// </summary>
     [Fact]
-    public void Step_hand_offs_arrive_through_the_shared_rows_action_slot()
+    public void No_step_carries_a_hand_off_of_its_own()
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        Assert.Contains("RowActions=", pane, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"subitem-github-push-button\"", pane, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"subitem-copilot-cli-button\"", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("subitem-github-push-button", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("subitem-copilot-cli-button", pane, StringComparison.Ordinal);
+
+        // And the entry-level pair is still there, named for the whole task.
+        Assert.Contains("TestId=\"github-push-button\"", pane, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"copilot-cli-button\"", pane, StringComparison.Ordinal);
+        Assert.Contains("Hand over the whole entry", pane, StringComparison.Ordinal);
     }
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");

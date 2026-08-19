@@ -464,6 +464,60 @@ public sealed class TaskListTests
         Assert.Equal(2, view.Find("[data-testid='list-completed']").QuerySelectorAll(".task-item").Length);
     }
 
+    /// <summary>
+    /// The host's own content goes between the open rows and the Completed section.
+    /// <para>
+    /// It exists because "add one more" belongs at the end of the work, and the list
+    /// owns the Completed section: a control the host rendered after the whole
+    /// component landed underneath a fold of things already done — the one place in
+    /// the list where nothing new is ever going to appear. Asserted by document
+    /// position rather than by presence, because presence is what was already true
+    /// and wrong.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_hosts_own_content_sits_above_the_completed_section()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, new TaskRow[] { new("a", "Open"), new("b", "Finished", Done: true) })
+            .Add(l => l.AfterOpenRows, (RenderFragment)(builder =>
+            {
+                builder.OpenElement(0, "button");
+                builder.AddAttribute(1, "data-testid", "add-one-more");
+                builder.AddContent(2, "New entry");
+                builder.CloseElement();
+            }))
+            .Add(l => l.TestId, "list"));
+
+        // Read off the rendered markup, because the assertion is about order rather
+        // than about presence — presence was already true and still wrong.
+        var markup = view.Markup;
+        var slot = markup.IndexOf("add-one-more", StringComparison.Ordinal);
+        var completed = markup.IndexOf("list-completed", StringComparison.Ordinal);
+
+        Assert.True(slot >= 0 && completed >= 0);
+        Assert.True(slot < completed, "The Completed section should come after the host's own content.");
+    }
+
+    /// <summary>An unfilled slot renders nothing, so the markup is exactly what it was
+    /// before the slot existed.</summary>
+    [Fact]
+    public void An_unfilled_slot_leaves_the_list_as_it_was()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, new TaskRow[] { new("a", "Open") })
+            .Add(l => l.TestId, "list"));
+
+        Assert.Empty(view.FindAll("[data-testid='add-one-more']"));
+        Assert.Single(view.FindAll("li.task-item"));
+    }
+
     [Fact]
     public void A_finished_row_cannot_be_dragged_because_its_place_stopped_meaning_anything()
     {

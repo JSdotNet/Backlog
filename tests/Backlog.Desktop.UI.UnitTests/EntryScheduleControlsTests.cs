@@ -90,7 +90,10 @@ public sealed class EntryScheduleControlsTests
 
         Assert.Empty(pane.FindAll("[data-testid='entry-action-myday']"));
         Assert.Empty(pane.FindAll("[data-testid='entry-action-due']"));
-        Assert.Single(pane.FindAll("[data-testid='entry-detail-empty']"));
+
+        // Not a placeholder either: the pane is gone rather than empty, which is
+        // asserted in full by BacklogDetailPaneTests.
+        Assert.Empty(pane.FindAll("[data-testid='entry-detail']"));
     }
 
     // --- My Day ------------------------------------------------------------
@@ -436,8 +439,11 @@ public sealed class EntryScheduleControlsTests
 
         var pane = host.Render();
 
-        // Fields first, source behind a toggle — not the other way round.
-        Assert.Single(pane.FindAll("[data-testid='entry-note-editor']"));
+        // Fields first, source behind a toggle — not the other way round. The body
+        // block here is the entry's markdown edited in place, which is a different
+        // surface from the raw hatch: it has no metadata line in it, no frontmatter,
+        // and no "reads as" line under it.
+        Assert.Single(pane.FindAll("[data-testid='entry-body-editor']"));
         Assert.Empty(pane.FindAll("[data-testid='entry-raw-input']"));
 
         var toggle = pane.Find("[data-testid='entry-raw-toggle']");

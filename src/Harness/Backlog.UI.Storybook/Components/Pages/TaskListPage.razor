@@ -33,6 +33,47 @@ The draft is held in the row and reported only when it settles. A rename that ra
         <p class="sb-state" data-testid="task-list-renamed">@(_lastRename ?? "nothing renamed yet")</p>
     </Story>
 
+    <Story Name="Renaming with no pencil to press first"
+           Description="DirectRename makes the title a field from the start, for a surface whose subject is this one row — a detail panel showing one thing has nothing to scan, so a pencil there is a press between the reader and what they came to change. A list keeps its pencil: ten rows that opened ten inputs is not a list anybody skims.
+
+It settles on exactly the same terms as the pencil&#39;s field. Enter commits, clicking away commits, Escape puts the title back, and neither an empty title nor an unchanged one is a rename. The border under the box is quiet until the caret is in it, because permanent underlining on every row is chrome shouting at somebody who is only reading.
+
+The rows below are also reorderable, and that is the part worth trying. A draggable element swallows the pointer inside its own inputs — press and move to select a word and the browser drags the row instead — so a row with a field open turns its own draggable off. The grip is the drag handle instead, and Alt+Up/Alt+Down works from inside the field, where a bare arrow is still a caret move. Alt+Arrow means nothing to a caret on Windows, which is what makes it available."
+           Code="@DirectRenameCode">
+        <div class="sb-menu-wide" data-testid="task-list-direct">
+            <TaskListView Tasks="@_directRenamable"
+                          OnRename="RenameDirect"
+                          DirectRename="true"
+                          Reorderable="true"
+                          OnReorder="ReorderDirect"
+                          AriaLabel="Directly renamable tasks"
+                          TestId="direct" />
+        </div>
+        <p class="sb-state" data-testid="task-list-direct-state">@(_lastDirect ?? "nothing renamed or moved yet")</p>
+    </Story>
+
+    <Story Name="The host's own row above Completed"
+           Description="AfterOpenRows is the host's place in the list, under the open rows and above the finished ones. It exists because “add one more” belongs at the end of the work rather than at the end of the document: the list owns the Completed section, so a button the host rendered after the whole component landed underneath a fold of things already done — the one place in the list where nothing new is ever going to appear.
+
+Tick a row and watch the button stay put while the section grows beneath it. A slot rather than an AddLabel parameter, because what a host adds and what it calls it is not a list this library can finish; unfilled, it renders nothing at all."
+           Code="@SlotCode">
+        <div class="sb-menu-wide" data-testid="task-list-slot">
+            <TaskListView Tasks="@_slotted"
+                          OnToggle="ToggleSlotted"
+                          AriaLabel="With a host's own row"
+                          TestId="slot">
+                <AfterOpenRows>
+                    <AppButton BaseClass="btn btn--ghost"
+                               Size="ButtonSize.Small"
+                               TestId="slot-add"
+                               OnClick="AddSlotted">
+                        + New task
+                    </AppButton>
+                </AfterOpenRows>
+            </TaskListView>
+        </div>
+    </Story>
+
     <Story Name="Tags, dates, reminders and repeats"
            Description="Each fact on the metadata line carries the glyph that says what kind of fact it is. “Friday” and “09:00” side by side are two dates until something says one is a deadline and the other an alarm — and a repeating task is a different thing again from either. The glyph is decoration on top of the words: a screen reader hears “Reminder 09:00”, never “alarm clock emoji”.
 
@@ -235,6 +276,24 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
         new("r2", "Escape puts this one back", Group: "Tasks")
     ];
 
+    private string? _lastDirect;
+
+    private IReadOnlyList<TaskRow> _directRenamable =
+    [
+        new("x1", "Type in me — there is no pencil", Group: "Steps"),
+        new("x2", "Alt+Down moves me, from inside the field", Group: "Steps"),
+        new("x3", "Drag me by the grip, not by the row", Group: "Steps", Due: "Friday")
+    ];
+
+    private int _slotCounter = 1;
+
+    private IReadOnlyList<TaskRow> _slotted =
+    [
+        new("s1", "Tick me and the section below grows"),
+        new("s2", "The button stays where it is"),
+        new("s3", "Already finished", Done: true)
+    ];
+
     private IReadOnlyList<TaskRow> _completable =
     [
         new("d1", "Tick me and I move down", Group: "Tasks"),
@@ -338,6 +397,24 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
         _lastRename = $"renamed {rename.Id} to “{rename.Title}”";
     }
 
+    private void RenameDirect(TaskRename rename)
+    {
+        _directRenamable = [.. _directRenamable.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
+        _lastDirect = $"renamed {rename.Id} to “{rename.Title}”";
+    }
+
+    private void ReorderDirect(TaskMove move)
+    {
+        _directRenamable = move.ApplyTo(_directRenamable, t => t.Id);
+        _lastDirect = $"moved {move.Id} onto {move.TargetId}";
+    }
+
+    private void ToggleSlotted(string id) =>
+        _slotted = [.. _slotted.Select(t => t.Id == id ? t with { Done = !t.Done } : t)];
+
+    private void AddSlotted() =>
+        _slotted = [.. _slotted, new TaskRow($"s{++_slotCounter + 3}", "One more, added from the slot")];
+
     private void ToggleCompletable(string id) =>
         _completable = [.. _completable.Select(t => t.Id == id ? t with { Done = !t.Done } : t)];
 
@@ -352,6 +429,24 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
             private void Rename(TaskRename rename) =>
                 _tasks = [.. _tasks.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
         }
+        """;
+
+    private const string DirectRenameCode = """
+        @* The title is a field from the start. Same commit rules as the pencil's. *@
+        <TaskListView Tasks="@tasks" OnRename="Rename" DirectRename="true"
+                      Reorderable="true" OnReorder="Reorder" />
+
+        @* Which is why TaskItem turns the row's own draggable off while a field is
+           open, makes the grip draggable in its own right, and hears Alt+Arrow
+           inside the field. All three, or reordering quietly goes away. *@
+        """;
+
+    private const string SlotCode = """
+        <TaskListView Tasks="@tasks" OnToggle="Toggle">
+            <AfterOpenRows>
+                <AppButton OnClick="Add">+ New task</AppButton>
+            </AfterOpenRows>
+        </TaskListView>
         """;
 
     private const string TagCode = """

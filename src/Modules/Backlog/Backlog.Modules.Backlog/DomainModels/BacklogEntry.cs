@@ -140,6 +140,15 @@ public sealed class BacklogEntry
     /// arithmetic rather than by an overnight sweep.</summary>
     public DateOnly? InMyDayOn { get; private set; }
 
+    /// <summary>Which reading of the body the person last asked for, or null when
+    /// they have never said. Held on the aggregate and not in a view-model because
+    /// the entry's markdown is canonical: the preference is written on the metadata
+    /// line, so it has to survive the round trip through here or the next save
+    /// deletes it. It carries no invariant and nothing in the lifecycle reads it —
+    /// see <see cref="EntryView"/> for why a presentation preference lives in the
+    /// text at all.</summary>
+    public EntryView? View { get; private set; }
+
     public IReadOnlyList<string> RepoIds => _repoIds;
 
     public IReadOnlyList<string> Tags => _tags;
@@ -211,6 +220,12 @@ public sealed class BacklogEntry
     public void SetRecurrence(Recurrence? recurrence) => Recurrence = recurrence;
 
     public void SetInMyDayOn(DateOnly? inMyDayOn) => InMyDayOn = inMyDayOn;
+
+    /// <summary>Records which reading of the body was asked for, or clears it back
+    /// to "never said". Grouped with the scheduling setters because it behaves like
+    /// them — absent by default, clearable, and load-bearing for nothing — not
+    /// because it is one of them.</summary>
+    public void SetView(EntryView? view) => View = view;
 
     /// <summary>Replaces the whole dependency list. Ids are stored as written —
     /// trimmed of surrounding space and of blanks, but never validated against

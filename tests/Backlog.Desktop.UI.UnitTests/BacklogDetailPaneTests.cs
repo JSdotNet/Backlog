@@ -47,7 +47,13 @@ public sealed class BacklogDetailPaneTests
         await pane.Find($"[data-testid='{RowTestId(first)}-open']").ClickAsync(new());
 
         Assert.Same(first, host.State.SelectedRow);
-        Assert.Contains("Provision the box", pane.Find("[data-testid='entry-detail']").TextContent, StringComparison.Ordinal);
+
+        // The title is a field here rather than a line of text — the pane's row is
+        // DirectRename — so the entry's name is the field's value, not the region's
+        // text content.
+        Assert.Equal(
+            "Provision the box",
+            pane.Find("[data-testid='entry-detail-task-rename']").GetAttribute("value"));
     }
 
     [Fact]
@@ -60,7 +66,7 @@ public sealed class BacklogDetailPaneTests
         await pane.Find("[data-testid='close-entry-button']").ClickAsync(new());
 
         Assert.Null(host.State.SelectedRow);
-        Assert.Single(pane.FindAll("[data-testid='entry-detail-empty']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-detail']"));
     }
 
     /// <summary>Deleting the open entry closes the pane. A detail pane pointed at a
@@ -77,6 +83,52 @@ public sealed class BacklogDetailPaneTests
 
         Assert.Empty(host.State.Rows);
         Assert.Null(host.State.SelectedRow);
+    }
+
+    // --- Where "New entry" sits --------------------------------------------
+
+    /// <summary>
+    /// The control that writes the next entry is above the Completed section, not
+    /// under it.
+    /// <para>
+    /// It used to render after the whole list, and the list owns that section — so
+    /// with anything finished in the backlog the button sat below a fold of work
+    /// already done, which is the one place in the column where nothing new is ever
+    /// going to appear. It reaches its place through a slot on the list rather than by
+    /// the pane rebuilding the section itself.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task New_entry_sits_above_the_completed_section()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Finished already\n`task` `!done`\n");
+        await host.WriteEntryAsync("# Still going\n`task` `!in-progress`\n");
+
+        var pane = host.Render();
+
+        // Read off the rendered markup, because what is under test is order rather
+        // than presence — the button was always present, and always in the wrong place.
+        var markup = pane.Markup;
+        var add = markup.IndexOf("new-entry-button", StringComparison.Ordinal);
+        var completed = markup.IndexOf("entry-list-completed", StringComparison.Ordinal);
+
+        Assert.True(add >= 0 && completed >= 0);
+        Assert.True(add < completed, "The Completed section should come after the New entry button.");
+    }
+
+    /// <summary>With nothing in the list there is no list for the slot to be a slot
+    /// in, and the control that writes the first entry is the one thing on this half
+    /// that still has to be reachable.</summary>
+    [Fact]
+    public async Task New_entry_is_still_there_with_an_empty_list()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+
+        var pane = host.Render();
+
+        Assert.Single(pane.FindAll("[data-testid='empty-state']"));
+        Assert.Single(pane.FindAll("[data-testid='new-entry-button']"));
     }
 
     // --- Completing --------------------------------------------------------
@@ -195,8 +247,10 @@ public sealed class BacklogDetailPaneTests
 
         var pane = host.Render();
 
-        Assert.Equal("Wire up the store", pane.Find("[data-testid='subitem-list-0-title']").TextContent);
-        Assert.Equal("Write the rows", pane.Find("[data-testid='subitem-list-1-title']").TextContent);
+        // A step's title is a field rather than a line of text: the steps list is
+        // DirectRename, so there is no pencil to press and nothing to read as text.
+        Assert.Equal("Wire up the store", pane.Find("[data-testid='subitem-list-0-rename']").GetAttribute("value"));
+        Assert.Equal("Write the rows", pane.Find("[data-testid='subitem-list-1-rename']").GetAttribute("value"));
 
         // The step's notes fold under it rather than opening somewhere else.
         await pane.Find("[data-testid='subitem-list-0-body-toggle']").ClickAsync(new());
@@ -305,25 +359,115 @@ public sealed class BacklogDetailPaneTests
         Assert.Equal(2, row.PreviewSubItems.Count);
     }
 
-    // --- The note ----------------------------------------------------------
+    // --- The body, as the markdown block -----------------------------------
 
+    /// <summary>
+    /// The markdown block is the whole body — prose and <c>##</c> chapters together —
+    /// and it is the same text the steps list is a view of.
+    /// <para>
+    /// The whole body rather than the prose in front of the first chapter, which is
+    /// what this used to write. A block scoped to the prose half would silently
+    /// discard a step typed into it, and a surface whose promise is "this is the
+    /// markdown" must not be a surface that eats half of it.
+    /// </para>
+    /// <para>
+    /// The title and the metadata line are not in it, and stay put: those have
+    /// controls of their own above, and the raw hatch is where the line itself is
+    /// edited.
+    /// </para>
+    /// </summary>
     [Fact]
-    public async Task The_note_editor_writes_the_entrys_prose_and_leaves_its_steps_alone()
+    public async Task The_markdown_block_writes_the_whole_body_and_leaves_the_metadata_line_alone()
     {
         using var host = await BacklogPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(WithSteps);
 
         var pane = host.Render();
 
-        var editor = pane.Find("[data-testid='entry-note-editor'] textarea");
-        Assert.Contains("Notes on the parent.", editor.TextContent, StringComparison.Ordinal);
+        // This entry has chapters, so it opens on the steps. The block is one press
+        // away, which is the switch this test is also exercising.
+        await pane.Find("[data-testid='entry-view-notes']").ClickAsync(new());
 
-        await editor.InputAsync(new() { Value = "Rewritten prose." });
+        var editor = pane.Find("[data-testid='entry-body-editor'] textarea");
+        Assert.Contains("Notes on the parent.", editor.TextContent, StringComparison.Ordinal);
+        Assert.Contains("## [ ] Wire up the store", editor.TextContent, StringComparison.Ordinal);
+
+        await editor.InputAsync(new() { Value = "Rewritten prose.\n\n## Only step now\n" });
 
         Assert.Contains("Rewritten prose.", row.RawText, StringComparison.Ordinal);
         Assert.DoesNotContain("Notes on the parent.", row.RawText, StringComparison.Ordinal);
-        Assert.Equal(2, row.PreviewSubItems.Count);
+        Assert.Single(row.PreviewSubItems);
+
+        // The title line and its metadata survived a rewrite of everything under them.
+        Assert.Contains("# Ship the sync spike", row.RawText, StringComparison.Ordinal);
         Assert.Contains("`*high`", row.RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The steps view says when it is not showing everything.
+    /// <para>
+    /// It lists chapters, and the prose an entry opens with is not one — so a reader
+    /// who saw only the steps would read the missing paragraph as text the app had
+    /// lost. Announced rather than hidden, with the block that does show it one press
+    /// away, and the press is the same one the switch makes.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_steps_view_says_when_the_body_holds_prose_it_is_not_showing()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+
+        var pane = host.Render();
+
+        Assert.Equal(EntryView.Steps, row.EffectiveView);
+        Assert.Contains(
+            "There is text on this entry the steps do not show.",
+            pane.Find("[data-testid='entry-view-elsewhere']").TextContent,
+            StringComparison.Ordinal);
+
+        await pane.Find("[data-testid='entry-view-elsewhere-link']").ClickAsync(new());
+
+        Assert.Equal(EntryView.Notes, row.EffectiveView);
+        Assert.Single(pane.FindAll("[data-testid='entry-body-editor']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-view-elsewhere']"));
+    }
+
+    /// <summary>An entry whose body is nothing but chapters has no prose to leave
+    /// off the screen, so the line does not appear. A notice that showed up
+    /// regardless would be furniture rather than information.</summary>
+    [Fact]
+    public async Task Nothing_is_announced_when_the_steps_are_the_whole_body()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync(
+            "# Ship it\n" +
+            "`task` `*high` `!ready`\n\n" +
+            "## Wire up the store\n" +
+            "How the store gets wired.\n");
+
+        var pane = host.Render();
+
+        Assert.Single(pane.FindAll("[data-testid='subitem-list-0']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-view-elsewhere']"));
+    }
+
+    /// <summary>An entry with no chapters opens on the markdown, without anything
+    /// being written down. A default written into the text would be a preference
+    /// nobody expressed, and it would have to be unwritten from every entry before
+    /// the default could ever change.</summary>
+    [Fact]
+    public async Task An_entry_with_no_steps_opens_on_the_markdown_and_is_given_no_token()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Just prose\n`task`\n\nAll of it is a paragraph.\n");
+
+        var pane = host.Render();
+
+        Assert.Equal(EntryView.Notes, row.EffectiveView);
+        Assert.Null(row.PreviewView);
+        Assert.DoesNotContain("view:", row.RawText, StringComparison.Ordinal);
+        Assert.Single(pane.FindAll("[data-testid='entry-body-editor']"));
     }
 
     // --- What the selectors and the tags still reach -----------------------

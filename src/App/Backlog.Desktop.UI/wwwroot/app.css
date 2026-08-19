@@ -222,6 +222,13 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/* My Day keeps its room. It is the one chip in the bar that is not one of a set —
+   turning it off is only possible from the chip itself, so a scope squeezed out of
+   view would take the way back with it. */
+.filter-group--scope {
+    flex: 0 0 auto;
+}
+
 .filter-group--areas {
     flex: 1 1 auto;
 }
@@ -321,9 +328,32 @@ h1, h2, h3 {
     flex: 1 1 auto;
 }
 
+/* Nothing open, so there is nothing to divide: the list takes the whole width and
+   the separator has no second pane to drag against. A modifier rather than a
+   different element — the split stays mounted so the list keeps its scroll
+   position and its focused row while the pane comes and goes.
+
+   It overrides the split's own template either way, so it needs no anchor variant:
+   the list is the leading pane in both, and both the separator and the trailing
+   pane are hidden below. */
+.backlog-split--solo {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.backlog-split--solo > .split-pane__separator,
+.backlog-split--solo > .split-pane__end {
+    display: none;
+}
+
 /* Each half scrolls on its own. One scrollbar for both would mean scrolling the
    list to reach the bottom of the entry beside it, which is the whole reason
    the pane is not simply a longer page. */
+/* container-type is what makes the filter bar below responsive to the column it
+   is in rather than to the window. The bar lives in this half of the split, which
+   is the window minus the open entry's panel — so it is never the window's width
+   and a viewport query fires at the wrong moment or not at all. It used to be a
+   fixed 30rem, which made the mismatch total; it is a remainder now, which makes
+   it variable, and a container query is the only thing that reads either. */
 .backlog-list {
     display: flex;
     flex-direction: column;
@@ -331,6 +361,8 @@ h1, h2, h3 {
     min-height: 0;
     min-width: 0;
     overflow-y: auto;
+    container-type: inline-size;
+    container-name: backlog-list;
 }
 
 .entry-detail {
@@ -371,6 +403,60 @@ h1, h2, h3 {
 
 .entry-detail__note {
     min-width: 0;
+}
+
+/* --- The body's two readings -------------------------------------------- */
+/*
+  The steps and the markdown block are two views of one text, so they share a
+  region and only one of them is ever in it. The switch above them is the filter
+  bar's chip shape, because it is the same kind of decision: one of a set, and the
+  chosen one has to be legible at a glance.
+*/
+.entry-detail__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.entry-detail__views {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+}
+
+/*
+  "There is text here this view is not showing."
+
+  Quiet on purpose: it is a fact about the view rather than about the work, so it
+  reads as a footnote and not as a warning. Loud would be worse than silent — an
+  entry with a paragraph and two steps is completely ordinary, and an alert on
+  every one of them would be an alert nobody reads.
+*/
+.entry-detail__elsewhere {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    margin-left: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.entry-detail__elsewhere-link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.entry-detail__elsewhere-link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* --- The raw-markdown escape hatch --------------------------------------- */
@@ -792,7 +878,39 @@ h1, h2, h3 {
     }
 }
 
-@media (max-width: 48rem) {
+/*
+  The filter bar answers to its column, not to the window.
+
+  It sits in the split's list half, which is the window minus the open entry's
+  panel, so the viewport steps this used to have never fired: at a 1400px viewport
+  nothing matched and `.filter-bar { overflow: hidden }` quietly clipped the bar
+  instead. Measured live at that width against the old fixed 480px column, the six
+  status chips took 369 of it and squeezed the area group down to one chip — the
+  case a viewport query cannot see, and the case these two steps are for. The
+  column is wider now that the panel is the fixed half, which makes that squeeze
+  rarer rather than impossible: the reader can still drag the panel out to 48rem.
+
+  Status collapses first and areas never do. An area exists because somebody typed
+  it and its count is where the work is; status is one of a fixed six, and the
+  chosen one is the only one that has to stay legible. Collapsing gives back most
+  of those 369px, which is the only move here that actually buys the areas their
+  room — tightening the gaps first would have bought about 20px of it.
+*/
+
+/* 38rem: the full status strip (369px) plus the gap between the groups plus the
+   ~200px an "All" chip and a pile or two need comes to roughly 585px, so the strip
+   stops fitting a shade above that. Below this the group shows the chosen status
+   and nothing else, which is the one chip a reader is looking for. */
+@container backlog-list (max-width: 38rem) {
+    .filter-group--status .chip:not(.chip--active):not(:first-child) {
+        display: none;
+    }
+}
+
+/* 26rem: down here the column is close to the 20rem the separator can drag it to,
+   and one chip per group is all that fits. The count goes with the padding — a
+   name and a number in a chip this narrow is neither. */
+@container backlog-list (max-width: 26rem) {
     .filter-bar {
         gap: var(--spacing-xs);
     }
@@ -804,11 +922,10 @@ h1, h2, h3 {
     .chip__count {
         display: none;
     }
-}
 
-@media (max-width: 34rem) {
-    .filter-group .chip:not(.chip--active):not(:first-child) {
-        display: none;
+    /* Nothing left to push away from: the groups are one chip each. */
+    .filter-group--status {
+        margin-left: 0;
     }
 }
 
@@ -823,11 +940,6 @@ h1, h2, h3 {
     }
 }
 
-@media (max-width: 720px) {
-    .filter-group--status {
-        margin-left: 0;
-    }
-}
 /* --- Add entry ------------------------------------------------------------ */
 /*
   Creating an entry happens where the next entry will appear, not up in the

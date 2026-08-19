@@ -14,33 +14,81 @@
     the list's three callbacks and the writes behind them are unchanged.
 
     The detail pane is where every control over one entry now lives: its title
-    row, its steps, the five scheduling and dependency rows, the selectors, the
-    note, and — behind a toggle and a shortcut — the canonical markdown itself.
-    That last one is the escape hatch `.design/content-editing.md#raw-markdown-escape-hatch`
+    row, its body, the five scheduling and dependency rows, the selectors, and —
+    behind a toggle and a shortcut — the canonical markdown itself. That last one
+    is the escape hatch `.design/content-editing.md#raw-markdown-escape-hatch`
     asks for, and it is deliberately no longer the primary mode: `#editing-model`
     says edit-in-place, "not a split write-raw/preview as the primary mode", and
     this pane had that inverted.
 
+    The body has two readings and shows one at a time: the steps, or the markdown
+    block they are written in. They are the same characters — `EntryTextParser`
+    reads a `##` chapter as a step — so switching is a view change and nothing is
+    converted. Which one an entry opens in is remembered on the entry itself, as a
+    `view:` token, because the markdown is canonical and a preference kept beside
+    the file would not survive the file being shared. The steps view says so when
+    it is leaving prose off the screen rather than quietly dropping it.
+
+    The panel is the fixed half of the split and the list flexes, which is the
+    opposite of how it started. See the comment on the SplitPane below.
+
     The shell decides whether the pane is on screen and nothing more.
+
+    Selection is what puts the detail pane on screen, and losing the focus is what
+    takes it off again: the pane is the region both halves live in, so a focusout
+    that lands outside it is the reader having moved on. The check is a question
+    asked of the document rather than of the event, because Blazor's
+    FocusEventArgs carries no relatedTarget — see `backlogFocusOutside`.
 *@
 
-<section @key=@("backlog-pane") class="backlog-workspace" id="backlog-pane" data-testid="backlog-pane" aria-label="Backlog entries">
+<section @key=@("backlog-pane") class="backlog-workspace" id="backlog-pane" data-testid="backlog-pane" aria-label="Backlog entries" @onfocusout="OnPaneFocusOutAsync">
 
     @* UseJsResizer is off because the desktop shell already owns the JS resizer
        for its knowledge panel, and there is one owner per document. The
-       separator's keyboard resize is unaffected. *@
-    <SplitPane CssClass="backlog-split"
+       separator's keyboard resize is unaffected.
+
+       The split stays mounted with nothing selected and collapses to one column
+       through a modifier class instead. Swapping it for a bare list would rebuild
+       the list: the scroll position and the focused row would both go, which is
+       precisely what the reader was in the middle of using. *@
+    @* Anchored to the end, so the panel is the fixed half and the list takes
+       everything it does not need. It was the other way round and the arithmetic
+       said so: a fixed 480px list beside a panel that took the rest gave the panel
+       846px of a 1400px window — nearly twice the column the reader actually scans.
+       The list is the surface you work in; the panel shows one entry, and one entry
+       does not get wider the wider the window is. *@
+    <SplitPane CssClass="@SplitCssClass"
                TestId="backlog-split"
                SeparatorTestId="backlog-split-separator"
-               AriaLabel="Entry list width"
-               StartWidthRem="30"
+               AriaLabel="Open entry width"
+               Anchor="SplitPaneAnchor.End"
+               FixedWidthRem="@_detailWidthRem"
+               FixedWidthRemChanged="rem => _detailWidthRem = rem"
                MinRem="20"
+               MaxRem="48"
                UseJsResizer="false">
         <Start>
             <div class="backlog-list">
                 @* Areas are local piles/tags inside the selected repository scope.
                    Status narrows what is already in view, so it sits on the right. *@
                 <div class="filter-bar">
+                    @* My Day is a scope rather than one of a set, so it holds a
+                       state of its own: it narrows whatever area and status have
+                       already left in view instead of replacing either. That is
+                       what makes it a ToggleButton with aria-pressed beside two
+                       radiogroups — the difference is in the semantics, not just
+                       in the shape. *@
+                    <div class="filter-group filter-group--scope" role="group" aria-label="Scope">
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@MyDayOnly"
+                                      TestId="myday-filter-option"
+                                      Title="@(MyDayOnly ? "Show everything again" : "Show only what is in today's My Day")"
+                                      PressedChanged="OnMyDayFilterChanged">
+                            My Day<span class="chip__count">@MyDayCount</span>
+                        </ToggleButton>
+                    </div>
+
                     <div class="filter-group filter-group--areas" role="radiogroup" aria-label="Filter by area">
                         @foreach (var area in State.AreaFilters)
                         {
@@ -78,17 +126,40 @@
 
                 @if (State.FilteredRows.Count == 0)
                 {
-                    <EmptyState Title="Nothing here yet."
-                                Description="Write your first entry to start triaging the backlog."
-                                data-testid="empty-state" />
+                    @* "You have written nothing" and "your filters match nothing" are
+                       different facts, and the second one became common the moment My
+                       Day arrived: most entries are not in today's My Day, so the
+                       first-use copy would tell somebody with a full backlog to write
+                       their first entry. No CTA on the filtered one — the chips that
+                       caused it are the line above, and a button here would duplicate
+                       a control already on screen. *@
+                    @if (State.ScopedRows.Count == 0)
+                    {
+                        <EmptyState Title="Nothing here yet."
+                                    Description="Write your first entry to start triaging the backlog."
+                                    data-testid="empty-state" />
+                    }
+                    else
+                    {
+                        <EmptyState Title="Nothing matches these filters."
+                                    Description="There are entries here — none of them are in what the bar above is asking for."
+                                    data-testid="empty-state" />
+                    }
+
+                    @* With no rows there is no list for the slot below to be a slot
+                       in, and the control that writes the first entry is the one
+                       thing on this half that still has to be reachable. *@
+                    @RenderAddEntry()
                 }
                 else
                 {
                     @* Copying is off: an entry's text is edited beside the list, and a
                        clipboard button on every row would be the loudest control in a
                        column whose job is scanning. *@
-                    <TaskListView Tasks="@EntryTasks()"
+                    <TaskListView @ref="_list"
+                                  Tasks="@EntryTasks()"
                                   SelectedId="@SelectedTaskId"
+                                  OnSelectedTabForward="MoveFocusToDetailAsync"
                                   OnSelected="OnEntrySelectedAsync"
                                   OnToggle="OnEntryToggledAsync"
                                   OnRename="OnEntryRenamedAsync"
@@ -97,41 +168,68 @@
                                   GroupCompleted="true"
                                   AllowCopy="false"
                                   AriaLabel="Backlog entries"
-                                  TestId="entry-list" />
+                                  TestId="entry-list">
+                        <AfterOpenRows>
+                            @RenderAddEntry()
+                        </AfterOpenRows>
+                    </TaskListView>
                 }
-
-                @* Creating an entry is the same gesture as writing in one, so the
-                   control sits where the next entry will actually appear rather than
-                   up in the chrome. *@
-                <AppButton BaseClass="entry-add"
-                           Variant="ButtonVariant.None"
-                           id="new-entry-button"
-                           TestId="new-entry-button"
-                           OnClick="OnNewEntry">
-                    @* Not the Icon slot: that wraps what it is given in a `btn__icon`
-                       span, and this row already has its own plus. *@
-                    <span class="entry-add__plus" aria-hidden="true">+</span>
-                    New entry
-                </AppButton>
             </div>
         </Start>
 
         <End>
+            @* Nothing at all with nothing selected, rather than a placeholder in a
+               half the list could be using. A hidden pane whose contents were still
+               being built would also still be a pane: every control in it would be
+               rendered, kept in sync, and tabbable-in-principle for the sake of
+               something no reader can see. *@
             @if (State.SelectedRow is { } selected)
             {
                 @RenderDetail(selected)
-            }
-            else
-            {
-                <EmptyState Title="Nothing open."
-                            Description="Pick an entry to see its steps, its dates and what it waits on."
-                            data-testid="entry-detail-empty" />
             }
         </End>
     </SplitPane>
 </section>
 
 @code {
+    /// <summary>
+    /// How wide the open entry's panel is, in rem. The list takes the rest.
+    /// <para>
+    /// 24rem, which is not a taste: it is <c>BACKLOG_PANE_MIN_REM</c> in
+    /// <c>components.js</c> and <c>SplitPane.MinRem</c>'s own default — the one width
+    /// this layout system already treats as "a pane rather than a sliver". Starting
+    /// at the floor everything else agrees on means the reader only ever drags the
+    /// panel wider, and the list gets the whole remainder until they ask otherwise.
+    /// </para>
+    /// <para>
+    /// Held here rather than handed over as a literal, because the split keeps the
+    /// width the separator gave it in a parameter: a literal is re-supplied on every
+    /// render, and this pane renders on every state change and now on every focus
+    /// move as well. A keyboard resize would have lasted until the next one of
+    /// those.
+    /// </para>
+    /// </summary>
+    private double _detailWidthRem = 24;
+
+    /// <summary>The list, held so the focus can be put back on the open row from
+    /// the pane beside it. The list names its own row elements, so asking it is the
+    /// only honest way to reach one.</summary>
+    private TaskListView? _list;
+
+    /// <summary>The row at the head of the detail pane, held for the same reason
+    /// and in the other direction: it is where the focus goes when the reader tabs
+    /// off the selected row.</summary>
+    private TaskItem? _detailRow;
+
+    /// <summary>The detail row's element id. Fixed rather than per entry: there is
+    /// only ever one open, and the id exists so the focus can be aimed at the pane
+    /// without knowing which entry is in it.</summary>
+    private const string DetailRowId = "entry-detail-row";
+
+    /// <summary>The element holding both halves of the split — the region the
+    /// selection survives inside. Matches the <c>id</c> on the section above.</summary>
+    private const string PaneElementId = "backlog-pane";
+
     /// <summary>Which of the selected entry's scheduling rows currently has its
     /// picker open. One per pane rather than one per row: two open pickers is a
     /// question about which of them the keyboard belongs to that nobody
@@ -219,6 +317,12 @@
     private IReadOnlyList<SelectorOption> RepositoryOptions() =>
         [.. KnowledgeRepositories.Select(repository => new SelectorOption(repository.Alias, repository.Alias))];
 
+    /// <summary>The split's classes, and with nothing selected the modifier that
+    /// gives the list the whole width. A class rather than a different component:
+    /// see the comment on the element itself.</summary>
+    private string SplitCssClass =>
+        State.SelectedRow is null ? "backlog-split backlog-split--solo" : "backlog-split";
+
     // --- The list ----------------------------------------------------------
 
     /// <summary>
@@ -295,9 +399,46 @@
         }
     }
 
+    /// <summary>
+    /// Creating an entry is the same gesture as writing in one, so the control sits
+    /// where the next entry will actually appear rather than up in the chrome.
+    /// <para>
+    /// Which is above the Completed section, and it took a slot on the list to get
+    /// there: the list owns that section, so a button rendered after the whole
+    /// component landed underneath a fold of finished work — the one place in the
+    /// column where nothing new is ever going to show up. It is a fragment because
+    /// it is drawn twice, once inside the list and once instead of it.
+    /// </para>
+    /// </summary>
+    private RenderFragment RenderAddEntry() =>
+        @<AppButton BaseClass="entry-add"
+                    Variant="ButtonVariant.None"
+                    id="new-entry-button"
+                    TestId="new-entry-button"
+                    OnClick="OnNewEntry">
+            @* Not the Icon slot: that wraps what it is given in a `btn__icon`
+               span, and this row already has its own plus. *@
+            <span class="entry-add__plus" aria-hidden="true">+</span>
+            New entry
+        </AppButton>;
     private void OnNewEntry() => State.NewRow();
 
     private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
+
+    // --- The My Day scope --------------------------------------------------
+
+    private bool MyDayOnly => State.MyDayOn is not null;
+
+    /// <summary>How many entries are in today's My Day, counted off the rows the
+    /// repository scope leaves in view — the same pool the area chips count, so the
+    /// number does not change meaning when a status is picked. Derived here because
+    /// this is where the clock is.</summary>
+    private int MyDayCount => State.ScopedRows.Count(IsInMyDay);
+
+    /// <summary>Turning the scope on pins it to today. The date is read here rather
+    /// than in the state for the reason <c>#feature-my-day</c> gives: membership is
+    /// arithmetic against the reader's local date, and one place reads it.</summary>
+    private void OnMyDayFilterChanged(bool pressed) => State.SetMyDayFilter(pressed ? Today : null);
 
     // --- The detail pane ---------------------------------------------------
 
@@ -310,11 +451,26 @@
         @<div class="entry-detail" data-testid="entry-detail" @onkeydown="e => OnDetailKeyDownAsync(row, e)">
 
             @* The entry wearing the same row the list wears. A ul because TaskItem
-               renders an li, and a list of one is what this is. *@
+               renders an li, and a list of one is what this is.
+
+               It is also the pane's way in and out: named so the focus can be put
+               on it when the reader tabs off the selected row, and listening for
+               the Shift+Tab that sends them back. Which control that lands on is
+               the row's business — the circle today — which is why the pane asks
+               the row to focus itself rather than naming an element inside it. *@
             <ul class="task-list entry-detail__row">
-                <TaskItem Task="@DetailTask(row)"
+                @* DirectRename: the title is a field from the start here. There is
+                   one row on this surface and the reader opened it to change it, so
+                   a pencil is a press between them and the thing they came for. The
+                   list keeps its pencil, because a column of ten open inputs is not
+                   a column anybody scans. *@
+                <TaskItem @ref="_detailRow"
+                          Task="@DetailTask(row)"
+                          RowElementId="@DetailRowId"
+                          OnTabBackward="MoveFocusToListAsync"
                           OnToggle="_ => State.ToggleDoneAsync(row)"
                           OnRename="rename => State.RenameEntryAsync(row, rename.Title)"
+                          DirectRename="true"
                           AllowCopy="false"
                           TestId="entry-detail-task" />
             </ul>
@@ -331,66 +487,9 @@
 
             @RenderEntryMetadata(row)
 
-            @if (row.PreviewSubItems.Count > 0)
-            {
-                @* Steps, as their own list. Reordering, renaming and completing are
-                   the same three callbacks the entry list uses, and the two hand-offs
-                   a step still offers arrive through RowActions rather than through a
-                   row of this pane's own beside it.
-
-                   GroupCompleted is off: an entry's steps are a sequence somebody
-                   wrote in an order, and moving the finished ones to the bottom would
-                   rewrite that order on screen while the markdown kept the real one. *@
-                <TaskListView Tasks="@StepTasks(row)"
-                              OnToggle="index => OnStepToggledAsync(row, index)"
-                              OnRename="rename => OnStepRenamedAsync(row, rename)"
-                              OnBodyChanged="change => OnStepNoteChanged(row, change)"
-                              Reorderable="true"
-                              OnReorder="move => OnStepReorderedAsync(row, move)"
-                              RowActions="@StepActions(row)"
-                              GroupCompleted="false"
-                              AllowCopy="false"
-                              BodyLabel="Notes"
-                              AriaLabel="Steps"
-                              TestId="subitem-list" />
-            }
-
-            <TaskAction Icon="+"
-                        Label="Next step"
-                        OnSet="OnAddStepPressed"
-                        TestId="entry-action-step" />
-
-            @if (_addingStep)
-            {
-                @* Commits on Enter or on leaving, exactly as the shared row's rename
-                   does — one short string, so a button beside it would be a second
-                   thing to reach for after the one that already finished the job. *@
-                <TextField Bare="true"
-                           AriaLabel="Name the step"
-                           Placeholder="Name the step"
-                           InputCssClass="entry-detail__step-input"
-                           data-testid="entry-step-input"
-                           Value="@_stepDraft"
-                           ValueChanged="value => _stepDraft = value"
-                           @onkeydown="e => OnStepKeyDownAsync(row, e)"
-                           @onblur="() => OnAddStepAsync(row)" />
-            }
+            @RenderBodyViews(row)
 
             @RenderEntrySchedule(row)
-
-            @* To Do's "Add note", and this product's entry body. MarkdownEditor
-               rather than a textarea: a body here is prose written by the same
-               person in the same product as every other body, and the toolbar is
-               the closest this pane comes to the edit-in-place `#editing-model`
-               asks for. *@
-            <MarkdownEditor Value="@EntryTextParser.GetNote(row.RawText)"
-                            ValueChanged="note => State.ChangeNote(row, note)"
-                            AriaLabel="Note"
-                            ToolbarLabel="Formatting for the note"
-                            Rows="4"
-                            AutoGrow="true"
-                            CssClass="entry-detail__note"
-                            TestId="entry-note-editor" />
 
             @* The escape hatch. Always available, toggleable from this row and from
                Ctrl+Shift+M on the pane, showing the exact canonical markdown that
@@ -466,6 +565,148 @@
         string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle,
         Done: row.PreviewStatus is EntryStatus.Done);
 
+    // --- The body: steps, or the markdown block ----------------------------
+
+    /// <summary>
+    /// The entry's body, in whichever of its two readings the reader asked for.
+    /// <para>
+    /// Two views of one text and no conversion between them. The steps are already
+    /// parsed out of the body markdown by <c>EntryTextParser</c> — a <c>##</c>
+    /// chapter is a step — so switching draws the same characters differently and
+    /// writes them back the same way. A converter here would be a second source of
+    /// truth with a migration in the middle of it.
+    /// </para>
+    /// <para>
+    /// The choice is remembered on the entry, as a <c>view:</c> token on the metadata
+    /// line (<c>.design/content-editing.md#scheduling-and-dependency-tokens</c>). Not
+    /// because it is a fact about the work — it is a preference about looking at it —
+    /// but because the markdown is canonical: a preference kept beside the file would
+    /// not survive the file being shared.
+    /// </para>
+    /// </summary>
+    private RenderFragment RenderBodyViews(EntryRow row) =>
+        @<div class="entry-detail__body">
+
+            @* Two named options rather than one button that means "not the other
+               one". Both readings exist and a reader picks between them, which is a
+               radiogroup — the same shape and the same reason as the filter chips
+               above the list. *@
+            <div class="entry-detail__views" role="radiogroup" aria-label="Show the entry's body as">
+                @foreach (var option in BodyViewOptions)
+                {
+                    <AppButton BaseClass="chip chip--filter"
+                               Variant="ButtonVariant.None"
+                               CssClass="@(row.EffectiveView == option.View ? "chip--active" : null)"
+                               TestId="@option.TestId"
+                               role="radio"
+                               aria-checked="@(row.EffectiveView == option.View ? "true" : "false")"
+                               OnClick="() => State.ChangeViewAsync(row, option.View)">
+                        @option.Label
+                    </AppButton>
+                }
+            </div>
+
+            @if (row.EffectiveView is EntryView.Steps)
+            {
+                @if (row.PreviewSubItems.Count > 0)
+                {
+                    @* Steps, as their own list. Reordering, renaming and completing
+                       are the same three callbacks the entry list uses.
+
+                       DirectRename, so a step's title is a field without a pencil
+                       first — and that is why the rows are still reorderable by
+                       pointer only through their grip, and by keyboard through
+                       Alt+Arrow inside the field. See TaskItem.
+
+                       GroupCompleted is off: an entry's steps are a sequence
+                       somebody wrote in an order, and moving the finished ones to
+                       the bottom would rewrite that order on screen while the
+                       markdown kept the real one. *@
+                    <TaskListView Tasks="@StepTasks(row)"
+                                  OnToggle="index => OnStepToggledAsync(row, index)"
+                                  OnRename="rename => OnStepRenamedAsync(row, rename)"
+                                  DirectRename="true"
+                                  OnBodyChanged="change => OnStepNoteChanged(row, change)"
+                                  Reorderable="true"
+                                  OnReorder="move => OnStepReorderedAsync(row, move)"
+                                  GroupCompleted="false"
+                                  AllowCopy="false"
+                                  BodyLabel="Notes"
+                                  AriaLabel="Steps"
+                                  TestId="subitem-list" />
+                }
+
+                <TaskAction Icon="+"
+                            Label="Next step"
+                            OnSet="OnAddStepPressed"
+                            TestId="entry-action-step" />
+
+                @if (_addingStep)
+                {
+                    @* Commits on Enter or on leaving, exactly as the shared row's
+                       rename does — one short string, so a button beside it would be
+                       a second thing to reach for after the one that already finished
+                       the job. *@
+                    <TextField Bare="true"
+                               AriaLabel="Name the step"
+                               Placeholder="Name the step"
+                               InputCssClass="entry-detail__step-input"
+                               data-testid="entry-step-input"
+                               Value="@_stepDraft"
+                               ValueChanged="value => _stepDraft = value"
+                               @onkeydown="e => OnStepKeyDownAsync(row, e)"
+                               @onblur="() => OnAddStepAsync(row)" />
+                }
+
+                @if (row.StepsViewHidesProse)
+                {
+                    @* Said out loud rather than hidden. The steps view lists
+                       chapters, and the prose an entry opens with is not one — so
+                       this view is showing less than the entry holds, and a reader
+                       with no way to know that would read the missing paragraph as
+                       text the app had lost. Quiet, one line, and the block that
+                       does show it is the press at the end of the sentence. *@
+                    <p class="entry-detail__elsewhere" data-testid="entry-view-elsewhere">
+                        <span>There is text on this entry the steps do not show.</span>
+                        <AppButton BaseClass="entry-detail__elsewhere-link"
+                                   Variant="ButtonVariant.None"
+                                   TestId="entry-view-elsewhere-link"
+                                   OnClick="() => State.ChangeViewAsync(row, EntryView.Notes)">
+                            Show the markdown
+                        </AppButton>
+                    </p>
+                }
+            }
+            else
+            {
+                @* The whole body, prose and chapters together. MarkdownEditor rather
+                   than a textarea: this is prose written by the same person in the
+                   same product as every other body, and the toolbar is the closest
+                   this pane comes to the edit-in-place `#editing-model` asks for.
+                   Not the note alone — a writer scoped to the prose half would
+                   silently drop a `##` chapter typed into the block, and this block's
+                   whole promise is that it is the text. *@
+                <MarkdownEditor Value="@EntryTextParser.Parse(row.RawText).Body"
+                                ValueChanged="body => State.ChangeBody(row, body)"
+                                AriaLabel="Markdown"
+                                ToolbarLabel="Formatting for the entry's markdown"
+                                Rows="6"
+                                AutoGrow="true"
+                                CssClass="entry-detail__note"
+                                TestId="entry-body-editor" />
+            }
+        </div>;
+    /// <summary>The two readings, named once. The label is what the reader presses
+    /// and the token is what gets written down, and keeping them side by side here is
+    /// what stops the words on screen drifting from the grammar on the line.</summary>
+    private sealed record BodyViewOption(EntryView View, string Label, string TestId);
+
+    private static IReadOnlyList<BodyViewOption> BodyViewOptions =>
+    [
+        new(EntryView.Steps, "Steps", "entry-view-steps"),
+        new(EntryView.Notes, "Markdown", "entry-view-notes")
+    ];
+
     // --- Steps -------------------------------------------------------------
 
     /// <summary>
@@ -496,72 +737,17 @@
     private async Task OnStepReorderedAsync(EntryRow row, TaskMove move) =>
         await State.MoveSubItemAsync(row, StepIndex(move.Id), StepIndex(move.TargetId));
 
-    /// <summary>
-    /// The row action slot, or nothing at all when neither hand-off can render.
-    /// <para>
-    /// Null rather than a fragment that draws nothing: an empty group with an
-    /// aria-label about nothing is worse than no group, and the slot's whole bargain
-    /// is that an unused one leaves the row exactly as it was. A CSS <c>:empty</c>
-    /// rule cannot stand in for this — a fragment whose branches are all false still
-    /// leaves whitespace, which <c>:empty</c> does not match.
-    /// </para>
-    /// </summary>
-    private RenderFragment<TaskRow>? StepActions(EntryRow row)
-    {
-        var pushable = IsFeatureEnabled(BacklogFeatures.GitHubIntegration)
-            && State.GitHubConfigured
-            && row.IsPersisted
-            && RepositoryFor(row) is not null;
+    // A step used to carry two hand-off buttons of its own here — push this chapter
+    // to GitHub as its own issue, and start Copilot CLI. Both are gone, and the
+    // reason is in the model rather than in taste: `.domain/backlog/domain.md` gives
+    // ProjectionRef to the entry and says a Sub-Item "may project to GitHub issue
+    // task-list checkboxes", which are checkboxes inside the entry's issue. A step
+    // that was its own issue had nowhere to record the link it got back, so it could
+    // be pushed twice with nothing noticing — and the Copilot button on a step was
+    // never about the step at all: it handed over the parent, from a row that made
+    // it look otherwise. The entry-level pair is now labelled and grouped as acting
+    // on the whole task, which is what it always did.
 
-        var copilot = IsFeatureEnabled(AppFeatureKeys.CopilotCli) && row.IsPersisted;
-
-        return pushable || copilot ? step => RenderStepActions(row, step) : null;
-    }
-
-    /// <summary>The two hand-offs a step still offers: push this one to GitHub as
-    /// its own issue, and hand the parent entry to Copilot CLI. Neither is metadata
-    /// and neither is the library's, which is why they arrive through the row's
-    /// action slot rather than as a row of this pane's own underneath it.</summary>
-    private RenderFragment RenderStepActions(EntryRow row, TaskRow step) =>
-        @<text>
-            @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration) && State.GitHubConfigured && row.IsPersisted && RepositoryFor(row) is { } repository)
-            {
-                <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--push"
-                            TestId="subitem-github-push-button"
-                            Disabled="@row.GitHubBusy"
-                            AriaLabel="@($"Create an issue in {repository.FullName}")"
-                            OnClick="() => State.PushSubItemToGitHubAsync(row, StepIndex(step.Id), repository)">
-                    @if (row.GitHubBusy)
-                    {
-                        <span aria-hidden="true">…</span>
-                    }
-                    else
-                    {
-                        <svg class="entry-doc__button-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                            <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
-                        </svg>
-                    }
-                </IconButton>
-            }
-
-            @if (IsFeatureEnabled(AppFeatureKeys.CopilotCli) && row.IsPersisted)
-            {
-                <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--copilot"
-                            TestId="subitem-copilot-cli-button"
-                            Disabled="@row.CopilotBusy"
-                            AriaLabel="Start GitHub Copilot CLI from the parent entry"
-                            OnClick="() => State.StartCopilotCliAsync(row)">
-                    @if (row.CopilotBusy)
-                    {
-                        <span aria-hidden="true">…</span>
-                    }
-                    else
-                    {
-                        <span class="entry-doc__cli-mark" aria-hidden="true">gh</span>
-                    }
-                </IconButton>
-            }
-        </text>;
     private void OnAddStepPressed()
     {
         _addingStep = !_addingStep;
@@ -680,7 +866,15 @@
                     <Badge Kind="draft" data-testid="draft-hint">Unsaved — give it a title line</Badge>
                 }
 
-                <span class="entry-doc__actions" aria-label="Entry actions">
+                @* Grouped and named after the entry, out loud. Both of these act on
+                   the whole task — one files it as an issue, the other hands the
+                   entry to a tool — and a step used to carry buttons that looked
+                   identical, one of which quietly acted on the parent anyway. A
+                   group whose label says which thing is being handed over is the
+                   difference between an icon you press and an icon you trust. *@
+                <span class="entry-doc__actions"
+                      role="group"
+                      aria-label="@($"Hand over the whole entry: {(string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle)}")">
                     @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration) && State.GitHubConfigured)
                     {
                         var repository = RepositoryFor(row);
@@ -709,7 +903,7 @@
                             <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--push"
                                         TestId="github-push-button"
                                         Disabled="@row.GitHubBusy"
-                                        AriaLabel="@($"Create an issue in {repository.FullName}")"
+                                        AriaLabel="@($"Create an issue for this whole entry in {repository.FullName}")"
                                         OnClick="() => State.PushToGitHubAsync(row, repository)">
                                 @if (row.GitHubBusy)
                                 {
@@ -730,7 +924,7 @@
                         <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--copilot"
                                     TestId="copilot-cli-button"
                                     Disabled="@row.CopilotBusy"
-                                    AriaLabel="Start GitHub Copilot CLI for this entry"
+                                    AriaLabel="Start GitHub Copilot CLI for this whole entry"
                                     OnClick="() => State.StartCopilotCliAsync(row)">
                             @if (row.CopilotBusy)
                             {
@@ -912,13 +1106,100 @@
     /// </summary>
     private async Task OnDetailKeyDownAsync(EntryRow row, KeyboardEventArgs e)
     {
-        if (e.Key is "Escape" && State.RawHatchOpen)
+        if (e.Key is "Escape")
         {
-            await State.ToggleRawHatchAsync();
+            // The source first: with the hatch open, Escape is about the hatch.
+            // Closing the whole pane from under a reader who asked to leave one
+            // control would take two decisions out of one keystroke.
+            if (State.RawHatchOpen)
+            {
+                await State.ToggleRawHatchAsync();
+                return;
+            }
+
+            await CloseToListAsync();
             return;
         }
 
         if (e.CtrlKey && e.ShiftKey && e.Key is "M" or "m") await State.ToggleRawHatchAsync();
+    }
+
+    // --- Focus between the two halves --------------------------------------
+    //
+    // In reading order the pane comes after the whole list, so plain Tab from the
+    // open row lands on the next row and the pane is only reachable after every
+    // remaining one. These three are the shortcut across, the way back, and the
+    // rule that decides when the pane goes away.
+
+    /// <summary>Tab off the open row moves into the pane beside it.</summary>
+    private async Task MoveFocusToDetailAsync()
+    {
+        if (State.SelectedRow is null || _detailRow is null) return;
+
+        await _detailRow.FocusFirstAsync();
+    }
+
+    /// <summary>Shift+Tab off the front of the pane moves back to the open row.
+    /// The same move Escape makes, minus the closing.</summary>
+    private async Task MoveFocusToListAsync()
+    {
+        if (_list is null) return;
+
+        await _list.FocusSelectedAsync();
+    }
+
+    /// <summary>Escape: back to the row, then closed. In that order, because the
+    /// list is asked to focus the row it still has selected — clearing first would
+    /// leave nothing to aim at and the focus on a pane that is no longer
+    /// there.</summary>
+    private async Task CloseToListAsync()
+    {
+        await MoveFocusToListAsync();
+        await State.SelectAsync(null);
+    }
+
+    /// <summary>
+    /// The focus left both halves, so nothing is open any more.
+    /// <para>
+    /// Which is the same thing as the pane going away, and the reason it is
+    /// focusout on the region containing both rather than a blur on either: moving
+    /// from the row into the pane is a move <em>within</em> the region and must not
+    /// clear anything, and neither is picking a status chip or dragging the
+    /// separator.
+    /// </para>
+    /// <para>
+    /// Where the focus went is asked of the document afterwards rather than read
+    /// off the event, because Blazor's <c>FocusEventArgs</c> has no
+    /// <c>relatedTarget</c>: it carries the event type and nothing else. The
+    /// question is also asked the strict way round — did the focus land on
+    /// something else — so that a focus which landed nowhere, as it does when a
+    /// closing date picker takes the focused element with it, is not read as the
+    /// reader having moved on.
+    /// </para>
+    /// <para>
+    /// A failed question leaves the selection alone. An unanswerable "did they
+    /// leave?" is not a yes, and closing the pane somebody is using is the more
+    /// expensive way to be wrong.
+    /// </para>
+    /// </summary>
+    private async Task OnPaneFocusOutAsync()
+    {
+        if (State.SelectedRow is null) return;
+
+        bool left;
+
+        try
+        {
+            left = await JS.InvokeAsync<bool>("backlogFocusOutside", PaneElementId);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        if (!left) return;
+
+        await State.SelectAsync(null);
     }
 
     // --- Writes ------------------------------------------------------------

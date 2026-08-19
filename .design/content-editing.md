@@ -168,6 +168,7 @@ related: [".design/content-editing.md#structured-metadata-sigils", ".domain/back
 | `repeat:` | recurrence | `` `repeat:weekly` ``, `` `repeat:weekdays` ``, `` `repeat:2w` `` |
 | `myday:` | My Day | `` `myday:2026-08-19` `` |
 | `after:` | dependency | `` `after:a1b2c3` `` — may repeat |
+| `view:` | which reading of the body to open in | `` `view:steps` ``, `` `view:notes` `` |
 
 A full metadata line mixes both forms, sigils first:
 
@@ -187,6 +188,9 @@ A full metadata line mixes both forms, sigils first:
 | Unknown tokens survive an edit | A `name:value` token the parser does not recognize MUST be preserved when an unrelated field is changed, on the same terms as the backward-compatibility rule for sigils. It is unrecognized, not invalid. |
 | Absent means absent | An unset field carries no token rather than an empty one. `` `due:` `` with nothing after it is malformed, not "no due date". |
 | Canonical rewrite is destructive by design | Saving rewrites the metadata line into canonical form from the entry model, so a token the model cannot represent does not survive the next save. A new token MUST therefore be added to the domain model, the entry DTO, and the canonical rewrite in the same change — adding it to the parser alone loses data silently, with no error. |
+| `view:` is a preference, not a fact about the work | The steps list and the Markdown block are two readings of the same body (`#backlog-entry-structure`), and `view:` records which one an entry opens in. It is the one token here that says nothing about the task — it is about looking at it. It rides on this line anyway because Markdown is canonical (`#editing-model`): a preference kept in a sidecar would not survive the file being shared, and whoever opened the entry from a clone would get somebody else's default. |
+| A view is chosen, never derived onto the line | An entry nobody has expressed a preference about carries no `view:` token and MUST NOT acquire one by being saved — "absent means absent" applies here too. The surface picks a sensible reading for an entry with no token (an entry with no `##` chapters has no steps to list), and that choice stays in the surface: a default written into the text is a preference nobody made, and it would have to be unwritten from every entry before the default could change. |
+| Neither reading may hide text without saying so | The steps reading lists `##` chapters, so prose an entry opens with has no row. Where a reading omits body text that exists, the surface MUST say so and offer the Markdown block in the same breath. Silently showing less than the entry holds reads as text the app has lost, which is the failure `#round-trip-fidelity` exists to prevent — only on screen rather than on disk. |
 
 ## Live Parse Confirmation
 
@@ -292,7 +296,8 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/typogr
 | Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Markdown* → **Edit and read** |
 | Scheduling and dependency tokens | Read and written by `EntryTextParser`; `TaskAction` is the shape a control over one takes | Storybook → *Task list* → **The detail pane's rows** |
-| Entry list and detail pane | `SplitPane` over a `TaskListView` of entries and one open entry: its own row, its steps as a second `TaskListView`, the `TaskAction` rows, the selectors, a `MarkdownEditor` over the note, and the raw hatch | Storybook → *Task list*; *Layout* → **Split pane** |
+| Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as either a `TaskListView` of steps or one `MarkdownEditor`, the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **Split pane**, **Split pane, anchored to the end** |
+| The body's two readings | One region, switched by `view:` and remembered on the entry; the steps reading says so when the body holds prose it is not showing | Backlog pane → the **Steps** / **Markdown** chips |
 | Raw-Markdown escape hatch | The whole entry's canonical text in a mono `TextArea`, with the live "reads as" hint under it | Backlog pane → the **Markdown** toggle, or Ctrl+Shift+M |
 
 What is true today, and where it differs from the model above:

@@ -69,6 +69,7 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
         entry.SetOrder(Math.Max(order, 0));
         entry.SetArea(parsed.Area);
         ApplyScheduling(entry, parsed);
+        ApplyPresentation(entry, parsed);
         EntryTextSync.SyncSubItems(entry, parsed.SubItems);
 
         await entries.SaveAsync(entry, cancellationToken);
@@ -106,6 +107,7 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
         entry.SetTags(parsed.Tags);
         entry.SetArea(parsed.Area);
         ApplyScheduling(entry, parsed);
+        ApplyPresentation(entry, parsed);
 
         if (parsed.Status is { } targetStatus) entry.SetStatus(targetStatus);
 
@@ -146,4 +148,24 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
         entry.SetInMyDayOn(parsed.InMyDayOn);
         entry.SetDependsOn(parsed.DependsOn ?? []);
     }
+
+    /// <summary>
+    /// Writes the one token on the metadata line that is about the reader rather
+    /// than about the work: which reading of the body they last asked for.
+    /// <para>
+    /// Its own method rather than a sixth line in <see cref="ApplyScheduling"/>,
+    /// because grouping it with the due date would quietly claim it is the same kind
+    /// of fact. A due date is a promise about the work; this is a preference about
+    /// looking at it, and the only reason the aggregate holds it at all is that the
+    /// canonical rewrite composes the metadata line from the entry — see
+    /// <see cref="EntryView"/>.
+    /// </para>
+    /// <para>
+    /// Unconditional for the same reason the scheduling fields are: deleting the
+    /// token is how a reader goes back to having expressed no preference, and that
+    /// is only true if an absent token means absent.
+    /// </para>
+    /// </summary>
+    private static void ApplyPresentation(BacklogEntry entry, EntryTextParser.ParsedEntry parsed) =>
+        entry.SetView(parsed.View);
 }

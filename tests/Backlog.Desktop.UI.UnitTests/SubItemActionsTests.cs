@@ -3,21 +3,28 @@ using Bunit;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The two hand-offs a step offers, asserted on the rendered markup rather than on
-/// the state behind it.
+/// What a step offers, and — now the more important half — what it does not.
 /// <para>
-/// These exist because both buttons were once lost as collateral: they lived
-/// inside the sub-item metadata row, that row was removed along with the
-/// type/priority/status/tag selectors on it — which was the decision — and the two
-/// actions went with it, which was not. Nothing failed. The state methods behind
-/// them still existed and were still covered, so the only thing that had changed
-/// was that no one could reach them.
+/// A step used to carry two hand-off buttons of its own: push this chapter to GitHub
+/// as its own issue, and start Copilot CLI. They have been removed twice. The first
+/// time was collateral — they lived inside the sub-item metadata row, that row was
+/// deleted along with the selectors on it, and nothing failed because the state
+/// methods behind them were still covered. So they were restored, and asserted here.
 /// </para>
 /// <para>
-/// Which is exactly why they are asserted again here after the cards became the
-/// shared task list. A list of rows has no slot for a host's own controls unless
-/// somebody asks for one, and the cheapest way through that would have been to drop
-/// these two again. They arrive through <c>TaskListView.RowActions</c> instead.
+/// This time the removal is the decision, and it comes out of the model rather than
+/// out of taste. <c>.domain/backlog/domain.md</c> says a Sub-Item "may project to
+/// GitHub issue task-list checkboxes" — checkboxes inside the entry's issue — and
+/// <c>ProjectionRef</c> is owned by <c>BacklogEntry</c> and never by <c>SubItem</c>.
+/// A step that was its own issue had nowhere to record the link it got back, so it
+/// could be filed again and again with nothing noticing. The Copilot button was worse
+/// than wrong: it handed over the <em>parent</em> entry from a row that made it look
+/// like it acted on the step.
+/// </para>
+/// <para>
+/// So these tests are the other side of the same fact. The hand-offs are asserted
+/// where they belong — on the entry, in a group that says so out loud — and asserted
+/// absent from a step, so a third accidental restoration fails instead of shipping.
 /// </para>
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
@@ -31,13 +38,13 @@ public sealed class SubItemActionsTests
         "How the store gets wired.\n";
 
     [Fact]
-    public async Task A_sub_item_offers_both_hand_offs_when_their_gates_are_open()
+    public async Task A_step_offers_no_hand_off_of_its_own()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(EntryWithSubItem);
 
-        // Every gate the markup asks about: the feature, a configured GitHub, a
-        // persisted row, and an area that resolves to a repository.
+        // Every gate the removed markup used to ask about is open, so an absent
+        // button here is a decision rather than an unmet condition.
         Assert.True(host.Features.IsEnabled(BacklogFeatures.GitHubIntegration));
         Assert.True(host.Features.IsEnabled(AppFeatureKeys.CopilotCli));
         Assert.True(host.State.GitHubConfigured);
@@ -46,39 +53,52 @@ public sealed class SubItemActionsTests
 
         var pane = host.Render();
 
-        // The steps are the shared task list now, so a row is named by the list plus
-        // its index rather than by a testid the pane wrote itself.
+        // The step itself is still there, listed by the shared task list.
         Assert.Single(pane.FindAll("[data-testid='subitem-list-0']"));
-        Assert.Single(pane.FindAll("[data-testid='subitem-github-push-button']"));
-        Assert.Single(pane.FindAll("[data-testid='subitem-copilot-cli-button']"));
+
+        Assert.Empty(pane.FindAll("[data-testid='subitem-github-push-button']"));
+        Assert.Empty(pane.FindAll("[data-testid='subitem-copilot-cli-button']"));
     }
 
-    /// <summary>The push button names the repository it would create the issue in,
-    /// because "create an issue" without saying where is the one thing a person
-    /// would want to check before pressing it.</summary>
+    /// <summary>The hand-offs live on the entry, and say so. "Create an issue"
+    /// without saying what is being filed is the one thing a person would want to
+    /// check before pressing it — and it was ambiguous for exactly as long as an
+    /// identical button sat on a step.</summary>
     [Fact]
-    public async Task The_push_button_names_the_repository_it_would_write_to()
-    {
-        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        await host.WriteEntryAsync(EntryWithSubItem);
-
-        var push = host.Render().Find("[data-testid='subitem-github-push-button']");
-
-        Assert.Equal("Create an issue in JSdotNet/Backlog", push.GetAttribute("aria-label"));
-    }
-
-    [Fact]
-    public async Task Pressing_the_push_button_creates_the_issue_for_that_sub_item()
+    public async Task The_hand_offs_are_grouped_and_labelled_as_acting_on_the_whole_entry()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         await host.WriteEntryAsync(EntryWithSubItem);
 
         var pane = host.Render();
-        await pane.Find("[data-testid='subitem-github-push-button']").ClickAsync(new());
 
-        // The sub-item's own title, in the parent's repository — the sub-item has
-        // no repository of its own to disagree about.
-        Assert.Equal("Wire up the store", host.Client.CreatedTitle);
+        var group = pane.Find("[data-testid='entry-detail'] .entry-doc__actions");
+        Assert.Equal("group", group.GetAttribute("role"));
+        Assert.Equal(
+            "Hand over the whole entry: Ship the sync spike",
+            group.GetAttribute("aria-label"));
+
+        Assert.Equal(
+            "Create an issue for this whole entry in JSdotNet/Backlog",
+            pane.Find("[data-testid='github-push-button']").GetAttribute("aria-label"));
+
+        Assert.Equal(
+            "Start GitHub Copilot CLI for this whole entry",
+            pane.Find("[data-testid='copilot-cli-button']").GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public async Task Pressing_the_entry_push_creates_the_issue_for_the_entry()
+    {
+        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        await host.WriteEntryAsync(EntryWithSubItem);
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='github-push-button']").ClickAsync(new());
+
+        // The entry's own title, not the step's — which is what the removed button
+        // made ambiguous.
+        Assert.Equal("Ship the sync spike", host.Client.CreatedTitle);
         Assert.Equal("JSdotNet/Backlog", host.Client.CreatedRepository);
     }
 
@@ -94,8 +114,8 @@ public sealed class SubItemActionsTests
 
         var pane = host.Render();
 
-        Assert.Empty(pane.FindAll("[data-testid='subitem-github-push-button']"));
-        Assert.Single(pane.FindAll("[data-testid='subitem-copilot-cli-button']"));
+        Assert.Empty(pane.FindAll("[data-testid='github-push-button']"));
+        Assert.Single(pane.FindAll("[data-testid='copilot-cli-button']"));
     }
 
     /// <summary>An entry with nowhere to push has no push button. Without a
@@ -111,15 +131,13 @@ public sealed class SubItemActionsTests
 
         var pane = host.Render();
 
-        // The steps are the shared task list now, so a row is named by the list plus
-        // its index rather than by a testid the pane wrote itself.
         Assert.Single(pane.FindAll("[data-testid='subitem-list-0']"));
-        Assert.Empty(pane.FindAll("[data-testid='subitem-github-push-button']"));
+        Assert.Empty(pane.FindAll("[data-testid='github-push-button']"));
     }
 
-    /// <summary>The sub-item metadata selectors are not coming back. Their removal
-    /// was the decision the restored buttons above were collateral to, so this is
-    /// the other half of that fact written down.</summary>
+    /// <summary>The sub-item metadata selectors are not coming back either. Their
+    /// removal was the decision the hand-off buttons were once collateral to, so this
+    /// is the other half of that fact written down.</summary>
     [Fact]
     public async Task A_sub_item_still_has_no_type_priority_status_or_tag_editor()
     {

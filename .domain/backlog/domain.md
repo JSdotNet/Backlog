@@ -71,6 +71,21 @@ no invariant against one. A cycle spans aggregate boundaries, so no single entry
 can enforce its absence transactionally; and which edge in a loop is the wrong
 one is answerable only by the person who wrote them.
 
+The entry also carries one attribute that is not a fact about the work at all.
+`view` records which reading of the body the person last asked for - the steps,
+or the Markdown block those steps are written in - and it is a display preference
+rather than domain state: nothing in the lifecycle reads it, no invariant depends
+on it, and an entry that has never been looked at simply does not have one. It is
+named here because it is stored on the entry, and it is stored on the entry
+because the Markdown is canonical (`.arc42/02-constraints.md#technical-constraints`):
+a preference kept in a sidecar or in a per-device setting would not survive the
+file being shared, and whoever opened the entry from a clone would get somebody
+else's default instead of the way this entry is meant to be read. The
+alternative - deriving it every time from whether the body happens to contain
+sub-items - is what happens when the attribute is absent, and it cannot record a
+person disagreeing with that guess. Its spelling on the metadata line is
+`.design/content-editing.md#scheduling-and-dependency-tokens`.
+
 An entry spawned as the next occurrence of a repeating one carries
 `recurrence_source_id`, naming the occurrence it followed. It is provenance in
 the same spirit as `source_inbox_id` and carries no invariant: a spawned entry
@@ -84,7 +99,11 @@ since have been archived or deleted.
 An ordered breakdown step owned by the entry, with its own `title`,
 `Sub-Item Status`, optional `notes`, and `order`. It has identity within the
 aggregate but no meaning outside it. Sub-items can be reordered, added, or removed
-independently and may project to GitHub issue task-list checkboxes.
+independently and may project to GitHub issue task-list checkboxes - checkboxes
+inside the entry's own issue. A sub-item is never projected as an issue of its
+own: `Projection Ref` is owned by the entry and there is nowhere on a step to
+record one, so a step filed separately could be filed again with nothing able to
+tell that it already had been.
 
 A step, in the product's language, is a sub-item - there is no second concept
 for one. A sub-item carries those four attributes and nothing else: no entry

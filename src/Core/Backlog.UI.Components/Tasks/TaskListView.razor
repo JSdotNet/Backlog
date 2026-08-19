@@ -51,6 +51,18 @@
     }
 </ul>
 
+@* The host's own place in the list, under the open rows and above the finished
+   ones.
+
+   It exists because "add one more" belongs at the end of the work rather than at
+   the end of the document: this list owns the Completed section, so a control the
+   host rendered after the whole component landed underneath a fold of things
+   already done. A slot rather than an AddLabel parameter — what a host adds, and
+   what it calls it, is not a list this library can finish — and an unfilled one
+   renders nothing at all, so the markup is exactly what it was before the slot
+   existed. *@
+@AfterOpenRows
+
 @* Where the row landed, for anyone who cannot see that it moved. Always
    rendered rather than appearing with the first move: a live region has to be in
    the DOM before it changes, or the first announcement is the one nobody
@@ -163,6 +175,7 @@
                    OnToggle="OnToggle"
                    OnSelected="OnSelected"
                    OnRename="OnRename"
+                   DirectRename="@DirectRename"
                    OnBodyChanged="OnBodyChanged"
                    Actions="@RowActions"
                    AllowCopy="@AllowCopy"
@@ -176,6 +189,7 @@
                    OnDrop="Drop"
                    OnDragEnd="EndDrag"
                    RowElementId="@RowElementId(task)"
+                   OnTabForward="@TabForwardFor(task)"
                    OnKeyboardMove="delta => MoveByKeyboardAsync(task, delta)"
                    TestId="@RowTestId(task)" />;
 
@@ -204,6 +218,13 @@
     [Parameter]
     public EventCallback<TaskRename> OnRename { get; set; }
 
+    /// <summary>Whether every row's title is a field from the start rather than
+    /// behind a pencil. Straight through to every row, exactly like OnRename: how a
+    /// title is edited is one answer for the whole list, and a list that decided it
+    /// per row would put a pencil on some titles and a caret on others.</summary>
+    [Parameter]
+    public bool DirectRename { get; set; }
+
     /// <summary>Straight through to every row, exactly like OnRename: whether a
     /// body can be edited is one answer for the whole list, and a list that
     /// decided it per row would be deciding which tasks are the reader's.
@@ -224,6 +245,18 @@
     [Parameter]
     public bool GroupCompleted { get; set; } = true;
 
+    /// <summary>
+    /// The host's own content between the open rows and the Completed section.
+    /// <para>
+    /// For the control that adds one more of whatever these are. The list owns the
+    /// Completed section, so a host rendering that control after the component put
+    /// it below a fold of finished work — which is the one place in the list where
+    /// nothing new is going to appear.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? AfterOpenRows { get; set; }
+
     [Parameter]
     public string CompletedLabel { get; set; } = "Completed";
 
@@ -232,6 +265,19 @@
     /// new order is saved anywhere.</summary>
     [Parameter]
     public EventCallback<TaskMove> OnReorder { get; set; }
+
+    /// <summary>
+    /// The reader tabbed forward off the selected row.
+    /// <para>
+    /// Offered for the selected row alone, because it is the only row a host has
+    /// somewhere else to send the focus to: what a host puts beside a list is
+    /// about the row that is open. Every other row keeps plain Tab, which is the
+    /// next row — so this narrows the hand-off to the one case where the document
+    /// order is the wrong answer, rather than taking Tab away from the list.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnSelectedTabForward { get; set; }
 
     /// <summary>Whether rows can be picked up at all. Off for a list whose order
     /// is not the reader's to choose — one sorted by date, or a search result.</summary>
@@ -355,7 +401,45 @@
     /// on it after a move. Derived from the task id rather than generated, because
     /// the id has to be computable here — this is the only place that knows which
     /// row was just moved.</summary>
-    private string RowElementId(TaskRow task) => $"{_listId}-{Slug(task.Id)}";
+    private string RowElementId(TaskRow task) => RowElementId(task.Id);
+
+    private string RowElementId(string taskId) => $"{_listId}-{Slug(taskId)}";
+
+    /// <summary>Which rows are offered the forward hand-off: the selected one, and
+    /// an empty callback — so <c>HasDelegate</c> is false and the row keeps plain
+    /// Tab — for all the others.</summary>
+    private EventCallback TabForwardFor(TaskRow task) =>
+        string.Equals(SelectedId, task.Id, StringComparison.Ordinal) ? OnSelectedTabForward : default;
+
+    /// <summary>
+    /// Puts the focus back on the selected row.
+    /// <para>
+    /// The way back in from wherever a host sent the focus when
+    /// <see cref="OnSelectedTabForward"/> fired, and the reason it is a method here
+    /// rather than an id the host holds: row elements are named from a list-private
+    /// prefix so two lists showing the same task ids cannot mint the same ids, and
+    /// that prefix is not the host's to know.
+    /// </para>
+    /// <para>
+    /// The row's line rather than the circle in front of it, exactly like the
+    /// focus restored after a keyboard move: the line is what carries the
+    /// selection and where Alt+Arrow is heard.
+    /// </para>
+    /// </summary>
+    public async Task FocusSelectedAsync()
+    {
+        if (SelectedId is not { Length: > 0 } id) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", RowElementId(id));
+        }
+        catch (Exception)
+        {
+            // Guarded exactly as the post-move focus below is: the row is still
+            // there and still usable without its focus ring.
+        }
+    }
 
     /// <summary>An id an HTML document will accept. Task ids are the host's and
     /// may hold anything; everything outside the safe set becomes a hyphen.</summary>
