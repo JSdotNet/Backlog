@@ -28,14 +28,21 @@
 <div class="@ViewClass">
 @foreach (var (block, index) in Blocks.Select((block, index) => (block, index)))
 {
-    @if (Annotated)
+    @* A `meta` fence describes the heading it sits under, so where it can be it
+       is drawn as part of that heading rather than as the block after it: the
+       heading becomes the record's headline and the fence's own turn here is
+       skipped. *@
+    @if (OwnedByHeadingBefore(index))
+    {
+    }
+    else if (Annotated)
     {
         @* Only wrapped when there is something to hang off a block. A div around
            every block changes what a stylesheet sees, and a read view nobody
            annotates should render exactly what it rendered before. *@
         <div class="md-block-row" data-block="@index">
-            <div class="md-block @(CommentsOn(index).Count > 0 ? "md-block--commented" : string.Empty)">
-                @RenderBlock(block)
+            <div class="md-block @(NotesOn(index).Count > 0 ? "md-block--commented" : string.Empty)">
+                @RenderContent(block, index)
                 @if (CanComment)
                 {
                     <button type="button"
@@ -44,9 +51,9 @@
                             data-testid="@($"markdown-comment-{index}")"
                             @onclick="() => OnAddComment.InvokeAsync(index)">
                         <span aria-hidden="true">💬</span>
-                        @if (CommentsOn(index).Count > 0)
+                        @if (NotesOn(index).Count > 0)
                         {
-                            <span class="md-block__count">@CommentsOn(index).Count</span>
+                            <span class="md-block__count">@NotesOn(index).Count</span>
                         }
                     </button>
                 }
@@ -73,29 +80,14 @@
                comments, so the margin layout works for them for free and there is
                no second layout to keep in step. *@
             <div class="md-block-row__notes">
-                @RenderComments(CommentsOn(index))
-                @RenderProposals(ProposalsOn(index))
+                @RenderComments(NotesOn(index))
+                @RenderProposals(SuggestionsOn(index))
             </div>
         </div>
     }
-    @* A `meta` fence describes the heading it sits under, so where it can be it
-       is drawn as part of that heading rather than as the block after it: the
-       heading becomes the record's headline and the fence's own turn is
-       skipped. Only outside annotated mode — see PairedMetaFence. *@
-    else if (!OwnedByHeadingBefore(index))
+    else
     {
-        @if (block is MdHeading paired && PairedMetaFence(index) is { } fence)
-        {
-            <KnowledgeMetaView Metadata="@MetadataOf(fence)"
-                               Folder="@KnowledgeFolder"
-                               OnNavigate="@OnKnowledgeNavigate"
-                               HrefFor="@KnowledgeHrefFor"
-                               Heading="@RenderHeading(paired)" />
-        }
-        else
-        {
-            @RenderBlock(block)
-        }
+        @RenderContent(block, index)
     }
 }
 </div>
@@ -125,6 +117,77 @@
     /// drift out of reach.</para></summary>
     private RenderFragment RenderHeading(MdHeading heading) =>
         @<p class="md-heading md-heading--@heading.Level" role="heading" aria-level="@heading.Level">@RenderInlines(heading.Content)</p>;
+
+    /// <summary>
+    /// One block as it appears in the document, wherever it appears: annotated in
+    /// a row of its own, or plain in the flow.
+    ///
+    /// <para>It exists because the two layouts used to answer the metadata
+    /// question differently — annotated documents left a chapter's status sitting
+    /// in its own code fence — and a reader reviewing a chapter is exactly the
+    /// reader who needs to see whether it is still current. One fragment for both
+    /// means there is no second place for that answer to drift.</para>
+    /// </summary>
+    private RenderFragment RenderContent(MdBlock block, int index) => __builder =>
+    {
+        if (block is MdHeading heading)
+        {
+            @* Not a heading's job to know it is a record's headline; the fence
+               under it is what decides that. *@
+            if (PairedMetaFence(index) is { } fence)
+            {
+                <KnowledgeMetaView Metadata="@MetadataOf(fence)"
+                                   Folder="@KnowledgeFolder"
+                                   OnStatusChanged="status => ReportStatusAsync(index, status)"
+                                   OnNavigate="@OnKnowledgeNavigate"
+                                   HrefFor="@KnowledgeHrefFor"
+                                   Heading="@RenderChapterHead(heading, index)" />
+            }
+            else
+            {
+                @RenderChapterHead(heading, index)
+            }
+
+            return;
+        }
+
+        @RenderBlock(block)
+    };
+
+    /// <summary>
+    /// A heading, and the one thing a reader wants to do with the chapter under
+    /// it: take it away with them.
+    ///
+    /// <para>Beside the heading rather than at the end of the chapter, because
+    /// the heading is what a reader is looking at when they decide they want it,
+    /// and because a chapter's end is not a place on the screen — a long one ends
+    /// somewhere off the fold.</para>
+    ///
+    /// <para>The heading element itself is untouched: it is what heading
+    /// navigation matches on, and it is rendered from the same fragment whether
+    /// or not there is anything to copy.</para>
+    /// </summary>
+    private RenderFragment RenderChapterHead(MdHeading heading, int index) => __builder =>
+    {
+        if (ChapterAt(index) is not { } chapter)
+        {
+            @RenderHeading(heading)
+            return;
+        }
+
+        <div class="md-chapter-head">
+            @RenderHeading(heading)
+            @* The markdown, not the rendering, for the reason the file-level copy
+               gives: the source is what round trips. *@
+            <CopyButton Text="@chapter.Text"
+                        Label="@($"Copy {chapter.Title}")"
+                        CssClass="md-chapter-head__copy"
+                        ButtonCssClass="md-copy md-chapter-copy"
+                        StatusCssClass="md-copy__status"
+                        ButtonTestId="@($"markdown-chapter-copy-{index}")"
+                        StatusTestId="@($"markdown-chapter-copy-status-{index}")" />
+        </div>
+    };
 
     private RenderFragment RenderBlock(MdBlock block) => __builder =>
     {
@@ -509,6 +572,15 @@
     [Parameter]
     public string CopyLabel { get; set; } = "Copy markdown";
 
+    /// <summary>Whether each heading offers to copy its own chapter as well.
+    /// Needs <see cref="Source"/> for the same reason the file-level copy does,
+    /// and needs the blocks to have come from it: the chapters are sliced out of
+    /// that text and matched to the headings on screen, and where the two
+    /// disagree no button is offered rather than one that copies from the wrong
+    /// place.</summary>
+    [Parameter]
+    public bool AllowChapterCopy { get; set; }
+
     /// <summary>Comments against blocks of this view. Anchored by block index,
     /// and re-anchoring when blocks move is the host's — see MarkdownComment.</summary>
     [Parameter]
@@ -596,12 +668,91 @@
     [Parameter]
     public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
 
+    /// <summary>Raised when a reader picked a different status in the record
+    /// beside a chapter's heading. Nothing here writes it — see
+    /// <see cref="KnowledgeStatusChange"/> for what the host is being told and
+    /// what it still owns.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeStatusChange> OnKnowledgeStatusChanged { get; set; }
+
     /// <summary>Parsed metadata blocks, kept per block. A view re-renders far
     /// more often than its blocks change — every comment edit redraws all of
     /// them — and re-parsing the same fence each time buys nothing.</summary>
     private readonly Dictionary<MdCode, KnowledgeMetadata> _metadata = [];
 
-    protected override void OnParametersSet() => _metadata.Clear();
+    /// <summary>Which chapter of the source each heading block is the top of.
+    /// Empty when the source was not given, or when what it splits into does not
+    /// match what is being rendered.</summary>
+    private readonly Dictionary<int, MarkdownChapter> _chapters = [];
+
+    private string? _splitSource;
+    private IReadOnlyList<MdBlock>? _splitBlocks;
+
+    protected override void OnParametersSet()
+    {
+        _metadata.Clear();
+
+        // Splitting walks the whole file, and a view re-renders for reasons that
+        // have nothing to do with it — a comment being typed, most of all. Only
+        // the two inputs the alignment is made of can invalidate it.
+        if (_splitSource == Source && ReferenceEquals(_splitBlocks, Blocks)) return;
+
+        AlignChapters();
+        _splitSource = Source;
+        _splitBlocks = Blocks;
+    }
+
+    /// <summary>
+    /// Matches the chapters of the source to the headings on screen, by order and
+    /// by level.
+    /// <para>
+    /// Both checks, because there is no id to match on: the blocks carry no
+    /// offsets back into the text they were parsed from. Order alone would hand a
+    /// heading the wrong chapter the moment the two lists disagree — which they
+    /// do whenever the blocks did not come from this source, or came from
+    /// <see cref="MarkdownPreview.Parse"/>, where a <c>##</c> is folded into a
+    /// sub-item and never appears as a heading at all. A mismatch anywhere
+    /// abandons the whole alignment rather than trusting the prefix that happened
+    /// to line up: a copy button that quietly copies the wrong chapter is worse
+    /// than no copy button.
+    /// </para>
+    /// </summary>
+    private void AlignChapters()
+    {
+        _chapters.Clear();
+        if (string.IsNullOrEmpty(Source)) return;
+
+        var chapters = MarkdownChapters.Split(Source);
+        var headings = Blocks
+            .Select((block, index) => (Index: index, Heading: block as MdHeading))
+            .Where(pair => pair.Heading is not null)
+            .ToList();
+
+        if (chapters.Count != headings.Count) return;
+
+        for (var position = 0; position < headings.Count; position++)
+        {
+            if (headings[position].Heading!.Level != chapters[position].Level)
+            {
+                _chapters.Clear();
+                return;
+            }
+
+            _chapters[headings[position].Index] = chapters[position];
+        }
+    }
+
+    /// <summary>The chapter a heading block is the top of, when the source it was
+    /// sliced from is known and a caller asked for the copy.</summary>
+    private MarkdownChapter? ChapterAt(int index) =>
+        AllowChapterCopy && _chapters.TryGetValue(index, out var chapter) ? chapter : null;
+
+    /// <summary>The heading a status change should name, which is the chapter's
+    /// title when the source is known. Read whether or not the copy button was
+    /// asked for: what the change is called does not depend on that.</summary>
+    private Task ReportStatusAsync(int index, string status) =>
+        OnKnowledgeStatusChanged.InvokeAsync(
+            new KnowledgeStatusChange(index, _chapters.TryGetValue(index, out var chapter) ? chapter.Title : null, status));
 
     private KnowledgeMetadata MetadataOf(MdCode block)
     {
@@ -615,15 +766,17 @@
     /// <summary>The <c>meta</c> fence a heading at this index owns, if it wrote
     /// one directly underneath — which is where the convention puts it.
     ///
-    /// <para>Never in annotated mode. There every block is wrapped in a row
-    /// carrying its own index and comments are anchored to those indices;
-    /// folding two blocks into one row would leave the fence's comments pointing
-    /// at a row that no longer exists. Annotated documents keep the stacked
-    /// rendering, and the status simply stays in its own block.</para></summary>
+    /// <para>In annotated mode too. It used to be skipped there, on the grounds
+    /// that folding two blocks into one row would leave the fence's comments
+    /// pointing at a row that no longer exists — true, and answered by the row
+    /// taking both indices' notes rather than by giving up the pairing. The cost
+    /// of giving it up was that a reviewed chapter — the one document whose
+    /// currency a reader most needs to see — was the only one that showed its
+    /// status as a raw code fence.</para></summary>
     private MdCode? PairedMetaFence(int index) =>
-        !Annotated
-        && RenderKnowledgeMetadata
+        RenderKnowledgeMetadata
         && index + 1 < Blocks.Count
+        && Blocks[index] is MdHeading
         && Blocks[index + 1] is MdCode fence
         && KnowledgeMeta.IsMetaBlock(fence.Language)
             ? fence
@@ -633,7 +786,29 @@
     /// heading above it — in which case its own turn in the loop is a no-op
     /// rather than a second rendering.</summary>
     private bool OwnedByHeadingBefore(int index) =>
-        index > 0 && Blocks[index - 1] is MdHeading && PairedMetaFence(index - 1) is not null;
+        index > 0 && PairedMetaFence(index - 1) is not null;
+
+    /// <summary>
+    /// The comments a row shows: its own, and the fence's when it drew one.
+    ///
+    /// <para>Anchors are untouched by the pairing — a comment on the fence still
+    /// says the fence's index, and the host that wrote it has nothing to fix up.
+    /// Only where it is *drawn* moves, into the row of the heading the fence was
+    /// folded into, which is the row that is level with it on the screen. The
+    /// alternative was an empty row carrying notes for a block the reader can no
+    /// longer see.</para>
+    /// </summary>
+    private IReadOnlyList<MarkdownComment> NotesOn(int index) =>
+        PairedMetaFence(index) is null
+            ? CommentsOn(index)
+            : [.. CommentsOn(index), .. CommentsOn(index + 1)];
+
+    /// <summary>The proposals a row shows, merged for the same reason its
+    /// comments are.</summary>
+    private IReadOnlyList<AiProposal> SuggestionsOn(int index) =>
+        PairedMetaFence(index) is null
+            ? ProposalsOn(index)
+            : [.. ProposalsOn(index), .. ProposalsOn(index + 1)];
 
     private bool CanToggle => OnTaskItemToggled.HasDelegate;
 

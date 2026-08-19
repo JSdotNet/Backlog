@@ -65,6 +65,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
         builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        builder.Services.AddSingleton<IGitFileHistoryService, GitFileHistoryService>();
         builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
         builder.Services.AddSingleton<ICopilotUsageClient>(sp => new CopilotUsageClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 

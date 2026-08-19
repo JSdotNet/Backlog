@@ -60,7 +60,7 @@ internal static class StorybookIndex
         ]),
         new("Content",
         [
-            new("file-view", "File view", "FileView: a file's header, and its contents read as markdown or as code."),
+            new("file-view", "File view", "FileView: a file's header and its actions — copy, edit, compare — over contents read as markdown or as code, with each chapter's status, diagrams and remarks drawn from the file itself."),
             new("folder-view", "Folder view", "FolderView: a folder's header, and what is in it as a tree — the knowledge menu with the vocabulary taken out."),
             new("markdown", "Markdown", "MarkdownView: every block and inline the read view renders, and how each is styled.", Exact: true),
             new("markdown/diagrams", "Diagrams in markdown", "What happens when a fenced block names a diagram language: MarkdownView hands it to DiagramView."),

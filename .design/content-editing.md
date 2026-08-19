@@ -291,7 +291,9 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/typogr
 |---|---|---|
 | Parser | `MarkdownPreview` (`src/Core/Backlog.UI.Components/Markdown`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
 | Read view | `MarkdownView` | Storybook → *Markdown* |
-| Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header | Storybook → *File view* |
+| Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header. The header also carries what a reader does to the file (copy, edit, compare), and a Markdown body is read whole: each chapter's `meta` status beside its heading, each diagram where its fence is, a copy button per chapter, and remarks in the margin | Storybook → *File view* → **A knowledge chapter, whole** |
+| Comparison surface | `MarkdownCompare` (a pure function over two texts) and `MarkdownCompareView`, aligned by heading and never by line. `Bare` gives up its frame so `FileView` can show it without a second header or a second scroll region | Storybook → *Section comparison*, and *File view* → **Compared against two versions of itself** |
+| Chapter remarks | `MarkdownView` comments, anchored to a block index rather than a character range, drawn inline or in a margin column | Storybook → *Markdown* → **The same comments, in the margin** |
 | Code blocks | `CodeView` — line numbers, copy button, per-language highlighting on the tokens in `color-scheme.md#syntax-highlighting-tokens` | Storybook → *Code* |
 | Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Markdown* → **Edit and read** |
