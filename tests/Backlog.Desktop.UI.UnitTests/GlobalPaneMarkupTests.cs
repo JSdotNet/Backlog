@@ -134,8 +134,10 @@ public sealed class GlobalPaneMarkupTests
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
+        // The entry's own metadata row only. A sub-item no longer has a metadata
+        // row to keep focus out of: it carries a title, a status, notes and an
+        // order, and none of those is edited through a badge.
         Assert.Contains("class=\"entry-doc__meta\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", pane, StringComparison.Ordinal);
-        Assert.Contains("class=\"entry-doc__meta subitem-card__meta\" aria-label=\"Sub-item metadata and actions\" @onmousedown:stopPropagation=\"true\" @onclick:stopPropagation=\"true\"", pane, StringComparison.Ordinal);
     }
 
     /// <summary>

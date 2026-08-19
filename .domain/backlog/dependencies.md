@@ -23,7 +23,7 @@ status: draft
 |---|---|---|---|---|
 | [Inbox](../inbox/domain.md#aggregate-inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` | `.domain/inbox/domain.md#domain-event-itemtriaged` | Relies on Backlog creating a draft entry from a triaged item. |
 | [Second Brain](../second-brain/domain.md#aggregate-knowledge-note) | Partnership | Bi-directional link by id | `.domain/second-brain/domain.md#domain-service-cross-linking` | Notes link to entries and entries link back; either can spawn the other without a shared aggregate. |
-| [Monitoring](../monitoring/domain.md#aggregate-progress-signal) | OHS + Published Language (Backlog = supplier) | Subscribes to status/projection events | `.domain/backlog/domain.md#domain-event-statuschanged`, `.domain/backlog/domain.md#domain-event-entryprojected`, `.domain/backlog/domain.md#domain-event-entrycompleted` | Relies on work-state and projection-state changes for progress signals and GitHub-sync comparison. |`r`n| [Productivity](../productivity/domain.md#aggregate-productivity-ledger) | OHS + Published Language (Backlog = supplier) | Subscribes to `AIWorkLogged` | `.domain/backlog/domain.md#domain-event-aiworklogged` | Relies on AI-assisted activity evidence linked to a backlog item. |
+| [Monitoring](../monitoring/domain.md#aggregate-progress-signal) | OHS + Published Language (Backlog = supplier) | Subscribes to status/projection events | `.domain/backlog/domain.md#domain-event-statuschanged`, `.domain/backlog/domain.md#domain-event-entryprojected`, `.domain/backlog/domain.md#domain-event-entrycompleted`, `.domain/backlog/domain.md#domain-event-occurrencespawned` | Relies on work-state and projection-state changes for progress signals and GitHub-sync comparison, and on occurrence provenance to read a recurring entry as one series rather than as unrelated items. |`r`n| [Productivity](../productivity/domain.md#aggregate-productivity-ledger) | OHS + Published Language (Backlog = supplier) | Subscribes to `AIWorkLogged` | `.domain/backlog/domain.md#domain-event-aiworklogged` | Relies on AI-assisted activity evidence linked to a backlog item. |
 
 ## Notes
 
@@ -33,3 +33,9 @@ status: draft
   done vs. issue still open) is owned jointly with Monitoring.
 - The `ItemTriaged` payload is Inbox's published language; treat it as a stable
   contract, not an Inbox internal.
+- Entry-to-entry dependencies stay inside this context and add no cross-context
+  relationship: `depends_on` holds Backlog Entry ids only, and readiness is
+  derived here rather than published.
+- `OccurrenceSpawned` links a completed occurrence to its successor. Consumers
+  treat the link as provenance, not ownership — each occurrence is a separate
+  entry with its own lifecycle, and a series is not one work item.

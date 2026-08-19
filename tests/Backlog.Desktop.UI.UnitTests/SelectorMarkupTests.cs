@@ -54,14 +54,11 @@ public sealed class SelectorMarkupTests
         }
     }
 
-    [Fact]
-    public void Sub_item_repository_metadata_uses_an_interactive_repository_selector()
-    {
-        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
-
-        Assert.True(CountOccurrences(pane, "<RepositorySelector") >= 2);
-        Assert.Contains("OnSubItemRepositoryChangedAsync", pane, StringComparison.Ordinal);
-    }
+    // There was a fact here requiring a second RepositorySelector on the sub-item
+    // metadata row. That row is gone: it edited a sub-item's repository by
+    // changing the *parent* entry's area, which is not what it looked like it
+    // did, and a sub-item has no area of its own to change. The entry-level
+    // selector is asserted above and is the only one there should be.
 
     [Fact]
     public void Backlog_markup_no_longer_branches_on_is_read_only()
@@ -79,19 +76,6 @@ public sealed class SelectorMarkupTests
         // DOM through its TestId parameter rather than a literal attribute.
         Assert.Contains("TestId=\"entry-title-button\"", pane, StringComparison.Ordinal);
         Assert.Contains("TestId=\"subitem-title-button\"", pane, StringComparison.Ordinal);
-    }
-
-    private static int CountOccurrences(string text, string value)
-    {
-        var count = 0;
-        var index = 0;
-        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
-        {
-            count++;
-            index += value.Length;
-        }
-
-        return count;
     }
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");

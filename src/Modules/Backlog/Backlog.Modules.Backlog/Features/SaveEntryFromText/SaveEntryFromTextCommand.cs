@@ -68,9 +68,16 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
 
         entry.SetOrder(Math.Max(order, 0));
         entry.SetArea(parsed.Area);
+        ApplyScheduling(entry, parsed);
         EntryTextSync.SyncSubItems(entry, parsed.SubItems);
 
         await entries.SaveAsync(entry, cancellationToken);
+
+        // Deliberately no successor here, even for an entry typed straight in as
+        // `!done` with a repeat on it. Spawning is what happens when a save
+        // *completes* an occurrence, and a create has no previous state for the
+        // save to have moved it from — an entry arriving already finished is a
+        // record of something done, not an occurrence just now finishing.
         return entry.ToDto();
     }
 
@@ -82,6 +89,13 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
         var entry = await entries.GetAsync(id, cancellationToken);
         if (entry is null) return NotFound;
 
+        // Read before anything is applied, because "this save completed the
+        // entry" is a statement about the step from one status to another. An
+        // entry that was already Done stays Done and spawns nothing: without this
+        // the next keystroke on a finished repeating entry would spawn a second
+        // successor, and the one after that a third.
+        var wasDone = entry.Status is EntryStatus.Done;
+
         // A title that has momentarily been deleted is not an instruction to
         // rename the entry to nothing — the aggregate would refuse anyway.
         if (!string.IsNullOrWhiteSpace(parsed.Title)) entry.Rename(parsed.Title);
@@ -91,12 +105,39 @@ public sealed class SaveEntryFromTextCommandHandler(IBacklogRepository entries)
         entry.ChangePriority(parsed.Priority ?? entry.Priority);
         entry.SetTags(parsed.Tags);
         entry.SetArea(parsed.Area);
+        ApplyScheduling(entry, parsed);
 
         if (parsed.Status is { } targetStatus) entry.SetStatus(targetStatus);
 
         EntryTextSync.SyncSubItems(entry, parsed.SubItems);
 
         await entries.SaveAsync(entry, cancellationToken);
+
+        if (!wasDone && entry.Status is EntryStatus.Done && entry.Recurrence is not null)
+        {
+            // Saved after the completed occurrence, so a failure here cannot lose
+            // the completion that has already been recorded.
+            await entries.SaveAsync(RecurrencePolicy.NextOccurrence(entry), cancellationToken);
+        }
+
         return entry.ToDto();
+    }
+
+    /// <summary>
+    /// Writes the scheduling and dependency fields on unconditionally, so a token
+    /// that is no longer on the metadata line clears the field it named. This
+    /// follows <c>SetTags</c> and <c>SetArea</c> rather than the
+    /// <c>?? entry.Type</c> fallback that Type and Priority use, and the
+    /// difference is deliberate: type and priority are values an entry always has,
+    /// while these five are absent by default — and "delete the token to clear the
+    /// due date" is only true if an absent token means absent.
+    /// </summary>
+    private static void ApplyScheduling(BacklogEntry entry, EntryTextParser.ParsedEntry parsed)
+    {
+        entry.SetDueOn(parsed.DueOn);
+        entry.SetReminder(parsed.RemindAt);
+        entry.SetRecurrence(parsed.Recurrence);
+        entry.SetInMyDayOn(parsed.InMyDayOn);
+        entry.SetDependsOn(parsed.DependsOn ?? []);
     }
 }

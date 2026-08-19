@@ -112,7 +112,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-roadmap-planning",
           "level": 2,
-          "line": 154,
+          "line": 290,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"

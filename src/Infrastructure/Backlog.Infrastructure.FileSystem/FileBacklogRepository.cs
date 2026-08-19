@@ -231,6 +231,12 @@ public sealed class FileBacklogRepository : IBacklogRepository
             SourceInboxId = entry.SourceInboxId,
             CreatedAt = entry.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
             Area = entry.Area,
+            DueOn = entry.DueOn?.ToString("O", CultureInfo.InvariantCulture),
+            RemindAt = entry.RemindAt?.ToString("O", CultureInfo.InvariantCulture),
+            Recurrence = entry.Recurrence is { } recurrence ? EntryTextParser.RepeatToken(recurrence) : null,
+            InMyDayOn = entry.InMyDayOn?.ToString("O", CultureInfo.InvariantCulture),
+            DependsOn = entry.DependsOn.Count > 0 ? entry.DependsOn.ToList() : null,
+            RecurrenceSourceId = entry.RecurrenceSourceId?.ToString(),
             SubItems = entry.SubItems.Count > 0 ? entry.SubItems.Select(s => new SubItemDto
             {
                 Id = s.Id.ToString(),
@@ -278,10 +284,16 @@ public sealed class FileBacklogRepository : IBacklogRepository
             fm.RepoIds ?? [],
             fm.Tags ?? [],
             string.IsNullOrWhiteSpace(fm.SourceInboxId) ? null : fm.SourceInboxId,
-            ParseCreatedAt(fm.CreatedAt));
+            ParseCreatedAt(fm.CreatedAt),
+            ParseGuid(fm.RecurrenceSourceId));
 
         entry.SetOrder(orderOverride ?? fm.Order ?? 0);
         entry.SetArea(fm.Area);
+        entry.SetDueOn(ParseDate(fm.DueOn));
+        entry.SetReminder(ParseLocalDateTime(fm.RemindAt));
+        entry.SetRecurrence(EntryTextParser.ParseRepeat(fm.Recurrence));
+        entry.SetInMyDayOn(ParseDate(fm.InMyDayOn));
+        entry.SetDependsOn(fm.DependsOn ?? []);
         foreach (var s in (fm.SubItems ?? []).OrderBy(s => s.Order))
         {
             var subItem = entry.CreateSubItemForLoad(
@@ -308,6 +320,28 @@ public sealed class FileBacklogRepository : IBacklogRepository
 
         return DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
     }
+
+    /// <summary>Reads a stored calendar date. Invariant, because the file may have
+    /// been written on another machine and a date is not the place to find out
+    /// what culture that machine was set to.</summary>
+    private static DateOnly? ParseDate(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? null
+            : DateOnly.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : null;
+
+    /// <summary>Reads a stored wall-clock date and time. <c>RoundtripKind</c> keeps
+    /// the value Unspecified rather than assuming the local zone, which is what
+    /// makes a reminder mean the same clock reading on the next device to open the
+    /// file.</summary>
+    private static DateTime? ParseLocalDateTime(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? null
+            : DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var moment)
+                ? moment
+                : null;
+
+    private static Guid? ParseGuid(string? value) =>
+        Guid.TryParse(value, out var id) ? id : null;
 
     private static string NormalizeCreatedAt(string yaml)
     {

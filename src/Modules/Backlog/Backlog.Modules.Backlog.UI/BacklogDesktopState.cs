@@ -559,17 +559,12 @@ public sealed class BacklogDesktopState : IDisposable
     public async Task ChangeStatusAsync(EntryRow row, EntryStatus status) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status, cascadeSubItems: true), forceWhenEqual: row.Status != status);
 
-    public async Task ChangeSubItemTypeAsync(EntryRow row, int subItemIndex, EntryType type) =>
-        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemType(row.RawText, subItemIndex, type));
-
-    public async Task ChangeSubItemPriorityAsync(EntryRow row, int subItemIndex, Priority priority) =>
-        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemPriority(row.RawText, subItemIndex, priority));
-
-    public async Task ChangeSubItemStatusAsync(EntryRow row, int subItemIndex, EntryStatus status) =>
-        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemStatus(row.RawText, subItemIndex, status));
-
-    public async Task ChangeSubItemTagsAsync(EntryRow row, int subItemIndex, string tags) =>
-        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemTags(row.RawText, subItemIndex, tags));
+    // No per-sub-item type, priority, status or tag edits. A sub-item carries a
+    // title, a status, notes and an order and nothing else, and the four
+    // rewrites that used to live here wrote tokens that EntryTextSync then
+    // discarded on the next save — the UI was editing values the domain had no
+    // room for. Sub-item completion is still expressible, through the checkbox
+    // and ToggleSubItemAsync above.
 
     public async Task ChangeAreaAsync(EntryRow row, string? area) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithArea(row.RawText, area));

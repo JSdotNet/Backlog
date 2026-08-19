@@ -107,6 +107,237 @@ public class EntryTextParserTests
         Assert.Null(parsed.Area);
     }
 
+    // --- Scheduling and dependency tokens --------------------------------
+
+    [Fact]
+    public void Reads_the_scheduling_and_dependency_tokens_from_the_meta_line()
+    {
+        var parsed = EntryTextParser.Parse(
+            "# Deploy SpecManager\n"
+            + "`task` `*high` `!ready` `@repos` `#deploy` `due:2026-08-21` "
+            + "`remind:2026-08-21T09:00` `repeat:weekly` `myday:2026-08-19` `after:a1b2c3`\n");
+
+        Assert.Equal(new DateOnly(2026, 8, 21), parsed.DueOn);
+        Assert.Equal(new DateTime(2026, 8, 21, 9, 0, 0, DateTimeKind.Unspecified), parsed.RemindAt);
+        Assert.Equal(new Recurrence(1, RecurrenceUnit.Week), parsed.Recurrence);
+        Assert.Equal(new DateOnly(2026, 8, 19), parsed.InMyDayOn);
+        Assert.Equal(["a1b2c3"], parsed.DependsOn);
+
+        // The named tokens sit on the same line as the sigils and must not have
+        // disturbed them on the way past.
+        Assert.Equal(EntryType.Task, parsed.Type);
+        Assert.Equal(Priority.High, parsed.Priority);
+        Assert.Equal(EntryStatus.Ready, parsed.Status);
+        Assert.Equal("repos", parsed.Area);
+        Assert.Equal(["deploy"], parsed.MetadataTags);
+    }
+
+    /// <summary>A reminder carries no zone on purpose: 09:00 is 09:00 wherever the
+    /// reader is when it arrives, so the parsed value must be unzoned rather than
+    /// pinned to whichever machine read the file.</summary>
+    [Fact]
+    public void A_reminder_is_read_as_an_unzoned_wall_clock_time()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`remind:2026-08-21T09:00`\n");
+
+        Assert.Equal(DateTimeKind.Unspecified, parsed.RemindAt!.Value.Kind);
+        Assert.Equal(new TimeOnly(9, 0), TimeOnly.FromDateTime(parsed.RemindAt.Value));
+    }
+
+    [Theory]
+    [InlineData("daily", 1, RecurrenceUnit.Day)]
+    [InlineData("weekly", 1, RecurrenceUnit.Week)]
+    [InlineData("monthly", 1, RecurrenceUnit.Month)]
+    [InlineData("yearly", 1, RecurrenceUnit.Year)]
+    [InlineData("2w", 2, RecurrenceUnit.Week)]
+    [InlineData("3d", 3, RecurrenceUnit.Day)]
+    [InlineData("6m", 6, RecurrenceUnit.Month)]
+    [InlineData("2y", 2, RecurrenceUnit.Year)]
+    public void A_repeat_is_read_as_an_interval_and_a_unit(string token, int interval, RecurrenceUnit unit)
+    {
+        var parsed = EntryTextParser.Parse($"# Title\n`repeat:{token}`\n");
+
+        Assert.Equal(new Recurrence(interval, unit), parsed.Recurrence);
+        Assert.Null(parsed.Recurrence!.Weekdays);
+    }
+
+    /// <summary>"Every weekday" is a week-shaped repeat restricted to Monday
+    /// through Friday, not a fifth unit — which is what keeps
+    /// <c>RecurrenceUnit</c> down to the four periods a calendar has.</summary>
+    [Fact]
+    public void Weekdays_is_a_weekly_repeat_restricted_to_the_working_week()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`repeat:weekdays`\n");
+
+        Assert.Equal(1, parsed.Recurrence!.Interval);
+        Assert.Equal(RecurrenceUnit.Week, parsed.Recurrence.Unit);
+        Assert.Equal(
+            [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday],
+            parsed.Recurrence.Weekdays!);
+    }
+
+    [Fact]
+    public void Dependency_tokens_repeat_and_collect_in_the_order_written()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`task` `after:a1b2c3` `after:d4e5f6` `after:a1b2c3`\n");
+
+        // Two mentions of the same predecessor are one dependency; the order the
+        // rest were written in is kept because reshuffling it would churn the file
+        // for nothing.
+        Assert.Equal(["a1b2c3", "d4e5f6"], parsed.DependsOn);
+    }
+
+    [Fact]
+    public void A_dependency_id_that_names_nothing_is_still_a_dependency()
+    {
+        // Ids are opaque strings, the same rule repo ids follow. Dropping the
+        // ones that resolve to nothing would let a chain claim to be ready when
+        // the step it waits on is merely missing from view.
+        var parsed = EntryTextParser.Parse("# Title\n`after:whatever-this-is`\n");
+
+        Assert.Equal(["whatever-this-is"], parsed.DependsOn);
+    }
+
+    [Theory]
+    [InlineData("due:not-a-date")]
+    [InlineData("due:2026-13-45")]
+    [InlineData("due:")]
+    [InlineData("remind:2026-08-21")]
+    [InlineData("myday:21/08/2026")]
+    [InlineData("repeat:fortnightly")]
+    [InlineData("repeat:0w")]
+    [InlineData("after:")]
+    public void A_malformed_named_token_leaves_its_field_unset_rather_than_failing(string token)
+    {
+        var parsed = EntryTextParser.Parse($"# Title\n`task` `{token}`\n");
+
+        // Exactly what an unknown sigil already does. Refusing the line would
+        // lose the fields around the bad token, and refusing the save would lose
+        // the entry.
+        Assert.Equal(EntryType.Task, parsed.Type);
+        Assert.Null(parsed.DueOn);
+        Assert.Null(parsed.RemindAt);
+        Assert.Null(parsed.Recurrence);
+        Assert.Null(parsed.InMyDayOn);
+        Assert.Empty(parsed.DependsOn!);
+    }
+
+    [Fact]
+    public void Leaves_unknown_named_meta_tokens_unset_rather_than_failing()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`task` `snooze:2026-08-21`\n");
+
+        Assert.Equal(EntryType.Task, parsed.Type);
+        Assert.Null(parsed.DueOn);
+        Assert.Null(parsed.InMyDayOn);
+    }
+
+    /// <summary>
+    /// An unrecognized named token is unrecognized, not invalid, so editing an
+    /// unrelated field must not quietly delete it. This is the same
+    /// backward-compatibility bargain the sigils already make.
+    /// </summary>
+    [Fact]
+    public void An_unknown_named_token_survives_an_unrelated_field_edit()
+    {
+        const string raw = "# Title\n`task` `*medium` `!draft` `snooze:2026-08-21`\n";
+
+        var rewritten = EntryTextParser.WithStatus(raw, EntryStatus.Ready);
+
+        Assert.Contains("`snooze:2026-08-21`", rewritten, StringComparison.Ordinal);
+        Assert.Contains("`!ready`", rewritten, StringComparison.Ordinal);
+    }
+
+    /// <summary>An area is free-form and may well contain a colon, so the named
+    /// token rule must not reach past a sigil that already declared its
+    /// kind.</summary>
+    [Fact]
+    public void A_sigilled_token_is_not_reread_as_a_named_token_because_it_holds_a_colon()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`@client:acme`\n");
+
+        Assert.Equal("client:acme", parsed.Area);
+    }
+
+    [Fact]
+    public void Writing_a_due_date_leaves_the_rest_of_the_meta_line_alone()
+    {
+        const string raw = "# Title\n`task` `*high` `!ready` `@repos` `#deploy`\n";
+
+        var rewritten = EntryTextParser.WithDue(raw, new DateOnly(2026, 8, 21));
+
+        Assert.Equal("# Title\n`task` `*high` `!ready` `@repos` `#deploy` `due:2026-08-21`\n", rewritten);
+    }
+
+    [Fact]
+    public void Writing_a_due_date_twice_replaces_the_token_rather_than_repeating_it()
+    {
+        const string raw = "# Title\n`task` `due:2026-08-21`\n";
+
+        var rewritten = EntryTextParser.WithDue(raw, new DateOnly(2026, 8, 28));
+
+        Assert.Contains("`due:2026-08-28`", rewritten, StringComparison.Ordinal);
+        Assert.DoesNotContain("2026-08-21", rewritten, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Clearing_a_scheduling_field_removes_its_token_entirely()
+    {
+        // An unset field carries no token rather than an empty one: `due:` with
+        // nothing after it is malformed, not "no due date".
+        const string raw =
+            "# Title\n`task` `due:2026-08-21` `remind:2026-08-21T09:00` `repeat:weekly` `myday:2026-08-19` `after:a1b2c3`\n";
+
+        var cleared = EntryTextParser.WithDependsOn(
+            EntryTextParser.WithMyDay(
+                EntryTextParser.WithRepeat(
+                    EntryTextParser.WithReminder(
+                        EntryTextParser.WithDue(raw, null),
+                        null),
+                    null),
+                null),
+            []);
+
+        Assert.Equal("# Title\n`task`\n", cleared);
+    }
+
+    [Fact]
+    public void Each_scheduling_field_can_be_written_on_its_own()
+    {
+        const string raw = "# Title\n`task`\n";
+
+        Assert.Contains("`remind:2026-08-21T09:00`", EntryTextParser.WithReminder(raw, new DateTime(2026, 8, 21, 9, 0, 0)), StringComparison.Ordinal);
+        Assert.Contains("`repeat:2w`", EntryTextParser.WithRepeat(raw, new Recurrence(2, RecurrenceUnit.Week)), StringComparison.Ordinal);
+        Assert.Contains("`myday:2026-08-19`", EntryTextParser.WithMyDay(raw, new DateOnly(2026, 8, 19)), StringComparison.Ordinal);
+        Assert.Contains("`after:a1b2c3` `after:d4e5f6`", EntryTextParser.WithDependsOn(raw, ["a1b2c3", "d4e5f6"]), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_repeat_is_written_back_in_the_form_a_person_would_have_typed()
+    {
+        var weekdays = new Recurrence(1, RecurrenceUnit.Week, [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday]);
+
+        Assert.Equal("weekly", EntryTextParser.RepeatToken(new Recurrence(1, RecurrenceUnit.Week)));
+        Assert.Equal("weekdays", EntryTextParser.RepeatToken(weekdays));
+        Assert.Equal("2w", EntryTextParser.RepeatToken(new Recurrence(2, RecurrenceUnit.Week)));
+        Assert.Equal("daily", EntryTextParser.RepeatToken(new Recurrence(1, RecurrenceUnit.Day)));
+    }
+
+    [Fact]
+    public void An_entry_with_no_meta_line_keeps_its_scheduling_when_another_field_is_written()
+    {
+        // The no-meta-line branch reconstructs the line from the parse, so a
+        // reconstruction that forgets a field deletes it as a side effect of
+        // editing an unrelated one.
+        const string raw = "Title with no meta line\n\nSome prose.\n";
+
+        var rewritten = EntryTextParser.WithDue(raw, new DateOnly(2026, 8, 21));
+        var again = EntryTextParser.WithArea(rewritten, "repos");
+
+        Assert.Contains("`due:2026-08-21`", again, StringComparison.Ordinal);
+        Assert.Contains("`@repos`", again, StringComparison.Ordinal);
+    }
+
     // --- Sub-items from level-2 headings ---------------------------------
 
     [Fact]
@@ -530,6 +761,34 @@ public class EntryTextParserTests
         Assert.Equal("repos", parsed.Area);
         Assert.Equal(["beta", "alpha"], parsed.Tags);
         Assert.Equal("A sub-item", Assert.Single(parsed.SubItems).Title);
+    }
+
+    /// <summary>
+    /// The canonical rewrite is destructive by design: it composes the metadata
+    /// line from the entry model alone, so a field the model carries and this
+    /// method forgets is destroyed on the next save with no error to notice it by.
+    /// </summary>
+    [Fact]
+    public void The_canonical_form_carries_the_scheduling_and_dependency_tokens()
+    {
+        var entry = new BacklogEntry("Deploy SpecManager", string.Empty, EntryType.Task, Priority.High);
+        entry.SetDueOn(new DateOnly(2026, 8, 21));
+        entry.SetReminder(new DateTime(2026, 8, 21, 9, 0, 0, DateTimeKind.Unspecified));
+        entry.SetRecurrence(new Recurrence(1, RecurrenceUnit.Week));
+        entry.SetInMyDayOn(new DateOnly(2026, 8, 19));
+        entry.SetDependsOn(["a1b2c3", "d4e5f6"]);
+
+        var raw = EntryTextParser.ToRawText(entry.ToDto());
+        var parsed = EntryTextParser.Parse(raw);
+
+        Assert.Equal(
+            "`task` `*high` `!draft` `due:2026-08-21` `remind:2026-08-21T09:00` `repeat:weekly` `myday:2026-08-19` `after:a1b2c3` `after:d4e5f6`",
+            raw.Split('\n')[1]);
+        Assert.Equal(entry.DueOn, parsed.DueOn);
+        Assert.Equal(entry.RemindAt, parsed.RemindAt);
+        Assert.Equal(entry.Recurrence, parsed.Recurrence);
+        Assert.Equal(entry.InMyDayOn, parsed.InMyDayOn);
+        Assert.Equal(entry.DependsOn, parsed.DependsOn!);
     }
 
     // --- Syncing onto the aggregate --------------------------------------

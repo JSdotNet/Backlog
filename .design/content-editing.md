@@ -125,7 +125,7 @@ related: [".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/backlog/
 
 ```meta
 status: active
-related: [".domain/backlog/naming.md#term-entry-status", ".domain/backlog/naming.md#term-area", ".design/typography-and-layout.md#font-families"]
+related: [".domain/backlog/naming.md#term-entry-status", ".domain/backlog/naming.md#term-area", ".design/typography-and-layout.md#font-families", ".design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
 > Backlog entries carry structured metadata (type, priority, status, area,
@@ -147,6 +147,46 @@ related: [".domain/backlog/naming.md#term-entry-status", ".domain/backlog/naming
 | Backward compatible | Metadata written before this convention existed (bare, un-sigilled tokens) MUST continue to parse; saving an entry rewrites its metadata line into canonical sigil form so entries self-heal. |
 | Sigil wins over guessing | A sigilled token that does not match a known value for its declared kind (e.g. a priority sigil on a status word) MUST NOT fall through and be reinterpreted as another kind — the sigil already declared intent, so it is simply unrecognized rather than misread. |
 | Monospace | Metadata tokens render in `font-family-mono`, matching inline code, so the syntax reads as structured rather than prose. |
+| The namespace is closed | These five kinds are the whole of the sigil vocabulary. A new kind of metadata takes a named `name:value` token instead — see [Scheduling and Dependency Tokens](#scheduling-and-dependency-tokens). Minting a sixth sigil would trade a readable name for a character nobody remembers. |
+
+## Scheduling and Dependency Tokens
+
+```meta
+status: active
+related: [".design/content-editing.md#structured-metadata-sigils", ".domain/backlog/naming.md#term-due-date", ".domain/backlog/naming.md#term-reminder", ".domain/backlog/naming.md#term-recurrence", ".domain/backlog/naming.md#term-my-day", ".domain/backlog/naming.md#term-dependency"]
+```
+
+> When an entry is scheduled or waits on other entries, those facts ride on the
+> same backtick-quoted metadata line — but as `name:value` tokens rather than
+> one-character sigils. Five date-shaped facts cannot be told apart by
+> punctuation a reader will remember, and this line is hand-edited.
+
+| Token | Kind | Example |
+|---|---|---|
+| `due:` | due date | `` `due:2026-08-21` `` |
+| `remind:` | reminder | `` `remind:2026-08-21T09:00` `` |
+| `repeat:` | recurrence | `` `repeat:weekly` ``, `` `repeat:weekdays` ``, `` `repeat:2w` `` |
+| `myday:` | My Day | `` `myday:2026-08-19` `` |
+| `after:` | dependency | `` `after:a1b2c3` `` — may repeat |
+
+A full metadata line mixes both forms, sigils first:
+
+```markdown
+# Deploy SpecManager
+
+`task` `*high` `!ready` `@repos` `#deploy` `due:2026-08-21` `remind:2026-08-21T09:00` `after:a1b2c3`
+```
+
+| Rule | Requirement |
+|---|---|
+| Named, not sigilled | A named token says which fact it carries without the reader holding a legend. The sigil namespace is also nearly exhausted, so five more marks would leave nothing for a sixth kind. |
+| A due date is a date | `due:` and `myday:` take a calendar date (`YYYY-MM-DD`) with no time and no timezone. A due date is a commitment to a day, and an instant would move the deadline whenever the device changed zone. |
+| A reminder is wall-clock | `remind:` takes a local date and time (`YYYY-MM-DDTHH:mm`) and deliberately carries no zone or offset: `09:00` means 09:00 wherever the reader is when it arrives, not the instant 09:00 once meant elsewhere. |
+| My Day expires by arithmetic | `myday:` holds the date the entry was picked for, not a flag. The entry is in My Day exactly while that date is the reader's current local date, so yesterday's list clears itself with no timer and no overnight sweep. |
+| Dependencies repeat | `after:` may appear more than once and the order carries no meaning — an entry waiting on two things names both, and asking which is the real predecessor has no answer. An id naming nothing visible still counts, and still blocks. |
+| Unknown tokens survive an edit | A `name:value` token the parser does not recognize MUST be preserved when an unrelated field is changed, on the same terms as the backward-compatibility rule for sigils. It is unrecognized, not invalid. |
+| Absent means absent | An unset field carries no token rather than an empty one. `` `due:` `` with nothing after it is malformed, not "no due date". |
+| Canonical rewrite is destructive by design | Saving rewrites the metadata line into canonical form from the entry model, so a token the model cannot represent does not survive the next save. A new token MUST therefore be added to the domain model, the entry DTO, and the canonical rewrite in the same change — adding it to the parser alone loses data silently, with no error. |
 
 ## Live Parse Confirmation
 

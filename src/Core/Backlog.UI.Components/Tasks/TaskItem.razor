@@ -50,8 +50,10 @@
     {
         @* A handle as well as the row: dragging the whole row is what a pointer
            expects, and a handle is what says the row can be dragged at all. It
-           is aria-hidden because the keyboard path is the buttons below, not a
-           drag nobody can perform without a pointer. *@
+           is aria-hidden and unfocusable because it is the pointer's affordance
+           only — the keyboard reorders with Alt+Arrow on the row itself, so a
+           second tab stop here would be a control that duplicates one that is
+           already reachable. *@
         <span class="task-item__grip" aria-hidden="true">⠿</span>
     }
 
@@ -103,9 +105,15 @@
     }
     else
     {
+        @* The row's own focusable element, and so where Alt+Arrow is heard. It
+           carries an id because after a move this is a different element and the
+           focus has to be put back on the row that moved rather than on whatever
+           slid into its old place. *@
         <button type="button"
                 class="task-item__body"
+                id="@RowElementId"
                 data-testid="@Suffix("open")"
+                @onkeydown="OnRowKeyDownAsync"
                 @onclick="() => OnSelected.InvokeAsync(Task.Id)">
             <span class="task-item__title">@Task.Title</span>
 
@@ -396,6 +404,30 @@
     [Parameter]
     public bool Dragging { get; set; }
 
+    /// <summary>
+    /// The id to put on the row's focusable element, so a caller that moved this
+    /// row can give it the focus back.
+    /// <para>
+    /// Supplied by the list rather than minted here. After a move the row is a
+    /// different element, and only the list knows which row it just moved — a
+    /// per-instance id generated in here would be unknowable to the one thing
+    /// that needs to name it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? RowElementId { get; set; }
+
+    /// <summary>
+    /// The reader asked to move this row: -1 for up, 1 for down.
+    /// <para>
+    /// A direction rather than a destination, because a row cannot see its
+    /// neighbours. The list turns it into a <see cref="TaskMove"/>, which is also
+    /// why nothing happens when no list is listening.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> OnKeyboardMove { get; set; }
+
     [Parameter]
     public EventCallback<string> OnDragStart { get; set; }
 
@@ -573,6 +605,40 @@
         }
 
         if (e.Key == "Enter") await CommitRenameAsync();
+    }
+
+    /// <summary>
+    /// Alt+Arrow asks the list to move this row.
+    /// <para>
+    /// Alt and not a bare arrow. A plain ArrowUp on a focused row is how someone
+    /// reads down a long list, and a row that swallowed it to reorder itself
+    /// would take away scrolling to add moving. Alt is also the one modifier with
+    /// no default action on a button, so nothing has to be prevented — and
+    /// preventing selectively is not expressible here anyway, since Blazor
+    /// resolves preventDefault when the row renders rather than when the key
+    /// arrives.
+    /// </para>
+    /// <para>
+    /// Nothing is raised when no list is listening, on the same terms as the
+    /// circle and the body editor: a row does not offer a control it cannot
+    /// honour.
+    /// </para>
+    /// </summary>
+    private async Task OnRowKeyDownAsync(KeyboardEventArgs e)
+    {
+        // Gated on Draggable, which reads as "can be picked up" rather than as
+        // anything about pointers — so one predicate covers both gestures and a
+        // row can never be movable by one and not the other.
+        if (!Draggable || !e.AltKey || !OnKeyboardMove.HasDelegate) return;
+
+        var delta = e.Key switch
+        {
+            "ArrowUp" => -1,
+            "ArrowDown" => 1,
+            _ => 0
+        };
+
+        if (delta != 0) await OnKeyboardMove.InvokeAsync(delta);
     }
 
     private async Task CommitRenameAsync()

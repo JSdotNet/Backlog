@@ -22,5 +22,10 @@ internal static class BacklogEntryMapper
         entry.Order,
         entry.TotalSubItemCount,
         entry.CompletedSubItemCount,
-        [.. entry.ProjectionRefs.Select(p => new EntryProjectionDto(p.RepoId, p.ExternalId, p.TargetType))]);
+        [.. entry.ProjectionRefs.Select(p => new EntryProjectionDto(p.RepoId, p.ExternalId, p.TargetType))],
+        entry.DueOn,
+        entry.RemindAt,
+        entry.Recurrence,
+        entry.InMyDayOn,
+        [.. entry.DependsOn]);
 }

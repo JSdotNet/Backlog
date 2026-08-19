@@ -10,6 +10,14 @@ namespace Backlog.Modules.Backlog.Abstractions.DataTransferObjects;
 /// source of truth, and <see cref="EntryTextParser"/> reads them back out of it.
 /// The counts are here because a list wants to show progress without parsing.
 /// </para>
+/// <para>
+/// The scheduling and dependency members are what the canonical metadata line is
+/// rebuilt from (<see cref="EntryTextParser.ToRawText"/>), which makes this record
+/// load-bearing for round-trip fidelity rather than merely descriptive: a field
+/// the aggregate holds and this record does not is destroyed on the next save.
+/// They carry defaults so that a caller constructing a DTO for a test or a
+/// projection does not have to state five fields it has no opinion about.
+/// </para>
 /// </summary>
 public sealed record BacklogEntryDto(
     Guid Id,
@@ -23,7 +31,12 @@ public sealed record BacklogEntryDto(
     int Order,
     int TotalSubItems,
     int CompletedSubItems,
-    IReadOnlyList<EntryProjectionDto> Projections);
+    IReadOnlyList<EntryProjectionDto> Projections,
+    DateOnly? DueOn = null,
+    DateTime? RemindAt = null,
+    Recurrence? Recurrence = null,
+    DateOnly? InMyDayOn = null,
+    IReadOnlyList<string>? DependsOn = null);
 
 /// <summary>Where an entry has been projected to outside this system — today a
 /// GitHub issue. Kept as data rather than a typed link so the module does not

@@ -40,6 +40,28 @@ which:
 | `@` | area | anything — `@repos`, `@inbox`, `@side-project` |
 | `#` | tag | written in the body, not the meta line |
 
+Five sigils is the whole vocabulary. Anything to do with *when* — or with what an
+entry is waiting on — rides on the same line as a named `name:value` token
+instead, because five date-shaped concepts cannot be told apart by punctuation
+anybody will remember. Sigils first, then the named tokens:
+
+| Token | Kind | Values |
+| --- | --- | --- |
+| `due:` | due date | a calendar day, `due:2026-08-21` — no time and no timezone |
+| `remind:` | reminder | a local date and time, `remind:2026-08-21T09:00` — no zone, so 09:00 means 09:00 wherever you are |
+| `repeat:` | recurrence | `repeat:daily` `repeat:weekly` `repeat:monthly` `repeat:yearly` `repeat:weekdays`, or an interval — `repeat:2w`, `repeat:3d`, `repeat:6m`, `repeat:2y` |
+| `myday:` | My Day | the day it was picked for, `myday:2026-08-19` — it expires when that day does |
+| `after:` | dependency | an entry id, `after:a1b2c3` — may appear more than once |
+
+An unset field carries no token rather than an empty one: `` `due:` `` with
+nothing after it is malformed, not "no due date". Deleting the token is how you
+clear the field. A named token this app does not recognize is left alone rather
+than dropped, the same bargain the bare metadata words get.
+
+Completing an entry that carries a `repeat:` leaves it completed and creates the
+next occurrence as a new entry. The repeat is anchored to the due date, so an
+entry finished three days late still comes back on its original weekday.
+
 Status is the one field you cannot set to just anything. An entry moves through
 a lifecycle one step at a time, so a fresh `!draft` entry can become `!ready`
 but not `!in-progress` — writing a status the entry cannot reach yet leaves it
@@ -77,6 +99,7 @@ splits an entry.
 | --- | --- |
 | `minimal.md` | The least an entry can be: one line. |
 | `full.md` | Every metadata kind and every structural feature at once. |
+| `scheduled.md` | The named tokens: a due date, a reminder, a repeat, a My Day stamp and a dependency. |
 | `sub-items.md` | `##` sub-items with notes, mixed with checklists. |
 | `checklist.md` | A plain checklist entry, some done. |
 | `bare-words.md` | Pre-sigil metadata, still readable. |

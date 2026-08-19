@@ -90,7 +90,13 @@ A finished task stays readable. It is struck through and quieter, but it is the 
 
 While a row is in flight the list shows the order the drop would produce, rather than drawing a line between two rows. The reader is already looking at the list, so moving it is the cheapest possible answer to “where would this land” — the gap is a gap you can see instead of a line to interpret. The rows that are not moving pull in slightly, which is what says the list made room rather than that a row went missing. All of it is a view: Tasks is untouched, and abandoning the drag needs nothing rolled back because nothing changed.
 
-A drag is a pointer gesture with no keyboard equivalent, so a list that only dragged would be a list some people cannot reorder. The buttons under each row are that equivalent here; the real product would put them on Alt+Arrow with the focus following the row it moved."
+A drag is a pointer gesture with no keyboard equivalent, so a list that only dragged would be a list some people cannot reorder. Tab to a row and press Alt+Arrow: the row moves, and the focus goes with it rather than staying on the position it left — otherwise the second press would move whatever slid into the old slot.
+
+Alt, and not a bare arrow. A plain ArrowDown on a focused row is how somebody reads down a long list, and a row that swallowed it to reorder itself would take away scrolling to add moving. Alt is also the one modifier with no default action of its own on a button, so nothing has to be prevented — which matters, because Blazor resolves preventDefault when the row renders rather than when the key arrives, so “prevent it only for the combination I handle” is not expressible.
+
+The move is clamped at both ends rather than wrapped. A row at the top that jumped to the bottom on one more press would be a move nobody asked for, and the reader would have to notice it before they could undo it.
+
+Each move is also said out loud. The visible answer to “where did it go” is the row having moved, which is no answer at all to somebody who cannot see the list, so the position it landed in goes to a live region — the one below, normally screen-reader-only and shown here so there is something to look at."
            Code="@ReorderCode">
         <div class="sb-menu-wide" data-testid="task-list-reorder">
             <TaskListView Tasks="@_ordered"
@@ -101,12 +107,6 @@ A drag is a pointer gesture with no keyboard equivalent, so a list that only dra
                           TestId="reorder" />
         </div>
         <p class="sb-state" data-testid="task-list-order">@string.Join(" → ", _ordered.Select(t => t.Title))</p>
-        <div class="sb-row">
-            @foreach (var task in _ordered)
-            {
-                <AppButton Variant="ButtonVariant.Ghost" OnClick="() => MoveUp(task.Id)">Move “@task.Title” up</AppButton>
-            }
-        </div>
     </Story>
 
     <Story Name="Nothing to toggle, nothing to copy"
@@ -297,17 +297,6 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
     /// component is built for. ApplyTo is the library's offer for a host with no
     /// opinion of its own.</summary>
     private void Reorder(TaskMove move) => _ordered = move.ApplyTo(_ordered, t => t.Id);
-
-    /// <summary>The keyboard equivalent, stood in for by buttons here. A drag is
-    /// a pointer gesture and nothing else, so a list that only dragged would be a
-    /// list some people cannot reorder at all.</summary>
-    private void MoveUp(string id)
-    {
-        var index = _ordered.ToList().FindIndex(t => t.Id == id);
-        if (index <= 0) return;
-
-        _ordered = new TaskMove(id, _ordered[index - 1].Id).ApplyTo(_ordered, t => t.Id);
-    }
 
     private const string RowCode = """
         <TaskListView Tasks="@tasks"
