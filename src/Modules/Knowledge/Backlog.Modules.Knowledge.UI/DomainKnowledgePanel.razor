@@ -4,7 +4,17 @@
 @inject KnowledgeCopilotCli KnowledgeCopilot
 @inject IAppFeatureSettings Features
 
-<section class="domain-knowledge @(Compact ? "domain-knowledge--compact" : string.Empty)" data-testid="domain-knowledge-panel" aria-labelledby="domain-knowledge-title">
+@*
+    The pane above already says which section this is — the tab strip names it and
+    the knowledge menu heads its column with it — so this panel no longer opens
+    with a "Knowledge base" eyebrow and a title repeating the same word a third
+    time. It names itself to a screen reader instead, the way every other labelled
+    region in this product does (.design/accessibility.md, "Names & roles"). The
+    same rule the chapter documents already follow, one level up: the article
+    header gives up kind, title and path to the file view that says all three.
+*@
+
+<section class="domain-knowledge @(Compact ? "domain-knowledge--compact" : string.Empty)" data-testid="domain-knowledge-panel" aria-label="Domain knowledge">
     @if (_view is null)
     {
         <Alert Message="Loading domain knowledge..." BaseClass="domain-knowledge__state" Role="status" />
@@ -12,20 +22,17 @@
     else if (_view.Error is not null)
     {
         <div class="domain-knowledge__empty" role="status">
-            <h2 id="domain-knowledge-title">Domain knowledge</h2>
             <p>@_view.Error</p>
             <a class="md-link" href="settings">Configure repository knowledge folders</a>
         </div>
     }
     else
     {
-        <header class="domain-knowledge__header">
-            <div>
-                <p class="domain-knowledge__eyebrow">Knowledge base</p>
-                <h2 id="domain-knowledge-title">Domain model</h2>
-                <p class="domain-knowledge__source">@_view.RepositoryLabel - <code>@_view.RootPath</code></p>
-            </div>
-        </header>
+        @* Where the folder is, and nothing else. The repository it belongs to is
+           the pane's line above the tabs; repeating it here said the same name
+           twice on one screen, because the label this view carries resolves to
+           that very repository's full name. *@
+        <p class="domain-knowledge__source"><code>@_view.RootPath</code></p>
 
         @if (string.IsNullOrWhiteSpace(SelectedPath))
         {
