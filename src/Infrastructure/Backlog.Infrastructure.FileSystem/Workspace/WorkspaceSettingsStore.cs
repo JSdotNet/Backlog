@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Knowledge.Abstractions;
 
 namespace Backlog.Infrastructure.FileSystem;
@@ -75,7 +76,7 @@ public sealed class WorkspaceSettingsStore
         // a folder that exists, now that nothing else is constructed.
         try
         {
-            FileBacklogRepository.EnsureStorageFolders(RootDirectory);
+            EnsureStorageFolders(RootDirectory);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
@@ -110,11 +111,26 @@ public sealed class WorkspaceSettingsStore
             Path.TrimEndingDirectorySeparator(DefaultRootDirectory),
             StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Where the entry markdown files themselves are written — shown on
-    /// the settings page so the folder can be found in a file manager.</summary>
-    public string EntriesDirectory => Path.Combine(RootDirectory, FileBacklogRepository.BacklogFolderName);
+    /// <summary>The database file the tasks are kept in — shown on the settings
+    /// page so it can be found in a file manager, and so it is obvious what to
+    /// copy when somebody wants a backup.</summary>
+    public string DatabasePath => SqliteTaskRepository.DatabasePathFor(RootDirectory);
 
-    public string InboxDirectory => Path.Combine(RootDirectory, FileBacklogRepository.InboxFolderName);
+    public string InboxDirectory => Path.Combine(RootDirectory, InboxFolderName);
+
+    /// <summary>The folder the Inbox context will capture into. It is prepared
+    /// here rather than by the task store, because the store is a database file
+    /// now and has no folders of its own to make.</summary>
+    private const string InboxFolderName = "_inbox";
+
+    /// <summary>Makes a chosen root usable: the folder itself, and the inbox
+    /// folder inside it. The task database creates itself on first use, so there
+    /// is nothing to prepare for it here.</summary>
+    private static void EnsureStorageFolders(string rootDir)
+    {
+        Directory.CreateDirectory(rootDir);
+        Directory.CreateDirectory(Path.Combine(rootDir, InboxFolderName));
+    }
 
     /// <summary>Points the app at a different folder. Returns an error message
     /// when the folder cannot be used, rather than throwing — a bad path typed
@@ -144,7 +160,7 @@ public sealed class WorkspaceSettingsStore
 
         try
         {
-            FileBacklogRepository.EnsureStorageFolders(full);
+            EnsureStorageFolders(full);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
@@ -254,7 +270,7 @@ public sealed class WorkspaceSettingsStore
             var root = settings.RootDirectory;
             if (string.IsNullOrWhiteSpace(root)) return settings with { RootDirectory = null };
 
-            FileBacklogRepository.EnsureStorageFolders(root);
+            EnsureStorageFolders(root);
             return settings with { RootDirectory = root };
         }
         catch (Exception)

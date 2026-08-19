@@ -3,7 +3,7 @@ using Backlog.Modules.Backlog.Abstractions;
 namespace Backlog.Modules.Backlog.DomainModels;
 
 /// <summary>
-/// An ordered breakdown step owned by a <see cref="BacklogEntry"/>. It has
+/// An ordered breakdown step owned by a <see cref="TaskItem"/>. It has
 /// identity within the aggregate only. All mutations go through the aggregate
 /// root — setters are internal so callers cannot bypass the root's invariants.
 /// </summary>

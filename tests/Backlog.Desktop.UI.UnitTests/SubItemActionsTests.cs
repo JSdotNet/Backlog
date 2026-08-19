@@ -15,7 +15,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// This time the removal is the decision, and it comes out of the model rather than
 /// out of taste. <c>.domain/backlog/domain.md</c> says a Sub-Item "may project to
 /// GitHub issue task-list checkboxes" — checkboxes inside the entry's issue — and
-/// <c>ProjectionRef</c> is owned by <c>BacklogEntry</c> and never by <c>SubItem</c>.
+/// <c>ProjectionRef</c> is owned by <c>TaskItem</c> and never by <c>SubItem</c>.
 /// A step that was its own issue had nowhere to record the link it got back, so it
 /// could be filed again and again with nothing noticing. The Copilot button was worse
 /// than wrong: it handed over the <em>parent</em> entry from a row that made it look

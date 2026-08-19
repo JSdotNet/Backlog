@@ -25,11 +25,11 @@
 
 <section class="roadmap-timeline @CssClass"
          style="@Metrics"
-         aria-labelledby="@_headingId"
+         aria-labelledby="@(string.IsNullOrWhiteSpace(LabelledBy) ? _headingId : LabelledBy)"
          data-testid="@TestId">
     <header class="roadmap-timeline__header">
         <div class="roadmap-timeline__heading">
-            @Heading
+            @(TitleContent ?? Heading)
             @if (!string.IsNullOrWhiteSpace(Description))
             {
                 <p class="roadmap-timeline__description">@Description</p>
@@ -38,15 +38,22 @@
 
         @* The filter controls exist only where there is something to filter. A
            caller whose bars carry no facets gets no filter bar rather than an
-           empty one, which would promise a narrowing that cannot happen. *@
+           empty one, which would promise a narrowing that cannot happen.
+
+           No visible label above each one. The facet name is the placeholder
+           instead, which says the same word in half the height — and height is the
+           scarce axis wherever this chart is drawn in a band rather than a page.
+           Nothing is lost to a screen reader: TagMultiSelect gives its input an
+           aria-label from the placeholder exactly when there is no label element,
+           so the control is still announced as "Repository" rather than as an
+           unnamed combobox. *@
         @if (ShowFilters && FacetNames.Count > 0)
         {
             <div class="roadmap-timeline__filters" data-testid="@Suffix("filters")">
                 @foreach (var name in FacetNames)
                 {
                     <TagMultiSelect @key="name"
-                                    Label="@name"
-                                    Placeholder="@($"All {name.ToLowerInvariant()}")"
+                                    Placeholder="@name"
                                     Options="@OptionsFor(name)"
                                     SelectedValues="@SelectedIn(name)"
                                     SelectedValuesChanged="values => Filter(name, values)"
@@ -136,6 +143,20 @@
                             @* Today is the caller's to state. A component that read
                                the clock would draw a different picture in every test
                                run and in every time zone it was opened in. *@
+                            @* A milestone that asked for a line gets one down the whole
+                               chart. Drawn in the grid layer with the quarter rules and
+                               the today line, because that is what it is: a rule at a
+                               date, behind everything and pointer-transparent, so it
+                               cannot take a click meant for a bar it crosses. The
+                               marker itself still sits on its own row. *@
+                            @foreach (var milestone in SpanningMilestones)
+                            {
+                                <span @key="milestone.Id"
+                                      class="roadmap-timeline__milestone-rule"
+                                      style="left: @Rem(Geometry.XFor(milestone.On))"
+                                      data-testid="@Suffix($"milestone-rule-{Slug(milestone.Id)}")"></span>
+                            }
+
                             @if (Today is { } today && Span.Contains(today))
                             {
                                 <span class="roadmap-timeline__today" style="left: @Rem(Geometry.XFor(today))"></span>
@@ -252,6 +273,12 @@
     private string? _dragId;
     private string? _grabbedId;
 
+    // Whether the next click is the tail of a pointer drag rather than a click. Set
+    // when a drag commits having moved something, and cleared either by that click or
+    // by the next gesture starting — so a drag whose click never arrives (released
+    // outside the bar, say) cannot leave this armed for somebody's next real click.
+    private bool _clickEndsADrag;
+
     private RoadmapDrag _kind = RoadmapDrag.Move;
     private int _steps;
     private int _rowOffset;
@@ -300,6 +327,29 @@
     [Parameter]
     public double QuarterWidth { get; set; } = 16;
 
+    /// <summary>
+    /// How tall one row is drawn, in rem. The vertical counterpart to
+    /// <see cref="QuarterWidth"/>, and for the same reason: only the caller knows how
+    /// much of the screen this chart is allowed.
+    /// <para>
+    /// It is a parameter rather than a constant because the two places this chart is
+    /// drawn want different answers. On a page there is room to breathe. In a band
+    /// capped at a quarter of the window, every rem of row height is a row that has
+    /// to be scrolled to instead of seen, and a plan you have to scroll is a plan you
+    /// are reading a piece at a time.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public double RowHeight { get; set; } = 2.75;
+
+    /// <summary>How tall a bar is drawn inside its row, in rem. Kept separate from
+    /// <see cref="RowHeight"/> rather than derived from it, because the gap between
+    /// two stacked bars is what makes them read as two, and how much of that a
+    /// shorter row can spare is a judgement about the design rather than
+    /// arithmetic.</summary>
+    [Parameter]
+    public double BarHeight { get; set; } = 1.5;
+
     /// <summary>Whether a bar can be moved in time at all.</summary>
     [Parameter]
     public bool AllowMove { get; set; } = true;
@@ -338,6 +388,31 @@
 
     [Parameter]
     public string Title { get; set; } = "Roadmap";
+
+    /// <summary>
+    /// The heading, written by the caller instead of built from
+    /// <see cref="Title"/> and <see cref="HeadingLevel"/>.
+    /// <para>
+    /// It exists for a host that already has a heading for this chart and would
+    /// otherwise draw a second one underneath it. Handing the one it has to the
+    /// chart puts it on the same row as the filter controls — which is the row the
+    /// header already lays out that way — instead of stacking two headings and a
+    /// filter bar down the block axis.
+    /// </para>
+    /// <para>
+    /// A caller that supplies this owns the accessible name too: the generated
+    /// heading is what <c>aria-labelledby</c> points at, so set
+    /// <see cref="LabelledBy"/> to the id of whatever heading arrives here.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? TitleContent { get; set; }
+
+    /// <summary>The id of the element naming this chart, for a caller supplying its
+    /// own <see cref="TitleContent"/>. Left unset, the chart names itself from the
+    /// heading it generated.</summary>
+    [Parameter]
+    public string? LabelledBy { get; set; }
 
     [Parameter]
     public string? Description { get; set; }
@@ -401,7 +476,7 @@
             .Concat(MilestoneList.Select(milestone => milestone.On)),
         Today ?? DateOnly.FromDateTime(DateTime.Now));
 
-    private RoadmapGeometry Geometry => new(Span, QuarterWidth);
+    private RoadmapGeometry Geometry => new(Span, QuarterWidth, RowHeight, BarHeight);
 
     private double TrackHeight => Geometry.TrackHeightRem(Rows.Count);
 
@@ -484,6 +559,7 @@
     [JSInvokable]
     public void DragBegin(string barId, string grip)
     {
+        _clickEndsADrag = false;
         _dragId = barId;
         _grabbedId = null;
         _kind = GripKind(grip);
@@ -514,7 +590,13 @@
     {
         if (_dragId is null) return;
 
+        // Asked before Settle, because settling releases the gesture and the answer
+        // goes with it.
+        var moved = PreviewFor(_dragId) is not null;
+
         await Settle(_dragId);
+
+        _clickEndsADrag = moved;
     }
 
     [JSInvokable]
@@ -522,6 +604,11 @@
     {
         var abandoned = ActiveId;
         var bar = abandoned is null ? null : Bar(abandoned);
+
+        // Escape abandons the move, but the pointer is still down: releasing it will
+        // still synthesise a click, and a gesture the reader just cancelled is not a
+        // request to open anything.
+        _clickEndsADrag = _dragId is not null && (_steps != 0 || _rowOffset != 0);
 
         Release();
 
@@ -721,8 +808,30 @@
     /// <summary>Whether the gesture in flight is being refused.</summary>
     private bool Refused => ActiveId is { } id && Bar(id) is { } bar && Landing(bar) is null;
 
+    /// <summary>
+    /// A bar was opened: clicked, or Enter pressed on it.
+    /// <para>
+    /// Except when the click is the one the browser synthesises at the end of a
+    /// pointer drag. The bar's body is a <c>button</c>, so a press, a travel and a
+    /// release is both a drag and a click as far as the DOM is concerned — and a host
+    /// that opens an editor on activation would open it every single time somebody
+    /// rescheduled something. A gesture that moved the work is not a request to open
+    /// it, so that one click is swallowed here rather than every host having to learn
+    /// to ignore it.
+    /// </para>
+    /// <para>
+    /// Only a drag that <em>changed</em> something suppresses the click. A press and
+    /// release that went nowhere is exactly what a click is, and still opens.
+    /// </para>
+    /// </summary>
     private async Task Activate(string id)
     {
+        if (_clickEndsADrag)
+        {
+            _clickEndsADrag = false;
+            return;
+        }
+
         if (OnBarSelected.HasDelegate) await OnBarSelected.InvokeAsync(id);
     }
 
@@ -804,6 +913,18 @@
 
     private IEnumerable<RoadmapMilestone> MilestonesOn(string rowId) =>
         MilestoneList.Where(milestone => Is(milestone.RowId, rowId));
+
+    /// <summary>
+    /// The milestones that asked for a rule down the whole chart, and whose date is
+    /// actually in the window.
+    /// <para>
+    /// A milestone whose row was filtered off the chart still draws its line. That is
+    /// deliberate: the line is a fact about the whole plan at that date, and a filter
+    /// narrows which work is shown rather than which dates exist.
+    /// </para>
+    /// </summary>
+    private IEnumerable<RoadmapMilestone> SpanningMilestones =>
+        MilestoneList.Where(milestone => milestone.Line && Span.Contains(milestone.On));
 
     private RoadmapBar? Bar(string id) => BarList.FirstOrDefault(bar => Is(bar.Id, id));
 

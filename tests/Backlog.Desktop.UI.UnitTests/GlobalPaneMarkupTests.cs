@@ -7,12 +7,16 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("data-testid=\"global-pane-multiselect\"", home, StringComparison.Ordinal);
+        // The strip is the shared ButtonGroup, so its test id and its label reach
+        // the DOM through the component's TestId and AriaLabel parameters rather
+        // than as literal attributes — the same convention the update dialog and
+        // the pane options below already follow.
+        Assert.Contains("TestId=\"global-pane-multiselect\"", home, StringComparison.Ordinal);
 
         // "Sections" rather than "panes": the strip also shows and hides the roadmap
         // band, and a band is a row above the panes rather than one of them.
-        Assert.Contains("aria-label=\"Visible sections\"", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("aria-label=\"Visible panes\"", home, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Visible sections\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("Visible panes", home, StringComparison.Ordinal);
 
         // The four options are the shared ToggleButton, so their test ids reach
         // the DOM through its TestId parameter rather than literal attributes.
@@ -34,6 +38,96 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("id=\"backlog-pane\"", NormalizeLineEndings(File.ReadAllText(FindBacklogPane())), StringComparison.Ordinal);
         Assert.Contains("id=\"repository-knowledge-pane\"", NormalizeLineEndings(File.ReadAllText(FindKnowledgePane())), StringComparison.Ordinal);
         Assert.Contains("aria-controls=\"roadmap-band\"", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The three workspace surfaces are one segmented control, because
+    /// <c>WorkspaceSurface</c> is one field with three states. They used to be two
+    /// independent <c>AppButton</c> disclosures carrying <c>aria-expanded</c>, which
+    /// described neither their exclusivity nor the fact that a takeover replaces the
+    /// workspace instead of expanding beside it. Pressed states describe both, and
+    /// the Workspace segment gives the way back a control of its own.
+    /// </summary>
+    [Fact]
+    public void The_three_surfaces_are_one_segmented_group_with_a_way_back()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("TestId=\"workspace-surface-switcher\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"workspace-surface-option\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"tools-toggle-button\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"dashboard-toggle-button\"", home, StringComparison.Ordinal);
+
+        // Workspace leads, because it is the surface the reader starts on and the
+        // one the other two return to.
+        Assert.True(
+            home.IndexOf("TestId=\"workspace-surface-option\"", StringComparison.Ordinal)
+            < home.IndexOf("TestId=\"tools-toggle-button\"", StringComparison.Ordinal),
+            "The Workspace segment comes first: it is what the takeovers return to.");
+
+        // A selection, not a disclosure. Only Ask AI keeps aria-expanded, because
+        // only its panel opens beside the content rather than replacing it.
+        Assert.Contains("PressedChanged=\"CloseSurface\"", home, StringComparison.Ordinal);
+        Assert.Contains("PressedChanged=\"ToggleTools\"", home, StringComparison.Ordinal);
+        Assert.Contains("PressedChanged=\"ToggleDashboard\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-expanded=\"@(ToolsVisible", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-expanded=\"@(DashboardVisible", home, StringComparison.Ordinal);
+        // Written out, not bound to the bool: Blazor renders a true bool attribute
+        // as `aria-expanded=""` and drops it when false, and aria-expanded accepts
+        // neither.
+        Assert.Contains("aria-expanded=\"@(_aiExpanded ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-expanded=\"@_aiExpanded\"", home, StringComparison.Ordinal);
+
+        // The switcher needs something to switch to: with both takeover features
+        // off its only member would be the surface already on screen.
+        Assert.Contains("@if (SurfaceSwitcherVisible)", home, StringComparison.Ordinal);
+
+        // The Workspace segment points at a landmark, so the workspace main needs
+        // the id the other two panes already have.
+        Assert.Contains("id=\"workspace\"", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Navigation and cross-cutting concerns are separate regions of the header, not
+    /// one row of interchangeable pills. This pins the four regions and the fact
+    /// that only the two navigation groups live inside the nav landmark.
+    /// </summary>
+    [Fact]
+    public void The_header_separates_navigation_from_the_cross_cutting_utilities()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("class=\"app-header__identity\"", home, StringComparison.Ordinal);
+        Assert.Contains("class=\"app-header__nav\" aria-label=\"Workspace views\"", home, StringComparison.Ordinal);
+        Assert.Contains("class=\"app-header__status\"", home, StringComparison.Ordinal);
+        Assert.Contains("class=\"app-header__utilities\"", home, StringComparison.Ordinal);
+
+        var nav = home.IndexOf("class=\"app-header__nav\"", StringComparison.Ordinal);
+        var status = home.IndexOf("class=\"app-header__status\"", StringComparison.Ordinal);
+        var utilities = home.IndexOf("class=\"app-header__utilities\"", StringComparison.Ordinal);
+
+        // Reading order: what you are looking at, how it is doing, then the things
+        // that are not about it at all.
+        Assert.True(nav < status && status < utilities);
+
+        // Both navigation groups are inside the landmark; the utilities are not.
+        Assert.InRange(home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal), nav, status);
+        Assert.InRange(home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal), nav, status);
+        Assert.True(home.IndexOf("TestId=\"feedback-button\"", StringComparison.Ordinal) > utilities);
+        Assert.True(home.IndexOf("TestId=\"app-version\"", StringComparison.Ordinal) > utilities);
+        Assert.True(home.IndexOf("data-testid=\"settings-link\"", StringComparison.Ordinal) > utilities);
+
+        // Version sits at the right edge with settings after it.
+        Assert.True(
+            home.IndexOf("TestId=\"app-version\"", StringComparison.Ordinal)
+            < home.IndexOf("data-testid=\"settings-link\"", StringComparison.Ordinal),
+            "Settings is the last control in the header.");
+
+        // The pill row is gone: no interactive control in the header is a 999px
+        // pill any more, and the classes that drew them went with it.
+        Assert.DoesNotContain("\"pane-multiselect", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("pane-multiselect__option", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("header-tool-toggle", home, StringComparison.Ordinal);
     }
 
     /// <summary>

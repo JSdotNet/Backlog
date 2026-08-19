@@ -6,30 +6,30 @@
     ".design"
   ],
   "stats": {
-    "nodes": 108,
-    "edges": 209,
+    "nodes": 110,
+    "edges": 213,
     "nodesByFolder": {
-      "design": 93,
+      "design": 94,
       "arc42": 5,
-      "tech": 1,
-      "domain": 9
+      "domain": 10,
+      "tech": 1
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 91,
+      "chapter": 93,
       "heading": 7
     },
     "nodesByStatus": {
-      "active": 90,
+      "active": 91,
       "none": 7,
+      "draft": 5,
       "accepted": 1,
       "candidate": 1,
-      "draft": 4,
       "proposed": 5
     },
     "edgesByType": {
-      "contains": 85,
-      "related": 124
+      "contains": 86,
+      "related": 127
     }
   },
   "problems": [],
@@ -405,11 +405,29 @@
           "path": ".design/color-scheme.md",
           "slug": "syntax-highlighting-tokens",
           "level": 2,
-          "line": 232,
+          "line": 233,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
             ".design/content-editing.md#supported-constructs"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#band-identity-tokens",
+          "label": "Band Identity Tokens",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "band-identity-tokens",
+          "level": 2,
+          "line": 271,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#dark-mode-only",
+            ".design/accessibility.md#contrast",
+            ".domain/roadmap/features.md#feature-repository-scoped-planning"
           ]
         }
       },
@@ -422,7 +440,7 @@
           "path": ".design/color-scheme.md",
           "slug": "role-tokens",
           "level": 2,
-          "line": 270,
+          "line": 351,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -439,7 +457,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 408,
+          "line": 493,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -455,7 +473,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 435,
+          "line": 520,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -471,7 +489,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 462,
+          "line": 547,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -488,7 +506,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 498,
+          "line": 583,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -1446,7 +1464,7 @@
           "path": ".design/color-scheme.md",
           "slug": "chart-roles",
           "level": 3,
-          "line": 337
+          "line": 418
         }
       },
       {
@@ -1458,7 +1476,7 @@
           "path": ".design/color-scheme.md",
           "slug": "badge-and-chip-tones",
           "level": 3,
-          "line": 286
+          "line": 367
         }
       },
       {
@@ -1487,7 +1505,7 @@
           "path": ".arc42/04-solution-strategy.md",
           "slug": "technology-choices",
           "level": 2,
-          "line": 64,
+          "line": 65,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -1511,6 +1529,27 @@
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
             ".arc42/06-runtime-view.md#copilot-app-session-capture",
             ".domain/capture/domain.md#domain-service-source-adapter"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "label": "Feature: Repository-scoped planning",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-repository-scoped-planning",
+          "level": 2,
+          "line": 124,
+          "status": "draft",
+          "depends-on": [
+            ".domain/roadmap/features.md#feature-owning-a-stored-plan"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#repository-scope",
+            ".domain/repository-management/features.md#feature-repository-registration"
           ],
           "outOfScope": true
         }
@@ -1574,7 +1613,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-sub-item",
           "level": 2,
-          "line": 24,
+          "line": 32,
           "status": "draft",
           "aliases": [
             "SubItem"
@@ -1594,7 +1633,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-entry-status",
           "level": 2,
-          "line": 56,
+          "line": 64,
           "status": "draft",
           "aliases": [
             "EntryStatus"
@@ -1614,7 +1653,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-area",
           "level": 2,
-          "line": 66,
+          "line": 74,
           "status": "draft",
           "aliases": [
             "area"
@@ -1634,7 +1673,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-due-date",
           "level": 2,
-          "line": 91,
+          "line": 99,
           "status": "proposed",
           "aliases": [
             "due_on",
@@ -1656,7 +1695,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-reminder",
           "level": 2,
-          "line": 104,
+          "line": 112,
           "status": "proposed",
           "aliases": [
             "remind_at",
@@ -1678,7 +1717,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-recurrence",
           "level": 2,
-          "line": 117,
+          "line": 125,
           "status": "proposed",
           "aliases": [
             "Repeat",
@@ -1703,7 +1742,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-my-day",
           "level": 2,
-          "line": 130,
+          "line": 138,
           "status": "proposed",
           "aliases": [
             "in_my_day_on",
@@ -1725,7 +1764,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-dependency",
           "level": 2,
-          "line": 144,
+          "line": 152,
           "status": "proposed",
           "aliases": [
             "depends_on",
@@ -1931,6 +1970,14 @@
           "id": "contains:.design/color-scheme.md->.design/color-scheme.md#syntax-highlighting-tokens",
           "source": ".design/color-scheme.md",
           "target": ".design/color-scheme.md#syntax-highlighting-tokens",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#band-identity-tokens",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#band-identity-tokens",
           "type": "contains"
         }
       },
@@ -2635,6 +2682,30 @@
           "id": "related:.design/color-scheme.md#syntax-highlighting-tokens->.design/content-editing.md#supported-constructs",
           "source": ".design/color-scheme.md#syntax-highlighting-tokens",
           "target": ".design/content-editing.md#supported-constructs",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#band-identity-tokens->.design/design-principles.md#dark-mode-only",
+          "source": ".design/color-scheme.md#band-identity-tokens",
+          "target": ".design/design-principles.md#dark-mode-only",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#band-identity-tokens->.design/accessibility.md#contrast",
+          "source": ".design/color-scheme.md#band-identity-tokens",
+          "target": ".design/accessibility.md#contrast",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#band-identity-tokens->.domain/roadmap/features.md#feature-repository-scoped-planning",
+          "source": ".design/color-scheme.md#band-identity-tokens",
+          "target": ".domain/roadmap/features.md#feature-repository-scoped-planning",
           "type": "related"
         }
       },

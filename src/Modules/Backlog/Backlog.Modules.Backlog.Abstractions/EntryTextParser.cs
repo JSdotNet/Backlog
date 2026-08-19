@@ -1025,7 +1025,7 @@ public static class EntryTextParser
     /// <see cref="Parse"/> — so the editor always reflects exactly what was
     /// saved. Sub-items need no special handling: they are already written as
     /// <c>##</c> headings inside the body.</summary>
-    public static string ToRawText(BacklogEntryDto entry)
+    public static string ToRawText(TaskItemDto entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
 

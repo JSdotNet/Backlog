@@ -25,9 +25,13 @@
          had a folder in Backlog.Desktop.UI, so its types say
          Backlog.Modules.Knowledge.Abstractions. -->
     <Using Include="Backlog.Modules.Knowledge.Abstractions" />
-    <!-- Roadmap has no abstractions project to import: it has no domain module
-         yet, so it publishes one component and one feature key from its .UI
-         project, and that is the namespace the tests name. -->
+    <!-- Roadmap Planning now has a domain module, so its feature key and its DTOs
+         come from the abstractions project like every other context's; the .UI
+         namespace is still imported for the band and the view that maps a plan onto
+         the shared timeline. -->
+    <Using Include="Backlog.Modules.Roadmap.Abstractions" />
+    <Using Include="Backlog.Modules.Roadmap.Abstractions.DataTransferObjects" />
+    <Using Include="Backlog.Modules.Roadmap.Abstractions.Services" />
     <Using Include="Backlog.Modules.Roadmap.UI" />
     <!-- The Dashboard does have one, so its feature key comes from there and its
          pane from the .UI project beside it. -->
@@ -55,6 +59,7 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />

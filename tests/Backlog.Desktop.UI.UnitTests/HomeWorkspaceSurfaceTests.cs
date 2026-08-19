@@ -493,8 +493,6 @@ public sealed class HomeWorkspaceSurfaceTests
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
         var knowledgeFolderSource = new KnowledgeFolderSource(gitHubSettings, store);
-        var repositoryBacklog = new RepositoryBacklogSource(
-            BacklogTestHost.BacklogStoreFor(store, knowledgeFolderSource));
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
@@ -506,7 +504,10 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
-        context.Services.AddSingleton(repositoryBacklog);
+        // The Roadmap module the way a host wires it: a real plan document under the
+        // same storage root, so the band draws what was stored rather than a fixture.
+        context.Services.AddSingleton<IRoadmapPlanning>(sp =>
+            BacklogTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
         context.Services.AddSingleton<DesignKnowledgeProvider>();
         context.Services.AddSingleton<TechnologyKnowledgeService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
@@ -523,8 +524,7 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddScoped(sp => BacklogTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
-            BacklogCopilotCli.Unavailable,
-            sp.GetRequiredService<RepositoryBacklogSource>()));
+            BacklogCopilotCli.Unavailable));
 
         return new Harness(root, context);
     }

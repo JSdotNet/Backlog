@@ -225,9 +225,10 @@ Copy-paste reference of every color token and its single dark value.
 | `color-border-focus` | `#F2C14E` |
 
 The twenty-one tokens above are the whole colour palette. `components.css` declares
-exactly these, plus the code-block theme in `#syntax-highlighting-tokens` and
-the derived role tokens in `#role-tokens`; anything else in product code is a
-literal and MUST be replaced by a token.
+exactly these, plus the code-block theme in `#syntax-highlighting-tokens`, the
+band identity set in `#band-identity-tokens`, and the derived role tokens in
+`#role-tokens`; anything else in product code is a literal and MUST be replaced by
+a token.
 
 ## Syntax Highlighting Tokens
 
@@ -266,6 +267,86 @@ Rules:
 - The hues here are ones the product palette does not otherwise spend, so no two
   kinds of run read as the same thing.
 - A new language MUST map onto these tokens; it MUST NOT add a colour.
+
+## Band Identity Tokens
+
+```meta
+status: active
+related: [".design/design-principles.md#dark-mode-only", ".design/accessibility.md#contrast", ".domain/roadmap/features.md#feature-repository-scoped-planning"]
+```
+
+The roadmap band draws one horizontal band per configured repository, and a reader
+of a portfolio plan needs to tell one project's row from another's at a glance.
+That is the second thing in this product to need more than one hue, and it is the
+same *kind* of thing as the first: like the code theme above, this is **a theme,
+not a second semantic palette**. Each token names *which repository* a row belongs
+to — an identity — never what a piece of UI *means*. Nothing outside a roadmap band
+may use one.
+
+**No new colour value is introduced.** Every value below already appears in this
+document: one is `color-primary`, and the other four are the hues the code theme
+already spends. That is the difference from [Role Tokens](#role-tokens), whose
+values are all *derived* from a palette token — these are not derived, but they are
+not new either, so the count of colours this product uses is unchanged and there is
+no new value for this file to disagree with.
+
+They are their own token names rather than references to `code-type` and friends
+because the code theme's own rule says nothing outside a code block may use one of
+its tokens. Reading that as "the names are reserved, the values are the file's" is
+the honest reading rather than a loophole: the rule exists so a reader never has to
+wonder whether a coloured run is a type name, and a band in a Gantt chart cannot be
+mistaken for one.
+
+| Token | Value | Source in this file |
+|---|---|---|
+| `color-band-1` | `#F2C14E` | the same value as `color-primary` |
+| `color-band-2` | `#7FD1C1` | the same value as `code-type` |
+| `color-band-3` | `#9BD17F` | the same value as `code-string` |
+| `color-band-4` | `#F0A868` | the same value as `code-number` |
+| `color-band-5` | `#8595AD` | the same value as `code-comment` |
+
+A band colour is painted three ways: a 4px left border on the band's own label, the
+label's surface as `color-mix(in srgb, <token> 24%, color-background)`, and
+`color-text-primary` on that surface. A border is a non-text mark and owes 3:1; ink
+on a surface owes the 4.5:1 in
+[#contrast-rules-wcag-aa-minimum](#contrast-rules-wcag-aa-minimum).
+
+| Token | Border vs `color-background` | Border vs `color-background-alt` | 24% label surface | `color-text-primary` on it |
+|---|---|---|---|---|
+| `color-band-1` | 11.15:1 | 9.68:1 | `#483C22` | 10.24:1 |
+| `color-band-2` | 10.51:1 | 9.13:1 | `#2C403E` | 10.43:1 |
+| `color-band-3` | 10.53:1 | 9.15:1 | `#33402E` | 10.41:1 |
+| `color-band-4` | 9.36:1 | 8.13:1 | `#473628` | 10.91:1 |
+| `color-band-5` | 6.15:1 | 5.34:1 | `#2E3139` | 12.34:1 |
+
+Every ratio is the WCAG 2.1 relative-luminance formula. The binding pair is
+`color-band-5` as a border on `color-background-alt` at 5.34:1 — still two and a
+half times the 3:1 it owes, because the set was chosen from values already measured
+against these surfaces rather than picked for looks.
+
+Rules:
+
+- **Colour here is identity, never meaning.** A band's hue says which repository.
+  It carries no severity, no status and no priority. Priority on a roadmap is the
+  ordinal shade ramp on the bars, which is one hue and stays that way.
+- **Colour is never the sole carrier.** Every band is also labelled with its
+  repository alias written down its own side, every bar names its band in its
+  accessible name, and the repository filter lists them by full name. The band
+  sidebar is `aria-hidden`, so a reader who never sees a hue loses nothing.
+- **Hues are assigned by position** in the configured-repository list and wrap after
+  five, so a sixth repository repeats the first hue. Two bands sharing a hue is
+  acceptable precisely because the hue is not the identifier — the label is.
+- A new consumer wanting categorical colour MUST justify itself against this
+  section rather than adding hues, exactly as a new language MUST map onto the code
+  theme rather than adding a colour.
+
+Provenance note: the organization's `01-color-palette` guide defines five token
+groups — brand, semantic, text, background, border — and has **no categorical or
+identity group** to conform to, so there was nothing upstream to adopt. Its
+`05-customization-guide` makes colour the one thing a project may customize, which
+is the envelope this sits inside; the override contract's "both light and dark
+variants" does not bite, because this product is dark-only and every value here is
+one the file already carries.
 
 ## Role Tokens
 
@@ -356,7 +437,11 @@ Rules:
 
 - The palette carries exactly one saturated hue, so charts are **single-hue by
   rule**. Part-to-whole takes the ordinal ramp; two measures or two providers are
-  drawn as two charts, never as two series on one plot.
+  drawn as two charts, never as two series on one plot. This is not contradicted by
+  `#band-identity-tokens`: that set colours an *identity* — which repository a row
+  belongs to — where this rule is about a *measure*. A second hue on one plot would
+  say "this quantity is a different kind of quantity", which is exactly the claim
+  one hue exists to avoid making.
 - Every ramp step clears the 3:1 a non-text mark owes its background. The track
   is deliberately below it, because it is the absence of data rather than data.
 - The baseline takes `chart-axis` rather than `chart-grid`, because a baseline
@@ -521,7 +606,10 @@ or when the stylesheet declares a colour this file does not name. The deviation
 chapter is excluded from that comparison, because its second column is
 deliberately a value the product does not use.
 
-Materialized: all twenty-one palette tokens and all ten code tokens.
+Materialized: all twenty-one palette tokens, all ten code tokens, and the five
+band identity tokens. The band set adds no new colour value — each is a value one
+of the other two families already carries — so the number of distinct colours the
+product declares is unchanged at twenty-five.
 
 Not yet materialized: the per-stack mapping above is web-only in practice —
 there is no mobile MAUI `ResourceDictionary` and no IDE webview yet, so the CSS

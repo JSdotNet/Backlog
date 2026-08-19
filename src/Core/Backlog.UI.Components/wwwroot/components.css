@@ -106,6 +106,21 @@
     --code-attribute: #7FD1C1;
     --code-line-number: #7A8AA3;
 
+    /* Band identity.
+       One hue per configured repository, so a portfolio plan can be read one
+       project at a time. See .design/color-scheme.md#band-identity-tokens: this is
+       a theme rather than a second palette — each token says *which* repository a
+       row belongs to, never what anything means — and it introduces no new colour,
+       because every value here is one the palette or the code theme already
+       carries. Written out rather than aliased to those tokens on purpose: the code
+       theme's own rule is that nothing outside a code block uses one of its names,
+       and a band is not a run of code. */
+    --color-band-1: #F2C14E;
+    --color-band-2: #7FD1C1;
+    --color-band-3: #9BD17F;
+    --color-band-4: #F0A868;
+    --color-band-5: #8595AD;
+
     /* Chart roles.
        A chart needs role names the twenty palette tokens do not provide: a
        series colour, a track, a gridline, a baseline. Like the code theme this
@@ -2174,7 +2189,8 @@ button.md-check {
 
 /* Round, because that is this shape's one convention — and still a checkbox to
    anything that is listening. */
-.task-item__check {
+.task-item__check,
+.task-panel__check {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2191,12 +2207,15 @@ button.md-check {
 }
 
 button.task-item__check:hover,
-button.task-item__check:focus-visible {
+button.task-item__check:focus-visible,
+button.task-panel__check:hover,
+button.task-panel__check:focus-visible {
     border-color: var(--color-border-focus);
     outline: none;
 }
 
-.task-item--done .task-item__check {
+.task-item--done .task-item__check,
+.task-panel--done .task-panel__check {
     border-color: var(--color-success);
     background: var(--color-success);
 }
@@ -2695,6 +2714,33 @@ button.task-item__check:focus-visible {
     color: var(--color-text-primary);
 }
 
+/* One row in a pane is a decision about today rather than a fact about the task,
+   and it is the one people press most. It gets the weight — a border that makes it
+   a thing rather than a line, and the brand colour once it is on. Not a larger
+   label: the words are the same length as their neighbours', and setting them
+   bigger would only push the rows apart. */
+.task-action--prominent {
+    border: var(--border-width) solid var(--color-border);
+}
+
+.task-action--prominent .task-action__main {
+    padding: var(--spacing-md);
+}
+
+.task-action--prominent .task-action__icon {
+    color: var(--color-primary);
+    font-size: var(--font-size-lg);
+}
+
+.task-action--prominent.task-action--set {
+    border-color: var(--color-primary-dark);
+    background: var(--color-background-alt);
+}
+
+.task-action--prominent.task-action--set .task-action__icon {
+    color: var(--color-primary-light);
+}
+
 .task-action__value {
     display: block;
     color: var(--color-text-secondary);
@@ -2720,6 +2766,174 @@ button.task-item__check:focus-visible {
 .task-action__clear:focus-visible {
     color: var(--color-text-primary);
     outline: none;
+}
+
+/* --- Task detail pane ---------------------------------------------------- */
+/*
+   The pane those rows sit in, and the groups it lays out.
+
+   Columns rather than a grid, and that is the interesting decision here. A grid
+   places the third group in the first column's second row, which leaves a hole
+   under a short second column and makes the pane a row taller than its contents
+   need — three groups of 3, 1 and 1 rows came out 4 rows tall with a gap beside
+   them. Multi-column balances instead: it fills a column until the next group
+   would make it the taller one, so the two short groups stack under each other
+   and the pane is as tall as its longest column and no taller.
+
+   column-width rather than a count, so the pane is two columns where there is
+   room for two and one column where there is not. That is the mobile channel's
+   requirement rather than a nicety: it is a single column by design, and a pane
+   that insisted on two would give it two unreadable ones. 16rem is also the cap
+   at the other end — a third column needs past 50rem, wider than a side panel
+   gets, so the pane cannot quietly become a row of captions on a large screen.
+*/
+.task-action-pane {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.task-action-pane__columns {
+    columns: 16rem;
+    column-gap: var(--spacing-md);
+
+    /* The groups carry their own bottom margin, because a column's gap between
+       stacked children is not something multi-column has to give. That leaves one
+       margin hanging under the last group in each column, and this takes it back
+       so the pane ends where its rows do. */
+    margin-bottom: calc(-1 * var(--spacing-md));
+}
+
+.task-action-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin-bottom: var(--spacing-md);
+
+    /* A group split across the column break would put its caption at the bottom
+       of one column and its rows at the top of the next, which is the one thing
+       grouping them was for. */
+    break-inside: avoid;
+}
+
+/* A caption, not a heading: the rows under it carry the weight, and a label
+   competing with them would turn the pane into a list of labels. Indented to the
+   row's own text inset, so the column reads down one edge. */
+.task-action-group__caption {
+    margin: 0 0 var(--spacing-2xs);
+    padding: 0 var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* --- Task panel ---------------------------------------------------------- */
+/*
+   One task, beside the list it came from. No width is stated: a side panel is as
+   wide as the pane it is docked in, and everything inside it sizes to that.
+*/
+.task-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-raised);
+}
+
+/* The circle, the title and the status on one line, with the title taking whatever
+   is left. Centred rather than baseline-aligned: an empty circle and a ticked one
+   have different baselines, so aligning to text would move the circle up the moment
+   somebody finished the task. */
+.task-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+/* Never squeezed by a long title, and never stretched by the line's height. */
+.task-panel__check {
+    flex: 0 0 auto;
+}
+
+.task-panel__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+/* The heading is the target, so the button is the heading: no box of its own, no
+   colour of its own, and the same text it would have been. What says it is a
+   control is the pointer and the underline it takes on hover — a heading in a
+   button's clothing would read as a second kind of thing on the line. */
+.task-panel__title-button {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: text;
+}
+
+.task-panel__title-button:hover {
+    text-decoration: underline dotted;
+    text-underline-offset: 0.25em;
+}
+
+.task-panel__title-button:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+/* Same size and weight as the title it stands in for, so the line does not move
+   when the editor opens. */
+.task-panel__rename-input {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-bottom: var(--border-width-2) solid var(--color-border-focus);
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+}
+
+.task-panel__rename-input:focus-visible {
+    outline: none;
+}
+
+/* Finished, and said the way a finished row says it. */
+.task-panel--done .task-panel__title {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+/* The status keeps its width whatever the title does. A badge that shrank would
+   hyphenate a single word. */
+.task-panel__status {
+    flex: 0 0 auto;
+}
+
+.task-panel__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.task-panel__body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
 /* --- Markdown editor ----------------------------------------------------- */
@@ -7035,6 +7249,26 @@ button.tag-chip__label {
     bottom: 0;
     width: var(--border-width);
     background: var(--color-border);
+}
+
+/* A milestone's rule down the whole chart. Quieter than the today line and louder
+   than a quarter rule, which is the order of how much each one means: a quarter is
+   the ruler, a milestone is a date somebody chose, and today is the only one that
+   moves on its own. Dashed so that a milestone crossing a bar reads as passing behind
+   it rather than cutting it in two. */
+.roadmap-timeline__milestone-rule {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--border-width);
+    background: linear-gradient(
+        to bottom,
+        var(--color-border-strong) 0,
+        var(--color-border-strong) 4px,
+        transparent 4px,
+        transparent 8px
+    );
+    background-size: var(--border-width) 8px;
 }
 
 /* Today is the one line on the chart that is not a quarter, so it is the one

@@ -65,6 +65,23 @@
     [Parameter]
     public bool Togglable { get; set; }
 
+    /// <summary>The row that matters more than the rows around it.
+    /// <para>
+    /// A pane of rows that all look alike is a pane read left to right, and one of
+    /// these is not like the others: "put this in today" is a decision the reader
+    /// makes every morning, where a due date is a fact about the task that was
+    /// settled once. Prominence is how the pane says which is which — a border and
+    /// the brand colour, rather than a bigger label, because the label is the same
+    /// length as its neighbours and stretching it would only push the rows apart.
+    /// </para>
+    /// <para>
+    /// One row at a time. Two prominent rows is a pane with no emphasis in it and
+    /// a shape nobody can scan, so this is a decision the host makes once and not a
+    /// dial to turn up on everything.
+    /// </para></summary>
+    [Parameter]
+    public bool Prominent { get; set; }
+
     [Parameter]
     public bool Disabled { get; set; }
 
@@ -86,6 +103,7 @@
     {
         "task-action",
         Set ? "task-action--set" : null,
+        Prominent ? "task-action--prominent" : null,
         CssClass
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 

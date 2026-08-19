@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
@@ -12,6 +13,9 @@ using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Backlog.Extensions;
+using Backlog.Modules.Roadmap;
+using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
@@ -33,15 +37,21 @@ builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderS
     sp.GetRequiredService<GitHubSettingsStore>(),
     sp.GetRequiredService<WorkspaceSettingsStore>()));
 builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
-    sp.GetRequiredService<WorkspaceSettingsStore>(),
-    sp.GetRequiredService<IKnowledgeFolderSource>()));
+    sp.GetRequiredService<WorkspaceSettingsStore>()));
 
 // Composition: the Backlog module brings its own use cases, and the host decides
 // which adapter is behind them. The repository follows the storage folder rather
 // than being pinned to wherever it was at startup.
-builder.Services.AddSingleton<IBacklogRepository>(sp =>
-    new RootedFileBacklogRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+builder.Services.AddSingleton<ITaskRepository>(sp =>
+    new RootedSqliteTaskRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddBacklogModule();
+
+// The same arrangement for the plan: the Roadmap module brings its use cases, and
+// the host picks the adapter. One JSON document under the same storage root,
+// following the same folder.
+builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
+    new RootedJsonRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+builder.Services.AddRoadmapModule();
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
@@ -82,7 +92,6 @@ builder.Services.AddDashboardAdapters();
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<FeedbackReporter>();
 builder.Services.AddSingleton<DesignKnowledgeProvider>();
-builder.Services.AddSingleton<RepositoryBacklogSource>();
 builder.Services.AddSingleton<TechnologyKnowledgeService>();
 builder.Services.AddSingleton<InstructionSourceDiscovery>();
 builder.Services.AddSingleton<KnowledgeMenu>();

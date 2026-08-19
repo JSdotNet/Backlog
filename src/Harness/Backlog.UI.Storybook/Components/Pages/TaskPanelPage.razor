@@ -1,0 +1,364 @@
+﻿@page "/task-list/panel"
+
+<PageTitle>Task side panel — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Task side panel"
+           Summary="A subpage of Task list, about what happens when you open one of those rows. TaskPanel is the pane beside the list, and its one decision is the order: what the task is and where it has got to, what it is filed under, the facts you set on it, then the text. TaskActionPane is that third part — one row across the top for the decision you make every morning, and the rest in two columns grouped by what they are about. Everything under the heading is a slot, so the panel says where things go and nothing at all about what they are. The fields those rows set a value with are on Inputs."
+           Guidelines="@Rules">
+
+    <Story Name="The detail pane, in two columns"
+           Description="Rank it, remind me, give it a due date, repeat it, attach something. All of them are one shape — icon, label, sometimes a value and a way to clear it — so they are one component rather than five. A row that is set says what it is set to and offers an ✕; a row that is not says what it would do. That difference is the whole state model, and it is why “Remind me” and “Reminder · Monday 09:00” are the same control rather than two.
+
+Two columns, because these rows are short and the panel they sit in is not. All of them in one stack means reading past the whole of “when” to find out how important the thing is, and it pushes the body — the part somebody opened the panel to write — off the bottom of a laptop. Side by side, the pane is one glance.
+
+The columns are groups rather than a reflow, which is the decision worth arguing here. Rows poured into two tracks would break “due date, reminder, repeat” across the gap and stand a due date next to a priority, and two things side by side read as related whether or not they are. So the pane lays out groups and a group lays out rows: a column is a subject, and the reader picks the subject before the row. Which subjects there are is the host's answer and not this component's — these three are what the product has decided so far, and a fourth would arrive as a fourth group rather than as a longer one.
+
+“Add to My Day” is not one of them. It is the row across the top, on its own and carrying a border and the brand colour, because it is the only thing in the pane that is a decision rather than a fact: a due date was settled once and stays settled, where putting something in today is a choice somebody makes again every morning — and so it is the row they press most. Everything else in the pane is a fact about the task and reads at the same weight as its neighbours.
+
+The columns balance, which is why the pane is only as tall as its longest one. Placed in a grid, the third group lands under the first and leaves a hole beside a short second column — three groups of three, one and one rows came out four rows tall with a gap next to them. Filling instead stacks the two short groups under each other, and the rows the pane stops spending go to the body, which is the only part of the panel that wanted them.
+
+Attachments is one row pointing at one place, and never a row per file. What is attached is a folder or a zip, and the row says which and how much is in it — “Folder · panel-review · 4 files”. A row each would make the pane's height a function of how many files somebody dropped on the task, and the height of the pane is the one measurement in a side panel that everything else has to live with: every row it grows is a row the body loses.
+
+Narrow it and the two columns become one, and the top row still spans it. That is the mobile channel's requirement rather than a nicety: it is a single column by design, and a pane that insisted on two would hand it two unreadable ones. Widen it and a third column still cannot appear, because the track minimum is set past what a side panel is ever given — three subjects abreast would be a row of captions rather than a pane.
+
+Priority is new here, and it is deliberately nowhere near the dates. A ranking and a deadline are the two facts most often mistaken for each other, and the pane's job is to stop saying them in the same breath: “critical” is how much this matters, “Friday” is when it stops being possible. It is the same control as its siblings for the same reason they are — set, with a value, and an ✕. Pressing it here walks low, medium, high, critical so all four rankings can be read; the real one opens a picker the product has not designed yet."
+           Code="@PaneCode">
+        <div class="sb-side-panel">
+            @DetailPane("pane")
+        </div>
+        <p class="sb-state" data-testid="task-pane-priority">Priority: @(_priority ?? "(not set)") · My Day: @(_inMyDay ? "yes" : "no") · attached: @(_attached ? "panel-review" : "nothing")</p>
+    </Story>
+
+    <Story Name="The whole panel, with sub-items"
+           Description="The order is the panel's one decision, and it reads outside-in: identity, classification, settings, content. What a reader opened the panel to check is at the top; what they came to write is the part with room to grow. The body is last for a reason of its own — it is the only part with no natural height, and a body above the detail pane would land those rows somewhere different on every task, turning “set a due date” from a place you point at into something you hunt for.
+
+The heading line is the same three things a row in the list is: the circle that finishes it, the title, and the title being what you click to retitle it. Both work here — tick the circle and the title goes quiet and struck through; click the title and it becomes a field where it was, with Enter to settle, Escape to put it back, and leaving to settle it too. A panel whose title was plain text while the row it opened from could be renamed in place would be a panel you have to close to fix a typo.
+
+The status sits beside the title rather than under it, because a status is what the title is currently doing and a reader who wants one wants both. Tags come next as chips, the same chips as everywhere else in the product: the panel draws them rather than taking a slot for them, because a slot there would be an invitation to draw a second kind of tag. What those chips can do is still the host's, said the way this library always says it — a chip is removable when somebody is listening for the removal and clickable when somebody is listening for the click, and nobody listening leaves plain text rather than a control that goes nowhere. Drop all three and the strip goes with them.
+
+The sub-items are TaskListView with two things turned on. Quick edit, because retitling them is one thing done many times over: Tab settles this one and opens the field on the next, Shift+Tab walks back up, and off the end is the add row, so “type a title, Tab, type a title, Tab” fills a checklist without the pointer ever coming back. And DirectRename, so these rows carry no pencil at all — the title is a field from the start. A sub-item has no pane to open, so the click a pencil protects was never going anywhere, and a pencil on every one of them is a column of the smallest target on the panel down the side of a list whose rows are one short line each. Type, Tab, type.
+
+There is no word over the list, and there is none over the markdown in the story below either. What is in the body is plainly a list or plainly prose, and a label would be a label to keep true — “Steps” over a body that turned out to be a paragraph is worse than nothing over either.
+
+Done sub-items stay where they are, which is the one thing set differently here from a list of tasks. GroupCompleted is off because the order of the sub-items is the order somebody wrote them in, and a finished one that jumps to the bottom takes a line out of the middle of a set of instructions."
+           Code="@PanelCode">
+        <div class="sb-side-panel">
+            <TaskPanel Title="@_title"
+                       Done="@_done"
+                       OnToggle="() => _done = !_done"
+                       OnRename="title => _title = title"
+                       Status="@(_done ? "Done" : "In progress")"
+                       Tags="@_tags"
+                       OnTagRemoved="RemoveTag"
+                       OnTagSelected="SelectTag"
+                       TestId="panel-items">
+                <Details>
+                    @DetailPane("panel-items-pane")
+                </Details>
+                <Body>
+                    <TaskListView Tasks="@_subItems"
+                                  QuickEdit="true"
+                                  DirectRename="true"
+                                  GroupCompleted="false"
+                                  OnToggle="ToggleSubItem"
+                                  OnRename="RenameSubItem"
+                                  OnAdd="AddSubItem"
+                                  AddLabel="Add a sub-item"
+                                  AriaLabel="Sub-items"
+                                  TestId="item" />
+                </Body>
+            </TaskPanel>
+        </div>
+        <p class="sb-state" data-testid="panel-items-state">@PanelState</p>
+    </Story>
+
+    <Story Name="The same panel, with a body instead"
+           Description="A list of sub-items and a page of prose are the same slot, because they are the same thing to the panel: the part that is as long as it is. Which of the two a task has is the product's answer and not this component's, and a panel that took a SubItems parameter and a Body parameter would be a panel that had answered it.
+
+This is what the width is for. The rich text control needs a measure to be usable in — a toolbar of a dozen buttons, and a line of markdown that is not reflowing every third word — and a body slot that could only hold a checklist would be a body slot the editor cannot go in. The panel states no width of its own, since a side panel is as wide as the pane it is docked in; what it does is leave its parts room to size to that, which is why the same panel is legible in this 44rem frame and in a phone's single column.
+
+Nothing else moves. Same heading, same tags, same pane above it — only the last slot is different, which is the point of the slot being last."
+           Code="@NotesCode">
+        <div class="sb-side-panel">
+            <TaskPanel Title="@_title"
+                       Done="@_done"
+                       OnToggle="() => _done = !_done"
+                       OnRename="title => _title = title"
+                       Status="@(_done ? "Done" : "In progress")"
+                       Tags="@_tags"
+                       OnTagRemoved="RemoveTag"
+                       OnTagSelected="SelectTag"
+                       TestId="panel-notes">
+                <Details>
+                    @DetailPane("panel-notes-pane")
+                </Details>
+                <Body>
+                    <MarkdownEditor Value="@_notes"
+                                    ValueChanged="value => _notes = value"
+                                    Rows="10"
+                                    AriaLabel="Task body"
+                                    TestId="panel-notes-editor" />
+                </Body>
+            </TaskPanel>
+        </div>
+    </Story>
+
+    <Story Name="A title, and only what there is"
+           Description="Every part under the heading is optional, and an absent one is left out rather than drawn empty. A task with no tags gets no tag strip, because a row of blank space is where a reader learns there is nothing to learn; a task nobody has set anything on gets no pane; a title-only task is a heading, and that is all it is.
+
+Which is what makes the panel usable on the way in. A task typed into the add row a second ago has a title and nothing else, and it should not open into a form of empty fields telling its author how much they have not filled in yet.
+
+The circle goes the same way. Nothing listening for the tick and nothing ticked, and there is no circle at all rather than one that does nothing — the same rule a row in the list follows. The title is a plain heading here too, for the same reason: nobody is listening for a rename."
+           Code="@BareCode">
+        <div class="sb-side-panel">
+            <TaskPanel Title="Ask about the Heerlen features" TestId="panel-bare" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#task-rows", "What a row states, and what a pane over one may add to it."),
+        new("typography-and-layout.md#metadata-lines", "How the facts set on a task are laid out beside it."),
+        new("typography-and-layout.md#density", "How tight two columns of detail rows may be."),
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why nothing in the pane has a save button."),
+        new("content-editing.md#backlog-entry-structure", "What a step, a tag and a body are in the file behind the pane.")
+    ];
+
+    private bool _inMyDay = true;
+    private bool _reminded = true;
+    private bool _due;
+    private bool _repeats;
+
+    /// <summary>The ranking, as the word to show. Null is "not set", which is the
+    /// same two-state model every other row in the pane has — and the reason the
+    /// row needs no separate "has a priority" flag beside it.</summary>
+    private string? _priority = "High";
+
+    /// <summary>The four rankings the domain has. Pressing the row walks them, so
+    /// all four can be read here; a real host opens a picker.</summary>
+    private static readonly string[] Priorities = ["Low", "Medium", "High", "Critical"];
+
+    /// <summary>The title, held by the host. The panel reports a rename and stores
+    /// nothing, exactly as a row in a list does.</summary>
+    private string _title = "Wire the detail pane into the desktop shell";
+
+    private bool _done;
+
+    /// <summary>Whether anything is attached. One flag, because the row is one
+    /// pointer at one folder rather than a list that grows.</summary>
+    private bool _attached = true;
+
+    private IReadOnlyList<string> _tags = ["ui", "desktop", "storybook"];
+
+    private string? _lastTag;
+
+    private IReadOnlyList<TaskRow> _subItems =
+    [
+        new("s1", "Read the pane's rows off the entry"),
+        new("s2", "Put the panel behind the list's selection"),
+        new("s3", "Decide what a picker looks like", Done: true),
+        new("s4", "Type in me, then press Tab")
+    ];
+
+    private int _subItemsAdded;
+
+    /// <summary>The pane, in one place. It is in three stories on this page and it
+    /// is the same pane in all three — the same state too, so a due date set in one
+    /// is set in the others. Two copies of this markup would have read as two panes
+    /// that happen to look alike.</summary>
+    private RenderFragment DetailPane(string testId) =>
+        @<TaskActionPane TestId="@testId">
+            <Lead>
+                @* The one row that is a decision rather than a fact, so the one row
+                   that carries weight. Togglable, so it has no ✕: pressing it again
+                   is how it comes off. *@
+                <TaskAction Icon="☀"
+                            Label="@(_inMyDay ? "Added to My Day" : "Add to My Day")"
+                            Set="@_inMyDay"
+                            Togglable="true"
+                            Prominent="true"
+                            OnSet="() => _inMyDay = !_inMyDay"
+                            TestId="@($"{testId}-myday")" />
+            </Lead>
+            <Groups>
+
+                <TaskActionGroup Label="Scheduling" TestId="@($"{testId}-scheduling")">
+                    <TaskAction Icon="🗓"
+                                Label="Due date"
+                                Value="Friday, 21 August"
+                                Set="@_due"
+                                OnSet="() => _due = true"
+                                OnClear="() => _due = false"
+                                TestId="@($"{testId}-due")" />
+
+                    <TaskAction Icon="⏰"
+                                Label="Remind me"
+                                Value="Monday · 09:00"
+                                Set="@_reminded"
+                                OnSet="() => _reminded = true"
+                                OnClear="() => _reminded = false"
+                                TestId="@($"{testId}-remind")" />
+
+                    <TaskAction Icon="🔁"
+                                Label="Repeat"
+                                Value="Weekly"
+                                Set="@_repeats"
+                                OnSet="() => _repeats = true"
+                                OnClear="() => _repeats = false"
+                                TestId="@($"{testId}-repeat")" />
+                </TaskActionGroup>
+
+                <TaskActionGroup Label="Ranking" TestId="@($"{testId}-ranking")">
+                    <TaskAction Icon="⚑"
+                                Label="Priority"
+                                Value="@_priority"
+                                Set="@(_priority is not null)"
+                                OnSet="NextPriority"
+                                OnClear="() => _priority = null"
+                                TestId="@($"{testId}-priority")" />
+                </TaskActionGroup>
+
+                <TaskActionGroup Label="Attachments" TestId="@($"{testId}-attachments")">
+                    @* One row, pointing at one place. A row per attached file would
+                       grow the pane by however many files somebody dropped on the
+                       task, which is the one measurement in a side panel nothing
+                       else is allowed to decide — so what the row carries is the
+                       folder and how much is in it. *@
+                    <TaskAction Icon="📁"
+                                Label="@(_attached ? "Folder" : "Attach a folder or zip")"
+                                Value="panel-review · 4 files"
+                                Set="@_attached"
+                                OnSet="() => _attached = true"
+                                OnClear="() => _attached = false"
+                                TestId="@($"{testId}-files")" />
+                </TaskActionGroup>
+            </Groups>
+        </TaskActionPane>;
+
+    /// <summary>Walks the rankings rather than setting one, so all four words the
+    /// domain has for this can be read on the page.</summary>
+    private void NextPriority()
+    {
+        var at = Array.IndexOf(Priorities, _priority);
+        _priority = Priorities[(at + 1) % Priorities.Length];
+    }
+
+    private void RemoveTag(string tag)
+    {
+        _tags = [.. _tags.Where(t => t != tag)];
+        _lastTag = $"removed “{tag}”";
+    }
+
+    private void SelectTag(string tag) => _lastTag = $"clicked “{tag}”";
+
+    private void ToggleSubItem(string id) =>
+        _subItems = [.. _subItems.Select(s => s.Id == id ? s with { Done = !s.Done } : s)];
+
+    /// <summary>The host applies the rename, exactly as it does for a list of
+    /// tasks. Being in a panel changes nothing about that bargain.</summary>
+    private void RenameSubItem(TaskRename rename) =>
+        _subItems = [.. _subItems.Select(s => s.Id == rename.Id ? s with { Title = rename.Title } : s)];
+
+    private void AddSubItem(string title) =>
+        _subItems = [.. _subItems, new TaskRow($"s{100 + ++_subItemsAdded}", title)];
+
+    private string PanelState =>
+        $"{_subItems.Count(s => s.Done)} of {_subItems.Count} sub-items done · tags: "
+        + (_tags.Count == 0 ? "(none left)" : string.Join(", ", _tags))
+        + (_lastTag is null ? string.Empty : $" · {_lastTag}");
+
+    private string _notes = """
+        ## Why the body is last
+
+        It is the only part of the panel with no natural height. Everything above
+        it is a fixed number of short lines, so those rows stay where they were on
+        the last task you looked at.
+
+        - The toolbar needs a measure to be usable in
+        - So does a line of markdown that is not reflowing every third word
+        - Which is what the panel's width is for
+        """;
+
+    private const string PaneCode = """
+        <TaskActionPane>
+            <Lead>
+                @* The decision, not a fact: across the top, and the only row with weight. *@
+                <TaskAction Icon="☀" Label="Add to My Day" Set="@_inMyDay"
+                            Togglable="true" Prominent="true"
+                            OnSet="() => _inMyDay = !_inMyDay" />
+            </Lead>
+
+            <TaskActionGroup Label="Scheduling">
+                @* Opens a picker, so it clears separately. *@
+                <TaskAction Icon="🗓" Label="Due date" Value="Friday, 21 August"
+                            Set="@_due" OnSet="PickDue" OnClear="ClearDue" />
+            </TaskActionGroup>
+
+            <TaskActionGroup Label="Ranking">
+                <TaskAction Icon="⚑" Label="Priority" Value="@_priority"
+                            Set="@(_priority is not null)"
+                            OnSet="PickPriority" OnClear="() => _priority = null" />
+            </TaskActionGroup>
+
+            <TaskActionGroup Label="Attachments">
+                @* One pointer, not one row per file: what is attached is a folder
+                   or a zip, and the count is how much is in it. *@
+                <TaskAction Icon="📁" Label="Folder" Value="panel-review · 4 files"
+                            Set="@_attached" OnSet="Attach" OnClear="Detach" />
+            </TaskActionGroup>
+        </TaskActionPane>
+        """;
+
+    private const string PanelCode = """
+        <TaskPanel Title="@task.Title"
+                   Done="@task.Done"
+                   OnToggle="Toggle"
+                   OnRename="Rename"
+                   Status="In progress"
+                   Tags="@task.TagList"
+                   OnTagRemoved="RemoveTag">
+            <Details>
+                <TaskActionPane>...</TaskActionPane>
+            </Details>
+            <Body>
+                @* No pencils: the title is already the field. Tab settles one and opens the next. *@
+                <TaskListView Tasks="@subItems"
+                              QuickEdit="true"
+                              DirectRename="true"
+                              GroupCompleted="false"
+                              OnToggle="ToggleSubItem"
+                              OnRename="RenameSubItem"
+                              OnAdd="AddSubItem"
+                              AddLabel="Add a sub-item" />
+            </Body>
+        </TaskPanel>
+
+        @code {
+            // One title and nothing else: a panel is one task, so there is no id
+            // to report. Settled, not per keystroke.
+            private void Rename(string title) => _title = title;
+        }
+        """;
+
+    private const string NotesCode = """
+        @* The same panel. Only the last slot is different. *@
+        <TaskPanel Title="@task.Title" Done="@task.Done" OnToggle="Toggle" OnRename="Rename"
+                   Status="In progress" Tags="@task.TagList">
+            <Details>
+                <TaskActionPane>...</TaskActionPane>
+            </Details>
+            <Body>
+                <MarkdownEditor Value="@task.Body" ValueChanged="OnBodyChanged" Rows="10" />
+            </Body>
+        </TaskPanel>
+        """;
+
+    private const string BareCode = """
+        @* No tags, no details, no body, and nobody listening — a heading, and that
+           is all it is. *@
+        <TaskPanel Title="@task.Title" />
+        """;
+}

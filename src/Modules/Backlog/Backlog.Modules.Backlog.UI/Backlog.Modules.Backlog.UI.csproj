@@ -36,7 +36,7 @@
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
     <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The module's published surface only: DTOs, the entry text language, and
-         the IBacklogEntries port. The aggregate, its repository and the use-case
+         the ITaskItems port. The aggregate, its repository and the use-case
          handlers stay behind that line — the host wires them up, the UI does not
          see them. -->
     <ProjectReference Include="..\Backlog.Modules.Backlog.Abstractions\Backlog.Modules.Backlog.Abstractions.csproj" />

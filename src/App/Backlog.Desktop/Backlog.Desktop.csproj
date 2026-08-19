@@ -59,6 +59,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+    <!-- Composition is a host's job: picking the storage adapter and calling
+         AddRoadmapModule() means seeing both sides of the Roadmap module, which only
+         an executable head does. -->
+    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
     <!-- The Dashboard module implementation, for AddDashboardModule(). The host is
          the only thing that sees it: the parts ask through the abstractions project. -->
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
@@ -71,6 +75,7 @@
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
     <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
   </ItemGroup>

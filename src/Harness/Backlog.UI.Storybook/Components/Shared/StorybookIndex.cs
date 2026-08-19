@@ -71,7 +71,7 @@ internal static class StorybookIndex
         new("Input and action",
         [
             new("buttons", "Buttons", "AppButton, IconButton, ButtonGroup, ToggleButton, CopyButton."),
-            new("inputs", "Inputs", "TextField, TextArea, SearchBox, Toggle, Checkbox — plus the dates, times, repeats and reorder handles a scheduled or ordered thing is set with."),
+            new("inputs", "Inputs", "TextField, TextArea, SearchBox, Toggle, Checkbox — plus the dates, times and repeats a scheduled thing is set with, and TaskAction over them."),
             new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect and the three ready-made selectors."),
             new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge: a value, and the class that says what kind of value it is.")
         ]),
@@ -145,14 +145,18 @@ internal static class StorybookIndex
             new("integrations/ai", "AI in the document", "Rewriting a block and resolving a comment, attached to the comment model that already exists.")
         ]),
 
-        // Its own chapter, out of Input and action where it used to be a fourth row.
-        // A task row is a composition — a checkbox, a title that renames in place, a
-        // metadata line, badges, actions — so it belongs after the parts, and the
-        // parts it is made of now have stories of their own on Inputs: the date, the
-        // time, the repeat and the handle that moves a row.
+        // Its own chapter, out of Input and action where its pages used to be three
+        // rows among seven. A task row is a composition — a checkbox, a title that
+        // renames in place, a metadata line, badges, actions — so it belongs after
+        // the parts, and the parts it is made of have stories of their own on
+        // Inputs: the date, the time, the repeat, and TaskAction over them.
+        //
+        // The panel follows the row for the same reason the row follows the fields:
+        // it is the whole of one task, so it is read after the list it opens from.
         new("Task list",
         [
-            new("task-list", "Task list", "TaskItem, TaskListView and TaskAction: the controls a list of things-to-do is made of.", Exact: true),
+            new("task-list", "Task list", "TaskItem and TaskListView: the controls a list of things-to-do is made of.", Exact: true),
+            new("task-list/panel", "Task side panel", "TaskPanel, TaskActionPane and TaskAction: the whole of one task beside its list — a title you can tick and retitle, tags, the detail rows in two columns, then its sub-items or its markdown."),
             new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order.")
         ]),
 

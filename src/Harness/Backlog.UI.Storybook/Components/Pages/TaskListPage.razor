@@ -3,7 +3,7 @@
 <PageTitle>Task list — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Task list"
-           Summary="The controls a list of things-to-do is made of: `TaskItem` — a row with a circle, a title that renames in place and a copy button — and `TaskListView`, which adds the reordering and the Completed section. The fields a date, a time or a repeat is set with are on Inputs, along with `TaskAction`. Components only: nothing here decides what a task is, when a reminder fires, or what My Day means tomorrow."
+           Summary="The controls a list of things-to-do is made of: `TaskItem` — a row with a circle, a title that renames in place and a copy button — and `TaskListView`, which adds the reordering and the Completed section. The pane a row opens into is Task side panel, next door; the fields a date, a time or a repeat is set with are on Inputs, along with `TaskAction`. Components only: nothing here decides what a task is, when a reminder fires, or what My Day means tomorrow."
            Guidelines="@Rules">
 
     <Story Name="A task, as a row"
@@ -346,7 +346,7 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
             "TaskListView reports the move and applies nothing. A component that reordered the list it was handed would be one whose result the host has to undo before saving what it actually keeps."),
 
         new("What a step is",
-            "Add step is a row and nothing else here. Whether a step is a task, has its own steps, or is only a line of text is the model's question.")
+            "Add step is a row on the side panel and nothing else anywhere. Whether a step is a task, has its own steps, or is only a line of text is the model's question.")
     ];
 
     private void Select(string id) => _selectedId = id;

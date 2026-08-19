@@ -209,23 +209,30 @@ public sealed class KnowledgeStackLayoutTests
     }
 
     /// <summary>
-    /// The roadmap band's 25% is a ceiling, not a share: the band takes only the
-    /// height its content needs and never more than a quarter, so the pane row keeps
-    /// at least three quarters whatever the band later grows into. A bare <c>25%</c>
-    /// would reserve the quarter while the band is empty; a bare <c>max-content</c>
-    /// would let a timeline push the panes off the screen.
+    /// The roadmap band's 30% is a ceiling, not a share: the band takes only the
+    /// height its content needs and never more than three tenths, so the pane row
+    /// keeps at least seven tenths whatever the band later grows into. A bare
+    /// <c>30%</c> would reserve the share while the band is empty; a bare
+    /// <c>max-content</c> would let a timeline push the panes off the screen.
+    /// <para>
+    /// It was a quarter while the band held a placeholder. A quarter fits an axis and
+    /// three 2rem rows at a 900px-tall window, and a plan filed across two
+    /// repositories with a lane each is already four rows, so a quarter meant a
+    /// scrollbar in a band that had room for the plan everywhere but the last row.
+    /// The five percent comes off the pane row deliberately.
+    /// </para>
     /// <para>
     /// The spelling is load-bearing, which is why it is asserted literally.
-    /// <c>min(25%, max-content)</c> says the intent more plainly and is a parse
+    /// <c>min(30%, max-content)</c> says the intent more plainly and is a parse
     /// error — <c>min()</c> is a math function and takes numeric arguments only, so
     /// a track breadth keyword inside one drops the whole declaration and leaves the
-    /// workspace with no explicit rows. <c>fit-content(25%)</c> is defined as that
-    /// same <c>min(max-content, 25%)</c> and is valid here. This assertion exists to
+    /// workspace with no explicit rows. <c>fit-content(30%)</c> is defined as that
+    /// same <c>min(max-content, 30%)</c> and is valid here. This assertion exists to
     /// stop the invalid form being "restored" as a readability fix.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_roadmap_band_is_capped_at_a_quarter_and_never_reserves_it()
+    public void The_roadmap_band_is_capped_and_never_reserves_the_cap()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
         var ruleStart = css.IndexOf(".workspace {", StringComparison.Ordinal);
@@ -237,8 +244,8 @@ public sealed class KnowledgeStackLayoutTests
 
         var rule = css[ruleStart..ruleEnd];
 
-        Assert.Contains("grid-template-rows: fit-content(25%) minmax(0, 1fr);", rule, StringComparison.Ordinal);
-        Assert.DoesNotContain("min(25%", rule, StringComparison.Ordinal);
+        Assert.Contains("grid-template-rows: fit-content(30%) minmax(0, 1fr);", rule, StringComparison.Ordinal);
+        Assert.DoesNotContain("min(30%", rule, StringComparison.Ordinal);
         Assert.Contains("min-height: 0;", rule, StringComparison.Ordinal);
         Assert.Contains("overflow: hidden;", rule, StringComparison.Ordinal);
 
@@ -259,21 +266,49 @@ public sealed class KnowledgeStackLayoutTests
             css,
             StringComparison.Ordinal);
 
-        // The band caps its own content instead of the pane row absorbing it.
+        // The band caps its own content instead of the pane row absorbing it. What
+        // the content row no longer does is scroll: it hands its height down to the
+        // chart, and the chart's own frame is what scrolls, so the heading and the
+        // filters cannot be scrolled away from the plan they describe.
         var contentStart = css.IndexOf(".roadmap-band__content {", StringComparison.Ordinal);
-        Assert.True(contentStart >= 0, "The band's content row should own its own scrollbar.");
+        Assert.True(contentStart >= 0, "The band's content row needs its own rule.");
 
         var content = css[contentStart..css.IndexOf("}\n", contentStart, StringComparison.Ordinal)];
 
         Assert.Contains("min-height: 0;", content, StringComparison.Ordinal);
-        Assert.Contains("overflow: auto;", content, StringComparison.Ordinal);
+        Assert.Contains("overflow: hidden;", content, StringComparison.Ordinal);
+
+        // A 1fr row with a zero automatic minimum is what passes the height down. A
+        // plain `1fr` could not go below its content, and a track that cannot do that
+        // cannot be scrolled inside.
+        Assert.Contains("grid-template-rows: minmax(0, 1fr);", content, StringComparison.Ordinal);
+        Assert.Contains("align-content: stretch;", content, StringComparison.Ordinal);
+
+        var chartStart = css.IndexOf(".roadmap-band__timeline {", StringComparison.Ordinal);
+        Assert.True(chartStart >= 0, "The chart needs a band-scoped rule telling it to fill rather than grow.");
+
+        var chart = css[chartStart..css.IndexOf("}\n", chartStart, StringComparison.Ordinal)];
+
+        Assert.Contains("min-height: 0;", chart, StringComparison.Ordinal);
+        Assert.Contains("grid-template-rows: auto minmax(0, 1fr);", chart, StringComparison.Ordinal);
+
+        // And the scrollbar sits in the diagram, on the frame that holds the rows.
+        var frameStart = css.IndexOf(".roadmap-band__timeline .roadmap-timeline__frame {", StringComparison.Ordinal);
+        Assert.True(frameStart >= 0, "The chart's frame should be the thing that scrolls.");
+
+        var frame = css[frameStart..css.IndexOf("}\n", frameStart, StringComparison.Ordinal)];
+
+        Assert.Contains("min-height: 0;", frame, StringComparison.Ordinal);
+        // `auto`, not `scroll`: a plan that fits shows no scrollbar at all.
+        Assert.Contains("overflow-y: auto;", frame, StringComparison.Ordinal);
+        Assert.DoesNotContain("overflow-y: scroll;", frame, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The 25% ceiling worked and the content inside it did not. The library's
+    /// The height ceiling worked and the content inside it did not. The library's
     /// <c>.empty-state</c> is shaped for a large empty pane — <c>--spacing-xl</c>
     /// padding all round and an <c>--font-size-xl</c> title, about 140px — and a
-    /// quarter of a short window has nothing like that left after the band's own
+    /// a capped band on a short window has nothing like that left after its own
     /// padding, border, header and gap. Measured at a 620px viewport height the
     /// band's content box was 28px against a 140px scroll height, and at 450px it
     /// was 0px: the placeholder's title and description were not truncated, they
@@ -286,20 +321,20 @@ public sealed class KnowledgeStackLayoutTests
     /// all of which sit in panes that have the room.
     /// </para>
     /// <para>
-    /// Compacting it is also what makes <c>fit-content(25%)</c> behave as the
-    /// ceiling it is named for. While the band's <c>max-content</c> height exceeded
-    /// a quarter at every tested viewport the ratio pinned at exactly 0.250 each
-    /// time, so the track was a fixed height wearing a cap's clothing.
+    /// Compacting it is also what makes <c>fit-content()</c> behave as the ceiling it
+    /// is named for. While the band's <c>max-content</c> height exceeded the cap at
+    /// every tested viewport the ratio pinned at exactly the cap each time, so the
+    /// track was a fixed height wearing a cap's clothing.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_bands_placeholder_is_compacted_so_it_fits_inside_the_quarter()
+    public void The_bands_placeholder_is_compacted_so_it_fits_inside_the_cap()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
         var emptyStart = css.IndexOf(".roadmap-band__empty {", StringComparison.Ordinal);
         Assert.True(emptyStart >= 0,
-            "The band needs its own placeholder rule; the library's empty state does not fit a quarter of a short window.");
+            "The band needs its own placeholder rule; the library's empty state does not fit a capped band on a short window.");
 
         var empty = css[emptyStart..css.IndexOf("}\n", emptyStart, StringComparison.Ordinal)];
 
@@ -322,7 +357,7 @@ public sealed class KnowledgeStackLayoutTests
         var bandStart = css.IndexOf(".roadmap-band {", StringComparison.Ordinal);
         var band = css[bandStart..css.IndexOf("}\n", bandStart, StringComparison.Ordinal)];
 
-        Assert.Contains("padding: var(--spacing-md) var(--spacing-lg);", band, StringComparison.Ordinal);
+        Assert.Contains("padding: var(--spacing-sm) var(--spacing-lg);", band, StringComparison.Ordinal);
         Assert.DoesNotContain("padding: var(--spacing-lg);", band, StringComparison.Ordinal);
     }
 
@@ -446,12 +481,12 @@ public sealed class KnowledgeStackLayoutTests
     /// assertions are about the same thing: nothing anywhere pins the band's height,
     /// so what it measures is what it draws and the pane row takes the rest.
     /// <list type="bullet">
-    /// <item>The base rows stay a cap, not a share. <c>fit-content(25%)</c> is the one
-    /// spelling that means <c>min(max-content, 25%)</c> here; a second
+    /// <item>The base rows stay a cap, not a share. <c>fit-content(30%)</c> is the one
+    /// spelling that means <c>min(max-content, 30%)</c> here; a second
     /// <c>grid-template-rows</c> in the same block would decide it instead.</item>
     /// <item>The one modifier the grid has drops the track outright. A <c>height</c>
     /// of any kind on it would reserve that much for a band that is not being
-    /// rendered, which is the reserved quarter the cap was written to avoid, only
+    /// rendered, which is the reserved share the cap was written to avoid, only
     /// emptier.</item>
     /// </list>
     /// </summary>
@@ -465,7 +500,7 @@ public sealed class KnowledgeStackLayoutTests
 
         var workspace = css[workspaceStart..css.IndexOf("}\n", workspaceStart, StringComparison.Ordinal)];
 
-        Assert.Contains("grid-template-rows: fit-content(25%) minmax(0, 1fr);", workspace, StringComparison.Ordinal);
+        Assert.Contains("grid-template-rows: fit-content(30%) minmax(0, 1fr);", workspace, StringComparison.Ordinal);
         Assert.Equal(1, CountOccurrences(workspace, "grid-template-rows:"));
 
         var noBandStart = css.IndexOf(".workspace--no-roadmap {", StringComparison.Ordinal);
