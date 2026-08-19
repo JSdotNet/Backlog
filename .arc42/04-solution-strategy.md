@@ -71,7 +71,7 @@ related: [".arc42/09-architecture-decisions.md"]
 
 | Channel | Candidate stack |
 |---|---|
-| **Desktop** | .NET MAUI Blazor Hybrid (WinUI 3 head on Windows, Razor UI in embedded WebView2); markdown + JSON. See `.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md` — chosen so the desktop client can be launched from an Aspire AppHost and driven end-to-end with Playwright (via WebView2's CDP debugging port), while keeping the same native filesystem access and background-worker guarantees as plain WinUI 3. |
+| **Desktop** | .NET MAUI Blazor Hybrid (WinUI 3 head on Windows, Razor UI in embedded WebView2); SQLite for tasks, JSON for settings. See `.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md` — chosen so the desktop client can be launched from an Aspire AppHost and driven end-to-end with Playwright (via WebView2's CDP debugging port), while keeping the same native filesystem access and background-worker guarantees as plain WinUI 3. |
 | **Mobile** | .NET MAUI (preferred, C#) with Blazor Hybrid or Blazor WebAssembly PWA as the closest fallback options; JSON-backed local storage |
 | **IDE** | VS Code extension (TypeScript, webview) and Visual Studio extension (C#, WPF) |
 | **Cloud** | C# / ASP.NET Core Minimal APIs on .NET, Azure hosting, Cosmos DB / PostgreSQL |
@@ -87,7 +87,7 @@ status: active
 related: [".arc42/08-crosscutting-concepts.md"]
 ```
 
-Storage & sync (markdown canonical, last-write-wins on edits, always-create on new
+Storage & sync (a local canonical store, last-write-wins on edits, always-create on new
 items), tagging/organization (`#tags`, PARA grouping, tag index), and authentication
 (no account for personal use, OAuth for GitHub, device auth for cloud) are treated as
 cross-cutting concepts applied uniformly across channels. They are detailed in

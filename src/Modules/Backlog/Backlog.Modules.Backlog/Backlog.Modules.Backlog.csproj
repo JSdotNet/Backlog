@@ -7,7 +7,7 @@
       Features/      one vertical slice per use case (command/query + handler)
       Services/      domain services shared by more than one slice
       Extensions/    AddBacklogModule() composition root for hosts
-    Ports such as IBacklogRepository live here; adapters live in src/Infrastructure.
+    Ports such as ITaskRepository live here; adapters live in src/Infrastructure.
     This project may reference the shared kernel and its own Abstractions, and
     nothing else in the solution. Hosts go the other way: they call the handlers
     and hold the DTOs, never the aggregate.

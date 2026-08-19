@@ -586,6 +586,8 @@
           "line": 12,
           "status": "draft",
           "aliases": [
+            "Task",
+            "TaskItem",
             "BacklogEntry",
             "backlog_entry_id",
             "backlog_item_id"
@@ -604,7 +606,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-sub-item",
           "level": 2,
-          "line": 24,
+          "line": 32,
           "status": "draft",
           "aliases": [
             "SubItem"
@@ -623,7 +625,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-projection",
           "level": 2,
-          "line": 35,
+          "line": 43,
           "status": "draft",
           "aliases": [
             "ProjectionRef"
@@ -642,7 +644,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-entry-type",
           "level": 2,
-          "line": 46,
+          "line": 54,
           "status": "draft",
           "aliases": [
             "EntryType"
@@ -661,7 +663,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-entry-status",
           "level": 2,
-          "line": 56,
+          "line": 64,
           "status": "draft",
           "aliases": [
             "EntryStatus"
@@ -680,7 +682,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-area",
           "level": 2,
-          "line": 66,
+          "line": 74,
           "status": "draft",
           "aliases": [
             "area"
@@ -699,7 +701,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-ai-work-log",
           "level": 2,
-          "line": 79,
+          "line": 87,
           "status": "draft",
           "aliases": [
             "AIWorkLog",
@@ -719,7 +721,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-due-date",
           "level": 2,
-          "line": 91,
+          "line": 99,
           "status": "proposed",
           "aliases": [
             "due_on",
@@ -740,7 +742,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-reminder",
           "level": 2,
-          "line": 104,
+          "line": 112,
           "status": "proposed",
           "aliases": [
             "remind_at",
@@ -761,7 +763,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-recurrence",
           "level": 2,
-          "line": 117,
+          "line": 125,
           "status": "proposed",
           "aliases": [
             "Repeat",
@@ -785,7 +787,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-my-day",
           "level": 2,
-          "line": 130,
+          "line": 138,
           "status": "proposed",
           "aliases": [
             "in_my_day_on",
@@ -806,7 +808,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-dependency",
           "level": 2,
-          "line": 144,
+          "line": 152,
           "status": "proposed",
           "aliases": [
             "depends_on",
@@ -828,7 +830,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-readiness",
           "level": 2,
-          "line": 157,
+          "line": 165,
           "status": "proposed",
           "aliases": [
             "TaskReadiness",
@@ -849,7 +851,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-occurrence",
           "level": 2,
-          "line": 169,
+          "line": 177,
           "status": "proposed",
           "aliases": [
             "recurrence_source_id",
@@ -869,7 +871,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-roadmap",
           "level": 2,
-          "line": 182,
+          "line": 190,
           "status": "deprecated",
           "aliases": [
             "Roadmap planning",
@@ -5356,7 +5358,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 98,
+          "line": 101,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -5397,7 +5399,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "mobile-capture-and-sync",
           "level": 2,
-          "line": 84,
+          "line": 82,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#mobile-app"
@@ -5414,7 +5416,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "ide-context-aware-capture",
           "level": 2,
-          "line": 147,
+          "line": 145,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#ide-extensions"
@@ -5431,7 +5433,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "remote-pc-wake-and-status-update",
           "level": 2,
-          "line": 246,
+          "line": 244,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#desktop-app",
@@ -5449,7 +5451,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 142,
+          "line": 143,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -5467,7 +5469,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 87,
+          "line": 90,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -5484,7 +5486,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "repository-baseline-scan-and-health-signal",
           "level": 2,
-          "line": 212,
+          "line": 210,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#desktop-app",

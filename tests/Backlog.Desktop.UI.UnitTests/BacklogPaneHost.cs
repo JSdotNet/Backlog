@@ -25,15 +25,13 @@ internal sealed class BacklogPaneHost : IDisposable
         AppFeatureSettingsStore features,
         GitHubIntegration gitHub,
         FakeGitHubClient client,
-        string root,
-        string? repositoryBacklogFile)
+        string root)
     {
         Context = context;
         State = state;
         Features = features;
         GitHub = gitHub;
         Client = client;
-        RepositoryBacklogFile = repositoryBacklogFile;
         _tempDirs.Add(root);
     }
 
@@ -47,30 +45,10 @@ internal sealed class BacklogPaneHost : IDisposable
 
     public FakeGitHubClient Client { get; }
 
-    /// <summary>The committed <c>.backlog</c> file behind a repository-origin row,
-    /// or null when there is none. Held so a test can read what the writer actually
-    /// put back: for these rows the file is the store.</summary>
-    public string? RepositoryBacklogFile { get; }
-
     /// <summary>Composes the pane's world. <paramref name="repositories"/> is the
     /// settings text a person would have typed into Settings, so a test that wants
     /// GitHub configured says so in the same words the app does.</summary>
-    public static Task<BacklogPaneHost> CreateAsync(params string[] repositories) =>
-        CreateAsync(null, repositories);
-
-    /// <summary>
-    /// The same world with a committed <c>.backlog</c> file in a cloned
-    /// repository, which is how a repository-origin row gets into the list.
-    /// <para>
-    /// Those rows are worth rendering because of what they cannot do rather than
-    /// what they can: they were never written by the local store and so have no
-    /// id, which is why no dependency control is offered on one.
-    /// </para>
-    /// </summary>
-    public static Task<BacklogPaneHost> CreateWithRepositoryBacklogAsync(string markdown) =>
-        CreateAsync(markdown, ["docs = JSdotNet/Backlog-docs"]);
-
-    private static async Task<BacklogPaneHost> CreateAsync(string? repositoryBacklogMarkdown, string[] repositories)
+    public static async Task<BacklogPaneHost> CreateAsync(params string[] repositories)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-pane-host", Guid.NewGuid().ToString("n"));
 
@@ -84,24 +62,10 @@ internal sealed class BacklogPaneHost : IDisposable
             gitHubSettings.SetRepositories(parsed);
         }
 
-        RepositoryBacklogSource? repositoryBacklog = null;
-        string? repositoryBacklogFile = null;
-        if (repositoryBacklogMarkdown is not null)
-        {
-            var clone = Path.Combine(root, "clone");
-            Directory.CreateDirectory(Path.Combine(clone, ".backlog"));
-            repositoryBacklogFile = Path.Combine(clone, ".backlog", "plan.md");
-            File.WriteAllText(repositoryBacklogFile, repositoryBacklogMarkdown);
-            gitHubSettings.SetCloneDirectory("docs", clone);
-
-            repositoryBacklog = new RepositoryBacklogSource(
-                BacklogTestHost.BacklogStoreFor(store, new KnowledgeFolderSource(gitHubSettings)));
-        }
-
         var client = new FakeGitHubClient();
         var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
-        var state = BacklogTestHost.StateFor(store, gitHub, copilot: null, repositoryBacklog: repositoryBacklog);
+        var state = BacklogTestHost.StateFor(store, gitHub, copilot: null);
 
         await state.InitializeAsync();
 
@@ -116,7 +80,7 @@ internal sealed class BacklogPaneHost : IDisposable
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
 
-        return new BacklogPaneHost(context, state, features, gitHub, client, root, repositoryBacklogFile);
+        return new BacklogPaneHost(context, state, features, gitHub, client, root);
     }
 
     public IRenderedComponent<BacklogPane> Render() => Context.Render<BacklogPane>();

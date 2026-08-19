@@ -13,13 +13,21 @@ status: draft
 
 ```meta
 status: draft
-aliases: [BacklogEntry, backlog_entry_id, backlog_item_id]
+aliases: [Task, TaskItem, BacklogEntry, backlog_entry_id, backlog_item_id]
 related: [.domain/backlog/domain.md#aggregate-backlog-entry]
 ```
 
 The single work item managed by this context. `backlog_item_id` is the form
 other contexts and GitHub use to reference it (see Monitoring and Dev PC
 Management); `backlog_entry_id` is the form Second Brain's `BacklogLink` uses.
+
+The product now calls this a **Task**, and the implementation type is `TaskItem`
+(not the bare `Task`, which would shadow `System.Threading.Tasks.Task` in the
+module's own namespace and collide with the narrower `EntryType.Task`). Both are
+recorded above so either name resolves back to this one concept. Renaming this
+term — and the `Entry`-prefixed vocabulary around it — is a governed change to
+this context's ubiquitous language and belongs to `orch-domain`; it has not been
+done yet, so this chapter still reads "Backlog Entry" throughout.
 
 ## Term: Sub-Item
 

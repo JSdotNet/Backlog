@@ -1044,7 +1044,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 142,
+          "line": 143,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -1161,7 +1161,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates",
           "level": 3,
-          "line": 37,
+          "line": 38,
           "status": "active",
           "related": [
             ".tech/desktop.md#msix-packaging",
@@ -1179,7 +1179,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates-mobile",
           "level": 3,
-          "line": 89,
+          "line": 90,
           "status": "active",
           "related": [
             ".tech/mobile.md#apk-packaging",

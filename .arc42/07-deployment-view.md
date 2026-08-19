@@ -17,8 +17,9 @@ related: [".arc42/05-building-block-view.md#desktop-app", ".arc42/08-crosscuttin
 
 The desktop app is installed on Windows machines and is the canonical deployment. Everything needed for core workflows runs here.
 
-- **Local Storage** — markdown files under a user-owned root (e.g. `~/PromptBacklog/`)
-  are the source of truth; JSON files provide indexes and metadata.
+- **Local Storage** — one SQLite database (`backlog.db`) under a user-owned root is
+  the source of truth for tasks; JSON files hold the workspace settings and feature
+  flags. A task's content is markdown text inside the database.
 - **Local Fetch Workers** — YouTube, website, email, GitHub-sync, and stale-detection
   workers run in-process/background on the desktop.
 - **IDE Extensions** — installed in VS Code / Visual Studio on the same machine; read

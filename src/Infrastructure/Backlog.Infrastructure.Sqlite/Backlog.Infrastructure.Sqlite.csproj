@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Cross-cutting SQLite adapter: the canonical local store for Backlog
+    Management's tasks. Implements ports declared by the module; no module may
+    reference this project except through its own port interfaces.
+
+    It is a separate project from Backlog.Infrastructure.FileSystem on purpose.
+    That project holds the adapters that genuinely are files - the workspace
+    settings, the feature settings, the knowledge folder resolver - and a
+    database inside a project called FileSystem would be misfiled.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Infrastructure.Sqlite</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+
+</Project>

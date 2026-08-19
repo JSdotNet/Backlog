@@ -89,5 +89,10 @@ related: [".arc42/04-solution-strategy.md"]
   moves the entry text format and every use case over an entry out of the desktop
   client and into the module, behind a published Abstractions surface, so a second
   client cannot reimplement the format and no caller can bypass an invariant.
+- **[ADR 0003 — SQLite is the canonical local task store; markdown is the content](adr/0003-sqlite-is-the-canonical-local-task-store.md)**:
+  replaces one-markdown-file-per-task plus its derived JSON index and order sidecar
+  with a single local SQLite database, so no two files can disagree about a task,
+  while keeping a task's content as markdown and leaving the published entry text
+  language untouched.
 
 

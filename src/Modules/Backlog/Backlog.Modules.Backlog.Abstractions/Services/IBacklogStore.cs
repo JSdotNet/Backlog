@@ -1,8 +1,7 @@
 namespace Backlog.Modules.Backlog.Abstractions.Services;
 
 /// <summary>
-/// Where the backlog lives on disk, and where a repository's authored entries
-/// live when one is scoped.
+/// Where the backlog lives on disk.
 /// <para>
 /// The setting itself is deliberately <em>not</em> stored in the backlog folder —
 /// it is kept in a fixed per-user location, because a pointer that moves with
@@ -11,14 +10,13 @@ namespace Backlog.Modules.Backlog.Abstractions.Services;
 /// <para>
 /// This is narrower than the store behind it, and the narrowing is forced rather
 /// than preferred. The adapter also remembers which GitHub repository backs the
-/// storage folder and which knowledge folders are configured for it; both are
-/// expressed in <c>Backlog.Infrastructure.GitHub</c> and
-/// <c>Backlog.Modules.Knowledge.Abstractions</c> types, and an abstractions
-/// project may reference neither an infrastructure adapter
-/// (<c>ModuleBoundaryTests.A_module_never_references_infrastructure</c>) nor
-/// another module. Those members have one consumer besides tests — the desktop
-/// settings screen — so they stayed on the adapter, where that screen takes them
-/// directly. Do not add them back here.
+/// storage folder; that is expressed in a
+/// <c>Backlog.Infrastructure.GitHub</c> type, and an abstractions project may not
+/// reference an infrastructure adapter
+/// (<c>ModuleBoundaryTests.A_module_never_references_infrastructure</c>). Those
+/// members have one consumer besides tests — the desktop settings screen — so
+/// they stayed on the adapter, where that screen takes them directly. Do not add
+/// them back here.
 /// </para>
 /// </summary>
 public interface IBacklogStore
@@ -36,9 +34,10 @@ public interface IBacklogStore
 
     bool IsDefaultRoot { get; }
 
-    /// <summary>Where the entry markdown files themselves are written — shown on
-    /// the settings page so the folder can be found in a file manager.</summary>
-    string EntriesDirectory { get; }
+    /// <summary>The database file the tasks are kept in — shown on the settings
+    /// page so it can be found in a file manager, and so it is obvious what to
+    /// copy for a backup.</summary>
+    string DatabasePath { get; }
 
     string InboxDirectory { get; }
 
@@ -49,34 +48,4 @@ public interface IBacklogStore
 
     /// <summary>Returns the app to its default per-user folder.</summary>
     string? ResetToDefault();
-
-    /// <summary>
-    /// Where the repository-authored <c>.backlog</c> entries for a scope are.
-    /// <para>
-    /// This is the load-bearing member. <c>.backlog</c> is one of the configured
-    /// knowledge folders, so resolving it is the same lookup Second Brain does
-    /// for <c>.domain</c> or <c>.arc42</c> — and asking Second Brain for it would
-    /// make Backlog Management depend on a context the map says it only partners
-    /// with. Asking its own store instead pushes the join down into the adapter,
-    /// which is allowed to see both.
-    /// </para>
-    /// </summary>
-    BacklogFolderLocation ResolveBacklogFolder(string? repositoryAlias);
-}
-
-/// <summary>
-/// Where a scope's repository-authored backlog folder is, or that there is not
-/// one. <paramref name="RepositoryRootPath"/> is the repository's local clone
-/// directory when the scope is a repository and null otherwise, because a
-/// relative path shown to a person should be relative to the clone rather than
-/// to the folder inside it.
-/// </summary>
-public sealed record BacklogFolderLocation(
-    bool Available,
-    string? FullPath,
-    string? RepositoryRootPath,
-    string? RepositoryFullName,
-    string? RepositoryAlias)
-{
-    public static BacklogFolderLocation None { get; } = new(false, null, null, null, null);
 }
