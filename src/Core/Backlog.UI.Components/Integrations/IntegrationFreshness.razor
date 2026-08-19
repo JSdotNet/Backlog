@@ -1,0 +1,97 @@
+@*
+    When external state was last read, and the deliberate act of reading it
+    again.
+
+    It is a component rather than a line inside the list because it appears
+    without one — on a section header, beside a single reference, above a set of
+    acts — and the rule it carries deserves one owner. That rule is: nothing in
+    this product polls. State is read when somebody asks for it, so what is on
+    screen is a reading with a time on it rather than a value that keeps itself
+    true, and a surface that showed a state with no "as of" would be claiming a
+    currency nothing here provides.
+
+    The line is role="status" in every case, including a read that failed.
+    .design/design-principles.md#local-first requires offline to be "a calm,
+    persistent status — not an error modal", and a read that could not reach
+    GitHub is the same class of thing: nothing broke, the network is simply not
+    there. The one place this family escalates to role="alert" is an act that was
+    invoked and failed, because that one is an event and it happened because the
+    reader pressed something.
+*@
+
+<span class="@ClassValue" data-testid="@TestId">
+    <span class="integration-freshness__text" role="status" data-testid="@TextTestId">@Line</span>
+
+    @if (OnRefresh.HasDelegate)
+    {
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Size="ButtonSize.Small"
+                   CssClass="integration-freshness__refresh"
+                   Busy="@Reading.InFlight"
+                   BusyLabel="@RefreshLabel"
+                   TestId="@RefreshTestId"
+                   OnClick="() => OnRefresh.InvokeAsync()">@RefreshLabel</AppButton>
+    }
+</span>
+
+@code {
+    [Parameter]
+    public IntegrationReading Reading { get; set; } = IntegrationReading.Never;
+
+    [Parameter]
+    public string Prefix { get; set; } = "as of";
+
+    [Parameter]
+    public string NeverText { get; set; } = "Not checked yet";
+
+    /// <summary>"Check now" rather than "Refresh". Refresh suggests something
+    /// that would have happened anyway and is being hurried along; nothing here
+    /// checks unless a person asks, and the label should not imply otherwise.</summary>
+    [Parameter]
+    public string RefreshLabel { get; set; } = "Check now";
+
+    [Parameter]
+    public IntegrationDensity Density { get; set; } = IntegrationDensity.Inline;
+
+    /// <summary>Without a delegate there is no button, only the line. A surface
+    /// that cannot re-read should not offer a control that would do nothing.</summary>
+    [Parameter]
+    public EventCallback OnRefresh { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? TextTestId { get; set; }
+
+    [Parameter]
+    public string? RefreshTestId { get; set; }
+
+    private string ClassValue
+    {
+        get
+        {
+            var stem = $"integration-freshness integration-freshness--{IntegrationStates.SlugOf(Density)}";
+            return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
+        }
+    }
+
+    /// <summary>In flight first, then a failure, then the reading, then never.
+    /// The order is the order a reader needs them: what is happening now beats
+    /// what happened last, and "we tried and could not" beats a stale time that
+    /// would read as current.</summary>
+    private string Line
+    {
+        get
+        {
+            if (Reading.InFlight) return "Checking now…";
+
+            if (!string.IsNullOrWhiteSpace(Reading.FailureReason)) return $"Could not check — {Reading.FailureReason}";
+
+            return string.IsNullOrWhiteSpace(Reading.AsOf) ? NeverText : $"{Prefix} {Reading.AsOf}";
+        }
+    }
+}

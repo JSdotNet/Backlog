@@ -1,0 +1,458 @@
+﻿@page "/integrations/ai"
+
+<PageTitle>AI in the document — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="AI in the document"
+           Summary="Rewriting a passage and resolving a comment, attached to the comment model that already exists. Why a rewrite is proposed against a block rather than a range, why nothing is ever applied in place, and why accepting a suggestion does not erase the fact that a machine wrote it. Every AI affordance on this page is this product's own and none of them carries a vendor mark; the acts that hand a section out to a Claude or a Copilot session, which do, are on Actions.">
+
+    <Story Name="The AI in this document is this product's own"
+           Description="Ask AI, Resolve comments with AI and Rewrite part with AI all run inside the application. Nothing about them crosses out: the request does not become somebody else's session, the reader is left with nothing outside to go and track, and the paragraph never leaves the building. So none of the three carries a provider, and everything they write is attributed to AI, full stop.
+
+That is a refusal rather than an omission, and it is worth being blunt about what it rules out. A Claude or a GitHub Copilot mark on this card would tell a reader that their paragraph went to Anthropic, or to GitHub — a claim about where their own content travelled, made by an icon, on the strength of a configuration they never see. Which model is behind the feature this quarter is an implementation detail of the same class as the storage format, and it can change without one affordance moving.
+
+The right-hand card is the case that does earn a mark, and it is here so the two can be read against each other rather than described. It is anchored to the same block and offers to replace the same paragraph. What differs is where it was written: it came back from a Claude session in jsdotnet/backlog-desktop — a session a hand-off on Actions started, and one that References tracks. That one genuinely left, was written by a named tool, and points at something outside that still exists. So it is marked, named, and carries the model and the session it came from.
+
+One field decides all of it — the mark, the name in the attribution line, the accessible name on the article, and the modifier on the card — which is why the default on AiProposal.Provider is None. A host has to name a vendor out loud to brand a suggestion with one, and the product's own AI never does."
+           Code="@OwnAiCode">
+        <div class="sb-stack" data-testid="ai-boundary">
+            <div class="sb-columns">
+                <div class="sb-stack">
+                    <p class="sb-label">Written here — no mark, and the article is named Suggested by AI</p>
+                    <AiProposalCard Proposal="@IntegrationFixtures.RewriteProposal"
+                                    TestId="ai-boundary-in-app"
+                                    AttributionTestId="ai-boundary-in-app-attribution" />
+                </div>
+                <div class="sb-stack">
+                    <p class="sb-label">Come back from a forwarded session — marked, named, with its model and session</p>
+                    <AiProposalCard Proposal="@IntegrationFixtures.ForwardedProposal"
+                                    TestId="ai-boundary-forwarded"
+                                    AttributionTestId="ai-boundary-forwarded-attribution" />
+                </div>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">The three acts that produce the left-hand card. Not one of them draws an svg.</p>
+                <IntegrationActionBar Actions="@IntegrationFixtures.InAppAi"
+                                      Density="IntegrationDensity.Toolbar"
+                                      VisibleLimit="3"
+                                      AriaLabel="AI"
+                                      TestId="ai-boundary-bar"
+                                      ActionTestIdPrefix="ai-boundary" />
+                <p class="sb-state">
+                    The marked pair that belongs beside them — Send to Claude in Desktop and Send to Copilot in
+                    Desktop — is on Actions, drawn against these three for exactly this comparison.
+                </p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="A rewrite is anchored to a block, because a comment is"
+           Description="MarkdownComment anchors by block index and its own docs say why: a character range survives nothing, because inserting a word above it moves every offset below, and following the text would mean rewriting every anchor on every keystroke. A proposal has exactly the same problem, so it takes exactly the same anchor.
+
+That has a visible consequence, and it is the honest one to state on this page: rewrite part with AI means rewrite this paragraph. It cannot mean rewrite this sentence, because there is no anchor in this product that would survive it.
+
+Nothing parallel was built to hold any of this. MarkdownView already wraps every block in a row with a data-block index whenever it is annotated, and already renders comments into a notes cell that serves the inline and margin layouts from one piece of markup; the rewrite button goes beside the comment button in the same position, and the proposal renders into the same notes cell. Margin layout therefore works for free, and there is no second layout to keep in step.
+
+Press the rewrite affordance on any block: the host — this page — produces a proposal against that block and hands it back. The third block already has one open."
+           Code="@AnchorCode">
+        <div class="sb-stack" data-testid="ai-anchor">
+            <MarkdownView Blocks="@IntegrationFixtures.DocumentBlocks"
+                          Comments="@_comments"
+                          Proposals="@_proposals"
+                          OnAddComment="AddComment"
+                          OnResolveComment="ResolveComment"
+                          OnRewriteBlock="Rewrite"
+                          OnAcceptProposal="Accept"
+                          OnRejectProposal="Reject" />
+            <p class="sb-state" data-testid="ai-anchor-echo">@_echo</p>
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="ai-anchor-reset"
+                       OnClick="ResetDocument">Put the document back</AppButton>
+        </div>
+    </Story>
+
+    <Story Name="Never applied in place"
+           Description="The design principles require AI actions that modify content to be reversible, and the cheapest reading of that is an undo stack. This family takes the stricter one: the change does not happen until a person says so. Original and Body render as Now and Suggested, and rejecting leaves the document byte-identical rather than restored.
+
+MarkdownView does not apply the accepted text either. It raises OnAcceptProposal and the host re-parses and hands back new blocks — the same discipline OnEditComment keeps, and for the same reason: the truth is upstream. A component that wrote into the document would be a component that had to be told when it was wrong.
+
+Accept is Primary and Reject is Ghost rather than Danger, because discarding a suggestion destroys nothing. The card below is standalone and wired to this page; the line under it is the payload the callback carried, which is the whole of what a host receives."
+           Code="@ReviewCode">
+        <div class="sb-stack" data-testid="ai-review">
+            <AiProposalCard Proposal="@_standalone"
+                            OnAccept="RecordAccept"
+                            OnReject="RecordReject"
+                            TestId="ai-review-card"
+                            AttributionTestId="ai-review-attribution"
+                            OriginalTestId="ai-review-original"
+                            BodyTestId="ai-review-body"
+                            AcceptTestId="ai-review-accept"
+                            RejectTestId="ai-review-reject" />
+            <p class="sb-state" data-testid="ai-review-echo">@_reviewEcho</p>
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="ai-review-reset"
+                       OnClick="ResetStandalone">Ask again</AppButton>
+        </div>
+    </Story>
+
+    <Story Name="Accepting does not erase who wrote it"
+           Description="The difference between provenance and a confirmation dialog is what survives the click. An accepted proposal keeps its attribution — who wrote it, when, and where it came from if it came from anywhere — and moves to Accepted rather than disappearing, because six months later the question did a person write this paragraph is one the document has to be able to answer.
+
+What does go is the pair of buttons. Once a proposal is answered there is nothing left to decide, and leaving Accept and Discard on a card that has already been accepted would invite a second answer to a question that is closed.
+
+The host's side of that is one mapping and needs no knowledge of this library: provider to ai_tool, kind to activity_kind, the timestamp to timestamp, the session to session_id, and the accepted proposal's id to outcome_ref — the AI Work Log record the domain already specifies. The three cards below are this product's own AI, so ai_tool would be the product itself and session_id empty; a proposal that came back from a forwarded session fills both, which is the same distinction the mark draws, arriving in the audit record."
+           Code="@StatesCode">
+        <div class="sb-stack" data-testid="ai-states">
+            @foreach (var state in ProposalStates)
+            {
+                <div class="sb-stack">
+                    <p class="sb-label">@state</p>
+                    <AiProposalCard Proposal="@(IntegrationFixtures.RewriteProposal with { State = state })"
+                                    TestId="@($"ai-state-{state.ToString().ToLowerInvariant()}")"
+                                    AttributionTestId="@($"ai-state-{state.ToString().ToLowerInvariant()}-attribution")" />
+                </div>
+            }
+        </div>
+    </Story>
+
+    <Story Name="Resolving a comment with AI is two acts, not one"
+           Description="The obvious shortcut is to make Accept resolve the comment. It is wrong because it makes one button do two things with one confirmation, and a reader who wanted the suggested wording but not the resolution has no way to say so.
+
+So the existing Resolve button keeps its exact meaning and gains nothing, OnResolveCommentWithAi starts the work, OnAcceptProposal accepts the text, and the host calls resolve second if it wants to. One act, one callback.
+
+Where the proposal lands follows from the same thinking. A resolution is about the remark rather than about the block, so it renders inside the comment's own list item under the comment body — not against the paragraph, where it would look like a rewrite of prose nobody proposed changing.
+
+The thread below is live. The AI resolve button is the third in each comment's row; pressing it produces a resolution against that comment, and the line underneath reports each callback separately as it arrives."
+           Code="@ResolveCode">
+        <div class="sb-stack" data-testid="ai-resolve">
+            <MarkdownView Blocks="@IntegrationFixtures.DocumentBlocks"
+                          Comments="@_threadComments"
+                          Proposals="@_threadProposals"
+                          OnResolveComment="ResolveThreadComment"
+                          OnResolveCommentWithAi="ResolveThreadWithAi"
+                          OnAcceptProposal="AcceptThread"
+                          OnRejectProposal="RejectThread" />
+            <p class="sb-state" data-testid="ai-resolve-echo">@_resolveEcho</p>
+        </div>
+    </Story>
+
+    <Story Name="Attribution is visible and it is announced"
+           Description="The design principles ask for two things and they are not the same thing: AI content must be visually distinguishable and labelled for assistive tech. The card carries both — a tinted edge and the provider mark for the eye, an accessible name reading Suggested by AI on the containing article for everything else — because a tint alone is invisible to a screen reader and an accessible name alone is invisible to everyone else.
+
+The tint is a colour mix of the one brand hue against the card surface. It is not a new colour and it could not have been: the palette carries one saturated hue, and the colour scheme forbids inventing a second semantic set to get another. Note which carrier is doing the work here: the tint and the accessible name say a machine wrote this, and both are present on every proposal. The provider mark says something else entirely — that the machine was outside — which is why the card below has a tint and no mark.
+
+The visual carriers are also why the mark could not be made to do double duty. If it were the signal for AI content, an unmarked card would read as a person's writing, and the product's own AI would have to be branded with somebody to be legible at all.
+
+Beside it is an ordinary remark on the same block, which is the comparison that matters. A reader scanning the notes cell should be able to tell at a glance which of the two a person wrote, and the two are deliberately not the same shape."
+           Code="@AttributionCode">
+        <div class="sb-columns" data-testid="ai-attribution">
+            <div class="sb-stack">
+                <p class="sb-label">A proposal — article, aria-label, tint, time. No mark: nothing left the app.</p>
+                <AiProposalCard Proposal="@IntegrationFixtures.RewriteProposal"
+                                OnAccept="RecordAccept"
+                                OnReject="RecordReject"
+                                TestId="ai-attribution-card"
+                                AttributionTestId="ai-attribution-line" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">An ordinary remark on the same block</p>
+                <MarkdownView Blocks="@OneBlock"
+                              Comments="@HumanComment"
+                              OnResolveComment="Noop" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Offline, the affordance says so and the document still works"
+           Description="An AI action offline is IntegrationReadiness.Offline() like any other unavailable act — the button stays, disabled, with a calm sentence and no remedy, because there is nothing a reader can press that puts a network back. What must not happen is the document appearing to depend on it.
+
+So below the bar is the same document with commenting and resolving wired and working. Editing, commenting, resolving and reading are untouched, which is what it means in practice to say that AI affordances must not imply that local editing depends on them.
+
+The per-block affordances take the same position by a different route. They carry no readiness of their own — MarkdownView's AI parameters are callbacks, so a host that cannot reach a model simply does not hand one in, and the button is absent rather than present and lying. The sentence is stated once, on the bar, where a reader looks for it; stating it on every paragraph would turn one standing condition into a page full of them."
+           Code="@OfflineCode">
+        <div class="sb-stack" data-testid="ai-offline">
+            <IntegrationActionBar Actions="@IntegrationFixtures.InAppAi"
+                                  Density="IntegrationDensity.Inline"
+                                  Readiness="@IntegrationFixtures.Offline"
+                                  AriaLabel="AI"
+                                  VisibleLimit="3"
+                                  TestId="ai-offline-bar"
+                                  ActionTestIdPrefix="ai-offline" />
+            <MarkdownView Blocks="@IntegrationFixtures.DocumentBlocks"
+                          Comments="@_offlineComments"
+                          OnAddComment="AddOfflineComment"
+                          OnResolveComment="ResolveOfflineComment" />
+            <p class="sb-state" data-testid="ai-offline-echo">@_offlineEcho</p>
+        </div>
+    </Story>
+
+    <Story Name="A proposal whose block went away"
+           Description="Blocks are deleted while proposals are open, and a proposal pointing past the end of the document has to land somewhere. It joins the orphan region comments already use, for the reason recorded there: dropping it would lose what was suggested, and showing it at the end says it is adrift.
+
+The orphan computation generalises to cover both rather than gaining a second one beside it. That is worth more than the code it saves — one region means a reader learns once that anything down there has lost its anchor, and a second region for proposals would have had to explain itself all over again.
+
+Below, one comment and one proposal both point at a block index the document does not have. Neither is dropped, and neither is drawn against a paragraph it was not written about."
+           Code="@OrphanCode">
+        <div class="sb-stack" data-testid="ai-orphan">
+            <MarkdownView Blocks="@IntegrationFixtures.DocumentBlocks"
+                          Comments="@OrphanedComments"
+                          Proposals="@OrphanedProposals"
+                          OnResolveComment="Noop"
+                          OnAcceptProposal="RecordAccept"
+                          OnRejectProposal="RecordReject" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly IReadOnlyList<AiProposalState> ProposalStates =
+    [
+        AiProposalState.Proposed,
+        AiProposalState.Accepted,
+        AiProposalState.Rejected
+    ];
+
+    private static readonly IReadOnlyList<MdBlock> OneBlock =
+        [.. IntegrationFixtures.DocumentBlocks.Skip(2).Take(1)];
+
+    private static readonly IReadOnlyList<MarkdownComment> HumanComment =
+    [
+        new("comment-human", 0, "Agreed — this is the paragraph the rewrite is about.", "Jos", "16 Aug, 09:38")
+    ];
+
+    /// <summary>A comment and a proposal that both point past the end of the
+    /// document. One region holds both, so a reader learns once that anything
+    /// down there has lost its anchor.</summary>
+    private static readonly IReadOnlyList<MarkdownComment> OrphanedComments =
+    [
+        new("comment-orphan", 41, "Does this still hold after the split?", "Jos", "16 Aug, 10:01")
+    ];
+
+    private static readonly IReadOnlyList<AiProposal> OrphanedProposals =
+    [
+        IntegrationFixtures.OrphanedProposal
+    ];
+
+    // --- Live state --------------------------------------------------------
+
+    private IReadOnlyList<MarkdownComment> _comments = IntegrationFixtures.Comments;
+
+    private IReadOnlyList<AiProposal> _proposals = [IntegrationFixtures.RewriteProposal];
+
+    private IReadOnlyList<MarkdownComment> _threadComments = IntegrationFixtures.Comments;
+
+    private IReadOnlyList<AiProposal> _threadProposals = [];
+
+    private IReadOnlyList<MarkdownComment> _offlineComments = IntegrationFixtures.Comments;
+
+    private AiProposal _standalone = IntegrationFixtures.RewriteProposal;
+
+    private int _next;
+
+    private string _echo = "Nothing pressed yet.";
+
+    private string _reviewEcho = "Nothing answered yet.";
+
+    private string _resolveEcho = "Nothing pressed yet.";
+
+    private string _offlineEcho = "The document is untouched by any of it.";
+
+    /// <summary>What a host does with OnRewriteBlock: run the tool, and hand back
+    /// a proposal anchored to the block it was asked about. This one skips the
+    /// tool and keeps the anchor, which is the part the component cares about.
+    /// <para>No provider, because this is the in-app rewrite: the default on
+    /// <c>AiProposal</c> is <c>None</c>, so a host that says nothing gets an
+    /// unmarked card rather than a branded one it never asked for.</para></summary>
+    private void Rewrite(int blockIndex)
+    {
+        var proposal = new AiProposal(
+            $"proposal-live-{_next++}",
+            AiProposalKind.Rewrite,
+            "A tighter version of this block, written by a model and applied by nobody yet.",
+            Timestamp: "just now",
+            Original: "The block as it stands.",
+            BlockIndex: blockIndex);
+
+        _proposals = [.. _proposals, proposal];
+        _echo = $"OnRewriteBlock raised with block index {blockIndex}. The host produced {proposal.Id}.";
+    }
+
+    private void AddComment(int blockIndex)
+    {
+        _comments = [.. _comments, new MarkdownComment($"comment-live-{_next++}", blockIndex, "A new remark.", "You", "just now")];
+        _echo = $"OnAddComment raised with block index {blockIndex}.";
+    }
+
+    private void ResolveComment(string id)
+    {
+        _comments = [.. _comments.Select(comment => comment.Id == id ? comment with { Resolved = true } : comment)];
+        _echo = $"OnResolveComment raised for {id}.";
+    }
+
+    /// <summary>Accept is where the host applies the text. This page does not
+    /// re-parse the document — the point of the story is that the component did
+    /// not either, and that the decision arrived here as a callback.</summary>
+    private void Accept(AiProposal proposal)
+    {
+        _proposals = [.. _proposals.Select(open => open.Id == proposal.Id ? open with { State = AiProposalState.Accepted } : open)];
+        _echo = $"OnAcceptProposal raised for {proposal.Id}. The host would re-parse and hand back new blocks.";
+    }
+
+    private void Reject(AiProposal proposal)
+    {
+        _proposals = [.. _proposals.Select(open => open.Id == proposal.Id ? open with { State = AiProposalState.Rejected } : open)];
+        _echo = $"OnRejectProposal raised for {proposal.Id}. The document is byte-identical.";
+    }
+
+    private void ResetDocument()
+    {
+        _comments = IntegrationFixtures.Comments;
+        _proposals = [IntegrationFixtures.RewriteProposal];
+        _echo = "Back to where it started.";
+    }
+
+    private void RecordAccept(AiProposal proposal)
+    {
+        _standalone = _standalone.Id == proposal.Id ? _standalone with { State = AiProposalState.Accepted } : _standalone;
+        _reviewEcho = $"OnAccept raised with Id = {proposal.Id}, Kind = {proposal.Kind}, "
+            + $"Provider = {proposal.Provider}, Model = {proposal.Model ?? "none"}, "
+            + $"SessionId = {proposal.SessionId ?? "none"}.";
+    }
+
+    private void RecordReject(AiProposal proposal)
+    {
+        _standalone = _standalone.Id == proposal.Id ? _standalone with { State = AiProposalState.Rejected } : _standalone;
+        _reviewEcho = $"OnReject raised with Id = {proposal.Id}. Nothing was written; the document is byte-identical.";
+    }
+
+    private void ResetStandalone()
+    {
+        _standalone = IntegrationFixtures.RewriteProposal;
+        _reviewEcho = "Nothing answered yet.";
+    }
+
+    /// <summary>The AI act on a comment. It produces a proposal and nothing else —
+    /// resolving is still the other button, and still the host's to call.</summary>
+    private void ResolveThreadWithAi(string commentId)
+    {
+        var proposal = IntegrationFixtures.CommentProposal with
+        {
+            Id = $"proposal-thread-{_next++}",
+            CommentId = commentId,
+            Timestamp = "just now",
+            State = AiProposalState.Proposed
+        };
+
+        _threadProposals = [.. _threadProposals, proposal];
+        _resolveEcho = $"OnResolveCommentWithAi raised for {commentId}. The comment is still open.";
+    }
+
+    private void ResolveThreadComment(string id)
+    {
+        _threadComments = [.. _threadComments.Select(comment => comment.Id == id ? comment with { Resolved = true } : comment)];
+        _resolveEcho = $"OnResolveComment raised for {id}. That is the second act, and the host chose to make it.";
+    }
+
+    private void AcceptThread(AiProposal proposal)
+    {
+        _threadProposals = [.. _threadProposals.Select(open => open.Id == proposal.Id ? open with { State = AiProposalState.Accepted } : open)];
+        _resolveEcho = $"OnAcceptProposal raised for {proposal.Id}. The comment it belongs to is still open — accepting text is not resolving a remark.";
+    }
+
+    private void RejectThread(AiProposal proposal) =>
+        _threadProposals = [.. _threadProposals.Select(open => open.Id == proposal.Id ? open with { State = AiProposalState.Rejected } : open)];
+
+    private void AddOfflineComment(int blockIndex)
+    {
+        _offlineComments = [.. _offlineComments, new MarkdownComment($"comment-offline-{_next++}", blockIndex, "Written with no network.", "You", "just now")];
+        _offlineEcho = $"Commented on block {blockIndex} while every AI act was unavailable.";
+    }
+
+    private void ResolveOfflineComment(string id)
+    {
+        _offlineComments = [.. _offlineComments.Select(comment => comment.Id == id ? comment with { Resolved = true } : comment)];
+        _offlineEcho = $"Resolved {id} while every AI act was unavailable.";
+    }
+
+    private void Noop()
+    {
+        // A delegate with nothing behind it, because the affordance it turns on is
+        // what the story is about. Two of these stories are about what is drawn
+        // rather than about what a press does.
+    }
+
+    // --- Code samples ------------------------------------------------------
+
+    private const string AnchorCode = """
+        @* Five parameters and no more. Annotated widens to include proposals, so
+           a view that asks for none of this renders exactly what it renders
+           today. *@
+        <MarkdownView Blocks="@blocks"
+                      Comments="@comments"
+                      Proposals="@proposals"
+                      OnRewriteBlock="Rewrite"
+                      OnResolveCommentWithAi="ResolveWithAi"
+                      OnAcceptProposal="Accept"
+                      OnRejectProposal="Reject" />
+        """;
+
+    private const string OwnAiCode = """
+        @* Written here. Provider defaults to None, so the card draws no mark and
+           names the writer "AI". A host has to say a vendor out loud to get one. *@
+        new AiProposal("proposal-1", AiProposalKind.Rewrite, suggested,
+            Timestamp: "16 Aug, 09:41", Original: current, BlockIndex: 2)
+
+        @* Come back from a session this product forwarded the section to. That
+           one left, so it carries the tool that wrote it, its model, and the
+           session the References page tracks. *@
+        new AiProposal("proposal-2", AiProposalKind.Rewrite, suggested,
+            IntegrationProvider.Claude, "claude-opus-5", "session-7e12",
+            "16 Aug, 10:14", Original: current, BlockIndex: 2)
+        """;
+
+    private const string ReviewCode = """
+        @* Original and Body are Now and Suggested. Nothing is applied here:
+           accepting raises the record and the host re-parses. No provider named,
+           because this one was written in the app. *@
+        new AiProposal("proposal-1", AiProposalKind.Rewrite, suggested,
+            Timestamp: "16 Aug, 09:41", Original: current, BlockIndex: 2)
+        """;
+
+    private const string StatesCode = """
+        @* Answered, and still attributed. The buttons go; the provenance does
+           not. *@
+        proposal with { State = AiProposalState.Accepted }
+        """;
+
+    private const string ResolveCode = """
+        @* Two acts. Starting the work and accepting the text are separate from
+           resolving the remark, and the host calls the third one only if it
+           wants to. *@
+        private void ResolveWithAi(string commentId) => Ask(commentId);      @* act one *@
+        private void Accept(AiProposal proposal)     => Apply(proposal);     @* act two *@
+        private void Resolve(string commentId)       => Close(commentId);    @* the host's own *@
+        """;
+
+    private const string AttributionCode = """
+        @* Both halves, because neither reaches everybody on its own — and the
+           name is the product's own AI, not a vendor's. *@
+        <article class="ai-proposal ai-proposal--none" aria-label="Suggested by AI">
+        """;
+
+    private const string OfflineCode = """
+        @* The act says why; the document says nothing about it. *@
+        <IntegrationActionBar Actions="@aiActs" Readiness="@IntegrationReadiness.Offline()" />
+
+        @* No AI callbacks handed in, so no per-block AI buttons — absent rather
+           than present and lying. Comments and resolution are untouched. *@
+        <MarkdownView Blocks="@blocks" Comments="@comments" OnAddComment="Add" OnResolveComment="Resolve" />
+        """;
+
+    private const string OrphanCode = """
+        @* One orphan region for both. A stray is better than a loss, and a second
+           region for proposals would have had to explain itself all over again. *@
+        proposal with { BlockIndex = 42 }   @* the document has four blocks *@
+        """;
+}

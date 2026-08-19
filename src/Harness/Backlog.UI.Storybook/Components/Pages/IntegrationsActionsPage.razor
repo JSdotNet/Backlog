@@ -1,0 +1,456 @@
+﻿@page "/integrations/actions"
+
+<PageTitle>Integration actions — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Actions"
+           Summary="The six acts the product performs on an external tool, and the one that is deliberately not one of them. Create a GitHub issue, open in VS Code, run in Copilot CLI, ask AI, resolve comments with AI, rewrite part with AI — plus copy to clipboard, which is CopyButton composed rather than reimplemented, and why that exception has consequences for the overflow rule. And the two hand-offs that send a section to a Claude or a GitHub Copilot session in another repository, which is where the provider marks belong and the only place they do.">
+
+    <Story Name="The six acts"
+           Description="All six at Toolbar density, which is the only place they all fit. Each is an IntegrationActionSpec and nothing more — an id, a label, a provider, a prominence and a readiness — so a surface adds one by adding a record to a list rather than by adding markup.
+
+That is the whole consistency mechanism, and it is worth saying what it rules out. A surface cannot give one of these a different shape, because it never writes the shape; it cannot forget the provider mark, because the mark comes from the provider; and it cannot invent a seventh way of being unavailable, because the readiness record has four causes and no others. The bar below is a list of seven records with the budget lifted, which is why nothing has collapsed.
+
+Press any of them: the line underneath reports which spec arrived. The specs are the same ones every other page in this section renders, so an act that behaves differently here would be a bug rather than a variation."
+           Code="@SixCode">
+        <div class="sb-stack" data-testid="actions-six">
+            <IntegrationActionBar Actions="@IntegrationFixtures.ActsWithCopy"
+                                  Density="IntegrationDensity.Toolbar"
+                                  VisibleLimit="7"
+                                  AriaLabel="Integrations"
+                                  OnInvoke="Record"
+                                  TestId="actions-six-bar"
+                                  ActionTestIdPrefix="actions-six" />
+            <p class="sb-state" data-testid="actions-six-echo">@_echo</p>
+        </div>
+    </Story>
+
+    <Story Name="Copy is the one that is not an IntegrationAction"
+           Description="CopyButton already owns the clipboard interop, the status line that reports whether the browser said yes, the three-second clear, and the prerender and exception swallowing that keeps it from throwing in a WebView with no clipboard permission. Reimplementing any of that inside the lifecycle would have been the exact duplication this family exists to prevent, so a spec with CopyText set is rendered by CopyButton and the bar steps out of the way.
+
+The consequence lands on the next page: a copy action can never collapse into the overflow menu, because a MenuItem has no interop and no status line and would silently become a row that claims to copy and does not.
+
+There is a second consequence, and it is the one visible below. A copy stays enabled even when the cluster around it is not. The clipboard is local — no token, no network, no installed tool is involved — so refusing a copy because a GitHub token expired would be the product withholding something it can plainly still do. The right-hand bar is the same seven specs under an expired token: every act that goes through GitHub is disabled and carrying its reason, and the copy is not."
+           Code="@CopyCode">
+        <div class="sb-stack" data-testid="actions-copy">
+            <div class="sb-stack">
+                <p class="sb-label">Ready — a copy beside an act</p>
+                <IntegrationActionBar Actions="@CopyAndCreate"
+                                      Density="IntegrationDensity.Toolbar"
+                                      AriaLabel="Integrations"
+                                      OnInvoke="Record"
+                                      TestId="actions-copy-bar"
+                                      ActionTestIdPrefix="actions-copy" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Cluster not ready — the copy is untouched</p>
+                <IntegrationActionBar Actions="@CopyAndCreate"
+                                      Density="IntegrationDensity.Toolbar"
+                                      Readiness="@IntegrationFixtures.TokenExpired"
+                                      AriaLabel="Integrations"
+                                      OnInvoke="Record"
+                                      OnRemedy="RecordRemedy"
+                                      TestId="actions-copy-blocked-bar"
+                                      ActionTestIdPrefix="actions-copy-blocked" />
+                <p class="sb-state">
+                    The copy renders as button[data-testid="actions-copy-blocked-copy-prompt"] and is enabled.
+                    The act beside it is disabled with the cluster's reason.
+                </p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Marks are drawn, not fetched"
+           Description="Four provider marks, each a hand-authored path in a sixteen-unit viewBox filled with currentColor, because a component that needed the network to show itself is no use in a WebView with no egress — the same argument CopyButton's own comment makes about its clipboard glyph. There is no icon font, no sprite sheet and no external file to keep in step.
+
+The rule that keeps them legible at sixteen pixels is that marks are filled and state icons are stroked. A filled shape and a stroked outline read as different classes of thing even when both are drawn in the same ink, so a reader never mistakes a provider for a state — which matters most at Compact density, where a row can carry a mark and two chips inside a couple of centimetres.
+
+Currency is the other half of it. Because everything is currentColor, one path serves every context: the same GitHub mark is live ink on an open issue chip and disabled ink on a Connect button, with no second asset and no theme to keep synchronised. The three rows below are the same four elements under three inherited colours.
+
+Provider.None is the fifth member and draws nothing at all — not an empty svg. A bar of provider-less acts has no phantom gap where a glyph would have been, which is the last cell in the first row. It is also the common case rather than the fallback, which the next story is about: most acts in this product carry no provider, because most of them never leave it."
+           Code="@MarksCode">
+        <div class="sb-stack" data-testid="actions-marks">
+            @foreach (var size in MarkSizes)
+            {
+                <div class="sb-stack">
+                    <p class="sb-label">@size px</p>
+                    <div class="sb-row">
+                        @foreach (var provider in Providers)
+                        {
+                            <ProviderMark Provider="@provider"
+                                          Size="@size"
+                                          Title="@ProviderTitles[provider]"
+                                          TestId="@($"actions-mark-{provider.ToString().ToLowerInvariant()}-{size}")" />
+                        }
+                        <ProviderMark Provider="IntegrationProvider.None"
+                                      Size="@size"
+                                      TestId="@($"actions-mark-none-{size}")" />
+                        <span class="sb-state">None draws nothing — no element, no gap.</span>
+                    </div>
+                </div>
+            }
+
+            <div class="sb-stack">
+                <p class="sb-label">One path, three inherited inks</p>
+                @foreach (var ink in Inks)
+                {
+                    <div class="sb-row" style="@($"color: {ink.Token};")">
+                        @foreach (var provider in Providers)
+                        {
+                            <ProviderMark Provider="@provider" Size="20" Title="@ProviderTitles[provider]" />
+                        }
+                        <span class="sb-state">@ink.Name</span>
+                    </div>
+                }
+            </div>
+
+            <div class="sb-stack">
+                <p class="sb-label">Filled marks beside stroked states, for contrast</p>
+                <div class="sb-row">
+                    <ProviderMark Provider="IntegrationProvider.GitHub" Size="20" Title="GitHub" />
+                    <IntegrationStateChip Artifact="IntegrationArtifactState.Open"
+                                          Kind="IntegrationLinkKind.Issue"
+                                          TestId="actions-marks-chip-open" />
+                    <IntegrationStateChip Artifact="IntegrationArtifactState.Merged"
+                                          Kind="IntegrationLinkKind.PullRequest"
+                                          TestId="actions-marks-chip-merged" />
+                    <IntegrationStateChip Session="IntegrationSessionState.Running"
+                                          TestId="actions-marks-chip-running" />
+                </div>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="The mark means it left the application"
+           Description="Five acts below, all of them about AI, and only two of them wear a logo. The difference is not which technology is behind them. It is whether anything crossed the edge of this product.
+
+Ask AI, Resolve comments with AI and Rewrite part with AI are features of this application. A reader pressing one of them is using Backlog; which model answers is an implementation detail in the way the storage format is one, and it can be swapped without a single affordance moving. Stamping them with a model vendor's mark would tell that reader their paragraph went to Anthropic, or to GitHub — which is not what the button offered. So they carry no provider, and what they produce is attributed to AI and nothing further.
+
+Send to Claude in Desktop and Send to Copilot in Desktop are the opposite case, and the mark is the whole of what distinguishes them. Handing a section to an agent session in another repository is provider-specific in every way that reaches the reader: which tool will do the work, which session they will have to find again, and where it will land. At Compact density the label is gone and the mark is the only thing left saying which of the two was pressed — the same argument the session rows on References make, and for the same reason.
+
+The rejected alternative is the one this section shipped with and had to be corrected: marking every AI affordance with whichever model happens to be configured behind it. That is truthful in a narrow sense and misleading in the only sense that counts, because it makes a passport stamp out of a preference — and once a mark can mean either thing, it stops being a cue and becomes decoration.
+
+Below the bar is the other half of the crossing. A hand-off is not finished when the act succeeds: it comes back as a session somebody has to track, and that reference carries the same mark for the same reason. The in-app acts have no such counterpart, which is the tell — nothing they do produces anything outside to point at."
+           Code="@BoundaryCode">
+        <div class="sb-stack" data-testid="actions-boundary">
+            <div class="sb-stack">
+                <p class="sb-label">Inside, then outside — the marks fall on the second half and nowhere else</p>
+                <IntegrationActionBar Actions="@IntegrationFixtures.InAppAiAndHandOffs"
+                                      Density="IntegrationDensity.Toolbar"
+                                      VisibleLimit="5"
+                                      AriaLabel="Integrations"
+                                      OnInvoke="Record"
+                                      TestId="actions-boundary-bar"
+                                      ActionTestIdPrefix="actions-boundary" />
+                <p class="sb-state">
+                    Three acts that render no svg at all, then two that do. Nothing about the first three names a vendor,
+                    on the button or on the card they produce.
+                </p>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Compact — the labels are gone and the mark is the only difference left</p>
+                <IntegrationActionBar Actions="@IntegrationFixtures.HandOffs"
+                                      Density="IntegrationDensity.Compact"
+                                      VisibleLimit="2"
+                                      AriaLabel="Hand-offs"
+                                      OnInvoke="Record"
+                                      TestId="actions-boundary-compact"
+                                      ActionTestIdPrefix="actions-boundary-compact" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">What a hand-off comes back as — the other half of the same crossing</p>
+                <IntegrationLink Link="@IntegrationFixtures.DesktopClaudeSession"
+                                 OnOpen="Open"
+                                 TestId="actions-boundary-claude-session" />
+                <IntegrationLink Link="@IntegrationFixtures.DesktopCopilotSession"
+                                 OnOpen="Open"
+                                 TestId="actions-boundary-copilot-session" />
+                <p class="sb-state">
+                    Marked for the reason the act was: a reader has to know which session, in which tool, to go back to.
+                    References carries their states and what happens when there are eleven of them.
+                </p>
+            </div>
+            <p class="sb-state" data-testid="actions-boundary-echo">@_echo</p>
+        </div>
+    </Story>
+
+    <Story Name="Ask AI is Primary, which is what makes it everywhere"
+           Description="Invokable from any section is not a feature of a component, it is a property of a rule: Primary actions are pinned visible at every density and never collapse, and Ask AI is Primary. A surface that mounts a bar at all therefore has Ask AI on it, without each surface deciding.
+
+The rejected alternative was a dedicated AskAiButton that surfaces mount separately, which would have made everywhere a matter of remembering — and remembering is exactly what produced the improvised badges this family is replacing.
+
+Menu density is the case that proves the rule rather than the one that breaks it. The set is meant to be one trigger inside the host's own menu, and it very nearly is: the budget is zero, so every Standard act is behind the trigger. What still renders outside it is the Primary act and the copy — the Primary because pinning is unconditional, the copy because a MenuItem cannot carry the interop. The trigger itself appears only when the menu has something in it, or when a Menu-density cluster is wholly unavailable and the trigger is the only place left to state why.
+
+Ask AI stays on the bar rather than becoming a per-block affordance inside MarkdownView, because it is a question about a whole surface rather than about a paragraph. If a per-block form is ever wanted it is a third callback beside OnRewriteBlock and OnResolveCommentWithAi, not a redesign — which is the shape stated so nobody has to rediscover it."
+           Code="@PrimaryCode">
+        <div class="sb-stack" data-testid="actions-primary">
+            @foreach (var density in Densities)
+            {
+                <div class="sb-stack">
+                    <p class="sb-label">@density — budget @Budgets[density]</p>
+                    <IntegrationActionBar Actions="@IntegrationFixtures.ActsWithCopy"
+                                          Density="@density"
+                                          AriaLabel="Integrations"
+                                          OnInvoke="Record"
+                                          TestId="@($"actions-primary-{density.ToString().ToLowerInvariant()}")"
+                                          OverflowTestId="@($"actions-primary-{density.ToString().ToLowerInvariant()}-overflow")"
+                                          MenuTestId="@($"actions-primary-{density.ToString().ToLowerInvariant()}-menu")"
+                                          ActionTestIdPrefix="@($"actions-primary-{density.ToString().ToLowerInvariant()}")" />
+                    <p class="sb-state">@PinnedNote(density)</p>
+                </div>
+            }
+        </div>
+    </Story>
+
+    <Story Name="An act that is running stays where it was"
+           Description="Collapse is recomputed on every render, and a bar whose contents change while an act is in flight can push a spinner into a closed menu. Running actions are exempt from the budget for that reason alone: the reader pressed something and is watching it, and moving it out from under them is worse than a row one item too long.
+
+The bar below is at Compact density, whose budget is two. Ask AI takes one of them as a Primary, Create GitHub issue takes the other, and Run in Copilot CLI is third — so on the ordinary rule it would be behind the trigger. It is not, because it is running, and the two acts after it are.
+
+Press Start the hand-off to watch it happen live: the same list, the same budget, one state change, and a row that grows by one rather than a spinner that vanishes."
+           Code="@RunningCode">
+        <div class="sb-stack" data-testid="actions-running">
+            <IntegrationActionBar Actions="@_compactActs"
+                                  Density="IntegrationDensity.Compact"
+                                  AriaLabel="Integrations"
+                                  OnInvoke="Record"
+                                  TestId="actions-running-bar"
+                                  OverflowTestId="actions-running-overflow"
+                                  MenuTestId="actions-running-menu"
+                                  ActionTestIdPrefix="actions-running" />
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           TestId="actions-running-start"
+                           OnClick="StartHandOff">Start the hand-off</AppButton>
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           TestId="actions-running-stop"
+                           OnClick="StopHandOff">Finish it</AppButton>
+            </div>
+            <p class="sb-state" data-testid="actions-running-state">@RunningNote</p>
+        </div>
+    </Story>
+
+    <Story Name="Logging a hand-off — not yet"
+           Description="The domain has a Usage Event — an immutable audit record of a prompt copy or use, with a timestamp and an action — and copying a prompt or handing one to Copilot CLI is exactly what it exists to record. Nothing in this family raises one.
+
+IntegrationActionSpec.Id is the hook when it is built: it is already the stable identifier a host would log against, and the acts that would produce a Usage Event today are listed below with the ids they would be joined on. They are the four that leave the application and no others, which is the mark rule arriving from a second direction: an in-app rewrite is an edit somebody made, and a hand-off is a thing that went somewhere. The addition is a callback on the bar rather than a change to any component here, which is why leaving it out costs nothing later.
+
+Worth naming the reason the copy is the awkward one. A copy is rendered by CopyButton, which raises nothing this family can see, so a Usage Event on a copy would have to be raised by whichever component owns the clipboard call — which is an argument for the callback living on the bar, where both paths pass through, rather than on the act."
+           Code="@LoggingCode">
+        <dl class="sb-grid" data-testid="actions-logging">
+            @foreach (var act in Loggable)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@act.Label</dt>
+                    <dd class="sb-stack">
+                        <pre class="sb-story__code"
+                             data-testid="@($"actions-logging-{act.Id}")"><code>Id = "@act.Id"</code></pre>
+                        <p class="sb-state">The join a Usage Event would carry as its subject.</p>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private sealed record Ink(string Name, string Token);
+
+    private static readonly IReadOnlyList<int> MarkSizes = [16, 20, 24];
+
+    private static readonly IReadOnlyList<IntegrationProvider> Providers =
+    [
+        IntegrationProvider.GitHub,
+        IntegrationProvider.Copilot,
+        IntegrationProvider.Claude,
+        IntegrationProvider.VsCode
+    ];
+
+    /// <summary>The provider's own name, spelled the way the provider spells it —
+    /// it becomes the mark's accessible name, and an abbreviation here would be an
+    /// abbreviation read aloud.</summary>
+    private static readonly IReadOnlyDictionary<IntegrationProvider, string> ProviderTitles =
+        new Dictionary<IntegrationProvider, string>
+        {
+            [IntegrationProvider.GitHub] = "GitHub",
+            [IntegrationProvider.Copilot] = "GitHub Copilot",
+            [IntegrationProvider.Claude] = "Claude",
+            [IntegrationProvider.VsCode] = "VS Code"
+        };
+
+    /// <summary>Three inks a mark actually inherits in this product: the ordinary
+    /// one, the live one a current state uses, and the one an unavailable act
+    /// carries.</summary>
+    private static readonly IReadOnlyList<Ink> Inks =
+    [
+        new("Ordinary text ink", "var(--color-text-primary)"),
+        new("A live state", "var(--color-primary-light)"),
+        new("An unavailable act", "var(--color-text-disabled)")
+    ];
+
+    private static readonly IReadOnlyList<IntegrationDensity> Densities =
+    [
+        IntegrationDensity.Toolbar,
+        IntegrationDensity.Inline,
+        IntegrationDensity.Compact,
+        IntegrationDensity.Menu
+    ];
+
+    /// <summary>The density budgets, restated here rather than read out of the
+    /// library: the mapper that holds them is internal, so the storybook says the
+    /// numbers out loud and the bars beside them are the proof.</summary>
+    private static readonly IReadOnlyDictionary<IntegrationDensity, int> Budgets =
+        new Dictionary<IntegrationDensity, int>
+        {
+            [IntegrationDensity.Toolbar] = 4,
+            [IntegrationDensity.Inline] = 3,
+            [IntegrationDensity.Compact] = 2,
+            [IntegrationDensity.Menu] = 0
+        };
+
+    private static readonly IReadOnlyList<IntegrationActionSpec> CopyAndCreate =
+    [
+        IntegrationFixtures.CopyPrompt,
+        IntegrationFixtures.CreateIssue
+    ];
+
+    /// <summary>The acts that would raise a Usage Event the day one exists, and
+    /// they are exactly the ones that leave: the prompt going to the clipboard,
+    /// the prompt going to a local agent, and a section going to a session in
+    /// another repository. Not one in-app AI act is on the list, which is the
+    /// mark rule arriving from a second direction — what is worth auditing is a
+    /// crossing.</summary>
+    private static readonly IReadOnlyList<IntegrationActionSpec> Loggable =
+    [
+        IntegrationFixtures.CopyPrompt,
+        IntegrationFixtures.RunInCopilot,
+        IntegrationFixtures.SendToClaude,
+        IntegrationFixtures.SendToCopilot
+    ];
+
+    private IReadOnlyList<IntegrationActionSpec> _compactActs = IntegrationFixtures.ActsWithOneRunning;
+
+    private string _echo = "Nothing pressed yet.";
+
+    private void Record(IntegrationActionSpec spec) =>
+        _echo = $"OnInvoke raised for {spec.Id} — {spec.Label}.";
+
+    private void Open(IntegrationLinkRef link) =>
+        _echo = $"OnOpen raised for {link.Id} — the session a hand-off started, not an act.";
+
+    private void RecordRemedy(IntegrationReadiness readiness) =>
+        _echo = $"OnRemedy raised: {readiness.Availability}, {readiness.Subject ?? "no subject"}.";
+
+    private void StartHandOff() =>
+        _compactActs = IntegrationFixtures.ActsWithOneRunning;
+
+    private void StopHandOff() =>
+        _compactActs =
+        [
+            .. IntegrationFixtures.ActsWithOneRunning.Select(spec =>
+                spec.State is IntegrationActionState.Running
+                    ? spec with { State = IntegrationActionState.Idle }
+                    : spec)
+        ];
+
+    private bool AnyRunning =>
+        _compactActs.Any(spec => spec.State is IntegrationActionState.Running);
+
+    private string RunningNote => AnyRunning
+        ? "Three acts visible against a budget of two: the Primary, the one the budget paid for, and the one in flight."
+        : "Nothing is running, so the budget applies unchanged and the third act is behind the trigger.";
+
+    /// <summary>What is outside the trigger at this density and why. Menu is the
+    /// one worth spelling out, because zero budget and two visible acts looks like
+    /// a contradiction until the two pinning rules are named.</summary>
+    private static string PinnedNote(IntegrationDensity density) => density switch
+    {
+        IntegrationDensity.Menu =>
+            "Budget zero, and two acts still outside the trigger: Ask AI because Primary is pinned unconditionally, "
+            + "the copy because a MenuItem has no clipboard interop to carry.",
+        IntegrationDensity.Compact =>
+            "Icon only. Ask AI is still first, and every button keeps its label on the accessible name.",
+        _ => "Ask AI is pinned and costs one of the budget. The rest fill what is left, in order."
+    };
+
+    // --- Code samples ------------------------------------------------------
+
+    private const string SixCode = """
+        @* A surface adds an integration by adding a record, not by adding markup. *@
+        <IntegrationActionBar Actions="@acts" Density="IntegrationDensity.Toolbar" OnInvoke="Invoke" />
+
+        private static readonly IReadOnlyList<IntegrationActionSpec> Acts =
+        [
+            new("ask-ai", "Ask AI",
+                Prominence: IntegrationProminence.Primary),
+            new("create-issue", "Create GitHub issue", IntegrationProvider.GitHub,
+                ConfirmLabel: "Create the issue"),
+            new("open-vscode", "Open in VS Code", IntegrationProvider.VsCode),
+            new("run-copilot", "Run in Copilot CLI", IntegrationProvider.Copilot),
+            new("resolve-comments", "Resolve comments with AI"),
+            new("rewrite", "Rewrite part with AI")
+        ];
+        """;
+
+    private const string CopyCode = """
+        @* CopyText set is the whole switch. The bar renders it with CopyButton,
+           which already owns the interop, the status line and the three-second
+           clear — and which stays enabled when the cluster around it does not,
+           because the clipboard is local. *@
+        new IntegrationActionSpec("copy-prompt", "Copy prompt", CopyText: prompt)
+        """;
+
+    private const string MarksCode = """
+        @* Hand-authored, filled with currentColor, sized in pixels rather than in
+           ems so the mark scales with the row instead of with the font. *@
+        <ProviderMark Provider="IntegrationProvider.Copilot" Size="20" Title="GitHub Copilot" />
+
+        @* No Title: aria-hidden and focusable="false", because a mark beside a
+           text label would otherwise be read out twice. *@
+        <ProviderMark Provider="IntegrationProvider.GitHub" />
+        """;
+
+    private const string PrimaryCode = """
+        @* Everywhere is a property of the rule, not of the component. Primary is
+           pinned at every density, so a surface that mounts a bar has Ask AI. *@
+        new IntegrationActionSpec("ask-ai", "Ask AI",
+            Prominence: IntegrationProminence.Primary)
+        """;
+
+    private const string BoundaryCode = """
+        @* One field apart, and the field is the whole rule. The product's own AI
+           names no provider, because nothing crossed out. *@
+        new IntegrationActionSpec("ask-ai", "Ask AI", Prominence: IntegrationProminence.Primary)
+        new IntegrationActionSpec("resolve-comments", "Resolve comments with AI")
+        new IntegrationActionSpec("rewrite", "Rewrite part with AI")
+
+        @* The hand-offs name theirs, because which tool it went to is the point. *@
+        new IntegrationActionSpec("send-claude", "Send to Claude in Desktop",
+            IntegrationProvider.Claude, ConfirmLabel: "Send it")
+        new IntegrationActionSpec("send-copilot", "Send to Copilot in Desktop",
+            IntegrationProvider.Copilot, ConfirmLabel: "Send it")
+
+        @* And what comes back wears the same mark: an act that left and a
+           reference to track are two halves of one crossing. *@
+        IntegrationLinkRef.Session("session-7e12", "session 7e12",
+            IntegrationProvider.Claude, IntegrationSessionState.Running, repository: desktop)
+        """;
+
+    private const string RunningCode = """
+        @* One state change, no other parameter touched. The act is held visible
+           past the budget for as long as it is in flight. *@
+        _acts = [.. _acts.Select(spec => spec.Id == "run-copilot"
+            ? spec with { State = IntegrationActionState.Running }
+            : spec)];
+        """;
+
+    private const string LoggingCode = """
+        @* Not built. The shape when it is: one callback on the bar, carrying the
+           spec whose Id is already the stable join. *@
+        // [Parameter] public EventCallback<IntegrationActionSpec> OnActed { get; set; }
+        //
+        // usage_event: { subject: spec.Id, action: "copy" | "handoff", timestamp: … }
+        """;
+}

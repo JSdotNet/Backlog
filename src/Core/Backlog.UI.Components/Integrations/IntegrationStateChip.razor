@@ -1,0 +1,292 @@
+@*
+    One state of one outside thing: colour, icon and label together.
+
+    StatusBadge already wraps Badge, and this looks like a third of the same
+    idea — but it takes an enum where StatusBadge takes a free string, and that
+    is the whole difference. A free string lets a caller pass "merged" and write
+    "Closed" beside it; taking the enum and deriving the slug, the label, the
+    title and the glyph from it makes that mismatch unreachable. So this is the
+    one place `.design/accessibility.md`'s "colour MUST NOT be the only carrier
+    of state" is enforced rather than remembered: there is no parameter that
+    renders a colour without its icon and its word.
+
+    Outlined, not filled — except the two states the product actually acts on. A
+    reference row routinely carries three or four of these and four filled pills
+    is a row of shouting; the existing `.badge--gh` is already outlined, so this
+    continues that rather than introducing a look. The exceptions are Stalled and
+    Failed, which are what the monitoring rules raise a signal on, and drift,
+    which is a mismatch someone has to go and resolve. That is the whole fill
+    rule: filled means there is something to do.
+
+    One chip renders one state. Drift is a second chip beside the artifact's own
+    rather than a mode of this one, because on screen that is exactly what "a
+    state distinct from the artifact's own" looks like.
+*@
+
+@if (Resolved is { } state)
+{
+    <Badge Kind="integration"
+           Slug="@state.Slug"
+           BaseClass="@BaseClass"
+           Title="@TitleValue(state)"
+           CssClass="@CssClass"
+           TestId="@TestId">
+        <span class="integration-chip__glyph" aria-hidden="true" data-testid="@IconTestId">@state.Icon</span>
+        <span class="@(IconOnly ? "sr-only" : "integration-chip__label")" data-testid="@LabelTestId">@LabelValue(state)</span>
+    </Badge>
+}
+
+@code {
+    /// <summary>The state of an issue or a pull request.</summary>
+    [Parameter]
+    public IntegrationArtifactState? Artifact { get; set; }
+
+    /// <summary>The state of an agent session.</summary>
+    [Parameter]
+    public IntegrationSessionState? Session { get; set; }
+
+    /// <summary>How the artifact disagrees with local truth. <c>None</c> renders
+    /// nothing, which is what makes it safe to write unconditionally beside a
+    /// link that usually agrees.</summary>
+    [Parameter]
+    public IntegrationDrift Drift { get; set; } = IntegrationDrift.None;
+
+    /// <summary>Selects the glyph where a state has two of them. An open issue is
+    /// a circle with a dot and an open pull request is two branches meeting; at
+    /// Compact density, where the label is gone, that difference is the only
+    /// thing separating them.</summary>
+    [Parameter]
+    public IntegrationLinkKind Kind { get; set; } = IntegrationLinkKind.Other;
+
+    /// <summary>Overrides the visible word. The slug still comes from the enum,
+    /// so a host may reword a state without being able to re-colour it — the same
+    /// split StatusBadge draws between Text and Status.</summary>
+    [Parameter]
+    public string? Text { get; set; }
+
+    /// <summary>Compact density. The label stops being visible and does not stop
+    /// existing: it moves into a visually-hidden span and onto the title, because
+    /// a chip that was only a colour and a shape would be the exact thing the
+    /// accessibility rules forbid.</summary>
+    [Parameter]
+    public bool IconOnly { get; set; }
+
+    [Parameter]
+    public string BaseClass { get; set; } = "badge";
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Addressed separately from the chip, because a test that wants to
+    /// prove the icon is there has to be able to find the icon rather than assert
+    /// on the chip's whole markup.</summary>
+    [Parameter]
+    public string? IconTestId { get; set; }
+
+    [Parameter]
+    public string? LabelTestId { get; set; }
+
+    /// <summary>A resolved state: everything the chip needs, worked out once so
+    /// the markup above cannot pair one state's slug with another's word.</summary>
+    private sealed record ChipState(string Slug, string Label, string Title, RenderFragment Icon);
+
+    /// <summary>Artifact, then session, then drift. An order rather than an
+    /// error, because a host holding a link record has both fields in hand and
+    /// throwing at render time over which one it filled would be this library
+    /// deciding a host's data was wrong.</summary>
+    private ChipState? Resolved
+    {
+        get
+        {
+            if (Artifact is { } artifact)
+            {
+                return new(
+                    IntegrationStates.SlugOf(artifact),
+                    IntegrationStates.LabelOf(artifact),
+                    IntegrationStates.TitleOf(artifact),
+                    ArtifactIcon(artifact));
+            }
+
+            if (Session is { } session)
+            {
+                return new(
+                    IntegrationStates.SlugOf(session),
+                    IntegrationStates.LabelOf(session),
+                    IntegrationStates.TitleOf(session),
+                    SessionIcon(session));
+            }
+
+            if (Drift is not IntegrationDrift.None)
+            {
+                return new(
+                    IntegrationStates.SlugOf(Drift),
+                    IntegrationStates.LabelOf(Drift),
+                    IntegrationStates.TitleOf(Drift),
+                    DriftIcon(Drift));
+            }
+
+            return null;
+        }
+    }
+
+    private string LabelValue(ChipState state) => string.IsNullOrWhiteSpace(Text) ? state.Label : Text;
+
+    /// <summary>The state's sentence, with the label in front of it when the
+    /// label is not on screen. A title is not reliably announced, so it is never
+    /// the only place the word lives — the visually-hidden span is — but a
+    /// pointer user on a compact row deserves the word too.</summary>
+    private string TitleValue(ChipState state)
+    {
+        if (!string.IsNullOrWhiteSpace(Title)) return Title;
+
+        return IconOnly ? $"{LabelValue(state)} — {state.Title}" : state.Title;
+    }
+
+    /// <summary>
+    /// Stroked at 1.6 and never filled, which is the rule the whole family rests
+    /// on: provider marks are filled, state icons are outlines. A filled shape
+    /// and a 1.6-weight outline read as different classes of thing even at 14 px
+    /// and even when both inherit the same ink, so a reader never mistakes a
+    /// provider for a state. 1.6 is the weight CopyButton's own glyph already
+    /// uses, so these are the same drawing as the rest of the library rather than
+    /// a second icon set beside it.
+    /// </summary>
+    private RenderFragment ArtifactIcon(IntegrationArtifactState state) =>
+        @<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true" focusable="false">
+            @if (state is IntegrationArtifactState.Open && Kind is IntegrationLinkKind.PullRequest)
+            {
+                @* Two branch strokes meeting an open node. *@
+                <circle cx="4.5" cy="4" r="1.75" />
+                <circle cx="4.5" cy="12" r="1.75" />
+                <circle cx="11.5" cy="12" r="1.75" />
+                <path d="M4.5 5.75v4.5" />
+                <path d="M11.5 10.25V6.75a2 2 0 0 0-2-2H6.75" />
+            }
+            else if (state is IntegrationArtifactState.Open)
+            {
+                @* A hollow circle with a centred dot. *@
+                <circle cx="8" cy="8" r="5.25" />
+                <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none" />
+            }
+            else if (state is IntegrationArtifactState.Draft)
+            {
+                @* The open outline with its line broken. A draft is an open thing
+                   that is not finished being written, so it is the open shape
+                   dashed rather than a shape of its own. *@
+                <circle cx="8" cy="8" r="5.25" stroke-dasharray="2.2 2.2" />
+                <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none" />
+            }
+            else if (state is IntegrationArtifactState.Merged)
+            {
+                @* A branch curving into a trunk, the landing node filled. *@
+                <circle cx="4.5" cy="4" r="1.75" />
+                <path d="M4.5 5.75v6.5" />
+                <path d="M4.5 6.75a4 4 0 0 0 4 4h1.25" />
+                <circle cx="11.5" cy="10.75" r="1.75" fill="currentColor" stroke="none" />
+            }
+            else if (state is IntegrationArtifactState.Closed)
+            {
+                @* A circle with a stroke through it. *@
+                <circle cx="8" cy="8" r="5.25" />
+                <path d="M5.75 10.25 10.25 5.75" />
+            }
+            else
+            {
+                @* Nothing has been read, so nothing is drawn solid. *@
+                <circle cx="8" cy="8" r="5.25" stroke-dasharray="1 2.2" />
+            }
+        </svg>;
+
+    private RenderFragment SessionIcon(IntegrationSessionState state) =>
+        @<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true" focusable="false">
+            @if (state is IntegrationSessionState.Starting)
+            {
+                <circle cx="8" cy="8" r="5.25" />
+                <path d="M5.75 9.25 8 6.75l2.25 2.5" />
+            }
+            else if (state is IntegrationSessionState.Running)
+            {
+                @* Two concentric arcs. The turn is a CSS animation that the
+                   reduced-motion query stops, so the glyph has to be a legible
+                   arc pair standing still: a spinner that only reads as one
+                   while it moves is a spinner nobody with vestibular
+                   sensitivity can use. *@
+                <path class="integration-chip__spin" d="M8 2.75a5.25 5.25 0 0 1 5.25 5.25" />
+                <path class="integration-chip__spin" d="M8 5.5A2.5 2.5 0 0 1 10.5 8" />
+            }
+            else if (state is IntegrationSessionState.Waiting)
+            {
+                @* Two pause bars — deliberately nothing like the hourglass
+                   below, because the entire point of the Waiting/Stalled pair is
+                   that a reader must be able to tell them apart at a glance. *@
+                <circle cx="8" cy="8" r="5.25" />
+                <path d="M6.75 6v4" />
+                <path d="M9.25 6v4" />
+            }
+            else if (state is IntegrationSessionState.Stalled)
+            {
+                @* An hourglass with the sand already down: time has passed and
+                   there is none left to run, which is the fact being reported. *@
+                <path d="M4.75 2.75h6.5" />
+                <path d="M4.75 13.25h6.5" />
+                <path d="M5.75 2.75v1.9L8 8l2.25-3.35v-1.9" />
+                <path d="M5.75 13.25v-1.9L8 8l2.25 3.35v1.9" />
+                <path d="M6.4 12.25h3.2" stroke-width="2.4" />
+            }
+            else if (state is IntegrationSessionState.Finished)
+            {
+                <circle cx="8" cy="8" r="5.25" />
+                <path d="M5.75 8.25 7.25 9.75l3-3.5" />
+            }
+            else if (state is IntegrationSessionState.Failed)
+            {
+                <circle cx="8" cy="8" r="5.25" />
+                <path d="M6.25 6.25 9.75 9.75" />
+                <path d="M9.75 6.25 6.25 9.75" />
+            }
+            else
+            {
+                <circle cx="8" cy="8" r="5.25" stroke-dasharray="1 2.2" />
+            }
+        </svg>;
+
+    private RenderFragment DriftIcon(IntegrationDrift drift) =>
+        @<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true" focusable="false">
+            @if (drift is IntegrationDrift.LocalAhead)
+            {
+                @* Two offset arrows, the upper one ahead: local has moved further
+                   than remote. RemoteAhead is the same glyph mirrored, so the
+                   pair reads as one fact with a direction rather than as two
+                   unrelated icons. *@
+                <path d="M2.75 5.5h8.5" />
+                <path d="M9.25 3.5 11.25 5.5 9.25 7.5" />
+                <path d="M2.75 10.5h5" />
+                <path d="M5.75 8.5 7.75 10.5 5.75 12.5" />
+            }
+            else if (drift is IntegrationDrift.RemoteAhead)
+            {
+                <path d="M13.25 5.5h-8.5" />
+                <path d="M6.75 3.5 4.75 5.5l2 2" />
+                <path d="M13.25 10.5h-5" />
+                <path d="M10.25 8.5 8.25 10.5l2 2" />
+            }
+            else if (drift is IntegrationDrift.Detached)
+            {
+                @* Two link halves with a gap where the join should be. *@
+                <path d="M6.5 4.5H5.25a3.25 3.25 0 0 0 0 6.5H6.5" />
+                <path d="M9.5 4.5h1.25a3.25 3.25 0 0 1 0 6.5H9.5" />
+            }
+        </svg>;
+}
