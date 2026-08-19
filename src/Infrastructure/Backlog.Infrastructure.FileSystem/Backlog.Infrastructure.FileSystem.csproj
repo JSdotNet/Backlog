@@ -11,6 +11,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+    <!-- Roadmap Planning's IRoadmapPlanRepository, answered under Roadmap/ by one
+         JSON document in the same storage root the backlog uses. An adapter
+         referencing a module implementation is the normal direction; the module
+         never sees this project. -->
+    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
          folder resolver: Backlog Management's IBacklogStore and Second Brain's

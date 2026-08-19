@@ -2,7 +2,7 @@
 
 ```meta
 status: draft
-order: ["inbox", "capture", "backlog", "second-brain", "productivity", "environment", "repository-management", "dev-pc-management", "monitoring", "technology-stack"]
+order: ["inbox", "capture", "backlog", "roadmap", "second-brain", "productivity", "environment", "repository-management", "dev-pc-management", "monitoring", "technology-stack"]
 ```
 
 > Strategic DDD view of the Backlog product domain: bounded-context roles,
@@ -21,6 +21,7 @@ order: ["inbox", "capture", "backlog", "second-brain", "productivity", "environm
 | Capture | Core | It is the front door for turning raw external input into normalized intent for the product. |
 | Inbox | Core | It owns triage and the decision point where captured input becomes work, knowledge, deferral, or archive. |
 | Backlog Management | Core | It owns the durable work model, prioritization, and multi-repository execution planning. |
+| Roadmap Planning | Core | It owns the forward plan — what is intended, when, in what order — and is the only context that holds a dependency between two pieces of planned work. Sequencing intent across repositories is a judgement the product exists to support, not a report over work someone else owns. |
 | Second Brain | Core | It owns durable knowledge linked to work and makes knowledge reusable across projects. |
 | Productivity | Supporting | It turns AI-assisted work activity into personal productivity insight without owning the work items or execution tools. |
 | Environment | Supporting | It provides quick access to named local, cloud, and project environments without becoming the authority for repository or health data. |
@@ -36,6 +37,7 @@ flowchart LR
     Capture[Capture]
     Inbox[Inbox]
     Backlog[Backlog Management]
+    Roadmap[Roadmap Planning]
     Brain[Second Brain]
     Productivity[Productivity]
     Environment[Environment]
@@ -48,6 +50,9 @@ flowchart LR
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Backlog
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Brain
     Backlog <-->|Partnership<br/>Cross-link by id| Brain
+    Backlog <-->|Partnership<br/>Optional cross-link by id| Roadmap
+
+    Roadmap -->|OHS + Published Language<br/>RoadmapItemScheduled| Monitor
 
     Backlog -->|OHS + Published Language<br/>StatusChanged / EntryProjected / EntryCompleted| Monitor
     Inbox -->|Customer/Supplier<br/>Queue-health feed| Monitor
@@ -71,6 +76,7 @@ flowchart LR
     Environment -->|Customer/Supplier<br/>Environment shortcuts| DevPC
 
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Backlog
+    Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Roadmap
 ```
 
 ## Published languages and contracts
@@ -81,6 +87,8 @@ flowchart LR
 | Inbox | `.domain/inbox/domain.md#domain-event-itemtriaged` | Backlog, Second Brain |
 | Backlog Management | `.domain/backlog/domain.md#domain-event-statuschanged`, `.domain/backlog/domain.md#domain-event-entryprojected`, `.domain/backlog/domain.md#domain-event-entrycompleted` | Monitoring & Dashboard |
 | Backlog Management | `.domain/backlog/domain.md#domain-event-aiworklogged` | Productivity |
+| Roadmap Planning | `.domain/roadmap/domain.md#domain-event-roadmapitemscheduled` | Monitoring & Dashboard |
+| Roadmap Planning | `.domain/roadmap/naming.md#term-roadmap-item` | Backlog Management |
 | Monitoring & Dashboard | `.domain/monitoring/domain.md#domain-event-followupcaptured` | Inbox |
 | Dev PC Management | `.domain/dev-pc-management/domain.md#domain-event-machinestatuschanged`, `.domain/dev-pc-management/domain.md#domain-event-complianceupdated` | Monitoring & Dashboard |
 | Productivity | `.domain/productivity/domain.md#domain-event-productivityrecorded` | Monitoring & Dashboard |
@@ -91,6 +99,14 @@ flowchart LR
 
 - Only the owning context defines a published language. Consumers conform to that
   contract and do not reach into the supplier's internal aggregate shape.
+- `Backlog Management` and `Roadmap Planning` split the word *priority* on
+  purpose, and the split is load-bearing: Backlog owns an entry's **status and
+  execution priority**, Roadmap owns **planning priority and sequence**. Neither
+  writes the other's value, and neither derives its own from the other. A roadmap
+  item may name the entry that executes it, but a plan must be able to hold work
+  that has no entry yet — which is why the plan is stored rather than projected.
+  This supersedes the earlier reading, in which the roadmap was a view over
+  Backlog Entries.
 - `Backlog Management` and `Second Brain` are a deliberate `Partnership`: both
   sides keep only foreign ids and the link semantics are coordinated through the
   Cross-Linking service rather than a shared aggregate.

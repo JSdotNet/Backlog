@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
   </ItemGroup>
 

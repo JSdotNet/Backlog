@@ -4,6 +4,10 @@ using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Backlog.Extensions;
+using Backlog.Modules.Roadmap;
+using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Infrastructure.FileSystem.Roadmap;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -52,6 +56,25 @@ internal static class BacklogTestHost
                     Guid.NewGuid().ToString("n"),
                     "github.json")),
                 settings));
+
+    /// <summary>
+    /// Roadmap Planning composed the way a host composes it: the module's own use
+    /// cases over the JSON plan document in the same storage root the backlog uses.
+    /// <para>
+    /// A real plan on disk rather than a stub, for the same reason the backlog gets
+    /// one — the band's whole job is to draw what was stored, and a stub that
+    /// returns a fixture would make every test about the band pass whether the
+    /// storage worked or not. A test that wants an empty plan simply does not write
+    /// one.
+    /// </para>
+    /// </summary>
+    public static IRoadmapPlanning PlanningFor(WorkspaceSettingsStore store) =>
+        new ServiceCollection()
+            .AddSingleton<IRoadmapPlanRepository>(
+                new RootedJsonRoadmapPlanRepository(() => store.RootDirectory))
+            .AddRoadmapModule()
+            .BuildServiceProvider()
+            .GetRequiredService<IRoadmapPlanning>();
 
     public static BacklogDesktopState StateFor(
         WorkspaceSettingsStore store,

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Roadmap module — the Roadmap Planning bounded context (.domain/roadmap).
+    Clean architecture, inside out:
+      DomainModels/  the Roadmap Plan aggregate, its entities, value objects, enums
+      Features/      one vertical slice per use case (command/query + handler)
+      Services/      PlanSequencing (the graph questions) and the published port
+      Extensions/    AddRoadmapModule() composition root for hosts
+    Ports such as IRoadmapPlanRepository live here; adapters live in
+    src/Infrastructure. This project may reference the shared kernel and its own
+    Abstractions, and nothing else in the solution. Hosts go the other way: they
+    call the handlers and hold the DTOs, never the plan.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Roadmap</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Roadmap.Abstractions\Backlog.Modules.Roadmap.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddRoadmapModule(); the domain and the handlers know nothing
+         about the container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The plan's invariants — acyclicity above all — are worth testing against
+         the aggregate directly rather than only through a handler. -->
+    <InternalsVisibleTo Include="Backlog.Modules.Roadmap.UnitTests" />
+  </ItemGroup>
+
+</Project>

@@ -64,7 +64,7 @@
           "path": ".arc42/01-introduction-and-goals.md",
           "slug": "quality-goals",
           "level": 2,
-          "line": 41,
+          "line": 42,
           "status": "active"
         }
       },
@@ -77,7 +77,7 @@
           "path": ".arc42/01-introduction-and-goals.md",
           "slug": "person",
           "level": 2,
-          "line": 60,
+          "line": 61,
           "status": "active"
         }
       },
@@ -247,7 +247,7 @@
           "path": ".arc42/04-solution-strategy.md",
           "slug": "thin-cloud-rich-desktop",
           "level": 2,
-          "line": 47,
+          "line": 48,
           "status": "active",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure"
@@ -263,7 +263,7 @@
           "path": ".arc42/04-solution-strategy.md",
           "slug": "technology-choices",
           "level": 2,
-          "line": 64,
+          "line": 65,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -279,7 +279,7 @@
           "path": ".arc42/04-solution-strategy.md",
           "slug": "cross-cutting-strategy",
           "level": 2,
-          "line": 82,
+          "line": 83,
           "status": "active",
           "related": [
             ".arc42/08-crosscutting-concepts.md"
@@ -322,7 +322,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "desktop-app",
           "level": 2,
-          "line": 157,
+          "line": 158,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
@@ -339,7 +339,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "mobile-app",
           "level": 2,
-          "line": 233,
+          "line": 234,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#mobile-capture-and-sync",
@@ -356,7 +356,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "ide-extensions",
           "level": 2,
-          "line": 273,
+          "line": 274,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#ide-context-aware-capture",
@@ -373,7 +373,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "cloud-service",
           "level": 2,
-          "line": 333,
+          "line": 334,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",

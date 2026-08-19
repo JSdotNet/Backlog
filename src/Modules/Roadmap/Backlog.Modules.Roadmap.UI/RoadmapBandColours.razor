@@ -1,0 +1,118 @@
+@*
+    Choosing which colour each repository's band takes.
+
+    A dialog rather than a control on the band itself, and that is an accessibility
+    decision rather than a layout one: the chart's band labels live in an aria-hidden
+    sidebar, so a picker put there would be a control a screen reader never reaches.
+    Here every repository is a named row with a named set of choices.
+
+    Five choices and no more. The set is what .design/color-scheme.md sanctions, and a
+    plan stores which one rather than a colour — so this offers numbers wearing swatches
+    rather than a colour picker. "Automatic" gives the choice back and lets the chart
+    place that band again.
+*@
+
+<Modal Open="@Open"
+       OpenChanged="OpenChanged"
+       Title="Band colours"
+       CssClass="roadmap-colours"
+       TestId="roadmap-colours">
+    <ChildContent>
+        @if (Repositories.Count == 0)
+        {
+            <p class="roadmap-colours__empty" data-testid="roadmap-colours-empty">
+                No repositories are configured, so there are no bands to colour.
+            </p>
+        }
+        else
+        {
+            <div class="roadmap-colours__list">
+                @foreach (var repository in Repositories)
+                {
+                    <div class="roadmap-colours__row" data-testid="roadmap-colours-row">
+                        <p class="roadmap-colours__name">@repository.Title</p>
+
+                        <div class="roadmap-colours__choices" role="group" aria-label="@($"Colour for {repository.Title}")">
+                            @for (var choice = 1; choice <= RoadmapPlanView.BandHues; choice++)
+                            {
+                                var colour = choice;
+                                var alias = repository.Alias;
+                                var chosen = ColourFor(alias) == colour;
+
+                                @* The library's pressable button rather than a bare one,
+                                   with the swatch classes as its hooks: the state is
+                                   aria-pressed either way, and this keeps the focus ring
+                                   and the disabled behaviour the product already has. *@
+                                <ToggleButton Pressed="@chosen"
+                                              PressedChanged="_ => Choose(alias, colour)"
+                                              BaseClass="@SwatchClass(colour)"
+                                              PressedCssClass="roadmap-colours__swatch--chosen"
+                                              Title="@($"Colour {colour}")"
+                                              AriaLabel="@($"Colour {colour} for {repository.Title}")"
+                                              TestId="@($"roadmap-colours-{alias}-{colour}")" />
+                            }
+
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Size="ButtonSize.Small"
+                                       OnClick="() => Choose(repository.Alias, null)"
+                                       TestId="@($"roadmap-colours-{repository.Alias}-auto")">
+                                Automatic
+                            </AppButton>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <Alert Message="@_error" Role="status" TestId="roadmap-colours-error" />
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Primary" OnClick="CloseAsync" TestId="roadmap-colours-done">
+            Done
+        </AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    private string? _error;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<PlannedRepository> Repositories { get; set; } = [];
+
+    /// <summary>The colours already chosen, by repository alias. A repository absent
+    /// from this is on automatic.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, int> ChosenColours { get; set; } = new Dictionary<string, int>(StringComparer.Ordinal);
+
+    [Parameter]
+    public EventCallback<RoadmapBandColourChoice> OnChoose { get; set; }
+
+    public void Refuse(string message)
+    {
+        _error = message;
+        StateHasChanged();
+    }
+
+    private int? ColourFor(string alias) => ChosenColours.TryGetValue(alias, out var colour) ? colour : null;
+
+    /// <summary>A class per choice rather than an inline custom property: the five are
+    /// a closed set, so the stylesheet can name all of them — and a token referenced
+    /// from a <c>style</c> attribute is one no stylesheet declares, which is exactly
+    /// what <c>DesignTokenTests</c> exists to catch.</summary>
+    private static string SwatchClass(int colour) =>
+        $"roadmap-colours__swatch roadmap-colours__swatch--{colour}";
+
+    private async Task Choose(string alias, int? colour)
+    {
+        _error = null;
+        await OnChoose.InvokeAsync(new RoadmapBandColourChoice(alias, colour));
+    }
+
+    private async Task CloseAsync() => await OpenChanged.InvokeAsync(false);
+}

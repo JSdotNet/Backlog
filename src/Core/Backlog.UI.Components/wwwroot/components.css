@@ -106,6 +106,21 @@
     --code-attribute: #7FD1C1;
     --code-line-number: #7A8AA3;
 
+    /* Band identity.
+       One hue per configured repository, so a portfolio plan can be read one
+       project at a time. See .design/color-scheme.md#band-identity-tokens: this is
+       a theme rather than a second palette — each token says *which* repository a
+       row belongs to, never what anything means — and it introduces no new colour,
+       because every value here is one the palette or the code theme already
+       carries. Written out rather than aliased to those tokens on purpose: the code
+       theme's own rule is that nothing outside a code block uses one of its names,
+       and a band is not a run of code. */
+    --color-band-1: #F2C14E;
+    --color-band-2: #7FD1C1;
+    --color-band-3: #9BD17F;
+    --color-band-4: #F0A868;
+    --color-band-5: #8595AD;
+
     /* Chart roles.
        A chart needs role names the twenty palette tokens do not provide: a
        series colour, a track, a gridline, a baseline. Like the code theme this
@@ -7041,6 +7056,26 @@ button.tag-chip__label {
     bottom: 0;
     width: var(--border-width);
     background: var(--color-border);
+}
+
+/* A milestone's rule down the whole chart. Quieter than the today line and louder
+   than a quarter rule, which is the order of how much each one means: a quarter is
+   the ruler, a milestone is a date somebody chose, and today is the only one that
+   moves on its own. Dashed so that a milestone crossing a bar reads as passing behind
+   it rather than cutting it in two. */
+.roadmap-timeline__milestone-rule {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--border-width);
+    background: linear-gradient(
+        to bottom,
+        var(--color-border-strong) 0,
+        var(--color-border-strong) 4px,
+        transparent 4px,
+        transparent 8px
+    );
+    background-size: var(--border-width) 8px;
 }
 
 /* Today is the one line on the chart that is not a quarter, so it is the one

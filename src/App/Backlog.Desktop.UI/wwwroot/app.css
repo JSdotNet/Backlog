@@ -1868,12 +1868,20 @@ h1, h2, h3 {
 
 /* The workspace: the roadmap band above the pane row.
 
-   `fit-content(25%)` is what makes 25% a ceiling rather than a share. The band
-   takes only the height its own content needs, and never more than a quarter of
-   the area below the header, so the pane row is guaranteed at least three
-   quarters no matter what the band later grows into. A plain `25%` would reserve
-   the quarter even while the band is empty; `max-content` alone would let a
+   `fit-content(30%)` is what makes 30% a ceiling rather than a share. The band
+   takes only the height its own content needs, and never more than three tenths
+   of the area below the header, so the pane row is guaranteed at least seven
+   tenths no matter what the band later grows into. A plain `30%` would reserve
+   the share even while the band is empty; `max-content` alone would let a
    timeline push the panes off the screen.
+
+   It was a quarter until the band held a chart rather than a placeholder. A
+   quarter fits an axis and three 2rem rows at a 900px-tall window, and a plan
+   filed across two repositories with a lane each is already four; three tenths
+   fits four from ~880px and five from ~1050px, which is where the windows this
+   is actually used in sit. The 5% comes off the pane row, which is the trade
+   being made deliberately: a plan you have to scroll to read is worth less than
+   five percent of a list you already scroll.
 
    It has to be `fit-content()` rather than the `min(25%, max-content)` that reads
    more obviously: `min()` is a math function and takes numeric arguments only, so
@@ -1884,7 +1892,7 @@ h1, h2, h3 {
    sets `overflow: hidden`, so the cap is firm rather than advisory. */
 .workspace {
     display: grid;
-    grid-template-rows: fit-content(25%) minmax(0, 1fr);
+    grid-template-rows: fit-content(30%) minmax(0, 1fr);
     gap: var(--spacing-md);
     width: 100%;
     flex: 1 1 auto;
@@ -1928,8 +1936,11 @@ h1, h2, h3 {
     /* A band is wide and short, so the block axis is the scarce one. A pane's
        --spacing-lg on all four sides spent 48px of the quarter the band is
        capped at, which at a 620px-tall window was more than the content below
-       the heading had left. */
-    padding: var(--spacing-md) var(--spacing-lg);
+       the heading had left. The block padding came down again once the chart went
+       in: 1rem top and bottom is another 16px of a quarter that has to hold an
+       axis and as many rows as it can, and the band's border and background
+       already separate it from the panes without help from whitespace. */
+    padding: var(--spacing-sm) var(--spacing-lg);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-lg);
     background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
@@ -1937,14 +1948,27 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* Two stacked lines of heading and nothing else. The eyebrow and the h2 are what
-   `aria-labelledby` and the band's tests read out of this header, so they stay its
-   direct children rather than being wrapped in a block of their own. */
+/* The heading, and the one control that adds to the plan, on a line.
+
+   Only drawn when there is no plan: with one, the same content is handed to
+   RoadmapTimeline as its heading and lands in the chart's own header row, beside the
+   filters. The rules here and below are written on the elements rather than on this
+   header for exactly that reason — they have to look the same in either place. */
 .roadmap-band__header {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     flex: none;
+    gap: var(--spacing-sm);
+}
+
+/* The eyebrow over the h2. A block of their own after all, because the header they
+   used to be the only children of now also holds a button that has to sit beside
+   both lines rather than under one of them. */
+.roadmap-band__title-lines {
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-2xs);
+    min-width: 0;
 }
 
 .roadmap-band__eyebrow,
@@ -1964,16 +1988,118 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
-/* The row a timeline will be drawn in. It owns the scrollbar because
-   RoadmapTimeline is a grid that sizes to its content: given the band's height
-   cap, something has to scroll, and it must be this rather than the band, or the
-   heading would scroll away from the plan under it. */
+/* The row the timeline is drawn in.
+
+   It used to own the scrollbar, which meant the heading scrolled away from the plan
+   it described. It no longer scrolls at all: the height it is given is passed
+   straight down to the chart, and the chart's own bordered frame is what scrolls
+   when a plan has more rows than a quarter of the window can show. So the heading
+   and the filters stay on screen, and the scrollbar appears inside the diagram —
+   next to the rows it is actually moving.
+
+   `align-content: stretch` and the single 1fr row are what hand the height down.
+   Left at `start` the chart would take its content height, overflow the band, and
+   be clipped by the band's `overflow: hidden` with no way to reach the rest. */
 .roadmap-band__content {
     display: grid;
-    align-content: start;
+    grid-template-rows: minmax(0, 1fr);
+    align-content: stretch;
     flex: 1 1 auto;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
+}
+
+/* The chart, told to fill the band rather than size to its own content.
+
+   Two rows: the header — heading and filters on one line — at the height it needs,
+   and the frame taking everything left over. `minmax(0, 1fr)` rather than `1fr`
+   because a grid track's automatic minimum is its content, and a track that cannot
+   go below its content cannot be scrolled inside.
+
+   Scoped to the band rather than changed in the library, for the same reason
+   `.roadmap-band__empty` is: a chart on a page should size to its content, and only
+   a band is short enough for that to be the wrong answer. */
+.roadmap-band__timeline {
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--spacing-xs);
+
+    /* Half a rem off the axis strip. It is a column heading reading "Q3 2026", not
+       a section header, and the library's 2.75rem gives it room this band does not
+       have to spare. One variable drives both the axis and the blank cell above the
+       row labels, so shortening it here keeps the two aligned. */
+    --roadmap-axis-height: 2.25rem;
+}
+
+/* The scrollbar the band no longer has, put where the rows are. A plan that fits
+   still shows none — `auto`, not `scroll`. */
+.roadmap-band__timeline .roadmap-timeline__frame {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+/* The band label, stopped from setting the floor on a band's height.
+
+   It is written down the side, so its own length is a minimum: sixteen characters
+   of "JSdotNet/Backlog" wanted 138px whatever its three 32px rows wanted, which was
+   enough on its own to put a scrollbar in a band with room for every row. Labelling
+   bands with the shorter alias fixed the case in front of us; taking the label out
+   of flow fixes the next long one too. Absolute inside a relative group, stretched
+   to the rows' height, so the group is exactly as tall as its rows and a label with
+   nowhere to go is clipped by the `overflow: hidden` it already carries.
+
+   The whole sidebar is aria-hidden and every bar names its own band, so a clipped
+   label costs a sighted reader a few characters and costs a screen reader nothing. */
+.roadmap-band__timeline .roadmap-timeline__group {
+    position: relative;
+    min-height: 0;
+
+    /* Taking the label out of flow stopped it setting the group's height; it did not
+       stop the text inside it reaching past the bottom of a one-row group and being
+       counted as scrollable overflow, which put the scrollbar back 31px at a time.
+       Clipping at the group is what actually removes it. */
+    overflow: hidden;
+}
+
+.roadmap-band__timeline .roadmap-timeline__group-name {
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: var(--roadmap-band-width);
+
+    /* Anchored to one end rather than centred, so a label with less room than it
+       wants loses its tail instead of both ends: "backlo" reads, "ckl" does not. */
+    justify-content: flex-start;
+}
+
+/* The rows now sit to the right of a label that no longer takes part in the flex
+   row, so they need the space the label used to claim. */
+.roadmap-band__timeline .roadmap-timeline__group-rows {
+    margin-left: var(--roadmap-band-width);
+}
+
+/* The chart's heading row, once it is carrying the band's own heading: the heading
+   and its add control at one end, the filters at the other, on one line. Centred
+   rather than baseline-aligned, because the filter controls are taller than the text
+   beside them and matching their baselines would push the heading down. */
+.roadmap-band__timeline .roadmap-timeline__header {
+    align-items: center;
+}
+
+/* The library stacks whatever it is given as a heading, which is right for a title
+   over a description and wrong for a title beside a button. */
+.roadmap-band__timeline .roadmap-timeline__heading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* Narrower than the library's 12rem default. There are three of these in a band
+   and no visible labels above them, so they need to read as a row of filters
+   rather than as three wide empty fields. */
+.roadmap-band__timeline .roadmap-timeline__filter {
+    min-width: 9rem;
 }
 
 /* The placeholder, reshaped for a band.
@@ -2004,6 +2130,95 @@ h1, h2, h3 {
 
 .roadmap-band__empty .empty-state__body {
     margin-bottom: 0;
+    font-size: var(--font-size-sm);
+}
+
+/* The planning dialog.
+
+   A dialog rather than a form inside the band, because the band spends all three
+   tenths of its height on the chart and a form unfolding in it would push the plan
+   being edited off screen. Two columns where two fields belong together — the two
+   ends of a window, a priority and the lane it sits in — and one column for the rest,
+   so the eye pairs what the plan pairs. */
+.roadmap-editor__fields {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: min(28rem, 80vw);
+}
+
+.roadmap-editor__row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: var(--spacing-sm);
+}
+
+/* Choosing which colour each band takes.
+
+   A row per repository, its name at one end and the five choices at the other. The
+   swatches are buttons rather than radio inputs because what they carry is a colour,
+   and a native radio would draw its own mark over it; `aria-pressed` says which one is
+   chosen, and each carries its repository's name in an sr-only label so the choice is
+   never "colour 3" with no context. */
+.roadmap-colours__list {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: min(26rem, 80vw);
+}
+
+.roadmap-colours__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.roadmap-colours__name {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-colours__choices {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.roadmap-colours__swatch {
+    width: 1.5rem;
+    height: 1.5rem;
+    min-width: 0;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
+/* One class per choice. The five are a closed set, so they can all be named here —
+   which is what keeps the colour in a stylesheet rather than in a style attribute. */
+.roadmap-colours__swatch--1 { background: var(--color-band-1); }
+.roadmap-colours__swatch--2 { background: var(--color-band-2); }
+.roadmap-colours__swatch--3 { background: var(--color-band-3); }
+.roadmap-colours__swatch--4 { background: var(--color-band-4); }
+.roadmap-colours__swatch--5 { background: var(--color-band-5); }
+
+/* The chosen one is said twice: a ring around it as well as aria-pressed, because a
+   border alone on a row of coloured squares is exactly the kind of state a colour
+   cannot be trusted to carry. */
+.roadmap-colours__swatch--chosen {
+    border-color: var(--color-text-primary);
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-background), 0 0 0 var(--border-width-4) var(--color-text-primary);
+}
+
+.roadmap-colours__swatch:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
+
+.roadmap-colours__empty {
+    margin: 0;
+    color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
@@ -3290,19 +3505,20 @@ h1, h2, h3 {
 /*
   Two steps down, both measured off the same arithmetic. The workspace is the
   viewport less 105px of shell padding, shell gap and app header, and the band's
-  track is capped at a quarter of it, so the band has (viewport - 105) / 4 to
-  fit its own content into.
+  track is capped at three tenths of it, so the band has (viewport - 105) x 0.3
+  to fit its own content into.
 
   Compacted, the band's content measures 145.5px: 32px block padding, 2px
-  border, 42.5px header, an 8px gap, and a 61px placeholder. A quarter first
-  covers that at (145.5 x 4) + 105 = 687px, so anything shorter than ~43rem
+  border, 42.5px header, an 8px gap, and a 61px placeholder. Three tenths first
+  covers that at (145.5 / 0.3) + 105 = 590px, so anything shorter than ~37rem
   clips the description again. Dropping it and tightening further brings the
-  band to 98.5px, first covered at (98.5 x 4) + 105 = 499px.
+  band to 98.5px, first covered at (98.5 / 0.3) + 105 = 434px.
 
-  The two steps are set at 48rem and 34rem rather than at 43rem and 31.2rem:
-  each leaves headroom for a description that wraps to a second line at a
-  narrow width, and both are steps this stylesheet's breakpoint ladder already
-  uses on the inline axis.
+  The two steps stay at 48rem and 34rem, where the old quarter put them at 43rem
+  and 31.2rem. Raising the cap only moved both thresholds down, so the existing
+  steps have more headroom than they were drawn with rather than less — and they
+  are steps this stylesheet's breakpoint ladder already uses on the inline axis,
+  which is worth more than retuning them to the nearest rem.
 */
 
 @media (max-height: 48rem) {

@@ -365,12 +365,137 @@ public sealed class RoadmapTimelineTests
         // In the order the bars first mention them, not alphabetically: that is
         // the order the caller thought of them in. The names are the caller's
         // too — this component has never heard of a tag or a repository.
+        //
+        // The name is the placeholder, and there is deliberately no label element
+        // above it: this chart is drawn in bands as short as a quarter of a window,
+        // and a stacked label costs a line to say what the placeholder already says.
+        Assert.Empty(view.FindAll("[data-testid='rm-filters'] .field__label"));
+
         Assert.Equal(
             ["Tag", "Repo"],
-            view.FindAll("[data-testid='rm-filters'] .field__label").Select(label => label.TextContent));
+            view.FindAll("[data-testid='rm-filters'] input").Select(input => input.GetAttribute("placeholder")));
+
+        // Losing the label must not cost the control its name.
+        Assert.Equal(
+            ["Tag", "Repo"],
+            view.FindAll("[data-testid='rm-filters'] input").Select(input => input.GetAttribute("aria-label")));
 
         view.Find("[data-testid='rm-filter-tag']");
         view.Find("[data-testid='rm-filter-repo']");
+    }
+
+    [Fact]
+    public async Task A_drag_that_moved_something_is_not_also_a_click()
+    {
+        using var context = new BunitContext();
+
+        var opened = new List<string>();
+        var view = Chart(context, extra: parameters => parameters
+            .Add(timeline => timeline.OnBarSelected, id => opened.Add(id)));
+
+        // The bar body is a button, so the browser synthesises a click at the end of
+        // every pointer drag. A host that opens an editor on activation would open it
+        // every time somebody rescheduled something.
+        await view.InvokeAsync(() => view.Instance.DragBegin("alpha", "move"));
+        await view.InvokeAsync(() => view.Instance.DragPreview(2, 0));
+        await view.InvokeAsync(view.Instance.DragCommit);
+
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").Click();
+
+        Assert.Empty(opened);
+
+        // And only that one click. The next is the reader asking again.
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").Click();
+
+        Assert.Equal(["alpha"], opened);
+    }
+
+    [Fact]
+    public async Task A_press_and_release_that_went_nowhere_still_opens()
+    {
+        using var context = new BunitContext();
+
+        var opened = new List<string>();
+        var view = Chart(context, extra: parameters => parameters
+            .Add(timeline => timeline.OnBarSelected, id => opened.Add(id)));
+
+        // Down and up with no travel is exactly what a click is.
+        await view.InvokeAsync(() => view.Instance.DragBegin("alpha", "move"));
+        await view.InvokeAsync(view.Instance.DragCommit);
+
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").Click();
+
+        Assert.Equal(["alpha"], opened);
+    }
+
+    [Fact]
+    public async Task A_cancelled_drag_that_had_moved_is_not_a_click_either()
+    {
+        using var context = new BunitContext();
+
+        var opened = new List<string>();
+        var view = Chart(context, extra: parameters => parameters
+            .Add(timeline => timeline.OnBarSelected, id => opened.Add(id)));
+
+        // Escape abandons the move, but the pointer is still down and releasing it
+        // still synthesises a click.
+        await view.InvokeAsync(() => view.Instance.DragBegin("alpha", "move"));
+        await view.InvokeAsync(() => view.Instance.DragPreview(3, 0));
+        await view.InvokeAsync(view.Instance.DragCancel);
+
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").Click();
+
+        Assert.Empty(opened);
+    }
+
+    [Fact]
+    public async Task A_new_gesture_disarms_a_suppression_whose_click_never_came()
+    {
+        using var context = new BunitContext();
+
+        var opened = new List<string>();
+        var view = Chart(context, extra: parameters => parameters
+            .Add(timeline => timeline.OnBarSelected, id => opened.Add(id)));
+
+        // Released outside the bar, so no click follows and the suppression is left
+        // armed. It must not lie in wait for the reader's next real click.
+        await view.InvokeAsync(() => view.Instance.DragBegin("alpha", "move"));
+        await view.InvokeAsync(() => view.Instance.DragPreview(2, 0));
+        await view.InvokeAsync(view.Instance.DragCommit);
+
+        await view.InvokeAsync(() => view.Instance.DragBegin("beta", "move"));
+        await view.InvokeAsync(view.Instance.DragCommit);
+
+        view.Find("[data-testid='rm-bar-beta'] .roadmap-bar__body").Click();
+
+        Assert.Equal(["beta"], opened);
+    }
+
+    [Fact]
+    public void A_caller_can_hand_the_chart_a_heading_it_already_has()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<RoadmapTimeline>(parameters => parameters
+            .Add(chart => chart.Groups, Plan)
+            .Add(chart => chart.Bars, Work)
+            .Add(chart => chart.TitleContent, (RenderFragment)(builder =>
+            {
+                builder.OpenElement(0, "h2");
+                builder.AddAttribute(1, "id", "somebody-elses-heading");
+                builder.AddContent(2, "Roadmap");
+                builder.CloseElement();
+            }))
+            .Add(chart => chart.LabelledBy, "somebody-elses-heading")
+            .Add(chart => chart.TestId, "rm"));
+
+        // The caller's heading, and no second one generated from Title.
+        Assert.Equal("Roadmap", view.Find("h2#somebody-elses-heading").TextContent);
+        Assert.Empty(view.FindAll(".roadmap-timeline__title"));
+
+        // And the chart names itself from what it was given.
+        Assert.Equal("somebody-elses-heading", view.Find("[data-testid='rm']").GetAttribute("aria-labelledby"));
     }
 
     [Fact]
