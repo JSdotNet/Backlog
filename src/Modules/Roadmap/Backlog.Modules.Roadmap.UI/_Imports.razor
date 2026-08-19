@@ -1,12 +1,12 @@
 @* Roadmap UI: the forward-looking planning view over roadmap-ready entries.
-   Deliberately empty until the module has components of its own — an import
-   here before there is anything to import would only be a guess at what it will
-   need.
+   The band renders the shared library's empty state and nothing else yet, so that
+   is the only namespace here — no context namespace belongs in this project.
 
-   When the first component does arrive, write every Backlog.* import as
-   @using global::Backlog.Something. This project's root namespace is
-   Backlog.Modules.Roadmap.UI, and the Razor generator emits these directives
-   inside that namespace without a global:: prefix, so the leading "Backlog"
-   binds to Backlog.Modules once a sibling puts a Backlog.Modules.Backlog
-   namespace in scope. Nothing this project references does today, which is the
-   only reason a bare import would still compile. *@
+   Every Backlog.* import is written as @@using global::Backlog.Something. This
+   project's root namespace is Backlog.Modules.Roadmap.UI, and the Razor
+   generator emits these directives inside that namespace without a global::
+   prefix, so a bare "Backlog" would bind to Backlog.Modules the moment anything
+   in this project's reference closure declares a Backlog.Modules.Backlog
+   namespace. Nothing does today; global:: means nothing has to keep not doing
+   it. *@
+@using global::Backlog.UI.Components.Feedback

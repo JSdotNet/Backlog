@@ -1,0 +1,39 @@
+@*
+    The roadmap band: the planning view that sits above the panes rather than
+    beside them, because a plan is read across time and the panes are read down a
+    list.
+
+    It is empty on purpose. The band exists so the layout has the row a timeline
+    will be drawn in — the shell caps it at a quarter of the screen and the
+    content div below owns the scrollbar, so RoadmapTimeline can be dropped
+    straight in without the outer layout moving. What it will draw is selected
+    Backlog Entries placed by their dates; a Roadmap owns neither status nor
+    priority, it reads both from the entries it displays, which is why nothing
+    here promises a plan of its own.
+
+    The placeholder carries roadmap-band__empty because the library's empty state
+    is shaped for a large empty pane and does not fit a quarter of a short window;
+    the shell compacts it through that hook, drops its description below a 48rem
+    viewport height, and hides the band altogether below 34rem.
+
+    Whether the band is on screen is decided in the shell's header, in the same
+    strip that shows and hides Inbox and Backlog. That is a binary: the band is
+    either here at its normal size or it is not rendered at all. So there is no
+    affordance on the band itself and no state of its own to hold — no parameters,
+    nothing to fold, and the shell's grid has one track to drop rather than one to
+    shrink.
+*@
+
+<section class="roadmap-band" id="roadmap-band" aria-labelledby="roadmap-band-title" data-testid="roadmap-band">
+    <header class="roadmap-band__header">
+        <p class="roadmap-band__eyebrow">Planning</p>
+        <h2 id="roadmap-band-title" class="roadmap-band__title">Roadmap</h2>
+    </header>
+
+    <div class="roadmap-band__content" data-testid="roadmap-band-content">
+        <EmptyState TestId="roadmap-band-empty-state"
+                    CssClass="roadmap-band__empty"
+                    Title="No roadmap yet"
+                    Description="Planned backlog entries will appear here on a timeline. Status and priority are read from the entries themselves." />
+    </div>
+</section>
