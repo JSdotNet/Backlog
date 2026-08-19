@@ -16,7 +16,7 @@ related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 
 | Constraint | Implication |
 |---|---|
-| **Markdown is the canonical format** | The desktop's local markdown files are the single source of truth; JSON files hold derived indexes, metadata, and relationships. |
+| **Local-first canonical storage** | The desktop's own local store is the single source of truth. Tasks live in one SQLite database; a task's content is markdown text inside it. See `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`. |
 | **Local-first, offline-capable** | All core workflows run without connectivity; the cloud is additive only. |
 | **All capture runs locally** | YouTube, website, and email polling execute on the desktop via background workers, so external credentials stay on the user's machine. |
 | **Cloud is a thin sync/coordination layer** | No inbox fetching, domain CRUD, or full-text search in the cloud — only sync state, webhook forwarding, push, and machine registry. |

@@ -1461,7 +1461,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-sub-item",
           "level": 2,
-          "line": 24,
+          "line": 32,
           "status": "draft",
           "aliases": [
             "SubItem"
@@ -1481,7 +1481,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-entry-status",
           "level": 2,
-          "line": 56,
+          "line": 64,
           "status": "draft",
           "aliases": [
             "EntryStatus"
@@ -1501,7 +1501,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-area",
           "level": 2,
-          "line": 66,
+          "line": 74,
           "status": "draft",
           "aliases": [
             "area"
@@ -1521,7 +1521,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-due-date",
           "level": 2,
-          "line": 91,
+          "line": 99,
           "status": "proposed",
           "aliases": [
             "due_on",
@@ -1543,7 +1543,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-reminder",
           "level": 2,
-          "line": 104,
+          "line": 112,
           "status": "proposed",
           "aliases": [
             "remind_at",
@@ -1565,7 +1565,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-recurrence",
           "level": 2,
-          "line": 117,
+          "line": 125,
           "status": "proposed",
           "aliases": [
             "Repeat",
@@ -1590,7 +1590,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-my-day",
           "level": 2,
-          "line": 130,
+          "line": 138,
           "status": "proposed",
           "aliases": [
             "in_my_day_on",
@@ -1612,7 +1612,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-dependency",
           "level": 2,
-          "line": 144,
+          "line": 152,
           "status": "proposed",
           "aliases": [
             "depends_on",
