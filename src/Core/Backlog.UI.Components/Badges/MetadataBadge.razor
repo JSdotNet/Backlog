@@ -5,10 +5,10 @@
 
     Two branches, deliberately kept apart. Given nothing but a status and a list
     of strings it renders exactly the markup it always has, down to the attribute
-    order; given a parsed block, a folder, or a way to follow a reference it
-    renders the typed view instead. Layering the new behaviour onto the old
-    markup would have risked shifting the very thing every existing caller
-    depends on staying still.
+    order; given a parsed block, a folder, a way to follow a reference or a way
+    to hear that the status changed, it renders the typed view instead. Layering
+    the new behaviour onto the old markup would have risked shifting the very
+    thing every existing caller depends on staying still.
 
     That split is why the legacy branch's status is still a bare span and never
     the select the typed record's headline now draws for a folder with a
@@ -27,6 +27,7 @@
         <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
             <KnowledgeMetaView Metadata="@EffectiveMetadata"
                                Folder="@Folder"
+                               OnStatusChanged="@OnStatusChanged"
                                OnNavigate="@OnNavigate"
                                HrefFor="@HrefFor"
                                AriaLabel="@AriaLabel" />
@@ -74,6 +75,16 @@ else if (HasFields)
     [Parameter]
     public KnowledgeFolder Folder { get; set; } = KnowledgeFolder.Unknown;
 
+    /// <summary>Raised with the status a reader picked from the headline's
+    /// select. Without it a typed caller could watch the control change and
+    /// never hear about it, so the change lived on screen and nowhere else.
+    ///
+    /// <para>Asking for it is one of the things that selects the typed branch:
+    /// a caller wiring up a status change is asking for the record, and the
+    /// legacy strip has no control to raise it from.</para></summary>
+    [Parameter]
+    public EventCallback<string> OnStatusChanged { get; set; }
+
     /// <summary>Raised with the reference a reader activated.</summary>
     [Parameter]
     public EventCallback<KnowledgeReference> OnNavigate { get; set; }
@@ -91,6 +102,7 @@ else if (HasFields)
     /// While the answer is no, every existing caller keeps the markup it had.</summary>
     private bool Typed => Metadata is not null
         || Folder is not KnowledgeFolder.Unknown
+        || OnStatusChanged.HasDelegate
         || OnNavigate.HasDelegate
         || HrefFor is not null;
 
