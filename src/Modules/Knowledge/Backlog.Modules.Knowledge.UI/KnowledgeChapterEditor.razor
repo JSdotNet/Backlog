@@ -27,10 +27,11 @@
 
     <MarkdownDocument Value="@_buffer"
                       ValueChanged="OnTextChanged"
-                      Editing="@_editing"
+                      Editing="@(Bare || _editing)"
                       EditingChanged="OnEditingChangedAsync"
                       Title="@Title"
-                      CanEdit="@(Chapter is not null)"
+                      CanEdit="@(!Bare && Chapter is not null)"
+                      AllowCopy="@(!Bare)"
                       OnBlur="FlushAsync"
                       TestId="knowledge-chapter" />
 </div>
@@ -101,6 +102,25 @@
     /// </summary>
     [Parameter]
     public string? Title { get; set; }
+
+    /// <summary>
+    /// Give up the document bar: no way in and out of editing, no copy button, just
+    /// the buffer.
+    /// <para>
+    /// For a host whose own header carries those — the file view's does now — and
+    /// where this surface is only on screen because the reader already asked to
+    /// write. Keeping the bar there would put a second Edit button directly under
+    /// the first, and its read view would render the chapter a second time
+    /// underneath the one the host is already showing.
+    /// </para>
+    /// <para>
+    /// What this surface is actually for is untouched by it: the buffer, the 750 ms
+    /// debounce, the flush triggers, the save indicator and the status merge are the
+    /// same either way.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Bare { get; set; }
 
     /// <summary>Raised after a write lands, so a panel can re-read whatever it
     /// derived from the chapter — a status badge, a heading list, a diagram.</summary>

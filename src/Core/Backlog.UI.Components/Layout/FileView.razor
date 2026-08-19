@@ -33,6 +33,36 @@
     and stops choosing what goes inside them — it has no save state, no dirty
     flag and nothing to write with, and pretending otherwise is exactly what the
     paragraph above refuses to do.
+
+    ---
+
+    Three things a reader does to a file, and all three are in the header.
+
+    Copy it, edit it, see what changed in it. They are in the header because they
+    are about the file rather than about any part of it — the header is where this
+    component already says which file this is, and the header is the part that
+    stays on the screen while the body moves. The alternative, which is what the
+    knowledge panes had, is a second bar directly under the header holding the
+    same file's actions: two rows of chrome, and a reader having to learn that the
+    top one names the file and the one below it operates on it.
+
+    Read, edit and compare are one mode each, and only one at a time. Read is the
+    resting state for the reason MarkdownDocument records: bodies in this product
+    are read far more often than they are written. Compare is not a third body so
+    much as the same body with its history beside it, and asking for it while
+    typing would be asking two questions of one pane.
+
+    None of that makes this an editor either. The Edit button chooses which body
+    shows; the writable one is still the host's, still supplied, and still the
+    only thing that knows what a keystroke means. Comparing is the one mode this
+    component renders itself, because a comparison is a reading of two texts and
+    reading is what this does — MarkdownCompare is a pure function and
+    MarkdownCompareView is handed the result Bare, so the pane keeps one frame,
+    one header and one scroll region, exactly as it does for code.
+
+    What a baseline *is*, though, is the host's: see FileCompareBaseline. Reading
+    a committed blob, or remembering what a file said when it was opened, is not
+    something a component can do without knowing where the file came from.
 *@
 
 <article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -44,12 +74,73 @@
                 <p class="file-view__meta">@string.Join(" · ", Details)</p>
             }
         </div>
-        @if (!string.IsNullOrWhiteSpace(Path))
-        {
-            @* Truncated visually when the header is narrow, never in the DOM, so
-               a screen reader still reads the whole path. *@
-            <p class="file-view__path">@Path</p>
-        }
+
+        <div class="file-view__aside">
+            @if (!string.IsNullOrWhiteSpace(Path))
+            {
+                @* Truncated visually when the header is narrow, never in the DOM, so
+                   a screen reader still reads the whole path. *@
+                <p class="file-view__path">@Path</p>
+            }
+
+            @if (AllowCopy || OffersEdit || CanCompare)
+            {
+                @* Named as a group, because "Edit" and "Compare" on their own say
+                   nothing about which of several files on a page they belong to
+                   (.design/accessibility.md). The file's name is what
+                   distinguishes them, and it is already here. *@
+                <div class="file-view__actions" role="group" aria-label="@($"{Name} actions")">
+                    @if (AllowCopy)
+                    {
+                        @* The file, not the rendering: the source is what round
+                           trips, which is the same call MarkdownView makes. *@
+                        <CopyButton Text="@(Body ?? string.Empty)"
+                                    Label="@($"{CopyLabel} {Name}")"
+                                    ButtonCssClass="file-view__action file-view__action--copy"
+                                    StatusCssClass="file-view__copy-status"
+                                    ButtonTestId="@Suffix("copy")"
+                                    StatusTestId="@Suffix("copy-status")" />
+                    }
+
+                    @if (OffersEdit)
+                    {
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   CssClass="file-view__action"
+                                   OnClick="ToggleEditingAsync"
+                                   TestId="@Suffix(Editing ? "done" : "edit")">@(Editing ? DoneLabel : EditLabel)</AppButton>
+                    }
+
+                    @if (CanCompare)
+                    {
+                        @* A toggle and not a button whose word flips: comparing is
+                           a state the pane is in, and aria-pressed is how that is
+                           said without renaming the control underneath a reader. *@
+                        <ToggleButton Pressed="Comparing"
+                                      PressedChanged="ToggleComparingAsync"
+                                      CssClass="file-view__action"
+                                      TestId="@Suffix("compare")">@CompareLabel</ToggleButton>
+                    }
+                </div>
+            }
+
+            @if (Comparing && CompareBaselines.Count > 1)
+            {
+                @* Only while comparing, and only when there is a choice. A picker
+                   for one baseline is a label that looks like a control, and a
+                   picker beside a file nobody is comparing is a question nobody
+                   asked. *@
+                <div class="file-view__baselines" role="group" aria-label="@($"Compare {Name} against")">
+                    @foreach (var baseline in CompareBaselines)
+                    {
+                        <ToggleButton BaseClass="file-view__baseline"
+                                      PressedCssClass="file-view__baseline--current"
+                                      Pressed="@IsSelected(baseline)"
+                                      PressedChanged="() => SelectBaselineAsync(baseline)"
+                                      TestId="@Suffix($"baseline-{baseline.Id}")">@baseline.Label</ToggleButton>
+                    }
+                </div>
+            }
+        </div>
     </header>
 
     @* A scroll container is an interactive element even though it is a div:
@@ -70,16 +161,59 @@
     <div class="file-view__body"
          role="region"
          tabindex="@BodyTabIndex"
-         aria-label="@Name"
+         aria-label="@BodyLabel"
          style="@BodyStyle"
          data-testid="@BodyTestId">
-        @if (BodyContent is not null)
+        @if (ShowsComparison)
         {
-            @BodyContent
+            @if (SelectedBaseline?.Unavailable is { } unavailable)
+            {
+                <EmptyState Title="Nothing to compare against"
+                            Description="@unavailable"
+                            ActionCssClass="@null"
+                            CssClass="file-view__empty"
+                            TestId="@Suffix("compare-unavailable")" />
+            }
+            else
+            {
+                @* Bare: this pane's header already says which file it is and this
+                   body already scrolls. See CodeView below — same reason, same
+                   bargain. *@
+                <MarkdownCompareView Section="@_comparison"
+                                     Bare="true"
+                                     FileName="@Name"
+                                     BeforeLabel="@(SelectedBaseline?.Label ?? "Before")"
+                                     AfterLabel="@AfterLabel"
+                                     TestId="@Suffix("compare-view")" />
+            }
+        }
+        else if (SuppliedBody is { } supplied)
+        {
+            @supplied
         }
         else if (RendersMarkdown)
         {
-            <MarkdownView Blocks="_blocks" />
+            @* Everything the file says about itself, drawn from the file: a
+               chapter's status where its heading is, a diagram where its fence
+               is, and a copy button for each chapter beside the heading that
+               names it. A host that wants any of those asks for them here rather
+               than parsing the same text a second time to draw them around the
+               outside — which is what the knowledge panes were doing, and why a
+               chapter's diagrams used to appear below the file that contained
+               them. *@
+            <MarkdownView Blocks="_blocks"
+                          Source="@Body"
+                          AllowChapterCopy="@AllowChapterCopy"
+                          RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
+                          KnowledgeFolder="@KnowledgeFolder"
+                          OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
+                          OnKnowledgeNavigate="@OnKnowledgeNavigate"
+                          KnowledgeHrefFor="@KnowledgeHrefFor"
+                          Comments="@Comments"
+                          Layout="@BodyCommentLayout"
+                          OnAddComment="@OnAddComment"
+                          OnResolveComment="@OnResolveComment"
+                          OnEditComment="@OnEditComment" />
         }
         else
         {
@@ -139,6 +273,141 @@
     [Parameter]
     public RenderFragment? BodyContent { get; set; }
 
+    /// <summary>
+    /// The writable body, shown while <see cref="Editing"/> and not before.
+    /// <para>
+    /// The difference from <see cref="BodyContent"/> is when it is on screen, and
+    /// that difference is the whole of the Edit button: a host that supplies this
+    /// gets the file rendered — status, diagrams, chapter copies, comments — until
+    /// a reader asks to write, and its own editor from then on. A host that
+    /// supplies <see cref="BodyContent"/> is rendering the body in both states, as
+    /// it always did.
+    /// </para>
+    /// <para>
+    /// Everything about the writing is still the host's, exactly as described
+    /// above. This only decides which of the two is drawn.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? EditBodyContent { get; set; }
+
+    /// <summary>Whether to offer the file's own copy button in the header. Copies
+    /// <see cref="Body"/>, so a host rendering the body itself and passing no text
+    /// has nothing to copy and should leave this off.</summary>
+    [Parameter]
+    public bool AllowCopy { get; set; }
+
+    /// <summary>What the copy button is called to a screen reader, before the
+    /// file's name: "Copy file context-map.md".</summary>
+    [Parameter]
+    public string CopyLabel { get; set; } = "Copy file";
+
+    /// <summary>Whether a chapter's heading offers to copy that chapter. Passed
+    /// straight to the read view, which explains what it costs to get wrong.</summary>
+    [Parameter]
+    public bool AllowChapterCopy { get; set; }
+
+    /// <summary>Whether the header offers a way into editing at all. A file
+    /// someone may only read should not show a button that refuses them — the same
+    /// rule MarkdownDocument keeps.</summary>
+    [Parameter]
+    public bool CanEdit { get; set; }
+
+    /// <summary>Which mode the body is in. Two-way bindable, so a host that wants
+    /// a file to open straight into editing can say so, and a host that does not
+    /// care need not hold it.</summary>
+    [Parameter]
+    public bool Editing { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> EditingChanged { get; set; }
+
+    [Parameter]
+    public string EditLabel { get; set; } = "Edit";
+
+    [Parameter]
+    public string DoneLabel { get; set; } = "Done";
+
+    /// <summary>
+    /// The versions of this file worth comparing it against, in the order a reader
+    /// would reach for them. Empty — the default — offers no comparison at all.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<FileCompareBaseline> CompareBaselines { get; set; } = [];
+
+    /// <summary>Which baseline is being compared against. Two-way bindable
+    /// because a host usually has to answer it: reading a committed version costs
+    /// a process, and the moment to pay for it is when a reader picks it. Null
+    /// takes the first baseline.</summary>
+    [Parameter]
+    public string? CompareBaselineId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> CompareBaselineIdChanged { get; set; }
+
+    /// <summary>Whether the comparison is showing. Two-way bindable for the same
+    /// reason <see cref="Editing"/> is — and a host that listens can load a
+    /// baseline at the moment it is asked for rather than on every render.</summary>
+    [Parameter]
+    public bool Comparing { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> ComparingChanged { get; set; }
+
+    [Parameter]
+    public string CompareLabel { get; set; } = "Compare";
+
+    /// <summary>What the version on screen is called in the comparison. The file
+    /// as it is now, which is the reader's own copy of it.</summary>
+    [Parameter]
+    public string AfterLabel { get; set; } = "Now";
+
+    /// <summary>Whether a fenced <c>meta</c> block is read as the knowledge
+    /// record it is, putting each chapter's status beside its heading. Passed to
+    /// the read view.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadata { get; set; }
+
+    /// <summary>Which knowledge folder the file was read from, so a status can be
+    /// checked against that folder's vocabulary.</summary>
+    [Parameter]
+    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+
+    /// <summary>Raised when a reader picked a different status beside a chapter's
+    /// heading. Nothing here writes it.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeStatusChange> OnKnowledgeStatusChanged { get; set; }
+
+    /// <summary>Raised with the reference a reader activated in a metadata
+    /// record.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+
+    /// <summary>Resolves a metadata reference to a link target.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
+
+    /// <summary>Remarks against the file's blocks. Empty — the default — renders
+    /// the file exactly as it did before comments existed.</summary>
+    [Parameter]
+    public IReadOnlyList<MarkdownComment> Comments { get; set; } = [];
+
+    /// <summary>Where the remarks are drawn. A file view is a reading surface
+    /// wide enough for a column beside the prose, so the margin is the default
+    /// here where it is not in the read view — it keeps the file reading as a file.
+    /// It falls back to inline on its own below the narrow breakpoint.</summary>
+    [Parameter]
+    public MarkdownCommentLayout CommentLayout { get; set; } = MarkdownCommentLayout.Margin;
+
+    [Parameter]
+    public EventCallback<int> OnAddComment { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnResolveComment { get; set; }
+
+    [Parameter]
+    public EventCallback<MarkdownComment> OnEditComment { get; set; }
+
     /// <summary>What the body is written in. Null — the default — reads it from
     /// <see cref="Name"/>, which is what a reader goes on too.
     /// <para>
@@ -184,7 +453,21 @@
     private string? _parsedBody;
     private bool _parsed;
 
+    // The comparison, held rather than derived, for the reason the blocks below
+    // are: aligning two documents by heading walks both of them, and a pane
+    // re-renders every time a fold in it opens.
+    private ComparedSection? _comparison;
+    private string? _comparedBaseline;
+    private string? _comparedBody;
+    private bool _compared;
+
     protected override void OnParametersSet()
+    {
+        ParseBody();
+        ParseComparison();
+    }
+
+    private void ParseBody()
     {
         // A code file is never parsed as markdown. Beyond the wasted work on a
         // body that can be long, the parser would find `#` comments and `*` in
@@ -194,7 +477,11 @@
         // nowhere to go. That is not a micro-optimisation — a chapter open in an
         // editor re-renders on every keystroke, and parsing the file each time to
         // throw the result away is the whole file's worth of work per character.
-        if (BodyContent is not null || !RendersMarkdown)
+        //
+        // A file being compared is parsed all the same: the comparison is drawn
+        // from the same text, and turning the comparison off has to give the file
+        // back without a re-parse the reader waits for.
+        if (SuppliedBody is not null || !RendersMarkdown)
         {
             _blocks = [];
             _parsedBody = null;
@@ -239,9 +526,162 @@
 
     private string? BodyTestId => TestId is null ? null : $"{TestId}-body";
 
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
     // Null omits the attribute entirely, which is the point: see the comment on
-    // the body itself for why a host-supplied body gives up the tab stop.
-    private string? BodyTabIndex => BodyContent is null ? "0" : null;
+    // the body itself for why a host-supplied body gives up the tab stop. The
+    // test is what is being drawn and not what was handed over, because a host
+    // that supplies an editor still gets this component's own body while the
+    // reader is comparing — and that one scrolls.
+    private string? BodyTabIndex => ShowsSuppliedBody ? null : "0";
+
+    /// <summary>
+    /// The body the host is drawing, if it is the host's turn: its editor while
+    /// editing, otherwise whatever it supplied for both states.
+    /// <para>
+    /// Comparing takes precedence over both, so this is not consulted then — a
+    /// comparison is this component's own reading of the file, and a host's editor
+    /// has nothing to say about the version that came before.
+    /// </para>
+    /// </summary>
+    private RenderFragment? SuppliedBody =>
+        ShowsComparison ? null
+        : Editing && EditBodyContent is not null ? EditBodyContent
+        : BodyContent;
+
+    private bool ShowsSuppliedBody => SuppliedBody is not null;
+
+    /// <summary>
+    /// Whether a way into editing is actually offered.
+    /// <para>
+    /// <see cref="CanEdit"/> is permission, and permission alone is not enough:
+    /// pressing the button has to do something. It does when there is a writable
+    /// body to switch to, and it does when a host is listening — a host that holds
+    /// <see cref="Editing"/> can swap its own <see cref="BodyContent"/> on the way
+    /// through. With neither, the button would announce an edit and then leave the
+    /// same file on the screen, which is the same lie as the checkbox that writes
+    /// nowhere, refused a few paragraphs up.
+    /// </para>
+    /// </summary>
+    private bool OffersEdit => CanEdit && (EditBodyContent is not null || EditingChanged.HasDelegate);
+
+    /// <summary>
+    /// The layout the remarks actually get.
+    /// <para>
+    /// A margin is only a layout when there is something in it. A host that hands
+    /// in an add handler makes every block a row whether or not anyone has said
+    /// anything, and in margin mode each of those rows reserves the column — so a
+    /// file nobody has remarked on would give up 16rem of its width to hold
+    /// nothing, on the strength of a feature nobody has used yet. The first remark
+    /// opens the column, which is also the moment it starts being worth the room.
+    /// </para>
+    /// </summary>
+    private MarkdownCommentLayout BodyCommentLayout =>
+        Comments.Count == 0 ? MarkdownCommentLayout.Inline : CommentLayout;
+
+    /// <summary>Whether the comparison is what the body shows: asked for, and
+    /// something to answer with.</summary>
+    private bool ShowsComparison => Comparing && CanCompare;
+
+    /// <summary>
+    /// Whether a comparison can honestly be offered.
+    /// <para>
+    /// It needs a baseline to compare against and text to compare, and it needs
+    /// the file to be prose: <see cref="MarkdownCompare"/> aligns two documents by
+    /// their headings, which is what makes a diff of a chapter readable and what
+    /// makes a diff of a C# file meaningless. A source file's comparison is a line
+    /// diff, and this component does not have one.
+    /// </para>
+    /// </summary>
+    private bool CanCompare =>
+        CompareBaselines.Count > 0 && RendersMarkdown && !string.IsNullOrEmpty(Body);
+
+    /// <summary>The baseline in play: the one named, or the first offered. A named
+    /// baseline that is not on the list is treated as none named rather than as an
+    /// error — the list is the host's and it may have just changed.</summary>
+    private FileCompareBaseline? SelectedBaseline =>
+        CompareBaselines.FirstOrDefault(baseline => string.Equals(baseline.Id, CompareBaselineId, StringComparison.Ordinal))
+        ?? CompareBaselines.FirstOrDefault();
+
+    private bool IsSelected(FileCompareBaseline baseline) =>
+        SelectedBaseline is { } selected && string.Equals(selected.Id, baseline.Id, StringComparison.Ordinal);
+
+    /// <summary>
+    /// What the scroll region is called. The file, until it is showing two
+    /// versions of the file — then it is named for the relationship, which is the
+    /// wording MarkdownCompareView uses and for the reason recorded there: two
+    /// regions called "domain.md" in one app leave a screen-reader user no way to
+    /// tell the pane from the comparison.
+    /// </summary>
+    private string BodyLabel =>
+        ShowsComparison ? $"{Name}, {SelectedBaseline?.Label ?? "Before"} to {AfterLabel}" : Name;
+
+    /// <summary>Aligns the two versions, when there are two to align and either
+    /// of them has changed since the last time.</summary>
+    private void ParseComparison()
+    {
+        if (!ShowsComparison || SelectedBaseline is not { Unavailable: null } baseline)
+        {
+            _comparison = null;
+            _comparedBaseline = null;
+            _comparedBody = null;
+            _compared = false;
+            return;
+        }
+
+        if (_compared && _comparedBaseline == baseline.Text && _comparedBody == Body) return;
+
+        _comparison = MarkdownCompare.Compare(baseline.Text, Body);
+        _comparedBaseline = baseline.Text;
+        _comparedBody = Body;
+        _compared = true;
+    }
+
+    /// <summary>
+    /// Into editing, or out of it — and out of comparing either way.
+    /// <para>
+    /// The modes are exclusive and this is where that is enforced, rather than in
+    /// every host: a pane cannot be both the file being typed into and the file
+    /// being read against its history. Leaving compare on and swapping the body
+    /// underneath it is the version of this that looks like it works until the
+    /// reader wonders which text they are editing.
+    /// </para>
+    /// </summary>
+    private async Task ToggleEditingAsync()
+    {
+        Editing = !Editing;
+
+        if (Editing && Comparing)
+        {
+            Comparing = false;
+            await ComparingChanged.InvokeAsync(false);
+        }
+
+        await EditingChanged.InvokeAsync(Editing);
+    }
+
+    private async Task ToggleComparingAsync(bool comparing)
+    {
+        Comparing = comparing;
+
+        if (Comparing && Editing)
+        {
+            Editing = false;
+            await EditingChanged.InvokeAsync(false);
+        }
+
+        // Before the callback: a host that loads a baseline when comparing starts
+        // is answering a question this component has already committed to asking.
+        ParseComparison();
+        await ComparingChanged.InvokeAsync(Comparing);
+    }
+
+    private async Task SelectBaselineAsync(FileCompareBaseline baseline)
+    {
+        CompareBaselineId = baseline.Id;
+        ParseComparison();
+        await CompareBaselineIdChanged.InvokeAsync(baseline.Id);
+    }
 
     // In fill mode the flex box decides the height, so a max-height here would
     // only fight it.
