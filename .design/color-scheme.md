@@ -283,6 +283,57 @@ derived.** Each is a `var()` of a palette token or a `color-mix()` of one agains
 the surface it is drawn on, so none holds a colour of its own, the palette is
 still twenty colours, and there is no new value for this file to disagree with.
 
+### Badge and chip tones
+
+A badge is a value with a class on it, and the class is what says which family
+the value belongs to. Three families ship — `status`, `priority` and `type` — and
+each maps its own vocabulary onto **one shared tone scale**, so a reader learns
+the scale once and reads it in every family. The vocabulary is always the
+caller's; the tone is always this file's.
+
+| Tone | What it means | Palette derivation |
+|---|---|---|
+| `quiet` | Nothing has happened to it yet — draft, proposed, unset | `color-secondary` ink on `color-background-alt` |
+| `live` | In progress, and the product may act on it | `color-primary-light` ink, `color-primary-dark` edge |
+| `alert` | Wants attention, but is not a fault | `color-warning` as a **surface** |
+| `fault` | Failed, blocked, or contradicted | `color-error` as a **surface** |
+| `settled` | Finished, and correct — done, merged, adopted | `color-success` as a **surface** |
+| `archived` | Out of force, and spends no colour: a transparent surface inside a border | `color-border-strong` edge only |
+
+Rules:
+
+- A badge MUST take its tone from this scale. A family that needed a sixth tone
+  would be a second palette, which `design-principles.md#dark-mode-only` does not
+  allow.
+- **Filled means the product acts on it.** `alert`, `fault` and `settled` are
+  filled surfaces; everything else is outlined, so a filled chip in a list is
+  always the one to look at. A state that is merely information MUST NOT be
+  filled.
+- A filled chip takes `color-border-strong` as its boundary rather than a mix of
+  its own surface — the semantic tokens are 1.04:1 to 1.31:1 against the raised
+  surface and are invisible as boundaries. See `#integration-roles`, which records
+  the same finding for state chips.
+- A badge's text is small, so it MUST clear the 4.5:1 that
+  `#contrast-rules-wcag-aa-minimum` sets for supporting text. `color-text-disabled`
+  is **not** available to a badge: an out-of-force value is information, not a
+  disabled control, and takes `archived` instead.
+- Colour MUST NOT be the only carrier. Every badge prints its value as text, and
+  a badge carrying a glyph keeps the words beside it (see
+  `accessibility.md#iconography-accessibility`).
+- **A value in no vocabulary is flagged, not styled.** Where the folder or family
+  defines a vocabulary and the value is not in it, the badge MUST render the value
+  verbatim, wear `archived`, and name the expected values on its `title`. Painting
+  an unrecognised value like every other unknown word lets a typo sit in a file
+  indefinitely.
+- A status that can be changed MUST be drawn as the same badge as one that cannot.
+  A reader must never learn from a colour or a shape that an editable status is a
+  different kind of status.
+
+Knowledge chapters are the largest consumer of this scale: five folders spell
+their lifecycles five different ways, and `README.md#status-vocabulary` maps each
+word onto the tones above. Review surface: storybook → *Badges*, and
+*Knowledge base* → **State**.
+
 ### Chart roles
 
 Measured on `color-background-alt`, which is the card a chart sits on.
