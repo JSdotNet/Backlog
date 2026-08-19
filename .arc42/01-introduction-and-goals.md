@@ -27,6 +27,7 @@ buildable, and extendable on its own.
 | **Capture** | All input sources: mobile, automations (YouTube, website, email), web clipper, IDE, manual |
 | **Inbox** | Triage, classification, and routing of captured items (independent of capture sources) |
 | **Backlog Management** | Refine, prioritize, and route backlog items with sub-items (multi-repo entries) |
+| **Roadmap Planning** | Plan what happens when across repositories, with its own priorities and the dependencies between planned work |
 | **Second Brain** | Organize project knowledge and cross-project context (PARA structure) |
 | **Monitoring & Dashboard** | Track progress signals, queue health, and operational follow-up views |
 | **Technology Stack** | Define baselines, version requirements, and adoption signals |
