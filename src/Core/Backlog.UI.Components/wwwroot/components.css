@@ -380,7 +380,15 @@
 
 .badge--status-draft { background: var(--color-background-raised); color: var(--color-text-secondary); }
 
+/* position: relative because this carries an sr-only descendant — the label
+   naming the control for a screen reader. .sr-only is position: absolute, so
+   without a positioned ancestor its containing block is the page: the hidden
+   text inside a horizontally scrolled table then lands at page coordinates well
+   past the viewport and drags the document's scroll width out with it, even
+   though the text itself is invisible. Same reason .metric-heatmap__cell carries
+   it. Nothing moves visually — the label has no offsets to resolve against. */
 .status-editor {
+    position: relative;
     padding: 0;
 }
 
@@ -1335,75 +1343,29 @@ button.md-check {
     font-weight: 700;
 }
 
-/*
-   Status tones.
-
-   Five folders spell their lifecycle in five vocabularies, and none of them
-   should be renamed to suit a stylesheet — so the pill carries both its literal
-   status class and a tone class, and only the tone is painted. A tone is added
-   only when the folder is known, so a folder-blind strip keeps exactly the flat
-   pill it has always had.
-
-   Nothing here invents a colour: the semantic tokens are surfaces, so each tone
-   sits *on* one and takes its text from the text ramp, and the two quiet tones
-   spend no colour at all.
-*/
-
-.knowledge-status--tone-unknown {
-    background: transparent;
-}
-
-.knowledge-status--tone-provisional {
-    background: transparent;
-    border-style: dashed;
-    color: var(--color-text-disabled);
-    font-style: italic;
-}
-
-.knowledge-status--tone-planned {
-    background: var(--color-info);
-    border-color: var(--color-info);
-    color: var(--color-text-primary);
-}
-
-/* Active takes the brand colour: of everything on this scale it is the one that
-   describes the thing you are looking at right now. */
-.knowledge-status--tone-active {
-    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
-    border-color: var(--color-primary-dark);
-    color: var(--color-primary-light);
-}
-
-.knowledge-status--tone-complete {
-    background: var(--color-success);
-    border-color: var(--color-success);
-    color: var(--color-text-primary);
-}
-
-.knowledge-status--tone-attention {
-    background: var(--color-warning);
-    border-color: var(--color-warning);
-    color: var(--color-text-primary);
-}
-
-.knowledge-status--tone-retired {
-    background: transparent;
-    border-style: dashed;
-    color: var(--color-text-disabled);
-    text-decoration: line-through;
-}
-
 /* A status the folder does not define is almost always a typo, and a typo is
-   only worth anything once it is visible. The pill keeps its tone classes so a
-   half-recognised value still reads, and gains a surface that says "look here"
-   rather than one that says "this is fine". */
+   only worth anything once it is visible. It is drawn on the `archived`
+   modifier, which is the one badge that spends no colour — a transparent
+   surface inside a border — so what this rule adds is only the two things that
+   say "nobody wrote this": the border goes dashed, and the word comes back to
+   full strength from the muted ink `archived` reads its own values in.
+
+   Painted on the error surface instead, it wore the same red as a legitimate
+   `blocked` status and the two could not be told apart at a glance. Quiet and
+   provisional is the truthful reading of a word nobody recognises; the urgency
+   belongs in the title, which names the values the folder actually allows.
+
+   No width is stated, and none is needed: `.badge--status-archived` sets
+   `border` as a shorthand, so the width is already the design system's one
+   border width and only the style is being overridden.
+
+   One class, against `.badge--status` and its modifiers which are one class
+   each: equal specificity, and this is declared after all of them, so it wins
+   without needing any help. */
 .knowledge-status--unrecognised {
-    background: var(--color-error);
     border-color: var(--color-border-strong);
     border-style: dashed;
     color: var(--color-text-primary);
-    font-style: normal;
-    text-decoration: none;
 }
 
 /*
@@ -1472,15 +1434,16 @@ button.md-check {
     min-width: 0;
 }
 
-.knowledge-record__headline > :not(.knowledge-status):not(.status-editor) {
+.knowledge-record__headline > :not(.badge--status) {
     min-width: 0;
 }
 
-/* Both forms of the status — the static pill and the BadgeSelect the record
-   draws when the folder has a vocabulary to offer. Neither ever shrinks: it is
-   the short, fixed thing on the line, and the heading is what gives. */
-.knowledge-record__headline > .knowledge-status,
-.knowledge-record__headline > .status-editor {
+/* Both forms of the status — the read-only badge, and the StatusSelector the
+   record draws when the folder has a vocabulary to offer. One selector reaches
+   both, because both are the same application status badge; it took two before,
+   one per form, which is what let the two drift apart. Neither ever shrinks: it
+   is the short, fixed thing on the line, and the heading is what gives. */
+.knowledge-record__headline > .badge--status {
     flex: 0 0 auto;
 }
 
@@ -1493,8 +1456,7 @@ button.md-check {
 
    The auto margin also overrides `.badge--status`'s own `margin-left`, which is
    spacing for a badge in a row of badges and not for one holding an edge. */
-.knowledge-record__headline > .knowledge-status:not(:first-child),
-.knowledge-record__headline > .status-editor:not(:first-child) {
+.knowledge-record__headline > .badge--status:not(:first-child) {
     margin-inline-start: auto;
 }
 
