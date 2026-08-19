@@ -117,7 +117,7 @@ public sealed class CopilotUsageClient(IGitHubTransport transport) : ICopilotUsa
                 HttpMethod.Get,
                 $"orgs/{org}/copilot/billing/seats?per_page={PageSize}&page={page}",
                 body: null,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             var batch = ReadSeats(response);
             seats.AddRange(batch);
@@ -144,7 +144,7 @@ public sealed class CopilotUsageClient(IGitHubTransport transport) : ICopilotUsa
             HttpMethod.Get,
             $"orgs/{org}/members/{login.Trim()}/copilot",
             body: null,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         return ReadSeat(response);
     }
@@ -173,7 +173,7 @@ public sealed class CopilotUsageClient(IGitHubTransport transport) : ICopilotUsa
         };
 
         var response = await transport
-            .SendAsync(HttpMethod.Get, path, body: null, cancellationToken)
+            .SendAsync(HttpMethod.Get, path, body: null, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
         return ReadMetricsReport(response);

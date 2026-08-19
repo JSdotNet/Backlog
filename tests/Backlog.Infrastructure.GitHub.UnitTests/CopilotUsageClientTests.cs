@@ -142,13 +142,24 @@ public class CopilotUsageClientTests
     {
         public List<string> Paths { get; } = [];
 
+        /// <summary>The API version each call asked for, so a client that has to
+        /// pin one can be held to it. Copilot's does not, and this records the null
+        /// that proves it leaves the default alone.</summary>
+        public List<string?> ApiVersions { get; } = [];
+
         public string Description => "stub";
 
         public Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default) => Task.FromResult(true);
 
-        public Task<JsonElement> SendAsync(HttpMethod method, string path, object? body = null, CancellationToken cancellationToken = default)
+        public Task<JsonElement> SendAsync(
+            HttpMethod method,
+            string path,
+            object? body = null,
+            string? apiVersion = null,
+            CancellationToken cancellationToken = default)
         {
             Paths.Add(path);
+            ApiVersions.Add(apiVersion);
             return Task.FromResult(Parse(response));
         }
     }

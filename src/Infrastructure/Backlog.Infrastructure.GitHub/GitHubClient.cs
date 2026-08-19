@@ -56,7 +56,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             HttpMethod.Post,
             $"repos/{repository.Owner}/{repository.Name}/issues",
             payload,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         return ReadIssue(response);
     }
@@ -72,7 +72,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             HttpMethod.Get,
             $"repos/{repository.Owner}/{repository.Name}/issues/{number}",
             body: null,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         var issue = ReadIssue(issueResponse);
 
@@ -83,7 +83,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 HttpMethod.Get,
                 $"repos/{repository.Owner}/{repository.Name}/issues/{number}/timeline?per_page=100",
                 body: null,
-                cancellationToken);
+                cancellationToken: cancellationToken);
 
             pullRequests = ReadLinkedPullRequests(timeline);
         }

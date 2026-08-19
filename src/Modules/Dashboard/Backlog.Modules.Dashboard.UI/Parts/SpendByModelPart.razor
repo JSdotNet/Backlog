@@ -1,0 +1,55 @@
+@*
+    Where the money went, by model, across both providers in one table.
+
+    One table rather than one per provider. The question here is which model costs
+    the most, and answering it across two tables makes the reader do the merge by
+    eye. The provider travels in each row's detail column instead.
+
+    The tokens column is populated for Claude and empty for Copilot, and that is a
+    fact about the two APIs rather than a gap: Anthropic reports tokens beside its
+    cost, GitHub meters in AI credits. Putting credits under a heading that says
+    Tokens would place two different units in one column, so the cell stays
+    unreported — MetricBreakdown draws that as an em dash, which is a different
+    statement from a zero.
+*@
+@inherits DashboardPartBase<SpendByModelInsight>
+@inject ICostInsights Costs
+
+<PartFrame Title="Spend by model"
+           Note="Your own usage this month. Tokens are reported by Claude only — Copilot meters in AI credits, which is a different unit and is left out of that column rather than mixed into it."
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-spend-model">
+    <MetricBreakdown Rows="@Rows"
+                     Label="Spend by model this month"
+                     NameHeading="Model"
+                     TokensHeading="Tokens"
+                     CostHeading="Spend"
+                     ShareOf="MetricShareOf.Cost"
+                     Status="Status"
+                     StatusMessage="@StatusMessage"
+                     TestId="dashboard-spend-model-table" />
+</PartFrame>
+
+@code {
+    protected override bool FollowsScope => false;
+
+    private IReadOnlyList<MetricRow> Rows =>
+        IsReady
+            ? [.. Value!.Rows.Select(row => new MetricRow(
+                row.Name,
+                row.Tokens,
+                row.Cost is null ? null : new MoneyAmount(row.Cost.Amount, row.Cost.Currency),
+                row.Detail))]
+            : [];
+
+    protected override Task<InsightResult<SpendByModelInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Costs.GetByModelAsync(cancellationToken);
+
+    protected override bool IsEmpty(SpendByModelInsight value) => value.Rows.Count == 0;
+
+    protected override string EmptyMessage =>
+        "No spend to break down this month.";
+
+    protected override void InvalidateSource() => Costs.Invalidate();
+}

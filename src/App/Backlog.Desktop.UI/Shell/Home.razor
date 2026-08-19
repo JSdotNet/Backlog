@@ -14,13 +14,13 @@
 
     There are three, and exactly one of them renders: the workspace, which is the
     roadmap band above the global panes; the tools surface; and the dashboard. The
-    last two are takeovers — Dev PC Management and Monitoring are whole domains,
-    and opening one means the reader has stopped looking at the backlog, so it
+    last two are takeovers — Dev PC Management and the Dashboard are whole
+    domains, and opening one means the reader has stopped looking at the backlog, so it
     takes the screen and hides every other domain concern rather than docking
     beside them. Whichever branch renders owns the page's single <main> landmark.
 
     What is inside a surface is not the shell's business: Inbox, Backlog
-    Management, Second Brain, Roadmap, Dev PC Management and Monitoring each
+    Management, Second Brain, Roadmap, Dev PC Management and the Dashboard each
     render themselves from their own project, and the only thing that crosses
     between them here is the repository scope handed to the knowledge pane and the
     triaged item handed back from the inbox.
@@ -182,7 +182,7 @@
                 Tools
             </AppButton>
         }
-        @if (IsFeatureEnabled(MonitoringFeatures.Dashboard))
+        @if (IsFeatureEnabled(DashboardFeatures.Dashboard))
         {
             <AppButton BaseClass="header-tool-toggle"
                        Variant="ButtonVariant.None"
@@ -605,7 +605,7 @@
     /// <summary>Whether the dashboard is on screen. The same shape as
     /// <see cref="ToolsVisible"/>, and mutually exclusive with it by construction
     /// rather than by a rule written here: both read the one surface field.</summary>
-    private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && IsFeatureEnabled(MonitoringFeatures.Dashboard);
+    private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && IsFeatureEnabled(DashboardFeatures.Dashboard);
 
     /// <summary>Whether the panes are on screen. Anything that is not a takeover
     /// is the workspace, including a surface whose feature has been switched off.</summary>

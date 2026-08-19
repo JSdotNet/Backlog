@@ -17,6 +17,24 @@ public sealed record ClaudeSettings
     /// reported instead of the whole organization.</summary>
     public string? WorkspaceId { get; init; }
 
+    /// <summary>
+    /// Which actor in the organization is you — the account Anthropic attributes
+    /// Claude Code activity to, usually an email address.
+    /// <para>
+    /// Needed because the Claude Code report is organization-wide and lists every
+    /// actor, while the dashboard is a personal view. There is no endpoint that
+    /// says who an Admin API key belongs to — an admin key belongs to the
+    /// organization, not to a person — so this is the one fact about the
+    /// credential that cannot be discovered from it.
+    /// </para>
+    /// <para>
+    /// Null narrows to nothing rather than to everybody. A dashboard that silently
+    /// showed the whole organization's spend under the heading "your usage" would
+    /// be worse than one that asks for a name.
+    /// </para>
+    /// </summary>
+    public string? Actor { get; init; }
+
     public string ApiVersion { get; init; } = ClaudeSettingsStore.DefaultApiVersion;
 
     public string ApiEndpoint { get; init; } = ClaudeSettingsStore.DefaultApiEndpoint;
@@ -94,6 +112,9 @@ public sealed class ClaudeSettingsStore
     public string? SetWorkspaceId(string? workspaceId) =>
         Save(Current with { WorkspaceId = workspaceId });
 
+    public string? SetActor(string? actor) =>
+        Save(Current with { Actor = actor });
+
     public string? SetApiEndpoint(string? apiEndpoint) =>
         Save(Current with { ApiEndpoint = apiEndpoint ?? DefaultApiEndpoint });
 
@@ -137,6 +158,7 @@ public sealed class ClaudeSettingsStore
     {
         AdminApiKey = Clean(settings.AdminApiKey),
         WorkspaceId = Clean(settings.WorkspaceId),
+        Actor = Clean(settings.Actor),
         ApiVersion = Clean(settings.ApiVersion) ?? DefaultApiVersion,
         ApiEndpoint = NormalizeEndpoint(settings.ApiEndpoint)
     };

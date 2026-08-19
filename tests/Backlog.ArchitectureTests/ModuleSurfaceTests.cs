@@ -20,7 +20,7 @@ public class ModuleSurfaceTests
     ///
     /// <para>Read what is left carefully: this asks that a module <em>that exists</em>
     /// publishes a contract, not that every context folder holds a module. Inbox,
-    /// Second Brain, Roadmap, Dev PC Management and Monitoring currently have a
+    /// Second Brain, Roadmap and Dev PC Management currently have a
     /// <c>.UI</c> project and no domain module at all, and that is a statement about
     /// how far each context has been built rather than a boundary violation. This
     /// rule stays silent about it on purpose; demanding an abstractions project for
