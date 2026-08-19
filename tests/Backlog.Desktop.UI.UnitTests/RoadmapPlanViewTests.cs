@@ -12,8 +12,8 @@ public class RoadmapPlanViewTests
 {
     private static readonly List<PlannedRepository> Configured =
     [
-        new("backlog", "JSdotNet/Backlog"),
-        new("fincent", "JSdotNet/Fincent")
+        new("backlog", "JSdotNet/Backlog", 1),
+        new("fincent", "JSdotNet/Fincent", 2)
     ];
 
     private static RoadmapItemDto Item(
@@ -229,46 +229,34 @@ public class RoadmapPlanViewTests
         Assert.False(Assert.Single(view.Milestones).Line);
     }
 
-    // --- Chosen band colours --------------------------------------------------
+    // --- Band colours ---------------------------------------------------------
+    //
+    // Which hue a repository wears is settled before this type is called — it is a
+    // fact about the repository, chosen in Settings, and three other surfaces are
+    // reading the same answer. What is left here is the mapping: a number becomes a
+    // token, and the two bands that are not repositories stay neutral.
 
     [Fact]
-    public void AChosenColourWinsOverThePositionalOne()
+    public void ABandWearsTheHueItWasHandedRatherThanOneOfItsOwn()
     {
         var view = RoadmapPlanView.From(
-            Plan(
-                [Item("In Backlog", repositories: ["backlog"]), Item("In Fincent", repositories: ["fincent"])],
-                bands: new Dictionary<string, int>(StringComparer.Ordinal) { ["backlog"] = 4 }),
-            Configured);
+            Plan([Item("In Backlog", repositories: ["backlog"]), Item("In Fincent", repositories: ["fincent"])]),
+            [new PlannedRepository("backlog", "JSdotNet/Backlog", 4), new PlannedRepository("fincent", "JSdotNet/Fincent", 1)]);
 
         Assert.Equal("var(--color-band-4)", view.Groups[0].Color);
-    }
-
-    [Fact]
-    public void AnAutomaticBandStepsOverAHueItsNeighbourWasGiven()
-    {
-        var view = RoadmapPlanView.From(
-            Plan(
-                [Item("In Backlog", repositories: ["backlog"]), Item("In Fincent", repositories: ["fincent"])],
-                bands: new Dictionary<string, int>(StringComparer.Ordinal) { ["fincent"] = 1 }),
-            Configured);
-
-        // Fincent claimed colour 1, so Backlog takes the next one going rather than
-        // landing on the hue its neighbour was deliberately given.
-        Assert.Equal("var(--color-band-2)", view.Groups[0].Color);
         Assert.Equal("var(--color-band-1)", view.Groups[1].Color);
     }
 
     [Fact]
-    public void AStoredColourOutsideTheSetIsIgnored()
+    public void ARepositoryHandedNoHueDrawsNeutral()
     {
         var view = RoadmapPlanView.From(
-            Plan(
-                [Item("In Backlog", repositories: ["backlog"])],
-                bands: new Dictionary<string, int>(StringComparer.Ordinal) { ["backlog"] = 9 }),
-            Configured);
+            Plan([Item("In Backlog", repositories: ["backlog"])]),
+            [new PlannedRepository("backlog", "JSdotNet/Backlog")]);
 
-        // Back to automatic rather than drawing a hue that does not exist.
-        Assert.Equal("var(--color-band-1)", Assert.Single(view.Groups).Color);
+        // Not a hue picked here to fill the gap: this type declines to choose, so
+        // "nobody said" draws as nothing rather than as one more project.
+        Assert.Null(Assert.Single(view.Groups).Color);
     }
 
     [Theory]
@@ -286,7 +274,7 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void EachRepositoryBandTakesTheNextHue_FromTheSanctionedIdentitySet()
+    public void EachRepositoryBandTakesItsOwnHue_FromTheSanctionedIdentitySet()
     {
         var view = RoadmapPlanView.From(
             Plan([Item("In Backlog", repositories: ["backlog"]), Item("In Fincent", repositories: ["fincent"])]),
@@ -312,22 +300,30 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void HuesAreCountedOverTheBandsDrawn_NotOverEveryConfiguredRepository()
+    public void ARepositoryKeepsItsHueWhetherOrNotItsNeighboursHaveWork()
     {
-        // Only the second repository has work in it; it still gets the first hue
-        // rather than a gap where the first repository's band would have been.
+        // Only the second repository has work in it, and it still draws in its own hue
+        // rather than sliding up to the first one.
+        //
+        // This is a deliberate change from when the roadmap allocated its own hues by
+        // counting the bands it drew. A hue now says which repository, everywhere — the
+        // filter chip above the backlog says Fincent is band 2 — so a roadmap that
+        // renumbered by what happened to have work in it would make the same project two
+        // colours on two screens.
         var view = RoadmapPlanView.From(Plan([Item("Only Fincent", repositories: ["fincent"])]), Configured);
 
-        Assert.Equal("var(--color-band-1)", Assert.Single(view.Groups).Color);
+        Assert.Equal("var(--color-band-2)", Assert.Single(view.Groups).Color);
     }
 
     [Fact]
     public void ASixthRepositoryRepeatsTheFirstHue_RatherThanGrowingTheSet()
     {
+        // Six repositories as the host resolved them: the set wraps, so the sixth is
+        // handed the first hue again.
         List<PlannedRepository> six =
         [
-            new("one", "org/one"), new("two", "org/two"), new("three", "org/three"),
-            new("four", "org/four"), new("five", "org/five"), new("six", "org/six")
+            new("one", "org/one", 1), new("two", "org/two", 2), new("three", "org/three", 3),
+            new("four", "org/four", 4), new("five", "org/five", 5), new("six", "org/six", 1)
         ];
 
         var view = RoadmapPlanView.From(

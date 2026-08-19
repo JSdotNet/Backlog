@@ -50,6 +50,7 @@
                     {
                         var selected = State.SelectedRepositoryAlias == repository.Alias;
                         <ToggleButton BaseClass="chip chip--scope"
+                                      CssClass="@RepositoryMarkClass(repository.Alias)"
                                       PressedCssClass="chip--active"
                                       Pressed="selected"
                                       TestId="repository-filter-option"
@@ -1037,6 +1038,19 @@
 
     /// <summary>The repository scope is global: it narrows the backlog list and,
     /// through the alias handed to the pane, what knowledge is read beside it.</summary>
+    /// <summary>
+    /// The repository's identity mark, as classes.
+    /// <para>
+    /// Which hue is the settings store's answer and not this screen's — every surface
+    /// asks the same place, which is what stops the same project being two colours.
+    /// The mark is additive: the chip keeps the surface, border and text it already
+    /// had, and gains a rule down its leading edge. See
+    /// <c>.design/color-scheme.md#band-identity-tokens</c>.
+    /// </para>
+    /// </summary>
+    private string? RepositoryMarkClass(string alias) =>
+        State.RepositoryColours.TryGetValue(alias, out var colour) ? $"repo-mark repo-mark--{colour}" : null;
+
     private void ToggleRepositoryScopeAsync(string repositoryAlias)
     {
         var nextAlias = string.Equals(State.SelectedRepositoryAlias, repositoryAlias, StringComparison.Ordinal)

@@ -39,7 +39,7 @@
     {
         @foreach (var group in Groups)
         {
-            <div class="integration-link-list__group" data-testid="@GroupTestId(group)">
+            <div class="@GroupClass(group)" data-testid="@GroupTestId(group)">
                 @if (Headed)
                 {
                     <p class="integration-link-list__heading">@group.Heading</p>
@@ -119,6 +119,24 @@
     public string? GroupTestIdPrefix { get; set; }
 
     private sealed record Group(string Key, string Heading, IReadOnlyList<IntegrationLinkRef> Links);
+
+    /// <summary>
+    /// The group, plus its repository's identity mark when it has one.
+    /// <para>
+    /// Only when the group is headed, and that is a rule rather than a convenience.
+    /// <c>.design/color-scheme.md#band-identity-tokens</c> requires the alias to be
+    /// written wherever the hue is shown, and the heading is where it is written — an
+    /// unheaded group has no repository name on it, so it gets no hue either.
+    /// </para>
+    /// </summary>
+    private string GroupClass(Group group)
+    {
+        var colour = Headed ? group.Links[0].Repository?.Colour : null;
+
+        return colour is null
+            ? "integration-link-list__group"
+            : $"integration-link-list__group repo-mark repo-mark--{colour}";
+    }
 
     private string ClassValue
     {

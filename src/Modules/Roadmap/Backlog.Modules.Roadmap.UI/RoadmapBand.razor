@@ -108,13 +108,6 @@
                             OnSave="SaveDateAsync"
                             OnDelete="DeleteDateAsync"
                             OnDependencyChanged="ChangeDependencyAsync" />
-
-    <RoadmapBandColours @ref="_colours"
-                        Open="@_colouring"
-                        OpenChanged="value => _colouring = value"
-                        Repositories="@Configured()"
-                        ChosenColours="@_plan.Bands"
-                        OnChoose="ChooseColourAsync" />
 </section>
 
 @code {
@@ -135,9 +128,6 @@
     private RoadmapMilestoneEditor? _dateEditor;
     private RoadmapMilestoneDto? _editedDate;
     private bool _editingDate;
-
-    private RoadmapBandColours? _colours;
-    private bool _colouring;
 
     private string? _selectedId;
     private string? _error;
@@ -190,12 +180,6 @@
             Add a date
         </AppButton>
 
-        <AppButton Variant="ButtonVariant.Ghost"
-                   Size="ButtonSize.Small"
-                   OnClick="() => _colouring = true"
-                   TestId="roadmap-band-colours">
-            Colours
-        </AppButton>
     </text>;
 
     /// <summary>Where the "now" line is drawn. A parameter so a test can put
@@ -215,15 +199,60 @@
     private async Task Load()
     {
         _plan = await Planning.GetPlanAsync();
+        CarryOverPlanColours();
         _view = RoadmapPlanView.From(_plan, Configured());
+    }
+
+    /// <summary>
+    /// Moves colours chosen before the choice lived in Settings onto the repositories
+    /// they were chosen for.
+    /// <para>
+    /// A plan written by an older version stores a hue per alias. That choice was a real
+    /// decision somebody made and losing it would be the upgrade quietly recolouring
+    /// their chart, so it is carried over the first time the roadmap is opened. Only
+    /// onto a repository that has no colour of its own — a choice made in Settings since
+    /// is the newer answer and is never overwritten by the file.
+    /// </para>
+    /// <para>
+    /// Here rather than at startup because this is the only screen that reads a plan,
+    /// and a startup path that loaded one just to look for colours would make every
+    /// launch pay for a migration that concerns one screen.
+    /// </para>
+    /// </summary>
+    private void CarryOverPlanColours()
+    {
+        if (_plan.Bands.Count == 0) return;
+
+        foreach (var repository in Repositories.Current.Repositories.Where(r => r.Colour is null))
+        {
+            if (!_plan.Bands.TryGetValue(repository.Alias, out var colour)) continue;
+
+            Repositories.SetRepositoryColour(repository.Alias, colour);
+        }
     }
 
     /// <summary>The configured repositories, in the order Settings lists them. The
     /// band asks per load rather than caching: a repository added while the app is
     /// open should show up when the plan is next read, not after a restart.</summary>
-    private List<PlannedRepository> Configured() =>
-        [.. Repositories.Current.Repositories.Select(repository =>
-            new PlannedRepository(repository.Alias, repository.FullName))];
+    /// <summary>
+    /// The configured repositories as the band needs them, each carrying the identity
+    /// hue Settings resolved for it. The roadmap is told which hue rather than choosing
+    /// one, so the same project is the same colour here, on the repository filter and
+    /// on an entry row.
+    /// </summary>
+    private List<PlannedRepository> Configured()
+    {
+        var colours = Repositories.Current.Colours();
+
+        return
+        [
+            .. Repositories.Current.Repositories.Select(repository =>
+                new PlannedRepository(
+                    repository.Alias,
+                    repository.FullName,
+                    colours.TryGetValue(repository.Alias, out var colour) ? colour : null))
+        ];
+    }
 
     /// <summary>
     /// A bar was opened — clicked, or Enter pressed on it, which the chart's own
@@ -401,24 +430,6 @@
         _editingDate = false;
         _editedDate = null;
         _selectedId = null;
-        await Load();
-    }
-
-    /// <summary>
-    /// A colour chosen for one band. Applied one at a time rather than on a Done
-    /// button, so the chart behind the dialog shows the choice as it is made — which is
-    /// the only way to judge whether it was the right one.
-    /// </summary>
-    private async Task ChooseColourAsync(RoadmapBandColourChoice choice)
-    {
-        var coloured = await Planning.ColourBandAsync(choice.Alias, choice.Colour);
-
-        if (coloured.IsFailure)
-        {
-            _colours?.Refuse(coloured.Error.Message);
-            return;
-        }
-
         await Load();
     }
 

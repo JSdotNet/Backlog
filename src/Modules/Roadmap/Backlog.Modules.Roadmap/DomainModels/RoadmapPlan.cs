@@ -87,35 +87,6 @@ public sealed class RoadmapPlan
     /// is left to the view to place.</summary>
     public BandColours BandColours => _bandColours;
 
-    /// <summary>
-    /// Gives a repository's band a colour, or takes the choice back.
-    /// <para>
-    /// Stored with the plan rather than with the repository, because it is a fact about
-    /// how this plan is read rather than about the repository itself. Refused when the
-    /// choice is outside the set the design system sanctions — a plan is not the place
-    /// to invent a colour.
-    /// </para>
-    /// </summary>
-    public Result ColourBand(string? alias, int? colour)
-    {
-        var normalized = RepositoryScope.Normalize(alias);
-        if (normalized.Length == 0) return Result.Failure(RoadmapErrors.BandNotNamed());
-
-        if (colour is null)
-        {
-            _bandColours.Forget(normalized);
-            return Result.Success();
-        }
-
-        if (colour is < 1 or > BandColours.Available)
-        {
-            return Result.Failure(RoadmapErrors.UnknownBandColour(colour.Value));
-        }
-
-        _bandColours.Choose(normalized, colour.Value);
-        return Result.Success();
-    }
-
     /// <summary>Every item and milestone as a dependency endpoint, which is the
     /// only shape the graph questions need.</summary>
     public IReadOnlyList<PlanNode> Nodes() =>

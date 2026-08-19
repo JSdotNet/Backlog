@@ -7,7 +7,17 @@ namespace Backlog.Modules.Roadmap.UI;
 /// <summary>One repository the plan may be filed against, as the band sees it.</summary>
 /// <param name="Alias">The normalized alias the plan stores.</param>
 /// <param name="Title">What to write on the band — the repository's full name.</param>
-public sealed record PlannedRepository(string Alias, string Title);
+/// <param name="Colour">Which of the sanctioned identity hues this repository wears,
+/// 1 to 5, or null for a band drawn neutral.
+/// <para>
+/// Handed in rather than worked out here. The hue says which repository, and which
+/// repository is which is a workspace fact this context deliberately does not know —
+/// it holds aliases as opaque strings precisely so it stays independent of repository
+/// management. It is also the answer three other surfaces are reading, and a roadmap
+/// that decided its own would be a second answer to the same question. See
+/// <c>.design/color-scheme.md#band-identity-tokens</c>.
+/// </para></param>
+public sealed record PlannedRepository(string Alias, string Title, int? Colour = null);
 
 /// <summary>Everything <c>RoadmapTimeline</c> needs, in the four shapes it takes.</summary>
 public sealed record RoadmapTimelineModel(
@@ -86,7 +96,7 @@ public static class RoadmapPlanView
             .ThenBy(milestone => milestone.Title, StringComparer.CurrentCulture)
             .ToList();
 
-        var groups = BuildGroups(items, milestones.Count > 0, configured, plan.Bands);
+        var groups = BuildGroups(items, milestones.Count > 0, configured);
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
 
         var bars = items
@@ -153,8 +163,7 @@ public static class RoadmapPlanView
     private static List<RoadmapGroup> BuildGroups(
         List<(RoadmapItemDto Item, string GroupId)> items,
         bool hasMilestones,
-        List<PlannedRepository> configured,
-        IReadOnlyDictionary<string, int> chosenColours)
+        List<PlannedRepository> configured)
     {
         // Configured order first, so the bands read the way Settings lists them, then
         // the unfiled band last — it is where things end up rather than somewhere
@@ -169,19 +178,10 @@ public static class RoadmapPlanView
         // chose and the one the plan stores; the full name is still what the
         // Repository filter offers, where there is room for it.
         var order = configured
-            .Select(repository => (Id: repository.Alias, Title: repository.Alias))
-            .Append((Id: UnfiledGroupId, Title: UnfiledGroupTitle));
+            .Select(repository => (Id: repository.Alias, Title: repository.Alias, repository.Colour))
+            .Append((Id: UnfiledGroupId, Title: UnfiledGroupTitle, Colour: (int?)null));
 
         var bands = new List<RoadmapGroup>();
-        var hue = 0;
-
-        // Which hues are already spoken for by an explicit choice, so the automatic
-        // ones can step over them.
-        var taken = order
-            .Select(band => Chosen(band.Id, chosenColours))
-            .OfType<int>()
-            .Select(colour => colour - 1)
-            .ToHashSet();
 
         // The dates band first, and colourless. It is where a reader looks for what
         // everything else is measured against, and it is not a repository.
@@ -193,7 +193,7 @@ public static class RoadmapPlanView
                 [new RoadmapRow(MilestoneRowId, "Milestones", RoadmapRowKind.Milestones)]));
         }
 
-        foreach (var (id, title) in order)
+        foreach (var (id, title, hue) in order)
         {
             var lanes = items
                 .Where(entry => entry.GroupId == id)
@@ -205,72 +205,34 @@ public static class RoadmapPlanView
 
             List<RoadmapRow> rows = [.. lanes.Select(lane => new RoadmapRow($"{id}::{lane}", lane))];
 
-            // A colour somebody chose wins; otherwise the next one going. The
-            // automatic hue is counted over the bands actually drawn and skips the ones
-            // already spoken for, so an unchosen band never lands on a hue a chosen
-            // band beside it is using.
-            var isUnfiled = string.Equals(id, UnfiledGroupId, StringComparison.Ordinal);
-            var chosen = isUnfiled ? null : Chosen(id, chosenColours);
-
-            string? colour = null;
-            if (!isUnfiled)
-            {
-                colour = chosen is not null ? BandColour(chosen.Value - 1) : BandColour(NextFree(ref hue, taken));
-            }
-
-            bands.Add(new RoadmapGroup(id, title, rows, colour));
+            // The hue the repository wears, as Settings resolved it. The unfiled band
+            // arrives with none and stays neutral, which reads as "nobody said" rather
+            // than as one more project.
+            bands.Add(new RoadmapGroup(id, title, rows, BandColour(hue)));
         }
 
         return bands;
     }
 
     /// <summary>
-    /// The band's colour, by position, wrapping after five.
+    /// The band's hue, as the token the stylesheet knows it by.
     /// <para>
-    /// One hue per repository, from the identity set
-    /// <c>.design/color-scheme.md#band-identity-tokens</c> sanctions. It says which
-    /// repository and nothing else — no status, no severity, no priority — and it is
-    /// never the only thing saying it: the band is labelled with its alias down its
-    /// own side and every bar names its band in its accessible name.
+    /// A number in, a token name out, and nothing in between — which of the sanctioned
+    /// hues a repository wears was settled in Settings, because it is a fact about the
+    /// repository rather than about this plan and because three other surfaces are
+    /// reading the same answer. See
+    /// <c>.design/color-scheme.md#band-identity-tokens</c>.
     /// </para>
     /// <para>
-    /// A sixth repository repeats the first hue rather than growing the set, which
-    /// that section requires and which is safe for the same reason: the hue is not
-    /// the identifier, the label is. The unfiled band deliberately gets no colour at
-    /// all — a neutral band reads as "nobody said" rather than as one more project.
-    /// </para>
-    /// </summary>
-    private static string BandColour(int position) =>
-        $"var(--color-band-{(position % BandHues) + 1})";
-
-    /// <summary>The colour chosen for a band, if one was, normalized the way the plan
-    /// stores aliases.</summary>
-    private static int? Chosen(string bandId, IReadOnlyDictionary<string, int> chosenColours) =>
-        chosenColours.TryGetValue(bandId, out var colour) && colour is >= 1 and <= BandHues ? colour : null;
-
-    /// <summary>
-    /// The next hue no band has explicitly claimed, advancing the counter past it.
-    /// <para>
-    /// Stepping over the claimed ones is what stops an automatic band landing on the
-    /// hue its neighbour was deliberately given. With more bands than hues it wraps and
-    /// collisions become unavoidable, which the design section allows: the hue is not
-    /// the identifier, the label is.
+    /// It says which repository and nothing else — no status, no severity, no priority
+    /// — and it is never the only thing saying it: the band is labelled with its alias
+    /// down its own side and every bar names its band in its accessible name. Null is
+    /// a neutral band, which is what the unfiled and milestone bands get: a hue here
+    /// means "which repository", and neither of those is one.
     /// </para>
     /// </summary>
-    private static int NextFree(ref int hue, HashSet<int> taken)
-    {
-        for (var tried = 0; tried < BandHues; tried++)
-        {
-            var candidate = hue++ % BandHues;
-            if (!taken.Contains(candidate)) return candidate;
-        }
-
-        return hue++ % BandHues;
-    }
-
-    /// <summary>How many hues the identity set carries. Public because the control
-    /// that offers the choice has to offer exactly these and no more.</summary>
-    public const int BandHues = 5;
+    private static string? BandColour(int? hue) =>
+        hue is null ? null : $"var(--color-band-{hue})";
 
     /// <summary>
     /// A group is handed no colour, deliberately.

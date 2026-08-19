@@ -197,106 +197,96 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
     }
 
     // --- Band colours ---------------------------------------------------------
+    //
+    // Nothing here chooses a colour any more. A repository's hue is a fact about the
+    // repository and is chosen once in Settings, so what these assert is that the band
+    // reads that one answer — and that a plan written before the move does not lose the
+    // choice somebody had already made.
 
     [Fact]
-    public async Task ChoosingAColourStoresItAndRedrawsTheBand()
+    public async Task ABandTakesTheColourTheRepositoryWasGivenInSettings()
     {
         Configure("JSdotNet/Backlog");
-        await Planning.AddItemAsync(
-            "Work",
-            new DateOnly(2026, 1, 5),
-            new DateOnly(2026, 1, 9),
-            repositoryAliases: ["backlog"]);
+        Assert.Null(RepositorySettings.SetRepositoryColour("backlog", 4));
 
         using var context = Context();
-        var band = Drawn(context);
-        Open(band, "roadmap-band-colours", "roadmap-colours");
-
-        band.Find("[data-testid=\"roadmap-colours-backlog-4\"]").Click();
-
-        // Waited for on the chart, because that is the observable end of the round trip:
-        // the choice goes to the module, through the plan file, and back into the view.
-        // It is also the point of applying a choice immediately — the chart behind the
-        // dialog is the only way to judge whether it was the right one.
-        band.WaitForAssertion(() => Assert.Equal(
-            "var(--color-band-4)",
-            band.FindComponent<RoadmapTimeline>().Instance.Groups.Single(group => group.Id == "backlog").Color));
-
-        var plan = await Planning.GetPlanAsync();
-        Assert.Equal(4, plan.Bands["backlog"]);
-    }
-
-    [Fact]
-    public async Task AColourChoiceCanBeGivenBack()
-    {
-        Configure("JSdotNet/Backlog");
-        await Planning.AddItemAsync(
-            "Work",
-            new DateOnly(2026, 1, 5),
-            new DateOnly(2026, 1, 9),
-            repositoryAliases: ["backlog"]);
-        Assert.True((await Planning.ColourBandAsync("backlog", 5)).IsSuccess);
-
-        using var context = Context();
-        var band = Drawn(context);
-        Open(band, "roadmap-band-colours", "roadmap-colours");
-
-        band.Find("[data-testid=\"roadmap-colours-backlog-auto\"]").Click();
-
-        band.WaitForAssertion(() => Assert.Equal(
-            "false",
-            band.Find("[data-testid=\"roadmap-colours-backlog-5\"]").GetAttribute("aria-pressed")));
-
-        Assert.Empty((await Planning.GetPlanAsync()).Bands);
-    }
-
-    [Fact]
-    public void TheColourDialogOffersExactlyTheSanctionedFive()
-    {
-        Configure("JSdotNet/Backlog");
-
-        using var context = Context();
-        var band = context.Render<RoadmapBand>();
-        Open(band, "roadmap-band-colours", "roadmap-colours");
-
-        for (var colour = 1; colour <= RoadmapPlanView.BandHues; colour++)
-        {
-            Assert.NotNull(band.Find($"[data-testid=\"roadmap-colours-backlog-{colour}\"]"));
-        }
-
-        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-colours-backlog-{RoadmapPlanView.BandHues + 1}\"]"));
-    }
-
-    [Fact]
-    public void TheChosenColourIsSaidInStateNotOnlyInColour()
-    {
-        Configure("JSdotNet/Backlog");
-
-        using var context = Context();
-        var band = context.Render<RoadmapBand>();
-        Open(band, "roadmap-band-colours", "roadmap-colours");
-        band.Find("[data-testid=\"roadmap-colours-backlog-2\"]").Click();
-
-        // Waited for, not assumed: the choice goes to the module and through the plan
-        // file before the dialog is redrawn from what was stored.
-        band.WaitForAssertion(() => Assert.Equal(
-            "true",
-            band.Find("[data-testid=\"roadmap-colours-backlog-2\"]").GetAttribute("aria-pressed")));
+        var band = await PlannedAsync(context);
 
         Assert.Equal(
-            "false",
-            band.Find("[data-testid=\"roadmap-colours-backlog-3\"]").GetAttribute("aria-pressed"));
+            "var(--color-band-4)",
+            band.FindComponent<RoadmapTimeline>().Instance.Groups.Single(group => group.Id == "backlog").Color);
     }
 
     [Fact]
-    public void WithNoRepositoriesConfiguredTheDialogSaysSo()
+    public async Task ARepositoryNobodyHasColouredStillGetsOne()
     {
+        Configure("JSdotNet/Backlog");
+
+        using var context = Context();
+        var band = await PlannedAsync(context);
+
+        // "Nobody chose" is not "no colour": the band is still one project's row and
+        // still has to be told from the next one. What it must not be is neutral, which
+        // is reserved for the unfiled band.
+        Assert.Equal(
+            "var(--color-band-1)",
+            band.FindComponent<RoadmapTimeline>().Instance.Groups.Single(group => group.Id == "backlog").Color);
+    }
+
+    [Fact]
+    public void TheBandOffersNoColourControlOfItsOwn()
+    {
+        Configure("JSdotNet/Backlog");
+
         using var context = Context();
         var band = context.Render<RoadmapBand>();
 
-        Open(band, "roadmap-band-colours", "roadmap-colours");
+        // One choice, one place. A second editor here would be a second answer to which
+        // colour this repository is, and the filter and the entry list would disagree
+        // with whichever one was used last.
+        Assert.Empty(band.FindAll("[data-testid=\"roadmap-band-colours\"]"));
+    }
 
-        Assert.NotNull(band.Find("[data-testid=\"roadmap-colours-empty\"]"));
-        Assert.Empty(band.FindAll("[data-testid=\"roadmap-colours-row\"]"));
+    [Fact]
+    public async Task AColourChosenBeforeTheMoveIsCarriedOntoTheRepository()
+    {
+        Configure("JSdotNet/Backlog");
+        await Planning.AddItemAsync(
+            "Work",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"]);
+        await StoreLegacyBandColourAsync("backlog", 5);
+
+        using var context = Context();
+        var band = Drawn(context);
+
+        // Losing it would be the upgrade quietly recolouring somebody's chart.
+        band.WaitForAssertion(() => Assert.Equal(
+            5,
+            RepositorySettings.Current.Find("backlog")!.Colour));
+    }
+
+    [Fact]
+    public async Task ASettingsChoiceIsNotOverwrittenByTheOldPlanFile()
+    {
+        Configure("JSdotNet/Backlog");
+        await Planning.AddItemAsync(
+            "Work",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"]);
+        await StoreLegacyBandColourAsync("backlog", 5);
+        Assert.Null(RepositorySettings.SetRepositoryColour("backlog", 2));
+
+        using var context = Context();
+        var band = Drawn(context);
+
+        band.WaitForAssertion(() => Assert.NotNull(
+            band.FindComponent<RoadmapTimeline>().Instance.Groups.SingleOrDefault(group => group.Id == "backlog")));
+
+        // The newer answer wins. A file carried forward from before the move is a
+        // starting point, never a correction to a choice made since.
+        Assert.Equal(2, RepositorySettings.Current.Find("backlog")!.Colour);
     }
 }

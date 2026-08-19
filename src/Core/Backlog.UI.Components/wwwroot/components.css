@@ -605,6 +605,92 @@
     font-style: italic;
 }
 
+/* --- Repository identity edge --------------------------------------------- */
+
+/*
+   Which repository something belongs to, as a 4px rule down its leading edge.
+   See .design/color-scheme.md#band-identity-tokens, which sanctions the five hues
+   and names the four surfaces allowed to wear one.
+
+   An inset shadow rather than a border, and that is the whole point of the thing.
+   A border would take 4px out of the element's content box and shift every control
+   inside it; a shadow paints in the padding that is already there. So a chip or a
+   row keeps its own box, its own surface, its own border and its own text colour —
+   the hue is added to what was already correct rather than replacing part of it.
+
+   The mark is decoration and nothing else. Every surface that wears one also writes
+   the repository alias in words, so this is aria-hidden by construction: there is no
+   element here to label.
+*/
+.repo-mark {
+    box-shadow: inset var(--border-width-4) 0 0 0 var(--repo-mark-color, transparent);
+}
+
+.repo-mark--1 { --repo-mark-color: var(--color-band-1); }
+.repo-mark--2 { --repo-mark-color: var(--color-band-2); }
+.repo-mark--3 { --repo-mark-color: var(--color-band-3); }
+.repo-mark--4 { --repo-mark-color: var(--color-band-4); }
+.repo-mark--5 { --repo-mark-color: var(--color-band-5); }
+
+/*
+   The control that offers the choice. The one place a hue is a fill rather than an
+   edge, because a swatch you cannot see the colour of is not a swatch — argued in
+   .design/color-scheme.md#band-identity-tokens rather than assumed here.
+
+   The ring is the chosen state and it is drawn outside the swatch, so picking one
+   does not change how much of the hue is on screen. Every swatch carries its own
+   label, so the fill is never the only thing saying which one this is.
+*/
+.repo-swatches {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+}
+
+.repo-swatch {
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--repo-mark-color, transparent);
+    cursor: pointer;
+}
+
+.repo-swatch:hover {
+    border-color: var(--color-border-strong);
+}
+
+.repo-swatch:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.repo-swatch--chosen {
+    border-color: var(--color-text-primary);
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-background),
+                0 0 0 calc(var(--border-width-2) + var(--border-width)) var(--color-text-primary);
+}
+
+.repo-swatch--1 { --repo-mark-color: var(--color-band-1); }
+.repo-swatch--2 { --repo-mark-color: var(--color-band-2); }
+.repo-swatch--3 { --repo-mark-color: var(--color-band-3); }
+.repo-swatch--4 { --repo-mark-color: var(--color-band-4); }
+.repo-swatch--5 { --repo-mark-color: var(--color-band-5); }
+
+/* Room for the rule. Each surface adds it to its own leading padding, because only
+   that surface knows what its padding was — a shared override here would be this
+   utility guessing, and guessing wrong for anything that is not a chip. */
+.task-item.repo-mark {
+    padding-left: calc(var(--spacing-md) + var(--border-width-4));
+}
+
+.integration-link-list__group.repo-mark {
+    padding-left: var(--spacing-sm);
+}
+
+
 /* An entry a repository committed. It reads exactly like every other entry —
    what it does not do is pretend the controls around it would change anything,
    so the badge names the file and the card stops offering a caret. */
