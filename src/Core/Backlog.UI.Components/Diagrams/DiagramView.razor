@@ -1,4 +1,4 @@
-@implements IAsyncDisposable
+﻿@implements IAsyncDisposable
 @inject IJSRuntime Js
 
 <figure class="diagram-view" data-testid="diagram-view" aria-label="@AriaLabel">
@@ -15,7 +15,7 @@
             <div @ref="_canvas" class="diagram-view__rendered" data-diagram-id="@_diagramId">
                 @if (_renderError is { } error)
                 {
-                    <p class="diagram-view__fallback" role="note">@error Source is available below.</p>
+                    <p class="diagram-view__fallback" role="note">@error@(ShowSource ? " Source is available below." : null)</p>
                 }
                 else
                 {
@@ -28,7 +28,13 @@
             <pre class="diagram-view__source"><code>@Source</code></pre>
         }
     </div>
-    @if (CanRender(Language))
+    @* A drawn diagram is the one block in a body whose content cannot be selected,
+       so it carries its own source disclosure. A host that already shows the same
+       text — a review surface printing the fence beside the picture — turns it off
+       and does not get it twice; a render that failed keeps it either way, because
+       then the source is the only thing left to read and the fallback line above
+       promises it. *@
+    @if (CanRender(Language) && (ShowSource || _renderError is not null))
     {
         <details class="diagram-view__details">
             <summary>Diagram source</summary>
@@ -53,6 +59,14 @@
     [Parameter]
     public string Title { get; set; } = "Diagram";
 
+    /// <summary>Whether a drawn diagram keeps its own "Diagram source"
+    /// disclosure. On by default: in a body, the picture is all a reader can
+    /// select, and the text behind it has nowhere else to be. Off for a host that
+    /// prints the same source itself, where a second copy is a second thing to
+    /// keep in step.</summary>
+    [Parameter]
+    public bool ShowSource { get; set; } = true;
+
     private string DiagramName => IsDiagram(Language) ? Title : "Code diagram";
 
     private string AriaLabel => string.IsNullOrWhiteSpace(Language)
@@ -71,7 +85,7 @@
 
         try
         {
-            await Js.InvokeVoidAsync("backlogDiagrams.render", _canvas, _diagramId, Language, Source);
+            await Js.InvokeVoidAsync("backlogDiagrams.render", _canvas, _diagramId, Language, Source, ShowSource);
         }
         catch (JSException ex)
         {

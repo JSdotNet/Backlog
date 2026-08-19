@@ -1,4 +1,4 @@
-@*
+﻿@*
     The read view of an entry's body: what markdown looks like when you are not
     editing it. Sub-items are not here — a `##` heading is an item in its own
     right and is laid out as its own card below the entry (see Home.razor), so
@@ -222,7 +222,10 @@
             }
             else if (DiagramView.IsDiagram(codeBlock.Language))
             {
-                <DiagramView Title="Backlog diagram" Source="@codeBlock.Text" Language="@codeBlock.Language" />
+                <DiagramView Title="Backlog diagram"
+                             Source="@codeBlock.Text"
+                             Language="@codeBlock.Language"
+                             ShowSource="@ShowDiagramSource" />
             }
             else
             {
@@ -647,6 +650,13 @@
     /// byte-identical rather than restored, because nothing was ever applied.</summary>
     [Parameter]
     public EventCallback<AiProposal> OnRejectProposal { get; set; }
+
+    /// <summary>Whether a diagram drawn from a fence keeps its own source
+    /// disclosure. Forwarded verbatim to <c>DiagramView.ShowSource</c>, for a host
+    /// that already shows the body's markdown beside the rendering and would
+    /// otherwise print the same fence twice.</summary>
+    [Parameter]
+    public bool ShowDiagramSource { get; set; } = true;
 
     /// <summary>Whether a fenced <c>meta</c> block is read as the metadata record
     /// it is. Off by default: most markdown in this product is not a knowledge

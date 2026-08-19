@@ -1,4 +1,4 @@
-@*
+﻿@*
     A labelled single-line field. The help text and the error message are wired
     into `aria-describedby` rather than left floating next to the input, so the
     reason a value was rejected reaches a screen reader with the field.
@@ -44,11 +44,11 @@ else
     [Parameter]
     public bool Readonly { get; set; }
 
-    /// <summary>One of text, number, url, email, date or datetime-local; anything
-    /// else falls back to text.
+    /// <summary>One of text, number, url, email, date, time or datetime-local;
+    /// anything else falls back to text.
     /// <para>
-    /// The two date types are here rather than in a DateField of their own because
-    /// nothing else about the field would differ: same label pairing, same
+    /// The three date and time types are here rather than in a DateField of their
+    /// own because nothing else about the field would differ: same label pairing, same
     /// <c>aria-describedby</c> wiring, same error state. A second component would
     /// have been this one with a different <c>type</c> attribute, and a host that
     /// wanted a date would then have had two places to look for one.
@@ -169,7 +169,7 @@ else
 
     protected override void OnParametersSet()
     {
-        if (Type is not ("text" or "number" or "url" or "email" or "date" or "datetime-local")) Type = "text";
+        if (Type is not ("text" or "number" or "url" or "email" or "date" or "time" or "datetime-local")) Type = "text";
     }
 
     private Task OnInput(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
