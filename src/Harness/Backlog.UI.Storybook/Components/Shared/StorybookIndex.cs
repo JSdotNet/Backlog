@@ -61,6 +61,8 @@ internal static class StorybookIndex
             new("markdown", "Markdown", "MarkdownView: every block and inline the read view renders, and how each is styled.", Exact: true),
             new("markdown/diagrams", "Diagrams in markdown", "What happens when a fenced block names a diagram language: MarkdownView hands it to DiagramView."),
             new("markdown/rich-text", "Rich text editing", "MarkdownEditor: a formatting toolbar over the markdown source, and where it stops short of a WYSIWYG."),
+            new("compare", "Section comparison",
+                "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it \u2014 aligned by heading, never by line."),
             new("entry-edit", "Entry edit", "The same markdown being written: source beside read view, auto-save, task toggling, sub-items."),
             new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
             new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge."),
