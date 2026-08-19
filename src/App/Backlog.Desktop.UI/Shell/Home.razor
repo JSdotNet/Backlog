@@ -27,30 +27,268 @@
 *@
 
 <div class="shell shell--wide">
-    <header class="app-header">
-        <h1>Backlog</h1>
+    @* The header is four regions rather than one row of controls: who you are and
+       over which repositories, what you are looking at, how the workspace is
+       doing, and the things that cut across all of it.
 
-        @if (State.Repositories.Count > 0)
-        {
-            <div class="app-header__repository-scope" role="group" aria-label="Repository scope">
-                @foreach (var repository in State.Repositories)
+       They used to be one flat strip of near-identical pills, which made a
+       multi-select, an exclusive view switch, a panel disclosure and two modal
+       utilities look like the same kind of control. Grouping them is the whole
+       change — almost every behaviour below is the behaviour that was already
+       here. *@
+    <header class="app-header">
+        @* Region A. The wordmark is chrome, not a page title, so it sits at
+           `font-size-lg` here while the other screens' `.app-header h1` — a real
+           page title — keeps the 2xl default. *@
+        <div class="app-header__identity">
+            <h1>Backlog</h1>
+
+            @if (State.Repositories.Count > 0)
+            {
+                <div class="app-header__repository-scope" role="group" aria-label="Repository scope">
+                    @foreach (var repository in State.Repositories)
+                    {
+                        var selected = State.SelectedRepositoryAlias == repository.Alias;
+                        <ToggleButton BaseClass="chip chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="selected"
+                                      TestId="repository-filter-option"
+                                      Title="@(selected ? $"Deselect {repository.FullName}" : repository.FullName)"
+                                      PressedChanged="() => ToggleRepositoryScopeAsync(repository.Alias)">
+                            @repository.Alias
+                        </ToggleButton>
+                    }
+                </div>
+            }
+        </div>
+
+        @* Region B — navigation, and nothing else. Two groups, because there are
+           two different questions with two different shapes of answer: which
+           surface owns the screen (exactly one) and which sections are on it (any
+           number). Two shared ButtonGroups make that difference visible; one
+           undifferentiated row of pills could not. *@
+        <nav class="app-header__nav" aria-label="Workspace views">
+            @* One field with three states, in markup that finally says so.
+               WorkspaceSurface has always been a single enum precisely because a
+               takeover cannot coexist with the workspace or with the other
+               takeover — but the header rendered two independent buttons carrying
+               aria-expanded, which described neither the exclusivity nor the fact
+               that a takeover replaces the workspace instead of expanding beside
+               it. A segmented group of pressed states describes both, and it gives
+               the way back a control of its own rather than leaving it to a second
+               press or the in-surface close button.
+
+               Ask AI keeps aria-expanded further down, because that one really is
+               a disclosure: its panel opens beside the content it belongs to.
+
+               The group renders only when there is a takeover to switch to. With
+               both features off, a lone "Workspace" segment would be a control with
+               nothing to choose between. *@
+            @if (SurfaceSwitcherVisible)
+            {
+                <ButtonGroup CssClass="header-group header-group--surface"
+                             AriaLabel="Surface"
+                             TestId="workspace-surface-switcher">
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="WorkspaceVisible"
+                                  id="workspace-surface-option"
+                                  TestId="workspace-surface-option"
+                                  aria-controls="workspace"
+                                  PressedChanged="CloseSurface">
+                        Workspace
+                    </ToggleButton>
+
+                    @if (IsFeatureEnabled(DevPcFeatures.SystemTools))
+                    {
+                        <ToggleButton BaseClass="header-group__option"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="ToolsVisible"
+                                      id="tools-toggle-button"
+                                      TestId="tools-toggle-button"
+                                      aria-controls="tools-pane"
+                                      PressedChanged="ToggleTools">
+                            Tools
+                        </ToggleButton>
+                    }
+
+                    @if (IsFeatureEnabled(DashboardFeatures.Dashboard))
+                    {
+                        <ToggleButton BaseClass="header-group__option"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="DashboardVisible"
+                                      id="dashboard-toggle-button"
+                                      TestId="dashboard-toggle-button"
+                                      aria-controls="dashboard-pane"
+                                      PressedChanged="ToggleDashboard">
+                            Dashboard
+                        </ToggleButton>
+                    }
+                </ButtonGroup>
+            }
+
+            @* What is on screen below, in one strip. "Sections" rather than "panes"
+               because the first option is the roadmap band, and a band is a row above
+               the panes rather than one of them.
+
+               That difference is also why it is not a GlobalPane. The selection holds a
+               viewport-driven capacity and a "one is always on screen" invariant, both
+               of which exist because the three panes compete for the same width; the
+               band competes for nothing — it is a horizontal row with its own grid
+               track. Folding it in would put it in TrimToCapacity's reach and let a
+               narrowed window silently evict the reader's roadmap. So it looks and feels
+               like its siblings and keeps its own shell field, the same split that keeps
+               WorkspaceSurface out of the selection. It is the one option here with no
+               Disabled binding, because it is the one with no capacity rule to block it.
+
+               The strip is the shared ButtonGroup now rather than a hand-rolled div,
+               so its role and label come from the component and its test id reaches
+               the DOM through TestId. Its options stay aria-pressed toggles:
+               several sections are on screen at once, so this is a multi-select and
+               not a tab strip. It stays live during a takeover on purpose — the
+               pane selection deliberately lives outside WorkspaceSurface so it
+               survives a round trip, which means these configure the workspace the
+               reader is about to come back to. *@
+            <ButtonGroup CssClass="header-group header-group--sections"
+                         AriaLabel="Visible sections"
+                         TestId="global-pane-multiselect">
+                @if (RoadmapPaneOptionVisible)
                 {
-                    var selected = State.SelectedRepositoryAlias == repository.Alias;
-                    <ToggleButton BaseClass="chip chip--scope"
-                                  PressedCssClass="chip--active"
-                                  Pressed="selected"
-                                  TestId="repository-filter-option"
-                                  Title="@(selected ? $"Deselect {repository.FullName}" : repository.FullName)"
-                                  PressedChanged="() => ToggleRepositoryScopeAsync(repository.Alias)">
-                        @repository.Alias
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="RoadmapBandVisible"
+                                  id="roadmap-pane-option"
+                                  TestId="roadmap-pane-option"
+                                  aria-controls="roadmap-band"
+                                  PressedChanged="ToggleRoadmapBand">
+                        Roadmap
                     </ToggleButton>
                 }
-            </div>
-        }
-        @* The header keeps the current version visible. Checking and installing updates
-           happen in the separate update window opened from this control. *@
-        <div class="app-header__version">
-            <AppButton BaseClass="app-version"
+
+                @if (InboxPaneOptionVisible)
+                {
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="InboxPaneVisible"
+                                  id="inbox-pane-option"
+                                  TestId="inbox-pane-option"
+                                  aria-controls="inbox-pane"
+                                  Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
+                                  PressedChanged="ToggleInboxPane">
+                        Inbox
+                    </ToggleButton>
+                }
+
+                <ToggleButton BaseClass="header-group__option"
+                              PressedCssClass="header-group__option--selected"
+                              Pressed="BacklogPaneVisible"
+                              id="backlog-pane-option"
+                              TestId="backlog-pane-option"
+                              aria-controls="backlog-pane"
+                              Disabled="@PaneToggleDisabled(GlobalPane.Backlog)"
+                              PressedChanged="ToggleBacklogPane">
+                    Backlog
+                </ToggleButton>
+
+                @if (KnowledgePaneOptionVisible)
+                {
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="KnowledgePaneVisible"
+                                  id="knowledge-pane-option"
+                                  TestId="knowledge-pane-option"
+                                  aria-controls="repository-knowledge-pane"
+                                  Disabled="@PaneToggleDisabled(GlobalPane.Knowledge)"
+                                  PressedChanged="ToggleKnowledgePane">
+                        Knowledge
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+        </nav>
+
+        @* Region C — how the workspace is doing. Ambient rather than actionable,
+           which is why it is the quietest thing in the row and why it no longer
+           sits in the middle of the navigation. The auto margin lives here now, so
+           the status and the utilities travel to the right edge together. *@
+        <div class="app-header__status">
+            @* The library's indicator, not a second copy of it. The hand-rolled block
+               that used to sit here emitted the same two elements and the same
+               classes, and got aria-live wrong by omission: a live region that never
+               announces is the one thing this control exists to do. AppSaveState has
+               no Idle, so the mapping below never reaches SaveState.Idle and the
+               indicator is never the hidden shape. The wording stays the app's. *@
+            <SaveIndicator State="@SaveIndicatorState"
+                           SavingText="Saving…"
+                           SavedText="Saved"
+                           FailedText="Couldn't save"
+                           id="save-state-indicator"
+                           TestId="save-state-indicator" />
+
+            @* Monitoring is a deliberate act, not a background poll: the backlog has
+               to open instantly and offline, so nothing here waits on GitHub until
+               somebody asks it to. *@
+            @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
+            {
+                <IconButton BaseClass="icon-link"
+                            id="github-sync-button"
+                            TestId="github-sync-button"
+                            Disabled="@State.GitHubSyncing"
+                            AriaLabel="Check GitHub for issue and pull request updates"
+                            OnClick="() => State.SyncGitHubAsync()">
+                    @(State.GitHubSyncing ? "…" : "⟳")
+                </IconButton>
+            }
+        </div>
+
+        @* Region D — the cross-cutting concerns, at the far edge and last in
+           reading order: not one of them is about the work on screen.
+
+           Ask AI is the one accented control in the whole header. It is a designed
+           first-class surface rather than a utility, and holding the accent back to
+           a single control is what lets it mean something instead of becoming the
+           header's wallpaper — which is what the old all-gold row had made it. *@
+        <div class="app-header__utilities">
+            @if (IsFeatureEnabled(AppFeatures.AiAssistant))
+            {
+                @* A disclosure, not a pressed state: this opens a panel beside the
+                   content, so it carries aria-expanded and stays AppButton rather
+                   than ToggleButton. The surface switcher above is the other case —
+                   a selection, not an expansion.
+
+                   The state is written out rather than bound to the bool: Blazor
+                   renders a true bool attribute as `aria-expanded=""` and omits it
+                   entirely when false, and neither is a value aria-expanded accepts.
+                   Now that this is the header's only disclosure, it is the one place
+                   that has to say "true" or "false" — which is what the two takeover
+                   buttons did before they became a selection. *@
+                <AppButton BaseClass="header-accent"
+                           Variant="ButtonVariant.None"
+                           id="ai-toggle-button"
+                           TestId="ai-toggle-button"
+                           aria-controls="ai-assistant-panel"
+                           aria-expanded="@(_aiExpanded ? "true" : "false")"
+                           OnClick="ToggleAiPanel">
+                    Ask AI
+                </AppButton>
+            }
+
+            @if (IsFeatureEnabled(AppFeatures.FeedbackReporting))
+            {
+                <AppButton BaseClass="header-util"
+                           Variant="ButtonVariant.None"
+                           id="feedback-button"
+                           TestId="feedback-button"
+                           aria-haspopup="dialog"
+                           OnClick="OpenFeedbackDialog">
+                    Report issue
+                </AppButton>
+            }
+
+            @* The header keeps the current version visible. Checking and installing
+               updates happen in the separate update window opened from this control.
+               It sits at the right edge with settings after it, where the other
+               things that are not about the work on screen live. *@
+            <AppButton BaseClass="header-util app-version"
                        Variant="ButtonVariant.None"
                        TestId="app-version"
                        title="Open update window"
@@ -58,156 +296,9 @@
                        OnClick="OpenUpdateWindow">
                 Version <code>@Updates.CurrentVersion</code>
             </AppButton>
+
+            <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
         </div>
-        @* The library's indicator, not a second copy of it. The hand-rolled block
-           that used to sit here emitted the same two elements and the same
-           classes, and got aria-live wrong by omission: a live region that never
-           announces is the one thing this control exists to do. AppSaveState has
-           no Idle, so the mapping below never reaches SaveState.Idle and the
-           indicator is never the hidden shape. The wording stays the app's. *@
-        <SaveIndicator State="@SaveIndicatorState"
-                       SavingText="Saving…"
-                       SavedText="Saved"
-                       FailedText="Couldn't save"
-                       id="save-state-indicator"
-                       TestId="save-state-indicator" />
-
-        @* Monitoring is a deliberate act, not a background poll: the backlog has
-           to open instantly and offline, so nothing here waits on GitHub until
-           somebody asks it to. *@
-        @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
-        {
-            <IconButton BaseClass="icon-link"
-                        id="github-sync-button"
-                        TestId="github-sync-button"
-                        Disabled="@State.GitHubSyncing"
-                        AriaLabel="Check GitHub for issue and pull request updates"
-                        OnClick="() => State.SyncGitHubAsync()">
-                @(State.GitHubSyncing ? "…" : "⟳")
-            </IconButton>
-        }
-
-        @* What is on screen below, in one strip. "Sections" rather than "panes"
-           because the first option is the roadmap band, and a band is a row above
-           the panes rather than one of them.
-
-           That difference is also why it is not a GlobalPane. The selection holds a
-           viewport-driven capacity and a "one is always on screen" invariant, both
-           of which exist because the three panes compete for the same width; the
-           band competes for nothing — it is a horizontal row with its own grid
-           track. Folding it in would put it in TrimToCapacity's reach and let a
-           narrowed window silently evict the reader's roadmap. So it looks and feels
-           like its siblings and keeps its own shell field, the same split that keeps
-           WorkspaceSurface out of the selection. It is the one option here with no
-           Disabled binding, because it is the one with no capacity rule to block it. *@
-        <div class="pane-multiselect" role="group" aria-label="Visible sections" data-testid="global-pane-multiselect">
-            @if (RoadmapPaneOptionVisible)
-            {
-                <ToggleButton BaseClass="pane-multiselect__option"
-                              PressedCssClass="pane-multiselect__option--selected"
-                              Pressed="RoadmapBandVisible"
-                              id="roadmap-pane-option"
-                              TestId="roadmap-pane-option"
-                              aria-controls="roadmap-band"
-                              PressedChanged="ToggleRoadmapBand">
-                    Roadmap
-                </ToggleButton>
-            }
-
-            @if (InboxPaneOptionVisible)
-            {
-                <ToggleButton BaseClass="pane-multiselect__option"
-                              PressedCssClass="pane-multiselect__option--selected"
-                              Pressed="InboxPaneVisible"
-                              id="inbox-pane-option"
-                              TestId="inbox-pane-option"
-                              aria-controls="inbox-pane"
-                              Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
-                              PressedChanged="ToggleInboxPane">
-                    Inbox
-                </ToggleButton>
-            }
-
-            <ToggleButton BaseClass="pane-multiselect__option"
-                          PressedCssClass="pane-multiselect__option--selected"
-                          Pressed="BacklogPaneVisible"
-                          id="backlog-pane-option"
-                          TestId="backlog-pane-option"
-                          aria-controls="backlog-pane"
-                          Disabled="@PaneToggleDisabled(GlobalPane.Backlog)"
-                          PressedChanged="ToggleBacklogPane">
-                Backlog
-            </ToggleButton>
-
-            @if (KnowledgePaneOptionVisible)
-            {
-                <ToggleButton BaseClass="pane-multiselect__option"
-                              PressedCssClass="pane-multiselect__option--selected"
-                              Pressed="KnowledgePaneVisible"
-                              id="knowledge-pane-option"
-                              TestId="knowledge-pane-option"
-                              aria-controls="repository-knowledge-pane"
-                              Disabled="@PaneToggleDisabled(GlobalPane.Knowledge)"
-                              PressedChanged="ToggleKnowledgePane">
-                    Knowledge
-                </ToggleButton>
-            }
-        </div>
-        @if (IsFeatureEnabled(AppFeatures.AiAssistant))
-        {
-            @* A disclosure, not a pressed state: these open a panel, so they
-               carry aria-expanded and stay AppButton rather than ToggleButton. *@
-            <AppButton BaseClass="header-tool-toggle"
-                       Variant="ButtonVariant.None"
-                       id="ai-toggle-button"
-                       TestId="ai-toggle-button"
-                       aria-controls="ai-assistant-panel"
-                       aria-expanded="@_aiExpanded"
-                       OnClick="ToggleAiPanel">
-                Ask AI
-            </AppButton>
-        }
-        @* The two takeovers are toggled from here and only from here, which is why
-           the header stays on screen while one is open: it carries the control
-           that closes it. Same disclosure shape as Ask AI. *@
-        @if (IsFeatureEnabled(DevPcFeatures.SystemTools))
-        {
-            <AppButton BaseClass="header-tool-toggle"
-                       Variant="ButtonVariant.None"
-                       id="tools-toggle-button"
-                       TestId="tools-toggle-button"
-                       aria-controls="tools-pane"
-                       aria-expanded="@(ToolsVisible ? "true" : "false")"
-                       OnClick="ToggleTools">
-                Tools
-            </AppButton>
-        }
-        @if (IsFeatureEnabled(DashboardFeatures.Dashboard))
-        {
-            <AppButton BaseClass="header-tool-toggle"
-                       Variant="ButtonVariant.None"
-                       id="dashboard-toggle-button"
-                       TestId="dashboard-toggle-button"
-                       aria-controls="dashboard-pane"
-                       aria-expanded="@(DashboardVisible ? "true" : "false")"
-                       OnClick="ToggleDashboard">
-                Dashboard
-            </AppButton>
-        }
-
-        @if (IsFeatureEnabled(AppFeatures.FeedbackReporting))
-        {
-            <AppButton BaseClass="header-tool-toggle"
-                       Variant="ButtonVariant.None"
-                       id="feedback-button"
-                       TestId="feedback-button"
-                       aria-haspopup="dialog"
-                       OnClick="OpenFeedbackDialog">
-                Report issue
-            </AppButton>
-        }
-
-        <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
     </header>
 
     @* The update and feedback shells are the shared Modal wearing their own
@@ -395,7 +486,7 @@
     }
     else
     {
-        <main class="@WorkspaceClass" data-testid="workspace">
+        <main class="@WorkspaceClass" id="workspace" data-testid="workspace">
             @if (RoadmapBandVisible)
             {
                 <RoadmapBand />
@@ -610,6 +701,14 @@
     /// <summary>Whether the panes are on screen. Anything that is not a takeover
     /// is the workspace, including a surface whose feature has been switched off.</summary>
     private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible;
+
+    /// <summary>Whether the surface switcher is offered at all. It needs something
+    /// to switch to: with both takeover features off its only member would be the
+    /// workspace the reader is already looking at, which is a control with no choice
+    /// in it. Each takeover keeps its own segment gated on its own feature, so this
+    /// is the "is there a segment beyond Workspace" question and nothing more.</summary>
+    private bool SurfaceSwitcherVisible =>
+        IsFeatureEnabled(DevPcFeatures.SystemTools) || IsFeatureEnabled(DashboardFeatures.Dashboard);
 
     /// <summary>Whether the Roadmap option is offered at all. The same two-level
     /// split as <see cref="InboxPaneOptionVisible"/>: the feature decides whether

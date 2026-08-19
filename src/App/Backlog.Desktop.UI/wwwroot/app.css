@@ -92,6 +92,53 @@ h1, h2, h3 {
     font-size: var(--font-size-2xl);
 }
 
+/* --- Header regions ------------------------------------------------------- */
+/*
+  The shell header is four regions rather than one row of controls: identity and
+  repository scope, navigation, workspace status, cross-cutting utilities. The
+  auto margin sits on the status region, so status and utilities travel to the
+  right edge together while identity and navigation stay left.
+*/
+
+.app-header__identity,
+.app-header__nav,
+.app-header__status,
+.app-header__utilities {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.app-header__identity {
+    gap: var(--spacing-sm);
+}
+
+/* The two groups inside are separate controls, so they take more air between
+   them than the members within either one. */
+.app-header__nav {
+    gap: var(--spacing-md);
+}
+
+.app-header__status {
+    gap: var(--spacing-sm);
+    margin-left: auto;
+    color: var(--color-text-secondary);
+}
+
+.app-header__utilities {
+    gap: var(--spacing-xs);
+}
+
+/* The wordmark is chrome here, not a page title, so it steps down from the 2xl
+   that `.app-header h1` keeps on the screens where the heading really is the
+   page's title. */
+.app-header__identity h1 {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
 .header-link {
     display: inline-flex;
     align-items: center;
@@ -125,49 +172,12 @@ h1, h2, h3 {
     flex-wrap: wrap;
     min-width: 0;
 }
-.app-header__version {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    flex-wrap: wrap;
-    margin-left: auto;
-}
-
-.app-version {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    min-height: 2.25rem;
-    padding: 0 var(--spacing-sm);
-    background: transparent;
-    border: var(--border-width) solid transparent;
-    border-radius: var(--border-radius-sm);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-    transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
-}
-
+/* The version control is one of the header utilities now and wears
+   `.header-util` for its shape, so only the version number's own type is left
+   here. It sits at the right edge with settings after it. */
 .app-version code {
     font-family: var(--font-family-mono);
     color: var(--color-text-primary);
-}
-
-.app-version:hover:not(:disabled),
-.app-version:focus-visible {
-    color: var(--color-text-primary);
-    border-color: var(--color-border-strong);
-    background: var(--color-background-alt);
-}
-
-.app-version:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
-.app-version:disabled {
-    cursor: default;
-    color: var(--color-text-disabled);
 }
 
 .app-version__status {
@@ -286,23 +296,40 @@ h1, h2, h3 {
 
 /* --- Icon link (header) --------------------------------------------------- */
 
+/*
+  Minimums rather than a fixed 32px box: the accessibility floor for an
+  icon-only control is 44px, and the back links on the other screens carry a
+  word instead of a glyph, so the box has to be able to grow sideways. The
+  button reset is here because IconButton wears this class too.
+*/
 .icon-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: var(--border-radius-sm);
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: transparent;
     color: var(--color-text-secondary);
     text-decoration: none;
+    font: inherit;
     font-size: var(--font-size-lg);
     line-height: 1;
-    transition: background var(--transition-fast), color var(--transition-fast);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.icon-link:hover {
+.icon-link:hover:not(:disabled) {
     background: var(--color-background-alt);
+    border-color: var(--color-border-strong);
     color: var(--color-text-primary);
+}
+
+.icon-link:disabled {
+    cursor: default;
+    color: var(--color-text-disabled);
 }
 
 .icon-link:focus-visible {
@@ -949,6 +976,25 @@ h1, h2, h3 {
         flex-wrap: wrap;
         gap: var(--spacing-sm);
     }
+
+    /* Wrapped rows, so the regions tighten rather than overflow. The utilities
+       take an auto margin of their own here, because once they wrap onto a row
+       below the status they would otherwise land against the left edge — and the
+       cross-cutting cluster belongs at the right edge whichever row it ends up
+       on. Above this width both regions share one row and the status margin
+       already puts them there, so a second auto margin would only split the free
+       space and drag the status back toward the navigation. */
+    .app-header__nav {
+        gap: var(--spacing-sm);
+    }
+
+    .app-header__utilities {
+        margin-left: auto;
+    }
+
+    .header-group__option {
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
 }
 
 /* --- Add entry ------------------------------------------------------------ */
@@ -1491,79 +1537,165 @@ h1, h2, h3 {
 }
 
 
-.header-tool-toggle {
-    border: var(--border-width) solid var(--color-primary);
-    border-radius: 999px;
-    background: rgba(242, 193, 78, 0.12);
-    color: var(--color-primary);
-    font-weight: 700;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    cursor: pointer;
-}
+/* --- Header groups -------------------------------------------------------- */
+/*
+  Two of these sit in the navigation region, and each reads as one control
+  rather than as three or four loose buttons: a single border around the group,
+  members flush inside it, hairlines between them. The surface group is a
+  one-of-three selection and the sections group is a multi-select, but they
+  share this shape because both answer "what am I looking at" — what differs is
+  how many answers they take, and the pressed state carries that.
 
-.header-tool-toggle:hover,
-.header-tool-toggle:focus-visible {
-    background: var(--color-primary);
-    color: var(--color-background);
-}
+  `border-radius-md`, not the 999px this used to be: the layout guidance
+  reserves the full radius for pills and avatars and asks interactive controls
+  to take md.
+*/
 
-.header-tool-toggle:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.pane-multiselect {
+.header-group {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-xs);
     border: var(--border-width) solid var(--color-border);
-    border-radius: 999px;
+    border-radius: var(--border-radius-md);
     background: var(--color-background-alt);
+    overflow: hidden;
 }
 
-.pane-multiselect__option {
-    border: var(--border-width) solid transparent;
-    border-radius: 999px;
+.header-group__option {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: 0;
+    /* Reserved on every member, so selecting one does not shift the row. */
+    border-bottom: var(--border-width-2) solid transparent;
     background: transparent;
     color: var(--color-text-secondary);
     font: inherit;
     font-size: var(--font-size-sm);
-    font-weight: 700;
-    padding: var(--spacing-xs) var(--spacing-sm);
     cursor: pointer;
-    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.pane-multiselect__option:hover,
-.pane-multiselect__option:focus-visible {
-    border-color: var(--color-border-strong);
+.header-group__option + .header-group__option {
+    border-left: var(--border-width) solid var(--color-border);
+}
+
+.header-group__option:hover:not(:disabled) {
+    background: var(--color-background-raised);
     color: var(--color-text-primary);
 }
 
-.pane-multiselect__option:focus-visible {
+/* Inset, because the members touch: an outset ring would be clipped by the
+   group's own overflow. */
+.header-group__option:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+/*
+  Two channels for the selected state, not one: a tinted fill plus the primary
+  underline the navigation guidance uses for an active tab. Colour on its own is
+  the one thing the accessibility rules rule out.
+*/
+.header-group__option--selected {
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    border-bottom-color: var(--color-primary);
+    color: var(--color-primary-light);
+}
+
+.header-group__option--selected:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 26%, transparent);
+    color: var(--color-primary-light);
+}
+
+.header-group__option:disabled {
+    cursor: not-allowed;
+    color: var(--color-text-disabled);
+}
+
+/* A pane held on screen by the capacity rule is still the selected one, so it
+   keeps the selected treatment and only dims. */
+.header-group__option--selected:disabled {
+    color: var(--color-primary-light);
+    opacity: 0.8;
+}
+
+/* --- Header accent and utilities ------------------------------------------ */
+/*
+  Exactly one accented control in the header. Ask AI is a designed first-class
+  surface rather than a utility, and holding the accent to a single control is
+  what lets it read as an accent at all — the row this replaced was entirely
+  gold, so nothing in it stood out.
+*/
+
+.header-accent {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: var(--border-width) solid var(--color-primary);
+    border-radius: var(--border-radius-md);
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    color: var(--color-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.header-accent:hover:not(:disabled),
+.header-accent:focus-visible {
+    background: var(--color-primary);
+    color: var(--color-background);
+}
+
+.header-accent:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
-.pane-multiselect__option--selected {
-    border-color: var(--color-primary);
-    background: rgba(242, 193, 78, 0.18);
-    color: var(--color-primary-light);
-}
-
-.pane-multiselect__option--selected:hover,
-.pane-multiselect__option--selected:focus-visible {
-    background: var(--color-primary);
-    color: var(--color-text-inverse);
-}
-
-.pane-multiselect__option:disabled {
+.header-accent:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
 }
 
-.pane-multiselect__option--selected:disabled {
-    opacity: 0.8;
+/*
+  The cross-cutting utilities: borderless and secondary at rest so they sit
+  behind the navigation and the accent, growing a border only when reached for.
+  Chrome that appears on approach rather than shouting the whole time.
+*/
+.header-util {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.header-util:hover:not(:disabled),
+.header-util:focus-visible {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+    background: var(--color-background-alt);
+}
+
+.header-util:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.header-util:disabled {
+    cursor: default;
+    color: var(--color-text-disabled);
 }
 
 /* --- Azure Foundry AI assistant ------------------------------------------ */
