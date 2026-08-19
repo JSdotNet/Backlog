@@ -106,10 +106,10 @@
                     }
                 }
             </div>
-            @if (!string.IsNullOrWhiteSpace(_featureMessage))
-            {
-                <p class="setting__note" role="status">@_featureMessage</p>
-            }
+            @* The library's alert wearing this page's note class. It renders
+               nothing when the message is empty, which is what the @@if around the
+               hand-rolled paragraph used to do. *@
+            <Alert Message="@_featureMessage" BaseClass="setting__note" Role="status" />
         </TabPanel>
 
     @if (IsSettingsPageAvailable(SettingsPage.Ai))

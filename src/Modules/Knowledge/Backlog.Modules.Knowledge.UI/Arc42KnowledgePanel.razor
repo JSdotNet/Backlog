@@ -10,13 +10,13 @@
         </div>
         @if (_catalog is not null && _catalog.Exists)
         {
-            <span class="knowledge-pane__count">@_catalog.Documents.Count chapters</span>
+            <Badge BaseClass="knowledge-pane__count" Kind="">@_catalog.Documents.Count chapters</Badge>
         }
     </header>
 
     @if (_loading)
     {
-        <p class="knowledge-empty" role="status">Loading architecture knowledge...</p>
+        <Alert Message="Loading architecture knowledge..." BaseClass="knowledge-empty" Role="status" />
     }
     else if (_catalog is null || !_catalog.Exists)
     {

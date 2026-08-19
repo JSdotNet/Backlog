@@ -4,7 +4,7 @@
 <section class="design-knowledge" aria-labelledby="design-knowledge-title" data-testid="design-knowledge-view">
     @if (_model is null)
     {
-        <p class="design-knowledge__message" role="status">Loading design knowledge...</p>
+        <Alert Message="Loading design knowledge..." BaseClass="design-knowledge__message" Role="status" />
     }
     else if (!_model.IsAvailable)
     {
@@ -12,7 +12,9 @@
             <p class="design-knowledge__eyebrow">Knowledge base</p>
             <h2 id="design-knowledge-title">Design knowledge</h2>
         </header>
-        <p class="design-knowledge__message" role="status">@_model.Message</p>
+        @* Unavailable is only ever constructed with a reason, so this never
+           takes the alert's hidden shape. *@
+        <Alert Message="@_model.Message" BaseClass="design-knowledge__message" Role="status" />
         <a class="design-knowledge__settings" href="settings">Open repository settings</a>
     }
     else

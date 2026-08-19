@@ -7,7 +7,7 @@
 <section class="domain-knowledge @(Compact ? "domain-knowledge--compact" : string.Empty)" data-testid="domain-knowledge-panel" aria-labelledby="domain-knowledge-title">
     @if (_view is null)
     {
-        <p class="domain-knowledge__state" role="status">Loading domain knowledge...</p>
+        <Alert Message="Loading domain knowledge..." BaseClass="domain-knowledge__state" Role="status" />
     }
     else if (_view.Error is not null)
     {
@@ -60,7 +60,12 @@
                         <p class="domain-knowledge__eyebrow">Bounded context</p>
                         <h3>@SelectedContext.DisplayName</h3>
                     </div>
-                    <span class="badge badge--domain-status badge--domain-status-@SelectedContext.Status">@SelectedContext.Status</span>
+                    @* The library's status badge, which composes exactly the three
+                       classes this span spelled out. FallbackSlug is the domain's own
+                       word rather than the component's "draft" default: a context with
+                       no status reads "none" everywhere else in this panel, and a badge
+                       that invented "draft" would disagree with the store. *@
+                    <StatusBadge Kind="domain-status" Status="@SelectedContext.Status" FallbackSlug="none" />
                 </header>
 
                 <div class="domain-context__documents">

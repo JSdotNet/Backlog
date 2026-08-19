@@ -5,7 +5,7 @@
 <aside class="knowledge-pane tech-knowledge-pane" data-testid="technology-knowledge-panel" aria-labelledby="technology-knowledge-title">
     @if (_view is null)
     {
-        <p class="knowledge-empty" role="status">Loading technology knowledge...</p>
+        <Alert Message="Loading technology knowledge..." BaseClass="knowledge-empty" Role="status" />
     }
     else if (!_view.Available)
     {
@@ -89,7 +89,7 @@
                                   Pressed="@(ReferenceEquals(layer, ActiveLayer))"
                                   PressedChanged="() => SelectLayerAsync(layer)">
                         <span>@LayerLabel(layer)</span>
-                        <span class="tech-layer-tab__count">@layer.Nodes.Count</span>
+                        <Badge BaseClass="tech-layer-tab__count" Kind="">@layer.Nodes.Count</Badge>
                     </ToggleButton>
                 }
             </section>
@@ -122,7 +122,7 @@
                                 @RenderStatusSelect(node.Id, node.Label, node.Status)
                                 @if (!string.IsNullOrWhiteSpace(node.Metadata.Version))
                                 {
-                                    <span class="badge">@node.Metadata.Version</span>
+                                    <Badge Kind="">@node.Metadata.Version</Badge>
                                 }
                             </div>
 
