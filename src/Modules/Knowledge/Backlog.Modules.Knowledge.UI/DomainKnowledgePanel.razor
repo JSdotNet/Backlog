@@ -1,3 +1,4 @@
+@implements IDisposable
 @using Backlog.Infrastructure.Copilot
 @inject DomainKnowledgeStore DomainKnowledge
 @inject KnowledgeCopilotCli KnowledgeCopilot
@@ -109,6 +110,11 @@
             .Concat(_view.Contexts.SelectMany(context => context.Documents))
             .FirstOrDefault(document => PathMatches(document.Path, SelectedPath));
 
+    protected override void OnInitialized()
+    {
+        DomainKnowledge.Changed += OnKnowledgeChanged;
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (View is not null)
@@ -120,12 +126,34 @@
             _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
             _loadedRepositoryAlias = RepositoryAlias;
         }
+        SelectDefaultContext();
+
+        await LoadSelectedChapterAsync();
+    }
+
+    /// <summary>The configured folder moved, so every cached read is stale —
+    /// including the open chapter, which is why this goes through
+    /// <see cref="ReloadAsync"/> rather than re-reading the view alone. A
+    /// parent-supplied <see cref="View"/> is the parent's to refresh, not
+    /// ours.</summary>
+    private async void OnKnowledgeChanged()
+    {
+        if (View is not null) return;
+
+        await ReloadAsync();
+        SelectDefaultContext();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>A reload can drop the selected context, so the selection is
+    /// re-resolved against whatever loaded.</summary>
+    private void SelectDefaultContext()
+    {
+        if (_view is null) return;
         if (_selectedContextSlug is null || !_view.Contexts.Any(c => c.Slug == _selectedContextSlug))
         {
             _selectedContextSlug = Compact ? _view.Contexts.FirstOrDefault()?.Slug : null;
         }
-
-        await LoadSelectedChapterAsync();
     }
 
     /// <summary>
@@ -487,4 +515,9 @@
     private static string StateSelectId(KnowledgeActionItem item) => ElementId(item.Path) + "-state";
 
     private bool IsFeatureEnabled(string key) => Features.IsEnabled(key);
+
+    public void Dispose()
+    {
+        DomainKnowledge.Changed -= OnKnowledgeChanged;
+    }
 }

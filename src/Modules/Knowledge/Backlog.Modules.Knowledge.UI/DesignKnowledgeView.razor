@@ -1,3 +1,4 @@
+@implements IDisposable
 @inject DesignKnowledgeProvider DesignKnowledge
 
 <section class="design-knowledge" aria-labelledby="design-knowledge-title" data-testid="design-knowledge-view">
@@ -136,6 +137,11 @@
     [Parameter]
     public string? SelectedPath { get; set; }
 
+    protected override void OnInitialized()
+    {
+        DesignKnowledge.Changed += OnKnowledgeChanged;
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (_model is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
@@ -148,6 +154,15 @@
         // there precisely to skip a re-parse when it does — so the chapter is
         // read outside it.
         _chapter = await LoadChapterAsync();
+    }
+
+    /// <summary>The configured folder moved, so every cached read is stale —
+    /// including the open chapter, which is why this goes through
+    /// <see cref="ReloadAsync"/> rather than re-reading the folder alone.</summary>
+    private async void OnKnowledgeChanged()
+    {
+        await ReloadAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     /// <summary>Parses the folder again and re-reads the open chapter, whatever
@@ -237,5 +252,10 @@
     {
         var index = table.Headers.ToList().FindIndex(h => string.Equals(h, header, StringComparison.OrdinalIgnoreCase));
         return index >= 0 && index < row.Count ? row[index] : null;
+    }
+
+    public void Dispose()
+    {
+        DesignKnowledge.Changed -= OnKnowledgeChanged;
     }
 }

@@ -18,7 +18,15 @@ public sealed class DomainKnowledgeStore
     private static readonly Regex KnowledgeLink = new("\\.(?:domain|arc42|backlog|tech|design)/[^\\s)`>,]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly string[] PreferredContextFiles = ["domain.md", "index.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
 
-public Task<DomainKnowledgeView> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
+    /// <summary>Re-published from the folder source so an open panel can reload
+    /// when the configured folder moves.</summary>
+    public event Action? Changed
+    {
+        add => source.Changed += value;
+        remove => source.Changed -= value;
+    }
+
+    public Task<DomainKnowledgeView> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var location = source.Resolve(".domain", repositoryAlias);
