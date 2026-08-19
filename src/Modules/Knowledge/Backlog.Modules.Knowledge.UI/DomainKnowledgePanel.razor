@@ -1,3 +1,4 @@
+@implements IDisposable
 @using Backlog.Infrastructure.Copilot
 @inject DomainKnowledgeStore DomainKnowledge
 @inject KnowledgeCopilotCli KnowledgeCopilot
@@ -105,6 +106,11 @@
             .Concat(_view.Contexts.SelectMany(context => context.Documents))
             .FirstOrDefault(document => PathMatches(document.Path, SelectedPath));
 
+    protected override void OnInitialized()
+    {
+        DomainKnowledge.Changed += OnKnowledgeChanged;
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (View is not null)
@@ -113,9 +119,34 @@
         }
         else if (_view is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
         {
-            _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
-            _loadedRepositoryAlias = RepositoryAlias;
+            await LoadAsync();
         }
+        SelectDefaultContext();
+    }
+
+    /// <summary>The configured folder moved, so the cached read is stale. A
+    /// parent-supplied <see cref="View"/> is the parent's to refresh, not
+    /// ours.</summary>
+    private async void OnKnowledgeChanged()
+    {
+        if (View is not null) return;
+
+        await LoadAsync();
+        SelectDefaultContext();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadAsync()
+    {
+        _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
+        _loadedRepositoryAlias = RepositoryAlias;
+    }
+
+    /// <summary>A reload can drop the selected context, so the selection is
+    /// re-resolved against whatever loaded.</summary>
+    private void SelectDefaultContext()
+    {
+        if (_view is null) return;
         if (_selectedContextSlug is null || !_view.Contexts.Any(c => c.Slug == _selectedContextSlug))
         {
             _selectedContextSlug = Compact ? _view.Contexts.FirstOrDefault()?.Slug : null;
@@ -296,8 +327,7 @@
         try
         {
             await DomainKnowledge.UpdateStatusAsync(RepositoryAlias, item.Path, status);
-            _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
-            _loadedRepositoryAlias = RepositoryAlias;
+            await LoadAsync();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
@@ -361,4 +391,9 @@
     private static string StateSelectId(KnowledgeActionItem item) => ElementId(item.Path) + "-state";
 
     private bool IsFeatureEnabled(string key) => Features.IsEnabled(key);
+
+    public void Dispose()
+    {
+        DomainKnowledge.Changed -= OnKnowledgeChanged;
+    }
 }
