@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Dashboard module's public surface — everything a host, a screen, or an
+    adapter is allowed to see:
+      DashboardFeatures     the feature key the shell gates the surface on
+      DashboardScope        which repository is in focus and over what window
+      Insights/             what each part of the dashboard receives
+      Services/             two questions the UI asks, and four ports somebody
+                            outside this module answers
+
+    The ports are here rather than in the implementation on purpose, and the
+    repository already made that distinction: IBacklogStore and
+    IKnowledgeFolderSource are outward-facing ports in an .Abstractions project
+    answered by adapters elsewhere, while IBacklogRepository is an internal port
+    kept in the implementation because only the module's own handlers use it.
+    Every dashboard source is a provider API somebody outside this module reaches,
+    so an adapter should need this project and nothing more.
+
+    Nothing here may reference the implementation, or anything else in the
+    solution beyond the shared kernel — which is also why the money and status
+    types below are declared here instead of borrowed from the metrics component
+    library. A contract that reached into a UI library to describe an amount
+    would make every consumer of this module a consumer of that library too.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Dashboard.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Dashboard.UnitTests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,157 @@
+@*
+    The dashboard: productivity and cost, narrowable to one repository.
+
+    This used to be an empty pane in the Monitoring module, where a dashboard was a
+    derived view over a signal stream nobody had written yet. It is its own context
+    now, and the wording has moved with it — nothing here derives from Monitoring's
+    Progress Signal; every figure comes from a provider that already holds it.
+
+    Two things this pane deliberately is not:
+
+    It is not configurable. There is no layout to edit, nothing to add or remove,
+    and no preference that outlives the surface being closed. The composition below
+    is the composition, which is why a stale dashboard cannot happen here — there is
+    no saved arrangement to fall out of step with the code.
+
+    It is not a coordinator. It awaits nothing and holds no figures. Every part
+    below starts its own fetch, carries its own status, and refreshes on its own, so
+    an unconfigured Anthropic key delays and explains one part rather than blanking
+    six. All this pane owns is the filter, and passing it down.
+
+    The filter drives the productivity parts and visibly does not drive the cost
+    parts, because neither provider reports spend per repository. That is stated on
+    each cost part rather than left for a reader to work out from a figure that
+    refuses to move.
+
+    The ✕ only reports that it was pressed; what that closes is the shell's business.
+*@
+
+<section @key=@("dashboard-pane") class="dashboard-panel" id="dashboard-pane" aria-labelledby="dashboard-title" data-testid="dashboard-panel">
+    <header class="dashboard-panel__header">
+        <div>
+            <p class="dashboard-panel__eyebrow">Dashboard</p>
+            <h2 id="dashboard-title" class="dashboard-panel__title">Productivity and cost</h2>
+            <p class="dashboard-panel__subtitle">Your own pull requests, issues and rework, and what your assistants cost.</p>
+        </div>
+        <div class="dashboard-panel__header-actions">
+            <IconButton AriaLabel="Close dashboard" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
+        </div>
+    </header>
+
+    <div class="dashboard-panel__filters" data-testid="dashboard-filters">
+        <div class="dashboard-filter">
+            <span class="dashboard-filter__label" id="dashboard-repository-label">Repository</span>
+            @* A select rather than a segmented strip. The strip is what the
+               storybook prototyped over five fixture repositories; a real
+               configuration is however many somebody has added, and a one-of-many
+               control that can overflow the header is the wrong shape for a list
+               whose length is not this pane's decision. *@
+            <RepositorySelector CurrentValue="@_scope.RepositoryAlias"
+                                Options="@RepositoryOptions"
+                                Label="Repository to focus on"
+                                IncludeEmptyOption="true"
+                                EmptyLabel="All repositories"
+                                TestId="dashboard-repository-filter"
+                                OnChanged="FocusRepository" />
+        </div>
+
+        <div class="dashboard-filter">
+            <span class="dashboard-filter__label">Window</span>
+            <ButtonGroup AriaLabel="How far back to look" TestId="dashboard-window-filter">
+                @foreach (var period in Periods)
+                {
+                    @* PressedChanged rather than the pressed state itself: the strip
+                       is one-of-many, so this pane owns the selection and the button
+                       only announces the press. *@
+                    <ToggleButton Pressed="_scope.Period == period"
+                                  PressedChanged="_ => ChooseWindow(period)"
+                                  TestId="@($"dashboard-window-{Weeks(period)}")">
+                        @($"{Weeks(period)} weeks")
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+        </div>
+    </div>
+
+    <div class="dashboard-panel__content" id="dashboard-content">
+        <div class="dashboard-section" data-testid="dashboard-productivity">
+            <h3 class="dashboard-section__title">Productivity</h3>
+            <HeadlinePart Scope="_scope" />
+            <div class="dashboard-section__split">
+                <ScorePart Scope="_scope" />
+                <ReworkPart Scope="_scope" />
+            </div>
+            <TrendPart Scope="_scope" />
+        </div>
+
+        <div class="dashboard-section" data-testid="dashboard-cost">
+            <h3 class="dashboard-section__title">Cost</h3>
+            <p class="dashboard-section__note">
+                Your own assistant usage. Neither Anthropic nor GitHub reports spend per repository,
+                so the repository filter above does not change anything in this section.
+            </p>
+            <SpendThisMonthPart Scope="_scope" />
+            <div class="dashboard-section__split">
+                <SpendTrendPart Scope="_scope" />
+                <SpendByModelPart Scope="_scope" />
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    /// <summary>The two windows on offer. A closed set, because an arbitrary one
+    /// would make two readings taken a fortnight apart incomparable.</summary>
+    private static readonly DashboardPeriod[] Periods =
+    [
+        DashboardPeriod.FourWeeks,
+        DashboardPeriod.TwelveWeeks
+    ];
+
+    /// <summary>
+    /// What the dashboard is looking at. A field rather than anything persisted:
+    /// closing the surface forgets it, which is the whole reason there is nothing to
+    /// configure here.
+    /// </summary>
+    private DashboardScope _scope = DashboardScope.Default;
+
+    [Inject]
+    private IRepositoryDirectory Repositories { get; set; } = default!;
+
+    /// <summary>Raised when somebody dismisses the dashboard. Whether that returns
+    /// to the workspace, opens something else or does nothing is the shell's
+    /// decision — the pane only reports that the ✕ was pressed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>
+    /// Read on every render rather than cached, so a repository added in Settings
+    /// while the dashboard is open turns up in the filter.
+    /// <para>
+    /// The label is the <c>owner/name</c> form rather than the alias. Two
+    /// repositories can carry aliases that look alike — <c>backlog</c> and
+    /// <c>backlog-ide</c> — and the full name is what makes the option
+    /// unambiguous; the alias is still the value, because that is what the scope
+    /// and the entry syntax use.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<SelectorOption> RepositoryOptions =>
+        [.. Repositories.Repositories.Select(repository =>
+            new SelectorOption(repository.Alias, repository.FullName))];
+
+    /// <summary>
+    /// Focuses one repository, or all of them when the empty option is chosen.
+    /// <para>
+    /// The scope is replaced rather than mutated, because every part decides whether
+    /// to re-fetch by comparing the scope it last fetched for against the one it was
+    /// given. A record with value equality makes that comparison correct; mutating a
+    /// shared instance would make every part think nothing had changed.
+    /// </para>
+    /// </summary>
+    private void FocusRepository(string? alias) =>
+        _scope = _scope with { RepositoryAlias = string.IsNullOrWhiteSpace(alias) ? null : alias };
+
+    private void ChooseWindow(DashboardPeriod period) => _scope = _scope with { Period = period };
+
+    private static int Weeks(DashboardPeriod period) => new DashboardScope(Period: period).Weeks;
+}

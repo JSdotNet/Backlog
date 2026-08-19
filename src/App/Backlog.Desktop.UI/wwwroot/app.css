@@ -2298,6 +2298,129 @@ h1, h2, h3 {
     overflow: auto;
 }
 
+/* The filter strip. Two controls, above the content rather than inside the first
+   part, because they scope the whole surface — putting them in a part would make
+   them look like that part's own controls. It is the only thing on this panel a
+   reader can change, and it changes what is shown rather than which parts exist. */
+.dashboard-panel__filters {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: var(--spacing-md) var(--spacing-lg);
+    align-items: center;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-filter {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    min-width: 0;
+}
+
+.dashboard-filter__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Productivity and cost. A section rather than two panels of tiles, because the
+   thing that separates them is not visual weight — it is that the filter above
+   drives one of them and cannot drive the other, and that has to be sayable. */
+.dashboard-section {
+    display: grid;
+    gap: var(--spacing-md);
+    align-content: start;
+    min-width: 0;
+}
+
+.dashboard-section__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.dashboard-section__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    max-width: 60ch;
+}
+
+/* Two parts side by side where there is room for them, one above the other where
+   there is not. auto-fit rather than a media query, because what decides this is
+   the panel's own width and the panel is inside a takeover whose width is the
+   window's minus its padding — a breakpoint would have to restate that sum. */
+.dashboard-section__split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    gap: var(--spacing-md);
+    align-items: start;
+    min-width: 0;
+}
+
+.dashboard-part {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    min-width: 0;
+}
+
+.dashboard-part__header {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: flex-start;
+    justify-content: space-between;
+    min-width: 0;
+}
+
+.dashboard-part__heading {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.dashboard-part__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+}
+
+/* What the figures do and do not cover. Long on purpose in the cost parts, where
+   it carries the one thing a reader could otherwise get wrong — that the
+   repository filter above does not reach them — so it wraps rather than
+   truncating. */
+.dashboard-part__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    max-width: 70ch;
+}
+
+.dashboard-part__content {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* A part with more than one component in it. Grid rather than the parent's gap
+   alone, so a chart and the table under it are spaced like one thing and not like
+   two parts that happen to be adjacent. */
+.dashboard-part__stack {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
 /* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is
    ignored on a grid item and stays only because the rule is shared history;
    stretching to the row is what actually sizes it. */

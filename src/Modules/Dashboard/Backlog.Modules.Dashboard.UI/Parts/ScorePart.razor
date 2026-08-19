@@ -1,0 +1,78 @@
+@*
+    The productivity score, and — the part that earns it — what it is made of.
+
+    A score is a claim, not a measurement. Nobody can check "68" against anything,
+    so a bare score is either taken on faith or ignored, and it is usually ignored.
+    Handing the component the inputs rather than the number turns it into an
+    argument somebody can join: a reader who thinks throughput is over-weighted can
+    see it is worth three of the eight and say so.
+
+    Value is deliberately not passed. MetricScore works the figure out from the
+    inputs it is given, so the number on screen cannot drift from the composition
+    printed underneath it — which is a property worth more than saving the
+    component the arithmetic. The module computes its own score for the trend
+    series, and a unit test holds the two formulas to the same answer.
+*@
+@inherits DashboardPartBase<ProductivityScoreInsight>
+@inject IProductivityInsights Insights
+
+<PartFrame Title="Score"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-score">
+    <MetricScore Label="@Label"
+                 Components="@Inputs"
+                 Bands="Bands"
+                 Status="Status"
+                 StatusMessage="@StatusMessage"
+                 Footnote="Weights are a starting position. They are on screen because they are arguable."
+                 TestId="dashboard-score-card" />
+</PartFrame>
+
+@code {
+    /// <summary>
+    /// The bands the score is read against — floors only, so there are no ceilings
+    /// to keep in step with the next band up.
+    /// <para>
+    /// Product copy rather than domain, which is why they live in the part and not
+    /// in the module: what counts as "strong" is a judgement about how to talk to
+    /// the reader, and moving it behind the port would make it look like a
+    /// derivation.
+    /// </para>
+    /// </summary>
+    private static readonly MetricBand[] Bands =
+    [
+        new("Quiet", 0m),
+        new("Steady", 40m),
+        new("Strong", 65m),
+        new("Exceptional", 85m)
+    ];
+
+    private string Label => Scope.IsAllRepositories
+        ? "Productivity score — every repository"
+        : $"Productivity score — {Scope.RepositoryAlias}";
+
+    private string Note => $"Over {Scope.Weeks} weeks. Four inputs, weighted, normalised to 100.";
+
+    private IReadOnlyList<MetricScoreComponent> Inputs =>
+        IsReady
+            ? [.. Value!.Inputs.Select(input =>
+                new MetricScoreComponent(input.Label, input.Value, input.Max, input.Weight))]
+            : [];
+
+    protected override Task<InsightResult<ProductivityScoreInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetScoreAsync(Scope, cancellationToken);
+
+    /// <summary>
+    /// Empty when there were no inputs at all — a window in which nothing happened
+    /// that any of the four measures could read. A score of zero over real inputs is
+    /// a score, not an absence, and it renders as one.
+    /// </summary>
+    protected override bool IsEmpty(ProductivityScoreInsight value) => value.Inputs.Count == 0;
+
+    protected override string EmptyMessage =>
+        "Nothing happened in this window that any of the four inputs could read.";
+
+    protected override void InvalidateSource() => Insights.Invalidate(Scope);
+}

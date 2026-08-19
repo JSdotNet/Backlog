@@ -63,9 +63,22 @@ public sealed class GhCliTransport : IGitHubTransport
         HttpMethod method,
         string path,
         object? body = null,
+        string? apiVersion = null,
         CancellationToken cancellationToken = default)
     {
         var arguments = new List<string> { "api", "--method", method.Method, path.TrimStart('/') };
+
+        // `gh api` sends its own X-GitHub-Api-Version, so the version has to be
+        // overridden per call rather than left to the CLI's default — otherwise the
+        // billing endpoints answer 404 through the CLI while working through a
+        // token, which is the sort of difference between two transports that takes
+        // a long afternoon to find.
+        arguments.AddRange(
+        [
+            "--header",
+            "X-GitHub-Api-Version: "
+                + (string.IsNullOrWhiteSpace(apiVersion) ? IGitHubTransport.DefaultApiVersion : apiVersion.Trim())
+        ]);
 
         string? input = null;
         if (body is not null)

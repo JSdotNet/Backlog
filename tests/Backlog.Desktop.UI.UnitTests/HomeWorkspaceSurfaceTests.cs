@@ -180,7 +180,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void A_surface_whose_feature_is_switched_off_falls_back_to_the_workspace()
     {
-        using var harness = CreateHarness(features => features.SetEnabled(MonitoringFeatures.Dashboard, false));
+        using var harness = CreateHarness(features => features.SetEnabled(DashboardFeatures.Dashboard, false));
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
@@ -469,7 +469,7 @@ public sealed class HomeWorkspaceSurfaceTests
         // The three surfaces under test are on; everything that would put extra
         // chrome or a network call in the way is off.
         _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, true);
-        _ = featureSettings.SetEnabled(MonitoringFeatures.Dashboard, true);
+        _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(KnowledgeFeatures.KnowledgeSections, true);
         _ = featureSettings.SetEnabled(KnowledgeFeatures.RepositoryKnowledge, true);
@@ -517,6 +517,8 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddSingleton<KnowledgeScope>();
         context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        // The dashboard takeover, with no provider behind it — see DashboardTestHost.
+        _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
         context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
         context.Services.AddScoped(sp => BacklogTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
