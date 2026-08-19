@@ -48,12 +48,17 @@ public sealed class BacklogDetailPaneTests
 
         Assert.Same(first, host.State.SelectedRow);
 
-        // The title is a field here rather than a line of text — the pane's row is
-        // DirectRename — so the entry's name is the field's value, not the region's
-        // text content.
+        // The open entry is the panel's heading, and the heading is the control that
+        // retitles it — there is no pencil, so the title is its own target. That is
+        // TaskPanel's decision rather than this pane's, which is the point of the
+        // pane rendering the panel instead of a row of its own.
+        Assert.Equal("Provision the box", pane.Find("[data-testid='entry-panel-title']").TextContent);
+
+        await pane.Find("[data-testid='entry-panel-title']").ClickAsync(new());
+
         Assert.Equal(
             "Provision the box",
-            pane.Find("[data-testid='entry-detail-task-rename']").GetAttribute("value"));
+            pane.Find("[data-testid='entry-panel-rename']").GetAttribute("value"));
     }
 
     [Fact]
@@ -492,11 +497,34 @@ public sealed class BacklogDetailPaneTests
         await pane.Find("[data-testid='status-badge'] select").ChangeAsync(new() { Value = nameof(EntryStatus.Ready) });
         Assert.Contains("`!ready`", row.RawText, StringComparison.Ordinal);
 
-        await pane.Find("[data-testid='entry-tags-input']").ChangeAsync(new() { Value = "#sync desktop" });
+        // The tags are chips and a field to type the next one into — TagMultiSelect
+        // with AllowCreate, because a tag is whatever somebody typed. Typing and
+        // pressing Enter is what the old space-separated line was; what is new is
+        // that the tags already on the entry are chips beside the field rather than
+        // more text inside it.
+        await AddTagAsync(pane, "sync");
+        await AddTagAsync(pane, "desktop");
+
         Assert.Contains("`#sync`", row.RawText, StringComparison.Ordinal);
         Assert.Contains("`#desktop`", row.RawText, StringComparison.Ordinal);
 
+        // And taking one off is the chip's ✕, not editing a string back down.
+        await pane.Find("[data-testid='entry-tags-input'] .tag-chip__remove").ClickAsync(new());
+
+        Assert.DoesNotContain("`#sync`", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("`#desktop`", row.RawText, StringComparison.Ordinal);
+
         Assert.Single(pane.FindAll("[data-testid='area-badge']"));
+    }
+
+    /// <summary>Types a tag into the picker and commits it, which is the gesture the
+    /// picker calls "create": the popup opens on input, the new tag is the active
+    /// option when nothing else matches, and Enter takes it.</summary>
+    private static async Task AddTagAsync(IRenderedComponent<BacklogPane> pane, string tag)
+    {
+        var field = pane.Find("[data-testid='entry-tags-input'] input");
+        await field.InputAsync(new() { Value = tag });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
     }
 
     // --- What is deliberately absent --------------------------------------

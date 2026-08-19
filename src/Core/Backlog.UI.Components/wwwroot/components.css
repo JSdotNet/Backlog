@@ -550,8 +550,7 @@
 }
 
 .status-editor__select::-ms-expand,
-.metadata-editor__select::-ms-expand,
-.entry-doc__tag-input::-ms-expand {
+.metadata-editor__select::-ms-expand {
     display: none;
 }
 
@@ -3016,9 +3015,32 @@ button.task-panel__check:focus-visible {
     gap: var(--spacing-xs);
 }
 
+/* Badges, pickers and links on one line, wrapping rather than scrolling: this
+   strip is as long as the host made it, and a row of classification that ran off
+   the edge would hide the half of it nobody scrolled to. */
+.task-panel__filing {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
 .task-panel__body {
     display: flex;
     flex-direction: column;
+    min-width: 0;
+}
+
+/* A stack, not a row of buttons. What acts on the whole task is usually a couple
+   of controls, but it is sometimes a control and the thing it revealed — a source
+   view, a confirmation — and a slot that had laid its content out in a line would
+   be a slot those cannot go in. Which way the controls themselves sit is the
+   host's, the way it is in every other slot here. */
+.task-panel__footer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
     min-width: 0;
 }
 

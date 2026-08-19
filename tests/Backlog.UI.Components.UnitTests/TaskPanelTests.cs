@@ -23,14 +23,27 @@ public sealed class TaskPanelTests
             .Add(t => t.Title, "Wire the pane into the shell")
             .Add(t => t.Status, "In progress")
             .Add(t => t.Tags, (IReadOnlyList<string>)["ui"])
+            .Add(t => t.Filing, "<p>the badges</p>")
             .Add(t => t.Details, "<p>the rows</p>")
             .Add(t => t.Body, "<p>the sub-items</p>")
+            .Add(t => t.Footer, "<p>close and delete</p>")
             .Add(t => t.TestId, "panel"));
 
         var panel = view.Find("[data-testid='panel']");
 
+        // Filing is with the tags rather than after the settings: "what kind of
+        // thing is this" and "what is it tagged" are the same question asked twice.
+        // The footer is after the body, so nothing that acts on the whole task
+        // stands between the reader and the part of it they came to write.
         Assert.Equal(
-            ["task-panel__header", "task-panel__tags", "task-panel__details", "task-panel__body"],
+            [
+                "task-panel__header",
+                "task-panel__tags",
+                "task-panel__filing",
+                "task-panel__details",
+                "task-panel__body",
+                "task-panel__footer"
+            ],
             panel.Children.Select(child => child.ClassName));
     }
 
@@ -263,8 +276,10 @@ public sealed class TaskPanelTests
 
         Assert.Empty(view.FindAll("[data-testid='panel-status']"));
         Assert.Empty(view.FindAll(".task-panel__tags"));
+        Assert.Empty(view.FindAll(".task-panel__filing"));
         Assert.Empty(view.FindAll(".task-panel__details"));
         Assert.Empty(view.FindAll(".task-panel__body"));
+        Assert.Empty(view.FindAll(".task-panel__footer"));
 
         // And the heading survives on its own.
         Assert.Equal("Ask about the Heerlen features", view.Find(".task-panel__title").TextContent);
@@ -555,5 +570,115 @@ public sealed class TaskPanelTests
 
         Assert.Equal("Wire it in", view.Instance.Title);
         Assert.Equal("Wire it in", view.Find("[data-testid='panel-title']").TextContent);
+    }
+
+    // --- The way in and the way back out -----------------------------------
+    //
+    // A panel sits beside a list, and reading order puts it after the whole of that
+    // list. Without these two a reader who tabs off the row they just opened walks
+    // every remaining row before reaching the panel about it.
+
+    [Fact]
+    public async Task The_panel_focuses_its_circle_when_a_host_tabs_into_it()
+    {
+        // By id, because the element to focus is a different node after every
+        // render — the same reason a row is focused by id rather than held.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Tab into me")
+            .Add(t => t.OnToggle, () => { })
+            .Add(t => t.OnRename, (string _) => { })
+            .Add(t => t.TestId, "panel"));
+
+        await view.Instance.FocusFirstAsync();
+
+        var focused = context.JSInterop.Invocations["backlogFocus"].Single();
+
+        Assert.Equal(view.Find("[data-testid='panel-check']").Id, focused.Arguments[0]);
+    }
+
+    [Fact]
+    public async Task With_no_circle_the_title_is_the_front_of_the_panel()
+    {
+        // Which control the front of the panel is, is the panel's business. A host
+        // that had to name one would be a host that knew whether this task can be
+        // ticked today.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Nothing to tick")
+            .Add(t => t.OnRename, (string _) => { })
+            .Add(t => t.TestId, "panel"));
+
+        await view.Instance.FocusFirstAsync();
+
+        var focused = context.JSInterop.Invocations["backlogFocus"].Single();
+
+        Assert.Equal(view.Find("[data-testid='panel-title']").Id, focused.Arguments[0]);
+    }
+
+    [Fact]
+    public async Task A_panel_with_nothing_to_focus_asks_for_nothing()
+    {
+        // A heading and that is all it is. Aiming the focus at an element that is
+        // not a control would be worse than leaving it where the reader put it.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p.Add(t => t.Title, "Just a heading"));
+
+        await view.Instance.FocusFirstAsync();
+
+        Assert.Empty(context.JSInterop.Invocations);
+    }
+
+    [Fact]
+    public void Shift_tab_off_the_circle_is_the_way_back_out()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var left = 0;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Shift+Tab off me")
+            .Add(t => t.OnToggle, () => { })
+            .Add(t => t.OnRename, (string _) => { })
+            .Add(t => t.OnTabBackward, () => left++)
+            .Add(t => t.TestId, "panel"));
+
+        view.Find("[data-testid='panel-check']").KeyDown(new KeyboardEventArgs { Key = "Tab", ShiftKey = true });
+
+        Assert.Equal(1, left);
+
+        // Plain Tab is the browser's, and so is Shift+Tab from the title: raising it
+        // there too would put the circle behind a Shift+Tab that no longer goes
+        // there, which is a circle no keyboard can reach.
+        view.Find("[data-testid='panel-check']").KeyDown(new KeyboardEventArgs { Key = "Tab" });
+        view.Find("[data-testid='panel-title']").KeyDown(new KeyboardEventArgs { Key = "Tab", ShiftKey = true });
+
+        Assert.Equal(1, left);
+    }
+
+    [Fact]
+    public void With_no_circle_the_title_is_what_reports_the_way_out()
+    {
+        // The rule is "the first control", not "the circle" — a panel with nothing
+        // to tick still has to be leavable.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var left = 0;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Nothing to tick")
+            .Add(t => t.OnRename, (string _) => { })
+            .Add(t => t.OnTabBackward, () => left++)
+            .Add(t => t.TestId, "panel"));
+
+        view.Find("[data-testid='panel-title']").KeyDown(new KeyboardEventArgs { Key = "Tab", ShiftKey = true });
+
+        Assert.Equal(1, left);
     }
 }

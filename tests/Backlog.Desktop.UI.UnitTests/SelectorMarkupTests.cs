@@ -68,32 +68,65 @@ public sealed class SelectorMarkupTests
     }
 
     /// <summary>
-    /// Entries and steps are both rows in the shared task list, and the pane writes
-    /// neither of their titles itself.
+    /// Entries and steps are both rows in the shared task list, the open entry is the
+    /// shared panel, and the pane writes none of their titles itself.
     /// <para>
     /// This replaces a pin on two collapse buttons integrated into the two titles.
     /// Both titles were <c>AppButton</c>s the pane composed, each folding its own
-    /// content; both are now <c>TaskItem</c> rows inside a <c>TaskListView</c>, whose
+    /// content; both became <c>TaskItem</c> rows inside a <c>TaskListView</c>, whose
     /// title is the row's own button and whose fold is <c>FoldControl</c>'s. The claim
-    /// worth keeping is the one underneath that: the pane renders the library's rows
-    /// rather than a title control of its own, for the entries and for the steps
-    /// alike.
+    /// worth keeping is the one underneath that: the pane renders the library's
+    /// controls rather than title controls of its own.
+    /// </para>
+    /// <para>
+    /// The open entry no longer wears a row at all. It is <c>TaskPanel</c>, whose
+    /// heading is an <c>h2</c> and whose parts are slots — which is why the
+    /// <c>ul</c> of one row and the <c>TaskItem</c> inside it are both gone from
+    /// this file. A panel is not a list of one, and calling it one put an <c>li</c>
+    /// where the pane's only heading should have been.
     /// </para>
     /// </summary>
     [Fact]
-    public void Entries_and_steps_are_both_rows_in_the_shared_task_list()
+    public void Entries_and_steps_are_rows_and_the_open_entry_is_the_shared_panel()
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
         // Two lists: the entries on the left, the selected entry's steps on the
-        // right. Plus the selected entry itself, which wears the same row.
+        // right. The entry that is open is the panel they are beside.
         Assert.Contains("TestId=\"entry-list\"", pane, StringComparison.Ordinal);
         Assert.Contains("TestId=\"subitem-list\"", pane, StringComparison.Ordinal);
-        Assert.Contains("<TaskItem", pane, StringComparison.Ordinal);
+        Assert.Contains("<TaskPanel", pane, StringComparison.Ordinal);
+
+        // No row for the open entry, and so no list to put one in.
+        Assert.DoesNotContain("<TaskItem", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("entry-detail__row", pane, StringComparison.Ordinal);
 
         Assert.DoesNotContain("entry-title-button", pane, StringComparison.Ordinal);
         Assert.DoesNotContain("subitem-title-button", pane, StringComparison.Ordinal);
         Assert.DoesNotContain("subitem-card__title", pane, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The scheduling rows are laid out by <c>TaskActionPane</c>, not stacked by the
+    /// pane itself.
+    /// <para>
+    /// They were a <c>div</c> with a <c>role="group"</c> and five <c>TaskAction</c>s
+    /// down it, which is the shape the library grew <c>TaskActionPane</c> and
+    /// <c>TaskActionGroup</c> to replace: one lead row for the decision somebody
+    /// makes again every morning, and the facts about the entry captioned and
+    /// balanced across columns.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_scheduling_rows_are_laid_out_by_the_shared_action_pane()
+    {
+        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+
+        Assert.Contains("<TaskActionPane", pane, StringComparison.Ordinal);
+        Assert.Contains("<TaskActionGroup", pane, StringComparison.Ordinal);
+
+        // The hand-rolled group the pane used to stack them in.
+        Assert.DoesNotContain("aria-label=\"Scheduling and dependencies\"", pane, StringComparison.Ordinal);
     }
 
     /// <summary>

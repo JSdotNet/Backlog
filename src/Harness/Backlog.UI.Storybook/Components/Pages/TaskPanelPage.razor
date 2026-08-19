@@ -103,6 +103,107 @@ Nothing else moves. Same heading, same tags, same pane above it — only the las
         </div>
     </Story>
 
+    <Story Name="What a product puts around it"
+           Description="Two more slots, and they are the two a panel in an application has that a panel in a storybook does not. Filing is the line of badges and pickers that says what kind of thing this is, where it is filed and what it is linked to. Footer is what acts on the whole task rather than on one field of it — close it, delete it, show its source.
+
+Filing sits with the tags, and that is the whole of what the slot decides. “What kind of thing is this” and “what is it tagged” are the same question asked twice, so a badge strip separated from the chips by the pane of settings would be two answers with something else in between. Footer sits last for the reason the body is second to last: a row of controls between the reader and the part of the task they came to write is a row they read past every time.
+
+Why these are slots rather than parameters is the same answer this component gives everywhere else. Which statuses there are, whether a task belongs to a repository, what an issue link looks like, whether deleting one asks first — every one of those is the host's, and a panel that took a list of statuses would be a panel that had answered a question this library does not get to answer. That is also why the status beside the title stays one already-chosen word: a product whose status is a picker puts the picker in Filing, where the other pickers are.
+
+The footer is a stack rather than a row of buttons, because it is sometimes a control and the thing that control revealed — a source view, a confirmation — and a slot that laid its content out in a line would be a slot those cannot go in. Which way the controls themselves sit is the host's, as it is in every other slot here.
+
+Both are drawn only when something is passed. A panel with neither is exactly the panel the stories above show."
+           Code="@SlotsCode">
+        <div class="sb-side-panel">
+            <TaskPanel Title="Ship the panel behind the backlog list"
+                       Done="false"
+                       OnToggle="() => { }"
+                       OnRename="_ => { }"
+                       Tags="@_tags"
+                       OnTagRemoved="RemoveTag"
+                       TestId="panel-slots">
+                <Filing>
+                    <SelectField CurrentValue="@_kind"
+                                 Options="@Kinds"
+                                 Label="Change type"
+                                 CssClass="badge badge--type"
+                                 TestId="panel-slots-type"
+                                 OnChanged="value => _kind = value ?? _kind" />
+                    <StatusSelector CurrentValue="@_status"
+                                    Options="@Statuses"
+                                    Label="Change status"
+                                    TestId="panel-slots-status"
+                                    OnChanged="value => _status = value" />
+                    <Badge Kind="source" data-testid="panel-slots-origin">
+                        <code>.backlog/ui/task-panel.md</code>
+                    </Badge>
+                </Filing>
+                <Details>
+                    @DetailPane("panel-slots-pane")
+                </Details>
+                <Body>
+                    <MarkdownEditor Value="@_notes"
+                                    ValueChanged="value => _notes = value"
+                                    Rows="6"
+                                    AriaLabel="Task body"
+                                    TestId="panel-slots-editor" />
+                </Body>
+                <Footer>
+                    @* A control and what it revealed, which is why the slot is a
+                       stack: the source opens under the button that asked for it and
+                       the two that end the task stay at the bottom. *@
+                    <ToggleButton BaseClass="sb-panel-source"
+                                  Pressed="@_sourceOpen"
+                                  TestId="panel-slots-source-toggle"
+                                  AriaLabel="Show the source"
+                                  PressedChanged="open => _sourceOpen = open">
+                        <span aria-hidden="true">&lt;/&gt;</span>
+                        <span>Source</span>
+                    </ToggleButton>
+
+                    @if (_sourceOpen)
+                    {
+                        <CodeView Source="@SourceSample" Language="markdown" TestId="panel-slots-source" />
+                    }
+
+                    <div class="sb-panel-actions">
+                        <IconButton AriaLabel="Close this task" TestId="panel-slots-close">×</IconButton>
+                        <IconButton AriaLabel="Delete this task" TestId="panel-slots-delete">🗑</IconButton>
+                    </div>
+                </Footer>
+            </TaskPanel>
+        </div>
+        <p class="sb-state" data-testid="panel-slots-state">@_kind · @_status · source @(_sourceOpen ? "open" : "closed")</p>
+    </Story>
+
+    <Story Name="The way in and the way back out"
+           Description="A panel sits beside a list, and reading order puts it after the whole of that list. So a reader who tabs off the row they just opened lands on the next row, and the panel about the row they are looking at is reachable only after every remaining one — which is no hand-off at all on a backlog of two hundred entries.
+
+The panel carries the pair that fixes it, the same pair TaskItem has and for the same reason. FocusFirstAsync puts the focus on the panel's first control, so a host that decided Tab off the open row means “go to the panel” has somewhere to send it. OnTabBackward reports the Shift+Tab off the front of it, so the reader can get back to the row they came from.
+
+Which control either of those is, is the panel's business and never the host's — the circle when there is one, the title when there is not. That is the point of the pair: a host that named an element would be a host that had to know whether this task can be ticked today.
+
+OnTabBackward comes off the first control only. Raising it from the title as well would put the circle behind a Shift+Tab that no longer goes there, and a circle no keyboard can reach is a worse trade than one extra stop on the way out. And nothing is prevented: Blazor resolves preventDefault when the component renders rather than when the key arrives, so suppressing Shift+Tab here would take Tab and Enter with it. The browser still does its own move; the focus the host sets afterwards is the one that lasts.
+
+Press the button to do what a list does on Tab, then Shift+Tab out of the circle."
+           Code="@FocusCode">
+        <div class="sb-side-panel">
+            <AppButton Variant="ButtonVariant.Secondary"
+                       TestId="panel-focus-enter"
+                       OnClick="FocusPanelAsync">
+                Tab into the panel
+            </AppButton>
+
+            <TaskPanel @ref="_focusPanel"
+                       Title="Tab into me, then Shift+Tab off the circle"
+                       OnToggle="() => { }"
+                       OnRename="_ => { }"
+                       OnTabBackward="() => _leftTheFront++"
+                       TestId="panel-focus" />
+        </div>
+        <p class="sb-state" data-testid="panel-focus-state">Shift+Tab off the front: @_leftTheFront</p>
+    </Story>
+
     <Story Name="A title, and only what there is"
            Description="Every part under the heading is optional, and an absent one is left out rather than drawn empty. A task with no tags gets no tag strip, because a row of blank space is where a reader learns there is nothing to learn; a task nobody has set anything on gets no pane; a title-only task is a heading, and that is all it is.
 
@@ -270,6 +371,46 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
         + (_tags.Count == 0 ? "(none left)" : string.Join(", ", _tags))
         + (_lastTag is null ? string.Empty : $" · {_lastTag}");
 
+    // --- The two slots a product needs and a storybook does not ------------
+
+    private string _kind = "Task";
+
+    private string _status = "InProgress";
+
+    private bool _sourceOpen;
+
+    private static readonly IReadOnlyList<SelectorOption> Kinds =
+    [
+        new("Task", "task"),
+        new("Prompt", "prompt"),
+        new("Idea", "idea")
+    ];
+
+    private static readonly IReadOnlyList<SelectorOption> Statuses =
+    [
+        new("Draft", "draft"),
+        new("Ready", "ready"),
+        new("InProgress", "in progress"),
+        new("Done", "done")
+    ];
+
+    private const string SourceSample = """
+        # Ship the panel behind the backlog list
+        `task` `in progress` #ui #desktop
+        """;
+
+    /// <summary>The panel that demonstrates the focus pair, held the way a host
+    /// holds it: one instance, asked to focus itself rather than handed the id of
+    /// a control the host would have to know about.</summary>
+    private TaskPanel? _focusPanel;
+
+    private int _leftTheFront;
+
+    private async Task FocusPanelAsync()
+    {
+        if (_focusPanel is not null) await _focusPanel.FocusFirstAsync();
+    }
+
     private string _notes = """
         ## Why the body is last
 
@@ -354,6 +495,70 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
                 <MarkdownEditor Value="@task.Body" ValueChanged="OnBodyChanged" Rows="10" />
             </Body>
         </TaskPanel>
+        """;
+
+    private const string SlotsCode = """
+        <TaskPanel Title="@task.Title" Done="@task.Done" OnToggle="Toggle" OnRename="Rename"
+                   Tags="@task.TagList" OnTagRemoved="RemoveTag">
+            @* With the tags, because they answer the same question. No Status
+               parameter: this product's status is a picker, and a picker goes in
+               here with the other pickers. *@
+            <Filing>
+                <SelectField CurrentValue="@task.Kind" Options="@Kinds" Label="Change type"
+                             CssClass="badge badge--type" OnChanged="ChangeKind" />
+                <StatusSelector CurrentValue="@task.Status" Options="@Statuses"
+                                Label="Change status" OnChanged="ChangeStatus" />
+                <Badge Kind="source"><code>@task.Path</code></Badge>
+            </Filing>
+
+            <Details><TaskActionPane>...</TaskActionPane></Details>
+
+            <Body><MarkdownEditor Value="@task.Body" ValueChanged="ChangeBody" /></Body>
+
+            @* Last, so nothing that acts on the whole task stands between the
+               reader and the part of it they came to write. A stack, so a control
+               and the thing it revealed can both live here. *@
+            <Footer>
+                <ToggleButton Pressed="@_sourceOpen" PressedChanged="open => _sourceOpen = open">
+                    Source
+                </ToggleButton>
+                @if (_sourceOpen)
+                {
+                    <CodeView Source="@task.Raw" Language="markdown" />
+                }
+
+                <div class="actions">
+                    <IconButton AriaLabel="Close this task" OnClick="Close">×</IconButton>
+                    <IconButton AriaLabel="Delete this task" OnClick="Delete">🗑</IconButton>
+                </div>
+            </Footer>
+        </TaskPanel>
+        """;
+
+    private const string FocusCode = """
+        @* The list hands the keyboard over on Tab off the open row; the panel
+           hands it back on Shift+Tab off its first control. Neither side names an
+           element in the other. *@
+        <TaskListView Tasks="@tasks"
+                      SelectedId="@selectedId"
+                      OnSelectedTabForward="MoveFocusToPanelAsync" />
+
+        <TaskPanel @ref="_panel"
+                   Title="@task.Title"
+                   OnToggle="Toggle"
+                   OnRename="Rename"
+                   OnTabBackward="MoveFocusToListAsync" />
+
+        @code {
+            private TaskListView? _list;
+            private TaskPanel? _panel;
+
+            // Which control this lands on is the panel's business: the circle when
+            // there is one, the title when there is not.
+            private Task MoveFocusToPanelAsync() => _panel?.FocusFirstAsync() ?? Task.CompletedTask;
+
+            private Task MoveFocusToListAsync() => _list?.FocusSelectedAsync() ?? Task.CompletedTask;
+        }
         """;
 
     private const string BareCode = """

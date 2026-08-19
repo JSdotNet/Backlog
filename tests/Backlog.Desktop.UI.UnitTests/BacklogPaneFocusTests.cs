@@ -28,10 +28,12 @@ public sealed class BacklogPaneFocusTests
 
     private const string OtherEntry = "# Deploy it\n`task`\n";
 
-    /// <summary>The pane's way into the detail pane: the circle at the front of the
-    /// row heading it. The id is the pane's — <c>entry-detail-row</c> — plus the
-    /// suffix the shared row gives its circle.</summary>
-    private const string DetailFirstControlId = "entry-detail-row-check";
+    /// <summary>The panel's first control, read off the element that carries the id
+    /// rather than written down here. <c>TaskPanel</c> mints its own — it is one
+    /// instance the pane holds, not a row a list rebuilds — so the honest way to
+    /// name it is to ask the rendered panel which element it is.</summary>
+    private static string DetailFirstControlId(IRenderedComponent<BacklogPane> pane) =>
+        pane.Find("[data-testid='entry-panel-check']").Id!;
 
     private static string RowTestId(EntryRow row) => $"entry-list-{(row.Id ?? row.Key)}";
 
@@ -124,9 +126,9 @@ public sealed class BacklogPaneFocusTests
     // --- Tab across and back ----------------------------------------------
 
     /// <summary>Tab off the open row goes to the pane beside it rather than to the
-    /// next row. The control it lands on is the row heading the pane, asserted
-    /// against the element that actually carries that id so the two cannot
-    /// drift.</summary>
+    /// next row. The control it lands on is the panel's first — its circle — and the
+    /// pane never names it: it asks the panel to focus itself, so which control that
+    /// is stays the panel's answer.</summary>
     [Fact]
     public async Task Tab_from_the_selected_row_moves_the_focus_into_the_pane()
     {
@@ -135,11 +137,10 @@ public sealed class BacklogPaneFocusTests
 
         var pane = host.Render();
         Assert.Same(row, host.State.SelectedRow);
-        Assert.Equal(DetailFirstControlId, pane.Find("[data-testid='entry-detail-task-check']").Id);
 
         await pane.Find($"[data-testid='{RowTestId(row)}-open']").KeyDownAsync(new KeyboardEventArgs { Key = "Tab" });
 
-        Assert.Contains(DetailFirstControlId, Focused(host));
+        Assert.Contains(DetailFirstControlId(pane), Focused(host));
     }
 
     /// <summary>Only the open row hands the keyboard over. Every other row keeps
@@ -171,7 +172,7 @@ public sealed class BacklogPaneFocusTests
 
         var pane = host.Render();
 
-        await pane.Find("[data-testid='entry-detail-task-check']")
+        await pane.Find("[data-testid='entry-panel-check']")
             .KeyDownAsync(new KeyboardEventArgs { Key = "Tab", ShiftKey = true });
 
         Assert.Contains(Focused(host), id => id is not null && id.EndsWith(TaskId(row), StringComparison.Ordinal));
