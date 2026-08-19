@@ -14,9 +14,69 @@
     // Keyboard reordering has to carry the focus ring with the thing it moved;
     // after the list re-renders the element is a different node, so the caller
     // names it by id.
-    window.backlogFocus = (id) => {
+    //
+    // Arriving in a field should be arriving ready to type, so a caller may ask
+    // for the value to be selected as well: the first keystroke then replaces
+    // what is there instead of being appended to it, which is what renaming means
+    // everywhere else. Optional and off unless asked for, because the other
+    // callers here focus buttons — select is something an input has and a button
+    // does not, which is why it is called for rather than assumed.
+    window.backlogFocus = (id, select) => {
         const element = document.getElementById(id);
-        if (element) element.focus();
+        if (!element) return;
+
+        element.focus();
+        if (select) element.select?.();
+    };
+
+    // Tab inside a quick edit belongs to the list, not to the browser: it commits
+    // the rename and opens the field on the next row, and a browser that also
+    // moved the focus ring on would land it one control past the field that just
+    // opened. Blazor's @onkeydown:preventDefault cannot do this — it is read when
+    // the field renders, which is before anyone has pressed anything, so it would
+    // have to be a constant, and a constant true swallows every keystroke typed
+    // into the field. So the field is told here instead, by id, because it is a
+    // new element every time the editor opens.
+    //
+    // Which is not the same answer for every field, hence the mode. A row's rename
+    // owns Tab outright, both ways: forward hands the editor to the row below and
+    // Shift+Tab to the row above, so neither may reach the browser. The list's add
+    // field owns far less than that — it is a permanent control sitting in the tab
+    // order, and Tab out of it while it is empty is how a reader leaves the list at
+    // all. Suppressing that would strand them, so 'filled' takes only a forward Tab
+    // and only while there is something to add.
+    //
+    // Deciding it here rather than per keystroke in C# is the whole point: by the
+    // time a keydown has crossed to .NET the browser has already moved the focus
+    // ring, so anything the component says afterwards is too late. The predicate is
+    // the trimmed value because that is the same test the component applies to
+    // decide whether it will handle the key — the two have to agree, or a field of
+    // spaces would be one the browser was stopped from leaving and the component
+    // declined to act on.
+    //
+    // The listener dies with the element, which is the whole reason there is no
+    // matching release. Re-arming an element it is already on changes its mode
+    // rather than stacking a second listener on it: the mode is read at keydown,
+    // not captured at arm time.
+    window.backlogGuardTab = (id, mode) => {
+        const element = document.getElementById(id);
+        if (!element) return;
+
+        const armed = element.dataset.backlogTabGuard !== undefined;
+        element.dataset.backlogTabGuard = mode === 'filled' ? 'filled' : 'always';
+
+        if (armed) return;
+
+        element.addEventListener('keydown', (event) => {
+            if (event.key !== 'Tab') return;
+
+            if (element.dataset.backlogTabGuard === 'filled'
+                && (event.shiftKey || (element.value ?? '').trim().length === 0)) {
+                return;
+            }
+
+            event.preventDefault();
+        });
     };
 
     // Copying is the browser's job, and the browser is allowed to refuse: the
