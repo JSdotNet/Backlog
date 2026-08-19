@@ -2,14 +2,19 @@
 @inject InstructionSourceDiscovery InstructionSources
 @inject IKnowledgeFolderSource Folders
 
-<aside class="knowledge-pane instructions-knowledge" data-testid="instructions-knowledge-panel" aria-labelledby="instructions-knowledge-title">
-    <header class="knowledge-pane__header">
-        <p class="knowledge-pane__eyebrow">Knowledge base</p>
-        <h2 id="instructions-knowledge-title">Instructions</h2>
-        <p class="knowledge-pane__subtitle">
-            Agent guidance from GitHub Copilot, Claude Code, and shared <code>AGENTS.md</code> files in the current repository or storage folder.
-        </p>
-    </header>
+@*
+    The eyebrow and the title are gone: the tab strip says Instructions and the
+    knowledge menu heads its column with it, so a third copy here named the
+    section to a reader who had just picked it. The name survives as this
+    region's label for a screen reader (.design/accessibility.md, "Names &
+    roles"). The subtitle stays — it says which agents' guidance this collects,
+    which is the one thing nothing else on the screen answers.
+*@
+
+<aside class="knowledge-pane instructions-knowledge" data-testid="instructions-knowledge-panel" aria-label="Instructions knowledge">
+    <p class="knowledge-pane__subtitle">
+        Agent guidance from GitHub Copilot, Claude Code, and shared <code>AGENTS.md</code> files in the current repository or storage folder.
+    </p>
 
     @if (!_repositories.Any())
     {
@@ -29,8 +34,9 @@
         @if (ActiveRepository is { } activeRepository)
         {
             <section data-testid="instructions-repository" aria-label="@($"{activeRepository.Repository.FullName} instructions")">
+                @* The repository's name is the pane's line above the tabs; this
+                   line is about where its clone sits, which the pane does not say. *@
                 <div class="knowledge-pane__source">
-                    <span>@activeRepository.Repository.FullName</span>
                     @if (activeRepository.LocalRoot is null)
                     {
                         <span>No local clone directory configured.</span>

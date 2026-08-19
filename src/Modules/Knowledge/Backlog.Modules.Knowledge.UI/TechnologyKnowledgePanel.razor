@@ -2,17 +2,24 @@
 @inject TechnologyKnowledgeService TechnologyKnowledge
 @inject KnowledgeFolderOpenService KnowledgeFolderOpen
 
-<aside class="knowledge-pane tech-knowledge-pane" data-testid="technology-knowledge-panel" aria-labelledby="technology-knowledge-title">
+@*
+    The "Knowledge base" eyebrow is gone from both branches: the tab strip above
+    already says Technology and the eyebrow said only where the reader already
+    was. The available branch keeps its heading because that one is the root
+    document's own title read off `.tech`, so it names the document rather than
+    repeating the section — and this is the one section with no knowledge menu
+    beside it, which makes it the only heading that column has. The unavailable
+    branch had no document to title, so its hard-coded "Technology" was the
+    repeat, and it goes with the eyebrow.
+*@
+
+<aside class="knowledge-pane tech-knowledge-pane" data-testid="technology-knowledge-panel" aria-label="Technology knowledge">
     @if (_view is null)
     {
         <p class="knowledge-empty" role="status">Loading technology knowledge...</p>
     }
     else if (!_view.Available)
     {
-        <header class="knowledge-pane__header">
-            <p class="knowledge-pane__eyebrow">Knowledge base</p>
-            <h2 id="technology-knowledge-title">Technology</h2>
-        </header>
         <EmptyState BaseClass="knowledge-empty"
                     Title="@_view.Summary"
                     TitleCssClass="@(null)"
@@ -26,13 +33,10 @@
     else
     {
         <header class="knowledge-pane__header">
-            <p class="knowledge-pane__eyebrow">Knowledge base</p>
-            <h2 id="technology-knowledge-title">@_view.Title</h2>
+            <h2>@_view.Title</h2>
+            @* The repository is the pane's line above the tabs. Saying it again
+               beside the path put the same name twice on one screen. *@
             <p class="knowledge-pane__source">
-                @if (_view.Location.RepositoryFullName is { } repositoryName)
-                {
-                    <span>@repositoryName</span>
-                }
                 @if (_view.Location.FullPath is { } path)
                 {
                     <code>@path</code>
