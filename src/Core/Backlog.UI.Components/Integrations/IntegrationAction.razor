@@ -1,0 +1,304 @@
+@*
+    One act on an outside tool: its readiness, and its lifecycle.
+
+    There is no `bool Disabled` here, and its absence is the design. Every other
+    button in this library takes one, which is why an unavailable integration
+    looks different on every surface that has one: a greyed control says nothing
+    about why, so each host invents its own tooltip, or its own hidden branch, or
+    nothing at all. The only way to make this inert is to hand it an
+    IntegrationReadiness, and that record cannot be constructed without a cause —
+    so the bare disabled integration button is not a thing a host can produce.
+
+    Always AppButton, never IconButton. AppButton.Busy already embeds Spinner,
+    sets aria-busy and disables the control without taking it out of the tab
+    order, so focus survives the round trip; a second loading button here would
+    be a second thing to get wrong in a family whose whole point is not having
+    two of anything. Compact density is `btn btn--icon` plus Size=Small, which is
+    IconButton's own class stem, so the shape is unchanged. What is copied from
+    IconButton is its convention rather than its markup: Title falls back to the
+    accessible name, and an icon-only button is never label-less.
+
+    The host owns the state. This component advances nothing on its own, for the
+    same reason MarkdownView never mutates a block: the truth is upstream, and a
+    component that guessed at it would eventually disagree with the thing that
+    knows. Which is also why the succeeded and failed lines do not auto-clear the
+    way CopyButton's does. A copy is finished the moment the clipboard returns
+    and there is nothing further to do; creating an issue produces an issue, and
+    a line that says "done" and then vanishes takes the link to it with it.
+
+    The button is never removed — not while unavailable, not while running, not
+    after it failed. A reader who cannot find the control concludes the product
+    cannot do the thing at all, and a control that moves out from under a pointer
+    mid-act is worse than a row one item too long.
+*@
+
+<span class="@ClassValue" data-testid="@TestId">
+    @if (!Ready.IsAvailable)
+    {
+        @* Disabled, and described. The reason reaches the pointer through
+           `title` and assistive technology through aria-describedby, because
+           neither route alone reaches everybody: a title is not announced
+           reliably, and a described-by is invisible. *@
+        <AppButton Variant="@Variant"
+                   Size="@Size"
+                   BaseClass="@BaseClass"
+                   Disabled="true"
+                   TestId="@ButtonTestId"
+                   title="@Reason"
+                   aria-label="@Action.Label"
+                   aria-describedby="@_reasonId">
+            <Icon>@ActionMark()</Icon>
+            <ChildContent>@Caption(Action.Label)</ChildContent>
+        </AppButton>
+
+        <span id="@_reasonId" class="integration-action__reason" data-testid="@ReasonTestId">@Reason</span>
+
+        @if (OnRemedy.HasDelegate && Remedy is { Length: > 0 } remedy)
+        {
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       CssClass="integration-action__remedy"
+                       TestId="@RemedyTestId"
+                       OnClick="() => OnRemedy.InvokeAsync(Ready)">@remedy</AppButton>
+        }
+    }
+    else
+    {
+        <AppButton Variant="@Variant"
+                   Size="@Size"
+                   BaseClass="@BaseClass"
+                   Busy="@(Action.State is IntegrationActionState.Running)"
+                   BusyLabel="@($"{Action.Label}…")"
+                   TestId="@(Action.State is IntegrationActionState.Confirming ? ConfirmTestId ?? ButtonTestId : ButtonTestId)"
+                   title="@TitleValue"
+                   aria-label="@AccessibleName"
+                   OnClick="() => OnInvoke.InvokeAsync(Action)">
+            <Icon>@ActionMark()</Icon>
+            <ChildContent>@Caption(VisibleLabel)</ChildContent>
+        </AppButton>
+
+        @if (Action.State is IntegrationActionState.Confirming)
+        {
+            @* In place, beside the act, rather than in a dialog. A confirm
+               dialog that previews what would actually be sent is the right home
+               for a preview and is not built yet; ConfirmDialog already routes
+               Escape and backdrop dismissal through Cancel, so it would inherit
+               that for free when it is. The inline confirm is the floor. *@
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="@Size"
+                       CssClass="integration-action__cancel"
+                       TestId="@CancelTestId"
+                       OnClick="() => OnCancel.InvokeAsync(Action)">Cancel</AppButton>
+        }
+
+        @if (Action.State is IntegrationActionState.Succeeded)
+        {
+            <span class="integration-action__status integration-action__status--succeeded"
+                  role="status"
+                  data-testid="@StatusTestId">
+                <span class="integration-action__status-glyph" aria-hidden="true">@SuccessGlyph()</span>
+                @if (SuccessContent is not null)
+                {
+                    @SuccessContent
+                }
+                else
+                {
+                    @StatusText
+                }
+            </span>
+        }
+
+        @if (Action.State is IntegrationActionState.Failed)
+        {
+            @* role="alert" here and nowhere else in this family. The four
+               unavailable causes are standing conditions and stay statuses; this
+               one is an event, and it happened because the reader pressed
+               something. Toast already draws that line between Error/Warning and
+               everything else, so this follows it rather than inventing a second
+               rule. *@
+            <span class="integration-action__status integration-action__status--failed"
+                  role="alert"
+                  data-testid="@StatusTestId">
+                <span class="integration-action__status-glyph" aria-hidden="true">@FailureGlyph()</span>
+                @StatusText
+            </span>
+
+            @* Retry raises its own callback rather than re-raising invoke, so a
+               host can tell a first attempt from a second in whatever it logs. *@
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="@Size"
+                       CssClass="integration-action__retry"
+                       TestId="@RetryTestId"
+                       OnClick="() => OnRetry.InvokeAsync(Action)">Retry</AppButton>
+        }
+    }
+</span>
+
+@code {
+    /// <summary>Unique per instance rather than derived from the action's id: two
+    /// bars on one page may legitimately carry the same act, and two elements
+    /// with one id would send aria-describedby to whichever the browser saw
+    /// first.</summary>
+    private readonly string _reasonId = $"integration-reason-{Guid.NewGuid():N}";
+
+    [Parameter, EditorRequired]
+    public IntegrationActionSpec Action { get; set; } = default!;
+
+    [Parameter]
+    public IntegrationDensity Density { get; set; } = IntegrationDensity.Toolbar;
+
+    /// <summary>Replaces the succeeded line's text, so a host can put the
+    /// consequence in it — "Issue #128 created" with the number as a link. The
+    /// act produced something; the line is where it lives until the host clears
+    /// the state.</summary>
+    [Parameter]
+    public RenderFragment? SuccessContent { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationActionSpec> OnInvoke { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationActionSpec> OnCancel { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationActionSpec> OnRetry { get; set; }
+
+    /// <summary>Raised with the readiness rather than with the action, because
+    /// the remedy is about the cause: four acts blocked by one expired token have
+    /// one thing to fix between them.</summary>
+    [Parameter]
+    public EventCallback<IntegrationReadiness> OnRemedy { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? ButtonTestId { get; set; }
+
+    [Parameter]
+    public string? ConfirmTestId { get; set; }
+
+    [Parameter]
+    public string? CancelTestId { get; set; }
+
+    [Parameter]
+    public string? RetryTestId { get; set; }
+
+    [Parameter]
+    public string? StatusTestId { get; set; }
+
+    [Parameter]
+    public string? ReasonTestId { get; set; }
+
+    [Parameter]
+    public string? RemedyTestId { get; set; }
+
+    private IntegrationReadiness Ready => Action.ReadinessOrReady;
+
+    private string Reason => IntegrationStates.ReasonFor(Ready);
+
+    private string? Remedy => IntegrationStates.RemedyFor(Ready);
+
+    private bool IconOnly => IntegrationStates.IsIconOnly(Density);
+
+    private ButtonSize Size => IntegrationStates.SizeFor(Density);
+
+    private string BaseClass => IntegrationStates.ButtonBaseClassFor(Density);
+
+    /// <summary>Primary for an act the surface leads with, danger only once a
+    /// destructive act is asking to be confirmed. An idle destructive act still
+    /// looks like an act: painting it red before anyone pressed it would make
+    /// every surface that offers one look alarming at rest.</summary>
+    private ButtonVariant Variant => Action.State switch
+    {
+        IntegrationActionState.Confirming when Action.Destructive => ButtonVariant.Danger,
+        IntegrationActionState.Confirming => ButtonVariant.Primary,
+        _ => Action.Prominence is IntegrationProminence.Primary ? ButtonVariant.Primary : ButtonVariant.Secondary
+    };
+
+    private string VisibleLabel => Action.State is IntegrationActionState.Confirming
+        ? Action.ConfirmLabel ?? "Confirm"
+        : Action.Label;
+
+    /// <summary>The name assistive technology reads. It never collapses to the
+    /// confirm word alone — "Confirm" on its own tells a reader who arrived by
+    /// keyboard nothing about what they would be confirming.</summary>
+    private string AccessibleName => Action.State is IntegrationActionState.Confirming
+        ? $"{VisibleLabel} — {Action.Label}"
+        : Action.Label;
+
+    /// <summary>IconButton's rule: a title only where it says something the
+    /// visible label does not. At Compact density the label is not visible, so
+    /// the title is what a pointer user gets instead.</summary>
+    private string? TitleValue
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Action.Description)) return Action.Description;
+
+            return IconOnly ? AccessibleName : null;
+        }
+    }
+
+    private string StatusText => string.IsNullOrWhiteSpace(Action.StatusMessage)
+        ? Action.State is IntegrationActionState.Failed
+            ? $"{Action.Label} — failed"
+            : $"{Action.Label} — done"
+        : Action.StatusMessage;
+
+    private string ClassValue
+    {
+        get
+        {
+            var stem = $"integration-action integration-action--{IntegrationStates.SlugOf(Density)}";
+            return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
+        }
+    }
+
+    /// <summary>Nothing at all at a density that shows the label, because the
+    /// caption is the label; the visually-hidden route is not needed when the
+    /// word is on screen.</summary>
+    private RenderFragment Caption(string label) =>
+        @<text>@if (!IconOnly) { <span class="integration-action__label">@label</span> }</text>;
+
+    /// <summary>The provider's mark, or a neutral outward-act glyph where there
+    /// is no provider. A compact button with no provider would otherwise render
+    /// empty — an icon-only control with no icon — which is the one shape this
+    /// component must never produce.</summary>
+    private RenderFragment ActionMark() =>
+        @<text>
+            @if (Action.Provider is not IntegrationProvider.None)
+            {
+                <ProviderMark Provider="@Action.Provider" Title="@(IconOnly ? IntegrationStates.NameOf(Action.Provider) : null)" />
+            }
+            else
+            {
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                     aria-hidden="true" focusable="false">
+                    <path d="M9.25 2.75h4v4" />
+                    <path d="M13.25 2.75 7.5 8.5" />
+                    <path d="M12 9.75v2.5a1.5 1.5 0 0 1-1.5 1.5h-6.5a1.5 1.5 0 0 1-1.5-1.5v-6.5a1.5 1.5 0 0 1 1.5-1.5h2.5" />
+                </svg>
+            }
+        </text>;
+
+    private RenderFragment SuccessGlyph() =>
+        @<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true" focusable="false">
+            <path d="M3.25 8.5 6.25 11.5l6.5-7" />
+        </svg>;
+
+    private RenderFragment FailureGlyph() =>
+        @<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true" focusable="false">
+            <circle cx="8" cy="8" r="5.25" />
+            <path d="M6.25 6.25 9.75 9.75" />
+            <path d="M9.75 6.25 6.25 9.75" />
+        </svg>;
+}

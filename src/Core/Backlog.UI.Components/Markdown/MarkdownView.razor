@@ -50,12 +50,31 @@
                         }
                     </button>
                 }
+                @if (CanRewrite)
+                {
+                    @* A second per-block affordance in the same position as the
+                       first, rather than a parallel row of AI controls. A rewrite
+                       is anchored to a block for exactly the reason a comment is —
+                       see MarkdownComment — so it belongs where comments already
+                       hang off, and the two look like two things you can do to a
+                       paragraph rather than two features that happen to overlap. *@
+                    <button type="button"
+                            class="md-block__comment md-block__rewrite"
+                            aria-label="@($"Rewrite block {index + 1} with AI")"
+                            data-testid="@($"markdown-rewrite-{index}")"
+                            @onclick="() => OnRewriteBlock.InvokeAsync(index)">
+                        <span aria-hidden="true">✦</span>
+                    </button>
+                }
             </div>
             @* In margin mode this cell is the second column, level with its
                block; inline it simply follows. One markup, two layouts, so the
-               two cannot drift apart. *@
+               two cannot drift apart. Proposals land in the same cell as the
+               comments, so the margin layout works for them for free and there is
+               no second layout to keep in step. *@
             <div class="md-block-row__notes">
                 @RenderComments(CommentsOn(index))
+                @RenderProposals(ProposalsOn(index))
             </div>
         </div>
     }
@@ -82,11 +101,16 @@
 </div>
 
 @* A comment whose block has gone still has to land somewhere. Dropping it would
-   lose what someone said; showing it at the end says it is adrift. *@
-@if (Orphans.Count > 0)
+   lose what someone said; showing it at the end says it is adrift.
+
+   A proposal has the same problem — blocks are deleted while suggestions are
+   open — and takes the same answer rather than a region of its own, for the
+   reason already recorded here: a lost proposal is worse than a stray one. *@
+@if (Orphans.Count > 0 || OrphanProposals.Count > 0)
 {
     <div class="md-comments md-comments--orphaned" data-testid="markdown-orphaned-comments">
         @RenderComments(Orphans)
+        @RenderProposals(OrphanProposals)
     </div>
 }
 
@@ -205,8 +229,15 @@
     private string _draft = string.Empty;
 
     /// <summary>Whether anything hangs off a block — an affordance to add a
-    /// remark, or a remark already there.</summary>
-    private bool Annotated => CanComment || Comments.Count > 0;
+    /// remark or to ask for a rewrite, or a remark or a suggestion already there.
+    ///
+    /// <para>It widened to take the AI affordances rather than gaining a second
+    /// flag beside it, so a view that asks for none of them renders exactly the
+    /// markup it rendered before any of this existed. That "nothing already
+    /// rendering changed" guarantee is the same one the knowledge metadata work
+    /// made, and it is worth keeping for the same reason: a stylesheet and a
+    /// screenshot test both see the wrapper.</para></summary>
+    private bool Annotated => CanComment || CanRewrite || Comments.Count > 0 || Proposals.Count > 0;
 
     private string ViewClass => Layout is MarkdownCommentLayout.Margin && Annotated
         ? "md-view md-view--margin"
@@ -249,6 +280,49 @@
     /// than dropped: a lost comment is worse than a stray one.</summary>
     private IReadOnlyList<MarkdownComment> Orphans =>
         [.. Comments.Where(comment => comment.BlockIndex < 0 || comment.BlockIndex >= Blocks.Count)];
+
+    /// <summary>The proposals hanging off one block. A proposal carrying a
+    /// comment id belongs to that comment and is drawn inside it, so it is
+    /// excluded here rather than rendered twice.</summary>
+    private IReadOnlyList<AiProposal> ProposalsOn(int index) =>
+        [.. Proposals.Where(proposal => proposal.CommentId is null && proposal.BlockIndex == index)];
+
+    /// <summary>The proposals against one comment.</summary>
+    private IReadOnlyList<AiProposal> ProposalsFor(string commentId) =>
+        [.. Proposals.Where(proposal => string.Equals(proposal.CommentId, commentId, StringComparison.Ordinal))];
+
+    /// <summary>Proposals with nowhere left to hang: a block that went away, a
+    /// comment that was deleted, or no anchor given at all. Same answer as an
+    /// orphaned comment, and for the same reason.</summary>
+    private IReadOnlyList<AiProposal> OrphanProposals =>
+    [
+        .. Proposals.Where(proposal => proposal.CommentId is { } commentId
+            ? !Comments.Any(comment => string.Equals(comment.Id, commentId, StringComparison.Ordinal))
+            : proposal.BlockIndex is not { } block || block < 0 || block >= Blocks.Count)
+    ];
+
+    /// <summary>
+    /// Suggestions, drawn wherever they are anchored.
+    /// <para>
+    /// The card raises Accept and Reject and this view applies neither: the host
+    /// re-parses and hands back new blocks, exactly as it already does for an
+    /// edited comment. A view that wrote into its own content would be holding a
+    /// second copy of the truth, and the two would eventually differ.
+    /// </para>
+    /// </summary>
+    private RenderFragment RenderProposals(IReadOnlyList<AiProposal> proposals) =>
+        @<text>
+            @foreach (var proposal in proposals)
+            {
+                <AiProposalCard Proposal="@proposal"
+                                OnAccept="@OnAcceptProposal"
+                                OnReject="@OnRejectProposal"
+                                CssClass="md-proposal"
+                                TestId="@($"markdown-proposal-{proposal.Id}")"
+                                AcceptTestId="@($"markdown-proposal-accept-{proposal.Id}")"
+                                RejectTestId="@($"markdown-proposal-reject-{proposal.Id}")" />
+            }
+        </text>;
 
     private RenderFragment RenderComments(IReadOnlyList<MarkdownComment> comments) =>
         @<text>
@@ -309,6 +383,13 @@
                             {
                                 <p class="md-comment__body">@comment.Body</p>
 
+                                @* A resolution proposal renders inside the
+                                   comment it answers rather than against the
+                                   block, because that is what it is about — the
+                                   block may be fine and the remark the thing that
+                                   needs settling. *@
+                                @RenderProposals(ProposalsFor(comment.Id))
+
                                 <span class="md-comment__actions">
                                     @if (OnEditComment.HasDelegate)
                                     {
@@ -325,6 +406,23 @@
                                                 @onclick="() => OnResolveComment.InvokeAsync(comment.Id)">
                                             @(comment.Resolved ? "Reopen" : "Resolve")
                                         </button>
+                                    }
+                                    @if (OnResolveCommentWithAi.HasDelegate)
+                                    {
+                                        @* A third button, and deliberately not a
+                                           change to the second. Resolving with AI
+                                           is two acts: this one asks for a
+                                           wording, and the existing Resolve still
+                                           means exactly what it meant. Folding
+                                           them together would make one press do
+                                           two things on one confirmation, and a
+                                           reader who wanted the suggested wording
+                                           but not the resolution would have no way
+                                           to say so. *@
+                                        <button type="button"
+                                                class="md-comment__action md-comment__action--ai"
+                                                data-testid="@($"markdown-comment-ai-resolve-{comment.Id}")"
+                                                @onclick="() => OnResolveCommentWithAi.InvokeAsync(comment.Id)">Resolve with AI</button>
                                     }
                                 </span>
                             }
@@ -438,6 +536,46 @@
     [Parameter]
     public MarkdownCommentLayout Layout { get; set; } = MarkdownCommentLayout.Inline;
 
+    /// <summary>Raised with the index of a block a reader wants rewritten.
+    /// Without it no block carries the affordance, and the markup is exactly what
+    /// it was before any of this existed.
+    ///
+    /// <para>An index and not a range, and that is forced rather than chosen —
+    /// see <see cref="MarkdownComment"/>. Which is why "rewrite part with AI"
+    /// means rewrite this paragraph and can never mean rewrite this sentence:
+    /// there is no anchor in this product that would survive the second.</para></summary>
+    [Parameter]
+    public EventCallback<int> OnRewriteBlock { get; set; }
+
+    /// <summary>Raised with a comment's id when a reader asks an AI to settle it.
+    /// The host runs the tool and hands back a proposal; nothing about the
+    /// comment changes here, and the existing <see cref="OnResolveComment"/> keeps
+    /// its exact meaning.</summary>
+    [Parameter]
+    public EventCallback<string> OnResolveCommentWithAi { get; set; }
+
+    /// <summary>Suggestions held for review. A rewrite hangs off the block its
+    /// <c>BlockIndex</c> names; a resolution hangs off the comment its
+    /// <c>CommentId</c> names; anything anchored to something that has gone joins
+    /// the orphan region the comments already use.</summary>
+    [Parameter]
+    public IReadOnlyList<AiProposal> Proposals { get; set; } = [];
+
+    /// <summary>Raised with the whole proposal. This view applies nothing: the
+    /// host writes the change, re-parses, and hands back new blocks — the same
+    /// discipline <see cref="OnEditComment"/> keeps, and for the same reason.
+    ///
+    /// <para>It also does not resolve anything. Accepting a resolution proposal
+    /// raises this and nothing else; a host that wants the comment resolved too
+    /// calls <see cref="OnResolveComment"/> second. One act, one callback.</para></summary>
+    [Parameter]
+    public EventCallback<AiProposal> OnAcceptProposal { get; set; }
+
+    /// <summary>Raised with the whole proposal. Rejecting leaves the document
+    /// byte-identical rather than restored, because nothing was ever applied.</summary>
+    [Parameter]
+    public EventCallback<AiProposal> OnRejectProposal { get; set; }
+
     /// <summary>Whether a fenced <c>meta</c> block is read as the metadata record
     /// it is. Off by default: most markdown in this product is not a knowledge
     /// document, and where it is not, a `meta` fence is only a fenced block.</summary>
@@ -500,6 +638,8 @@
     private bool CanToggle => OnTaskItemToggled.HasDelegate;
 
     private bool CanComment => OnAddComment.HasDelegate;
+
+    private bool CanRewrite => OnRewriteBlock.HasDelegate;
 
     private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) => MarkdownRender.Inlines(parts);
 

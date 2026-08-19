@@ -1,0 +1,130 @@
+@*
+    The block a domain surface mounts when it wants integrations at all.
+
+    Thin on purpose. It owns the order of the four parts and one precedence rule,
+    and nothing else — it is not a container, and the moment it starts deciding
+    what goes inside it, four surfaces will be passing it four sets of options to
+    get four layouts back.
+
+    It earns its place anyway, because without it every surface composes the same
+    three parts in its own order and half the consistency this family exists for
+    goes unmet: a reader would learn where the acts are on a backlog entry and
+    have to learn it again on a knowledge chapter.
+
+    The order is fixed: header and freshness, then the acts, then the references,
+    then whatever the surface adds. Acts before references because an act is what
+    a reader came to do and a reference is what already happened.
+
+    The one precedence rule: when the whole cluster is unavailable the acts are
+    replaced by the reason, and the references stay. A pull request read last
+    Tuesday is still open today; blanking it because a token expired would tell
+    the reader something false, and quietly is the worst way to be wrong.
+*@
+
+<section class="@ClassValue" data-testid="@TestId">
+    <header class="integration-panel__header" data-testid="@HeaderTestId">
+        <h3 class="integration-panel__title">@Title</h3>
+
+        <IntegrationFreshness Reading="@Reading" Density="@Density" OnRefresh="@OnRefresh" />
+    </header>
+
+    @if (Cluster.IsAvailable)
+    {
+        <div class="integration-panel__actions" data-testid="@ActionsTestId">
+            <IntegrationActionBar Actions="@Actions"
+                                  Density="@Density"
+                                  AriaLabel="@Title"
+                                  OnInvoke="@OnInvoke"
+                                  OnCancel="@OnCancel"
+                                  OnRetry="@OnRetry"
+                                  OnRemedy="@OnRemedy" />
+        </div>
+    }
+    else
+    {
+        <IntegrationUnavailable Readiness="@Cluster" Density="@Density" OnRemedy="@OnRemedy" />
+    }
+
+    <div class="integration-panel__links" data-testid="@LinksTestId">
+        @* No Reading and no OnRefresh: the header already carries the one
+           freshness line this panel has, and a second one inside the list would
+           be the same fact stated twice a few pixels apart. And no Readiness
+           either — the reason is stated once above, and repeating it over the
+           references is what would make them look untrustworthy. *@
+        <IntegrationLinkList Links="@Links"
+                             Density="@Density"
+                             OnOpen="@OnOpen" />
+    </div>
+
+    @ChildContent
+</section>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = "Integrations";
+
+    [Parameter]
+    public IReadOnlyList<IntegrationActionSpec> Actions { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<IntegrationLinkRef> Links { get; set; } = [];
+
+    [Parameter]
+    public IntegrationReading Reading { get; set; } = IntegrationReading.Never;
+
+    [Parameter]
+    public IntegrationReadiness? Readiness { get; set; }
+
+    [Parameter]
+    public IntegrationDensity Density { get; set; } = IntegrationDensity.Toolbar;
+
+    /// <summary>Anything the surface adds under the standard parts — open
+    /// proposals, an extra row. Last, because it is the part this panel knows
+    /// nothing about and cannot order against.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationActionSpec> OnInvoke { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationActionSpec> OnCancel { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationActionSpec> OnRetry { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationReadiness> OnRemedy { get; set; }
+
+    [Parameter]
+    public EventCallback<IntegrationLinkRef> OnOpen { get; set; }
+
+    [Parameter]
+    public EventCallback OnRefresh { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? HeaderTestId { get; set; }
+
+    [Parameter]
+    public string? ActionsTestId { get; set; }
+
+    [Parameter]
+    public string? LinksTestId { get; set; }
+
+    private IntegrationReadiness Cluster => Readiness ?? IntegrationReadiness.Ready;
+
+    private string ClassValue
+    {
+        get
+        {
+            var stem = $"integration-panel integration-panel--{IntegrationStates.SlugOf(Density)}";
+            return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
+        }
+    }
+}

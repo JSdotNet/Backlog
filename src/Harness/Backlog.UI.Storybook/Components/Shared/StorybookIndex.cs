@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Menus;
+﻿using Backlog.UI.Components.Menus;
 
 namespace Backlog.UI.Storybook.Components.Shared;
 
@@ -14,10 +14,13 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// recorded the order the work was commissioned in rather than anything a
 /// reader of the library could act on.
 /// <para>
-/// "Knowledge base" is the one group named after a subject rather than a job,
-/// and it is also the only one that is a parent page with subpages under it.
-/// Both follow from the same thing: its four pages document one convention from
-/// four angles, so they are read as a chapter and not picked out of a list.
+/// "Knowledge base" and "Integrations" are the two groups named after a subject
+/// rather than a job, and they are also the two that are a parent page with
+/// subpages under them. Both facts follow from the same thing in both cases:
+/// their pages document one convention from several angles, so they are read as
+/// a chapter and not picked out of a list. Knowledge base set the shape;
+/// Integrations follows it rather than inventing a second arrangement, and the
+/// comment above that group records why it qualifies on both counts.
 /// </para>
 /// </remarks>
 internal static class StorybookIndex
@@ -95,6 +98,33 @@ internal static class StorybookIndex
             new("knowledge-base/metadata", "Metadata", "KnowledgeMeta reads the fence into a KnowledgeMetadata and KnowledgeMetaView draws it — every field, and why an unknown one is kept rather than dropped."),
             new("knowledge-base/references", "References", "Why related, depends-on and implements hold addresses rather than labels, and what KnowledgeReferenceLink renders for each thing a host can do with one."),
             new("knowledge-base/state", "State", "Five folders spell their lifecycle five ways. What the folder parameter buys: the vocabulary, one tone scale under all of them, and a flag on a value that is in none.")
+        ]),
+        // The second subject-named group with subpages, for the reason recorded
+        // against the first: its five pages document one convention from several
+        // angles — the same readiness-and-lifecycle idea explains the act, the
+        // reference, the density rule and the AI proposal — so they are read as a
+        // chapter rather than picked out of a list. It is a subject and not a job
+        // for the same reason it cannot go anywhere else: its components span
+        // input-and-action, content and feedback, and no job-named group can hold
+        // it without splitting it across three.
+        //
+        // Directly after Knowledge base rather than after Content. Unlike Knowledge
+        // base it is built on four groups, so no single one can precede it by
+        // adjacency; it sits here because its AI subpage extends MarkdownView the
+        // same way the chapter view does, and a reader arrives having just watched
+        // that extension done once. Feedback stays last for the reason already
+        // recorded above it.
+        //
+        // The parent is titled for what it is about and not "Integrations": the
+        // group title is already that, uppercased, directly above it, and the same
+        // words twice in two type styles read as a rendering fault.
+        new("Integrations",
+        [
+            new("integrations", "Availability and lifecycle", "Whether the product can perform an outward act at all, and if not why, plus the five states one act moves through. The substrate the other four pages are built on.", Exact: true),
+            new("integrations/actions", "Actions", "The six acts the product performs on an external tool, the two hand-offs that send a section to an agent session in another repository, and why only the acts that leave the application wear a provider mark."),
+            new("integrations/references", "References", "Issues, pull requests and agent sessions that live outside the product: their state, their drift against local truth, when it was last read, and what a list of eleven across four repositories looks like."),
+            new("integrations/density", "Density and overflow", "The same acts as a header toolbar, an inline row, an icon-only cluster and a set of menu items. One budget rule and the four exceptions that keep it sensible."),
+            new("integrations/ai", "AI in the document", "Rewriting a block and resolving a comment, attached to the comment model that already exists. Why nothing is applied in place, why accepting keeps the attribution, and why the product's own AI is attributed to AI and to no vendor.")
         ]),
         new("Feedback",
         [

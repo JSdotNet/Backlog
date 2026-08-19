@@ -6,29 +6,29 @@
     ".design"
   ],
   "stats": {
-    "nodes": 94,
-    "edges": 176,
+    "nodes": 95,
+    "edges": 179,
     "nodesByFolder": {
-      "design": 84,
+      "design": 85,
       "arc42": 5,
       "tech": 1,
       "domain": 4
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 79,
+      "chapter": 80,
       "heading": 5
     },
     "nodesByStatus": {
-      "active": 83,
+      "active": 84,
       "none": 5,
       "accepted": 1,
       "candidate": 1,
       "draft": 4
     },
     "edgesByType": {
-      "contains": 76,
-      "related": 100
+      "contains": 77,
+      "related": 102
     }
   },
   "problems": [],
@@ -404,11 +404,28 @@
           "path": ".design/color-scheme.md",
           "slug": "syntax-highlighting-tokens",
           "level": 2,
-          "line": 185,
+          "line": 186,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
             ".design/content-editing.md#supported-constructs"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/color-scheme.md#role-tokens",
+          "label": "Role Tokens",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/color-scheme.md",
+          "slug": "role-tokens",
+          "level": 2,
+          "line": 224,
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#dark-mode-only",
+            ".design/accessibility.md#contrast"
           ]
         }
       },
@@ -421,7 +438,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 223,
+          "line": 311,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -437,7 +454,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 250,
+          "line": 338,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -453,7 +470,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 277,
+          "line": 365,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -470,7 +487,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 313,
+          "line": 401,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -1668,6 +1685,14 @@
       },
       {
         "data": {
+          "id": "contains:.design/color-scheme.md->.design/color-scheme.md#role-tokens",
+          "source": ".design/color-scheme.md",
+          "target": ".design/color-scheme.md#role-tokens",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.design/color-scheme.md->.design/color-scheme.md#contrast-rules-wcag-aa-minimum",
           "source": ".design/color-scheme.md",
           "target": ".design/color-scheme.md#contrast-rules-wcag-aa-minimum",
@@ -2311,6 +2336,22 @@
           "id": "related:.design/color-scheme.md#syntax-highlighting-tokens->.design/content-editing.md#supported-constructs",
           "source": ".design/color-scheme.md#syntax-highlighting-tokens",
           "target": ".design/content-editing.md#supported-constructs",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#role-tokens->.design/design-principles.md#dark-mode-only",
+          "source": ".design/color-scheme.md#role-tokens",
+          "target": ".design/design-principles.md#dark-mode-only",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/color-scheme.md#role-tokens->.design/accessibility.md#contrast",
+          "source": ".design/color-scheme.md#role-tokens",
+          "target": ".design/accessibility.md#contrast",
           "type": "related"
         }
       },

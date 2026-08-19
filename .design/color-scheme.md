@@ -179,8 +179,9 @@ Copy-paste reference of every color token and its single dark value.
 | `color-border-focus` | `#F2C14E` |
 
 The twenty tokens above are the whole colour palette. `components.css` declares
-exactly these, plus the code-block theme in `#syntax-highlighting-tokens`;
-anything else in product code is a literal and MUST be replaced by a token.
+exactly these, plus the code-block theme in `#syntax-highlighting-tokens` and
+the derived role tokens in `#role-tokens`; anything else in product code is a
+literal and MUST be replaced by a token.
 
 ## Syntax Highlighting Tokens
 
@@ -219,6 +220,93 @@ Rules:
 - The hues here are ones the product palette does not otherwise spend, so no two
   kinds of run read as the same thing.
 - A new language MUST map onto these tokens; it MUST NOT add a colour.
+
+## Role Tokens
+
+```meta
+status: active
+related: [".design/design-principles.md#dark-mode-only", ".design/accessibility.md#contrast"]
+```
+
+Two component families need role names the twenty palette tokens do not provide:
+a chart needs a series colour, a track, a gridline and a baseline, and an
+integration affordance needs a live state, a landed one, a quiet one and the two
+surfaces the product acts on. Like the code theme these are **themes, not a
+second palette** — with one difference that matters: **every value below is
+derived.** Each is a `var()` of a palette token or a `color-mix()` of one against
+the surface it is drawn on, so none holds a colour of its own, the palette is
+still twenty colours, and there is no new value for this file to disagree with.
+
+### Chart roles
+
+Measured on `color-background-alt`, which is the card a chart sits on.
+
+| Token | Derivation | Measured |
+|---|---|---|
+| `chart-surface` | `color-background-alt` | — |
+| `chart-series` | `color-primary` | 9.68:1 |
+| `chart-ramp-1` | `color-primary` at 45% on the surface | 3.05:1 |
+| `chart-ramp-2` | `color-primary` at 60% on the surface | 4.38:1 |
+| `chart-ramp-3` | `color-primary` at 80% on the surface | 6.69:1 |
+| `chart-ramp-4` | `color-primary` | 9.68:1 |
+| `chart-track` | `color-primary` at 20% on the surface | 1.59:1 |
+| `chart-grid` | `color-border` | 2.16:1 |
+| `chart-axis` | `color-border-strong` | 3.45:1 |
+| `chart-ink` | `color-text-primary` | 15.42:1 |
+| `chart-ink-muted` | `color-text-secondary` | 10.88:1 |
+
+Rules:
+
+- The palette carries exactly one saturated hue, so charts are **single-hue by
+  rule**. Part-to-whole takes the ordinal ramp; two measures or two providers are
+  drawn as two charts, never as two series on one plot.
+- Every ramp step clears the 3:1 a non-text mark owes its background. The track
+  is deliberately below it, because it is the absence of data rather than data.
+- The baseline takes `chart-axis` rather than `chart-grid`, because a baseline
+  carries meaning and a gridline does not.
+
+### Integration roles
+
+Measured on `color-background-alt`, which is what a state chip sits on.
+
+| Token | Derivation | Measured |
+|---|---|---|
+| `integration-surface` | `color-background-alt` | — |
+| `integration-ink` | `color-text-primary` | 15.42:1 |
+| `integration-ink-muted` | `color-text-secondary` | 10.88:1 |
+| `integration-ink-quiet` | `color-secondary` | 7.83:1 |
+| `integration-ink-off` | `color-text-disabled` | exempt |
+| `integration-edge` | `color-border` | 2.16:1 |
+| `integration-edge-strong` | `color-border-strong` | 3.42:1 |
+| `integration-live` | `color-primary-light` | 11.27:1 |
+| `integration-live-edge` | `color-primary-dark` | 7.19:1 |
+| `integration-alert-surface` | `color-warning` | ink on it: 13.2:1 |
+| `integration-fault-surface` | `color-error` | ink on it: 16.8:1 |
+| `integration-ai-surface` | `color-primary` at 12% on the surface | ink on it: 12.9:1 |
+| `integration-ai-edge` | `color-primary` at 55% on the surface | 4.1:1 |
+
+Rules:
+
+- `color-text-disabled` is **not** the quiet-state ink. It measures 3.43:1 here,
+  and a closed pull request is information rather than an unavailable control, so
+  quiet states take `color-secondary`. The disabled token stays on disabled
+  controls, which is the one place `#contrast-rules-wcag-aa-minimum` exempts it.
+- The two filled chips take `integration-edge-strong` as their boundary rather
+  than a mix of their own surface: `color-warning` is 1.31:1 and `color-error`
+  1.04:1 against this surface, so as boundaries they are invisible. The semantic
+  tokens are backgrounds, as this file requires.
+- `integration-edge` misses the 3:1 a component boundary owes its surface. That
+  is the inherited `color-border` gap recorded in
+  `#surface-and-border-deviation`, and it is acceptable in this family only
+  because an edge is never a sole carrier: every chip also has a stroked icon at
+  or above 3:1 and a text label.
+- `integration-ai-edge` is the tint that says a machine wrote something. It is a
+  mix rather than a new hue because the palette carries one saturated hue and
+  this file forbids inventing a second semantic set to get another.
+
+A new role token MUST be derived from a palette token. A family that needed a
+value of its own would be a second palette, which
+`design-principles.md#dark-mode-only` does not allow.
 
 ## Contrast Rules (WCAG AA minimum)
 

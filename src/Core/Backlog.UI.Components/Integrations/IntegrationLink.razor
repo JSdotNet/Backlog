@@ -1,0 +1,147 @@
+@*
+    One linked artifact that lives outside the product: the mark, the label, its
+    state, and how it disagrees with what we believe locally.
+
+    What it renders depends on what the host can do with it, not on what it is —
+    the tri-state KnowledgeReferenceLink already draws, copied rather than
+    re-derived. Given a URL it is an anchor, given a callback it is a button,
+    given neither it is inert text. The argument is the one recorded there: an
+    anchor can be middle-clicked, copied and opened in a new window and a button
+    cannot, and a reference nobody can follow should not invite a click or take a
+    tab stop to refuse one.
+
+    It matters more here than it did there. A pull request has a URL. A Copilot
+    CLI session is a local process with nothing to address, so it arrives as a
+    callback and renders as a button — and a fourth renderer invented for that
+    case is precisely the drift this family exists to prevent.
+
+    The inert shape is a span rather than KnowledgeReferenceLink's code element.
+    A pull request number is a number, not a path: the existing `.badge--gh`
+    already sets tabular-nums rather than putting it in the mono face, and this
+    follows what the product already does with these.
+*@
+
+@if (!string.IsNullOrWhiteSpace(Link.Url))
+{
+    <a class="@ClassValue("link")"
+       href="@Link.Url"
+       target="_blank"
+       rel="noopener"
+       title="@TitleValue"
+       data-testid="@TestId">@Body()</a>
+}
+else if (OnOpen.HasDelegate)
+{
+    <button type="button"
+            class="@ClassValue("action")"
+            title="@TitleValue"
+            data-testid="@TestId"
+            @onclick="() => OnOpen.InvokeAsync(Link)">@Body()</button>
+}
+else
+{
+    <span class="@ClassValue("inert")" title="@TitleValue" data-testid="@TestId">@Body()</span>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IntegrationLinkRef Link { get; set; } = default!;
+
+    /// <summary>Raised with the whole reference. Ignored while the reference has
+    /// a URL: a link already navigates, and two ways to reach one place is one
+    /// too many.</summary>
+    [Parameter]
+    public EventCallback<IntegrationLinkRef> OnOpen { get; set; }
+
+    [Parameter]
+    public IntegrationDensity Density { get; set; } = IntegrationDensity.Inline;
+
+    /// <summary>Whether to name the repository on the reference itself. Off by
+    /// default because the list groups by repository and a heading over each
+    /// group says it once — this is for a reference standing on its own.</summary>
+    [Parameter]
+    public bool ShowRepository { get; set; }
+
+    [Parameter]
+    public bool ShowTitle { get; set; } = true;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? MarkTestId { get; set; }
+
+    [Parameter]
+    public string? LabelTestId { get; set; }
+
+    [Parameter]
+    public string? StateTestId { get; set; }
+
+    [Parameter]
+    public string? DriftTestId { get; set; }
+
+    private bool IconOnly => IntegrationStates.IsIconOnly(Density);
+
+    /// <summary>The artifact's own title where it has one, and the label
+    /// otherwise. Kept on every shape including the inert one, because the
+    /// reason a reference is unfollowable is never that it is uninteresting.</summary>
+    private string TitleValue => string.IsNullOrWhiteSpace(Link.Title) ? Link.Label : Link.Title;
+
+    private string ClassValue(string shape)
+    {
+        var stem = $"integration-link integration-link--{shape} integration-link--{IntegrationStates.SlugOf(Density)}";
+        return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
+    }
+
+    /// <summary>
+    /// One body for all three shapes, so an anchor, a button and a span are the
+    /// same reference drawn three ways rather than three renderings a stylesheet
+    /// has to keep in step.
+    /// </summary>
+    private RenderFragment Body() =>
+        @<text>
+            @* The mark carries a name only at Compact density, where it is the
+               sole thing separating a Claude session row from a GitHub issue
+               row. Everywhere else the label beside it already says which. *@
+            <ProviderMark Provider="@Link.Provider"
+                          Title="@(IconOnly ? IntegrationStates.NameOf(Link.Provider) : null)"
+                          TestId="@MarkTestId" />
+
+            <span class="integration-link__label" data-testid="@LabelTestId">@Link.Label</span>
+
+            @if (ShowRepository && Link.Repository is { } repository)
+            {
+                <span class="integration-link__repository">@repository.DisplayName</span>
+            }
+
+            @if (ShowTitle && !IconOnly && !string.IsNullOrWhiteSpace(Link.Title))
+            {
+                <span class="integration-link__title">@Link.Title</span>
+            }
+
+            @if (Link.ArtifactState is not null || Link.SessionState is not null)
+            {
+                <IntegrationStateChip Artifact="@Link.ArtifactState"
+                                      Session="@Link.SessionState"
+                                      Kind="@Link.Kind"
+                                      IconOnly="@IconOnly"
+                                      TestId="@StateTestId" />
+            }
+
+            @* A second chip beside the first rather than a mode of it, because a
+               disagreement between the artifact and what we believe is a
+               different fact from the artifact's own state, and on screen two
+               facts are two chips. *@
+            @if (Link.Drift is not IntegrationDrift.None)
+            {
+                <IntegrationStateChip Drift="@Link.Drift"
+                                      Kind="@Link.Kind"
+                                      IconOnly="@IconOnly"
+                                      Title="@Link.DriftNote"
+                                      TestId="@DriftTestId" />
+            }
+        </text>;
+}

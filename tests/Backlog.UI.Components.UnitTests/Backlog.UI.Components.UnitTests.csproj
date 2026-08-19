@@ -17,6 +17,7 @@
     <Using Include="Backlog.UI.Components.Diagrams" />
     <Using Include="Backlog.UI.Components.Feedback" />
     <Using Include="Backlog.UI.Components.Inputs" />
+    <Using Include="Backlog.UI.Components.Integrations" />
     <Using Include="Backlog.UI.Components.Knowledge" />
     <Using Include="Backlog.UI.Components.Layout" />
     <Using Include="Backlog.UI.Components.Markdown" />

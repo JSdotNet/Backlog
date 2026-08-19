@@ -1,0 +1,419 @@
+@page "/integrations/density"
+
+<PageTitle>Density and overflow — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Density and overflow"
+           Summary="The same set of acts as a header toolbar, an inline row, an icon-only cluster on a list row, and a set of items inside a context menu. Four densities, one budget rule, and the four exceptions that keep the rule from doing something stupid.">
+
+    <Story Name="Four densities, one action set"
+           Description="Nothing about an action changes with density. The same IntegrationActionSpec list produces all four, and a surface picks a density the way it picks a font size — as a fact about the space it has, not about what the actions mean.
+
+Density selects three things together — a button shape, a size and a visible budget — because those three always move together, and a host that could set them separately would eventually set two of them wrong. That is the whole argument for one enum over three parameters.
+
+Read the four rows as one transformation rather than four designs. Nothing is added between them and nothing is renamed; what changes is how much of each act survives the room available, and the order never does."
+           Code="@DensitiesCode">
+        <div class="sb-stack" data-testid="density-four">
+            @foreach (var density in Densities)
+            {
+                <div class="sb-stack">
+                    <p class="sb-label">@density</p>
+                    <IntegrationActionBar Actions="@IntegrationFixtures.Acts"
+                                          Density="@density"
+                                          AriaLabel="Integrations"
+                                          OnInvoke="Record"
+                                          TestId="@($"density-four-{Slug(density)}")"
+                                          OverflowTestId="@($"density-four-{Slug(density)}-overflow")"
+                                          MenuTestId="@($"density-four-{Slug(density)}-menu")"
+                                          ActionTestIdPrefix="@($"density-four-{Slug(density)}")" />
+                </div>
+            }
+            <p class="sb-state" data-testid="density-four-echo">@_echo</p>
+        </div>
+    </Story>
+
+    <Story Name="The budget, and what is pinned"
+           Description="Four visible at Toolbar, three at Inline, two at Compact, none at Menu. Those numbers are deliberately smaller than the six acts the family ships, so the default state of a busy surface is a short row and a menu — which is what the design principles ask for when they say to prefer contextual and on-demand affordances over always-visible button rows.
+
+Two things sit outside the budget, and they are outside it in different ways. A Primary act is pinned and still counts against the budget, so Ask AI displaces a Standard act rather than adding a seventh. A copy is pinned and does not count, because it was never a candidate for the menu in the first place — a MenuItem has no clipboard interop, so a copy in overflow would be a row that claims to copy and silently does not.
+
+There is a third exit, and it goes the other way. An act the host explicitly marked Overflow is removed unconditionally and is never promoted back out, not even when it is the only thing left in the menu. It asked to be there; the collapse rule does not second-guess a host that has said where something belongs.
+
+The table under the bar is the same seven specs with the decision the rule made for each, so the row above and the reasoning below cannot disagree."
+           Code="@BudgetCode">
+        <div class="sb-stack" data-testid="density-budget">
+            <IntegrationActionBar Actions="@BudgetActs"
+                                  Density="IntegrationDensity.Toolbar"
+                                  AriaLabel="Integrations"
+                                  OnInvoke="Record"
+                                  TestId="density-budget-bar"
+                                  OverflowTestId="density-budget-overflow"
+                                  MenuTestId="density-budget-menu"
+                                  ActionTestIdPrefix="density-budget" />
+
+            <table class="sb-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Act</th>
+                        <th scope="col">Prominence</th>
+                        <th scope="col">Where it landed, and why</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var act in BudgetActs)
+                    {
+                        <tr data-testid="@($"density-budget-row-{act.Id}")">
+                            <th scope="row">@act.Label</th>
+                            <td>@(act.IsCopy ? "Copy" : act.Prominence.ToString())</td>
+                            <td>@Placement(act)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </Story>
+
+    <Story Name="One item never gets a menu"
+           Description="If the rule would put exactly one action into overflow, it stays visible instead. A menu holding a single item costs a click, hides a label, and buys nothing back. This is the kind of rule that is obvious once written and absent from every hand-rolled toolbar in the product.
+
+The two bars below are five acts and six, at the same density with the same budget. At five the spill is one, so it is pulled back and there is no trigger at all. At six the spill is two, and the trigger appears.
+
+The exception is the act that asked for the menu. An explicit Overflow prominence is not a spill and is never pulled back — the third bar is one such act on its own, and its trigger renders over a menu of exactly one item, because a host that said put this away meant it. Menu density is the other exception: there is no second menu there to save the reader from, so nothing is pulled back out of a menu that is the surface's own."
+           Code="@SingleCode">
+        <div class="sb-stack" data-testid="density-single">
+            <div class="sb-stack">
+                <p class="sb-label">Five acts — the spill of one is pulled back, and no trigger renders</p>
+                <IntegrationActionBar Actions="@IntegrationFixtures.FiveActs"
+                                      Density="IntegrationDensity.Toolbar"
+                                      AriaLabel="Integrations"
+                                      OnInvoke="Record"
+                                      TestId="density-single-five"
+                                      OverflowTestId="density-single-five-overflow"
+                                      ActionTestIdPrefix="density-single-five" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Six acts — the spill of two gets one</p>
+                <IntegrationActionBar Actions="@IntegrationFixtures.Acts"
+                                      Density="IntegrationDensity.Toolbar"
+                                      AriaLabel="Integrations"
+                                      OnInvoke="Record"
+                                      TestId="density-single-six"
+                                      OverflowTestId="density-single-six-overflow"
+                                      MenuTestId="density-single-six-menu"
+                                      ActionTestIdPrefix="density-single-six" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">One act, marked Overflow by the host — it stays in the menu</p>
+                <IntegrationActionBar Actions="@AskedForTheMenu"
+                                      Density="IntegrationDensity.Toolbar"
+                                      AriaLabel="Integrations"
+                                      OnInvoke="Record"
+                                      TestId="density-single-asked"
+                                      OverflowTestId="density-single-asked-overflow"
+                                      MenuTestId="density-single-asked-menu"
+                                      ActionTestIdPrefix="density-single-asked" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="An unavailable action is not a hidden one"
+           Description="The tempting optimisation is to drop actions that cannot run and free the budget for ones that can. It is wrong, and it is wrong in a way that is hard to diagnose: a reader who never sees Create GitHub issue concludes the product cannot create GitHub issues, and files that as a missing feature rather than as an unconnected account.
+
+So readiness has no effect on placement. An unavailable action occupies the same slot it would have occupied, disabled, carrying its reason. The two bars below are the same six specs with GitHub disconnected and VS Code missing in the second, and the layout is identical — same acts visible, same act behind the trigger, same order.
+
+The cluster case behaves the same way one level up. A bar handed a cluster readiness that is not available disables every act that goes through it and keeps every one of them where it was, and the overflow trigger is disabled with the cluster's reason rather than disappearing."
+           Code="@UnavailableCode">
+        <div class="sb-stack" data-testid="density-unavailable">
+            <div class="sb-stack">
+                <p class="sb-label">Everything connected</p>
+                <IntegrationActionBar Actions="@IntegrationFixtures.Acts"
+                                      Density="IntegrationDensity.Toolbar"
+                                      AriaLabel="Integrations"
+                                      OnInvoke="Record"
+                                      TestId="density-unavailable-ready"
+                                      OverflowTestId="density-unavailable-ready-overflow"
+                                      ActionTestIdPrefix="density-unavailable-ready" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">GitHub not connected, VS Code not installed — identical layout</p>
+                <IntegrationActionBar Actions="@IntegrationFixtures.ActsWithGitHubDown"
+                                      Density="IntegrationDensity.Toolbar"
+                                      AriaLabel="Integrations"
+                                      OnInvoke="Record"
+                                      OnRemedy="RecordRemedy"
+                                      TestId="density-unavailable-down"
+                                      OverflowTestId="density-unavailable-down-overflow"
+                                      ActionTestIdPrefix="density-unavailable-down" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">The whole cluster unavailable — every act disabled, none moved</p>
+                <IntegrationActionBar Actions="@IntegrationFixtures.Acts"
+                                      Density="IntegrationDensity.Toolbar"
+                                      Readiness="@IntegrationFixtures.TokenExpired"
+                                      AriaLabel="Integrations"
+                                      OnInvoke="Record"
+                                      OnRemedy="RecordRemedy"
+                                      TestId="density-unavailable-cluster"
+                                      OverflowTestId="density-unavailable-cluster-overflow"
+                                      ActionTestIdPrefix="density-unavailable-cluster" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="In the menu, the reason joins the label"
+           Description="MenuItem is a flat record with an id, a label and an icon, and it has no room for a described-by or a second line. Rather than widen it — it is used by TreeView, NavList and every context menu in the product — an unavailable action's reason is folded into the label: the act's own words, an em dash, and the sentence it would otherwise have carried in a described-by. The item is disabled, and MenuList skips it with the arrow keys rather than focusing it to refuse.
+
+Widening MenuItem was the alternative and it is worth saying why it was rejected rather than merely not chosen. A second line on a menu row would have to be rendered by every menu in the product to be worth having, and the three that exist have no use for one; adding a field that one caller sets is how a shared record turns into a union.
+
+Open the trigger below. The bar is six acts at Inline density, so three of them are behind it: two that are ready, and one whose Copilot connection is not. The difference between those rows is the whole story."
+           Code="@MenuReasonCode">
+        <div class="sb-stack" data-testid="density-menu-reason">
+            <IntegrationActionBar Actions="@MenuReasonActs"
+                                  Density="IntegrationDensity.Inline"
+                                  AriaLabel="Integrations"
+                                  OnInvoke="Record"
+                                  OnRemedy="RecordRemedy"
+                                  TestId="density-menu-reason-bar"
+                                  OverflowTestId="density-menu-reason-overflow"
+                                  MenuTestId="density-menu-reason-menu"
+                                  ActionTestIdPrefix="density-menu-reason" />
+            <p class="sb-state">
+                The disabled row reads "Rewrite part with AI — Copilot is not connected." One row, one line, no described-by.
+            </p>
+            <p class="sb-state" data-testid="density-menu-reason-echo">@_echo</p>
+        </div>
+    </Story>
+
+    <Story Name="Compact keeps its labels where a screen reader can find them"
+           Description="Icon-only means visually icon-only. Every button still carries an accessible name, and the title falls back to it when nothing more specific is given — the convention IconButton already sets, and one worth copying rather than re-deciding.
+
+The accessibility guidance requires a 44 by 44 pixel target even when the glyph is 16, so the compact button is padded to it and the row is spaced to keep two of them from being mis-activated. That is why a compact cluster is not simply a small cluster: it is the same touch target with less ink in it.
+
+The names below are read out of the same specs the buttons were built from, so a button whose label was changed and whose annotation was not would show the disagreement rather than hide it."
+           Code="@CompactCode">
+        <div class="sb-stack" data-testid="density-compact">
+            <IntegrationActionBar Actions="@IntegrationFixtures.Acts"
+                                  Density="IntegrationDensity.Compact"
+                                  AriaLabel="Integrations"
+                                  OnInvoke="Record"
+                                  TestId="density-compact-bar"
+                                  OverflowTestId="density-compact-overflow"
+                                  MenuTestId="density-compact-menu"
+                                  ActionTestIdPrefix="density-compact" />
+            <dl class="sb-grid">
+                @foreach (var act in IntegrationFixtures.Acts)
+                {
+                    <div class="sb-stack">
+                        <dt class="sb-label">@act.Id</dt>
+                        <dd class="sb-state">aria-label and title: @act.Label</dd>
+                    </div>
+                }
+            </dl>
+        </div>
+    </Story>
+
+    <Story Name="On a list row, in a header, in a context menu"
+           Description="The four densities placed in the hosts they were shaped for, because a density chosen in isolation always looks fine and only fails against real neighbours.
+
+The compact row is the one to look at. It sits beside a status badge, a priority badge and a tag chip — the row a backlog list actually renders — and the argument for the two-item budget is entirely visible there: a third button would push the tags off the row on any window narrower than this page.
+
+The last surface is Menu density, which is the one that only makes sense in a host that already has a menu. The bar contributes a trigger and the pinned acts; the surface owns everything around it. A roadmap bar has room for a mark and a label and nothing else, so this is the only density that fits it."
+           Code="@SurfacesCode">
+        <div class="sb-stack" data-testid="density-surfaces">
+            <div class="sb-surface sb-stack">
+                <p class="sb-label">A backlog list row — Compact</p>
+                <div class="sb-row" data-testid="density-surface-row">
+                    <span>Absorb the improvised GitHub badges</span>
+                    <StatusBadge Status="in-progress" TestId="density-surface-row-status" />
+                    <PriorityBadge Priority="high" TestId="density-surface-row-priority" />
+                    <TagChip Text="ui" TestId="density-surface-row-tag" />
+                    <IntegrationActionBar Actions="@IntegrationFixtures.Acts"
+                                          Density="IntegrationDensity.Compact"
+                                          AriaLabel="Integrations"
+                                          OnInvoke="Record"
+                                          TestId="density-surface-row-bar"
+                                          OverflowTestId="density-surface-row-overflow"
+                                          MenuTestId="density-surface-row-menu"
+                                          ActionTestIdPrefix="density-surface-row" />
+                </div>
+            </div>
+
+            <div class="sb-surface sb-stack">
+                <p class="sb-label">A section header — Toolbar</p>
+                <SectionHeader Title="Integrations"
+                               Description="Everything this entry has done outside the product."
+                               TestId="density-surface-header">
+                    <Actions>
+                        <IntegrationActionBar Actions="@IntegrationFixtures.Acts"
+                                              Density="IntegrationDensity.Toolbar"
+                                              AriaLabel="Integrations"
+                                              OnInvoke="Record"
+                                              TestId="density-surface-header-bar"
+                                              OverflowTestId="density-surface-header-overflow"
+                                              MenuTestId="density-surface-header-menu"
+                                              ActionTestIdPrefix="density-surface-header" />
+                    </Actions>
+                </SectionHeader>
+            </div>
+
+            <div class="sb-surface sb-stack">
+                <p class="sb-label">A knowledge chapter footer — Inline</p>
+                <p>Chapters carry their own references, and the acts that produce them sit under the prose.</p>
+                <IntegrationActionBar Actions="@IntegrationFixtures.Acts"
+                                      Density="IntegrationDensity.Inline"
+                                      AriaLabel="Integrations"
+                                      OnInvoke="Record"
+                                      TestId="density-surface-footer-bar"
+                                      OverflowTestId="density-surface-footer-overflow"
+                                      MenuTestId="density-surface-footer-menu"
+                                      ActionTestIdPrefix="density-surface-footer" />
+            </div>
+
+            <div class="sb-surface sb-stack sb-narrow">
+                <p class="sb-label">A roadmap bar's own menu — Menu</p>
+                <div class="sb-row" data-testid="density-surface-bar">
+                    <span>Q3 — Integrations family</span>
+                    <IntegrationActionBar Actions="@IntegrationFixtures.ActsWithCopy"
+                                          Density="IntegrationDensity.Menu"
+                                          AriaLabel="Integrations"
+                                          OnInvoke="Record"
+                                          TestId="density-surface-menu-bar"
+                                          OverflowTestId="density-surface-menu-overflow"
+                                          MenuTestId="density-surface-menu-menu"
+                                          ActionTestIdPrefix="density-surface-menu" />
+                </div>
+            </div>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly IReadOnlyList<IntegrationDensity> Densities =
+    [
+        IntegrationDensity.Toolbar,
+        IntegrationDensity.Inline,
+        IntegrationDensity.Compact,
+        IntegrationDensity.Menu
+    ];
+
+    /// <summary>The seven the budget story reasons about: six acts, a copy, and
+    /// one the host explicitly sent to the menu.</summary>
+    private static readonly IReadOnlyList<IntegrationActionSpec> BudgetActs =
+    [
+        IntegrationFixtures.AskAi,
+        IntegrationFixtures.CopyPrompt,
+        IntegrationFixtures.CreateIssue,
+        IntegrationFixtures.OpenInVsCode,
+        IntegrationFixtures.RunInCopilot,
+        IntegrationFixtures.ResolveComments,
+        IntegrationFixtures.UnlinkIssue
+    ];
+
+    /// <summary>One act, and it asked for the menu. Without the explicit
+    /// prominence the collapse rule would pull it straight back out.</summary>
+    private static readonly IReadOnlyList<IntegrationActionSpec> AskedForTheMenu =
+    [
+        IntegrationFixtures.AskAi,
+        IntegrationFixtures.UnlinkIssue
+    ];
+
+    /// <summary>Six acts with the last two unavailable, so the menu behind the
+    /// trigger holds one row of each kind.</summary>
+    private static readonly IReadOnlyList<IntegrationActionSpec> MenuReasonActs =
+    [
+        IntegrationFixtures.AskAi,
+        IntegrationFixtures.CreateIssue,
+        IntegrationFixtures.OpenInVsCode,
+        IntegrationFixtures.RunInCopilot,
+        IntegrationFixtures.ResolveComments,
+        IntegrationFixtures.RewritePart with
+        {
+            Readiness = IntegrationReadiness.NotAuthorized("Copilot")
+        }
+    ];
+
+    private string _echo = "Nothing pressed yet.";
+
+    private void Record(IntegrationActionSpec spec) =>
+        _echo = $"OnInvoke raised for {spec.Id} — {spec.Label}.";
+
+    private void RecordRemedy(IntegrationReadiness readiness) =>
+        _echo = $"OnRemedy raised: {readiness.Availability}, {readiness.Subject ?? "no subject"}.";
+
+    private static string Slug(IntegrationDensity density) => density.ToString().ToLowerInvariant();
+
+    /// <summary>What the rule did with one act at Toolbar density, said in the
+    /// rule's own terms. Written from the prominence rather than from where the
+    /// act happens to appear, so the table states the reason and the bar above it
+    /// states the result.</summary>
+    private static string Placement(IntegrationActionSpec act) => act switch
+    {
+        { IsCopy: true } => "Pinned, and costs nothing. CopyButton owns interop a MenuItem cannot carry.",
+        { Prominence: IntegrationProminence.Primary } => "Pinned, and costs one. This is what makes Ask AI reachable everywhere.",
+        { Prominence: IntegrationProminence.Overflow } => "Removed unconditionally, and never promoted back out. The host asked.",
+        _ => "Standard: fills what budget is left, in the order given, and spills to the menu after that."
+    };
+
+    // --- Code samples ------------------------------------------------------
+
+    private const string DensitiesCode = """
+        @* One list, four surfaces. Density is a fact about the room, not about
+           what the acts mean. *@
+        <IntegrationActionBar Actions="@acts" Density="IntegrationDensity.Toolbar" />
+        <IntegrationActionBar Actions="@acts" Density="IntegrationDensity.Inline" />
+        <IntegrationActionBar Actions="@acts" Density="IntegrationDensity.Compact" />
+        <IntegrationActionBar Actions="@acts" Density="IntegrationDensity.Menu" />
+        """;
+
+    private const string BudgetCode = """
+        @* VisibleLimit overrides the density's own budget. It exists for a header
+           that genuinely has the room and for this storybook — nearly every
+           surface should take the density's number. *@
+        <IntegrationActionBar Actions="@acts" Density="IntegrationDensity.Toolbar" VisibleLimit="7" />
+        """;
+
+    private const string SingleCode = """
+        @* A menu holding one item costs a click and buys nothing, so a spill of
+           exactly one is pulled back. An act the host marked Overflow is not a
+           spill and stays where it asked to be. *@
+        new IntegrationActionSpec("unlink", "Unlink the GitHub issue",
+            IntegrationProvider.GitHub,
+            Prominence: IntegrationProminence.Overflow,
+            Destructive: true)
+        """;
+
+    private const string UnavailableCode = """
+        @* Readiness never moves an act. It disables it in place, with its reason. *@
+        spec with { Readiness = IntegrationReadiness.NotAuthorized("GitHub") }
+
+        @* One cluster readiness overrides every act's own: nothing can be
+           individually ready when the thing they all go through is not. *@
+        <IntegrationActionBar Actions="@acts" Readiness="@cluster" OnRemedy="Reconnect" />
+        """;
+
+    private const string MenuReasonCode = """
+        @* What the bar projects for an unavailable act. MenuItem is not widened
+           for this — it is used by TreeView, NavList and every context menu in
+           the product, and a field one caller sets is how a shared record turns
+           into a union. *@
+        new MenuItem(spec.Id, $"{spec.Label} — {reason}", Disabled: true);
+        """;
+
+    private const string CompactCode = """
+        @* Visually icon-only. The label is still the accessible name, and title
+           falls back to it — IconButton's convention, copied rather than
+           re-decided. *@
+        <IntegrationActionBar Actions="@acts" Density="IntegrationDensity.Compact" />
+        """;
+
+    private const string SurfacesCode = """
+        @* A density chosen in isolation always looks fine. These are the four
+           against the neighbours they will actually have. *@
+        <div class="entry-row">
+            <StatusBadge Status="in-progress" />
+            <PriorityBadge Priority="high" />
+            <TagChip Text="ui" />
+            <IntegrationActionBar Actions="@acts" Density="IntegrationDensity.Compact" />
+        </div>
+        """;
+}
