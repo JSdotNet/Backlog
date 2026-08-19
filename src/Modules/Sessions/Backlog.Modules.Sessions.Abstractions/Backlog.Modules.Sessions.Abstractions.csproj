@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Sessions module's public surface — everything a host, an adapter or
+    this context's own UI is allowed to see (ADR 0005, ADR 0009):
+      IAgentSessionSource   the port: what sessions an environment has a record of
+      AgentSession etc.     the DTOs and enums in that port's signatures
+      AgentSessionStates    when a live session stops counting as live — the
+                            threshold policy, which the control library explicitly
+                            refuses to own because a policy needs a clock
+      AgentSessionGroups    the grouping derivation, pure over the sessions it is
+                            given
+      AgentSessionLimits    how many sessions per agent a source will describe
+      SessionFeatures  the key the Shell gates the area on
+
+    The grouping sits here for the same reason EntryTextParser sits in Backlog's
+    abstractions: it is the definition two callers would otherwise each write, so
+    it is a contract rather than one surface's private detail. Unlike that
+    precedent it is genuinely pure — no clock, no I/O, no state — which is what
+    lets it be tested without a filesystem underneath it.
+
+    There is no implementation project yet, and that is a statement about how far
+    this context has been built rather than a missing piece. Every session fact
+    comes from a file an agent already wrote, so the readers that answer the port
+    are host-owned adapters; nothing has yet needed a decision that belongs to
+    neither a host nor this contract. ModuleSurfaceTests says the same thing about
+    the other contexts in this position: demanding a module project for a module
+    nobody has written would only produce an empty one.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Sessions.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The stale-session boundary and the grouping decide what a reader sees as
+         running and how the list is carved up, so they are worth testing directly
+         rather than only through whichever surface happens to render them. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+</Project>

@@ -1226,7 +1226,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "aggregate-machine-registry",
           "level": 2,
-          "line": 19,
+          "line": 27,
           "status": "draft",
           "related": [
             ".domain/technology-stack/domain.md#aggregate-technology-registry",

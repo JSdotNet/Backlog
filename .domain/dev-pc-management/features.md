@@ -100,17 +100,6 @@ declares for everyone else. Each action reports back whether it succeeded, and
 tool management is a capability that can be switched off wholesale on machines
 where it does not apply.
 
-## Feature: Copilot session tracking
-
-```meta
-status: draft
-related: [.domain/monitoring/features.md#feature-multi-layer-dashboards]
-```
-
-Track active Copilot session IDs, URLs, and status per PC, link sessions to
-GitHub issues or backlog items, alert on stalled sessions, and archive history
-for audit.
-
 ## Feature: Security
 
 ```meta

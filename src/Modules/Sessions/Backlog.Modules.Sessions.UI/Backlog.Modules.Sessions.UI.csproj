@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Sessions context's UI: the full-screen list of the Claude and Copilot
+    sessions an environment has a record of, and the readers that answer this
+    module's port (see .domain/context-map.md and .domain/agent-sessions/).
+
+    It references the shared control library rather than growing its own controls,
+    which is the rule every module UI project follows, and its own module's
+    published surface for the port it injects. It sees no host, no workspace and no
+    sibling context — including Dev PC Management, whose Machine this context's
+    Environment corresponds to: the local readers stamp the machine they are running
+    on, so nothing here has to ask another context for it, and the day a fleet
+    reports sessions that arrives as a second implementation of the port rather than
+    a reference from this project.
+
+    The readers live here beside the pane rather than in src/Infrastructure, on the
+    Dashboard's precedent: ModuleBoundaryTests explicitly permits a .UI project to
+    hold an adapter, and the alternative — giving Backlog.Infrastructure.FileSystem a
+    dependency on this module — buys nothing for three readers whose only consumer is
+    this project.
+  -->
+  <PropertyGroup>
+    <!--
+      Like Dev PC Management's, this root namespace matches the project name, and it
+      is safe for a reason worth stating rather than assuming. The Razor generator
+      emits a component's @using directives inside the component's namespace and
+      without a global:: prefix, so under Backlog.Modules.Sessions.UI a bare
+      "Backlog.*" import would bind to Backlog.Modules as soon as a
+      Backlog.Modules.Backlog namespace entered this project's reference closure.
+      Nothing here brings one in — the only references are the control library and
+      this module's own abstractions — and _Imports.razor writes every Backlog.*
+      import as global:: anyway, so neither half of that has to stay true by luck.
+    -->
+    <RootNamespace>Backlog.Modules.Sessions.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <!-- For AddAgentSessionSource(): the host composes the readers, so the
+         registration extension lives beside the adapters it registers. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- What a session file says and what a row shows is where a timestamp, a
+         repository or a liveness state gets lost, so the readers are worth testing
+         directly rather than only through the pane. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <!-- The module's published surface only: the IAgentSessionSource port, the DTOs
+         it answers with, the grouping, and the feature key. Which host answers the
+         port, and whether it reads one machine or a fleet, stays behind that line. -->
+    <ProjectReference Include="..\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

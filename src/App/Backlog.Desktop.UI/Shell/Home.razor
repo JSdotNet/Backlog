@@ -12,18 +12,19 @@
     The shell. It owns the app chrome — header, update and feedback windows, the
     AI panel — and decides which surface sits below it.
 
-    There are three, and exactly one of them renders: the workspace, which is the
-    roadmap band above the global panes; the tools surface; and the dashboard. The
-    last two are takeovers — Dev PC Management and the Dashboard are whole
-    domains, and opening one means the reader has stopped looking at the backlog, so it
-    takes the screen and hides every other domain concern rather than docking
-    beside them. Whichever branch renders owns the page's single <main> landmark.
+    There are four, and exactly one of them renders: the workspace, which is the
+    roadmap band above the global panes; the tools surface; the dashboard; and the
+    session list. The last three are takeovers — Dev PC Management, the Dashboard
+    and Sessions are whole domains, and opening one means the reader has stopped
+    looking at the backlog, so it takes the screen and hides every other domain
+    concern rather than docking beside them. Whichever branch renders owns the
+    page's single <main> landmark.
 
     What is inside a surface is not the shell's business: Inbox, Backlog
-    Management, Second Brain, Roadmap, Dev PC Management and the Dashboard each
-    render themselves from their own project, and the only thing that crosses
-    between them here is the repository scope handed to the knowledge pane and the
-    triaged item handed back from the inbox.
+    Management, Second Brain, Roadmap, Dev PC Management, Sessions and the
+    Dashboard each render themselves from their own project, and the only thing
+    that crosses between them here is the repository scope handed to the knowledge
+    pane and the triaged item handed back from the inbox.
 *@
 
 <div class="shell shell--wide">
@@ -68,10 +69,10 @@
            number). Two shared ButtonGroups make that difference visible; one
            undifferentiated row of pills could not. *@
         <nav class="app-header__nav" aria-label="Workspace views">
-            @* One field with three states, in markup that finally says so.
+            @* One field with four states, in markup that finally says so.
                WorkspaceSurface has always been a single enum precisely because a
-               takeover cannot coexist with the workspace or with the other
-               takeover — but the header rendered two independent buttons carrying
+               takeover cannot coexist with the workspace or with another
+               takeover — but the header rendered independent buttons carrying
                aria-expanded, which described neither the exclusivity nor the fact
                that a takeover replaces the workspace instead of expanding beside
                it. A segmented group of pressed states describes both, and it gives
@@ -82,8 +83,8 @@
                a disclosure: its panel opens beside the content it belongs to.
 
                The group renders only when there is a takeover to switch to. With
-               both features off, a lone "Workspace" segment would be a control with
-               nothing to choose between. *@
+               every takeover feature off, a lone "Workspace" segment would be a
+               control with nothing to choose between. *@
             @if (SurfaceSwitcherVisible)
             {
                 <ButtonGroup CssClass="header-group header-group--surface"
@@ -122,6 +123,19 @@
                                       aria-controls="dashboard-pane"
                                       PressedChanged="ToggleDashboard">
                             Dashboard
+                        </ToggleButton>
+                    }
+
+                    @if (IsFeatureEnabled(SessionFeatures.Sessions))
+                    {
+                        <ToggleButton BaseClass="header-group__option"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="SessionsVisible"
+                                      id="sessions-toggle-button"
+                                      TestId="sessions-toggle-button"
+                                      aria-controls="sessions-pane"
+                                      PressedChanged="ToggleSessions">
+                            Sessions
                         </ToggleButton>
                     }
                 </ButtonGroup>
@@ -457,7 +471,7 @@
         </section>
     }
 
-    @* Exactly one of these three renders, and each one's root is the page's only
+    @* Exactly one of these renders, and each one's root is the page's only
        <main>. A takeover is deliberately not a Modal: there is no scrim and no
        focus trap, because the header behind it is not inert — it is where the
        control that closes the surface lives. Modal.razor still owns the modal
@@ -482,6 +496,17 @@
               @onkeydown="OnSurfaceKeyDown"
               aria-label="Dashboard">
             <DashboardPane OnClose="CloseSurface" />
+        </main>
+    }
+    else if (SessionsVisible)
+    {
+        <main class="workspace-surface"
+              data-testid="sessions-surface"
+              tabindex="-1"
+              @ref="_surfaceElement"
+              @onkeydown="OnSurfaceKeyDown"
+              aria-label="Sessions">
+            <SessionsPane OnClose="CloseSurface" />
         </main>
     }
     else
@@ -698,9 +723,14 @@
     /// rather than by a rule written here: both read the one surface field.</summary>
     private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && IsFeatureEnabled(DashboardFeatures.Dashboard);
 
+    /// <summary>Whether the session list is on screen. The same shape again, for a
+    /// third context: the flag it reads is Sessions', not the Shell's, because the
+    /// pane is that context's too.</summary>
+    private bool SessionsVisible => _surface == WorkspaceSurface.Sessions && IsFeatureEnabled(SessionFeatures.Sessions);
+
     /// <summary>Whether the panes are on screen. Anything that is not a takeover
     /// is the workspace, including a surface whose feature has been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible;
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible;
 
     /// <summary>Whether the surface switcher is offered at all. It needs something
     /// to switch to: with both takeover features off its only member would be the
@@ -708,7 +738,9 @@
     /// in it. Each takeover keeps its own segment gated on its own feature, so this
     /// is the "is there a segment beyond Workspace" question and nothing more.</summary>
     private bool SurfaceSwitcherVisible =>
-        IsFeatureEnabled(DevPcFeatures.SystemTools) || IsFeatureEnabled(DashboardFeatures.Dashboard);
+        IsFeatureEnabled(DevPcFeatures.SystemTools)
+        || IsFeatureEnabled(DashboardFeatures.Dashboard)
+        || IsFeatureEnabled(SessionFeatures.Sessions);
 
     /// <summary>Whether the Roadmap option is offered at all. The same two-level
     /// split as <see cref="InboxPaneOptionVisible"/>: the feature decides whether
@@ -734,6 +766,8 @@
     private void ToggleTools() => ToggleSurface(WorkspaceSurface.Tools);
 
     private void ToggleDashboard() => ToggleSurface(WorkspaceSurface.Dashboard);
+
+    private void ToggleSessions() => ToggleSurface(WorkspaceSurface.Sessions);
 
     /// <summary>Opens a surface, or returns to the workspace if it was already the
     /// one on screen. Assigning rather than flipping a flag is what makes the
