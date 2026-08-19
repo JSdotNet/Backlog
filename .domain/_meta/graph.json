@@ -5894,6 +5894,7 @@
             ".domain/second-brain/domain.md#aggregate-knowledge-note",
             ".domain/monitoring/domain.md#aggregate-progress-signal",
             ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+            ".domain/sessions/domain.md#aggregate-session-log",
             ".domain/repository-management/domain.md#aggregate-repository-registry",
             ".domain/technology-stack/domain.md#aggregate-technology-registry"
           ],

@@ -11,7 +11,7 @@
   ],
   "stats": {
     "nodes": 596,
-    "edges": 1088,
+    "edges": 1089,
     "nodesByFolder": {
       "arc42": 63,
       "domain": 389,
@@ -38,7 +38,7 @@
     },
     "edgesByType": {
       "contains": 493,
-      "related": 520,
+      "related": 521,
       "depends-on": 73,
       "implements": 2
     }
@@ -78,7 +78,7 @@
           "path": ".arc42/01-introduction-and-goals.md",
           "slug": "quality-goals",
           "level": 2,
-          "line": 42,
+          "line": 43,
           "status": "active"
         }
       },
@@ -91,7 +91,7 @@
           "path": ".arc42/01-introduction-and-goals.md",
           "slug": "person",
           "level": 2,
-          "line": 61,
+          "line": 62,
           "status": "active"
         }
       },
@@ -336,7 +336,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "desktop-app",
           "level": 2,
-          "line": 158,
+          "line": 159,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
@@ -353,7 +353,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "mobile-app",
           "level": 2,
-          "line": 234,
+          "line": 235,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#mobile-capture-and-sync",
@@ -370,7 +370,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "ide-extensions",
           "level": 2,
-          "line": 274,
+          "line": 275,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#ide-context-aware-capture",
@@ -387,7 +387,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "cloud-service",
           "level": 2,
-          "line": 334,
+          "line": 335,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
@@ -745,6 +745,7 @@
             ".domain/second-brain/domain.md#aggregate-knowledge-note",
             ".domain/monitoring/domain.md#aggregate-progress-signal",
             ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+            ".domain/sessions/domain.md#aggregate-session-log",
             ".domain/repository-management/domain.md#aggregate-repository-registry",
             ".domain/technology-stack/domain.md#aggregate-technology-registry"
           ]
@@ -13221,6 +13222,14 @@
           "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/dev-pc-management/domain.md#aggregate-machine-registry",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
           "target": ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/sessions/domain.md#aggregate-session-log",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/sessions/domain.md#aggregate-session-log",
           "type": "related"
         }
       },
