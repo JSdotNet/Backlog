@@ -33,6 +33,23 @@
     Every keystroke is reported, and there is no Save button and no Escape. That
     is the opposite of the rename directly above, deliberately, and the whole
     argument is on OnBodyChanged.
+
+    Quick edit is the same rename with Tab wired into it: the key commits this
+    row and asks for the next one, so a reader retitling a list types titles
+    instead of hunting pencils. Which row that lands on is the list's answer and
+    arrives back as Editing — a row cannot see the rows around it, so it cannot
+    work out its own successor. Everything the pencil already decided still holds
+    inside it: the draft is the row's, Escape abandons it, Enter settles it, and
+    an empty or unchanged title raises nothing, so a row tabbed straight through
+    is a row nothing happened to. Escape also puts the focus ring back on the
+    pencil it came from, which is what a dismissal owes its trigger anywhere —
+    and here it is also what stops the end of a chain being a dead end.
+
+    Editing is an invitation and not a state this row is held in. The list asks
+    for the editor to open; putting it down is the row's, because only the row
+    knows whether there is a draft in it and what its keys promised to do with
+    one. That is why the row reports EditingChanged rather than waiting to be
+    told: a list left thinking a field is open would refuse to open it again.
 *@
 
 <li class="@ClassValue"
@@ -88,7 +105,13 @@
     {
         @* Committed on Enter or on leaving, abandoned on Escape. A rename is one
            short string, so a Save button beside it would be a second thing to
-           reach for after the one that already finished the job. *@
+           reach for after the one that already finished the job.
+
+           Under quick edit, Tab settles it too — and there is deliberately no
+           @onkeydown:preventDefault here: it is read now, before anybody has
+           pressed anything, so the only constant that could catch a Tab would
+           also swallow every letter typed into the field. The browser is stopped
+           from moving the focus on by backlogGuardTab instead. *@
         <div class="task-item__rename">
             <TextField Value="@_draft"
                        ValueChanged="v => _draft = v"
@@ -168,6 +191,7 @@
     {
         <button type="button"
                 class="task-item__edit"
+                id="@_editId"
                 aria-label="@($"Rename {Task.Title}")"
                 data-testid="@Suffix("edit")"
                 @onclick="StartRenameAsync"
@@ -259,8 +283,20 @@
 
 @code {
     private readonly string _renameId = "task-rename-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The pencil, by id, so a dismissed rename can put the focus ring
+    /// back where it came from. Named even when nothing is going to ask for it: the
+    /// button is one element for the life of the row, so the id costs an attribute
+    /// and saves a conditional.</summary>
+    private readonly string _editId = "task-edit-" + Guid.NewGuid().ToString("N");
     private bool _editing;
     private string _draft = string.Empty;
+
+    /// <summary>What the list last asked for, so that only a change of mind acts.
+    /// Comparing against <c>_editing</c> instead would re-open the field the
+    /// moment a reader pressed Escape in it, because the list's request is still
+    /// standing at that point — it has not been told yet.</summary>
+    private bool _asked;
 
     /// <summary>Whether the body is open. Held here rather than raised, because
     /// which rows a reader has unfolded is not a fact about the tasks — it dies
@@ -274,6 +310,18 @@
     /// case is reading, and a list that opened every editor at once would be a
     /// list of textareas.</summary>
     private bool _editingBody;
+
+    /// <summary>The field has just been opened and has not been focused yet.
+    /// A request rather than a state, and cleared the first time it is honoured:
+    /// the caret belongs in the field once, when it appears, and a row that put it
+    /// back on every render would fight whoever is typing in it.</summary>
+    private bool _focusRename;
+
+    /// <summary>The rename has just been dismissed and the focus ring has not been
+    /// put back yet. The same shape as <see cref="_focusRename"/> deliberately —
+    /// one mechanism for "after the next render, touch this element", because the
+    /// element in both cases is one a render has to create first.</summary>
+    private bool _focusEdit;
 
     private IReadOnlyList<MdBlock>? _blocks;
     private string? _parsed;
@@ -351,6 +399,55 @@
     /// in — a pencil that opened a field nobody would save is worse than none.</summary>
     [Parameter]
     public EventCallback<TaskRename> OnRename { get; set; }
+
+    /// <summary>
+    /// Whether Tab settles the rename and asks for the next row instead of
+    /// leaving the field. Off by default, and that is not caution: Tab means "the
+    /// next control" in every other field in the product, and a list that quietly
+    /// took it over would be a list some people cannot tab out of.
+    /// <para>
+    /// The list turns it on for every row at once. Whether Tab chains is a fact
+    /// about the list being retitled rather than about any one task in it, and a
+    /// row that decided for itself would make the key mean two different things
+    /// on two rows of the same list.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool QuickEdit { get; set; }
+
+    /// <summary>
+    /// The list asking this row to be the one with the editor open — how a Tab
+    /// pressed in the row above arrives here, since that row could not know which
+    /// row it was handing on to.
+    /// <para>
+    /// An invitation rather than a state. Turning it on opens the field and puts
+    /// the caret in it; turning it off does nothing, because by then the row has
+    /// already closed the field itself. A list that could shut the editor from
+    /// outside would be a list that can throw away a draft the row promised
+    /// Escape was the only way to lose.
+    /// </para>
+    /// <para>
+    /// Ignored when nobody is listening to <see cref="OnRename"/>, on exactly the
+    /// terms the pencil is: a field whose rename would go nowhere is worse than
+    /// no field, whoever asked for it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Editing { get; set; }
+
+    /// <summary>Raised when the row opens or closes its editor, so the list's idea
+    /// of which row is being edited is the row's. Without it a list would go on
+    /// believing a field it asked for is still open after Escape closed it, and
+    /// asking for the same row again — the same request twice — would change
+    /// nothing at all.</summary>
+    [Parameter]
+    public EventCallback<bool> EditingChanged { get; set; }
+
+    /// <summary>Raised after a Tab has settled the rename: this row, and which way
+    /// the reader was going. It is a question rather than an instruction — the
+    /// list owns the order, so only the list can turn "onwards" into a row.</summary>
+    [Parameter]
+    public EventCallback<TaskEditMove> OnEditMove { get; set; }
 
     /// <summary>
     /// Raised on every keystroke in the body, with the whole of it. Without it
@@ -525,6 +622,25 @@
     protected override void OnInitialized() => _expanded = BodyExpanded;
 
     /// <summary>
+    /// Opens the editor when the list has just asked for it, and only then. The
+    /// request is acted on as it changes rather than while it stands, because a
+    /// list re-renders whenever anything in it moves and a row that re-read a
+    /// standing request would re-open the field — and reset the draft — under a
+    /// reader who had already pressed Escape in it.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Editing == _asked) return;
+
+        _asked = Editing;
+
+        // Already open, which is the pencil having got there first: the list is
+        // only agreeing with what the row is doing. Re-opening would put the
+        // title back over whatever has been typed since.
+        if (Editing && !_editing) await StartRenameAsync();
+    }
+
+    /// <summary>
     /// Renaming in place, rather than in the pane the row opens.
     /// <para>
     /// The draft is held here and the row is only told about it when it settles.
@@ -535,40 +651,124 @@
     /// </summary>
     private async Task StartRenameAsync()
     {
+        // The pencil is not rendered without a listener, but the list can ask as
+        // well, and the answer has to be the same either way.
+        if (!CanRename) return;
+
         _draft = Task.Title;
         _editing = true;
 
-        // The field is a different element every time it appears, so it is found
-        // again by id after the render that creates it.
-        await InvokeAsync(StateHasChanged);
-        await FocusRenameAsync();
+        // Asked for here, done after the render. There is no field to focus at
+        // this point in the method — opening the editor is a change to this row's
+        // state, and the input it describes is a node some later batch creates.
+        _focusRename = true;
+
+        await EditingChanged.InvokeAsync(true);
     }
 
-    private async Task FocusRenameAsync()
+    /// <summary>
+    /// Puts the caret in the field, once, after the render that created it.
+    /// <para>
+    /// Here rather than in <see cref="StartRenameAsync"/> because this is the one
+    /// point Blazor guarantees runs with the batch already applied. Focusing where
+    /// the editor opens read correctly and was not: the render had only been
+    /// queued, so the id resolved to nothing or to the node the next batch
+    /// replaced — while the guard call one statement behind it, arriving after that
+    /// batch, landed on the field that survived. The symptom was a field that was
+    /// plainly there, with the focus on nothing and the caret at the end of the
+    /// old title.
+    /// </para>
+    /// <para>
+    /// Once per opening, which is what the flag is for and not a detail. A row
+    /// re-renders whenever anything in the list moves, and a focus on every render
+    /// would drag the caret back over the title while somebody was typing.
+    /// </para>
+    /// <para>
+    /// Putting the ring back on the pencil after a dismissal is the same problem
+    /// again and so it is the same mechanism: the button does not exist while the
+    /// field is open, so the earliest anything can focus it is the render that
+    /// brought it back.
+    /// </para>
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        try
+        if (_focusRename)
         {
-            await Js.InvokeVoidAsync("backlogFocus", _renameId);
+            _focusRename = false;
+
+            await FocusRenameAsync();
+
+            if (QuickEdit) await GuardTabAsync();
         }
-        catch (JSException)
+
+        if (_focusEdit)
         {
-            // The field is there and typeable; it just did not take focus.
-        }
-        catch (JSDisconnectedException)
-        {
-        }
-        catch (InvalidOperationException)
-        {
+            _focusEdit = false;
+
+            await RestoreFocusAsync();
         }
     }
+
+    /// <summary>The caret in the field, with the title selected so the first
+    /// keystroke replaces it rather than being added to the end of it. One rule for
+    /// both ways in: a reader who reached for the pencil reached for it to change
+    /// what is there, exactly as a reader tabbing down the list did.</summary>
+    private Task FocusRenameAsync() => QuickEditField.FocusAsync(Js, _renameId);
+
+    /// <summary>Stops the browser moving the focus on while this field has it, so
+    /// Tab is the list's key rather than the browser's for as long as the editor is
+    /// open. Both directions: forward hands the editor down the list and Shift+Tab
+    /// hands it back up, so neither is the browser's to answer.</summary>
+    private Task GuardTabAsync() => QuickEditField.GuardTabAsync(Js, _renameId);
+
+    /// <summary>The focus ring back on the pencil the field was opened from, with
+    /// nothing selected — it is a button, and there is nothing on it to select.
+    /// <para>
+    /// A dismissal restores the focus to its trigger, which is the rule for every
+    /// other thing in the product that can be dismissed, and it is what stops
+    /// Escape being a dead end: without it the field that had the focus is simply
+    /// gone, the ring lands on the document body, and a reader using the keyboard
+    /// has to tab in from the top of the page to get back to the row they were
+    /// standing on.
+    /// </para>
+    /// </summary>
+    private Task RestoreFocusAsync() => QuickEditField.FocusAsync(Js, _editId, select: false);
 
     private async Task OnRenameKeyAsync(KeyboardEventArgs e)
     {
         if (e.Key == "Escape")
         {
             // Abandon: the row goes back to what it said, and nothing is raised.
+            // It ends a quick edit as well, which is the only thing here that is
+            // about the chain rather than this row — a reader who has just thrown
+            // a title away did not mean "and now the next one".
+            //
+            // And the focus goes back to the pencil, which is where it came from.
+            // Not a quick-edit rule: it is the same restore-to-the-trigger a
+            // dismissal owes anywhere, and it happens to be what keeps the end of
+            // a chain from dropping the reader onto the document body.
             _editing = false;
             _draft = string.Empty;
+            _focusEdit = CanRename;
+            await EditingChanged.InvokeAsync(false);
+            return;
+        }
+
+        // Settled, and on to the next row — or off the end of the list, which
+        // ends it. Which row that is is not this row's to decide: the id goes out
+        // with the direction, and the list answers with a row or with nothing.
+        //
+        // Read before Enter rather than after it so that the two keys stay one
+        // decision each: this one settles the rename and hands it on, that one
+        // settles it and stops.
+        if (e.Key == "Tab" && QuickEdit)
+        {
+            // Taken before the commit, which is the last moment this row is
+            // certainly still the row the reader was in.
+            var from = Task.Id;
+
+            await CommitRenameAsync();
+            await OnEditMove.InvokeAsync(new TaskEditMove(from, !e.ShiftKey));
             return;
         }
 
@@ -582,6 +782,7 @@
         _editing = false;
         var title = _draft.Trim();
         _draft = string.Empty;
+        await EditingChanged.InvokeAsync(false);
 
         // An empty title would leave a row nobody can identify, and a title that
         // did not change is not a rename.
