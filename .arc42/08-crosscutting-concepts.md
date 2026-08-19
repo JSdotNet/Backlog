@@ -102,7 +102,7 @@ follows the organization's OpenTelemetry guidance.
 
 ```meta
 status: active
-related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#aggregate-inbox-item", ".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/second-brain/domain.md#aggregate-knowledge-note", ".domain/monitoring/domain.md#aggregate-progress-signal", ".domain/dev-pc-management/domain.md#aggregate-machine-registry", ".domain/repository-management/domain.md#aggregate-repository-registry", ".domain/technology-stack/domain.md#aggregate-technology-registry"]
+related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#aggregate-inbox-item", ".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/second-brain/domain.md#aggregate-knowledge-note", ".domain/monitoring/domain.md#aggregate-progress-signal", ".domain/dev-pc-management/domain.md#aggregate-machine-registry", ".domain/sessions/domain.md#aggregate-session-log", ".domain/repository-management/domain.md#aggregate-repository-registry", ".domain/technology-stack/domain.md#aggregate-technology-registry"]
 ```
 
 The vocabulary exchanged across all applications and domains is owned per
@@ -118,6 +118,7 @@ architectural concern:
 | **ProgressSignal** | `.domain/monitoring/domain.md#aggregate-progress-signal` |
 | **RoutingRule** | Not yet modeled in `.domain` — tracked in `.arc42/11-risks-and-technical-debt.md` |
 | **MachineRegistration** | `.domain/dev-pc-management/domain.md#aggregate-machine-registry` |
+| **SessionLog** | `.domain/sessions/domain.md#aggregate-session-log` |
 | **RepositoryRegistration** | `.domain/repository-management/domain.md#aggregate-repository-registry` |
 | **TechBaseline** | `.domain/technology-stack/domain.md#aggregate-technology-registry` |
 

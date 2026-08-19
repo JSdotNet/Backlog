@@ -45,19 +45,6 @@ classDiagram
         +Version target_version
         +String status
     }
-    class ActiveSession {
-        <<value object>>
-        +SessionId session_id
-        +Timestamp started_at
-        +String github_issue_url
-        +String backlog_item_id
-    }
-    class SessionRecord {
-        <<value object>>
-        +SessionId session_id
-        +Timestamp ended_at
-        +Duration duration
-    }
     class UptimeMetric {
         <<value object>>
         +Date date
@@ -95,8 +82,6 @@ classDiagram
     MachineRegistry "1" *-- "1" FleetAnalytics : aggregates
     Machine "1" *-- "0..*" ToolVersion : has installed
     Machine "1" *-- "0..*" PendingUpdate : queues
-    Machine "1" *-- "0..*" ActiveSession : tracks active
-    Machine "1" *-- "0..*" SessionRecord : archives
     Machine "1" *-- "0..*" UptimeMetric : records daily
     Machine "1" *-- "0..*" ComplianceSnapshot : records daily
     Machine "1" *-- "0..*" UpdateRecord : logs
@@ -109,8 +94,10 @@ classDiagram
   its owned entity; everything else is an immutable value object.
 - `TeamToolsBaseline` is a local copy of versions consumed from Technology Stack;
   compliance is computed against it, not against a live foreign aggregate.
-- Active vs. archived sessions are deliberately split (`ActiveSession` in
-  `copilot_sessions`, `SessionRecord` in `session_history`); likewise queued vs.
-  executed updates (`PendingUpdate` → `UpdateRecord`).
+- Queued vs. executed updates are deliberately split
+  (`PendingUpdate` → `UpdateRecord`).
+- Sessions are not on this diagram at all: that subject belongs to
+  [Sessions](../sessions/model.md), which models it per environment rather than per
+  machine.
 - `ToolBaseline` and `TrendMetrics` (see `domain.md`) are nested value objects of
   `TeamToolsBaseline` and `FleetAnalytics` respectively.

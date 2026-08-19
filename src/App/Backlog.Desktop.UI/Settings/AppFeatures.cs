@@ -1,4 +1,5 @@
 using Backlog.Modules.Backlog.Abstractions;
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions;
@@ -63,6 +64,7 @@ public static class AppFeatures
         new(KnowledgeFeatures.RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
         new(BacklogFeatures.AdditionalRepositories, "Additional repositories", "Configure multiple repositories and switch repository-specific knowledge."),
         new(DevPcFeatures.SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers."),
+        new(SessionFeatures.Sessions, "Sessions", "Open the full-screen list of Claude and Copilot sessions this PC has a record of, grouped by environment or by assistant."),
         new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost."),
         new(BacklogFeatures.GitHubIntegration, "GitHub integration", "Configure GitHub access, push entries to issues, and refresh issue or pull request state."),
         new(FeedbackReporting, "Feedback reporting", "Report Desktop app issues to GitHub with current-screen context and a screenshot."),

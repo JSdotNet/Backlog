@@ -476,6 +476,57 @@
     },
     {
       "type": "directory",
+      "name": "sessions",
+      "path": ".domain/sessions",
+      "title": "Domain: Sessions",
+      "children": [
+        {
+          "type": "file",
+          "name": "domain.md",
+          "path": ".domain/sessions/domain.md",
+          "title": "Domain: Sessions",
+          "status": "active",
+          "root": true
+        },
+        {
+          "type": "file",
+          "name": "features.md",
+          "path": ".domain/sessions/features.md",
+          "title": "Features: Sessions",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "model.md",
+          "path": ".domain/sessions/model.md",
+          "title": "Domain Model: Sessions",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "flow.md",
+          "path": ".domain/sessions/flow.md",
+          "title": "Flow: Sessions",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "dependencies.md",
+          "path": ".domain/sessions/dependencies.md",
+          "title": "Dependencies: Sessions",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "naming.md",
+          "path": ".domain/sessions/naming.md",
+          "title": "Naming: Sessions",
+          "status": "active"
+        }
+      ]
+    },
+    {
+      "type": "directory",
       "name": "monitoring",
       "path": ".domain/monitoring",
       "title": "Domain: Monitoring & Dashboard",

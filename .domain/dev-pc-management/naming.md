@@ -41,17 +41,6 @@ related: [.domain/dev-pc-management/domain.md#team-tools-baseline, .domain/techn
 This context's local copy of the Technology Stack `Technology Baseline`, used to
 compute per-machine compliance without holding the foreign aggregate.
 
-## Term: Copilot Session
-
-```meta
-status: draft
-aliases: [ActiveSession, SessionRecord, session_id]
-related: [.domain/dev-pc-management/domain.md#active-session]
-```
-
-A tracked Copilot working session on a machine. Active sessions are `ActiveSession`
-value objects; ended ones are archived as `SessionRecord`.
-
 ## Term: Machine Status
 
 ```meta
