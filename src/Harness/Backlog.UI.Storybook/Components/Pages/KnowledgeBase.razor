@@ -1,19 +1,20 @@
-@page "/knowledge-base"
+﻿@page "/knowledge-base"
 
 <PageTitle>Metadata — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Metadata"
-           Summary="This repository keeps its own documentation in five folders — .arc42, .domain, .backlog, .tech and .design — and every addressable heading in them carries a fenced meta block: a short record of what state the chapter is in and what it points at. These components read that record and draw it, and each of them is an addition to a component that was already there rather than a new surface. Two parts of it are separable enough to adopt on their own and have a subpage each: References, for the addresses a block holds, and State, for the status vocabulary a folder gives it.">
-
+           Summary="This repository keeps its own documentation in five folders — `.arc42`, `.domain`, `.backlog`, `.tech` and `.design` — and every addressable heading in them carries a fenced `meta` block. `KnowledgeMetaView` and `MetadataBadge` read that record and draw it, and each is an addition to a component that was already there. Two parts are separable enough to adopt on their own and have a subpage each: References and State. Where the record sits and what it may say are the rules linked above."
+           Guidelines="@Rules">
     <Alert Message="@OptInNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="A chapter is a heading, a record, and prose"
-           Description="The convention, and the sample is not invented: it is the top of this repository's own .tech/shared.md, pasted. A `#` heading opens the file and carries the file-level block; every `##` under it is an addressable chapter and carries its own. The fence language is `meta`, the block sits directly under its heading before any prose so a reader and a parser find it in the same place, and only `status` is required. Every other field is written when it has a value and left out when it does not — the convention is explicit that an empty list or a null is an omission rather than a value — so an absent field reads as `not stated` and never as `stated as empty`.
+           Description="The convention, on a sample that is not invented: it is the top of this repository's own `.tech/shared.md`, pasted. A `#` heading opens the file and carries the file-level block; every `##` under it is an addressable chapter and carries its own. The fence language is `meta`, the block sits directly under its heading before any prose, and only `status` is required — every other field is written when it has a value, so an absent field reads as “not stated” and never as “stated as empty”.
 
-Because the block sits directly under its heading, that is also where it is drawn: the pair is folded into one record and the status takes the right edge of the heading's line. Whether a chapter is current is the first thing a reader wants to know about it, and down a document of chapters the right edge makes one column of states, scannable on its own. Everything else the block says is true but secondary, so it sits underneath, quieter and tighter.
+Because the block sits under its heading, that is where it is drawn: the pair folds into one record and the status takes the right edge of the heading's line.
 
-The status is a control here because this sample is read as `.tech`, and a folder names the values its status may take. Nothing on this page persists anything, so a value picked below is kept for as long as the page is open and no further; a real host adds OnStatusChanged and writes it to the file the block came from."
-           Code="@ConventionCode">
+The status is a control here because this sample is read as `.tech`, and a folder names the values its status may take. Nothing on this page persists anything; a real host adds `OnStatusChanged`."
+           Code="@ConventionCode"
+           Source="@SharedTechSample">
         <MarkdownStory Source="@SharedTechSample"
                        RenderKnowledgeMetadata="true"
                        KnowledgeFolder="KnowledgeFolder.Tech"
@@ -21,16 +22,16 @@ The status is a control here because this sample is read as `.tech`, and a folde
     </Story>
 
     <Story Name="One block, every field, drawn"
-           Description="Every shape the record draws, on one screen. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references and rendered as something a host can follow. `aliases`, `alternatives` and `order` hold plain strings and never become links, whatever a host wires up: an alias is a word rather than a place, a technology that was weighed and rejected has no chapter to point at, and a reading order names siblings rather than paths. Confusing those two groups is the mistake people actually make here.
+           Description="Every shape the record draws, on one screen. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references a host can follow; `aliases`, `alternatives` and `order` hold plain strings and never become links, whatever a host wires up.
 
-`owner` is a field the schema has never heard of. It is kept under Extra and drawn under its own name rather than dropped, because a reader that quietly discarded it would make a genuine schema addition invisible — the field would be in the file, absent from the view, and nobody could tell which of the two was wrong. The same collection catches an entry under `related` that will not parse as an address, for the same reason: a typo is only useful once it is visible.
+A field the schema has never heard of — `owner` here — is kept under Extra and drawn under its own name rather than dropped, and the same collection catches a `related` entry that will not parse. A typo is only useful once it is visible.
 
-No file writes a block like this one. The schema is folder-specific and half of these fields would be meaningless together, which is the story directly below; this block is assembled so that every shape is on screen at once. And a block that states nothing draws nothing — KnowledgeMetaView renders no element at all rather than an empty list with padding around it, and `related: []` or `issue: null`, which is how this repository's own arc42 template spells a field it does not have, read back as absent."
+No file writes a block like this one; it is assembled so every shape is on screen at once. A block that states nothing draws nothing: `KnowledgeMetaView` renders no element at all, and `related: []` or `issue: null` read back as absent."
            Code="@RecordCode">
         <div class="sb-columns" data-testid="knowledge-base-record">
             <div class="sb-stack">
                 <p class="sb-label">The fence body</p>
-                <pre class="sb-story__code" data-testid="knowledge-base-record-source"><code>@EveryFieldBlock</code></pre>
+                <CodeView Source="@EveryFieldBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-base-record-source" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">KnowledgeMetaView over the record it parsed to</p>
@@ -45,9 +46,9 @@ No file writes a block like this one. The schema is folder-specific and half of 
     </Story>
 
     <Story Name="Every field, and which folder writes it"
-           Description="The schema is small and closed, and most of it is folder-specific. A field is not wrong elsewhere so much as meaningless: `kind` and `version` describe a technology, `implements` is how a backlog item says what it delivers, `aliases` belongs to the one file per context that names terms. Knowing which folder you are rendering tells you which rows of this table you will actually see.
+           Description="The schema is small, closed and mostly folder-specific: `kind` and `version` describe a technology, `implements` is how a backlog item says what it delivers, `aliases` belongs to the one file per context that names terms.
 
-The column that catches people is the middle one. Three fields hold references — addresses that parse into a path and an optional chapter — and three hold plain strings that only ever look like text. Every row carries the line as a file actually writes it, because the shape is a claim about syntax and the line is the only thing that shows it: a scalar takes its value bare, a reference field takes a list of addresses, and a plain-string field takes a list that is never parsed.">
+The middle column is the one that catches people. Three fields hold references — addresses that parse into a path and an optional chapter — and three hold plain strings that are never parsed. Every row carries the line as a file actually writes it: a scalar takes its value bare, and both list kinds take a list.">
         <dl class="sb-grid" data-testid="knowledge-base-fields">
             @foreach (var field in Fields)
             {
@@ -55,8 +56,8 @@ The column that catches people is the middle one. Three fields hold references �
                     <dt class="sb-label">@field.Name</dt>
                     <dd class="sb-stack">
                         <p class="sb-state">@field.Shape — @field.Folders</p>
-                        <pre class="sb-story__code"
-                             data-testid="@($"knowledge-base-field-{field.Name}-source")"><code>@field.Line</code></pre>
+                        <CodeView Source="@field.Line" Language="markdown" AllowCopy="false" CssClass="sb-raw__code"
+                                  TestId="@($"knowledge-base-field-{field.Name}-source")" />
                         <p>@field.Meaning</p>
                     </dd>
                 </div>
@@ -65,16 +66,16 @@ The column that catches people is the middle one. Three fields hold references �
     </Story>
 
     <Story Name="Nothing renders differently until a host asks"
-           Description="The same document, twice, with its source above both. On the left MarkdownView has been given nothing new and the `meta` fence is what it has always been: a fenced code block, shown as one. On the right the host has said it is reading a knowledge document, and the fence becomes the record it was written as — folded into the heading above it, so the heading and the status share a line.
+           Description="The same document twice, with its source above both. On the left `MarkdownView` has been given nothing new and the `meta` fence is a fenced code block; on the right `RenderKnowledgeMetadata` and `KnowledgeFolder` are set, and the fence becomes the record it was written as, folded into the heading above it.
 
-The default is off, and that is the whole compatibility story for markdown. Most of the text in this product is an entry body somebody typed, not a chapter out of a knowledge folder, and in a body a fence that happens to say `meta` is a listing like any other. Turning it on is a decision the host makes because it knows where the file came from; this component cannot know that, and guessing would rewrite bodies nobody asked it to touch.
+The default is off, which is the whole compatibility story: most text in this product is an entry body somebody typed, and there a fence that happens to say `meta` is a listing like any other.
 
-The seam is one test in front of branches that already existed. An MdCode block now has three answers where it had two — a metadata record, a diagram where the language names one, and otherwise the code block it always was — and the metadata test runs first and is gated on the opt-in, so a document that did not opt in falls through to exactly the two branches that were there before. The parser is not involved in any of it: it captured the fence language once, and every branch reads that."
+The seam is one test in front of branches that already existed. An `MdCode` block has three answers where it had two — a metadata record, a diagram where the language names one, and otherwise the code block it always was — and the metadata test runs first, gated on the opt-in."
            Code="@OptInCode">
         <div class="sb-stack" data-testid="knowledge-base-opt-in">
             <div class="sb-stack">
                 <p class="sb-label">The document both columns render</p>
-                <pre class="sb-story__code" data-testid="knowledge-base-opt-in-source"><code>@ChapterSample.Trim()</code></pre>
+                <CodeView Source="@ChapterSample.Trim()" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-base-opt-in-source" />
             </div>
             <div class="sb-columns">
                 <div class="sb-stack">
@@ -96,20 +97,16 @@ The seam is one test in front of branches that already existed. An MdCode block 
     </Story>
 
     <Story Name="The strip that was already there did not move"
-           Description="The two badges below do not look alike, and that is deliberate — read this before deciding it is a bug. The upper one is frozen markup from before any of this existed and still wears the old rounded monospace capsule; the lower one is the current typed form and wears the application's status badge like every other status in the product. Same status, same block, two different visual languages, because one of them is not allowed to change.
+           Description="The two badges below do not look alike, and that is deliberate. The upper one is the legacy two-parameter form and keeps the markup it had when it was written: one status span carrying `knowledge-status--ready`, one `code.knowledge-related` per relation, no description list, no link and no control. The lower one is the typed form.
 
-MetadataBadge is rendered by the desktop app and by this storybook with two parameters and nothing else, and that call is entitled to the markup it had when it was written. The top badge is it, unchanged: one status span carrying `knowledge-status--ready`, one `code.knowledge-related` per relation, no description list, no link and no control. The bottom badge is the same fields handed over as a parsed record with the folder named, which is the new capability. Both are fed from the block above — the strip takes its addresses as the flat strings a caller passes today, the record takes the parsed block — so nothing in the difference comes from the two having been given different material.
+The two are branches kept apart rather than layered, so asking for nothing new gets the old markup and asking for a block, a folder, a resolver or a callback gets the new one. `MetadataBadgeCompatibilityTests` asserts the legacy markup attribute by attribute.
 
-The second was not layered over the first. They are two branches kept apart on purpose, because layering would have risked shifting the very markup every existing caller depends on staying still. Asking for nothing new gets the old branch; asking for a block, a folder, a link resolver, a navigate callback or a status callback gets the new one, and only then. MetadataBadgeCompatibilityTests asserts the legacy markup attribute by attribute and names itself a breaking change if it fails.
-
-The record leads with the status on the headline, held to the right edge, and draws its addresses as links under the field that holds them; the strip beside it is one flat row of chips with `related` and `implements` collapsed into a single bucket, because the two-parameter form has only the one. And the typed status is a control where the legacy one is a word: naming the folder names the values the status may take, so the record offers them as a StatusSelector — the same component the desktop app's own knowledge panels already use to change a chapter's state. It is drawn as the same badge a read-only status is, deliberately — the two are one status shown twice, and a reader should never learn from a colour or a shape that a status they can change is a different status from one they cannot.
-
-OnStatusChanged is what carries the choice out of the component. The typed badge below is wired to one, and the line under it reports the last status this page was told about. The legacy strip above has no control to raise that from and does not move when the one underneath it changes — they are two branches, not two views of one state."
+Both are fed from the same block above. The typed status is a control where the legacy one is a word, because naming the folder names the values it may take, so the record offers a `StatusSelector` — drawn as the same badge a read-only status is. `OnStatusChanged` carries the choice out; the line under it reports the last status this page was told about."
            Code="@CompatibilityCode">
         <div class="sb-stack" data-testid="knowledge-base-compatibility">
             <div class="sb-stack">
                 <p class="sb-label">The block both badges were read from</p>
-                <pre class="sb-story__code" data-testid="knowledge-base-compatibility-source"><code>@RoadmapBlock</code></pre>
+                <CodeView Source="@RoadmapBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-base-compatibility-source" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Two parameters — frozen markup, the old capsule, deliberately not updated</p>
@@ -131,16 +128,14 @@ OnStatusChanged is what carries the choice out of the component. The typed badge
     </Story>
 
     <Story Name="Handing your own heading in"
-           Description="The status shares the heading's line only if the two share a parent, so a host hands its heading to the view rather than placing it above. That is the whole addition — one slot — and it is what turns a record floating under a title into that title's own state. The heading below is the markup MarkdownView emits for one, which is also the markup the record's stylesheet expects to sit beside; a host handing in an element of its own brings that element's margins with it.
+           Description="The status shares the heading's line only if the two share a parent, so `HeadingContent` is where a host hands its heading in rather than placing it above. The heading below is the markup `MarkdownView` emits for one, which is what the record's stylesheet expects to sit beside; a host handing in its own element brings that element's margins with it.
 
-Two widths, one sample. At full width the heading fits; at a navigation pane's width it has to wrap, and what to look for is that the status does not move. It stays on the heading's first line at the right edge rather than being carried down beside the last one, and it never takes a row of its own below the heading — either of which would put the answer to `is this current?` somewhere other than beside the title it answers for.
-
-Three rules do that together, and each is load-bearing. The line does not wrap, so the status cannot be moved off it. The heading may shrink below the width of its own longest word, so it is the item that gives — a flex item's default minimum is its content, and left alone a heading would refuse to narrow and shove the status out of the row instead. And the row aligns on first baselines, so against a heading three lines tall the status sits level with line one. Both forms of the status are named by those rules, so the select below behaves exactly as a pill would."
+Two widths, one sample. At full width the heading fits; at a navigation pane's width it wraps, and what to look for is that the status does not move — it stays on the first line at the right edge. Three things do that together: the line does not wrap, the heading may shrink below its own longest word so it is the item that gives, and the row aligns on first baselines."
            Code="@ComponentCode">
         <div class="sb-stack" data-testid="knowledge-base-heading">
             <div class="sb-stack">
                 <p class="sb-label">The chapter as it is written on disk</p>
-                <pre class="sb-story__code" data-testid="knowledge-base-heading-source"><code>@HowToSource</code></pre>
+                <CodeView Source="@HowToSource" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-base-heading-source" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Full width — the heading fits</p>
@@ -168,24 +163,22 @@ Three rules do that together, and each is load-bearing. The line does not wrap, 
             </div>
             <div class="sb-stack">
                 <p class="sb-label">The stylesheet rule that holds the line together</p>
-                <pre class="sb-story__code" data-testid="knowledge-base-heading-css"><code>@WrapCode</code></pre>
+                <CodeView Source="@WrapCode" Language="razor" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-base-heading-css" />
             </div>
         </div>
     </Story>
 
     <Story Name="Parsing a fence"
-           Description="Parse takes the text inside the fence — the caller has already stripped the fence lines — and hands back a KnowledgeMetadata. ParseFence is the same call with the language check in front of it, which is the shape a renderer wants: give it the fence language and the body, and a block that was never metadata comes back Empty rather than half-read. IsMetaBlock is exposed separately for the case where the answer changes what you render rather than what you parse, which is exactly how MarkdownView uses it — the language decides the branch, and the body is only parsed once that branch is taken.
+           Description="`Parse` takes the text inside the fence — the caller has already stripped the fence lines — and hands back a `KnowledgeMetadata`. `ParseFence` is the same call with the language check in front of it, so a block that was never metadata comes back `Empty` rather than half-read. `IsMetaBlock` is exposed separately for the case where the answer decides what you render rather than what you parse, which is how `MarkdownView` uses it.
 
-It is hand-rolled rather than handed to a YAML library, and that was a decision rather than an oversight: this component library carries no dependency beyond the Blazor packages, and the block is a flat list of scalars with lists one level deep. It is forgiving on purpose, too. `related: []`, `issue: null`, and inline lists both quoted and bare all read back the same way; what a file says is not something a viewer gets to refuse.
+It is hand-rolled rather than handed to a YAML library: this library carries no dependency beyond the Blazor packages, and the block is a flat list of scalars with lists one level deep. It is forgiving — `related: []`, `issue: null`, and inline lists both quoted and bare all read back the same way.
 
-Parse once per block and keep the result. MarkdownView holds a small dictionary keyed by block for this reason — a view re-renders far more often than its blocks change, and re-parsing the same fence on every redraw buys nothing.
-
-The source beside it is the whole fence, opening line included, because that line is the argument this story is about. Every other story on this page shows the body alone, which is what a caller of Parse holds."
+Parse once per block and keep the result; `MarkdownView` holds a small dictionary keyed by block for exactly that. The source beside this story is the whole fence, opening line included, because that line is what `ParseFence` is given."
            Code="@ParseFenceCode">
         <div class="sb-columns" data-testid="knowledge-base-fence">
             <div class="sb-stack">
                 <p class="sb-label">The fence, language and all</p>
-                <pre class="sb-story__code" data-testid="knowledge-base-fence-source"><code>@FencedTechBlock</code></pre>
+                <CodeView Source="@FencedTechBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-base-fence-source" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">ParseFence over that language and that body</p>
@@ -199,6 +192,14 @@ The source beside it is the whole fence, opening line included, because that lin
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("README.md#status-vocabulary", "The status words a knowledge chapter may carry."),
+        new("color-scheme.md#badge-and-chip-tones", "The tone each status and reference kind is drawn in."),
+        new("content-editing.md#structured-metadata-sigils", "The fenced metadata grammar this block reads."),
+        new("typography-and-layout.md#metadata-lines", "How a record of fields sits above the prose it describes.")
+    ];
+
     private const string OptInNotice =
         "Everything on this page and its two subpages is opt-in. MarkdownView renders a meta fence as a "
         + "fenced code block until a host sets RenderKnowledgeMetadata, and MetadataBadge renders the "

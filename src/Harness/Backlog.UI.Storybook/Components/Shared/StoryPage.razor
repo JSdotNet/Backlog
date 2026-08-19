@@ -1,6 +1,14 @@
 @*
     Every page has the same shape: a title, one sentence about what the group is
-    for, and the stories under it.
+    for, the rules that govern it, and the stories under it.
+
+    The rules are the `.design` chapters themselves, rendered here out of the
+    repository's own files rather than linked. A page that restated a rule was
+    keeping a copy that could disagree with it — which is what this block exists
+    to stop — and a page that only linked one was asking a reviewer to leave the
+    component they are reviewing. What stays in the stories is how a component is
+    used; what it is allowed to look like is one disclosure away, in the words the
+    repository holds.
 *@
 
 <article class="sb-page">
@@ -9,6 +17,20 @@
         @if (!string.IsNullOrWhiteSpace(Summary))
         {
             <p class="sb-page__summary">@Summary</p>
+        }
+
+        @if (Guidelines.Count > 0)
+        {
+            <div class="sb-guidelines" data-testid="page-guidelines">
+                <p class="sb-guidelines__title">@GuidelinesLabel</p>
+                <div class="sb-guidelines__list">
+                    @foreach (var guideline in Guidelines)
+                    {
+                        <GuidelineChapter Guideline="@guideline"
+                                          TestId="@($"guideline-{Slug(guideline.Path)}")" />
+                    }
+                </div>
+            </div>
         }
     </header>
 
@@ -24,6 +46,22 @@
     [Parameter]
     public string? Summary { get; set; }
 
+    /// <summary>The `.design` chapters that decide how anything on this page is
+    /// allowed to look and behave. Empty only for a page that documents no
+    /// component — the introduction.</summary>
+    [Parameter]
+    public IReadOnlyList<DesignGuideline> Guidelines { get; set; } = [];
+
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>A heading rather than a fold. The block is a list of folds
+    /// already, and a disclosure holding disclosures makes the rule a reviewer
+    /// wants two clicks away instead of one.</summary>
+    private string GuidelinesLabel =>
+        Guidelines.Count == 1
+            ? "Design rules — 1 chapter from .design"
+            : $"Design rules — {Guidelines.Count} chapters from .design";
+
+    private static string Slug(string path) => Story.Slug(path);
 }

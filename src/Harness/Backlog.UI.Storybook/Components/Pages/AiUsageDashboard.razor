@@ -1,16 +1,15 @@
-@page "/ai-usage"
+﻿@page "/ai-usage"
 
 <PageTitle>AI usage and cost — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="AI usage and cost"
-           Summary="The metric components composed into the view they were built for: what AI cost this fortnight, on what, and for whom.">
+           Summary="The metric components composed into the view they were built for: what AI cost this fortnight, on what, and for whom."
+           Guidelines="@Rules">
 
     <Story Name="The whole view"
-           Description="Four tiles, then the two questions a bill raises — where the tokens went and where the money went — then the rows behind them.
+           Description="Four tiles, then the two questions a bill raises — where the tokens went and where the money went — then the rows behind them. The reading order is the rule linked above.
 
-The reading order is deliberate. Spend leads because it is the figure someone came to this page for; cache hit rate sits beside it because it is the one number on the page a team can act on to change the first one. The breakdowns come next because they answer “on what”, and the tables last because they answer “which one exactly”, which is a question you only ask after the first two.
-
-Every figure here is consistent with every other: the tiles, the bars, the part-to-whole and both tables all add up to the same 412.4M tokens and the same 487.20 USD. Tiles and tables that disagree is the most common way a dashboard is wrong, so the fixture is built to let a reviewer check it.">
+Every figure is consistent with every other: the tiles, the bars, the part-to-whole and both tables all add up to the same 412.4M tokens and the same 487.20 USD, so a reviewer can check it.">
 
         <div class="sb-dashboard">
 
@@ -199,6 +198,13 @@ The shapes are copied, though, so the mapping to a real report is direct:">
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#chart-roles", "The hues this view's series are drawn in."),
+        new("design-principles.md#ai-first-surfaces", "What the product owes a reader about what AI cost."),
+        new("interaction-guidelines.md#empty-loading-and-error-states", "What the view shows before a credential, and while it loads.")
+    ];
+
     private static readonly IReadOnlyList<MetricRow> NoRows = [];
     private static readonly IReadOnlyList<MetricPart> NoParts = [];
     private static readonly IReadOnlyList<MetricPoint> NoPoints = [];

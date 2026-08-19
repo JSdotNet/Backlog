@@ -3,16 +3,13 @@
 <PageTitle>AI in the document — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="AI in the document"
-           Summary="Rewriting a passage and resolving a comment, attached to the comment model that already exists. Why a rewrite is proposed against a block rather than a range, why nothing is ever applied in place, and why accepting a suggestion does not erase the fact that a machine wrote it. Every AI affordance on this page is this product's own and none of them carries a vendor mark; the acts that hand a section out to a Claude or a Copilot session, which do, are on Actions.">
+           Summary="Rewriting a passage and resolving a comment, attached to the comment model that already exists: the records, the anchors and the callbacks. Every AI affordance here is this product's own and carries no vendor mark; the acts that hand a section out to a Claude or Copilot session are on Actions. What attribution owes a reader is the rule linked above."
+           Guidelines="@Rules">
 
     <Story Name="The AI in this document is this product's own"
-           Description="Ask AI, Resolve comments with AI and Rewrite part with AI all run inside the application. Nothing about them crosses out: the request does not become somebody else's session, the reader is left with nothing outside to go and track, and the paragraph never leaves the building. So none of the three carries a provider, and everything they write is attributed to AI, full stop.
+           Description="Ask AI, Resolve comments with AI and Rewrite part with AI all run inside the application, so none of the three carries a `Provider` and everything they write is attributed to AI and nothing further.
 
-That is a refusal rather than an omission, and it is worth being blunt about what it rules out. A Claude or a GitHub Copilot mark on this card would tell a reader that their paragraph went to Anthropic, or to GitHub — a claim about where their own content travelled, made by an icon, on the strength of a configuration they never see. Which model is behind the feature this quarter is an implementation detail of the same class as the storage format, and it can change without one affordance moving.
-
-The right-hand card is the case that does earn a mark, and it is here so the two can be read against each other rather than described. It is anchored to the same block and offers to replace the same paragraph. What differs is where it was written: it came back from a Claude session in jsdotnet/backlog-desktop — a session a hand-off on Actions started, and one that References tracks. That one genuinely left, was written by a named tool, and points at something outside that still exists. So it is marked, named, and carries the model and the session it came from.
-
-One field decides all of it — the mark, the name in the attribution line, the accessible name on the article, and the modifier on the card — which is why the default on AiProposal.Provider is None. A host has to name a vendor out loud to brand a suggestion with one, and the product's own AI never does."
+What that rules out — and why — is the attribution rule linked above."
            Code="@OwnAiCode">
         <div class="sb-stack" data-testid="ai-boundary">
             <div class="sb-columns">
@@ -46,13 +43,9 @@ One field decides all of it — the mark, the name in the attribution line, the 
     </Story>
 
     <Story Name="A rewrite is anchored to a block, because a comment is"
-           Description="MarkdownComment anchors by block index and its own docs say why: a character range survives nothing, because inserting a word above it moves every offset below, and following the text would mean rewriting every anchor on every keystroke. A proposal has exactly the same problem, so it takes exactly the same anchor.
+           Description="`MarkdownProposal` anchors by block index, the same way `MarkdownComment` does: a character range survives nothing, because inserting a word above it moves every offset below.
 
-That has a visible consequence, and it is the honest one to state on this page: rewrite part with AI means rewrite this paragraph. It cannot mean rewrite this sentence, because there is no anchor in this product that would survive it.
-
-Nothing parallel was built to hold any of this. MarkdownView already wraps every block in a row with a data-block index whenever it is annotated, and already renders comments into a notes cell that serves the inline and margin layouts from one piece of markup; the rewrite button goes beside the comment button in the same position, and the proposal renders into the same notes cell. Margin layout therefore works for free, and there is no second layout to keep in step.
-
-Press the rewrite affordance on any block: the host — this page — produces a proposal against that block and hands it back. The third block already has one open."
+The visible consequence is that “rewrite part with AI” means rewrite this paragraph. Nothing new was built to hold it — `MarkdownView` already wraps every block in a row with a `data-block` index whenever it is annotated."
            Code="@AnchorCode">
         <div class="sb-stack" data-testid="ai-anchor">
             <MarkdownView Blocks="@IntegrationFixtures.DocumentBlocks"
@@ -72,11 +65,9 @@ Press the rewrite affordance on any block: the host — this page — produces a
     </Story>
 
     <Story Name="Never applied in place"
-           Description="The design principles require AI actions that modify content to be reversible, and the cheapest reading of that is an undo stack. This family takes the stricter one: the change does not happen until a person says so. Original and Body render as Now and Suggested, and rejecting leaves the document byte-identical rather than restored.
+           Description="`Original` and `Body` render as Now and Suggested, and rejecting leaves the document byte-identical. `MarkdownView` does not apply an accepted text either: it raises `OnAcceptProposal`, and the host re-parses and hands back new blocks — the same discipline `OnEditComment` keeps.
 
-MarkdownView does not apply the accepted text either. It raises OnAcceptProposal and the host re-parses and hands back new blocks — the same discipline OnEditComment keeps, and for the same reason: the truth is upstream. A component that wrote into the document would be a component that had to be told when it was wrong.
-
-Accept is Primary and Reject is Ghost rather than Danger, because discarding a suggestion destroys nothing. The card below is standalone and wired to this page; the line under it is the payload the callback carried, which is the whole of what a host receives."
+Accept is `Primary` and Reject is `Ghost`."
            Code="@ReviewCode">
         <div class="sb-stack" data-testid="ai-review">
             <AiProposalCard Proposal="@_standalone"
@@ -97,11 +88,9 @@ Accept is Primary and Reject is Ghost rather than Danger, because discarding a s
     </Story>
 
     <Story Name="Accepting does not erase who wrote it"
-           Description="The difference between provenance and a confirmation dialog is what survives the click. An accepted proposal keeps its attribution — who wrote it, when, and where it came from if it came from anywhere — and moves to Accepted rather than disappearing, because six months later the question did a person write this paragraph is one the document has to be able to answer.
+           Description="An accepted proposal keeps its attribution — who wrote it, when, and where it came from — and moves to `Accepted` rather than disappearing. What goes is the pair of buttons, because there is nothing left to decide.
 
-What does go is the pair of buttons. Once a proposal is answered there is nothing left to decide, and leaving Accept and Discard on a card that has already been accepted would invite a second answer to a question that is closed.
-
-The host's side of that is one mapping and needs no knowledge of this library: provider to ai_tool, kind to activity_kind, the timestamp to timestamp, the session to session_id, and the accepted proposal's id to outcome_ref — the AI Work Log record the domain already specifies. The three cards below are this product's own AI, so ai_tool would be the product itself and session_id empty; a proposal that came back from a forwarded session fills both, which is the same distinction the mark draws, arriving in the audit record."
+The host's side is one mapping and needs no knowledge of this library: provider to `ai_tool`, and the rest of the record it already stores."
            Code="@StatesCode">
         <div class="sb-stack" data-testid="ai-states">
             @foreach (var state in ProposalStates)
@@ -117,13 +106,9 @@ The host's side of that is one mapping and needs no knowledge of this library: p
     </Story>
 
     <Story Name="Resolving a comment with AI is two acts, not one"
-           Description="The obvious shortcut is to make Accept resolve the comment. It is wrong because it makes one button do two things with one confirmation, and a reader who wanted the suggested wording but not the resolution has no way to say so.
+           Description="`OnResolveCommentWithAi` starts the work and `OnAcceptProposal` accepts the text; the existing Resolve button keeps its exact meaning, and a host that wants both calls resolve second. One act, one callback.
 
-So the existing Resolve button keeps its exact meaning and gains nothing, OnResolveCommentWithAi starts the work, OnAcceptProposal accepts the text, and the host calls resolve second if it wants to. One act, one callback.
-
-Where the proposal lands follows from the same thinking. A resolution is about the remark rather than about the block, so it renders inside the comment's own list item under the comment body — not against the paragraph, where it would look like a rewrite of prose nobody proposed changing.
-
-The thread below is live. The AI resolve button is the third in each comment's row; pressing it produces a resolution against that comment, and the line underneath reports each callback separately as it arrives."
+A resolution proposal renders inside the comment's own list item, under the comment body, rather than against the block."
            Code="@ResolveCode">
         <div class="sb-stack" data-testid="ai-resolve">
             <MarkdownView Blocks="@IntegrationFixtures.DocumentBlocks"
@@ -138,13 +123,9 @@ The thread below is live. The AI resolve button is the third in each comment's r
     </Story>
 
     <Story Name="Attribution is visible and it is announced"
-           Description="The design principles ask for two things and they are not the same thing: AI content must be visually distinguishable and labelled for assistive tech. The card carries both — a tinted edge and the provider mark for the eye, an accessible name reading Suggested by AI on the containing article for everything else — because a tint alone is invisible to a screen reader and an accessible name alone is invisible to everyone else.
+           Description="The card carries both carriers: a tinted edge and the provider mark for the eye, and an accessible name reading “Suggested by AI” on the containing article for everything else.
 
-The tint is a colour mix of the one brand hue against the card surface. It is not a new colour and it could not have been: the palette carries one saturated hue, and the colour scheme forbids inventing a second semantic set to get another. Note which carrier is doing the work here: the tint and the accessible name say a machine wrote this, and both are present on every proposal. The provider mark says something else entirely — that the machine was outside — which is why the card below has a tint and no mark.
-
-The visual carriers are also why the mark could not be made to do double duty. If it were the signal for AI content, an unmarked card would read as a person's writing, and the product's own AI would have to be branded with somebody to be legible at all.
-
-Beside it is an ordinary remark on the same block, which is the comparison that matters. A reader scanning the notes cell should be able to tell at a glance which of the two a person wrote, and the two are deliberately not the same shape."
+The tint is a mix of the one brand hue against the card surface rather than a new colour. Why both carriers are required is the rule linked above."
            Code="@AttributionCode">
         <div class="sb-columns" data-testid="ai-attribution">
             <div class="sb-stack">
@@ -165,11 +146,9 @@ Beside it is an ordinary remark on the same block, which is the comparison that 
     </Story>
 
     <Story Name="Offline, the affordance says so and the document still works"
-           Description="An AI action offline is IntegrationReadiness.Offline() like any other unavailable act — the button stays, disabled, with a calm sentence and no remedy, because there is nothing a reader can press that puts a network back. What must not happen is the document appearing to depend on it.
+           Description="An AI act offline takes `IntegrationReadiness.Offline()` like any other unavailable act: the button stays, disabled, with a calm sentence and no remedy.
 
-So below the bar is the same document with commenting and resolving wired and working. Editing, commenting, resolving and reading are untouched, which is what it means in practice to say that AI affordances must not imply that local editing depends on them.
-
-The per-block affordances take the same position by a different route. They carry no readiness of their own — MarkdownView's AI parameters are callbacks, so a host that cannot reach a model simply does not hand one in, and the button is absent rather than present and lying. The sentence is stated once, on the bar, where a reader looks for it; stating it on every paragraph would turn one standing condition into a page full of them."
+Below the bar is the same document with commenting and resolving wired and working, because editing, commenting, resolving and reading are untouched by it. The per-block affordances carry no readiness of their own — `MarkdownView`'s AI parameters are callbacks, and a host that cannot serve one does not pass it."
            Code="@OfflineCode">
         <div class="sb-stack" data-testid="ai-offline">
             <IntegrationActionBar Actions="@IntegrationFixtures.InAppAi"
@@ -188,11 +167,9 @@ The per-block affordances take the same position by a different route. They carr
     </Story>
 
     <Story Name="A proposal whose block went away"
-           Description="Blocks are deleted while proposals are open, and a proposal pointing past the end of the document has to land somewhere. It joins the orphan region comments already use, for the reason recorded there: dropping it would lose what was suggested, and showing it at the end says it is adrift.
+           Description="A proposal pointing past the end of the document joins the orphan region comments already use, and the orphan computation covers both rather than gaining a second one beside it.
 
-The orphan computation generalises to cover both rather than gaining a second one beside it. That is worth more than the code it saves — one region means a reader learns once that anything down there has lost its anchor, and a second region for proposals would have had to explain itself all over again.
-
-Below, one comment and one proposal both point at a block index the document does not have. Neither is dropped, and neither is drawn against a paragraph it was not written about."
+Below, one comment and one proposal both point at a block index the document does not have."
            Code="@OrphanCode">
         <div class="sb-stack" data-testid="ai-orphan">
             <MarkdownView Blocks="@IntegrationFixtures.DocumentBlocks"
@@ -207,6 +184,14 @@ Below, one comment and one proposal both point at a block index the document doe
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("design-principles.md#ai-first-surfaces", "Where AI may appear in a document, and how it is attributed."),
+        new("content-editing.md#ai-proposals-in-a-document", "Why nothing is applied in place, and what accepting keeps."),
+        new("interaction-guidelines.md#feedback-and-toasts", "What a proposal reports while it is being made."),
+        new("accessibility.md#screen-reader--announcements", "How attribution is announced rather than only shown.")
+    ];
+
     private static readonly IReadOnlyList<AiProposalState> ProposalStates =
     [
         AiProposalState.Proposed,

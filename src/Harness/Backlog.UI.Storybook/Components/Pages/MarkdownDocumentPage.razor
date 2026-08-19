@@ -1,0 +1,256 @@
+@page "/markdown-document"
+
+<PageTitle>Markdown document — Backlog UI Storybook</PageTitle>
+
+@*
+    Combined usage. Everything here is MarkdownView or MarkdownDocument with the
+    options a real surface turns on at once — a way into the editor, a copy
+    button, remarks in two layouts — so it follows the Markdown chapter, which is
+    where each block and inline is shown on its own.
+*@
+
+<StoryPage Title="Markdown document"
+           Summary="A section of markdown as a surface rather than as a rendering: read by default, editable on request, copyable as source, and annotated. Every option MarkdownDocument and the read view take, switched on together. The blocks and inlines themselves are the Markdown chapter; the editor on its own is Rich text editing."
+           Guidelines="@Rules">
+
+    <Story Name="Reading, then editing"
+           Description="MarkdownDocument is the read view with a way into the editor. `@@bind-Value` is the markdown, `@@bind-Editing` is which mode it is in, and `Title` names the thing being read.
+
+Editing hands the same string to the editor that the parser was reading, so a body never exists twice. The copy button is offered in read mode only — in edit mode the text is already selectable.
+
+`OnBlur` is a flush, not an exit: the formatting buttons sit outside the textarea, so every reach for bold blurs it, and the mode stays where the author left it. **Done** is what ends an edit. Press **Edit**, type, then click a toolbar button or out of the box: the line below moves and the editor is still open."
+           Code="@DocumentCode"
+           Source="@_documentSource"
+           SourceLabel="Value">
+        <div class="sb-surface" data-testid="markdown-document">
+            <MarkdownDocument @bind-Value="_documentSource"
+                              @bind-Editing="_editing"
+                              OnBlur="FlushDocument"
+                              Title="release-checklist.md"
+                              TestId="doc" />
+        </div>
+        <p class="sb-state" data-testid="markdown-document-mode">@(_editing ? "editing" : "reading")</p>
+        <p class="sb-state" data-testid="markdown-document-flush">@DocumentFlushState</p>
+    </Story>
+
+    <Story Name="Copying the source out of a read view"
+           Description="`AllowCopy` puts a copy button on a read view, and `Source` is what it copies — the markdown, not the rendering. Pass both: the view renders from `Blocks` and has no way back to the text otherwise.
+
+`CopyLabel` names the button. What it reports is CopyButton's: the clipboard belongs to the browser and the browser may refuse, so the result is shown rather than assumed."
+           Code="@CopyCode"
+           Source="@CopySample">
+        <div data-testid="markdown-copyable">
+            <MarkdownView Blocks="@CopyBlocks" Source="@CopySample" AllowCopy="true" CopyLabel="Copy this section" />
+        </div>
+    </Story>
+
+    <Story Name="Commenting on a section"
+           Description="`Comments` are anchored to a block index — not to a character range, which nothing survives — so the record is `MarkdownComment(Id, BlockIndex, Body, Author, When, Resolved)`. Re-anchoring when blocks move is the host's; the view renders comments against the blocks it is told and never guesses.
+
+`OnAddComment` hands back the block index a reader asked at, `OnEditComment` hands back the whole record with the body already replaced, and `OnResolveComment` hands back an id. A comment whose block has gone renders at the end, marked adrift.
+
+Hover a block for the affordance; a block that already has comments keeps it visible."
+           Code="@CommentCode"
+           Source="@CommentSample">
+        <div data-testid="markdown-commented">
+            <MarkdownView Blocks="@CommentBlocks"
+                          Comments="@_comments"
+                          OnAddComment="AddComment"
+                          OnEditComment="EditComment"
+                          OnResolveComment="ResolveComment" />
+        </div>
+    </Story>
+
+    <Story Name="The same comments, in the margin"
+           Description="`Layout=&quot;MarkdownCommentLayout.Margin&quot;` is the only difference: same blocks, same comments, same callbacks. Inline puts a remark next to what it is about and pushes the body apart; margin keeps the prose continuous and the remarks level with their blocks.
+
+One markup, two layouts — the margin cell is always emitted and follows its block until the grid picks it up. Below the narrow breakpoint it falls back to inline on its own, so a caller does not have to notice. Narrow this window and watch it.
+
+Editing works the same either way: Edit opens the comment in a box with Save and Cancel rather than committing on Enter, because a remark is prose and Enter has to stay a newline. The draft lives in the view until it is saved, so Cancel means something."
+           Code="@MarginCode"
+           Source="@CommentSample">
+        <div data-testid="markdown-commented-margin">
+            <MarkdownView Blocks="@CommentBlocks"
+                          Comments="@_marginComments"
+                          Layout="MarkdownCommentLayout.Margin"
+                          OnAddComment="AddMarginComment"
+                          OnEditComment="EditMarginComment"
+                          OnResolveComment="ResolveMarginComment" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#editing-model", "Why a body opens as a rendering, and what an edit is."),
+        new("content-editing.md#raw-markdown-escape-hatch", "When the source itself is the surface."),
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why a flush is not an exit, and what the save state says."),
+        new("design-principles.md#low-chrome-content-first", "How much of a document may be affordance."),
+        new("accessibility.md#screen-reader--announcements", "What a mode change and a saved edit announce.")
+    ];
+
+    private const string CopySample = """
+        # A section worth taking with you
+
+        The button copies **this markdown**, not the words you can see — the
+        source is what pastes back into another read view.
+
+        - Including the list
+        - And its markers
+        """;
+
+    private static readonly IReadOnlyList<MdBlock> CopyBlocks = MarkdownPreview.ParseDocument(CopySample);
+
+    private const string CommentSample = """
+        # Sync runs through the cloud service
+
+        The desktop head cannot hold a GitHub token safely, so it talks to the
+        cloud service and only the cloud service talks to GitHub.
+
+        - The token never reaches a box we do not control
+        - Two heads writing the same file agree in one place
+
+        > Superseded once the device-code flow lands.
+        """;
+
+    private static readonly IReadOnlyList<MdBlock> CommentBlocks = MarkdownPreview.ParseDocument(CommentSample);
+
+    private string _documentSource = """
+        # Before tagging
+
+        Everything here is read far more often than it is written, which is why
+        this opens as a rendering rather than as a textarea.
+
+        - [x] Tests green on main
+        - [ ] Release notes written
+
+        Press **Edit** to change it, and **Done** to read it again.
+        """;
+
+    private bool _editing;
+    private int _documentFlushes;
+    private string? _documentFlushed;
+
+    /// <summary>A real host would write the body somewhere. The storybook writes
+    /// it to a line under the editor, because the part worth watching is not
+    /// where it went — it is that the flush happened and the editor is still
+    /// open afterwards.</summary>
+    private void FlushDocument()
+    {
+        _documentFlushes++;
+        _documentFlushed = _documentSource;
+    }
+
+    private string DocumentFlushState
+    {
+        get
+        {
+            if (_documentFlushes == 0)
+            {
+                return "nothing flushed yet — edit the text, then click a toolbar button or out of the box";
+            }
+
+            var flushes = _documentFlushes == 1 ? "one flush" : $"{_documentFlushes} flushes";
+            var drift = _documentFlushed == _documentSource
+                ? "the saved copy matches the editor"
+                : "with edits typed since the last one";
+
+            return $"{flushes}, {drift}";
+        }
+    }
+
+    private int _nextComment = 3;
+
+    private IReadOnlyList<MarkdownComment> _comments =
+    [
+        new("c1", 1, "Worth saying which token — the PAT or the app installation?", "Reviewer", "2 hours ago"),
+        new("c2", 2, "Both bullets are the same point stated twice.", "Reviewer", "yesterday", Resolved: true),
+        // Anchored past the end: the block it was written against has gone.
+        new("c3", 9, "This was against a paragraph that no longer exists.", "Reviewer", "last week")
+    ];
+
+    /// <summary>A real host would open a composer. The storybook has nowhere to
+    /// type, so it writes a placeholder and shows where it lands.</summary>
+    private void AddComment(int blockIndex)
+    {
+        var id = $"c{_nextComment++}";
+        _comments = [.. _comments, new MarkdownComment(id, blockIndex, "A new remark, left where it was asked for.", "You", "just now")];
+    }
+
+    private void ResolveComment(string id) =>
+        _comments = [.. _comments.Select(c => c.Id == id ? c with { Resolved = !c.Resolved } : c)];
+
+    /// <summary>The whole comment comes back, body already replaced — so a host
+    /// storing more than the view shows can match it up.</summary>
+    private void EditComment(MarkdownComment edited) =>
+        _comments = [.. _comments.Select(c => c.Id == edited.Id ? edited : c)];
+
+    private IReadOnlyList<MarkdownComment> _marginComments =
+    [
+        new("m1", 1, "The same remarks, drawn beside the prose instead of through it.", "Reviewer", "2 hours ago"),
+        new("m2", 2, "Level with the block it belongs to, so nothing is pushed apart.", "Reviewer", "yesterday"),
+        new("m3", 3, "Resolved, and still here.", "Reviewer", "last week", Resolved: true)
+    ];
+
+    private int _nextMarginComment = 4;
+
+    private void AddMarginComment(int blockIndex)
+    {
+        var id = $"m{_nextMarginComment++}";
+        _marginComments = [.. _marginComments, new MarkdownComment(id, blockIndex, "A new remark, in the margin.", "You", "just now")];
+    }
+
+    private void EditMarginComment(MarkdownComment edited) =>
+        _marginComments = [.. _marginComments.Select(c => c.Id == edited.Id ? edited : c)];
+
+    private void ResolveMarginComment(string id) =>
+        _marginComments = [.. _marginComments.Select(c => c.Id == id ? c with { Resolved = !c.Resolved } : c)];
+
+    private const string DocumentCode = """
+        <MarkdownDocument @bind-Value="_source"
+                          @bind-Editing="_editing"
+                          OnBlur="Flush"
+                          Title="notes.md" />
+
+        @code {
+            // Blur is a save, not an exit. The toolbar is outside the textarea, so
+            // reaching for bold blurs it and the editor has to still be there.
+            private void Flush() => Save(_source);
+        }
+        """;
+
+    private const string CopyCode = """
+        @* Source is only for the copy button — the view renders from Blocks. *@
+        <MarkdownView Blocks="@blocks" Source="@markdown" AllowCopy="true" />
+        """;
+
+    private const string CommentCode = """
+        <MarkdownView Blocks="@blocks"
+                      Comments="@comments"
+                      OnAddComment="Add"
+                      OnResolveComment="Resolve" />
+
+        @code {
+            // Anchored to a block index. Re-anchoring when blocks move is the
+            // host's — the view renders what it is told and never guesses.
+            private void Add(int blockIndex) => _comments = [.. _comments, Compose(blockIndex)];
+        }
+        """;
+
+    private const string MarginCode = """
+        <MarkdownView Blocks="@blocks"
+                      Comments="@comments"
+                      Layout="MarkdownCommentLayout.Margin"
+                      OnAddComment="Add"
+                      OnEditComment="Save"
+                      OnResolveComment="Resolve" />
+
+        @code {
+            // The whole record comes back, body replaced.
+            private void Save(MarkdownComment edited) =>
+                _comments = [.. _comments.Select(c => c.Id == edited.Id ? edited : c)];
+        }
+        """;
+}

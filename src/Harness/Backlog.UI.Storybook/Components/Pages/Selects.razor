@@ -1,9 +1,10 @@
-@page "/selects"
+﻿@page "/selects"
 
 <PageTitle>Selects — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Selects"
-           Summary="Everything that picks a value: a plain select, a select that renders as a badge, a select over an enum, the three named selectors built on top of them, a tag picker, and the search box that filters a list.">
+           Summary="Everything that picks a value: a plain select, a select that renders as a badge, a select over an enum, the three named selectors built on top of them, a tag picker, and the search box that filters a list."
+           Guidelines="@Rules">
 
     <Story Name="SelectField"
            Description="A labelled select over string options. Without an empty option the first value is always chosen; with one, 'nothing selected' is expressible."
@@ -172,6 +173,13 @@
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#keyboard-navigation", "What a picker has to be operable with."),
+        new("color-scheme.md#badge-and-chip-tones", "The tones a value-carrying option is drawn in."),
+        new("typography-and-layout.md#density", "Control heights and how tight a row of pickers may be.")
+    ];
+
     /// <summary>A storybook-local enum. The library is domain-free, so the enum
     /// select needs something of its own to demonstrate against.</summary>
     public enum DemoPriority

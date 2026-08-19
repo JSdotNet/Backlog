@@ -1,16 +1,15 @@
-@page "/integrations/density"
+﻿@page "/integrations/density"
 
 <PageTitle>Density and overflow — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Density and overflow"
-           Summary="The same set of acts as a header toolbar, an inline row, an icon-only cluster on a list row, and a set of items inside a context menu. Four densities, one budget rule, and the four exceptions that keep the rule from doing something stupid.">
+           Summary="The same act set as a header toolbar, an inline row, an icon-only cluster and a set of menu items. `IntegrationDensity` is the one parameter that changes; nothing about an action does. The budget each density carries, and what escapes it, is the rule linked above."
+           Guidelines="@Rules">
 
     <Story Name="Four densities, one action set"
-           Description="Nothing about an action changes with density. The same IntegrationActionSpec list produces all four, and a surface picks a density the way it picks a font size — as a fact about the space it has, not about what the actions mean.
+           Description="One `IntegrationActionSpec` list, four values of `IntegrationDensity`. A surface picks a density as a fact about the space it has.
 
-Density selects three things together — a button shape, a size and a visible budget — because those three always move together, and a host that could set them separately would eventually set two of them wrong. That is the whole argument for one enum over three parameters.
-
-Read the four rows as one transformation rather than four designs. Nothing is added between them and nothing is renamed; what changes is how much of each act survives the room available, and the order never does."
+Density selects a button shape, a size and a visible budget together, as one enum rather than three parameters. Read the four rows below as one transformation: nothing is added, renamed or reordered between them."
            Code="@DensitiesCode">
         <div class="sb-stack" data-testid="density-four">
             @foreach (var density in Densities)
@@ -32,13 +31,9 @@ Read the four rows as one transformation rather than four designs. Nothing is ad
     </Story>
 
     <Story Name="The budget, and what is pinned"
-           Description="Four visible at Toolbar, three at Inline, two at Compact, none at Menu. Those numbers are deliberately smaller than the six acts the family ships, so the default state of a busy surface is a short row and a menu — which is what the design principles ask for when they say to prefer contextual and on-demand affordances over always-visible button rows.
+           Description="Each density carries a visible budget — four, three, two, none — and the rest collapse behind a trigger. Two things sit outside it: a `Primary` act is pinned and still counts, so Ask AI displaces a Standard act rather than adding one; a copy is pinned and does not count.
 
-Two things sit outside the budget, and they are outside it in different ways. A Primary act is pinned and still counts against the budget, so Ask AI displaces a Standard act rather than adding a seventh. A copy is pinned and does not count, because it was never a candidate for the menu in the first place — a MenuItem has no clipboard interop, so a copy in overflow would be a row that claims to copy and silently does not.
-
-There is a third exit, and it goes the other way. An act the host explicitly marked Overflow is removed unconditionally and is never promoted back out, not even when it is the only thing left in the menu. It asked to be there; the collapse rule does not second-guess a host that has said where something belongs.
-
-The table under the bar is the same seven specs with the decision the rule made for each, so the row above and the reasoning below cannot disagree."
+An act marked `Overflow` goes the other way and is removed unconditionally. The numbers and the reasoning behind them are in the rule linked above."
            Code="@BudgetCode">
         <div class="sb-stack" data-testid="density-budget">
             <IntegrationActionBar Actions="@BudgetActs"
@@ -73,11 +68,9 @@ The table under the bar is the same seven specs with the decision the rule made 
     </Story>
 
     <Story Name="One item never gets a menu"
-           Description="If the rule would put exactly one action into overflow, it stays visible instead. A menu holding a single item costs a click, hides a label, and buys nothing back. This is the kind of rule that is obvious once written and absent from every hand-rolled toolbar in the product.
+           Description="When the rule would put exactly one act into overflow, it stays visible and no trigger is rendered.
 
-The two bars below are five acts and six, at the same density with the same budget. At five the spill is one, so it is pulled back and there is no trigger at all. At six the spill is two, and the trigger appears.
-
-The exception is the act that asked for the menu. An explicit Overflow prominence is not a spill and is never pulled back — the third bar is one such act on its own, and its trigger renders over a menu of exactly one item, because a host that said put this away meant it. Menu density is the other exception: there is no second menu there to save the reader from, so nothing is pulled back out of a menu that is the surface's own."
+The two bars below are five acts and six at the same density. At five the spill is one, so it is pulled back; at six the spill is two and the trigger appears. An explicit `Overflow` prominence is never pulled back — the third bar is one such act, with a menu of exactly one item."
            Code="@SingleCode">
         <div class="sb-stack" data-testid="density-single">
             <div class="sb-stack">
@@ -116,11 +109,9 @@ The exception is the act that asked for the menu. An explicit Overflow prominenc
     </Story>
 
     <Story Name="An unavailable action is not a hidden one"
-           Description="The tempting optimisation is to drop actions that cannot run and free the budget for ones that can. It is wrong, and it is wrong in a way that is hard to diagnose: a reader who never sees Create GitHub issue concludes the product cannot create GitHub issues, and files that as a missing feature rather than as an unconnected account.
+           Description="Readiness has no effect on placement. An unavailable act occupies the slot it would have occupied, disabled, carrying its reason.
 
-So readiness has no effect on placement. An unavailable action occupies the same slot it would have occupied, disabled, carrying its reason. The two bars below are the same six specs with GitHub disconnected and VS Code missing in the second, and the layout is identical — same acts visible, same act behind the trigger, same order.
-
-The cluster case behaves the same way one level up. A bar handed a cluster readiness that is not available disables every act that goes through it and keeps every one of them where it was, and the overflow trigger is disabled with the cluster's reason rather than disappearing."
+The two bars below are the same six specs with GitHub disconnected and VS Code missing in the second: same acts visible, same act behind the trigger, same order. A cluster readiness behaves the same way one level up, and disables the trigger with everything else."
            Code="@UnavailableCode">
         <div class="sb-stack" data-testid="density-unavailable">
             <div class="sb-stack">
@@ -160,11 +151,9 @@ The cluster case behaves the same way one level up. A bar handed a cluster readi
     </Story>
 
     <Story Name="In the menu, the reason joins the label"
-           Description="MenuItem is a flat record with an id, a label and an icon, and it has no room for a described-by or a second line. Rather than widen it — it is used by TreeView, NavList and every context menu in the product — an unavailable action's reason is folded into the label: the act's own words, an em dash, and the sentence it would otherwise have carried in a described-by. The item is disabled, and MenuList skips it with the arrow keys rather than focusing it to refuse.
+           Description="`MenuItem` is a flat record with an id, a label and an icon, so an unavailable act's reason is folded into its label — the act's words, an em dash, and the sentence it would otherwise have carried in a described-by. The item is disabled, and `MenuList` skips it with the arrow keys.
 
-Widening MenuItem was the alternative and it is worth saying why it was rejected rather than merely not chosen. A second line on a menu row would have to be rendered by every menu in the product to be worth having, and the three that exist have no use for one; adding a field that one caller sets is how a shared record turns into a union.
-
-Open the trigger below. The bar is six acts at Inline density, so three of them are behind it: two that are ready, and one whose Copilot connection is not. The difference between those rows is the whole story."
+Open the trigger below: the bar is six acts at Inline density, so three are behind it."
            Code="@MenuReasonCode">
         <div class="sb-stack" data-testid="density-menu-reason">
             <IntegrationActionBar Actions="@MenuReasonActs"
@@ -184,11 +173,9 @@ Open the trigger below. The bar is six acts at Inline density, so three of them 
     </Story>
 
     <Story Name="Compact keeps its labels where a screen reader can find them"
-           Description="Icon-only means visually icon-only. Every button still carries an accessible name, and the title falls back to it when nothing more specific is given — the convention IconButton already sets, and one worth copying rather than re-deciding.
+           Description="Icon-only means visually icon-only: every button still carries an accessible name, and `title` falls back to it when nothing more specific is given.
 
-The accessibility guidance requires a 44 by 44 pixel target even when the glyph is 16, so the compact button is padded to it and the row is spaced to keep two of them from being mis-activated. That is why a compact cluster is not simply a small cluster: it is the same touch target with less ink in it.
-
-The names below are read out of the same specs the buttons were built from, so a button whose label was changed and whose annotation was not would show the disagreement rather than hide it."
+The compact button is padded to the minimum target size the accessibility rule sets, and the row is spaced to keep two of them from being mis-activated — so a compact cluster is the same touch target with less ink in it. The names below are read out of the same specs the buttons were built from."
            Code="@CompactCode">
         <div class="sb-stack" data-testid="density-compact">
             <IntegrationActionBar Actions="@IntegrationFixtures.Acts"
@@ -212,11 +199,9 @@ The names below are read out of the same specs the buttons were built from, so a
     </Story>
 
     <Story Name="On a list row, in a header, in a context menu"
-           Description="The four densities placed in the hosts they were shaped for, because a density chosen in isolation always looks fine and only fails against real neighbours.
+           Description="The four densities in the hosts they were shaped for, because a density chosen in isolation always looks fine and only fails against real neighbours.
 
-The compact row is the one to look at. It sits beside a status badge, a priority badge and a tag chip — the row a backlog list actually renders — and the argument for the two-item budget is entirely visible there: a third button would push the tags off the row on any window narrower than this page.
-
-The last surface is Menu density, which is the one that only makes sense in a host that already has a menu. The bar contributes a trigger and the pinned acts; the surface owns everything around it. A roadmap bar has room for a mark and a label and nothing else, so this is the only density that fits it."
+The compact row sits beside a status badge, a priority badge and a tag chip — the row a backlog list renders. The last surface is Menu density, which only makes sense in a host that already has a menu: the bar contributes a trigger and the pinned acts, and the surface owns everything else."
            Code="@SurfacesCode">
         <div class="sb-stack" data-testid="density-surfaces">
             <div class="sb-surface sb-stack">
@@ -288,6 +273,14 @@ The last surface is Menu density, which is the one that only makes sense in a ho
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#action-density-and-overflow", "The budget that decides how many acts a surface shows."),
+        new("typography-and-layout.md#density", "How tight a toolbar, a row and a cluster may be."),
+        new("typography-and-layout.md#iconography", "When a label may be dropped and only the glyph remain."),
+        new("accessibility.md#target-sizes-and-text", "The floor an icon-only control cannot go under.")
+    ];
+
     private static readonly IReadOnlyList<IntegrationDensity> Densities =
     [
         IntegrationDensity.Toolbar,

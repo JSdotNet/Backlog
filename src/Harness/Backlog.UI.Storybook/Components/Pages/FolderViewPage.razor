@@ -1,9 +1,10 @@
-@page "/folder-view"
+﻿@page "/folder-view"
 
 <PageTitle>Folder view — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Folder view"
-           Summary="FolderView shows one folder: what it is in the header, what is in it in the body. Structurally FileView's sibling — same header, same scrolling body, same MaxHeight and Fill — but it is a menu rather than a document, and it is set like one.">
+           Summary="FolderView shows one folder: what it is in the header, what is in it in the body. Structurally FileView's sibling — same header, same scrolling body, same MaxHeight and Fill — but it is a menu rather than a document, and it is set like one."
+           Guidelines="@Rules">
 
     <Story Name="A folder and what is in it"
            Description="The header answers what this is; the tree answers what is in it. A folder opens and closes on click, and the component remembers which are open — that is the part worth having as a component rather than as a parameter, because expansion is state and every host would otherwise redo the same bookkeeping.
@@ -37,11 +38,9 @@ Put the two side by side and it is visible: the folder reads as somewhere you go
     </Story>
 
     <Story Name="Open it in VS Code"
-           Description="The button appears only when something is listening for it. A folder shown in a browser tab has nowhere on disk to open, and an affordance that would do nothing is worse than none — which is also why the TreeView sample over on the Menus chapter does not have one. A tree of rows is a tree of rows; this is the component that knows it is a folder.
+           Description="`OnOpenInEditor` is what renders the button — a folder shown in a browser tab has nowhere on disk to open, so with nothing listening there is no button.
 
-The mark rather than the letters: &quot;VS&quot; in a 2rem box reads as an abbreviation of something a reader has to have been told, and the logo is what they already know from their own taskbar. The accessible name is the words either way — the icon is aria-hidden and a screen reader hears &quot;Open .tech in VS Code&quot;.
-
-Opening leaves this app entirely, so it can fail in ways nothing here can prevent: no editor installed, a path that moved. Busy keeps the button in place and the same size rather than vanishing under the pointer that just hit it, and a failure says so instead of leaving the reader watching nothing happen."
+The icon is `aria-hidden` and the accessible name is the words: a screen reader hears “Open .tech in VS Code”. `Busy` keeps the button in place and the same size while the editor starts, and a failure says so."
            Code="@OpenCode">
         <div class="sb-stack sb-menu" data-testid="folder-view-open">
             <FolderView Name=".tech"
@@ -162,6 +161,13 @@ Sorting stayed with the caller on purpose. Which files matter and in what order 
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#focus-and-selection", "What the selected file looks like, and what keeps it."),
+        new("accessibility.md#keyboard-navigation", "What a folder tree has to be walkable with."),
+        new("typography-and-layout.md#density", "Row heights and indent steps in a folder pane.")
+    ];
+
     private sealed record ModelPart(string Member, string Meaning);
 
     private string? _selected;

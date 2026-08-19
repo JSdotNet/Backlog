@@ -1,16 +1,15 @@
-@page "/roadmap"
+﻿@page "/roadmap"
 
 <PageTitle>Roadmap — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Roadmap"
-           Summary="RoadmapTimeline and RoadmapTimelineBar: a plan drawn against time. Quarters across the top, a two-level column of swimlanes down the left, and bars, milestones and dependency arrows placed by their dates. The component does not know what a group is — a department, a product area, a person, a set of repositories — and it does not know what a row means. It is handed the structure, it draws it in the order it was handed, and it reports what the reader did to it.">
+           Summary="`RoadmapTimeline` and `RoadmapTimelineBar`: a plan drawn against time. Quarters across the top, a two-level column of swimlanes down the left, and bars, milestones and dependency arrows placed by their dates. The component is handed the structure, draws it in the order it was handed, and reports what the reader did to it — it does not know what a group or a row means. What a bar, a milestone and an arrow mean to a reader is the rule linked above."
+           Guidelines="@Rules">
 
     <Story Name="A plan across a year"
-           Description="Six bands, rows inside each, and bars placed by start and end date. This is the whole component in one picture: the axis is ruled in quarters, the left column stays put while the track scrolls sideways, and every bar carries its group&#39;s colour on its leading edge.
+           Description="Six bands, rows inside each, and bars placed by start and end date: the whole component in one picture. The axis is ruled in quarters, the left column stays put while the track scrolls sideways.
 
-Nothing here is a category the library invented. TARGETS, OPERATIONS, PRODUCT and the names inside them are strings this page made up, and RoadmapTimeline could not tell you which of them is a team and which is a workstream. That is the point: the same component draws a personal plan spanning four employers and a release train, and neither is more roadmap-shaped than the other.
-
-The colours are this page&#39;s too. The library declines to ship six hues, because its own palette guide forbids product code from growing a second semantic palette — so a group carries whatever colour its caller gives it, and a group with none is drawn neutral. What the library does guarantee is that a bar stays readable whatever colour arrives: the hue is mixed into a dark surface at thirty percent and shown at full strength only on the edge, where nothing has to be read on top of it."
+Nothing here is a category the library invented — TARGETS, OPERATIONS and PRODUCT are strings this page made up. The colours are this page's too: the library ships no hues of its own, so a caller passes them in."
            Code="@TimelineCode">
         <RoadmapTimeline Groups="@Plan"
                          Bars="@_bars"
@@ -29,11 +28,9 @@ The colours are this page&#39;s too. The library declines to ship six hues, beca
     </Story>
 
     <Story Name="Moving a bar, and moving it without a mouse"
-           Description="Drag a bar sideways and it moves in time; drag it up or down and it changes row; drag either edge and only that date moves. Every one of those snaps to the week, and the bar you are looking at mid-drag is already at the position the drop will commit to — the preview and the result are the same value, so they cannot disagree.
+           Description="Drag a bar sideways to move it in time, up or down to change row, or by an edge to move one date. Every gesture snaps to the week, and the bar mid-drag is already at the position the drop will commit — the preview and the result are the same value.
 
-Then do the same thing with the keyboard, because a chart that could only be dragged would be a chart some people can read and nobody can edit. Tab to a bar, press Space to pick it up, and: Left and Right move it a week, Up and Down move it between rows, Shift with Left or Right pulls the end date, Alt with Left or Right pulls the start date. Space drops it, Escape puts it back. Each step is announced through a live region, and after a drop the focus goes back onto the bar rather than being left where the old element used to be.
-
-The readout below is the host. Nothing on this chart changed by itself: RoadmapTimeline proposed a placement, this page applied it, and the chart redrew from what it got back. That is deliberate — only a host knows whether a date is allowed, whether it saves, and what else has to move with it."
+The keyboard does the same: Tab to a bar, Space to pick it up, arrows to move it a week or a row, Shift or Alt with an arrow to pull an end. Space drops, Escape puts it back, and each step is announced through a live region."
            Code="@EditCode">
         <RoadmapTimeline Groups="@EditablePlan"
                          Bars="@_editable"
@@ -53,11 +50,9 @@ The readout below is the host. Nothing on this chart changed by itself: RoadmapT
     </Story>
 
     <Story Name="Dependencies, and what happens when one end is missing"
-           Description="A dashed arrow runs from the thing that has to land first to the thing waiting on it, and the badge on a bar counts how many arrows point at it. Both are worked out from where the two ends are drawn right now — including a bar you are part-way through dragging — so an arrow is never a stale line to where something used to be. Move the second bar and watch the arrow follow it.
+           Description="`Dependencies` are pairs of bar ids; the badge on a bar counts how many arrows point at it. Both are resolved from where the two ends are drawn right now, including a bar part-way through a drag, so an arrow is never stale. Move the second bar and watch the arrow follow.
 
-The two shapes an arrow takes are not decoration. When the dependent work starts after its dependency ends there is room for a plain elbow. When it does not — the plan says a thing starts before the thing it waits on has finished — the arrow has to double back through the gutter, and that detour is the reader&#39;s cue that the plan contains a contradiction. Drawing both as a straight line would hide exactly the thing worth seeing.
-
-A link naming something that is not on the chart draws nothing at all. That is the strict answer and it is the right one: an arrow into empty space is not a weaker dependency, it is a claim about a relationship the reader has no way to check. The third link below points at an id that does not exist, and there are two arrows on this chart rather than three."
+An arrow takes an elbow when there is room and doubles back through the gutter when there is not — the second shape is what a plan that contradicts itself looks like. A dependency with one end missing draws nothing."
            Code="@LinkCode">
         <RoadmapTimeline Groups="@DependencyPlan"
                          Bars="@_dependent"
@@ -72,11 +67,9 @@ A link naming something that is not on the chart draws nothing at all. That is t
     </Story>
 
     <Story Name="Filtering, without the library knowing what it is filtering on"
-           Description="Three controls — Tag, Repository, Area — and RoadmapTimeline knows none of those words. A bar carries facets, a facet is a name and a value the caller chose, and the filter bar is built from whichever names the bars actually mention. A caller filing work by customer and contract gets two controls called Customer and Contract, from this same component, with nothing changed.
+           Description="A bar carries `Facets` — names and values the caller chose — and the filter bar is built from whichever names the bars mention. A caller filing work by customer and contract gets two controls called Customer and Contract from this same component.
 
-That is the same decision as everywhere else in this library, and it is worth being blunt about why it survived a request for exactly these three filters. A Repository parameter would have to be kept in step with what a repository is; a facet named &quot;Repository&quot; by its caller never can be, because the component only ever compares two strings.
-
-Two behaviours are worth watching. The choices never narrow as you filter — an option that vanished the moment it became the only one left would be a control you could not undo. And an arrow whose far end has just been filtered off the chart disappears with it, rather than pointing at the space where the bar was."
+Two behaviours worth watching: the choices never narrow as you filter, and a bar with no value for a facet is not hidden by that facet."
            Code="@FilterCode">
         <RoadmapTimeline Groups="@FilterPlan"
                          Bars="@FilterBars"
@@ -89,11 +82,9 @@ Two behaviours are worth watching. The choices never narrow as you filter — an
     </Story>
 
     <Story Name="Milestones are not one-day bars"
-           Description="A launch, a freeze and a board date, on a row of their own. They are a separate thing from a bar for three reasons that all show up here: a milestone has no duration, so there is no edge to pull; it is drawn as a glyph, so it stays hittable at a year&#39;s zoom where a one-day bar would be a sliver; and it can be the far end of a dependency without ever being something you can reschedule by dragging.
+           Description="A milestone has no duration, so it has no edge to pull, is drawn as a glyph rather than a span, and can be the far end of a dependency without being draggable. It goes on a row of its own.
 
-The three shapes are shapes rather than three colours, because colour must not be the only thing telling two kinds of marker apart. Each one carries its full description — what it is, which band and row it is on, and its date — as text for a screen reader, and the label beside it is hidden from assistive tech so the date is not read twice.
-
-Dropping a bar onto a milestones row is refused rather than quietly undone. Try it with the keyboard on the story above: grab a bar, press Down until you reach this kind of row, and the bar is drawn as refused and says so. &quot;You cannot&quot; and &quot;nothing happened&quot; look identical if you only ever get the second one."
+The three kinds are told apart by shape as well as colour, and each carries its full description — what it is, which band and row, and its date — as text for a screen reader, with the visible label hidden from assistive tech so the date is not read twice. Dropping a bar onto a milestones row is refused rather than ignored."
            Code="@MilestoneCode">
         <RoadmapTimeline Groups="@MilestonePlan"
                          Bars="@MilestoneBars"
@@ -106,11 +97,9 @@ Dropping a bar onto a milestones row is refused rather than quietly undone. Try 
     </Story>
 
     <Story Name="One bar, on its own"
-           Description="RoadmapTimelineBar outside the chart, so its own states can be looked at rather than hunted for. It takes a bar, the geometry that decides where a date sits, and nothing else — it does not know which row it is on, how many rows there are, or what a dependency is. The count on its badge is handed to it, because a bar cannot see the arrows drawn to it.
+           Description="`RoadmapTimelineBar` outside the chart. It takes a bar, the geometry that turns a date into a position, and nothing else: not which row it is on, how many rows there are, or what a dependency is. The count on its badge is handed to it.
 
-Everything a gesture does to it arrives as a Preview: a proposed placement it draws itself at, rather than a second ghostly copy of itself somewhere else. That is what keeps a dependency arrow attached to a bar being dragged — there is only ever one bar, in one place, and the arrow is resolved against wherever that is.
-
-The last of the four is locked. A locked bar loses its edge grips and refuses to be picked up at all, which is how a commitment somebody else owns is drawn."
+Every gesture arrives as a `Preview` — a proposed placement the bar draws itself at, rather than a second ghostly copy — which is what keeps a dependency arrow attached to a bar being dragged. The last of the four is `Locked`: no edge grips, and it refuses to be picked up."
            Code="@BarCode">
         <div class="sb-stack">
             <div class="sb-bar-track">
@@ -145,9 +134,7 @@ The last of the four is locked. A locked bar loses its edge grips and refuses to
     </Story>
 
     <Story Name="A plan nobody has written"
-           Description="No groups, or groups with no rows in them, is not an empty chart with an axis over it — it is no chart. Drawing quarters above nothing would promise a plan that has not been made yet, and a reader would spend a moment looking for the bars before concluding there were none.
-
-Why the plan is empty is only knowable where the plan came from, so the sentence is the caller&#39;s."
+           Description="No groups, or groups with no rows, renders the empty state rather than an axis over nothing. The sentence is the caller's, because why the plan is empty is only knowable where the plan came from."
            Code="@EmptyCode">
         <RoadmapTimeline Groups="@(Array.Empty<RoadmapGroup>())"
                          Title="Next year"
@@ -159,6 +146,15 @@ Why the plan is empty is only knowable where the plan came from, so the sentence
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#timelines-and-roadmaps", "What a bar, a milestone and a dependency arrow mean."),
+        new("interaction-guidelines.md#drag-and-drop-reordering", "How a bar is moved, and what a drop commits."),
+        new("interaction-guidelines.md#keyboard-accessible-reordering", "The keys that move a bar without a pointer."),
+        new("color-scheme.md#chart-roles", "The hues a lane and a bar are allowed to use."),
+        new("typography-and-layout.md#density", "Row heights, lane labels and how tight an axis may be.")
+    ];
+
     private static readonly DateOnly Today = new(2026, 5, 20);
 
     private static DateOnly On(int month, int day) => new(2026, month, day);

@@ -1,9 +1,10 @@
-@page "/overlays"
+﻿@page "/overlays"
 
 <PageTitle>Overlays — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Overlays"
-           Summary="The two things that take over the screen: a modal you put content in, and a confirm dialog that asks one question.">
+           Summary="The two things that take over the screen: a modal you put content in, and a confirm dialog that asks one question."
+           Guidelines="@Rules">
 
     <Story Name="Modal"
            Description="Opened from a button and closed by the backdrop, Escape, the close button, or a footer action. Focus moves into the dialog and comes back when it closes."
@@ -126,6 +127,14 @@
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#focus-and-selection", "Where focus goes when a dialog opens and closes."),
+        new("interaction-guidelines.md#motion-and-reduced-motion", "How a dialog may appear, and what it does under reduced motion."),
+        new("typography-and-layout.md#z-index-scale", "What is allowed to sit above what."),
+        new("accessibility.md#keyboard-navigation", "Escape, the focus trap, and the return path.")
+    ];
+
     private bool _modalOpen;
     private bool _noBackdropOpen;
     private bool _sectionOpen;

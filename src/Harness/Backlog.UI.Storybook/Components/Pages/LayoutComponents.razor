@@ -1,9 +1,10 @@
-@page "/layout"
+﻿@page "/layout"
 
 <PageTitle>Layout — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Layout"
-           Summary="The containers: tabs, cards, section headers, a disclosure, and a two-pane split with a separator that answers to both the pointer and the keyboard — and the scrollbar all of them wear once their content outgrows them.">
+           Summary="The containers: tabs, cards, section headers, a disclosure, and a two-pane split with a separator that answers to both the pointer and the keyboard — and the scrollbar all of them wear once their content outgrows them."
+           Guidelines="@Rules">
 
     <Story Name="Tabs and TabPanel"
            Description="Panels register themselves with the strip, so the tab order comes from the markup. Arrow keys, Home and End move between tabs; the strip is one tab stop."
@@ -171,9 +172,9 @@
     </Story>
 
     <Story Name="SplitPane, anchored to the end"
-           Description="The other shape: a panel of a settled width beside content that takes every pixel the panel does not need. Anchor decides which pane the bound width belongs to, and it moves the grid template and the resizer&#39;s `data-pane-anchor` hint together — one decision, because a grid whose fixed column is last while the attribute still says “start” is a drag that runs backwards.
+           Description="`Anchor` decides which pane the bound width belongs to, and moves the grid template and the resizer's `data-pane-anchor` hint together.
 
-Left and Right still describe the separator rather than the number, so here Left is the arrow that makes the panel wider. That is not a special case: it is the same gesture as before, and the number under it goes up instead of down because the pane it measures is fixed to the other edge. Home and End are about the value&#39;s ends rather than the screen&#39;s, so they mean the same thing in both anchors."
+Left and Right still describe the separator rather than the number, so here Left is the arrow that makes the panel wider and the number under it goes up. Home and End are about the value's ends, so they mean the same thing in both anchors."
            Code="@SplitEndCode">
         <SplitPane Anchor="SplitPaneAnchor.End"
                    FixedWidthRem="_endWidth"
@@ -228,6 +229,15 @@ Left and Right still describe the separator rather than the number, so here Left
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("typography-and-layout.md#layout-grid-and-breakpoints", "The columns, gutters and breakpoints a pane is laid out on."),
+        new("typography-and-layout.md#shadows-and-elevation", "Which surfaces are raised, and by how much."),
+        new("typography-and-layout.md#border-radius-and-width", "The radius and border a container may wear."),
+        new("interaction-guidelines.md#focus-and-selection", "What selection looks like, and where focus goes."),
+        new("design-principles.md#low-chrome-content-first", "How much of a screen may be frame.")
+    ];
+
     private string _activeTab = "read";
     private string _activePill = "backlog";
     private string _body = "The editor and the read view are two tabs over the same text.";

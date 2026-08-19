@@ -1,9 +1,10 @@
-@page "/markdown/rich-text"
+﻿@page "/markdown/rich-text"
 
 <PageTitle>Rich text editing — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Rich text editing"
-           Summary="A subpage of Markdown, about writing it. MarkdownEditor puts a formatting toolbar over the source: select a word, press bold, and the word is bold — without the author having to know that bold is two asterisks. The text stays markdown throughout, and the story below about what this deliberately is not is the important one.">
+           Summary="A subpage of Markdown, about writing it. MarkdownEditor puts a formatting toolbar over the source: select a word, press bold, and the word is bold — without the author having to know that bold is two asterisks. The text stays markdown throughout, and the story below about what this deliberately is not is the important one."
+           Guidelines="@Rules">
 
     <Story Name="The editor, and what it produces"
            Description="Select something in the box and use the toolbar. Every button is an edit you could have typed by hand, which is the whole design: the textarea holds markdown before the click and markdown after it, and the read view on the right is the same parser the rest of the product reads with."
@@ -26,18 +27,18 @@
     </Story>
 
     <Story Name="The colours are a layer behind the text"
-           Description="A textarea cannot colour its own content — that is a fact about the element, and it is why every highlighted editor on the web works the way this one does. A coloured copy of the text is drawn in a box behind the textarea, and the text on top is made transparent so that only its caret and its selection show through. The two boxes agree on every metric that decides where a character lands: the padding, the font, the line height, the wrapping. Get one wrong and the colours slide off the words, at whichever line the two first disagree.
+           Description="A textarea cannot colour its own content, so a coloured copy of the text is drawn in a box behind it and the text on top is made transparent — only its caret and selection show through. The two boxes agree on every metric that decides where a character lands: padding, font, line height, wrapping.
 
-The layer never scrolls itself. It is told where the textarea got to, because two boxes scrolling on their own drift apart by exactly as much as the reader scrolls. It is also aria-hidden: it is the same text twice, and a screen reader that read both would read the body twice over.
+The layer never scrolls itself; it is told where the textarea got to. It is also `aria-hidden`, because it is the same text twice.
 
-The colouring is its own pass, not the parser's. MarkdownPreview answers what a line means and throws the syntax away; a highlighter has to account for every character including the markers, because an editor that lost a backtick while colouring one would be an editor that ate your text. It is more forgiving, too — a half-typed `**bold` is someone mid-sentence, and leaving it plain until it closes is the answer rather than a failure.">
+The colouring is its own pass rather than the parser's: `MarkdownPreview` throws the syntax away, and a highlighter has to account for every character including the markers.">
         <dl class="sb-grid" data-testid="rich-text-syntax">
             @foreach (var sample in SyntaxSamples)
             {
                 <div class="sb-stack">
                     <dt class="sb-label">@sample.Name</dt>
                     <dd>
-                        <pre class="sb-story__code"><code>@RenderSyntax(sample.Source)</code></pre>
+                        <pre class="sb-snippet"><code>@RenderSyntax(sample.Source)</code></pre>
                     </dd>
                 </div>
             }
@@ -45,11 +46,9 @@ The colouring is its own pass, not the parser's. MarkdownPreview answers what a 
     </Story>
 
     <Story Name="Why this is not a WYSIWYG"
-           Description="The obvious version of &quot;rich text&quot; is a contenteditable surface that looks like the finished document and serialises to markdown behind the scenes. This is not that, and the reason is the rest of the product rather than the effort.
+           Description="The source is the truth everywhere else in this product: it is what auto-saves, what a checkbox in the read view rewrites, what a diff shows, and what lands in a repository file another tool may edit. Nothing ever leaves the text here, so a half-typed fence, an unclosed emphasis or a syntax this parser is partial about all survive.
 
-The source is the truth everywhere else: it is what auto-saves, what a checkbox in the read view rewrites, what a diff shows, what the parser reads, and what lands in a repository file another tool may edit. A WYSIWYG surface has to serialise back on every keystroke, and the first body it cannot round-trip is a body someone loses work in — a half-typed fence, an unclosed emphasis, a table mid-edit, a syntax this parser is deliberately partial about. All of those survive here because nothing ever leaves the text.
-
-What is lost is real and worth naming: you see markers rather than the result, so the read view beside the box is doing work a WYSIWYG would not need. That is the trade, made once, on purpose.">
+What is lost is real: you see markers rather than the result, which is why the read view sits beside the box.">
         <dl class="sb-grid" data-testid="rich-text-tradeoffs">
             @foreach (var row in Tradeoffs)
             {
@@ -75,7 +74,7 @@ The glyphs are set the way the thing they make is set — the bold button is bol
                     <dt class="sb-label">@action.Name</dt>
                     <dd class="sb-stack">
                         <p>@action.Behaviour</p>
-                        <pre class="sb-story__code"><code>@action.Result</code></pre>
+                        <CodeView Source="@action.Result" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" />
                     </dd>
                 </div>
             }
@@ -115,6 +114,15 @@ Disabled, the box and every button go together. A toolbar over a field nobody ca
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#editing-model", "What an editor over canonical markdown may and may not do."),
+        new("content-editing.md#round-trip-fidelity", "What has to survive a write and a re-read."),
+        new("content-editing.md#live-parse-confirmation", "How an author is shown what the parser made of a line."),
+        new("content-editing.md#paste-behavior", "What arrives when something is pasted in."),
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why there is no save button on the toolbar.")
+    ];
+
     private sealed record SyntaxSample(string Name, string Source);
 
     private sealed record Tradeoff(string Question, string Toolbar, string Wysiwyg);
