@@ -1,0 +1,76 @@
+@*
+    A task's detail pane: the groups of rows that say when it happens, how it
+    ranks, and what hangs off it.
+
+    Two columns, because these rows are short and the panel they sit in is not.
+    Every row in one stack means reading past the whole of "when" to find out how
+    important the thing is, and it pushes the body — the part somebody opened the
+    panel to write — below the fold on a laptop. Side by side, the pane is one
+    glance.
+
+    The columns balance rather than being placed, which is the decision worth
+    arguing here. A grid puts a third group under the first one and leaves a hole
+    beside it, so a pane of one tall group and two short ones comes out a row
+    taller than anything in it. Columns fill instead: the short groups stack under
+    one another in the second column, and the pane is as tall as its longest
+    column. That is vertical space the body gets back on every task.
+
+    How many columns there are is the width's answer and not a number written down
+    here, so the same pane is a single column when there is no room for a second
+    one. That is a requirement rather than a nicety: the mobile channel is a single
+    column by design, and a pane that insisted on two would give it two unreadable
+    ones. The column width is also what stops a third one appearing inside a panel
+    of the width this is drawn at — three subjects abreast would be a row of
+    captions, not a pane.
+
+    Above the columns there is room for one row on its own, across the full width.
+    That is not a slot for anything that would not fit: it is for the row that is a
+    decision rather than a fact — "put this in today" — and it is one row because
+    two things at the top of a pane is a pane with nothing at the top of it.
+
+    Nothing here says which groups a pane has, or what goes in the lead. What a
+    task can be set to is the host's answer, the same way it is for every other
+    component in this folder.
+*@
+
+<div class="@ClassValue" data-testid="@TestId">
+    @if (Lead is not null)
+    {
+        @* Above the columns rather than in them, so it spans the pane whatever the
+           width has decided the columns are. *@
+        <div class="task-action-pane__lead">@Lead</div>
+    }
+
+    @* The columns belong to this box and not to the pane itself, because the lead
+       row must not be in them: a row that flowed with the groups would be balanced
+       along with them and end up as the top of one column rather than across both. *@
+    <div class="task-action-pane__columns">@Groups</div>
+</div>
+
+@code {
+    /// <summary>The one row that goes across the top, when there is one. Left out
+    /// entirely when there is not, so a pane without one starts at its first
+    /// group.</summary>
+    [Parameter]
+    public RenderFragment? Lead { get; set; }
+
+    /// <summary>The groups, in reading order. <see cref="TaskActionGroup"/> in
+    /// practice: a pane of ungrouped rows would be the stack this exists to stop
+    /// being.
+    /// <para>
+    /// Named rather than taken as child content, which it has to be once there are
+    /// two slots — and which is the better read anyway: a pane declares a lead and
+    /// its groups, rather than a lead and whatever else was lying around.
+    /// </para></summary>
+    [Parameter]
+    public RenderFragment? Groups { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? "task-action-pane" : $"task-action-pane {CssClass}";
+}

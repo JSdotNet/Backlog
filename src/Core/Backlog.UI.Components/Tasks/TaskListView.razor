@@ -238,6 +238,7 @@
                    OnToggle="OnToggle"
                    OnSelected="OnSelected"
                    OnRename="OnRename"
+                   RenameOnClick="@RenameOnClick"
                    OnBodyChanged="OnBodyChanged"
                    QuickEdit="@QuickEdit"
                    Editing="@(QuickEdit && string.Equals(_editingId, task.Id, StringComparison.Ordinal))"
@@ -326,6 +327,22 @@
     /// nothing for Tab to chain.
     /// </para>
     /// </summary>
+    /// <summary>The rows are retitled by clicking their titles, and carry no
+    /// pencil.
+    /// <para>
+    /// For a list that is part of something — the sub-items under a task — where
+    /// there is no pane for a row to open and so nothing else a click could have
+    /// meant. Off by default: a list of tasks opens things, and a pencil is how you
+    /// retitle one without opening it.
+    /// </para>
+    /// <para>
+    /// Quick edit is unaffected and composes with it. Tab still settles this row
+    /// and opens the next, which is the point of pairing the two — clicking into the
+    /// first sub-item and tabbing down the rest is how a checklist gets written.
+    /// </para></summary>
+    [Parameter]
+    public bool RenameOnClick { get; set; }
+
     [Parameter]
     public bool QuickEdit { get; set; }
 

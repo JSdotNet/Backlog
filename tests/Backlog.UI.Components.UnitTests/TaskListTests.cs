@@ -662,6 +662,80 @@ public sealed class TaskListTests
     }
 
     [Fact]
+    public void RenameOnClick_takes_the_pencil_off_and_puts_the_editor_on_the_title()
+    {
+        // For the rows that are part of something rather than things of their own —
+        // the sub-items under a task — where there is no pane to open and so nothing
+        // else the click could have meant.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var opened = new List<string>();
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.RenameOnClick, true)
+            .Add(l => l.OnRename, _ => { })
+            .Add(l => l.OnSelected, id => opened.Add(id))
+            .Add(l => l.TestId, "list"));
+
+        Assert.Empty(view.FindAll("[data-testid='list-a-edit']"));
+
+        view.Find("[data-testid='list-a-open']").Click();
+
+        Assert.NotNull(view.Find("[data-testid='list-a-rename']"));
+
+        // One click cannot mean both, so the row is not also opened.
+        Assert.Empty(opened);
+    }
+
+    [Fact]
+    public void Off_by_default_the_click_still_opens_the_row_and_the_pencil_is_back()
+    {
+        // A list of tasks does open things, and a list where clicking a task
+        // retitled it instead would be a list you cannot read.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var opened = new List<string>();
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.OnRename, _ => { })
+            .Add(l => l.OnSelected, id => opened.Add(id))
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-a-open']").Click();
+
+        Assert.Equal(["a"], opened);
+        Assert.Empty(view.FindAll("[data-testid='list-a-rename']"));
+        Assert.NotNull(view.Find("[data-testid='list-a-edit']"));
+    }
+
+    [Fact]
+    public void Escape_hands_the_focus_back_to_the_title_when_that_is_where_it_came_from()
+    {
+        // A dismissal restores the focus to its trigger. With no pencil to go back
+        // to, the trigger is the title — and a dismissal that dropped the focus
+        // would end a keyboard reader's afternoon at the top of the document.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.RenameOnClick, true)
+            .Add(l => l.OnRename, _ => { })
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-a-open']").Click();
+        view.Find("[data-testid='list-a-rename']").Input("Thrown away");
+        view.Find("[data-testid='list-a-rename']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        var title = view.Find("[data-testid='list-a-open']");
+
+        Assert.Equal("First", view.Find("[data-testid='list-a-open'] .task-item__title").TextContent);
+        Assert.Equal(title.Id, context.JSInterop.Invocations["backlogFocus"].Last().Arguments[0]);
+    }
+
+    [Fact]
     public void The_add_row_is_on_the_list_before_anybody_has_started_a_chain()
     {
         // The decision this round turns on. A field that only exists part-way

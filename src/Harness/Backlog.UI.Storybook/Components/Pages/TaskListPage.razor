@@ -3,7 +3,7 @@
 <PageTitle>Task list — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Task list"
-           Summary="The controls a list of things-to-do is made of: a row with a circle and a copy button, a list that can be reordered, and the rows a detail pane is built from. Components only for now — nothing here decides what a task is, when a reminder fires, or what My Day means tomorrow. Those are decisions the product has not made yet, and a component that guessed them would be a component to unpick later.">
+           Summary="The controls a list of things-to-do is made of: a row with a circle and a copy button, and a list that can be reordered. The pane a row opens into has a page of its own — Task side panel, next door. Components only for now — nothing here decides what a task is, when a reminder fires, or what My Day means tomorrow. Those are decisions the product has not made yet, and a component that guessed them would be a component to unpick later.">
 
     <Story Name="A task, as a row"
            Description="A circle that completes it, the line itself, and a copy button at the end. The circle is round because that is this shape&#39;s one convention, and still a real checkbox to anything that is listening — round is not worth losing the semantics over. The copy button acts on the task&#39;s text rather than on its state, which is why it sits at the far end rather than beside the circle, and it stops the click before the row sees it: copying a task is not opening it.
@@ -157,49 +157,6 @@ A drag is a pointer gesture with no keyboard equivalent, so a list that only dra
         </div>
     </Story>
 
-    <Story Name="The detail pane's rows"
-           Description="Add a step, put it in My Day, remind me, give it a due date, repeat it. All of them are one shape — icon, label, sometimes a value and a way to clear it — so they are one component rather than five.
-
-That is not tidiness: a row that is set says what it is set to and offers an ✕, and a row that is not says what it would do. That difference is the whole state model, and it is why “Remind me” and “Reminder · Monday 09:00” are the same control rather than two. My Day toggles, so it has no ✕ — pressing it again is how it comes off. The others open a picker the product has not designed yet, so here they only show the two states they would land in."
-           Code="@ActionCode">
-        <div class="sb-menu-wide sb-surface" data-testid="task-actions">
-            <TaskAction Icon="+" Label="Add step" TestId="action-step" OnSet="() => { }" />
-
-            <TaskAction Icon="☀"
-                        Label="@(_inMyDay ? "Added to My Day" : "Add to My Day")"
-                        Set="@_inMyDay"
-                        Togglable="true"
-                        OnSet="() => _inMyDay = !_inMyDay"
-                        TestId="action-myday" />
-
-            <TaskAction Icon="⏰"
-                        Label="Remind me"
-                        Value="Monday · 09:00"
-                        Set="@_reminded"
-                        OnSet="() => _reminded = true"
-                        OnClear="() => _reminded = false"
-                        TestId="action-remind" />
-
-            <TaskAction Icon="🗓"
-                        Label="Due date"
-                        Value="Friday, 21 August"
-                        Set="@_due"
-                        OnSet="() => _due = true"
-                        OnClear="() => _due = false"
-                        TestId="action-due" />
-
-            <TaskAction Icon="🔁"
-                        Label="Repeat"
-                        Value="Weekly"
-                        Set="@_repeats"
-                        OnSet="() => _repeats = true"
-                        OnClear="() => _repeats = false"
-                        TestId="action-repeat" />
-
-            <TaskAction Icon="📎" Label="Add file" Disabled="true" TestId="action-file" />
-        </div>
-    </Story>
-
     <Story Name="What is deliberately not here"
            Description="The list of things a component would have had to guess, and which the product should decide first. Each of them is a parameter or a callback today rather than behaviour.">
         <dl class="sb-grid" data-testid="task-list-open-questions">
@@ -219,10 +176,6 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
     private sealed record OpenQuestion(string Name, string Detail);
 
     private string? _selectedId;
-    private bool _inMyDay = true;
-    private bool _reminded = true;
-    private bool _due;
-    private bool _repeats;
 
     private IReadOnlyList<TaskRow> _sample =
     [
@@ -330,7 +283,7 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
             "TaskListView reports the move and applies nothing. A component that reordered the list it was handed would be one whose result the host has to undo before saving what it actually keeps."),
 
         new("What a step is",
-            "Add step is a row and nothing else here. Whether a step is a task, has its own steps, or is only a line of text is the model's question.")
+            "Add step is a row on the side panel and nothing else anywhere. Whether a step is a task, has its own steps, or is only a line of text is the model's question.")
     ];
 
     private void Select(string id) => _selectedId = id;
@@ -468,15 +421,5 @@ That is not tidiness: a row that is set says what it is set to and offers an ✕
             // The host applies it: only the host knows where the order is kept.
             private void Reorder(TaskMove move) => _tasks = move.ApplyTo(_tasks, t => t.Id);
         }
-        """;
-
-    private const string ActionCode = """
-        @* Toggles, so no ✕ — pressing it again is how it comes off. *@
-        <TaskAction Icon="☀" Label="Add to My Day" Set="@_inMyDay" Togglable="true"
-                    OnSet="() => _inMyDay = !_inMyDay" />
-
-        @* Opens a picker, so it clears separately. *@
-        <TaskAction Icon="⏰" Label="Remind me" Value="Monday · 09:00"
-                    Set="@_reminded" OnSet="Pick" OnClear="Clear" />
         """;
 }

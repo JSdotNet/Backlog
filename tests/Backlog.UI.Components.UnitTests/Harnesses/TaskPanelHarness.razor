@@ -1,0 +1,131 @@
+@* TaskPanel, TaskActionPane, TaskActionGroup and TaskAction are one composition
+   — slots are the whole of what the panel does, so a panel rendered without
+   anything in them proves nothing about it. This is the side panel as the
+   storybook composes it, small enough to assert against. *@
+
+<TaskPanel Title="@Title"
+           Done="@Done"
+           OnToggle="Toggle"
+           OnRename="Rename"
+           Status="In progress"
+           Tags="@Tags"
+           OnTagRemoved="@(ListenForRemoval ? EventCallback.Factory.Create<string>(this, RemoveTag) : default)"
+           OnTagSelected="@(ListenForClick ? EventCallback.Factory.Create<string>(this, SelectTag) : default)"
+           TestId="panel">
+    <Details>
+        <TaskActionPane TestId="pane">
+            <Lead>
+                <TaskAction Icon="☀"
+                            Label="Add to My Day"
+                            Set="@InMyDay"
+                            Togglable="true"
+                            Prominent="true"
+                            OnSet="() => InMyDay = !InMyDay"
+                            TestId="myday" />
+            </Lead>
+            <Groups>
+
+                <TaskActionGroup Label="Scheduling" TestId="scheduling">
+                    <TaskAction Icon="🗓"
+                                Label="Due date"
+                                Value="Friday"
+                                Set="true"
+                                OnSet="() => { }"
+                                OnClear="() => { }"
+                                TestId="due" />
+
+                    <TaskAction Icon="⏰" Label="Remind me" OnSet="() => { }" TestId="remind" />
+                </TaskActionGroup>
+
+                <TaskActionGroup Label="Ranking" TestId="ranking">
+                    <TaskAction Icon="⚑"
+                                Label="Priority"
+                                Value="High"
+                                Set="true"
+                                OnSet="() => { }"
+                                OnClear="() => { }"
+                                TestId="priority" />
+                </TaskActionGroup>
+
+                <TaskActionGroup Label="Attachments" TestId="attachments">
+                    <TaskAction Icon="📁"
+                                Label="Folder"
+                                Value="panel-review · 4 files"
+                                Set="true"
+                                OnSet="() => { }"
+                                OnClear="() => { }"
+                                TestId="files" />
+                </TaskActionGroup>
+            </Groups>
+        </TaskActionPane>
+    </Details>
+    <Body>
+        <TaskListView Tasks="@SubItems"
+                      QuickEdit="true"
+                      RenameOnClick="true"
+                      GroupCompleted="false"
+                      OnRename="OnRenamed"
+                      AriaLabel="Sub-items"
+                      TestId="item" />
+    </Body>
+</TaskPanel>
+
+@code {
+    /// <summary>Whether the host is listening for a tag being dropped. Off is the
+    /// case worth testing as much as on: a chip with nobody behind its ✕ should
+    /// not have one.</summary>
+    [Parameter]
+    public bool ListenForRemoval { get; set; }
+
+    [Parameter]
+    public bool ListenForClick { get; set; }
+
+    public string Title { get; private set; } = "Wire the pane into the shell";
+
+    public bool Done { get; private set; }
+
+    public bool InMyDay { get; set; }
+
+    public int Toggles { get; private set; }
+
+    public IReadOnlyList<string> Tags { get; private set; } = ["ui", "desktop"];
+
+    public string? RemovedTag { get; private set; }
+
+    public string? ClickedTag { get; private set; }
+
+    public List<TaskRename> Renames { get; } = [];
+
+    public IReadOnlyList<TaskRow> SubItems { get; private set; } =
+    [
+        new("s1", "First sub-item"),
+        new("s2", "Second sub-item")
+    ];
+
+    private void Toggle()
+    {
+        Toggles++;
+        Done = !Done;
+    }
+
+    /// <summary>One title and no id: a panel is one task, so there is nothing to
+    /// say which. The host stores it, as it does for a row.</summary>
+    private void Rename(string title) => Title = title;
+
+    private void RemoveTag(string tag)
+    {
+        RemovedTag = tag;
+        Tags = [.. Tags.Where(t => t != tag)];
+    }
+
+    private void SelectTag(string tag) => ClickedTag = tag;
+
+    /// <summary>The host applies the rename, which is the arrangement every
+    /// component in this folder is built for. A panel around the list changes
+    /// nothing about it.</summary>
+    private void OnRenamed(TaskRename rename)
+    {
+        Renames.Add(rename);
+        SubItems = [.. SubItems.Select(s => s.Id == rename.Id ? s with { Title = rename.Title } : s)];
+    }
+}

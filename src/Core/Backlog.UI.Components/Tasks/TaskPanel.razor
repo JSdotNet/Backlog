@@ -1,0 +1,318 @@
+@inject IJSRuntime Js
+
+@*
+    The whole of one task, beside the list it came from.
+
+    The order is this component's one decision, and it is the only reason it
+    exists: what the thing is and where it has got to, then what it is filed
+    under, then the facts you set on it, then the text. That reads outside-in —
+    identity, classification, settings, content — so what a reader opened the
+    panel to check is at the top, and what they came to write is the part with
+    room to grow.
+
+    The body is last because it is the only part with no natural height. Put it
+    anywhere else and the detail rows land somewhere different on every task,
+    which turns "set a due date" from a place you point at into something you
+    hunt for.
+
+    The heading line is the same three things a row in the list is: the circle
+    that finishes it, the title, and the title being the thing you click to
+    retitle it. A panel whose title was text while the row it opened from could
+    be renamed in place would be a panel you have to close to fix a typo.
+    Everything the row's rename decided holds here too — the draft is this
+    component's, Enter settles it, Escape abandons it and puts the focus back on
+    the title, leaving commits, and an empty or unchanged title raises nothing.
+
+    Everything under the heading arrives as a slot. The panel says where tags,
+    details and a body go; it does not say what a tag is, which rows a detail
+    pane has, or whether the body is a list of sub-items or a page of markdown.
+    That is the line every other component in this folder draws, and it is what
+    lets one panel serve a checklist item, a prompt and a backlog entry rather
+    than one of the three.
+
+    The body has no label. What is in it is either plainly a list or plainly
+    prose, and a word over it would be a word to keep true: "Steps" over a body
+    that turned out to be a paragraph is worse than nothing over either.
+
+    Tags are the exception to the slots, and only just: the panel draws the chips
+    because TagChip is what a tag looks like everywhere in the product and a slot
+    here would be an invitation to draw a second kind. Which affordances those
+    chips have is still the host's, said the way this library always says it — a
+    chip is removable when somebody is listening for the removal, and clickable
+    when somebody is listening for the click. Nobody listening means plain text,
+    not a control that does nothing.
+
+    No width. A side panel is as wide as the pane it is docked in, and a
+    component that had an opinion about that would be one every host had to
+    argue with.
+*@
+
+<aside class="@ClassValue" aria-labelledby="@_titleId" data-testid="@TestId">
+    <header class="task-panel__header">
+        @* The circle is a real checkbox to anything that is listening and a circle
+           to everyone else, the same bargain a row in the list makes — and the same
+           stylesheet rule draws it, so the two are one shape and not two that
+           happen to match. Read-only when nobody is listening: a checkbox that
+           silently does nothing is worse than no checkbox. *@
+        @if (CanToggle)
+        {
+            <button type="button"
+                    class="task-panel__check"
+                    role="checkbox"
+                    aria-checked="@(Done ? "true" : "false")"
+                    aria-label="@Title"
+                    data-testid="@Suffix("check")"
+                    @onclick="() => OnToggle.InvokeAsync()">
+                @if (Done)
+                {
+                    <span class="task-panel__tick" aria-hidden="true">✓</span>
+                }
+            </button>
+        }
+        else if (Done)
+        {
+            <span class="task-panel__check"
+                  role="img"
+                  aria-label="Done"
+                  data-testid="@Suffix("check")">
+                <span class="task-panel__tick" aria-hidden="true">✓</span>
+            </span>
+        }
+
+        @* One heading, whatever state the title is in. The panel is named by this
+           element, so replacing it with a field while somebody types would take the
+           panel's name away mid-edit — and put a hole in the page's outline where
+           its only heading was. *@
+        <h2 class="task-panel__title" id="@_titleId">
+            @if (_editing)
+            {
+                <TextField Value="@_draft"
+                           ValueChanged="value => _draft = value"
+                           AriaLabel="@($"Rename {Title}")"
+                           Bare="true"
+                           InputCssClass="task-panel__rename-input"
+                           TestId="@Suffix("rename")"
+                           Id="@_renameId"
+                           @onkeydown="OnRenameKeyAsync"
+                           @onblur="CommitRenameAsync" />
+            }
+            else if (CanRename)
+            {
+                @* The title is the trigger, and there is no pencil. A pencil beside
+                   a heading this size would be a second target for the thing the
+                   heading already is, and the heading is the biggest target on the
+                   panel. *@
+                <button type="button"
+                        class="task-panel__title-button"
+                        id="@_titleButtonId"
+                        data-testid="@Suffix("title")"
+                        @onclick="StartRenameAsync">@Title</button>
+            }
+            else
+            {
+                @Title
+            }
+        </h2>
+
+        @* Beside the title rather than under it: a status is what the title is
+           currently doing, and a reader who wants both wants them in one look. *@
+        @if (!string.IsNullOrWhiteSpace(Status))
+        {
+            <StatusBadge Status="@Status" CssClass="task-panel__status" TestId="@Suffix("status")" />
+        }
+    </header>
+
+    @if (TagList.Count > 0)
+    {
+        <div class="task-panel__tags" data-testid="@Suffix("tags")">
+            @foreach (var tag in TagList)
+            {
+                <TagChip Text="@tag"
+                         Removable="@OnTagRemoved.HasDelegate"
+                         OnRemove="OnTagRemoved"
+                         OnClick="@TagClick(tag)" />
+            }
+        </div>
+    }
+
+    @if (Details is not null)
+    {
+        <div class="task-panel__details" data-testid="@Suffix("details")">
+            @Details
+        </div>
+    }
+
+    @if (Body is not null)
+    {
+        <div class="task-panel__body" data-testid="@Suffix("body")">
+            @Body
+        </div>
+    }
+</aside>
+
+@code {
+    /// <summary>The task's title, and the panel's accessible name with it.</summary>
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>Whether it is finished. Drives the circle and quietens the title,
+    /// the same two things it does to a row.</summary>
+    [Parameter]
+    public bool Done { get; set; }
+
+    /// <summary>Somebody pressed the circle. Without it the circle is state rather
+    /// than a control — and on a task with nothing to tick, nothing at all.</summary>
+    [Parameter]
+    public EventCallback OnToggle { get; set; }
+
+    /// <summary>The title, retitled, once it settles. Without it the title is a
+    /// heading and not a button.
+    /// <para>
+    /// The title alone, unlike <see cref="TaskRename"/>: a panel is one task, so
+    /// there is no id to say which. Reported when it settles rather than per
+    /// keystroke, because a rename that raised every character would put a save per
+    /// character into whatever the host does with these — and would make Escape
+    /// mean nothing, since the change it was meant to abandon had already landed.
+    /// </para></summary>
+    [Parameter]
+    public EventCallback<string> OnRename { get; set; }
+
+    /// <summary>Where it has got to, as the word to show — "Ready", "In
+    /// progress". Already said: what a status is called, and in what language,
+    /// belongs to the host, exactly as a due date does.</summary>
+    [Parameter]
+    public string? Status { get; set; }
+
+    /// <summary>What it is filed under. Left off entirely when there is nothing
+    /// — an empty tag strip is a row of blank space where the reader learns
+    /// there is nothing to learn.</summary>
+    [Parameter]
+    public IReadOnlyList<string>? Tags { get; set; }
+
+    /// <summary>Somebody clicked a tag, meaning "show me its siblings". Without
+    /// it the chips are text.</summary>
+    [Parameter]
+    public EventCallback<string> OnTagSelected { get; set; }
+
+    /// <summary>Somebody dropped a tag. Without it the chips have no ✕:
+    /// filtering by a tag and taking it off are different intents, so they are
+    /// separately opted into.</summary>
+    [Parameter]
+    public EventCallback<string> OnTagRemoved { get; set; }
+
+    /// <summary>The rows you set things on — <see cref="TaskActionPane"/> in
+    /// practice.</summary>
+    [Parameter]
+    public RenderFragment? Details { get; set; }
+
+    /// <summary>The rest of the task: a list of sub-items, or its markdown. Both
+    /// are the same slot because they are the same thing to the panel — the part
+    /// that is as long as it is.</summary>
+    [Parameter]
+    public RenderFragment? Body { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private readonly string _titleId = "task-panel-title-" + Guid.NewGuid().ToString("N");
+    private readonly string _titleButtonId = "task-panel-title-button-" + Guid.NewGuid().ToString("N");
+    private readonly string _renameId = "task-panel-rename-" + Guid.NewGuid().ToString("N");
+
+    private bool _editing;
+    private string _draft = string.Empty;
+    private bool _focusRename;
+    private bool _focusTitle;
+
+    private IReadOnlyList<string> TagList => Tags ?? [];
+
+    private bool CanToggle => OnToggle.HasDelegate;
+
+    private bool CanRename => OnRename.HasDelegate;
+
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "task-panel",
+        Done ? "task-panel--done" : null,
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    /// <summary>The chip's click, carrying the tag it was on. Default when
+    /// nobody is listening, so TagChip renders the label as text rather than as
+    /// a button that goes nowhere.</summary>
+    private EventCallback<MouseEventArgs> TagClick(string tag) =>
+        OnTagSelected.HasDelegate
+            ? EventCallback.Factory.Create<MouseEventArgs>(this, () => OnTagSelected.InvokeAsync(tag))
+            : default;
+
+    private Task StartRenameAsync()
+    {
+        if (!CanRename) return Task.CompletedTask;
+
+        _draft = Title;
+        _editing = true;
+
+        // Asked for here, done after the render: the field this describes is a node
+        // some later batch creates, so there is nothing to focus at this point.
+        _focusRename = true;
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The caret in the field, or the ring back on the title, once each
+    /// and after the render that made the element. Once is what the flags are for:
+    /// a panel re-renders whenever anything in it changes, and a focus call on
+    /// every render would drag the caret back over the title mid-sentence.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusRename)
+        {
+            _focusRename = false;
+            await QuickEditField.FocusAsync(Js, _renameId);
+        }
+
+        if (_focusTitle)
+        {
+            _focusTitle = false;
+            await QuickEditField.FocusAsync(Js, _titleButtonId, select: false);
+        }
+    }
+
+    private async Task OnRenameKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            // Abandoned: the heading goes back to what it said and nothing is
+            // raised. The ring goes back to the title, because that is what a
+            // dismissal owes its trigger — without it the focus lands on the
+            // document and a keyboard reader starts the page again.
+            _editing = false;
+            _draft = string.Empty;
+            _focusTitle = CanRename;
+            return;
+        }
+
+        if (e.Key == "Enter") await CommitRenameAsync();
+    }
+
+    /// <summary>Settles the draft. An empty title is not a rename — a reader who
+    /// cleared the field wants the title they had, not a task with no name — and
+    /// neither is one that comes back the same.</summary>
+    private async Task CommitRenameAsync()
+    {
+        if (!_editing) return;
+
+        _editing = false;
+
+        var title = _draft.Trim();
+        _draft = string.Empty;
+
+        if (title.Length == 0 || title == Title) return;
+
+        await OnRename.InvokeAsync(title);
+    }
+}

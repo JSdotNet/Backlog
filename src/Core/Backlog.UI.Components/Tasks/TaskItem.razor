@@ -128,8 +128,9 @@
     {
         <button type="button"
                 class="task-item__body"
+                id="@_openId"
                 data-testid="@Suffix("open")"
-                @onclick="() => OnSelected.InvokeAsync(Task.Id)">
+                @onclick="OnBodyClickAsync">
             <span class="task-item__title">@Task.Title</span>
 
             @if (Task.TagList.Count > 0 || Details.Count > 0 || Next || ReadyToStart)
@@ -187,7 +188,7 @@
         </button>
     }
 
-    @if (CanRename && !_editing)
+    @if (CanRename && !_editing && !RenameOnClick)
     {
         <button type="button"
                 class="task-item__edit"
@@ -289,6 +290,7 @@
     /// button is one element for the life of the row, so the id costs an attribute
     /// and saves a conditional.</summary>
     private readonly string _editId = "task-edit-" + Guid.NewGuid().ToString("N");
+    private readonly string _openId = "task-open-" + Guid.NewGuid().ToString("N");
     private bool _editing;
     private string _draft = string.Empty;
 
@@ -432,6 +434,23 @@
     /// no field, whoever asked for it.
     /// </para>
     /// </summary>
+    /// <summary>The title is the way into the editor, and there is no pencil.
+    /// <para>
+    /// For a row that is part of something rather than a thing of its own — a
+    /// sub-item under a task, a step in a checklist — where there is no pane to
+    /// open and so nothing else the click could have meant. A pencil on every one
+    /// of those is a column of pencils down the side of a list whose rows are one
+    /// short line each, and it is the smallest target on any of them.
+    /// </para>
+    /// <para>
+    /// Off by default, because a row in a list of tasks does open something, and a
+    /// list where clicking a task retitled it instead of opening it would be a list
+    /// you cannot read. <see cref="OnSelected"/> is not raised while this is on:
+    /// one click cannot mean both.
+    /// </para></summary>
+    [Parameter]
+    public bool RenameOnClick { get; set; }
+
     [Parameter]
     public bool Editing { get; set; }
 
@@ -732,7 +751,16 @@
     /// standing on.
     /// </para>
     /// </summary>
-    private Task RestoreFocusAsync() => QuickEditField.FocusAsync(Js, _editId, select: false);
+    private Task RestoreFocusAsync() =>
+        QuickEditField.FocusAsync(Js, RenameOnClick ? _openId : _editId, select: false);
+
+    /// <summary>Opening the row, or opening its editor. One click, and which of the
+    /// two it means is the host's answer rather than something worked out from
+    /// whether anybody happens to be listening for both.</summary>
+    private Task OnBodyClickAsync() =>
+        RenameOnClick && CanRename
+            ? StartRenameAsync()
+            : OnSelected.InvokeAsync(Task.Id);
 
     private async Task OnRenameKeyAsync(KeyboardEventArgs e)
     {
