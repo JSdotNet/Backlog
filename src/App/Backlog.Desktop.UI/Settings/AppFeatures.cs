@@ -1,6 +1,8 @@
 using Backlog.Modules.Backlog.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Knowledge.Abstractions;
+using Backlog.Modules.Monitoring.UI;
+using Backlog.Modules.Roadmap.UI;
 using Backlog.SharedKernel;
 
 // The namespace deliberately does not match the folder, for the reason
@@ -22,6 +24,16 @@ namespace Backlog.Desktop.UI.Shell;
 /// <para>
 /// The keys declared on this class are the ones the Shell alone gates on. A key
 /// any context also reads is that context's, and is referenced from there.
+/// </para>
+/// <para>
+/// Roadmap and Monitoring are the two that read as exceptions and are not. Only
+/// the Shell gates on their keys today, so by the rule above they could sit here
+/// — but each declares its own in its <c>.UI</c> project, because that is where
+/// the context itself currently lives. Neither has a domain module yet, so there
+/// is no abstractions project to hold the key and no reason to create one for a
+/// single constant; when the module arrives the key moves with it, and nothing
+/// here has to be untangled first. See <c>RoadmapFeatures</c> and
+/// <c>MonitoringFeatures</c>.
 /// </para>
 /// </summary>
 public static class AppFeatures
@@ -46,10 +58,12 @@ public static class AppFeatures
     [
         new(BacklogFeatures.Backlog, "Backlog", "Create, edit, filter, reorder, and store backlog entries.", AlwaysEnabled: true),
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false),
+        new(RoadmapFeatures.Roadmap, "Roadmap band", "Show the roadmap band above the panes in the Home shell."),
         new(KnowledgeFeatures.KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
         new(KnowledgeFeatures.RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
         new(BacklogFeatures.AdditionalRepositories, "Additional repositories", "Configure multiple repositories and switch repository-specific knowledge."),
         new(DevPcFeatures.SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers."),
+        new(MonitoringFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of progress across projects and repositories."),
         new(BacklogFeatures.GitHubIntegration, "GitHub integration", "Configure GitHub access, push entries to issues, and refresh issue or pull request state."),
         new(FeedbackReporting, "Feedback reporting", "Report Desktop app issues to GitHub with current-screen context and a screenshot."),
         new(AppFeatureKeys.CopilotCli, "Copilot CLI", "Start GitHub Copilot CLI from Backlog workflows."),
