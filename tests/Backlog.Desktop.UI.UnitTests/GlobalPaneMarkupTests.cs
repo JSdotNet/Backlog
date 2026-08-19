@@ -9,17 +9,62 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("data-testid=\"global-pane-multiselect\"", home, StringComparison.Ordinal);
 
-        // The three options are the shared ToggleButton, so their test ids reach
+        // "Sections" rather than "panes": the strip also shows and hides the roadmap
+        // band, and a band is a row above the panes rather than one of them.
+        Assert.Contains("aria-label=\"Visible sections\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"Visible panes\"", home, StringComparison.Ordinal);
+
+        // The four options are the shared ToggleButton, so their test ids reach
         // the DOM through its TestId parameter rather than literal attributes.
+        Assert.Contains("TestId=\"roadmap-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"inbox-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"backlog-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"knowledge-pane-option\"", home, StringComparison.Ordinal);
 
+        // The band leads, because it is the thing highest on screen.
+        Assert.True(
+            home.IndexOf("TestId=\"roadmap-pane-option\"", StringComparison.Ordinal)
+            < home.IndexOf("TestId=\"inbox-pane-option\"", StringComparison.Ordinal),
+            "The Roadmap option comes first in the strip: the band sits above the panes.");
+
         // Each pane carries its own landmark id from its own folder; the shell
-        // only points the multiselect's aria-controls at them.
+        // only points the multiselect's aria-controls at them. The band is the same
+        // arrangement one level up — its landmark id lives in the Roadmap module.
         Assert.Contains("id=\"inbox-pane\"", NormalizeLineEndings(File.ReadAllText(FindInboxPane())), StringComparison.Ordinal);
         Assert.Contains("id=\"backlog-pane\"", NormalizeLineEndings(File.ReadAllText(FindBacklogPane())), StringComparison.Ordinal);
         Assert.Contains("id=\"repository-knowledge-pane\"", NormalizeLineEndings(File.ReadAllText(FindKnowledgePane())), StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"roadmap-band\"", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The band's option is gated on its feature the way the Inbox option is, and it
+    /// is deliberately not gated on anything else. It carries no <c>Disabled</c>
+    /// binding, because <c>PaneToggleDisabled</c> exists for the three panes'
+    /// viewport-driven capacity rule and the band — a horizontal row with a grid track
+    /// of its own — has none. Nor is it a <c>GlobalPane</c>: joining that selection
+    /// would put it inside <c>TrimToCapacity</c>'s reach and let window width evict it.
+    /// </summary>
+    [Fact]
+    public void Roadmap_option_is_feature_gated_and_stays_out_of_the_pane_selection()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("@if (RoadmapPaneOptionVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("RoadmapFeatures.Roadmap", home, StringComparison.Ordinal);
+        Assert.Contains("private bool RoadmapBandVisible => RoadmapPaneOptionVisible && _roadmapVisible;", home, StringComparison.Ordinal);
+
+        // Shown unless the reader says otherwise, so nobody who never touches it sees
+        // a change.
+        Assert.Contains("private bool _roadmapVisible = true;", home, StringComparison.Ordinal);
+
+        // Its own shell field, flipped directly rather than through the selection.
+        Assert.Contains("private void ToggleRoadmapBand() => _roadmapVisible = !_roadmapVisible;", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("GlobalPane.Roadmap", home, StringComparison.Ordinal);
+
+        // And hiding it reuses the grid variant the feature flag already uses rather
+        // than introducing a second one for the same layout.
+        Assert.Contains("workspace workspace--no-roadmap", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("workspace--roadmap-collapsed", home, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -39,9 +84,15 @@ public sealed class GlobalPaneMarkupTests
 
         // ToggleButton derives aria-pressed from Pressed, so the visibility of a
         // pane is stated once and the attribute cannot drift away from it.
+        Assert.Contains("Pressed=\"RoadmapBandVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"InboxPaneVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"BacklogPaneVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"KnowledgePaneVisible\"", home, StringComparison.Ordinal);
+
+        // Three panes have the capacity rule and the band does not, so exactly three
+        // options are ever disabled by it. A fourth would mean the band had been
+        // folded into the selection.
+        Assert.Equal(3, CountOccurrences(home, "Disabled=\"@PaneToggleDisabled("));
 
         Assert.Contains("if (_globalPanes.IsEnabled(pane))", home, StringComparison.Ordinal);
         Assert.Contains("return !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
@@ -69,6 +120,36 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("const BACKLOG_THREE_PANE_MIN_REM = 96;", componentsJs, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Capacity reads the viewport, so it can be answered whether or not the pane
+    /// layout is mounted. Reporting it behind the layout guard meant a window
+    /// resized while a full-screen surface was open reported nothing at all, and
+    /// the panes came back sized for a window that no longer existed. There is no
+    /// JS engine here to prove the behaviour, so the order of the two reports is
+    /// pinned instead: capacity first, then the guard, then the measured width.
+    /// </summary>
+    [Fact]
+    public void Pane_capacity_is_reported_even_while_the_layout_is_off_screen()
+    {
+        var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
+
+        var capacity = componentsJs.IndexOf(
+            "invokeMethodAsync('SetGlobalPaneCapacityAsync'",
+            StringComparison.Ordinal);
+        var lookup = componentsJs.IndexOf(
+            "const layout = backlogPaneLayout();",
+            StringComparison.Ordinal);
+        var guard = componentsJs.IndexOf("if (!layout) return;", StringComparison.Ordinal);
+        var width = componentsJs.IndexOf(
+            "invokeMethodAsync('SetSidePaneMaxWidthAsync'",
+            StringComparison.Ordinal);
+
+        Assert.True(capacity >= 0 && lookup >= 0 && guard >= 0 && width >= 0);
+        Assert.True(capacity < lookup, "Capacity must be reported before the layout is looked up.");
+        Assert.True(lookup < guard && guard < width, "Only the measured width may be guarded on the layout.");
+        Assert.DoesNotContain("if (!layout || !backlogPaneOwner) return;", componentsJs, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Side_layout_opens_split_only_when_backlog_and_side_panes_are_both_visible()
     {
@@ -76,7 +157,111 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("(BacklogPaneVisible && RightSidePaneVisible) ? \"knowledge-layout--side-open\"", home, StringComparison.Ordinal);
         Assert.Contains("side-pane-stack--full", home, StringComparison.Ordinal);
-        Assert.Contains("ToolsVisible ? \"side-pane-stack--right-docked\"", home, StringComparison.Ordinal);
+
+        // Tools left the side stack for a full-screen surface of its own, so a
+        // stack holding nothing but the tools pane can no longer happen — and the
+        // split must not open for it. Stated on the property rather than on the
+        // class the stack used to grow, because the docked modifier is gone.
+        Assert.Contains(
+            "private bool RightSidePaneVisible => KnowledgePaneVisible || (InboxPaneVisible && !BacklogPaneVisible);",
+            home,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("side-pane-stack--right-docked", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Tools and the Dashboard are takeovers, not panes. Each is the page's single
+    /// <c>main</c> landmark while it is open, which is only true as long as the
+    /// three branches stay mutually exclusive in the markup.
+    /// </summary>
+    [Fact]
+    public void Only_one_surface_renders_and_it_owns_the_main_landmark()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("@if (ToolsVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("else if (DashboardVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"tools-surface\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"dashboard-surface\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"workspace\"", home, StringComparison.Ordinal);
+
+        // One landmark per branch, and the branches are exclusive, so the page has
+        // exactly one. Two <main> elements is the failure this counts.
+        Assert.Equal(3, CountOccurrences(home, "<main class="));
+
+        // The pane row keeps the test id the resizer's JavaScript selects on; what
+        // changed is that it is no longer the landmark itself.
+        Assert.Contains("<div class=\"knowledge-layout ", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("<main class=\"knowledge-layout", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"knowledge-layout\"", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A takeover is a context change, so focus moves onto it and Escape brings the
+    /// reader back. It is deliberately not a Modal: the header behind it is not
+    /// inert, because that is where the control closing the surface lives.
+    /// </summary>
+    [Fact]
+    public void A_surface_takes_focus_on_open_and_closes_on_escape()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("tabindex=\"-1\"", home, StringComparison.Ordinal);
+        Assert.Contains("@ref=\"_surfaceElement\"", home, StringComparison.Ordinal);
+        Assert.Contains("@onkeydown=\"OnSurfaceKeyDown\"", home, StringComparison.Ordinal);
+        Assert.Contains("await _surfaceElement.FocusAsync();", home, StringComparison.Ordinal);
+        Assert.Contains("if (e.Key == \"Escape\") CloseSurface();", home, StringComparison.Ordinal);
+
+        // No scrim and no focus trap: Modal owns those, and it is still what the
+        // update and feedback dialogs are built from.
+        Assert.DoesNotContain("workspace-surface-backdrop", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Closing a surface has to put the reader back where they were. It does so by
+    /// construction rather than by remembering anything: the surface is a field of
+    /// its own, so <see cref="GlobalPaneSelection"/> is never touched to open one —
+    /// which also keeps Tools out of the pane capacity rule.
+    /// </summary>
+    [Fact]
+    public void Opening_a_surface_leaves_the_pane_selection_alone()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var surface = NormalizeLineEndings(File.ReadAllText(FindWorkspaceSurface()));
+
+        Assert.Contains("private WorkspaceSurface _surface = WorkspaceSurface.Workspace;", home, StringComparison.Ordinal);
+        Assert.Contains("_surface = _surface == surface ? WorkspaceSurface.Workspace : surface;", home, StringComparison.Ordinal);
+
+        // Three states in one field is what makes a takeover exclusive with the
+        // workspace and with the other takeover.
+        Assert.Contains("Workspace,", surface, StringComparison.Ordinal);
+        Assert.Contains("Tools,", surface, StringComparison.Ordinal);
+        Assert.Contains("Dashboard", surface, StringComparison.Ordinal);
+
+        // Tools is not a fourth global pane, and must not become one: the panes
+        // carry a viewport capacity rule and an always-one-visible invariant that
+        // a full-screen surface has no business in.
+        Assert.DoesNotContain("GlobalPane.Tools", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("GlobalPane.Dashboard", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The pane bounds are measured from the layout element, so nothing is reported
+    /// while a takeover has it unmounted. Without a nudge on the way back, closing
+    /// a surface after the window was resized would leave the capacity describing a
+    /// window that is gone.
+    /// </summary>
+    [Fact]
+    public void Home_remeasures_the_pane_bounds_when_the_workspace_comes_back()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
+
+        Assert.Contains("refresh() {", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("backlogReportPaneBounds();", componentsJs, StringComparison.Ordinal);
+
+        Assert.Contains("await JS.InvokeVoidAsync(\"backlogPaneResizer.refresh\");", home, StringComparison.Ordinal);
+        Assert.Contains("if (_workspaceWasHidden)", home, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -193,9 +378,19 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("<BacklogPane />", home, StringComparison.Ordinal);
         Assert.Contains("<KnowledgePane RepositoryAlias=", home, StringComparison.Ordinal);
 
+        // The band and the dashboard are composed on the same terms. Their content
+        // belongs to Roadmap and Monitoring; the shell only decides where it goes.
+        // The band takes no parameters at all, and that is the point: showing and
+        // hiding it is binary, so the shell renders it or it does not, and there is
+        // no state to hand down for an in-between size.
+        Assert.Contains("<RoadmapBand />", home, StringComparison.Ordinal);
+        Assert.Contains("<DashboardPane OnClose=", home, StringComparison.Ordinal);
+
         Assert.DoesNotContain("entry-doc__meta", home, StringComparison.Ordinal);
         Assert.DoesNotContain("inbox-pane__list", home, StringComparison.Ordinal);
         Assert.DoesNotContain("knowledge-stack__nav", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("roadmap-band__content", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("dashboard-panel__content", home, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -262,9 +457,24 @@ public sealed class GlobalPaneMarkupTests
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var at = text.IndexOf(value, StringComparison.Ordinal);
+        while (at >= 0)
+        {
+            count++;
+            at = text.IndexOf(value, at + value.Length, StringComparison.Ordinal);
+        }
+
+        return count;
+    }
+
     private static string FindAppCss() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css");
 
     private static string FindHomeRazor() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "Home.razor");
+
+    private static string FindWorkspaceSurface() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "WorkspaceSurface.cs");
 
     // The three bounded contexts left Backlog.Desktop.UI and became their own
     // projects under src/Modules; only the shell's own chrome stayed behind.

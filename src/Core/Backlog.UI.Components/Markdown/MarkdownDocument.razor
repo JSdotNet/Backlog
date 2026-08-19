@@ -41,7 +41,8 @@
     {
         <MarkdownEditor Value="@Value"
                         ValueChanged="OnEditedAsync"
-                        AriaLabel="@($"{Title} source")"
+                        OnBlur="OnBlur"
+                        AriaLabel="@EditorAriaLabel"
                         Rows="@Rows"
                         TestId="@Suffix("editor")" />
     }
@@ -76,6 +77,14 @@
 
     [Parameter]
     public EventCallback<bool> EditingChanged { get; set; }
+
+    /// <summary>Focus has left the editor's text, which is a host's cue to write
+    /// what is pending. Not a cue to stop editing: the formatting buttons sit
+    /// outside the textarea, so reaching for bold blurs it, and an editor that
+    /// closed here would take the button away as it was being pressed. Ending an
+    /// edit is what Done is for, and it stays that way.</summary>
+    [Parameter]
+    public EventCallback OnBlur { get; set; }
 
     [Parameter]
     public string? Title { get; set; }
@@ -126,6 +135,12 @@
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    /// <summary>What the editor is called to a screen reader. A host that names
+    /// the body above it hands in no title, and interpolating that absence gave
+    /// the textarea the label " source" — a name that reads as nothing and sorts
+    /// under a space in a rotor listing.</summary>
+    private string EditorAriaLabel => string.IsNullOrWhiteSpace(Title) ? "Markdown source" : $"{Title} source";
 
     /// <summary>Parsed when the text changes rather than on every render — the
     /// bar above it re-renders for reasons that have nothing to do with the

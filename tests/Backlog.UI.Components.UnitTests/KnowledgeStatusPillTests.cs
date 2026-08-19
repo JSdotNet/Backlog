@@ -7,7 +7,8 @@ namespace Backlog.UI.Components.UnitTests;
 /// statuses read "status draft status proposed status active".
 ///
 /// <para>What it emits has to stay identical to what the record's headline
-/// emits, because it is the same element — the classes below are matched by the
+/// emits, because it is the same element: the application's status badge, with
+/// the modifier the folder's word maps onto. The classes below are matched by the
 /// stylesheet and by every status assertion in the suite.</para>
 /// </summary>
 public sealed class KnowledgeStatusPillTests
@@ -21,7 +22,10 @@ public sealed class KnowledgeStatusPillTests
             .Add(p => p.Status, "draft"));
 
         var span = pill.Find("span");
-        Assert.Equal("knowledge-status knowledge-status--draft", span.GetAttribute("class"));
+
+        // The plain status badge and no state modifier: the modifier comes from
+        // the tone, and with no folder there is no tone.
+        Assert.Equal("badge badge--status", span.GetAttribute("class"));
         Assert.Equal("draft", span.TextContent);
 
         // The span and nothing else. A label repeated before every pill is
@@ -54,13 +58,17 @@ public sealed class KnowledgeStatusPillTests
             .Add(p => p.Status, "shipped"));
 
         var span = pill.Find("span");
-        Assert.Equal("knowledge-status knowledge-status--shipped", span.GetAttribute("class"));
+        Assert.Equal("badge badge--status", span.GetAttribute("class"));
         Assert.Null(span.GetAttribute("title"));
     }
 
     [Fact]
-    public void With_a_folder_the_pill_carries_that_folders_tone()
+    public void With_a_folder_the_pill_wears_the_badge_that_folders_tone_maps_onto()
     {
+        // `adopted` is `.tech`'s word for live and current, and the application
+        // spells that state `active`. Nothing defines `.badge--status-adopted`, so
+        // a badge left to spell its own modifier from the word would fall through
+        // to plain grey — which is what "no status" looks like.
         using var context = new BunitContext();
 
         var pill = context.Render<KnowledgeStatusPill>(parameters => parameters
@@ -68,9 +76,8 @@ public sealed class KnowledgeStatusPillTests
             .Add(p => p.Folder, KnowledgeFolder.Tech));
 
         var span = pill.Find("span");
-        Assert.Contains("knowledge-status--adopted", span.ClassList);
-        Assert.Contains("knowledge-status--tone-active", span.ClassList);
-        Assert.DoesNotContain("knowledge-status--unrecognised", span.ClassList);
+        Assert.Equal("badge badge--status badge--status-active", span.GetAttribute("class"));
+        Assert.Equal("adopted", span.TextContent);
         Assert.Null(span.GetAttribute("title"));
     }
 
@@ -85,7 +92,15 @@ public sealed class KnowledgeStatusPillTests
 
         var span = pill.Find("span");
         Assert.Contains("knowledge-status--unrecognised", span.ClassList);
-        Assert.Contains("knowledge-status--tone-unknown", span.ClassList);
+
+        // `archived` is the badge that spends no colour, so the flag reads as
+        // "not a state" rather than as an alarm. Borrowing `draft` would report a
+        // verdict nobody reached, and `blocked` would be indistinguishable from a
+        // status that genuinely is.
+        Assert.Equal(
+            "badge badge--status badge--status-archived knowledge-status--unrecognised",
+            span.GetAttribute("class"));
+        Assert.DoesNotContain("badge--status-blocked", span.ClassList);
         Assert.Contains("candidate, trial, adopted, hold, retired", span.GetAttribute("title"));
     }
 
@@ -103,7 +118,7 @@ public sealed class KnowledgeStatusPillTests
 
         var span = pill.Find("span");
         Assert.Equal(
-            "knowledge-status knowledge-status--adopted knowledge-status--tone-active sb-swatch",
+            "badge badge--status badge--status-active sb-swatch",
             span.GetAttribute("class"));
         Assert.Equal("state-pill", span.GetAttribute("data-testid"));
         Assert.Equal("state", span.GetAttribute("data-role"));
@@ -132,7 +147,7 @@ public sealed class KnowledgeStatusPillTests
 
         Assert.Equal(
             standalone.Find("span").OuterHtml,
-            inRecord.Find(".knowledge-record__headline .knowledge-status").OuterHtml);
+            inRecord.Find(".knowledge-record__headline .badge--status").OuterHtml);
     }
 
     [Fact]

@@ -178,7 +178,7 @@ h1, h2, h3 {
 
 .app-version__status--ok { color: var(--color-text-secondary); }
 .app-version__status--available { color: var(--color-primary); }
-.app-version__status--error { color: #E4626F; }
+.app-version__status--error { color: var(--color-error-text); }
 
 .app-update-dialog__actions {
     justify-content: flex-start;
@@ -715,7 +715,7 @@ h1, h2, h3 {
 .entry-doc__gh-error {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);
-    color: #E4626F;
+    color: var(--color-error-text);
     overflow-wrap: anywhere;
 }
 
@@ -964,7 +964,7 @@ h1, h2, h3 {
 }
 
 .setting__input--error {
-    border-color: #E4626F;
+    border-color: var(--color-error-text);
 }
 
 .setting__input--multiline {
@@ -984,7 +984,7 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
-.setting__status--error { color: #E4626F; }
+.setting__status--error { color: var(--color-error-text); }
 .setting__status--ok { color: var(--color-success); }
 
 .setting__actions {
@@ -1669,6 +1669,210 @@ h1, h2, h3 {
     line-height: 1.4;
 }
 
+/* The workspace: the roadmap band above the pane row.
+
+   `fit-content(25%)` is what makes 25% a ceiling rather than a share. The band
+   takes only the height its own content needs, and never more than a quarter of
+   the area below the header, so the pane row is guaranteed at least three
+   quarters no matter what the band later grows into. A plain `25%` would reserve
+   the quarter even while the band is empty; `max-content` alone would let a
+   timeline push the panes off the screen.
+
+   It has to be `fit-content()` rather than the `min(25%, max-content)` that reads
+   more obviously: `min()` is a math function and takes numeric arguments only, so
+   a track breadth keyword inside one is a parse error that would drop this whole
+   declaration and leave the workspace with no explicit rows at all.
+   `fit-content(25%)` is defined as exactly the intended `min(max-content, 25%)` —
+   its other term, the automatic minimum size, is 0 here because `.roadmap-band`
+   sets `overflow: hidden`, so the cap is firm rather than advisory. */
+.workspace {
+    display: grid;
+    grid-template-rows: fit-content(25%) minmax(0, 1fr);
+    gap: var(--spacing-md);
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* No band on screen, so no track for one. This is the only variant the grid has,
+   because showing and hiding the band is binary: it is here at the height its
+   content measures, or it is not rendered. The two ways it goes — the feature
+   being off and the header toggle being off — are the same layout, so they are
+   the same modifier. */
+.workspace--no-roadmap {
+    grid-template-rows: minmax(0, 1fr);
+}
+
+/* A takeover: Tools or the Dashboard, filling everything below the header. The
+   panel inside owns the scrollbar rather than this landmark, so the header — and
+   the control that closes the surface — can never be scrolled out of reach. */
+.workspace-surface {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.workspace-surface > .tools-panel,
+.workspace-surface > .dashboard-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+.roadmap-band {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 0;
+    /* A band is wide and short, so the block axis is the scarce one. A pane's
+       --spacing-lg on all four sides spent 48px of the quarter the band is
+       capped at, which at a 620px-tall window was more than the content below
+       the heading had left. */
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
+/* Two stacked lines of heading and nothing else. The eyebrow and the h2 are what
+   `aria-labelledby` and the band's tests read out of this header, so they stay its
+   direct children rather than being wrapped in a block of their own. */
+.roadmap-band__header {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-band__eyebrow,
+.roadmap-band__title {
+    margin: 0;
+}
+
+.roadmap-band__eyebrow {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.roadmap-band__title {
+    font-size: var(--font-size-lg);
+}
+
+/* The row a timeline will be drawn in. It owns the scrollbar because
+   RoadmapTimeline is a grid that sizes to its content: given the band's height
+   cap, something has to scroll, and it must be this rather than the band, or the
+   heading would scroll away from the plan under it. */
+.roadmap-band__content {
+    display: grid;
+    align-content: start;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* The placeholder, reshaped for a band.
+
+   The library's .empty-state is built for a large empty pane: --spacing-xl all
+   round and an --font-size-xl title come to 140px, and 140px does not fit in a
+   quarter of a short window once the band's own padding, border, header and gap
+   have taken their 92.5px. It did not truncate, it clipped out of existence —
+   the content box measured 28px against a 140px scroll height at a 620px
+   viewport and 0px at 450px, so "No roadmap yet" and its description were 0%
+   visible while the heading above them stayed put and read as a band over
+   nothing.
+
+   Overridden from here rather than corrected in the library, because the
+   library's shape is right everywhere else it is used; only a band is short.
+   Left-aligned for the same reason: a band is read across, and the timeline that
+   replaces this will start at its left edge, not in the middle of it. */
+.roadmap-band__empty {
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-align: left;
+}
+
+.roadmap-band__empty .empty-state__title {
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-tight);
+    margin-bottom: var(--spacing-2xs);
+}
+
+.roadmap-band__empty .empty-state__body {
+    margin-bottom: 0;
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
+    box-shadow: var(--shadow-md);
+}
+
+.dashboard-panel__header {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.dashboard-panel__header-actions {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.dashboard-panel__eyebrow,
+.dashboard-panel__title,
+.dashboard-panel__subtitle {
+    margin: 0;
+}
+
+.dashboard-panel__eyebrow {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.dashboard-panel__title {
+    font-size: var(--font-size-lg);
+}
+
+.dashboard-panel__subtitle {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-panel__content {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-md);
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is
+   ignored on a grid item and stays only because the rule is shared history;
+   stretching to the row is what actually sizes it. */
 .knowledge-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -1677,6 +1881,7 @@ h1, h2, h3 {
     width: 100%;
     flex: 1 1 auto;
     min-height: 0;
+    height: 100%;
     overflow: hidden;
 }
 
@@ -1699,7 +1904,11 @@ h1, h2, h3 {
     position: sticky;
     top: var(--spacing-lg);
     align-self: start;
-    max-height: calc(100vh - (var(--spacing-lg) * 2));
+    /* The pane row no longer starts below the header alone — the roadmap band can
+       sit above it — so a cap measured off the viewport overflows by however tall
+       the band is. The row is already a sized grid track, so its own height is the
+       honest ceiling. */
+    max-height: 100%;
     overflow: auto;
 }
 
@@ -1720,17 +1929,14 @@ h1, h2, h3 {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
-    max-height: calc(100vh - (var(--spacing-lg) * 2));
+    /* Same reason as the inbox pane above: the roadmap band can sit between the
+       header and this row, so a viewport-height cap overruns the row it is in. */
+    max-height: 100%;
     overflow: hidden;
 }
 
 .side-pane-stack > * {
     min-height: 0;
-}
-
-.side-pane-stack > .tools-panel {
-    flex: 0 1 auto;
-    overflow: auto;
 }
 
 .side-pane-stack > .inbox-pane {
@@ -1743,12 +1949,6 @@ h1, h2, h3 {
     top: auto;
     max-height: none;
     overflow: auto;
-}
-
-.side-pane-stack--full.side-pane-stack--right-docked {
-    width: min(36rem, 100%);
-    max-width: 100%;
-    margin-left: auto;
 }
 
 .backlog-workspace {
@@ -1872,6 +2072,15 @@ h1, h2, h3 {
 
 
 @media (max-width: 72rem) {
+    /* The band stays. Its track is capped at a quarter of the area below the
+       header at every width, so it cannot take the pane row's space here either —
+       what a narrow or short viewport makes small is the band itself. The padding
+       comes down so the heading still fits inside that smaller quarter rather
+       than being the first thing clipped out of it. */
+    .roadmap-band {
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+
     .knowledge-layout,
     .knowledge-layout--side-open {
         grid-template-columns: 1fr;
@@ -2351,6 +2560,18 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
+/* Three of these headers gave their title and path to the file view that now
+   shows the chapter, so for a selected chapter they are left holding only their
+   controls — and space-between pins a lone child to the start, which would have
+   walked every state control in the knowledge panes from the right edge to the
+   left. They stay where the reader has always found them. A header that still
+   names its document has two children and is untouched. */
+.design-document__header > :only-child,
+.domain-document__header > :only-child,
+.knowledge-document__header > :only-child {
+    margin-left: auto;
+}
+
 .design-knowledge__header h2,
 .design-document__header h3,
 .design-section__header h4,
@@ -2397,6 +2618,38 @@ h1, h2, h3 {
     outline-offset: 2px;
 }
 
+/* The strip and its chips. Both rules existed until a tech-knowledge commit
+   deleted them alongside the block it was replacing, and without them the strip
+   is a run of inline spans with no separator: two relation paths in one row read
+   as one path twice as long, which is how it was reported. The gap is the whole
+   fix — the outer gap keeps the chips apart, the inner one keeps a chip's label
+   apart from its values, and a chip that pins two relations keeps them apart
+   too. */
+.domain-metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.domain-metadata__item {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    max-width: 100%;
+    padding: 1px var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    /* A relation is a path, and a path has no spaces to break at. Without this
+       a long one widens the strip past the pane instead of wrapping. */
+    overflow-wrap: anywhere;
+}
+
+.domain-metadata__item strong {
+    color: var(--color-primary);
+}
+
 .domain-metadata__link {
     appearance: none;
     background: transparent;
@@ -2415,18 +2668,20 @@ h1, h2, h3 {
 }
 
 /* Bare error text, with no error surface behind it to carry the meaning, so the
-   colour is the only thing saying this failed. The literal is what the file's
-   other three bare error statuses already use; .design names no error
-   *foreground* at all, which is the gap that let --color-danger be invented. */
+   colour is the only thing saying this failed. That is the case color-error-text
+   exists for, and the gap the comment here used to describe. */
 .domain-knowledge__action-error {
-    color: #E4626F;
+    color: var(--color-error-text);
     font-size: var(--font-size-xs);
 }
 
+/* .knowledge-document__path was here until the architecture panel handed the
+   chapter's path to the file view's own header, which sets it as a path rather
+   than as an eyebrow — monospaced and right-aligned, because a reader checks one
+   segment of a path instead of reading it. Nothing renders the class now. */
 .design-knowledge__eyebrow,
 .design-document__file,
-.domain-knowledge__eyebrow,
-.knowledge-document__path {
+.domain-knowledge__eyebrow {
     margin: 0 0 var(--spacing-xs);
     color: var(--color-primary-light);
     font-size: var(--font-size-xs);
@@ -2452,15 +2707,30 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+/* .knowledge-document was a card here until the architecture chapter moved into
+   the file view, which draws its own edge. The article stayed — it is the scroll
+   container the knowledge stack sizes and the anchor the knowledge menu jumps to
+   — but it always holds a file view now, so a card here is a card around a card. */
 .design-token,
 .design-section,
 .domain-document,
-.knowledge-document,
 .tech-node {
     padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
     background: var(--color-background);
+}
+
+/* The same withdrawal, per document rather than per class: a domain article is a
+   card for every file it lists and stops being one for the single file it shows
+   through the file view. Padding goes too, not only the edge — a frame's inset
+   without its border is a gap nothing explains, and the pane around this already
+   holds the content off its own edge. */
+.domain-document--chapter {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
 }
 
 .design-token__name,
@@ -2474,6 +2744,27 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
+/* The chapter body and the one line that reports what happened to it. A grid so
+   the state row sits above the document rather than beside it: the indicator is
+   about the whole chapter, and a save state tucked into a corner of the prose
+   reads as belonging to whichever paragraph it landed next to. */
+.knowledge-chapter-editor {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+/* Right-aligned, following the state selectors in these same panels — a reader
+   scanning for "did that save" looks where the other status lives. Both children
+   render nothing until there is something to say, so the row is zero-height for
+   the whole of a chapter nobody has typed into. */
+.knowledge-chapter-editor__state {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
 .knowledge-outline,
 .knowledge-table-wrap {
     overflow: auto;
@@ -2484,9 +2775,10 @@ h1, h2, h3 {
     margin: 0;
     padding: var(--spacing-md);
     border-radius: var(--border-radius-md);
-    /* One step up the ramp from the .knowledge-document card it sits in. This
-       was a raw #020617 — a step *below* the old base, inventing a fourth
-       surface the palette does not have. */
+    /* One step up the ramp from the file view it sits in — the same base the
+       .knowledge-document card used to give it, now that the card is the file
+       view's. This was a raw #020617 — a step *below* the old base, inventing a
+       fourth surface the palette does not have. */
     background: var(--color-background-alt);
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
@@ -2664,5 +2956,68 @@ h1, h2, h3 {
     .instructions-layout {
         display: flex;
         flex-direction: column;
+    }
+}
+
+/* --- The roadmap band on a short window ---------------------------------- */
+/*
+  Two steps down, both measured off the same arithmetic. The workspace is the
+  viewport less 105px of shell padding, shell gap and app header, and the band's
+  track is capped at a quarter of it, so the band has (viewport - 105) / 4 to
+  fit its own content into.
+
+  Compacted, the band's content measures 145.5px: 32px block padding, 2px
+  border, 42.5px header, an 8px gap, and a 61px placeholder. A quarter first
+  covers that at (145.5 x 4) + 105 = 687px, so anything shorter than ~43rem
+  clips the description again. Dropping it and tightening further brings the
+  band to 98.5px, first covered at (98.5 x 4) + 105 = 499px.
+
+  The two steps are set at 48rem and 34rem rather than at 43rem and 31.2rem:
+  each leaves headroom for a description that wraps to a second line at a
+  narrow width, and both are steps this stylesheet's breakpoint ladder already
+  uses on the inline axis.
+*/
+
+@media (max-height: 48rem) {
+    /* One honest line of placeholder beats a clipped paragraph. The eyebrow, the
+       heading and the placeholder's own title all stay; only the sentence
+       explaining what will be drawn here goes, and it is the one thing on screen
+       that a user loses nothing by not reading twice. */
+    .roadmap-band {
+        padding-block: var(--spacing-sm);
+    }
+
+    .roadmap-band__empty {
+        padding-block: var(--spacing-xs);
+    }
+
+    .roadmap-band__empty .empty-state__title {
+        margin-bottom: 0;
+    }
+
+    .roadmap-band__empty .empty-state__body {
+        display: none;
+    }
+}
+
+@media (max-height: 34rem) {
+    /* Below this a quarter of the screen cannot hold even a heading plus a line,
+       and a band showing a heading over blank space reads as broken. So the band
+       goes, and its track goes with it: without collapsing the row and its gap
+       the pane row would keep working around an empty quarter it can no longer
+       see.
+
+       Unscoped, because the band has one on-screen size and this is the safety
+       net under it: there is no smaller state left for a short window to fall back
+       to, so either the whole band fits the quarter or it goes. The header toggle
+       is the route back, and it is in the app header rather than on the band, so
+       hiding the band here never hides the control that brings it back. */
+    .roadmap-band {
+        display: none;
+    }
+
+    .workspace {
+        grid-template-rows: minmax(0, 1fr);
+        row-gap: 0;
     }
 }

@@ -333,17 +333,41 @@
         return 2;
     }
 
+    // The window decides how many panes fit; the layout element only decides how
+    // wide the side pane may get. They are reported separately because the two
+    // questions do not need the same answer to be on screen: capacity reads the
+    // viewport and can always be answered, while a width can only be measured
+    // from a layout that is actually mounted. Guarding both on the layout meant a
+    // window resized while a full-screen surface was open reported neither, so
+    // the panes came back sized for a window that was gone.
     function backlogReportPaneBounds() {
+        if (!backlogPaneOwner) return;
+
+        backlogPaneOwner.invokeMethodAsync('SetGlobalPaneCapacityAsync', backlogPaneCapacity());
+
         const layout = backlogPaneLayout();
-        if (!layout || !backlogPaneOwner) return;
+        if (!layout) return;
 
         backlogPaneOwner.invokeMethodAsync('SetSidePaneMaxWidthAsync', backlogPaneMaxRem(layout));
-        backlogPaneOwner.invokeMethodAsync('SetGlobalPaneCapacityAsync', backlogPaneCapacity());
     }
 
     window.backlogPaneResizer = {
         initialize(owner) {
             backlogPaneOwner = owner;
+            backlogReportPaneBounds();
+        },
+        /**
+         * Re-measure now, without waiting for a resize.
+         *
+         * The bounds are reported from the layout element, so while the shell is
+         * showing a full-screen surface instead of the panes there is nothing to
+         * measure and the resize handler above no-ops. A window resized during a
+         * takeover would therefore be reported only at the *next* resize, leaving
+         * the pane capacity describing a window that is gone. The host calls this
+         * on the first render after the layout comes back, which measures the
+         * window it actually returned to.
+         */
+        refresh() {
             backlogReportPaneBounds();
         },
         dispose() {

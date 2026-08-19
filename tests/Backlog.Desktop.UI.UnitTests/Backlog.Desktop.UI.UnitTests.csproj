@@ -25,6 +25,11 @@
          had a folder in Backlog.Desktop.UI, so its types say
          Backlog.Modules.Knowledge.Abstractions. -->
     <Using Include="Backlog.Modules.Knowledge.Abstractions" />
+    <!-- Roadmap and Monitoring have no abstractions project to import: neither has
+         a domain module yet, so each publishes one component and one feature key
+         from its .UI project, and that is the namespace the tests name. -->
+    <Using Include="Backlog.Modules.Roadmap.UI" />
+    <Using Include="Backlog.Modules.Monitoring.UI" />
     <!-- The feature port and the app-wide feature keys, and the file-system
          adapters that answer the workspace ports these tests drive directly. -->
     <Using Include="Backlog.SharedKernel" />
@@ -54,6 +59,8 @@
     <ProjectReference Include="..\..\src\Modules\Backlog\Backlog.Modules.Backlog.UI\Backlog.Modules.Backlog.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.UI\Backlog.Modules.Knowledge.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Monitoring\Backlog.Modules.Monitoring.UI\Backlog.Modules.Monitoring.UI.csproj" />
     <ProjectReference Include="..\..\src\App\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
   </ItemGroup>
 

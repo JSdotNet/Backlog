@@ -26,10 +26,21 @@
        That is what had happened: a brighter red, green and blue had grown up
        beside these under other names, so the palette carried two reds and two
        greens for the same two meanings. Anything that needs to be legible sits
-       *on* one of these as text-primary rather than being painted in it. */
+       *on* one of these as text-primary rather than being painted in it.
+
+       The error foreground below is the one deliberate exception, and it is here
+       because that rule left a hole. Sitting on a surface answers a banner, but a
+       bare error status line, an error icon, or an error input outline has no
+       error surface under it, so nothing sanctioned said what colour it should
+       be. Code answered anyway: a raw literal in the desktop stylesheet, and a
+       stronger-red token name that several rules referenced and nothing ever
+       declared. The semantic colours stay surfaces; this is the single
+       sanctioned foreground for the error meaning, and it is never painted as a
+       background. */
     --color-success: #1A3A22;
     --color-warning: #3D2E00;
     --color-error: #3D0A0D;
+    --color-error-text: #EC8E97;
     --color-info: #0A2C31;
 
     --color-text-primary: #F8F9FA;
@@ -380,7 +391,15 @@
 
 .badge--status-draft { background: var(--color-background-raised); color: var(--color-text-secondary); }
 
+/* position: relative because this carries an sr-only descendant — the label
+   naming the control for a screen reader. .sr-only is position: absolute, so
+   without a positioned ancestor its containing block is the page: the hidden
+   text inside a horizontally scrolled table then lands at page coordinates well
+   past the viewport and drags the document's scroll width out with it, even
+   though the text itself is invisible. Same reason .metric-heatmap__cell carries
+   it. Nothing moves visually — the label has no offsets to resolve against. */
 .status-editor {
+    position: relative;
     padding: 0;
 }
 
@@ -648,7 +667,8 @@
   the styling is shared, and only the names differ.
 */
 
-.fold {
+.fold,
+.md-compare-fold {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
@@ -1335,75 +1355,29 @@ button.md-check {
     font-weight: 700;
 }
 
-/*
-   Status tones.
-
-   Five folders spell their lifecycle in five vocabularies, and none of them
-   should be renamed to suit a stylesheet — so the pill carries both its literal
-   status class and a tone class, and only the tone is painted. A tone is added
-   only when the folder is known, so a folder-blind strip keeps exactly the flat
-   pill it has always had.
-
-   Nothing here invents a colour: the semantic tokens are surfaces, so each tone
-   sits *on* one and takes its text from the text ramp, and the two quiet tones
-   spend no colour at all.
-*/
-
-.knowledge-status--tone-unknown {
-    background: transparent;
-}
-
-.knowledge-status--tone-provisional {
-    background: transparent;
-    border-style: dashed;
-    color: var(--color-text-disabled);
-    font-style: italic;
-}
-
-.knowledge-status--tone-planned {
-    background: var(--color-info);
-    border-color: var(--color-info);
-    color: var(--color-text-primary);
-}
-
-/* Active takes the brand colour: of everything on this scale it is the one that
-   describes the thing you are looking at right now. */
-.knowledge-status--tone-active {
-    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
-    border-color: var(--color-primary-dark);
-    color: var(--color-primary-light);
-}
-
-.knowledge-status--tone-complete {
-    background: var(--color-success);
-    border-color: var(--color-success);
-    color: var(--color-text-primary);
-}
-
-.knowledge-status--tone-attention {
-    background: var(--color-warning);
-    border-color: var(--color-warning);
-    color: var(--color-text-primary);
-}
-
-.knowledge-status--tone-retired {
-    background: transparent;
-    border-style: dashed;
-    color: var(--color-text-disabled);
-    text-decoration: line-through;
-}
-
 /* A status the folder does not define is almost always a typo, and a typo is
-   only worth anything once it is visible. The pill keeps its tone classes so a
-   half-recognised value still reads, and gains a surface that says "look here"
-   rather than one that says "this is fine". */
+   only worth anything once it is visible. It is drawn on the `archived`
+   modifier, which is the one badge that spends no colour — a transparent
+   surface inside a border — so what this rule adds is only the two things that
+   say "nobody wrote this": the border goes dashed, and the word comes back to
+   full strength from the muted ink `archived` reads its own values in.
+
+   Painted on the error surface instead, it wore the same red as a legitimate
+   `blocked` status and the two could not be told apart at a glance. Quiet and
+   provisional is the truthful reading of a word nobody recognises; the urgency
+   belongs in the title, which names the values the folder actually allows.
+
+   No width is stated, and none is needed: `.badge--status-archived` sets
+   `border` as a shorthand, so the width is already the design system's one
+   border width and only the style is being overridden.
+
+   One class, against `.badge--status` and its modifiers which are one class
+   each: equal specificity, and this is declared after all of them, so it wins
+   without needing any help. */
 .knowledge-status--unrecognised {
-    background: var(--color-error);
     border-color: var(--color-border-strong);
     border-style: dashed;
     color: var(--color-text-primary);
-    font-style: normal;
-    text-decoration: none;
 }
 
 /*
@@ -1472,15 +1446,16 @@ button.md-check {
     min-width: 0;
 }
 
-.knowledge-record__headline > :not(.knowledge-status):not(.status-editor) {
+.knowledge-record__headline > :not(.badge--status) {
     min-width: 0;
 }
 
-/* Both forms of the status — the static pill and the BadgeSelect the record
-   draws when the folder has a vocabulary to offer. Neither ever shrinks: it is
-   the short, fixed thing on the line, and the heading is what gives. */
-.knowledge-record__headline > .knowledge-status,
-.knowledge-record__headline > .status-editor {
+/* Both forms of the status — the read-only badge, and the StatusSelector the
+   record draws when the folder has a vocabulary to offer. One selector reaches
+   both, because both are the same application status badge; it took two before,
+   one per form, which is what let the two drift apart. Neither ever shrinks: it
+   is the short, fixed thing on the line, and the heading is what gives. */
+.knowledge-record__headline > .badge--status {
     flex: 0 0 auto;
 }
 
@@ -1493,8 +1468,7 @@ button.md-check {
 
    The auto margin also overrides `.badge--status`'s own `margin-left`, which is
    spacing for a badge in a row of badges and not for one holding an edge. */
-.knowledge-record__headline > .knowledge-status:not(:first-child),
-.knowledge-record__headline > .status-editor:not(:first-child) {
+.knowledge-record__headline > .badge--status:not(:first-child) {
     margin-inline-start: auto;
 }
 
@@ -1661,7 +1635,11 @@ button.md-check {
 .app-error-message {
     margin: 0;
     padding: var(--spacing-xs) var(--spacing-sm);
-    border: var(--border-width) solid color-mix(in srgb, var(--color-error) 55%, transparent);
+    /* The banner case, so the rule applies as written: an error surface with
+       text-primary on it. The border is the exception - mixed from color-error
+       it lands at 1.04:1 against the page, which is not a boundary anyone can
+       see. color-error-text is the same meaning at a visible weight. */
+    border: var(--border-width) solid color-mix(in srgb, var(--color-error-text) 55%, transparent);
     border-radius: var(--border-radius-md);
     background: color-mix(in srgb, var(--color-error) 14%, transparent);
     color: var(--color-text-primary);
@@ -3994,7 +3972,8 @@ button.tag-chip__label {
 /* The deep surface, not the raised one: a file is the thing being read, so it
    sits at the back of the stack and lets the app's own chrome come forward. */
 .file-view,
-.folder-view {
+.folder-view,
+.md-compare {
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -4008,12 +3987,14 @@ button.tag-chip__label {
    left under the header. min-height:0 is what lets a flex child actually shrink
    below its content and scroll instead of pushing the card open. */
 .file-view--fill,
-.folder-view--fill {
+.folder-view--fill,
+.md-compare--fill {
     height: 100%;
 }
 
 .file-view--fill .file-view__body,
-.folder-view--fill .folder-view__body {
+.folder-view--fill .folder-view__body,
+.md-compare--fill .md-compare__body {
     flex: 1 1 auto;
     min-height: 0;
 }
@@ -4022,7 +4003,8 @@ button.tag-chip__label {
    a shade under the header drew the boundary twice — but the rule stays: the
    header is fixed and the body scrolls under it, and that needs a line. */
 .file-view__header,
-.folder-view__header {
+.folder-view__header,
+.md-compare__header {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -4032,12 +4014,14 @@ button.tag-chip__label {
 }
 
 .file-view__identity,
-.folder-view__identity {
+.folder-view__identity,
+.md-compare__identity {
     min-width: 0;
 }
 
 .file-view__name,
-.folder-view__name {
+.folder-view__name,
+.md-compare__name {
     margin: 0;
     font-family: var(--font-family-heading);
     font-size: var(--font-size-base);
@@ -4046,7 +4030,8 @@ button.tag-chip__label {
 }
 
 .file-view__meta,
-.folder-view__meta {
+.folder-view__meta,
+.md-compare__meta {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
@@ -4057,7 +4042,8 @@ button.tag-chip__label {
    first thing to give up room when the header is narrow — the name beside it
    still identifies the file, and the text stays whole in the DOM. */
 .file-view__path,
-.folder-view__path {
+.folder-view__path,
+.md-compare__path {
     flex: 0 1 auto;
     min-width: 0;
     margin: 0;
@@ -4075,7 +4061,8 @@ button.tag-chip__label {
    loads no app stylesheet, and a component that only looks right inside one host
    is not a component. */
 .file-view__body,
-.folder-view__body {
+.folder-view__body,
+.md-compare__body {
     padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
     overflow: auto;
     /* Reserve the track so the content does not shift sideways the moment a
@@ -4086,18 +4073,21 @@ button.tag-chip__label {
 }
 
 .file-view__body::-webkit-scrollbar,
-.folder-view__body::-webkit-scrollbar {
+.folder-view__body::-webkit-scrollbar,
+.md-compare__body::-webkit-scrollbar {
     width: 0.625rem;
     height: 0.625rem;
 }
 
 .file-view__body::-webkit-scrollbar-track,
-.folder-view__body::-webkit-scrollbar-track {
+.folder-view__body::-webkit-scrollbar-track,
+.md-compare__body::-webkit-scrollbar-track {
     background: transparent;
 }
 
 .file-view__body::-webkit-scrollbar-thumb,
-.folder-view__body::-webkit-scrollbar-thumb {
+.folder-view__body::-webkit-scrollbar-thumb,
+.md-compare__body::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: var(--border-radius-full);
     background: var(--color-border);
@@ -4105,37 +4095,43 @@ button.tag-chip__label {
 }
 
 .file-view__body::-webkit-scrollbar-thumb:hover,
-.folder-view__body::-webkit-scrollbar-thumb:hover {
+.folder-view__body::-webkit-scrollbar-thumb:hover,
+.md-compare__body::-webkit-scrollbar-thumb:hover {
     background: var(--color-border-strong);
     background-clip: padding-box;
 }
 
 .file-view__body::-webkit-scrollbar-corner,
-.folder-view__body::-webkit-scrollbar-corner {
+.folder-view__body::-webkit-scrollbar-corner,
+.md-compare__body::-webkit-scrollbar-corner {
     background: transparent;
 }
 
 /* The body is a tab stop because it scrolls, so it has to show focus like one. */
-.file-view__body:focus-visible {
+.file-view__body:focus-visible,
+.md-compare__body:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: calc(var(--border-width-2) * -1);
 }
 
 /* The last block in a file should not leave a double gap above the border. */
-.file-view__body > :last-child {
+.file-view__body > :last-child,
+.md-compare__body > :last-child {
     margin-bottom: 0;
 }
 
 @media (max-width: 40rem) {
     .file-view__header,
-    .folder-view__header {
+    .folder-view__header,
+    .md-compare__header {
         flex-direction: column;
         align-items: stretch;
         gap: var(--spacing-xs);
     }
 
     .file-view__path,
-    .folder-view__path {
+    .folder-view__path,
+    .md-compare__path {
         text-align: left;
     }
 }
@@ -4166,7 +4162,8 @@ button.tag-chip__label {
 /* The path and the open button share the right-hand side of the header. The
    path gives up room first — the name already says which folder this is, and
    the button is a fixed target that must not shrink under the pointer. */
-.folder-view__actions {
+.folder-view__actions,
+.md-compare__actions {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -4175,6 +4172,402 @@ button.tag-chip__label {
 
 .folder-view__error {
     margin: 0 var(--spacing-md) var(--spacing-sm);
+}
+
+/* --- Section comparison -------------------------------------------------- */
+/*
+   Three components, one chapter: the change-scope picker, the changed-file list
+   and the section comparison view. The frame rules they share with FileView and
+   FolderView are up in the File view block, with the compare selectors added to
+   those rules rather than copied into new ones - three copies drift.
+
+   No new design token is proposed here, and that is the finding rather than an
+   omission. Everything below is one of the twenty palette colours, the declared
+   type ramp and the declared spacing scale. The one custom property this block
+   introduces, --md-compare-depth, is local layout state set inline on the
+   element and read back with a fallback, exactly as TreeView declares
+   --folder-tree-depth; it is not a design-system value and nothing outside this
+   block reads it.
+
+   No prefers-color-scheme block either: .design/design-principles.md is
+   dark-mode-only - one theme, no toggle - so the light/dark check is satisfied
+   vacuously, and this would be the first such block in the product.
+*/
+
+/*
+   The picker and the file list are deliberately one widget drawn twice: same
+   surface, same row height, same padding, same radius, same selected, hover and
+   focus treatment. They are two columns of one control, separated by layout gap
+   rather than by a different card treatment, so a reader who learns the arrow
+   keys in the first does not have to relearn them in the second.
+
+   The raised menu surface rather than the deep one, for the reason FolderView
+   gives: a list of things you could look at is --color-background-alt, and the
+   thing you opened is --color-background.
+*/
+.change-scope,
+.changed-files {
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    overflow: hidden;
+}
+
+.change-scope__list,
+.change-scope__group,
+.changed-files__list {
+    margin: 0;
+    padding: var(--spacing-2xs);
+    list-style: none;
+}
+
+/* The group is nested inside a row of the list it belongs to, so padding of its
+   own would step the commits in from the ranges above them. They are one list. */
+.change-scope__group {
+    padding: 0;
+}
+
+/*
+   The transparent borders are load-bearing: they are declared on every row so
+   that selecting one changes a colour rather than adding a box, and the labels
+   never shift sideways under the pointer that just chose them.
+*/
+.change-scope__row,
+.changed-file {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width-2) solid transparent;
+    border-left: var(--border-width-4) solid transparent;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+/*
+   Hover is a fill and nothing else; selection is a fill plus two borders; focus
+   is an outline sitting outside the box where the selection border sits on it.
+   All three can be true of one row at once and still be told apart, which is
+   what .design/accessibility.md asks for under "Distinct states".
+
+   The fill is the raised surface rather than --color-background-alt, because
+   the card underneath is already --color-background-alt and a hover the same
+   colour as its background is not a hover.
+*/
+.change-scope__row:hover,
+.changed-file:hover {
+    background: var(--color-background-raised);
+}
+
+.change-scope__row:focus-visible,
+.changed-file:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.change-scope__row--selected,
+.changed-file--selected {
+    border-color: var(--color-border-focus);
+    border-left-color: var(--color-primary);
+    background: var(--color-background-raised);
+}
+
+/* The fourth channel, and permitted only because it is the fourth: weight on
+   its own would be "meaning by style", which the same document prohibits. */
+.change-scope__row--selected .change-scope__label,
+.changed-file--selected .changed-file__name {
+    font-weight: var(--font-weight-semibold);
+}
+
+/* Always rendered, empty when unselected, so the tick appearing never moves the
+   text beside it. */
+.change-scope__mark,
+.changed-file__mark {
+    flex: 0 0 auto;
+    width: 1rem;
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+.change-scope__label {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.change-scope__count,
+.changed-file__counts {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    /* Tabular figures so the counts line up down the list, as .md-block__count
+       already does. */
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.change-scope__caption {
+    margin: var(--spacing-xs) var(--spacing-sm) var(--spacing-2xs);
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/*
+   FileView marks .file-view__path "truncated visually when the header is
+   narrow, never in the DOM, so a screen reader still reads the whole path", and
+   the commit subject wants the same bargain for the same reason. min-width: 0
+   is what makes it work at all: a flex child defaults to min-width: auto and
+   refuses to shrink below its content, so without it the ellipsis never appears
+   and the row overflows instead.
+
+   No title attribute. A native tooltip is not keyboard-reachable, and it would
+   only repeat the accessible name the row already has.
+*/
+.change-scope__subject {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.change-scope__sha {
+    flex: 0 0 auto;
+    font-family: var(--font-family-mono);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+/* The relative time takes the token .file-view__path already takes for the
+   machine string of least importance in its header: it is the tiebreaker, and
+   it is the first thing the eye should be able to skip. */
+.change-scope__age {
+    flex: 0 0 auto;
+    color: var(--color-text-disabled);
+    white-space: nowrap;
+}
+
+/* Not a semantic tint. All four semantic tokens are dark surfaces, so a glyph
+   painted in one would sit far under the 4.5:1 a foreground owes its
+   background; the shape of + and - and the plus-minus is what carries the state
+   to the eye, and the .sr-only word beside it is what carries it to everything
+   else. */
+.changed-file__kind {
+    flex: 0 0 auto;
+    width: 1rem;
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.changed-file {
+    align-items: flex-start;
+}
+
+.changed-file__body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+/* Neither line truncates, and that is a considered departure from FileView.
+   There the path shares a line with the name and has to give up room, and its
+   tail is its least informative part. Here the directory has a line to itself,
+   and ellipsing it would eat exactly the segment that tells .../Markdown from
+   .../Layout. Wrapping costs a row height; ellipsing costs the answer. */
+.changed-file__name {
+    overflow-wrap: anywhere;
+}
+
+.changed-file__directory {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    overflow-wrap: anywhere;
+}
+
+.changed-files__empty,
+.md-compare__empty {
+    padding: var(--spacing-md);
+}
+
+/* --- The comparison view ------------------------------------------------- */
+
+.md-compare__toggle {
+    flex: 0 0 auto;
+}
+
+/*
+   The indent. Sections nest in the DOM, so the step is applied to a section's
+   own head and blocks rather than to the section itself - put it on the section
+   and every level would inherit its ancestors' padding as well as its own, and
+   a third-level heading would start a third of the way across the pane.
+
+   The custom property is set inline on the element and read with a fallback,
+   exactly as TreeView does with --folder-tree-depth. The Razor caps the value
+   at 3 so a six-hash heading cannot push its content off the pane; aria-level
+   stays truthful regardless of what the indent does.
+*/
+.md-compare-section > .md-compare-section__head,
+.md-compare-section > .md-compare-block,
+.md-compare-section > .md-compare-fold {
+    margin-left: calc(var(--md-compare-depth, 0) * var(--spacing-md));
+}
+
+.md-compare-section__head {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+}
+
+.md-compare-section__head--added,
+.md-compare-section__head--removed,
+.md-compare-section__head--changed {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-4) solid var(--color-border-strong);
+}
+
+.md-compare-section__head--added {
+    background: var(--color-success);
+}
+
+.md-compare-section__head--removed {
+    background: var(--color-error);
+}
+
+/* Thin, because the two halves under it carry their own tints and the wrapper's
+   only job is to say they belong together. */
+.md-compare-section__head--changed {
+    background: color-mix(in srgb, var(--color-warning) 60%, transparent);
+}
+
+.md-compare-section__heading {
+    margin: 0;
+}
+
+.md-compare-section__was,
+.md-compare-section__now {
+    margin: 0;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+}
+
+.md-compare-section__was {
+    background: var(--color-error);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.md-compare-section__now {
+    margin-top: var(--spacing-2xs);
+    background: var(--color-success);
+}
+
+.md-compare-block {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+}
+
+/* A text glyph at secondary weight, never a coloured stripe: a 4px rule in
+   --color-success against --color-background measures about 1.2:1, nowhere near
+   the 3:1 a non-text indicator owes its background. The stripe would be
+   invisible, and "not by colour alone" would hold only by accident. */
+.md-compare-block__gutter {
+    flex: 0 0 auto;
+    width: 1rem;
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+.md-compare-block__content {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.md-compare-block--added,
+.md-compare-block--removed,
+.md-compare-block--changed {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-4) solid var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.md-compare-block--added {
+    background: var(--color-success);
+}
+
+.md-compare-block--removed {
+    background: var(--color-error);
+}
+
+.md-compare-block--changed {
+    background: color-mix(in srgb, var(--color-warning) 60%, transparent);
+}
+
+/* No chrome at all - no tint, no border, no padding shift - so a run of
+   unchanged prose reads exactly as MarkdownView renders it anywhere else. The
+   eye should be drawn only to what has a box around it. */
+.md-compare-block--unchanged {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+/* Quiet enough to skim past, present enough to survive a greyscale screenshot,
+   and real DOM text so a screen reader says "Added." before the content rather
+   than reading an attribute that can drift out of sync with the tint. */
+.md-compare-block__label,
+.md-compare-block__side-label {
+    margin: 0 0 var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* A Changed block is visibly a Removed half plus an Added half: one visual
+   language for three states rather than three, and no new colour. */
+.md-compare-block__side {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+}
+
+.md-compare-block__side + .md-compare-block__side {
+    margin-top: var(--spacing-xs);
+}
+
+.md-compare-block__side--was {
+    background: var(--color-error);
+}
+
+.md-compare-block__side--now {
+    background: var(--color-success);
+}
+
+.md-compare-fold {
+    margin-bottom: var(--spacing-sm);
+}
+
+/* The region is stepped in from its trigger so the trigger reads as the thing
+   that opened it rather than as a sibling of what came out. */
+.md-compare-fold > .fold__region {
+    padding-left: var(--spacing-md);
+    border-left: var(--border-width) solid var(--color-border);
 }
 
 /* --- Open in VS Code ----------------------------------------------------- */

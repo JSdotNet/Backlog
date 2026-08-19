@@ -57,10 +57,12 @@ public sealed class AppFeatureSettingsStoreTests
             [
                 BacklogFeatures.Backlog,
                 AppFeatures.InboxPane,
+                RoadmapFeatures.Roadmap,
                 KnowledgeFeatures.KnowledgeSections,
                 KnowledgeFeatures.RepositoryKnowledge,
                 BacklogFeatures.AdditionalRepositories,
                 DevPcFeatures.SystemTools,
+                MonitoringFeatures.Dashboard,
                 BacklogFeatures.GitHubIntegration,
                 AppFeatures.FeedbackReporting,
                 AppFeatureKeys.CopilotCli,

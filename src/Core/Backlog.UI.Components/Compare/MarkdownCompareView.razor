@@ -1,0 +1,576 @@
+@*
+    One file's two versions, aligned by heading and read as a document.
+
+    The frame is FileView's, on purpose: the same header over the same scrolling
+    body, the same MaxHeight and Fill, the same reserved scrollbar gutter, the
+    same focusable body. A pane that shows a file and then a comparison of that
+    file should not change its furniture between them, and where a rule is
+    identical the selector is added to FileView's own rule in components.css
+    rather than copied — FolderView set that precedent, and the reason is that
+    three copies drift.
+
+    Presentational. It is handed a ComparedSection and draws it; it does not
+    parse, does not read a repository, and does not know where the two versions
+    came from. MarkdownCompare.Compare is what produces the tree, and it is a
+    pure function a host can call anywhere.
+
+    Everything is rendered through MarkdownView, which emits through the render
+    tree's normal escaping and filters link and image URLs by scheme
+    (MarkdownRender.IsNavigable). No raw HTML is emitted anywhere here, which
+    matters more than usual: the "before" side is by definition text somebody
+    has already changed their mind about, and it may have arrived from a
+    repository file nobody in this product wrote.
+
+    Colour is a tint and never the carrier. All four semantic tokens are dark
+    surfaces — --color-success is #1A3A22 and --color-error is #3D0A0D — so a
+    4px gutter stripe in one of them against --color-background #121214 is about
+    1.2:1, far under the 3:1 a non-text indicator owes its background. The
+    stripe would be invisible and "not by colour alone" would hold only by
+    accident. Getting a visible green and red would mean adding palette colours,
+    and the library's own token comment records exactly that mistake being
+    undone. So the semantic tokens are block *backgrounds* with
+    --color-text-primary on them, and every state also carries a gutter glyph, a
+    written label and, through the label, something for a screen reader to say.
+*@
+
+<article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <header class="md-compare__header">
+        <div class="md-compare__identity">
+            <h3 class="md-compare__name">@FileName</h3>
+            <p class="md-compare__meta">@BeforeLabel → @AfterLabel · @SummaryValue</p>
+        </div>
+        <div class="md-compare__actions">
+            @* The one control that makes collapsed-by-default affordable: it
+               turns "read the whole file" from N clicks into one. Individual
+               folds still work while it is on, because it only supplies the
+               default each fold falls back to. Turning it off re-collapses
+               everything and discards per-fold state — that is the design, not
+               a bug: the alternative is a control whose off state leaves the
+               view in a shape neither the reader nor the control chose.
+
+               ToggleButton's text is ChildContent, not a Label parameter; the
+               pressed state is on aria-pressed, so no verb flips in the name. *@
+            <ToggleButton Pressed="_expandAll"
+                          PressedChanged="OnExpandAllChanged"
+                          CssClass="md-compare__toggle"
+                          TestId="@ToggleTestId">Unchanged sections</ToggleButton>
+
+            @if (!string.IsNullOrWhiteSpace(Path))
+            {
+                @* Truncated visually when the header is narrow, never in the
+                   DOM, so a screen reader still reads the whole path. *@
+                <p class="md-compare__path">@Path</p>
+            }
+        </div>
+    </header>
+
+    @* A scroll container is an interactive element even though it is a div:
+       without tabindex a keyboard user cannot reach the overflow in Chromium at
+       all (.design/accessibility.md, "Non-native controls"). role + name keep it
+       from being an unlabelled tab stop.
+
+       The name is "{file}, {before} to {after}" and not just the file. FileView
+       can be named by the file alone because it shows one thing and its header
+       says which; this body shows a *relationship*. A screen-reader user landing
+       here by region navigation, with a compare pane and a plain file view open
+       in the same app, would otherwise get two regions both called "README.md"
+       and no way to tell which is which — and the difference between them is
+       precisely what this component exists for. *@
+    <div class="md-compare__body"
+         role="region"
+         tabindex="0"
+         aria-label="@ScrollRegionName"
+         style="@BodyStyle"
+         data-testid="@BodyTestId">
+        @if (Section is null)
+        {
+            <EmptyState Title="@EmptyTitle"
+                        Description="@EmptyDescription"
+                        ActionCssClass="@null"
+                        CssClass="md-compare__empty"
+                        TestId="@EmptyTestId" />
+        }
+        else
+        {
+            @* The root is synthetic and has no heading of its own, so its
+               preamble and its top-level sections are drawn straight into the
+               body rather than inside a section wrapper nobody wrote. *@
+            @RenderBlocks(Section.Blocks, "root")
+            @RenderChildren(Section, "root", 0)
+        }
+    </div>
+</article>
+
+@code {
+    private readonly string _id = "md-compare-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>Per-fold overrides. A key absent from here falls back to
+    /// <see cref="_expandAll"/>, which is what lets the header toggle set the
+    /// default without having to know every fold on the page.</summary>
+    private readonly Dictionary<string, bool> _folds = new(StringComparer.Ordinal);
+
+    private bool _expandAll;
+
+    /// <summary>What the host last asked for, so a re-render for any other
+    /// reason does not re-open folds the reader has just closed.</summary>
+    private bool? _requestedExpandAll;
+
+    /// <summary>The comparison to draw: the synthetic level-0 root that
+    /// <see cref="MarkdownCompare.Compare"/> returns. Null renders the empty
+    /// state, for a host whose selection has not landed on a file yet.</summary>
+    [Parameter, EditorRequired]
+    public ComparedSection? Section { get; set; }
+
+    /// <summary>The file's name — the title, and the first half of the scroll
+    /// region's name.</summary>
+    [Parameter, EditorRequired]
+    public string FileName { get; set; } = string.Empty;
+
+    /// <summary>The full path, shown opposite the name.</summary>
+    [Parameter]
+    public string? Path { get; set; }
+
+    /// <summary>What the left-hand version is called — "Last commit", "main",
+    /// "6e636df". Named by the host, because only the host knows what it read.</summary>
+    [Parameter]
+    public string BeforeLabel { get; set; } = "Before";
+
+    /// <summary>What the right-hand version is called — "Working tree".</summary>
+    [Parameter]
+    public string AfterLabel { get; set; } = "After";
+
+    /// <summary>Overrides the counted summary in the header. Null counts what is
+    /// in the tree, which is the answer for every host that has not already
+    /// worked out a better sentence.</summary>
+    [Parameter]
+    public string? Summary { get; set; }
+
+    /// <summary>
+    /// How many blocks a fold has to hide before it is worth folding. A fold
+    /// that hides one paragraph replaces one paragraph with one line of chrome
+    /// and one click: it costs the reader more than it saves and makes the view
+    /// look busier than the document is.
+    /// <para>
+    /// The threshold is on the <em>hidden</em> count, not the run length, and
+    /// that one rule gives two thresholds: a run of unchanged blocks with a
+    /// change on both sides keeps one block of context at each end, so it folds
+    /// at four or more; a run at the start or end of a section is bounded on one
+    /// side only, keeps one block, and folds at three or more.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public int MinimumHiddenBlocks { get; set; } = 2;
+
+    /// <summary>
+    /// Whether the view opens with everything already expanded, which is the
+    /// state the header toggle produces.
+    /// </summary>
+    /// <remarks>
+    /// Off by default, because the request behind this view is "show me what
+    /// changed" — see the note on the fold rules further down. It exists for the
+    /// host that is not answering that question: a documentation page showing
+    /// what each state looks like, or a pane a reader has already told the app
+    /// they want to read as a document. Changing it re-seeds the toggle and
+    /// discards per-fold state, exactly as pressing the toggle does; reading it
+    /// back after the reader has pressed anything would be reading the host's
+    /// last instruction, not the view's state, so it is deliberately one-way.
+    /// </remarks>
+    [Parameter]
+    public bool UnchangedExpanded { get; set; }
+
+    /// <summary>How tall the body may grow before it scrolls. Any CSS length;
+    /// null lets the body size to its content. Ignored when <see cref="Fill"/>
+    /// is set.</summary>
+    [Parameter]
+    public string? MaxHeight { get; set; } = "24rem";
+
+    /// <summary>Take the full height the host gives this and scroll the body
+    /// inside it — for a comparison that lives in a pane or a column, where how
+    /// tall it gets is the layout's business.</summary>
+    [Parameter]
+    public bool Fill { get; set; }
+
+    [Parameter]
+    public string EmptyTitle { get; set; } = "No file selected";
+
+    [Parameter]
+    public string? EmptyDescription { get; set; } = "Choose a file to see what moved in it.";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (_requestedExpandAll == UnchangedExpanded) return;
+
+        _requestedExpandAll = UnchangedExpanded;
+        _expandAll = UnchangedExpanded;
+        _folds.Clear();
+    }
+
+    /// <summary>Fixed wording, so a test can assert it: "README.md, Last commit
+    /// to Working tree".</summary>
+    private string ScrollRegionName => $"{FileName}, {BeforeLabel} to {AfterLabel}";
+
+    private string ClassValue
+    {
+        get
+        {
+            var fill = Fill ? " md-compare--fill" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"md-compare{fill}{extra}";
+        }
+    }
+
+    // In fill mode the flex box decides the height, so a max-height here would
+    // only fight it.
+    private string? BodyStyle =>
+        Fill || string.IsNullOrWhiteSpace(MaxHeight) ? null : $"max-height: {MaxHeight}";
+
+    private string? BodyTestId => TestId is null ? null : $"{TestId}-body";
+
+    private string? ToggleTestId => TestId is null ? null : $"{TestId}-unchanged";
+
+    private string? EmptyTestId => TestId is null ? null : $"{TestId}-empty";
+
+    private string? FoldTestId(string key) => TestId is null ? null : $"{TestId}-fold-{key}";
+
+    /// <summary>What the header says after the two version labels: what the host
+    /// wrote, or a count of everything the tree reports moved.</summary>
+    private string SummaryValue
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Summary)) return Summary!;
+            if (Section is null) return "Nothing to compare";
+
+            var added = 0;
+            var removed = 0;
+            var changed = 0;
+
+            Tally(Section, ref added, ref removed, ref changed);
+
+            var parts = new[]
+            {
+                added > 0 ? $"{added} added" : null,
+                removed > 0 ? $"{removed} removed" : null,
+                changed > 0 ? $"{changed} changed" : null
+            }.Where(part => part is not null);
+
+            // "No changes" rather than "0 added, 0 removed, 0 changed": three
+            // zeroes make the reader do arithmetic to reach a two-word answer.
+            return parts.Any() ? string.Join(", ", parts) : "No changes";
+        }
+    }
+
+    /// <summary>Counts headings and blocks together, because a reader asking
+    /// "how much moved" is not distinguishing between the two.</summary>
+    private static void Tally(ComparedSection section, ref int added, ref int removed, ref int changed)
+    {
+        foreach (var kind in section.Blocks.Select(block => block.Kind).Append(section.Kind))
+        {
+            switch (kind)
+            {
+                case ChangeKind.Added: added++; break;
+                case ChangeKind.Removed: removed++; break;
+                case ChangeKind.Changed: changed++; break;
+            }
+        }
+
+        foreach (var child in section.Children) Tally(child, ref added, ref removed, ref changed);
+    }
+
+    private bool IsExpanded(string key) => _folds.TryGetValue(key, out var open) ? open : _expandAll;
+
+    private void OnFoldChanged(string key, bool expanded) => _folds[key] = expanded;
+
+    private void OnExpandAllChanged(bool expanded)
+    {
+        _expandAll = expanded;
+
+        // Per-fold state is discarded either way, so the toggle always means the
+        // same thing: everything open, or everything closed. A toggle that
+        // remembered exceptions would leave the reader unable to say what
+        // pressing it will do.
+        _folds.Clear();
+    }
+
+    private static int Depth(int depth) => Math.Min(depth, 3);
+
+    private static string Slug(ChangeKind kind) => kind switch
+    {
+        ChangeKind.Added => "added",
+        ChangeKind.Removed => "removed",
+        ChangeKind.Changed => "changed",
+        _ => "unchanged"
+    };
+
+    /// <summary>The gutter glyph. Nothing for Unchanged: silence is the absence
+    /// of change, and marking several hundred unchanged blocks would drown the
+    /// three that matter.</summary>
+    private static string Glyph(ChangeKind kind) => kind switch
+    {
+        ChangeKind.Added => "+",
+        ChangeKind.Removed => "−",
+        ChangeKind.Changed => "±",
+        _ => string.Empty
+    };
+
+    private static string Word(ChangeKind kind) => kind switch
+    {
+        ChangeKind.Added => "Added",
+        ChangeKind.Removed => "Removed",
+        ChangeKind.Changed => "Changed",
+        _ => string.Empty
+    };
+
+    private static string Plural(int count, string noun) => $"{count} {noun}{(count == 1 ? string.Empty : "s")}";
+}
+
+@* Sections nest, and there is no breadcrumb. The heading path *is* the nesting;
+   printing "Setup › CLI › Windows" above a section whose parents are two rows
+   above it repeats what the layout already says. The one case where a breadcrumb
+   would earn its place — a deep changed section whose ancestors are folded away —
+   cannot occur, because the collapse rule never collapses a section with a
+   change beneath it. The rule and the absent breadcrumb are one decision. *@
+@code {
+    private RenderFragment RenderChildren(ComparedSection section, string key, int depth) =>
+        @<text>
+            @for (var index = 0; index < section.Children.Count; index++)
+            {
+                @RenderSection(section.Children[index], $"{key}-{index}", depth + 1)
+            }
+        </text>;
+
+    private RenderFragment RenderSection(ComparedSection section, string key, int depth) =>
+        @<section class="md-compare-section md-compare-section--@Slug(section.Kind)"
+                  style="--md-compare-depth: @Depth(depth)"
+                  data-testid="@(TestId is null ? null : $"{TestId}-section-{key}")">
+            @* Whole-section collapse: the same "hide what did not happen" rule
+               one level up. A section with any change anywhere beneath it is
+               never collapsed, so a changed grandchild always has its ancestors
+               visible and nothing is ever hidden behind a fold that says
+               "unchanged". *@
+            @if (section.IsWhollyUnchanged && section.Heading is not null)
+            {
+                <FoldControl BaseClass="md-compare-fold"
+                             Expanded="@IsExpanded(key)"
+                             ExpandedChanged="@(expanded => OnFoldChanged(key, expanded))"
+                             Label="@($"Unchanged — {section.Heading}")"
+                             TestId="@FoldTestId(key)">
+                    @RenderHeading(section, key)
+                    @RenderBlocks(section.Blocks, key)
+                    @RenderChildren(section, key, depth)
+                </FoldControl>
+            }
+            else
+            {
+                @RenderHeading(section, key)
+                @RenderBlocks(section.Blocks, key)
+                @RenderChildren(section, key, depth)
+            }
+        </section>;
+
+    /// <summary>
+    /// The heading, decorated the same way a block is when it moved.
+    /// </summary>
+    /// <remarks>
+    /// Drawn as a <c>p</c> with <c>role="heading"</c> and <c>aria-level</c>, not
+    /// as an <c>h2</c> — MarkdownView's existing rule, and its reason applies
+    /// unchanged here: "Still a paragraph, so it never joins the host page's own
+    /// outline, but carrying its level so heading navigation works at all." A
+    /// compare pane inside a storybook page or a desktop workspace must not
+    /// inject headings into its host's outline. The <c>md-heading</c> stem is
+    /// reused so a heading is sized identically in the compare view and the read
+    /// view.
+    /// <para>
+    /// A Changed heading shows both texts, and only the "Now" line carries the
+    /// heading role: two roles would put one section into the outline twice and
+    /// leave a screen-reader user navigating by heading landing on a title that
+    /// is no longer there.
+    /// </para>
+    /// </remarks>
+    private RenderFragment RenderHeading(ComparedSection section, string key) =>
+        @<div class="md-compare-section__head md-compare-section__head--@Slug(section.Kind)">
+            <span class="md-compare-block__gutter" aria-hidden="true">@Glyph(section.Kind)</span>
+            <div class="md-compare-block__content">
+                @if (section.Kind != ChangeKind.Unchanged)
+                {
+                    <p class="md-compare-block__label">@Word(section.Kind)</p>
+                }
+
+                @if (section.Kind == ChangeKind.Changed)
+                {
+                    <p class="md-compare-section__was">Was: @section.BeforeHeading</p>
+                    <p class="md-heading md-heading--@section.Level md-compare-section__heading md-compare-section__now"
+                       id="@($"{_id}-{key}")"
+                       role="heading"
+                       aria-level="@section.Level">Now: @section.AfterHeading</p>
+                }
+                else
+                {
+                    <p class="md-heading md-heading--@section.Level md-compare-section__heading"
+                       id="@($"{_id}-{key}")"
+                       role="heading"
+                       aria-level="@section.Level">@section.Heading</p>
+                }
+            </div>
+        </div>;
+}
+
+@* Collapsed by default, and the reason is worth writing down because the
+   opposite is the obvious choice.
+
+   The request behind this view is "show me what changed". A comparison that
+   opens with ninety per cent unchanged prose is a document viewer with some
+   highlights in it, and the reader has to scroll past everything that did not
+   happen to find the three things that did. Collapsing by default makes the
+   common case — skim what moved — free, and the rare case one keystroke. The
+   rejected alternative, expanded-by-default with a "collapse unchanged" control,
+   inverts that: it charges the frequent task and subsidises the infrequent one,
+   repeatedly, in every long file.
+
+   The cost, named rather than hidden: a reader who wants to read the file as a
+   file has to expand, and browser find-in-page will not match text inside a
+   collapsed fold, because FoldControl hides its region rather than removing it.
+   The header toggle is what keeps that cost to one click.
+
+   FoldControl is reused rather than a second disclosure being written. It
+   already gives aria-expanded, aria-controls, a role="region" labelled by its
+   own trigger, a chevron that drops its transition under prefers-reduced-motion,
+   and a region kept in the DOM. The trigger is a real button and one tab stop in
+   reading order between the blocks it separates — these are not a set to choose
+   from, so no roving tabindex. Expanding does not move focus: the region appears
+   after the trigger, which keeps Shift+Tab meaningful. Nothing auto-collapses on
+   blur, and there is no live-region announcement — aria-expanded changing on the
+   focused element is already announced, and a polite message on top would say it
+   twice.
+
+   The label is the count, with no "Show"/"Hide" verb: aria-expanded already
+   carries the state, and a verb that flipped would contradict it and rename the
+   trigger mid-interaction. A screen reader hears "12 unchanged blocks,
+   collapsed, button." *@
+@code {
+    private RenderFragment RenderBlocks(IReadOnlyList<ComparedBlock> blocks, string key) => __builder =>
+    {
+        var index = 0;
+
+        while (index < blocks.Count)
+        {
+            if (blocks[index].Kind != ChangeKind.Unchanged)
+            {
+                @RenderBlock(blocks[index])
+                index++;
+                continue;
+            }
+
+            var start = index;
+            while (index < blocks.Count && blocks[index].Kind == ChangeKind.Unchanged) index++;
+            var end = index;
+
+            // One block of context is kept adjacent to each neighbouring change,
+            // so a fold never sits directly against the thing it is context for.
+            var keepFirst = start > 0;
+            var keepLast = end < blocks.Count;
+            var hidden = end - start - (keepFirst ? 1 : 0) - (keepLast ? 1 : 0);
+
+            if (hidden < MinimumHiddenBlocks)
+            {
+                for (var shown = start; shown < end; shown++)
+                {
+                    @RenderBlock(blocks[shown])
+                }
+
+                continue;
+            }
+
+            var foldKey = $"{key}-run{start}";
+            var first = keepFirst ? start + 1 : start;
+            var last = keepLast ? end - 1 : end;
+
+            if (keepFirst)
+            {
+                @RenderBlock(blocks[start])
+            }
+
+            <FoldControl BaseClass="md-compare-fold"
+                         Expanded="@IsExpanded(foldKey)"
+                         ExpandedChanged="@(expanded => OnFoldChanged(foldKey, expanded))"
+                         Label="@Plural(hidden, "unchanged block")"
+                         TestId="@FoldTestId(foldKey)">
+                @for (var folded = first; folded < last; folded++)
+                {
+                    @RenderBlock(blocks[folded])
+                }
+            </FoldControl>
+
+            if (keepLast)
+            {
+                @RenderBlock(blocks[end - 1])
+            }
+        }
+    };
+
+    /// <summary>
+    /// One block, in up to four redundant channels: the gutter glyph (hidden
+    /// from assistive tech), the visible written label, the surface tint, and —
+    /// because the label is real DOM text and not an attribute — what the label
+    /// makes a screen reader say. A user hears "Added." and then the content,
+    /// state before substance, with nothing that can drift out of sync with what
+    /// is on screen.
+    /// </summary>
+    /// <remarks>
+    /// There is deliberately no <c>aria-label</c> on the wrapper: it would
+    /// either duplicate the visible label or, worse, override the content it
+    /// wraps.
+    /// <para>
+    /// A Changed block shows both halves, stacked, sharing one gutter mark and
+    /// one label. Without an intra-block text diff, showing only the "after" and
+    /// calling it Changed is an assertion this component cannot back up — the
+    /// reader is told something moved and given no way to see what, and for a
+    /// one-word edit in a long paragraph the after-only rendering looks
+    /// unchanged. Stacking lets the reader's eye do the only comparison
+    /// available. Side-by-side columns were rejected independently of scope:
+    /// rendered blocks have wildly different heights, so two columns
+    /// desynchronise after the first table or code fence, and at pane width they
+    /// halve the 72-90 character measure .design/typography-and-layout.md asks
+    /// for.
+    /// </para>
+    /// </remarks>
+    private RenderFragment RenderBlock(ComparedBlock block) =>
+        @<div class="md-compare-block md-compare-block--@Slug(block.Kind)">
+            <span class="md-compare-block__gutter" aria-hidden="true">@Glyph(block.Kind)</span>
+            <div class="md-compare-block__content">
+                @if (block.Kind != ChangeKind.Unchanged)
+                {
+                    <p class="md-compare-block__label">@Word(block.Kind)</p>
+                }
+
+                @if (block.Kind == ChangeKind.Changed)
+                {
+                    <div class="md-compare-block__side md-compare-block__side--was">
+                        <p class="md-compare-block__side-label">Was</p>
+                        <MarkdownView Blocks="@block.Before" />
+                    </div>
+                    <div class="md-compare-block__side md-compare-block__side--now">
+                        <p class="md-compare-block__side-label">Now</p>
+                        <MarkdownView Blocks="@block.After" />
+                    </div>
+                }
+                else if (block.Kind == ChangeKind.Removed)
+                {
+                    <MarkdownView Blocks="@block.Before" />
+                }
+                else
+                {
+                    <MarkdownView Blocks="@block.After" />
+                }
+            </div>
+        </div>;
+}

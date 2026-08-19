@@ -1,5 +1,6 @@
 @implements IDisposable
 @inject Arc42KnowledgeStore Knowledge
+@inject IKnowledgeFolderSource Folders
 
 <aside class="knowledge-pane knowledge-pane--arc42" data-testid="arc42-knowledge-panel" aria-labelledby="arc42-knowledge-title">
     <header class="knowledge-pane__header">
@@ -74,14 +75,22 @@
                 </nav>
             }
 
+            @* No longer a card. This article always holds a file view now, and the
+               file view draws its own edge, so a card here framed a framed
+               document — the nesting that was reported. It stays as an element
+               because it is what the knowledge stack scrolls and what holds the
+               state row, the outline and the chapter together; it simply draws
+               nothing of its own. *@
             <article class="knowledge-document" data-testid="arc42-document" aria-label="@_selected.Title">
-                <header class="knowledge-document__header">
-                    <div>
-                        <p class="knowledge-document__path">@_selected.Path</p>
-                        <h2>@_selected.Title</h2>
-                    </div>
-                    @if (IsDecisionRecord(_selected) || _selected.Metadata.Related.Count > 0)
-                    {
+                @* The chapter's name and path used to be written here and again on
+                   the body below it, which is one file announced twice. They now
+                   belong to the file view, so this header keeps only what a file
+                   view has no business carrying: the state a decision record is
+                   in, and how many chapters point at this one. With neither, there
+                   is nothing left to put in a header and none is rendered. *@
+                @if (IsDecisionRecord(_selected) || _selected.Metadata.Related.Count > 0)
+                {
+                    <header class="knowledge-document__header">
                         <p class="knowledge-document__meta">
                             @if (IsDecisionRecord(_selected))
                             {
@@ -92,8 +101,8 @@
                                 <span>@_selected.Metadata.Related.Count relation@(_selected.Metadata.Related.Count == 1 ? string.Empty : "s")</span>
                             }
                         </p>
-                    }
-                </header>
+                    </header>
+                }
 
                 @if (_selected.Headings.Count > 1)
                 {
@@ -105,7 +114,22 @@
                     </nav>
                 }
 
-                <KnowledgeMarkdownView Blocks="@_selected.ContentBlocks" />
+                @* The alert stays outside the file view: a write that failed is
+                   about the panel's attempt to save, not about the file's
+                   contents, and the file view's body is the file. *@
+                <Alert Message="@_chapterSaveError" TestId="arc42-chapter-save-error" Role="status" />
+
+                @* The same file view every other area shows a file through, so a
+                   chapter reads the same way here as it does in the folder
+                   browser. It wraps the read-only fallback too rather than only
+                   the editor — the header is the identity either way, and a
+                   chapter that lost its way in should not also lose the frame
+                   that says which chapter it is. *@
+                <FileView Name="@_selected.Title"
+                          Path="@_selected.Path"
+                          MaxHeight="@(null)"
+                          TestId="arc42-chapter-file"
+                          BodyContent="@(_chapter.Chapter is not null ? ChapterEditor() : ParsedChapter(_selected))" />
             </article>
         </div>
     }
@@ -117,6 +141,10 @@
     private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
     private Arc42KnowledgeCatalog? _catalog;
     private KnowledgeDocument? _selected;
+    private KnowledgeChapterContent _chapter = KnowledgeChapterContent.None;
+    private KnowledgeDocument? _chapterDocument;
+    private KnowledgeChapterEditor? _editor;
+    private string? _chapterSaveError;
     private bool _loading = true;
     private string? _loadedRepositoryAlias;
 
@@ -135,21 +163,47 @@
     {
         if (_catalog is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
         {
-            await ReloadAsync();
+            await LoadAsync();
         }
 
         SelectRequestedDocument();
+        await LoadSelectedChapterAsync();
     }
 
+    /// <summary>A folder that moved or changed underneath the panel. A refresh
+    /// rather than a load for the same reason a save is: the scope did not change,
+    /// and an open editor is not something a background event gets to close.</summary>
     private async void OnKnowledgeChanged()
     {
-        await ReloadAsync(_selected?.Path);
+        await RefreshAsync(_selected?.Path);
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task ReloadAsync(string? selectedPath = null)
+    /// <summary>The first load, and any load where what is on screen has stopped
+    /// being about the repository being read. The loading line is honest there —
+    /// the chapters listed belong to a scope that is leaving — and it is the only
+    /// place it is, which is why <see cref="RefreshAsync"/> exists beside
+    /// it.</summary>
+    private async Task LoadAsync(string? selectedPath = null)
     {
         _loading = true;
+        await RefreshAsync(selectedPath);
+        _loading = false;
+    }
+
+    /// <summary>
+    /// The same read without the loading gate.
+    /// <para>
+    /// <c>_loading</c> takes the whole article off screen, and the editing surface
+    /// with it. A save-triggered reload that raised it would dispose the editor
+    /// mid-sentence: the textarea would vanish under the caret, and the "Saved" the
+    /// save was about to show would be set on a component that no longer renders.
+    /// A refresh is for the chrome around the chapter — the counts, the nav, the
+    /// state beside the title — and it has no business removing the chapter.
+    /// </para>
+    /// </summary>
+    private async Task RefreshAsync(string? selectedPath = null)
+    {
         _catalog = await Knowledge.LoadAsync(RepositoryAlias);
         _loadedRepositoryAlias = RepositoryAlias;
         _selected = selectedPath is null
@@ -158,7 +212,7 @@
                 ?? _catalog.Documents.FirstOrDefault(document => document.DiagramCount > 0)
                 ?? _catalog.Documents.FirstOrDefault();
         SelectRequestedDocument();
-        _loading = false;
+        await LoadSelectedChapterAsync();
     }
 
     private void SelectRequestedDocument()
@@ -168,7 +222,63 @@
         _selected = _catalog.Documents.FirstOrDefault(document => PathMatches(document.Path, SelectedPath)) ?? _selected;
     }
 
-    private void Select(KnowledgeDocument document) => _selected = document;
+    private async Task Select(KnowledgeDocument document)
+    {
+        _selected = document;
+        await LoadSelectedChapterAsync();
+    }
+
+    /// <summary>
+    /// Reads the selected chapter off disk, once per selection.
+    /// <para>
+    /// The folder comes from the knowledge-folder port and never from
+    /// <see cref="Arc42KnowledgeCatalog.RootDirectory"/>: the reader sets that to
+    /// the <em>parent</em> of the folder it read, so a chapter rooted there would
+    /// hand the writer a containment root covering the whole repository. The port
+    /// is asked for the same folder the catalog was built from, rather than
+    /// reconstructed by combining a literal <c>.arc42</c> back onto the parent.
+    /// </para>
+    /// <para>
+    /// Guarded on reference identity, which is what makes the guard clear itself:
+    /// every reload rebuilds the catalog, so the same chapter comes back as a
+    /// different record and is read again, while a parameter set that changed
+    /// nothing hands back the very document already loaded and costs no read.
+    /// </para>
+    /// </summary>
+    private async Task LoadSelectedChapterAsync()
+    {
+        if (ReferenceEquals(_chapterDocument, _selected)) return;
+
+        _chapterDocument = _selected;
+        _chapterSaveError = null;
+        _chapter = _selected is null
+            ? KnowledgeChapterContent.None
+            : await KnowledgeChapterContent.LoadAsync("arc42", Folders.Resolve(".arc42", RepositoryAlias), _selected.Path);
+
+        // Blazor assigns a component reference but never clears it, so an editor
+        // that has stopped rendering would still be reachable here. Cleared with
+        // the chapter it belonged to, which is the condition the markup renders it
+        // on.
+        if (_chapter.Chapter is null) _editor = null;
+    }
+
+    /// <summary>The catalog again, so the chapter list, the summary counts and the
+    /// state beside the title follow the file a save just changed.
+    /// <see cref="RefreshAsync"/> ignores the repository-alias guard, which is
+    /// exactly why it is the one to call here: nothing about the scope changed,
+    /// and that is the reason the guard would skip the reload.</summary>
+    private Task OnChapterSavedAsync() => RefreshAsync(_selected?.Path);
+
+    /// <summary>A save that failed after the editor stopped being able to say so.
+    /// It is shown here because this panel is still on screen when that
+    /// happens.</summary>
+    private void OnChapterSaveFailed(string message) => _chapterSaveError = message;
+
+    /// <summary>Flushes the editing surface if there is one. Guarded on the same
+    /// condition the markup renders it on, because a captured reference outlives
+    /// the component it points at.</summary>
+    private Task FlushEditorAsync() =>
+        _editor is not null && _chapter.Chapter is not null ? _editor.FlushAsync() : Task.CompletedTask;
 
     private static bool PathMatches(string candidate, string selectedPath)
     {
@@ -179,6 +289,23 @@
     }
 
     private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
+
+    /// <summary>The chapter as a buffer, for the file view's body. No Title is
+    /// handed over: the file view's header above it already names the chapter, and
+    /// the document bar inside it is there for the actions.</summary>
+    private RenderFragment ChapterEditor() => @<KnowledgeChapterEditor @ref="_editor"
+                                                                       Chapter="@_chapter.Chapter"
+                                                                       InitialText="@_chapter.Text"
+                                                                       OnSaved="OnChapterSavedAsync"
+                                                                       OnSaveFailed="OnChapterSaveFailed" />;
+
+    /// <summary>The chapter could not be placed on disk, or could not be read once
+    /// it was. Either way there is no text to hand an editor, so what the catalog
+    /// already parsed is shown instead — the way in is what is lost, not the
+    /// chapter. The file view cannot render this itself: it takes a body as text,
+    /// and this is the only form the catalog kept.</summary>
+    private RenderFragment ParsedChapter(KnowledgeDocument document) => @<KnowledgeMarkdownView Blocks="@document.ContentBlocks" />;
+
     private RenderFragment RenderStatusSelect(string itemPath, string title, string status) => @<span class="knowledge-status-control">
         <StatusSelector Id="@StateSelectId(itemPath)"
                         CurrentValue="@status"
@@ -199,8 +326,11 @@
         _statusErrors.Remove(itemPath);
         try
         {
+            // The body goes first; KnowledgeChapterEditor.FlushAsync says why.
+            await FlushEditorAsync();
+
             await Knowledge.UpdateStatusAsync(RepositoryAlias, itemPath, status);
-            await ReloadAsync(itemPath);
+            await RefreshAsync(itemPath);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {

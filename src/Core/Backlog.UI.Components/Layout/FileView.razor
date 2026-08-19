@@ -20,10 +20,19 @@
     and its own overflow would put a second scroll container and a second tab
     stop inside the one the reader can see.
 
-    Read-only by design, in either shape. MarkdownView is given no toggle
-    handler, so a checklist in the file renders as state rather than as controls
-    — nothing here writes back, and offering a checkbox that silently does
-    nothing would be a lie.
+    Both built-in shapes are read-only, and deliberately so. MarkdownView is
+    given no toggle handler, so a checklist in the file renders as state rather
+    than as controls, and CodeView — Bare for the reason above — brings numbered
+    lines and not a text box. Neither of them writes anything back, and offering
+    a checkbox that silently does nothing would be a lie.
+
+    A host that needs a writable body supplies one. That does not make this an
+    editor; it makes the writing that host's business — what the controls are,
+    what a keystroke means, when it reaches disk and what is said when it does
+    not. This component keeps the frame, the identity and the one scroll region,
+    and stops choosing what goes inside them — it has no save state, no dirty
+    flag and nothing to write with, and pretending otherwise is exactly what the
+    paragraph above refuses to do.
 *@
 
 <article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -46,14 +55,29 @@
     @* A scroll container is an interactive element even though it is a div:
        without tabindex a keyboard user cannot reach the overflow in Chromium at
        all (.design/accessibility.md, "Non-native controls"). role + name keep it
-       from being an unlabelled tab stop. *@
+       from being an unlabelled tab stop.
+
+       A supplied body drops that tabindex, the way FolderView's body already
+       does and for the same reason. The rule is about elements that become the
+       only way to reach something: the built-in shapes render no controls at
+       all, so the region is how a keyboard gets at the overflow, but a host
+       supplies a body because it has controls to put in it and those are tab
+       stops already. Leaving the stop in would put it in front of the editor,
+       where it announces the pane and then does nothing on the way to typing. A
+       host that supplies a body with nothing focusable in it and lets it
+       overflow owns making that reachable — the same bargain FolderView takes.
+       The role and the name are not conditional either way. *@
     <div class="file-view__body"
          role="region"
-         tabindex="0"
+         tabindex="@BodyTabIndex"
          aria-label="@Name"
          style="@BodyStyle"
          data-testid="@BodyTestId">
-        @if (RendersMarkdown)
+        @if (BodyContent is not null)
+        {
+            @BodyContent
+        }
+        else if (RendersMarkdown)
         {
             <MarkdownView Blocks="_blocks" />
         }
@@ -93,9 +117,27 @@
     [Parameter]
     public long? SizeInBytes { get; set; }
 
-    /// <summary>The file's contents, verbatim.</summary>
+    /// <summary>The file's contents, verbatim. Not read at all when
+    /// <see cref="BodyContent"/> is supplied — the host is rendering the body,
+    /// and it is the host that knows what the text is doing by then.</summary>
     [Parameter]
     public string? Body { get; set; }
+
+    /// <summary>The body, rendered by the host instead of by this component: an
+    /// editor, or anything else the two built-in shapes cannot be.
+    /// <para>
+    /// It lands inside the same scroll region, under the same header, so the
+    /// pane still says which file this is and still keeps its identity on the
+    /// screen while the content moves. What is inside is the host's: the
+    /// name-driven choice between markdown and code is not consulted, the file
+    /// is not parsed, and nothing here writes, saves or reports a change.
+    /// </para>
+    /// <para>
+    /// Omit it and this behaves exactly as it always has.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? BodyContent { get; set; }
 
     /// <summary>What the body is written in. Null — the default — reads it from
     /// <see cref="Name"/>, which is what a reader goes on too.
@@ -147,7 +189,12 @@
         // A code file is never parsed as markdown. Beyond the wasted work on a
         // body that can be long, the parser would find `#` comments and `*` in
         // expressions and hand back headings and emphasis that are not there.
-        if (!RendersMarkdown)
+        //
+        // Nor is a file whose body the host is rendering: the blocks would have
+        // nowhere to go. That is not a micro-optimisation — a chapter open in an
+        // editor re-renders on every keystroke, and parsing the file each time to
+        // throw the result away is the whole file's worth of work per character.
+        if (BodyContent is not null || !RendersMarkdown)
         {
             _blocks = [];
             _parsedBody = null;
@@ -191,6 +238,10 @@
     }
 
     private string? BodyTestId => TestId is null ? null : $"{TestId}-body";
+
+    // Null omits the attribute entirely, which is the point: see the comment on
+    // the body itself for why a host-supplied body gives up the tab stop.
+    private string? BodyTabIndex => BodyContent is null ? "0" : null;
 
     // In fill mode the flex box decides the height, so a max-height here would
     // only fight it.

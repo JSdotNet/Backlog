@@ -3,16 +3,14 @@
 <PageTitle>References in the knowledge base — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="References"
-           Summary="A subpage of Knowledge base, about the second axis: the entries under related, depends-on and implements are addresses rather than labels, and this is what makes them followable. KnowledgeReference parses one; KnowledgeReferenceLink draws it as a link, a button or inert text depending on what the host can actually do with it. Which fields hold references at all is the Metadata subpage; what a status word means is the State one.">
+           Summary="A subpage of Knowledge base: the entries under related, depends-on and implements are addresses rather than labels, and that is what makes them followable. KnowledgeReference parses one; KnowledgeReferenceLink draws it as a link, a button or inert text depending on what the host can actually do with it. Which fields hold references at all is on the parent page; what a status word means is the State subpage.">
 
     <Story Name="An address is a path, and optionally a heading"
            Description="Two forms, and one character tells them apart. A bare path addresses a whole file; a path followed by `#` and a heading slug addresses one chapter of it. Chapters have no stored id — the path plus the heading's anchor slug is the address — which is why `#` is a separator here and never a comment marker. A parser that treated it as one would truncate every chapter reference in this repository to its file.
 
-The split is on the first hash, so a heading whose own slug carries a second one still resolves to a single chapter. A trailing hash with nothing after it addresses no chapter at all and reads back as the file it plainly points at, rather than as a chapter that does not exist.
+The split is on the first hash, so a heading whose own slug carries a second one still resolves to a single chapter. A trailing hash with nothing after it addresses no chapter at all and reads back as the file it plainly points at. Folder falls out of the path for free: it is always the first segment, so nothing has to be told which folder it is looking at as long as it has the address. Label is the short form for display and Raw is what was authored — Raw stays on the title either way, so shortening hides nothing.
 
-Folder falls out of the path for free: it is always the first segment, so nothing has to be told which folder it is looking at as long as it has the address. Label is the short form for display and Raw is what was authored — the strip keeps Raw on the title either way, so shortening hides nothing.
-
-Each cell leads with the `related` entry the address was read out of, because that is the only place one is ever written: nothing in this repository holds a bare address, it holds a list under a relation field. The line under it is that same string handed to Parse, taken apart in the order the record declares it."
+Each cell leads with the `related` entry the address was read out of, because that is the only place one is ever written: nothing in this repository holds a bare address, it holds a list under a relation field."
            Code="@ParseCode">
         <dl class="sb-grid sb-grid--addresses" data-testid="knowledge-references-parsed">
             @foreach (var sample in Samples)
@@ -33,9 +31,11 @@ Each cell leads with the `related` entry the address was read out of, because th
     <Story Name="Three shapes, and the host decides which"
            Description="KnowledgeReferenceLink renders what the host can do with a reference, not what the reference is. Given an href it is an anchor; given a callback it is a button; given neither it is inert text — a `code` element carrying the address and making no offer.
 
-The inert shape is the case worth defending. A reference nobody can follow should not look like it invites a click, and it should not take a tab stop to do nothing when it gets one. All three shapes used to be drawn as badges, sharing the status pill's own rule — a border, a full radius, a filled surface, bold text — and a record then showed a row of badges shouting over the one pill on its headline that is genuinely a state. A reference is a link, so the two followable shapes look like every other link in this product and the third looks like the quiet text it is. The legacy two-parameter strip keeps its own `code.knowledge-related` chip on its own branch, pinned by its own test; nothing here restyled that.
+The inert shape is the case worth defending. A reference nobody can follow should not look like it invites a click, and it should not take a tab stop to do nothing when it gets one. A reference that can be followed is a link, so the two followable shapes look like every other link in this product and the third looks like the quiet text it is.
 
-A URL is an anchor and a callback is a button because those are different affordances, not two styles of one. An anchor can be middle-clicked, copied, opened in a new window and read out as a link; a button cannot, and pretending otherwise breaks all four. When both are given the anchor wins and the callback is ignored — a link already navigates, and two ways to reach one place is one too many."
+A URL is an anchor and a callback is a button because those are different affordances, not two styles of one. An anchor can be middle-clicked, copied, opened in a new window and read out as a link; a button cannot, and pretending otherwise breaks all four. When both are given the anchor wins and the callback is ignored — a link already navigates, and two ways to reach one place is one too many.
+
+The block under the four shapes is the callback wired the way a host wires it: once, on the block. Both MetadataBadge and KnowledgeMetaView forward OnNavigate down to every reference they draw, so click any of them and the line underneath reports what arrived. It is the whole KnowledgeReference rather than the string it was written as, which is the difference between a host that can route and one that has to re-parse — the path, the chapter slug and the folder are already separated, and the folder is usually what decides which surface should open."
            Code="@ShapesCode">
         <div class="sb-stack">
             <div class="sb-stack">
@@ -84,40 +84,34 @@ A URL is an anchor and a callback is a button because those are different afford
                     </dd>
                 </div>
             </dl>
-        </div>
-    </Story>
-
-    <Story Name="Following one, and what comes back"
-           Description="The callback hands over the whole KnowledgeReference rather than the string it was written as. That is the difference between a host that can route and one that has to re-parse: the path, the chapter slug and the folder are already separated, and the folder is what usually decides which surface should open.
-
-Above the strip is the block it was read from, and under it a line reporting what arrived. Click any reference in it: every one is wired through a single handler on the strip — MetadataBadge and KnowledgeMetaView both forward OnNavigate down to each reference, so a host wires this once per block rather than once per entry."
-           Code="@NavigateCode">
-        <div class="sb-stack" data-testid="knowledge-references-live">
-            <p class="sb-label">The block, as written in .backlog</p>
-            <pre class="sb-story__code" data-testid="knowledge-references-live-source"><code>@RoadmapBlock</code></pre>
-            <MetadataBadge Metadata="@RoadmapMetadata"
-                           Folder="KnowledgeFolder.Backlog"
-                           OnNavigate="Follow"
-                           AriaLabel="Backlog item metadata"
-                           TestId="knowledge-references-live-badge" />
-            <p class="sb-state" data-testid="knowledge-references-followed">@FollowedSummary</p>
+            <div class="sb-stack" data-testid="knowledge-references-live">
+                <p class="sb-label">One handler on the block — click any reference in it</p>
+                <pre class="sb-story__code" data-testid="knowledge-references-live-source"><code>@RoadmapBlock</code></pre>
+                <MetadataBadge Metadata="@RoadmapMetadata"
+                               Folder="KnowledgeFolder.Backlog"
+                               OnNavigate="Follow"
+                               AriaLabel="Backlog item metadata"
+                               TestId="knowledge-references-live-badge" />
+                <p class="sb-state" data-testid="knowledge-references-followed">@FollowedSummary</p>
+            </div>
         </div>
     </Story>
 
     <Story Name="The same block, as links"
-           Description="HrefFor is the other wiring, and the one to prefer when the target has a URL. The host owns the mapping from repository path to route — only it knows what it serves and where — so it hands the answer in rather than having this component guess at one.
+           Description="HrefFor is the other wiring, and the one to prefer when the target has a URL. The host owns the mapping from repository path to route — only it knows what it serves and where — so it hands the answer in rather than having this component guess at one. Returning null for a reference leaves that one as inert text while its siblings stay links, which matters more than it sounds: a block routinely points at one chapter the host can show and another it cannot, and a resolver that had to answer for all of them or none would turn the whole record into dead text. This storybook serves no route for a repository path, so the resolver here sends every reference to one line further down the page.
 
-Returning null for a reference leaves that one as inert text while its siblings stay links. That matters more than it sounds: a block routinely points at one chapter the host can show and another it cannot, and a resolver that had to answer for all of them or none would turn the whole strip into dead text.
+This block names one target twice, under two different fields, which is why the line under it counts fewer references than there are links above it. References is the whole block's addresses in field order — related, then depends-on, then implements — de-duplicated on the form they were authored in, so a caller walking the block to build a graph visits each target once.
 
-This storybook serves no route for a repository path, so the resolver below sends every reference to one line further down this page. A real host would return its own route for the file."
+It is the authored form that de-duplicates, not the resolved target. Two spellings of the same file stay two entries, deliberately: this component cannot know whether a path is the same file under a different prefix, and silently merging two things an author wrote differently would be a guess."
            Code="@HrefCode">
         <div class="sb-stack" data-testid="knowledge-references-hrefs">
-            <p class="sb-label">The block, as written in .tech</p>
-            <pre class="sb-story__code" data-testid="knowledge-references-hrefs-source"><code>@TechBlock</code></pre>
-            <KnowledgeMetaView Metadata="@TechMetadata"
-                               Folder="KnowledgeFolder.Tech"
+            <p class="sb-label">The block, as written in .domain</p>
+            <pre class="sb-story__code" data-testid="knowledge-references-hrefs-source"><code>@DuplicateBlock</code></pre>
+            <KnowledgeMetaView Metadata="@DuplicateMetadata"
+                               Folder="KnowledgeFolder.Domain"
                                HrefFor="@ResolveHref"
                                TestId="knowledge-references-hrefs-view" />
+            <p class="sb-state" data-testid="knowledge-references-dedupe-state">@DuplicateSummary</p>
             <p id="knowledge-reference-target" class="sb-state" data-testid="knowledge-references-target">
                 Every link above lands here. A host returns its own route instead.
             </p>
@@ -134,17 +128,6 @@ The resolver here answers only for `.domain` and returns null for everything els
                        KnowledgeFolder="KnowledgeFolder.Backlog"
                        KnowledgeHrefFor="@ResolveDomainOnly"
                        TestId="knowledge-references-document" />
-    </Story>
-
-    <Story Name="One target named twice is still one edge"
-           Description="References is the whole block's addresses in field order — related, then depends-on, then implements — de-duplicated on the form they were authored in. A chapter that names the same target under two fields means one edge in the graph, and a caller walking references to build one should not visit it twice.
-
-It is the authored form that de-duplicates, not the resolved target. Two spellings of the same file are two entries here, deliberately: this component cannot know whether a path is the same file under a different prefix, and silently merging two things an author wrote differently would be a guess."
-           Code="@ReferencesCode">
-        <div class="sb-stack" data-testid="knowledge-references-dedupe">
-            <pre class="sb-story__code" data-testid="knowledge-references-dedupe-source"><code>@DuplicateBlock</code></pre>
-            <p class="sb-state" data-testid="knowledge-references-dedupe-state">@DuplicateSummary</p>
-        </div>
     </Story>
 
 </StoryPage>
@@ -180,15 +163,9 @@ It is the authored form that de-duplicates, not the resolved target. Two spellin
 
     private static readonly KnowledgeMetadata RoadmapMetadata = KnowledgeMeta.Parse(RoadmapBlock);
 
-    private const string TechBlock = """
-        status: adopted
-        kind: framework
-        depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
-        related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
-        """;
-
-    private static readonly KnowledgeMetadata TechMetadata = KnowledgeMeta.Parse(TechBlock);
-
+    /// <summary>A block naming one target under two different fields, so the
+    /// links on screen and the de-duplicated References list can be counted
+    /// against each other.</summary>
     private const string DuplicateBlock = """
         status: draft
         related: [.domain/backlog/domain.md#aggregate-backlog-entry]
@@ -290,14 +267,8 @@ It is the authored form that de-duplicates, not the resolved target. Two spellin
         @* A callback: a button, because the host routes it in-process. *@
         <KnowledgeReferenceLink Reference="@reference" OnNavigate="Follow" />
 
-        @* Any of the three, shortened. Raw stays on the title, so the full
-           address is still one hover away. *@
-        <KnowledgeReferenceLink Reference="@reference" ShowFullPath="false" />
-        """;
-
-    private const string NavigateCode = """
-        @* Wired once on the block; every reference in it forwards to this. Both
-           MetadataBadge and KnowledgeMetaView take the same parameter. *@
+        @* Wired once on the block instead: every reference in it forwards to
+           this. Both MetadataBadge and KnowledgeMetaView take the parameter. *@
         <MetadataBadge Metadata="@metadata"
                        Folder="KnowledgeFolder.Backlog"
                        OnNavigate="Follow" />
@@ -315,12 +286,19 @@ It is the authored form that de-duplicates, not the resolved target. Two spellin
 
         @code {
             @* The host owns the mapping from repository path to route. Null
-               leaves that one reference a chip while its siblings stay links,
+               leaves that one reference inert while its siblings stay links,
                which is what a block pointing partly outside your reach needs. *@
             private string? Route(KnowledgeReference reference) =>
                 _served.Contains(reference.Path)
                     ? $"/knowledge/{reference.Path}#{reference.Slug}"
                     : null;
+        }
+
+        @* Every address the block carries, in field order, de-duplicated on the
+           authored form. One edge per target, for a caller building a graph. *@
+        foreach (var reference in metadata.References)
+        {
+            graph.Connect(current, reference.Path, reference.Slug);
         }
         """;
 
@@ -332,14 +310,5 @@ It is the authored form that de-duplicates, not the resolved target. Two spellin
                       KnowledgeFolder="@KnowledgeFolders.FromPath(path)"
                       KnowledgeHrefFor="@Route"
                       OnKnowledgeNavigate="Follow" />
-        """;
-
-    private const string ReferencesCode = """
-        @* Every address the block carries, in field order, de-duplicated on the
-           authored form. One edge per target, for a caller building a graph. *@
-        foreach (var reference in metadata.References)
-        {
-            graph.Connect(current, reference.Path, reference.Slug);
-        }
         """;
 }

@@ -284,6 +284,75 @@ public class DesignTokenTests
             + $"they mean or what they have to contrast against: {string.Join(", ", undocumented)}");
     }
 
+    /// <summary>Raw colour literals that were already sitting in these stylesheets
+    /// when the rule below was written. This is a backlog to retire, not a standing
+    /// exemption: every entry is a violation that happens to predate the test, and
+    /// the list is meant to shrink to nothing. Do not add to it to make a new colour
+    /// pass — declare a token instead.
+    ///
+    /// <para><c>Backlog.Mobile.UI</c> is the default Blazor template's stylesheet and
+    /// arrives with the template's own blue-and-red palette. The mobile harness
+    /// hand-rolls a dark shell instead of using the tokens, and the Storybook layout
+    /// carries a red pair that predates <c>color-error-text</c>.</para></summary>
+    private static readonly Dictionary<string, string[]> ToleratedColorLiterals = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["src/App/Backlog.Desktop.UI/wwwroot/app.css"] = ["#020617"],
+        ["src/App/Backlog.Mobile.UI/wwwroot/app.css"] =
+        [
+            "#fff", "#1b6ec2", "#1861ac", "#258cfb", "#26b050",
+            "#e50000", "#b32121", "#929292", "#ff8080"
+        ],
+        ["src/Harness/Backlog.Mobile.WebHarness/wwwroot/app.css"] =
+        [
+            "#0e0e11", "#e6e6e6", "#16161a", "#2a2a32"
+        ],
+        ["src/Harness/Backlog.UI.Storybook/Components/Layout/MainLayout.razor.css"] =
+        [
+            "#E5484D", "#FF6369"
+        ]
+    };
+
+    /// <summary>A hex colour written out in full: 3, 4, 6 or 8 digits, longest first
+    /// so a six-digit value is not read as two three-digit ones.</summary>
+    private static readonly Regex ColorLiteral = new(
+        @"#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b",
+        RegexOptions.Compiled);
+
+    /// <summary>The gap the other two tests leave open.
+    /// <see cref="Every_colour_the_library_declares_matches_the_value_in_dotdesign"/>
+    /// only ever reads <c>components.css</c>, so a literal written straight into a
+    /// host stylesheet is in neither side of its comparison and stays invisible: the
+    /// error red <c>#E4626F</c> lived in four places in the desktop stylesheet
+    /// without ever being a token or appearing in <c>.design</c>. A colour in one of
+    /// our own stylesheets has to be a token reference.</summary>
+    [Fact]
+    public void No_application_stylesheet_uses_a_raw_colour_literal()
+    {
+        var stylesheets = OurStylesheets().ToList();
+
+        Assert.NotEmpty(stylesheets);
+
+        foreach (var stylesheet in stylesheets)
+        {
+            var path = Relative(stylesheet);
+            string[] tolerated = ToleratedColorLiterals.TryGetValue(path, out var known) ? known : [];
+
+            var offenders = ColorLiteral.Matches(File.ReadAllText(stylesheet.FullName))
+                .Select(match => match.Value)
+                .Where(literal => !tolerated.Contains(literal, StringComparer.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(literal => literal, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            Assert.True(
+                offenders.Count == 0,
+                $"{path} paints colours as raw literals: {string.Join(", ", offenders)}. A colour has to "
+                + "be a token, or nothing records what it means and nothing checks what it contrasts "
+                + "against: declare it on :root in components.css, give it a row and a measured contrast "
+                + "pair in .design/color-scheme.md, then reference it by name here.");
+        }
+    }
+
     /// <summary>Colour literals declared on <c>:root</c>, keyed by token name
     /// without the <c>--</c>. A token defined as <c>var(--other)</c> is skipped:
     /// it has no value of its own to disagree about.</summary>
@@ -397,6 +466,29 @@ public class DesignTokenTests
         Repository.UserInterfaceFolders()
             .SelectMany(root => root.EnumerateFiles("*.css", SearchOption.AllDirectories))
             .Where(NotBuildOutput);
+
+    /// <summary>Every stylesheet we wrote ourselves: everything
+    /// <see cref="ApplicationStylesheets"/> covers, plus the development-time
+    /// harnesses, which are ours and are read by the same eyes.
+    ///
+    /// <para>Scoped through <see cref="Repository.UserInterfaceFolders"/> rather
+    /// than by naming <c>src/App</c>, for the reason that helper exists: a
+    /// module's <c>.UI</c> project is where a screen's stylesheet lives now, and
+    /// a rule that reads only <c>src/App</c> would keep passing while never
+    /// looking at one. A literal is easiest to write in exactly the scoped
+    /// stylesheet this would not have read.</para>
+    ///
+    /// <para>Vendored CSS is excluded — bootstrap is full of literals and none of
+    /// them are ours to fix. The library's own <c>components.css</c> is out of
+    /// scope by living under <c>src/Core</c> rather than in a UI folder: it is
+    /// where the literals are supposed to be.</para></summary>
+    private static IEnumerable<FileInfo> OurStylesheets() =>
+        Repository.UserInterfaceFolders()
+            .Append(new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", "Harness")))
+            .Where(root => root.Exists)
+            .SelectMany(root => root.EnumerateFiles("*.css", SearchOption.AllDirectories))
+            .Where(NotBuildOutput)
+            .Where(file => !IsVendored(Relative(file)));
 
     private static bool NotBuildOutput(FileInfo file) =>
         !file.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")

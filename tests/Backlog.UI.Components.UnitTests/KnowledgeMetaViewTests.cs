@@ -43,16 +43,17 @@ public sealed class KnowledgeMetaViewTests
     }
 
     [Fact]
-    public void Without_a_folder_the_status_pill_carries_no_tone()
+    public void Without_a_folder_the_status_badge_claims_no_state()
     {
-        // The old, folder-blind strip is still what a host that has not said
-        // where the block came from should get.
+        // A host that has not said where the block came from gets the status
+        // shown and not judged: the plain badge, with no state modifier on it.
         using var context = new BunitContext();
 
         var view = context.Render<KnowledgeMetaView>(parameters => parameters
             .Add(v => v.Metadata, KnowledgeMeta.Parse("status: adopted")));
 
-        Assert.Equal("knowledge-status knowledge-status--adopted", view.Find(".knowledge-status").GetAttribute("class"));
+        Assert.Equal("badge badge--status", view.Find(".badge--status").GetAttribute("class"));
+        Assert.Equal("adopted", view.Find(".badge--status").TextContent);
     }
 
     [Fact]
@@ -71,13 +72,72 @@ public sealed class KnowledgeMetaViewTests
             ["candidate", "trial", "adopted", "hold", "retired"],
             select.QuerySelectorAll("option").Select(option => option.GetAttribute("value")));
 
-        // The authored value is the one showing, and the badge is dressed as it.
+        // The authored value is the one showing, and the control wears the
+        // application's status badge for the state `adopted` means — the same
+        // badge the read-only form wears. A status has to look the same whether
+        // or not it happens to be selectable.
         Assert.Equal("adopted", select.GetAttribute("value"));
-        Assert.Contains("badge--status-adopted", view.Find("label.status-editor").ClassList);
+        Assert.Equal(
+            "status-editor badge badge--status badge--status-active",
+            view.Find("label.status-editor").GetAttribute("class"));
 
         // One or the other, never both: two statuses on one line is two answers
-        // to the question the headline exists to answer.
-        Assert.Empty(view.FindAll(".knowledge-status"));
+        // to the question the headline exists to answer. Both forms are the same
+        // badge now, so the thing that must not also be here is the read-only
+        // one — the span.
+        Assert.Empty(view.FindAll("span.badge--status"));
+    }
+
+    [Fact]
+    public void Every_status_a_folder_offers_looks_the_same_selectable_or_not()
+    {
+        // One status, one badge. The headline draws it as a select where the
+        // folder names a vocabulary and as a read-only badge everywhere else, and
+        // it used to dress the two out of different scales: the select spelled
+        // its own modifier from the folder's word, so `adopted`, `candidate`,
+        // `trial`, `hold`, `retired`, `proposed` and `deprecated` matched no rule
+        // at all and fell through to plain grey, `in-progress` slugged past
+        // `.badge--status-inprogress` and missed as well, and the four that did
+        // land took a colour that had nothing to do with the folder's tone. Both
+        // forms ask KnowledgeStatusBadge which of the application's states the
+        // word means, so a reader is never told by colour that a status they can
+        // change is a different kind of thing from one they cannot.
+        using var context = new BunitContext();
+
+        foreach (var folder in Enum.GetValues<KnowledgeFolder>())
+        {
+            foreach (var status in KnowledgeStatus.Values(folder))
+            {
+                var pill = context.Render<KnowledgeStatusPill>(parameters => parameters
+                    .Add(p => p.Status, status)
+                    .Add(p => p.Folder, folder));
+
+                var view = context.Render<KnowledgeMetaView>(parameters => parameters
+                    .Add(v => v.Metadata, KnowledgeMeta.Parse($"status: {status}"))
+                    .Add(v => v.Folder, folder));
+
+                // Every value in the list is one the headline offers, so this is
+                // the select every time — the premise of the comparison, and
+                // worth failing on rather than quietly comparing two pills.
+                var wrapper = view.Find("label.status-editor");
+                Assert.NotNull(view.Find(".status-editor select"));
+
+                // The structural class the stylesheet reaches the control
+                // through, and then the read-only form's own string, unchanged.
+                Assert.Equal(
+                    $"status-editor {pill.Find("span").GetAttribute("class")}",
+                    wrapper.GetAttribute("class"));
+
+                // And it is the application's badge in both, not a scale of this
+                // folder's own. Every value of every vocabulary has a tone, so a
+                // modifier is always reached — a bare `badge--status` here would
+                // mean a value fell through to "no opinion".
+                var expected = $"badge--status-{KnowledgeStatusBadge.Slug(folder, status)}";
+                Assert.Contains(expected, wrapper.ClassList);
+                Assert.Contains(expected, pill.Find("span").ClassList);
+                Assert.DoesNotContain("knowledge-status", view.Markup, StringComparison.Ordinal);
+            }
+        }
     }
 
     [Fact]
@@ -91,7 +151,7 @@ public sealed class KnowledgeMetaViewTests
             .Add(v => v.Metadata, KnowledgeMeta.Parse("status: adopted")));
 
         Assert.Empty(view.FindAll("select"));
-        Assert.Equal("adopted", view.Find(".knowledge-record__headline .knowledge-status").TextContent);
+        Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
     }
 
     [Fact]
@@ -107,9 +167,16 @@ public sealed class KnowledgeMetaViewTests
             .Add(v => v.Metadata, KnowledgeMeta.Parse("status: shipped"))
             .Add(v => v.Folder, KnowledgeFolder.Tech));
 
-        var status = view.Find(".knowledge-status");
+        var status = view.Find(".badge--status");
         Assert.Contains("knowledge-status--unrecognised", status.ClassList);
-        Assert.Contains("knowledge-status--tone-unknown", status.ClassList);
+
+        // Flagged on `archived`, the one modifier that spends no colour. Answered
+        // before any tone is consulted, so it cannot collide with the `blocked`
+        // red an Attention status legitimately wears.
+        Assert.Equal(
+            "badge badge--status badge--status-archived knowledge-status--unrecognised",
+            status.GetAttribute("class"));
+        Assert.DoesNotContain("badge--status-blocked", status.ClassList);
         Assert.Contains("candidate, trial, adopted, hold, retired", status.GetAttribute("title"));
         Assert.Empty(view.FindAll("select"));
     }
@@ -130,12 +197,12 @@ public sealed class KnowledgeMetaViewTests
 
         Assert.Empty(view.FindAll("select"));
 
-        var status = view.Find(".knowledge-status");
+        var status = view.Find(".badge--status");
         Assert.Equal("Adopted", status.TextContent);
 
-        // And it is still not a typo: the tone is the folder's, and nothing is
-        // flagged.
-        Assert.Contains("knowledge-status--tone-active", status.ClassList);
+        // And it is still not a typo: the tone is the folder's, so the badge is
+        // the one `adopted` gets, and nothing is flagged.
+        Assert.Contains("badge--status-active", status.ClassList);
         Assert.DoesNotContain("knowledge-status--unrecognised", status.ClassList);
     }
 
@@ -151,7 +218,7 @@ public sealed class KnowledgeMetaViewTests
             .Add(v => v.Folder, KnowledgeFolder.Tech));
 
         Assert.Empty(view.FindAll("select"));
-        Assert.Empty(view.FindAll(".knowledge-status"));
+        Assert.Empty(view.FindAll(".badge--status"));
         Assert.Empty(view.Find(".knowledge-record__headline").Children);
     }
 
@@ -170,7 +237,12 @@ public sealed class KnowledgeMetaViewTests
         view.Find(".status-editor select").Change("retired");
 
         Assert.Equal("retired", view.Find(".status-editor select").GetAttribute("value"));
-        Assert.Contains("badge--status-retired", view.Find("label.status-editor").ClassList);
+
+        // And the badge follows the choice: `.tech`'s `retired` is the state the
+        // application spells `archived`.
+        Assert.Equal(
+            "status-editor badge badge--status badge--status-archived",
+            view.Find("label.status-editor").GetAttribute("class"));
     }
 
     [Fact]
@@ -392,11 +464,11 @@ public sealed class KnowledgeMetaViewTests
                 """)));
 
         var headline = view.Find(".knowledge-record__headline");
-        Assert.Equal("adopted", headline.QuerySelector(".knowledge-status")?.TextContent);
+        Assert.Equal("adopted", headline.QuerySelector(".badge--status")?.TextContent);
 
         // Once, and without a label in front of it. "status adopted" reads as a
         // field; "Shared Technologies adopted" reads as a sentence.
-        Assert.Single(view.FindAll(".knowledge-status"));
+        Assert.Single(view.FindAll(".badge--status"));
         Assert.DoesNotContain("status", view.FindAll("dt").Select(label => label.TextContent));
     }
 
@@ -410,7 +482,7 @@ public sealed class KnowledgeMetaViewTests
             .Add(v => v.Metadata, KnowledgeMeta.Parse("status: active")));
 
         Assert.Empty(view.FindAll("dl"));
-        Assert.NotNull(view.Find(".knowledge-record__headline .knowledge-status"));
+        Assert.NotNull(view.Find(".knowledge-record__headline .badge--status"));
     }
 
     [Fact]
@@ -460,7 +532,7 @@ public sealed class KnowledgeMetaViewTests
 
         var headline = view.Find(".knowledge-record__headline");
         Assert.Equal(["p", "span"], headline.Children.Select(child => child.LocalName));
-        Assert.Contains("knowledge-status", headline.Children[1].ClassList);
+        Assert.Contains("badge--status", headline.Children[1].ClassList);
     }
 
     [Fact]

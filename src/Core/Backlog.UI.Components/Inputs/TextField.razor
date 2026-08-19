@@ -94,6 +94,8 @@ else
     [Parameter]
     public string InputCssClass { get; set; } = "field__input";
 
+    /// <summary>Lands on the wrapper, or on the input itself when
+    /// <see cref="Bare"/> removes the wrapper.</summary>
     [Parameter]
     public string? TestId { get; set; }
 
@@ -101,6 +103,12 @@ else
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string FieldId => string.IsNullOrWhiteSpace(Id) ? _id : Id;
+
+    /// <summary>The test id the input wears, which is one only when there is no
+    /// wrapper to wear it instead. Writing it in both places would put the same
+    /// id on two elements, and an id that matches twice is worse than one that
+    /// matches once: it makes every locator for it ambiguous.</summary>
+    private string? BareTestId => Bare ? TestId : null;
 
     private string HelpId => FieldId + "-help";
 
@@ -138,6 +146,7 @@ else
             }
             <input id="@FieldId"
                    class="@InputCssClass"
+                   data-testid="@BareTestId"
                    type="@Type"
                    value="@Value"
                    placeholder="@Placeholder"
