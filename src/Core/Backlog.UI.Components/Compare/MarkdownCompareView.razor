@@ -33,56 +33,70 @@
     written label and, through the label, something for a screen reader to say.
 *@
 
-<article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
-    <header class="md-compare__header">
-        <div class="md-compare__identity">
-            <h3 class="md-compare__name">@FileName</h3>
+@if (Bare)
+{
+    @* No frame, no header, no scroll region: a host asked for the comparison
+       itself, having already drawn all three around it. What survives is the
+       strip — the two version names, the count, and the fold toggle — because
+       those describe *this* view and there is nowhere else for them to live.
+       Duplicating them in every host is exactly the drift the shared rule in
+       components.css exists to avoid. *@
+    <div class="md-compare__bare" data-testid="@TestId" @attributes="AdditionalAttributes">
+        <div class="md-compare__bar">
             <p class="md-compare__meta">@BeforeLabel → @AfterLabel · @SummaryValue</p>
+            @RenderUnchangedToggle()
         </div>
-        <div class="md-compare__actions">
-            @* The one control that makes collapsed-by-default affordable: it
-               turns "read the whole file" from N clicks into one. Individual
-               folds still work while it is on, because it only supplies the
-               default each fold falls back to. Turning it off re-collapses
-               everything and discards per-fold state — that is the design, not
-               a bug: the alternative is a control whose off state leaves the
-               view in a shape neither the reader nor the control chose.
+        @RenderComparison()
+    </div>
+}
+else
+{
+    <article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+        <header class="md-compare__header">
+            <div class="md-compare__identity">
+                <h3 class="md-compare__name">@FileName</h3>
+                <p class="md-compare__meta">@BeforeLabel → @AfterLabel · @SummaryValue</p>
+            </div>
+            <div class="md-compare__actions">
+                @RenderUnchangedToggle()
 
-               ToggleButton's text is ChildContent, not a Label parameter; the
-               pressed state is on aria-pressed, so no verb flips in the name. *@
-            <ToggleButton Pressed="_expandAll"
-                          PressedChanged="OnExpandAllChanged"
-                          CssClass="md-compare__toggle"
-                          TestId="@ToggleTestId">Unchanged sections</ToggleButton>
+                @if (!string.IsNullOrWhiteSpace(Path))
+                {
+                    @* Truncated visually when the header is narrow, never in the
+                       DOM, so a screen reader still reads the whole path. *@
+                    <p class="md-compare__path">@Path</p>
+                }
+            </div>
+        </header>
 
-            @if (!string.IsNullOrWhiteSpace(Path))
-            {
-                @* Truncated visually when the header is narrow, never in the
-                   DOM, so a screen reader still reads the whole path. *@
-                <p class="md-compare__path">@Path</p>
-            }
+        @* A scroll container is an interactive element even though it is a div:
+           without tabindex a keyboard user cannot reach the overflow in Chromium at
+           all (.design/accessibility.md, "Non-native controls"). role + name keep it
+           from being an unlabelled tab stop.
+
+           The name is "{file}, {before} to {after}" and not just the file. FileView
+           can be named by the file alone because it shows one thing and its header
+           says which; this body shows a *relationship*. A screen-reader user landing
+           here by region navigation, with a compare pane and a plain file view open
+           in the same app, would otherwise get two regions both called "README.md"
+           and no way to tell which is which — and the difference between them is
+           precisely what this component exists for. *@
+        <div class="md-compare__body"
+             role="region"
+             tabindex="0"
+             aria-label="@ScrollRegionName"
+             style="@BodyStyle"
+             data-testid="@BodyTestId">
+            @RenderComparison()
         </div>
-    </header>
+    </article>
+}
 
-    @* A scroll container is an interactive element even though it is a div:
-       without tabindex a keyboard user cannot reach the overflow in Chromium at
-       all (.design/accessibility.md, "Non-native controls"). role + name keep it
-       from being an unlabelled tab stop.
-
-       The name is "{file}, {before} to {after}" and not just the file. FileView
-       can be named by the file alone because it shows one thing and its header
-       says which; this body shows a *relationship*. A screen-reader user landing
-       here by region navigation, with a compare pane and a plain file view open
-       in the same app, would otherwise get two regions both called "README.md"
-       and no way to tell which is which — and the difference between them is
-       precisely what this component exists for. *@
-    <div class="md-compare__body"
-         role="region"
-         tabindex="0"
-         aria-label="@ScrollRegionName"
-         style="@BodyStyle"
-         data-testid="@BodyTestId">
-        @if (Section is null)
+@code {
+    /// <summary>The comparison itself, drawn the same way whoever framed it.</summary>
+    private RenderFragment RenderComparison() => __builder =>
+    {
+        if (Section is null)
         {
             <EmptyState Title="@EmptyTitle"
                         Description="@EmptyDescription"
@@ -98,10 +112,24 @@
             @RenderBlocks(Section.Blocks, "root")
             @RenderChildren(Section, "root", 0)
         }
-    </div>
-</article>
+    };
 
-@code {
+    /// <summary>The one control that makes collapsed-by-default affordable: it
+    /// turns "read the whole file" from N clicks into one. Individual folds still
+    /// work while it is on, because it only supplies the default each fold falls
+    /// back to. Turning it off re-collapses everything and discards per-fold
+    /// state — that is the design, not a bug: the alternative is a control whose
+    /// off state leaves the view in a shape neither the reader nor the control
+    /// chose.
+    ///
+    /// <para>ToggleButton's text is ChildContent, not a Label parameter; the
+    /// pressed state is on aria-pressed, so no verb flips in the name.</para></summary>
+    private RenderFragment RenderUnchangedToggle() =>
+        @<ToggleButton Pressed="_expandAll"
+                       PressedChanged="OnExpandAllChanged"
+                       CssClass="md-compare__toggle"
+                       TestId="@ToggleTestId">Unchanged sections</ToggleButton>;
+
     private readonly string _id = "md-compare-" + Guid.NewGuid().ToString("N");
 
     /// <summary>Per-fold overrides. A key absent from here falls back to
@@ -189,6 +217,27 @@
     /// tall it gets is the layout's business.</summary>
     [Parameter]
     public bool Fill { get; set; }
+
+    /// <summary>
+    /// Give up the frame: no card, no header, no scroll region of its own, for a
+    /// host that has already drawn all three.
+    /// <para>
+    /// The same bargain <c>CodeView.Bare</c> makes, and taken for the same reason
+    /// — FileView shows a file and then a comparison of that file in one pane,
+    /// and nesting this whole card inside that body would name the file twice and
+    /// put a second scroll container and a second tab stop inside the one the
+    /// reader can see.
+    /// </para>
+    /// <para>
+    /// <see cref="FileName"/>, <see cref="Path"/>, <see cref="MaxHeight"/> and
+    /// <see cref="Fill"/> are all the frame's, so a bare view ignores them: the
+    /// host is saying those things. What it keeps is the strip naming the two
+    /// versions and the fold toggle, which describe the comparison rather than
+    /// the file.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Bare { get; set; }
 
     [Parameter]
     public string EmptyTitle { get; set; } = "No file selected";

@@ -233,6 +233,7 @@ file sealed class KnowledgeWorkspace : IDisposable
         context.Services.AddSingleton<IAppFeatureSettings>(
             new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(_root, "features", "features.json")));
         context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
+        context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
         context.Services.AddSingleton<DesignKnowledgeProvider>();
         context.Services.AddSingleton(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
         return context;
