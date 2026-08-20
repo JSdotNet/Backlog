@@ -1,0 +1,68 @@
+@* A list whose host actually applies the delete.
+
+   It exists for the focus rule and nothing else. The row the ring has to land on
+   is a row that only exists once the deleted one has gone, so a test that raised
+   OnDelete into a lambda and left the list holding the same three rows would be
+   asserting about a DOM the reader never sees. This is the arrangement the
+   component is built for anyway: the list says what happened and the host decides
+   what it means.
+
+   Every callback is conditional, because "with nobody listening" is half of what
+   is being tested: OnDelete absent has to mean no bin at all, exactly as OnAdd
+   absent means no add row. *@
+
+<TaskListView Tasks="@Tasks"
+              QuickEdit="@WithAddRow"
+              OnRename="_ => { }"
+              OnAdd="@(WithAddRow ? EventCallback.Factory.Create<string>(this, Add) : default)"
+              OnDelete="@(Deletable ? EventCallback.Factory.Create<string>(this, Delete) : default)"
+              GroupCompleted="@GroupCompleted"
+              AriaLabel="Steps"
+              TestId="list" />
+
+@code {
+    /// <summary>Whether a host is listening for a delete at all. False is the case
+    /// worth testing as much as true: a bin with nobody behind it is the same broken
+    /// promise as a pencil with no OnRename.</summary>
+    [Parameter]
+    public bool Deletable { get; set; } = true;
+
+    /// <summary>Whether the list has an add row under its rows — which is also
+    /// where the focus goes when the last row is deleted, so it is a parameter
+    /// rather than always on.</summary>
+    [Parameter]
+    public bool WithAddRow { get; set; }
+
+    [Parameter]
+    public bool GroupCompleted { get; set; }
+
+    /// <summary>The rows to start with, for a test that needs a finished one.</summary>
+    [Parameter]
+    public IReadOnlyList<TaskRow>? Seed { get; set; }
+
+    /// <summary>Every id the list handed over, in order. A list of them rather than
+    /// the last one, so a control that reported twice would be caught.</summary>
+    public List<string> Deleted { get; } = [];
+
+    public List<string> Added { get; } = [];
+
+    public IReadOnlyList<TaskRow> Tasks { get; private set; } = [];
+
+    protected override void OnInitialized() =>
+        Tasks = Seed ?? [new("a", "First"), new("b", "Second"), new("c", "Third")];
+
+    /// <summary>The host applying the delete, which is the arrangement every
+    /// component in this folder is built for: the row is gone from the data, and
+    /// the list is re-rendered without it.</summary>
+    private void Delete(string id)
+    {
+        Deleted.Add(id);
+        Tasks = [.. Tasks.Where(task => !string.Equals(task.Id, id, StringComparison.Ordinal))];
+    }
+
+    private void Add(string title)
+    {
+        Added.Add(title);
+        Tasks = [.. Tasks, new TaskRow($"new-{Added.Count}", title)];
+    }
+}

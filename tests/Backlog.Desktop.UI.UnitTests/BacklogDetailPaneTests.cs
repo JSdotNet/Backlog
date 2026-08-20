@@ -330,22 +330,73 @@ public sealed class BacklogDetailPaneTests
         Assert.Equal("Wire up the store", EntryTextParser.GetSubItemTitle(row.RawText, 1));
     }
 
-    /// <summary>"Next step" asks for a name before it adds one. A step called nothing
-    /// is a chapter the reader cannot see, select or remove.</summary>
+    /// <summary>
+    /// The bin at the end of a step's row deletes that step and nothing else.
+    /// <para>
+    /// Asked of the rendered control rather than of the state method beside it,
+    /// because the thing worth proving is that the positional id the shared list
+    /// hands back is read as the chapter the reader was pointing at — the step's id
+    /// <em>is</em> its index, so an off-by-one here would delete the neighbour and
+    /// look exactly like a working control.
+    /// </para>
+    /// <para>
+    /// It takes no confirmation, on the same terms as the entry-level bin in the
+    /// pane's footer: deleting a whole entry asks nothing, and a step is cheaper
+    /// than the entry that holds it.
+    /// </para>
+    /// </summary>
     [Fact]
-    public async Task Next_step_adds_a_named_step_at_the_end()
+    public async Task Deleting_a_step_removes_that_step_and_leaves_the_rest_of_the_entry()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='subitem-list-0-delete']").ClickAsync(new());
+
+        Assert.Single(row.PreviewSubItems);
+        Assert.Equal("Write the rows", EntryTextParser.GetSubItemTitle(row.RawText, 0));
+
+        // The step's own notes go with it, and the entry's prose does not.
+        Assert.DoesNotContain("How the store gets wired.", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("Notes on the parent.", row.RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>An index that names no step changes nothing — the same guard the
+    /// move has, and for the same reason: the id came off a row that may already
+    /// have gone.</summary>
+    [Fact]
+    public async Task Deleting_a_step_that_is_not_there_changes_nothing()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+        var before = row.RawText;
+
+        await host.State.RemoveSubItemAsync(row, 7);
+        await host.State.RemoveSubItemAsync(row, -1);
+
+        Assert.Equal(before, row.RawText);
+        Assert.Equal(2, row.PreviewSubItems.Count);
+    }
+
+    /// <summary>The steps list names a step before it adds one, from the add row it
+    /// draws under the open steps. A step called nothing is a chapter the reader
+    /// cannot see, select or remove.</summary>
+    [Fact]
+    public async Task The_add_row_adds_a_named_step_at_the_end()
     {
         using var host = await BacklogPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(WithSteps);
 
         var pane = host.Render();
 
-        // Unset, so there is no field yet.
-        Assert.Empty(pane.FindAll("[data-testid='entry-step-input']"));
+        // There from the moment the list is, rather than behind a press: the shared
+        // list draws its composer whenever a host is listening for new tasks, so
+        // there is no unset state left to assert first.
+        var field = pane.Find("[data-testid='subitem-list-add-input']");
 
-        await pane.Find("[data-testid='entry-action-step-set']").ClickAsync(new());
-        await pane.Find("[data-testid='entry-step-input']").InputAsync(new() { Value = "Run the migration" });
-        await pane.Find("[data-testid='entry-step-input']").KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+        await field.InputAsync(new() { Value = "Run the migration" });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
 
         Assert.Equal(3, row.PreviewSubItems.Count);
         Assert.Equal("Run the migration", EntryTextParser.GetSubItemTitle(row.RawText, 2));
@@ -358,10 +409,34 @@ public sealed class BacklogDetailPaneTests
         var row = await host.WriteEntryAsync(WithSteps);
 
         var pane = host.Render();
-        await pane.Find("[data-testid='entry-action-step-set']").ClickAsync(new());
-        await pane.Find("[data-testid='entry-step-input']").KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+        await pane.Find("[data-testid='subitem-list-add-input']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
 
         Assert.Equal(2, row.PreviewSubItems.Count);
+    }
+
+    /// <summary>An entry with no chapters yet still offers somewhere to write the
+    /// first one. That is what the count guard in front of this list used to take
+    /// away: the list was drawn only once a step existed, so the one control that
+    /// could create one was behind the thing it created.</summary>
+    [Fact]
+    public async Task An_entry_with_no_steps_can_still_be_given_one()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Ship the sync spike\n`task`\n\nNotes on the parent.\n");
+
+        var pane = host.Render();
+
+        // An entry with no chapters opens on the markdown block, so the steps are one
+        // press away — the same switch the block's own test uses, now a pressed strip.
+        await pane.Find("[data-testid='entry-view-steps']").ClickAsync(new());
+
+        var field = pane.Find("[data-testid='subitem-list-add-input']");
+        await field.InputAsync(new() { Value = "Wire up the store" });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.Single(row.PreviewSubItems);
+        Assert.Equal("Wire up the store", EntryTextParser.GetSubItemTitle(row.RawText, 0));
     }
 
     // --- The body, as the markdown block -----------------------------------
@@ -619,65 +694,65 @@ public sealed class BacklogDetailPaneTests
         Assert.Contains("panel.zip", set, StringComparison.Ordinal);
         Assert.DoesNotContain("Folder", set, StringComparison.Ordinal);
     }
-
-    // --- Where the status is -----------------------------------------------
-
-    /// <summary>
-    /// The status is on the panel's heading line and on the row in the list, and
-    /// it is the same fact in the same shape in both places.
-    /// <para>
-    /// It used to be a badge in the classification strip below the heading, which
-    /// made a reader who opened a row look for it in a second place — and it is the
-    /// one thing in that strip that is a state rather than something the entry is
-    /// filed under. The row had no status at all, so the column could not be
-    /// scanned for what was in progress without opening entries one at a time.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public async Task The_status_reads_on_the_heading_line_and_on_the_row()
-    {
-        using var host = await BacklogPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync("# Ship it\n`task` `!in-progress`\n");
-
-        var pane = host.Render();
-
-        // On the heading line, as the panel's status slot rather than in Filing.
-        var header = pane.Find("[data-testid='entry-panel'] .task-panel__header");
-        Assert.NotNull(header.QuerySelector("[data-testid='status-badge']"));
-        Assert.Null(pane.Find(".task-panel__filing").QuerySelector("[data-testid='status-badge']"));
-
-        // And on the row, as the badge the shared list draws.
-        var badge = pane.Find($"[data-testid='{RowTestId(row)}-status']");
-        Assert.Contains("task-item__status", badge.ClassList);
-        Assert.Equal("in progress", badge.TextContent);
-
-        // Still editable from the heading line, and the write still goes to the text.
-        await pane.Find("[data-testid='status-badge'] select").ChangeAsync(new() { Value = nameof(EntryStatus.Ready) });
-
-        Assert.Contains("`!ready`", row.RawText, StringComparison.Ordinal);
-        Assert.Equal("ready", pane.Find($"[data-testid='{RowTestId(row)}-status']").TextContent);
-    }
-
-    /// <summary>The detail pane's groups carry no visible caption — the layout does
-    /// that work — but each one is still named for a reader who cannot see the
-    /// layout.</summary>
-    [Fact]
-    public async Task The_action_groups_are_named_without_drawing_a_caption()
-    {
-        using var host = await BacklogPaneHost.CreateAsync();
-        await host.WriteEntryAsync("# Ship it\n`task`\n");
-
-        var pane = host.Render();
-
-        foreach (var testId in new[] { "entry-schedule-scheduling", "entry-schedule-ranking", "entry-schedule-attachments" })
-        {
-            var group = pane.Find($"[data-testid='{testId}']");
-            var caption = group.QuerySelector(".task-action-group__caption");
-
-            Assert.NotNull(caption);
-            Assert.Contains("sr-only", caption!.ClassList);
-            Assert.Equal(caption.Id, group.GetAttribute("aria-labelledby"));
-            Assert.False(string.IsNullOrWhiteSpace(caption.TextContent));
-        }
-    }
+
+    // --- Where the status is -----------------------------------------------
+
+    /// <summary>
+    /// The status is on the panel's heading line and on the row in the list, and
+    /// it is the same fact in the same shape in both places.
+    /// <para>
+    /// It used to be a badge in the classification strip below the heading, which
+    /// made a reader who opened a row look for it in a second place — and it is the
+    /// one thing in that strip that is a state rather than something the entry is
+    /// filed under. The row had no status at all, so the column could not be
+    /// scanned for what was in progress without opening entries one at a time.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_status_reads_on_the_heading_line_and_on_the_row()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Ship it\n`task` `!in-progress`\n");
+
+        var pane = host.Render();
+
+        // On the heading line, as the panel's status slot rather than in Filing.
+        var header = pane.Find("[data-testid='entry-panel'] .task-panel__header");
+        Assert.NotNull(header.QuerySelector("[data-testid='status-badge']"));
+        Assert.Null(pane.Find(".task-panel__filing").QuerySelector("[data-testid='status-badge']"));
+
+        // And on the row, as the badge the shared list draws.
+        var badge = pane.Find($"[data-testid='{RowTestId(row)}-status']");
+        Assert.Contains("task-item__status", badge.ClassList);
+        Assert.Equal("in progress", badge.TextContent);
+
+        // Still editable from the heading line, and the write still goes to the text.
+        await pane.Find("[data-testid='status-badge'] select").ChangeAsync(new() { Value = nameof(EntryStatus.Ready) });
+
+        Assert.Contains("`!ready`", row.RawText, StringComparison.Ordinal);
+        Assert.Equal("ready", pane.Find($"[data-testid='{RowTestId(row)}-status']").TextContent);
+    }
+
+    /// <summary>The detail pane's groups carry no visible caption — the layout does
+    /// that work — but each one is still named for a reader who cannot see the
+    /// layout.</summary>
+    [Fact]
+    public async Task The_action_groups_are_named_without_drawing_a_caption()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Ship it\n`task`\n");
+
+        var pane = host.Render();
+
+        foreach (var testId in new[] { "entry-schedule-scheduling", "entry-schedule-ranking", "entry-schedule-attachments" })
+        {
+            var group = pane.Find($"[data-testid='{testId}']");
+            var caption = group.QuerySelector(".task-action-group__caption");
+
+            Assert.NotNull(caption);
+            Assert.Contains("sr-only", caption!.ClassList);
+            Assert.Equal(caption.Id, group.GetAttribute("aria-labelledby"));
+            Assert.False(string.IsNullOrWhiteSpace(caption.TextContent));
+        }
+    }
 }

@@ -967,6 +967,59 @@ public static class EntryTextParser
         return RebuildSubItemText(lines, items[0].Span.Start, blocks);
     }
 
+    /// <summary>
+    /// Rewrites raw entry text with the sub-item at <paramref name="subItemIndex"/>
+    /// taken out of it.
+    /// <para>
+    /// The whole chapter goes: its heading, its own metadata line, and its notes.
+    /// Those are not things the step was written above — they are the step, and a
+    /// removal that left the notes behind would leave them under whichever chapter
+    /// now precedes them, which is a re-parenting nobody asked for.
+    /// </para>
+    /// <para>
+    /// A <c>##</c> chapter takes its <c>###</c> children with it, on exactly the
+    /// terms <see cref="MoveSubItem"/> moves them: a nested step is written under
+    /// the one it belongs to, so orphaning it would either re-parent it or promote
+    /// it to the top of the list. A <c>###</c> step owns nothing below it and so
+    /// goes alone.
+    /// </para>
+    /// <para>
+    /// An index that names no chapter leaves the text exactly as it was, which is
+    /// the answer <see cref="MoveSubItem"/> and <see cref="ToggleSubItem"/> both
+    /// give: a rewrite that cannot find its subject has nothing to say about the
+    /// document.
+    /// </para>
+    /// <para>
+    /// The prose in front of the first chapter is untouched, and the chapters that
+    /// remain keep their order and their own notes, because the rebuild is the one
+    /// <see cref="MoveSubItem"/> uses — same head, same single blank line between
+    /// blocks, same trailing newline.
+    /// </para>
+    /// </summary>
+    public static string RemoveSubItem(string raw, int subItemIndex)
+    {
+        var normalized = Normalize(raw);
+        var items = LocateSubItemDetails(normalized);
+
+        if (subItemIndex < 0 || subItemIndex >= items.Count) return raw;
+
+        var lines = normalized.Split('\n');
+        var blocks = items.Select(item => lines[item.Span.Start..item.Span.End]).ToList();
+
+        var groupEnd = subItemIndex + 1;
+        if (items[subItemIndex].Level == 2)
+        {
+            while (groupEnd < items.Count && items[groupEnd].Level > 2)
+            {
+                groupEnd++;
+            }
+        }
+
+        blocks.RemoveRange(subItemIndex, groupEnd - subItemIndex);
+
+        return RebuildSubItemText(lines, items[0].Span.Start, blocks);
+    }
+
     /// <summary>Toggles the nth markdown checklist item in an entry, ignoring
     /// fenced code blocks. The raw markdown remains the source of truth; the read
     /// view only asks for this text rewrite.</summary>

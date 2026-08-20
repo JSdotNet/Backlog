@@ -473,18 +473,6 @@ h1, h2, h3 {
     text-align: left;
 }
 
-.entry-detail__step-input {
-    align-self: flex-start;
-    margin-left: var(--spacing-lg);
-    padding: var(--spacing-2xs) var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-raised);
-    color: var(--color-text-primary);
-    font: inherit;
-    font-size: var(--font-size-sm);
-}
-
 .entry-detail__note {
     min-width: 0;
 }
@@ -492,21 +480,18 @@ h1, h2, h3 {
 /* --- The body's two readings -------------------------------------------- */
 /*
   The steps and the markdown block are two views of one text, so they share a
-  region and only one of them is ever in it. The switch above them is the filter
-  bar's chip shape, because it is the same kind of decision: one of a set, and the
-  chosen one has to be legible at a glance.
+  region and only one of them is ever in it. The switch above them is the shared
+  ButtonGroup strip, so nothing about it is here: the library dresses it, and a
+  strip whose segments touch cannot be handed a gap from outside without breaking
+  the single control it is drawing. It was the filter bar's chip shape, laid out by
+  a rule of this pane's own, until a one-of-many choice became one shape across the
+  product rather than one per screen.
 */
 .entry-detail__body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
     min-width: 0;
-}
-
-.entry-detail__views {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-2xs);
 }
 
 /*
