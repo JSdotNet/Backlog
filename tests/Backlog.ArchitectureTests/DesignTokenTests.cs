@@ -257,7 +257,7 @@ public class DesignTokenTests
         var declared = DeclaredColors(Path.Combine(
             Repository.Root.FullName, "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css"));
 
-        var specified = SpecifiedColors();
+        var specified = DesignPalette.SpecifiedColors();
 
         Assert.NotEmpty(declared);
         Assert.NotEmpty(specified);
@@ -358,61 +358,10 @@ public class DesignTokenTests
     /// it has no value of its own to disagree about.</summary>
     private static Dictionary<string, string> DeclaredColors(string path) =>
         Regex.Matches(File.ReadAllText(path), @"--((?:color|code)-[a-z0-9-]+)\s*:\s*([^;]+);")
-            .Where(match => IsColorLiteral(match.Groups[2].Value))
+            .Where(match => DesignPalette.IsColorLiteral(match.Groups[2].Value))
             .ToDictionary(
                 match => match.Groups[1].Value,
-                match => Normalized(match.Groups[2].Value));
-
-    /// <summary>The chapter that documents what the product deliberately is
-    /// <em>not</em>: its table puts the org guide's superseded value beside the
-    /// product's, so its second cell is a colour this file is declaring it does
-    /// not use. Read as a declaration it would look like the file contradicting
-    /// itself.</summary>
-    private const string SupersededValuesChapter = "Surface and Border Deviation";
-
-    /// <summary>The same colours as the tables in <c>color-scheme.md</c> give them.
-    /// Every declaring table there puts the token in the first cell and its value
-    /// in the second, so one pattern reads all of them — and a row whose second
-    /// cell is not a literal (a token reference, or the per-stack mapping's CSS
-    /// declaration) is not a value this can check.</summary>
-    private static Dictionary<string, string> SpecifiedColors()
-    {
-        var markdown = File.ReadAllText(
-            Path.Combine(Repository.Root.FullName, ".design", "color-scheme.md"));
-
-        var declaring = string.Concat(
-            Regex.Split(markdown, @"^(?=## )", RegexOptions.Multiline)
-                .Where(chapter => !chapter.StartsWith($"## {SupersededValuesChapter}", StringComparison.Ordinal)));
-
-        var rows = Regex.Matches(declaring, @"^\|\s*`((?:color|code)-[a-z0-9-]+)`\s*\|\s*`([^`]+)`\s*\|",
-            RegexOptions.Multiline);
-
-        var specified = new Dictionary<string, string>();
-
-        foreach (var row in rows.Where(row => IsColorLiteral(row.Groups[2].Value)))
-        {
-            var token = row.Groups[1].Value;
-            var value = Normalized(row.Groups[2].Value);
-
-            // The file states most values twice, per-group and in the full
-            // reference. Those two copies have to agree as well.
-            Assert.True(
-                !specified.TryGetValue(token, out var earlier) || earlier == value,
-                $"color-scheme.md lists {token} as both {earlier} and {value}.");
-
-            specified[token] = value;
-        }
-
-        return specified;
-    }
-
-    private static bool IsColorLiteral(string value) =>
-        value.TrimStart().StartsWith('#') || value.TrimStart().StartsWith("rgb", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Case and the spaces inside <c>rgba(...)</c> are formatting, not
-    /// value: the markdown writes the scrim tight and the CSS writes it spaced.</summary>
-    private static string Normalized(string value) =>
-        Regex.Replace(value, @"\s+", string.Empty).ToLowerInvariant();
+                match => DesignPalette.Normalized(match.Groups[2].Value));
 
     /// <summary>Custom properties declared on <c>:root</c>.</summary>
     private static HashSet<string> DeclaredTokens(string path)
