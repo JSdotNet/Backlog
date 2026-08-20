@@ -1,4 +1,4 @@
-using Backlog.Modules.Backlog.DomainModels;
+﻿using Backlog.Modules.Backlog.DomainModels;
 using Microsoft.AspNetCore.Components.Web;
 using Bunit;
 
@@ -92,8 +92,8 @@ public sealed class BacklogPaneFocusTests
     /// </para>
     /// <para>
     /// The panel is the fixed half of the split and the list flexes, so the number
-    /// under test is the panel's own width — 36rem now that the panel opens wide
-    /// enough for its two columns, so one Left step is 38 — and Left, which drags
+    /// under test is the panel's own width — 40rem, wide enough for the pane's two
+    /// columns with room to spare, so one Left step is 42 — and Left, which drags
     /// the separator left, is what makes a right-hand panel wider. An arrow read as
     /// "less" regardless of which edge the pane is fixed to is exactly the bug
     /// <c>data-pane-anchor</c> was added to fix for the pointer.
@@ -111,7 +111,7 @@ public sealed class BacklogPaneFocusTests
             .KeyDownAsync(new KeyboardEventArgs { Key = "ArrowLeft" });
 
         Assert.Contains(
-            "38rem",
+            "42rem",
             pane.Find("[data-testid='backlog-split']").GetAttribute("style") ?? string.Empty,
             StringComparison.Ordinal);
 
@@ -119,7 +119,7 @@ public sealed class BacklogPaneFocusTests
         pane.Render();
 
         Assert.Contains(
-            "38rem",
+            "42rem",
             pane.Find("[data-testid='backlog-split']").GetAttribute("style") ?? string.Empty,
             StringComparison.Ordinal);
     }

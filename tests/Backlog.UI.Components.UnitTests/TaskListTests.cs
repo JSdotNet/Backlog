@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.UnitTests;
+﻿namespace Backlog.UI.Components.UnitTests;
 
 public sealed class TaskListTests
 {
@@ -1491,4 +1491,69 @@ public sealed class TaskListTests
         Assert.Equal("a", move?.Id);
         Assert.Equal("c", move?.TargetId);
     }
+
+    // --- The status on a row -----------------------------------------------
+
+    /// <summary>
+    /// A status reads on the title's line rather than in the metadata line under
+    /// it, drawn by the same <c>StatusBadge</c> the panel puts beside its heading.
+    /// <para>
+    /// The line under a title says when the task happens and how far through it
+    /// is; a status says what the task currently <em>is</em>, which is what the
+    /// title is doing. Same fact, same shape, same place in a row and in the panel
+    /// that row opens into — so a reader is not made to look for it twice.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_status_is_a_badge_beside_the_title_and_not_a_detail()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship it", Group: "Tasks", Status: "in progress"))
+            .Add(t => t.TestId, "row"));
+
+        var badge = view.Find("[data-testid='row-status']");
+
+        Assert.Contains("task-item__status", badge.ClassList);
+        Assert.Contains("badge--status-inprogress", badge.ClassList);
+        Assert.Equal("in progress", badge.TextContent);
+
+        // Not on the metadata line, which is a different kind of fact.
+        Assert.DoesNotContain("in progress", view.Find(".task-item__meta").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_row_with_no_status_draws_no_badge()
+    {
+        // Not every list of tasks has a lifecycle — a checklist of sub-items has
+        // none — and a row drawing an empty badge would claim a state nobody set.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship it", Group: "Tasks"))
+            .Add(t => t.TestId, "row"));
+
+        Assert.Empty(view.FindAll(".task-item__status"));
+        Assert.Null(new TaskRow("a", "Ship it").Status);
+    }
+
+    /// <summary>A row whose title is a field keeps its status, for the reason it
+    /// keeps its metadata line: the same facts must not be dropped by a decision
+    /// about how the title is edited.</summary>
+    [Fact]
+    public void A_row_being_renamed_still_says_where_it_has_got_to()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship it", Status: "ready"))
+            .Add(t => t.OnRename, (TaskRename _) => { })
+            .Add(t => t.DirectRename, true)
+            .Add(t => t.TestId, "row"));
+
+        Assert.NotNull(view.Find("[data-testid='row-rename']"));
+        Assert.Equal("ready", view.Find("[data-testid='row-status']").TextContent);
+    }
 }

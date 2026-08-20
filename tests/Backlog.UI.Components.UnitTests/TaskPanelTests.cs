@@ -275,6 +275,7 @@ public sealed class TaskPanelTests
             .Add(t => t.TestId, "panel"));
 
         Assert.Empty(view.FindAll("[data-testid='panel-status']"));
+        Assert.Empty(view.FindAll(".task-panel__status"));
         Assert.Empty(view.FindAll(".task-panel__tags"));
         Assert.Empty(view.FindAll(".task-panel__filing"));
         Assert.Empty(view.FindAll(".task-panel__details"));
@@ -447,11 +448,17 @@ public sealed class TaskPanelTests
     }
 
     [Fact]
-    public void A_group_is_named_by_its_caption()
+    public void A_group_is_named_by_a_caption_nobody_draws()
     {
-        // A paragraph rather than a heading: a panel does not know how deep in a
-        // page it is, and a group that guessed its own level would put a hole in
-        // the document outline for the sake of one word.
+        // The grouping a sighted reader gets is the layout — rows together, no
+        // break across the column gap, air between one group and the next — so the
+        // caption is not drawn. It is still the group's accessible name, which is
+        // the only grouping a reader who cannot see that layout gets, and that is
+        // why the label is still required.
+        //
+        // A paragraph rather than a heading, for when it is read: a panel does not
+        // know how deep in a page it is, and a group that guessed its own level
+        // would put a hole in the document outline for the sake of one word.
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
@@ -463,6 +470,11 @@ public sealed class TaskPanelTests
         Assert.Equal("group", group.GetAttribute("role"));
         Assert.Equal(caption.Id, group.GetAttribute("aria-labelledby"));
         Assert.Equal("Ranking", caption.TextContent);
+
+        // Hidden from sight, not from the accessibility tree. aria-hidden or
+        // display:none would take the name away with the picture.
+        Assert.Contains("sr-only", caption.ClassList);
+        Assert.Null(caption.GetAttribute("aria-hidden"));
     }
 
     [Fact]
@@ -570,6 +582,48 @@ public sealed class TaskPanelTests
 
         Assert.Equal("Wire it in", view.Instance.Title);
         Assert.Equal("Wire it in", view.Find("[data-testid='panel-title']").TextContent);
+    }
+
+    // --- The status on the heading line ------------------------------------
+
+    [Fact]
+    public void A_host_with_a_status_control_puts_it_on_the_heading_line()
+    {
+        // A product whose status can be changed from the panel has a picker rather
+        // than a label, and the alternative was the host putting that picker
+        // somewhere else — which would move the fact off the line the reader just
+        // read it on in the list.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Wire the pane into the shell")
+            .Add(t => t.StatusContent, "<select data-testid='picker'></select>")
+            .Add(t => t.TestId, "panel"));
+
+        var header = view.Find(".task-panel__header");
+
+        // Third on the line, where the badge would have been: title, then state.
+        Assert.Equal(["h2", "div"], header.Children.Select(child => child.LocalName));
+        Assert.Contains("task-panel__status", header.Children[1].ClassList);
+        Assert.NotNull(view.Find("[data-testid='panel-status'] [data-testid='picker']"));
+    }
+
+    [Fact]
+    public void The_slot_wins_over_the_word()
+    {
+        // Two statuses on one heading line is a question about which of them is the
+        // real one. The host that passed a control meant the control.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Wire the pane into the shell")
+            .Add(t => t.Status, "In progress")
+            .Add(t => t.StatusContent, "<select data-testid='picker'></select>")
+            .Add(t => t.TestId, "panel"));
+
+        Assert.NotNull(view.Find("[data-testid='panel-status'] [data-testid='picker']"));
+        Assert.DoesNotContain("In progress", view.Markup, StringComparison.Ordinal);
+        Assert.Empty(view.FindAll(".badge--status-inprogress"));
     }
 
     // --- The way in and the way back out -----------------------------------

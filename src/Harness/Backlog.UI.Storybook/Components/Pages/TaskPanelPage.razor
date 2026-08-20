@@ -11,7 +11,9 @@
 
 Two columns, because these rows are short and the panel they sit in is not. All of them in one stack means reading past the whole of “when” to find out how important the thing is, and it pushes the body — the part somebody opened the panel to write — off the bottom of a laptop. Side by side, the pane is one glance.
 
-The columns are groups rather than a reflow, which is the decision worth arguing here. Rows poured into two tracks would break “due date, reminder, repeat” across the gap and stand a due date next to a priority, and two things side by side read as related whether or not they are. So the pane lays out groups and a group lays out rows: a column is a subject, and the reader picks the subject before the row. Which subjects there are is the host's answer and not this component's — these three are what the product has decided so far, and a fourth would arrive as a fourth group rather than as a longer one.
+The columns are groups rather than a reflow, which is the decision worth arguing here. Rows poured into two tracks would break “due date, reminder, repeat” across the gap and stand a due date next to a priority, and two things side by side read as related whether or not they are. So the pane lays out groups and a group lays out rows: a column is a subject, and the reader picks the subject before the row. Which subjects there are is the host's answer and not this component's.
+
+The subjects are not written on screen, though, and the groups still carry their names. A caption over three short rows spends a line on saying what the spacing has already said — the rows of a group sit together, a group never breaks across the column gap, and there is air between one group and the next — and four of them were the loudest text in a pane of eight rows while naming the least interesting thing in it. What a caption is genuinely for is the reader who cannot see any of that layout, so the label is still required and still names the group through aria-labelledby; it is simply not drawn. Turn a screen reader on and the groups are announced exactly as they were.
 
 “Add to My Day” is not one of them. It is the row across the top, on its own and carrying a border and the brand colour, because it is the only thing in the pane that is a decision rather than a fact: a due date was settled once and stays settled, where putting something in today is a choice somebody makes again every morning — and so it is the row they press most. Everything else in the pane is a fact about the task and reads at the same weight as its neighbours.
 
@@ -21,7 +23,7 @@ Attachments is one row pointing at one place, and never a row per file. What is 
 
 How much of that a real host can say is its own business, because the value is a string it hands over already written. The backlog's entry carries the path and nothing else — a count would mean reading the folder on every render — so its row says “Folder · panel-review” and stops there. The row is the same control either way, which is the point of the value being formatted by whoever knows what there is to say.
 
-Narrow it and the two columns become one, and the top row still spans it. That is the mobile channel's requirement rather than a nicety: it is a single column by design, and a pane that insisted on two would hand it two unreadable ones. Widen it and a third column still cannot appear, because the track minimum is set past what a side panel is ever given — three subjects abreast would be a row of captions rather than a pane.
+Narrow it and the two columns become one, and the top row still spans it. That is the mobile channel's requirement rather than a nicety: it is a single column by design, and a pane that insisted on two would hand it two unreadable ones. Widen it and a third column still cannot appear, because the track minimum is set past what a side panel is ever given — three of these columns abreast would be three inches of label and no room for a value.
 
 Priority is new here, and it is deliberately nowhere near the dates. A ranking and a deadline are the two facts most often mistaken for each other, and the pane's job is to stop saying them in the same breath: “critical” is how much this matters, “Friday” is when it stops being possible. It is the same control as its siblings for the same reason they are — set, with a value, and an ✕. Pressing it here walks low, medium, high, critical so all four rankings can be read; the real one opens a picker the product has not designed yet."
            Code="@PaneCode">
@@ -110,6 +112,8 @@ Nothing else moves. Same heading, same tags, same pane above it — only the las
 
 Filing sits with the tags, and that is the whole of what the slot decides. “What kind of thing is this” and “what is it tagged” are the same question asked twice, so a badge strip separated from the chips by the pane of settings would be two answers with something else in between. Footer sits last for the reason the body is second to last: a row of controls between the reader and the part of the task they came to write is a row they read past every time.
 
+The status is the third slot, and it is on the heading line rather than in Filing. A status is not a classification — it is what the title is currently doing — and it is the one fact a reader has already seen before they opened anything, because the row they clicked shows the same badge in the same place. Moving it down among the type and the tags would make them look for it twice. Where a product's status is a word, pass `Status` and the panel draws the badge; where it can be changed from here, pass `StatusContent` and put the picker there. Passing both is a question about which one is real, so the slot wins.
+
 Why these are slots rather than parameters is the same answer this component gives everywhere else. Which statuses there are, whether a task belongs to a repository, what an issue link looks like, whether deleting one asks first — every one of those is the host's, and a panel that took a list of statuses would be a panel that had answered a question this library does not get to answer. That is also why the status beside the title stays one already-chosen word: a product whose status is a picker puts the picker in Filing, where the other pickers are.
 
 The footer is a stack rather than a row of buttons, because it is sometimes a control and the thing that control revealed — a source view, a confirmation — and a slot that laid its content out in a line would be a slot those cannot go in. Which way the controls themselves sit is the host's, as it is in every other slot here.
@@ -124,6 +128,18 @@ Both are drawn only when something is passed. A panel with neither is exactly th
                        Tags="@_tags"
                        OnTagRemoved="RemoveTag"
                        TestId="panel-slots">
+                <StatusContent>
+                    @* The status as a control, on the heading line where the badge
+                       would have gone. A product whose status can be changed from
+                       the panel has a picker rather than a label, and putting that
+                       picker down in Filing would move the fact off the line the
+                       reader just read it on in the list. *@
+                    <StatusSelector CurrentValue="@_status"
+                                    Options="@Statuses"
+                                    Label="Change status"
+                                    TestId="panel-slots-status"
+                                    OnChanged="value => _status = value" />
+                </StatusContent>
                 <Filing>
                     <SelectField CurrentValue="@_kind"
                                  Options="@Kinds"
@@ -131,11 +147,6 @@ Both are drawn only when something is passed. A panel with neither is exactly th
                                  CssClass="badge badge--type"
                                  TestId="panel-slots-type"
                                  OnChanged="value => _kind = value ?? _kind" />
-                    <StatusSelector CurrentValue="@_status"
-                                    Options="@Statuses"
-                                    Label="Change status"
-                                    TestId="panel-slots-status"
-                                    OnChanged="value => _status = value" />
                     <Badge Kind="source" data-testid="panel-slots-origin">
                         <code>.backlog/ui/task-panel.md</code>
                     </Badge>
@@ -502,14 +513,19 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
     private const string SlotsCode = """
         <TaskPanel Title="@task.Title" Done="@task.Done" OnToggle="Toggle" OnRename="Rename"
                    Tags="@task.TagList" OnTagRemoved="RemoveTag">
-            @* With the tags, because they answer the same question. No Status
-               parameter: this product's status is a picker, and a picker goes in
-               here with the other pickers. *@
+            @* On the heading line, where the list row shows the same fact. A word
+               would have been the Status parameter instead; this product's status
+               is a picker, so it is the slot. *@
+            <StatusContent>
+                <StatusSelector CurrentValue="@task.Status" Options="@Statuses"
+                                Label="Change status" OnChanged="ChangeStatus" />
+            </StatusContent>
+
+            @* With the tags, because they answer the same question: what kind of
+               thing is this, and where is it filed. *@
             <Filing>
                 <SelectField CurrentValue="@task.Kind" Options="@Kinds" Label="Change type"
                              CssClass="badge badge--type" OnChanged="ChangeKind" />
-                <StatusSelector CurrentValue="@task.Status" Options="@Statuses"
-                                Label="Change status" OnChanged="ChangeStatus" />
                 <Badge Kind="source"><code>@task.Path</code></Badge>
             </Filing>
 

@@ -206,11 +206,20 @@
     /// pane's own storybook reviews it at 44rem for the same reason.
     /// </para>
     /// <para>
-    /// 36rem is <c>SplitPane.FixedWidthRem</c>'s default and the first width where
-    /// the two columns fit. On a 1400px window that still leaves the list about
-    /// 51rem, which is more than the column it had when the list was the fixed half
-    /// at 480px. The floor stays 24rem, so the reader can still have the old width
-    /// — it is just no longer the one they are given.
+    /// 40rem, and the number is arithmetic rather than taste. The detail pane's
+    /// columns are <c>16rem</c> wide with a <c>--spacing-md</c> gutter, so two of
+    /// them need 33rem of content; the panel spends <c>--spacing-lg</c> of padding
+    /// on each side and a border. 36rem was tried first and came out 2px short of
+    /// the second column — a single stack on every entry, which is exactly the
+    /// shape the width was raised to avoid. 40rem clears it by about 60px, which is
+    /// the margin that keeps it two columns rather than two columns on this
+    /// machine.
+    /// </para>
+    /// <para>
+    /// On a 1400px window that leaves the list about 47rem, still wider than the
+    /// 480px column it had when the list was the fixed half. The floor stays 24rem,
+    /// so the old width is still reachable — it is just no longer the one a reader
+    /// is given.
     /// </para>
     /// <para>
     /// Held here rather than handed over as a literal, because the split keeps the
@@ -220,7 +229,7 @@
     /// those.
     /// </para>
     /// </summary>
-    private double _detailWidthRem = 36;
+    private double _detailWidthRem = 40;
 
     /// <summary>The list, held so the focus can be put back on the open row from
     /// the pane beside it. The list names its own row elements, so asking it is the
@@ -359,6 +368,13 @@
     /// twice. The note glyph still appears, because <c>Note</c> says there is more
     /// here than the title.
     /// </para>
+    /// <para>
+    /// <c>Status</c> is here and reads as the same badge the open entry's heading
+    /// shows, in the app's own lowercase rather than the enum's spelling. A reader
+    /// scanning the column can see which entries are in progress without opening
+    /// any of them, and one who does open a row finds the fact where they just left
+    /// it instead of somewhere further down the panel.
+    /// </para>
     /// </summary>
     private IReadOnlyList<TaskRow> EntryTasks() =>
         [.. State.FilteredRows.Select(row => new TaskRow(
@@ -374,7 +390,8 @@
             StepCount: row.PreviewSubItems.Count,
             Note: row.HasExpandableContent,
             Tags: row.PreviewMetadataTags,
-            DependsOn: row.PreviewDependsOn)
+            DependsOn: row.PreviewDependsOn,
+            Status: Humanize(row.PreviewStatus.ToString()))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence)
         })];
@@ -499,6 +516,18 @@
                        OnTabBackward="MoveFocusToListAsync"
                        CssClass="entry-detail__panel"
                        TestId="entry-panel">
+                <StatusContent>
+                    @* On the heading line, where the list row also shows it. The
+                       status was in the strip below with the other pickers, which
+                       made a reader who opened a row look for it in a second place
+                       — and it is the one thing in that strip that is a state
+                       rather than a classification. *@
+                    <StatusSelector CurrentValue="@row.PreviewStatus.ToString()"
+                                    Options="@StatusSelectorOptions()"
+                                    Label="Change status"
+                                    TestId="status-badge"
+                                    OnChanged="value => OnStatusChangedAsync(row, value)" />
+                </StatusContent>
                 <Filing>
                     @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration))
                     {
@@ -847,11 +876,10 @@
                                         OnChanged="value => OnRepositoryChangedAsync(row, value)" />
                 }
 
-                <StatusSelector CurrentValue="@row.PreviewStatus.ToString()"
-                                Options="@StatusSelectorOptions()"
-                                Label="Change status"
-                                TestId="status-badge"
-                                OnChanged="value => OnStatusChangedAsync(row, value)" />
+                @* Status is not here. It is on the panel's heading line, beside the
+                   title, which is where the list row shows it too — a state is what
+                   the title is currently doing, and this strip is for what the entry
+                   is filed under. *@
             </span>
 
             <span class="entry-doc__meta-end">

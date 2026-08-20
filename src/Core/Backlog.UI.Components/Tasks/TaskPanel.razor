@@ -140,8 +140,20 @@
         </h2>
 
         @* Beside the title rather than under it: a status is what the title is
-           currently doing, and a reader who wants both wants them in one look. *@
-        @if (!string.IsNullOrWhiteSpace(Status))
+           currently doing, and a reader who wants both wants them in one look.
+
+           A slot when the host has a control, a badge when it has a word. A
+           product whose status can be changed from here has a picker, not a
+           label, and the alternative was the host putting that picker somewhere
+           else on the panel — which would move the fact off the line the reader
+           just read it on in the list. *@
+        @if (StatusContent is not null)
+        {
+            <div class="task-panel__status" data-testid="@Suffix("status")">
+                @StatusContent
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(Status))
         {
             <StatusBadge Status="@Status" CssClass="task-panel__status" TestId="@Suffix("status")" />
         }
@@ -224,9 +236,28 @@
 
     /// <summary>Where it has got to, as the word to show — "Ready", "In
     /// progress". Already said: what a status is called, and in what language,
-    /// belongs to the host, exactly as a due date does.</summary>
+    /// belongs to the host, exactly as a due date does.
+    /// <para>
+    /// Ignored when <see cref="StatusContent"/> is given: two statuses on one
+    /// heading line is a question about which of them is the real one.
+    /// </para></summary>
     [Parameter]
     public string? Status { get; set; }
+
+    /// <summary>
+    /// The status as a control rather than a word, for a product where it can be
+    /// changed from here.
+    /// <para>
+    /// A slot and not a list of options, for the reason <see cref="Filing"/> is one:
+    /// which statuses exist, what they are called and which moves between them are
+    /// legal are all the host's answers. What the panel decides is only that the
+    /// status belongs on the heading line — so a reader who opened a row from a list
+    /// finds the fact where they just read it, rather than further down the panel
+    /// among the things it is filed under.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? StatusContent { get; set; }
 
     /// <summary>What it is filed under. Left off entirely when there is nothing
     /// — an empty tag strip is a row of blank space where the reader learns

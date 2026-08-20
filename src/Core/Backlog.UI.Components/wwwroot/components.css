@@ -2308,8 +2308,13 @@ button.task-panel__check:focus-visible {
 /* The row's own hit area. A button rather than a click handler on the li, so it
    is reachable, announced and activated the way every other row in this library
    is. */
+/* Two tracks: the line, and the status beside it. The second track collapses to
+   nothing on a row with no status, so a checklist of sub-items lays out exactly
+   as it did before statuses existed. The metadata line spans both, because it is
+   the line under all of it rather than a third column. */
 .task-item__body {
     display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 2px;
     /* The only child that gives up room. min-width:0 is what lets it, since a
        flex item will not shrink below its content without it — and the title's
@@ -2332,10 +2337,30 @@ button.task-panel__check:focus-visible {
 }
 
 .task-item__title {
+    grid-column: 1;
     color: var(--color-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.task-item__meta {
+    grid-column: 1 / -1;
+}
+
+/* Beside the title, and never squeezed by it: a badge that shrank would
+   hyphenate a single word. The title takes the space instead, which it already
+   knows how to give up — it ellipses.
+
+   Set apart from the title by its own gap rather than by the row's, because the
+   row lays out the circle, the line and the controls at the end; the status is
+   part of the line. */
+.task-item__status {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    flex: 0 0 auto;
+    margin-left: var(--spacing-xs);
 }
 
 /* Done is struck through and quieter, but still readable: a finished task is
@@ -2569,7 +2594,17 @@ button.task-panel__check:focus-visible {
 
 /* --- Renaming in place --------------------------------------------------- */
 
+/* A row whose title is a field keeps its status beside the field, for the reason
+   the metadata line is kept too: the same facts must not be dropped by a decision
+   about how the title is edited. The field gives up the room, as the title does. */
 .task-item__rename {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.task-item__rename > .task-item__rename-input {
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -2902,17 +2937,12 @@ button.task-panel__check:focus-visible {
     break-inside: avoid;
 }
 
-/* A caption, not a heading: the rows under it carry the weight, and a label
-   competing with them would turn the pane into a list of labels. Indented to the
-   row's own text inset, so the column reads down one edge. */
-.task-action-group__caption {
-    margin: 0 0 var(--spacing-2xs);
-    padding: 0 var(--spacing-md);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
+/* The caption carries `sr-only` and so needs no appearance of its own: the
+   grouping a sighted reader gets is the layout above — rows together, no break
+   across the gap, space between groups — and the caption is what a reader who
+   cannot see that layout gets instead. A rule here would be a rule for something
+   nobody draws; the margin it used to spend is now the space between one group's
+   rows and the next's. */
 
 /* --- Task panel ---------------------------------------------------------- */
 /*

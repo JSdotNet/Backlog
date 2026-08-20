@@ -1,4 +1,4 @@
-using Backlog.Modules.Backlog.DomainModels;
+﻿using Backlog.Modules.Backlog.DomainModels;
 using Microsoft.AspNetCore.Components.Web;
 using Bunit;
 
@@ -619,4 +619,65 @@ public sealed class BacklogDetailPaneTests
         Assert.Contains("panel.zip", set, StringComparison.Ordinal);
         Assert.DoesNotContain("Folder", set, StringComparison.Ordinal);
     }
+
+    // --- Where the status is -----------------------------------------------
+
+    /// <summary>
+    /// The status is on the panel's heading line and on the row in the list, and
+    /// it is the same fact in the same shape in both places.
+    /// <para>
+    /// It used to be a badge in the classification strip below the heading, which
+    /// made a reader who opened a row look for it in a second place — and it is the
+    /// one thing in that strip that is a state rather than something the entry is
+    /// filed under. The row had no status at all, so the column could not be
+    /// scanned for what was in progress without opening entries one at a time.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_status_reads_on_the_heading_line_and_on_the_row()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Ship it\n`task` `!in-progress`\n");
+
+        var pane = host.Render();
+
+        // On the heading line, as the panel's status slot rather than in Filing.
+        var header = pane.Find("[data-testid='entry-panel'] .task-panel__header");
+        Assert.NotNull(header.QuerySelector("[data-testid='status-badge']"));
+        Assert.Null(pane.Find(".task-panel__filing").QuerySelector("[data-testid='status-badge']"));
+
+        // And on the row, as the badge the shared list draws.
+        var badge = pane.Find($"[data-testid='{RowTestId(row)}-status']");
+        Assert.Contains("task-item__status", badge.ClassList);
+        Assert.Equal("in progress", badge.TextContent);
+
+        // Still editable from the heading line, and the write still goes to the text.
+        await pane.Find("[data-testid='status-badge'] select").ChangeAsync(new() { Value = nameof(EntryStatus.Ready) });
+
+        Assert.Contains("`!ready`", row.RawText, StringComparison.Ordinal);
+        Assert.Equal("ready", pane.Find($"[data-testid='{RowTestId(row)}-status']").TextContent);
+    }
+
+    /// <summary>The detail pane's groups carry no visible caption — the layout does
+    /// that work — but each one is still named for a reader who cannot see the
+    /// layout.</summary>
+    [Fact]
+    public async Task The_action_groups_are_named_without_drawing_a_caption()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Ship it\n`task`\n");
+
+        var pane = host.Render();
+
+        foreach (var testId in new[] { "entry-schedule-scheduling", "entry-schedule-ranking", "entry-schedule-attachments" })
+        {
+            var group = pane.Find($"[data-testid='{testId}']");
+            var caption = group.QuerySelector(".task-action-group__caption");
+
+            Assert.NotNull(caption);
+            Assert.Contains("sr-only", caption!.ClassList);
+            Assert.Equal(caption.Id, group.GetAttribute("aria-labelledby"));
+            Assert.False(string.IsNullOrWhiteSpace(caption.TextContent));
+        }
+    }
 }

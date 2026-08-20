@@ -53,6 +53,23 @@ namespace Backlog.UI.Components.Tasks;
 /// is <see cref="TaskChain"/>'s, because a row cannot see its siblings and so
 /// cannot know whether the things it named are finished.
 /// </para></param>
+/// <param name="Status">Where the task has got to, as the word to show —
+/// "Ready", "In progress". Already formatted, the same bargain
+/// <paramref name="Due"/> makes: what a status is called, and in what language,
+/// belongs to the host.
+/// <para>
+/// A badge beside the title rather than a part of the metadata line, because a
+/// status is not the same kind of fact as a due date. The line below the title
+/// says when the task happens and how far through it is; a status says what the
+/// task currently <em>is</em>, which is what the title is doing — so it reads on
+/// the title's line, exactly where <see cref="TaskPanel"/> puts it. One shape for
+/// one fact in both places.
+/// </para>
+/// <para>
+/// Null leaves the badge off. Not every list of tasks has a lifecycle worth
+/// showing — a checklist of sub-items has none at all — and a row that drew an
+/// empty badge would be claiming a state nobody set.
+/// </para></param>
 public sealed record TaskRow(
     string Id,
     string Title,
@@ -68,7 +85,8 @@ public sealed record TaskRow(
     bool Note = false,
     IReadOnlyList<string>? Tags = null,
     string? Body = null,
-    IReadOnlyList<string>? DependsOn = null)
+    IReadOnlyList<string>? DependsOn = null,
+    string? Status = null)
 {
     public bool HasSteps => StepCount > 0;
 

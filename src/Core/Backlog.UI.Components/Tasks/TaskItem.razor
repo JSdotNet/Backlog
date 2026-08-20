@@ -164,6 +164,8 @@
                        Id="@RenameFieldId"
                        @onkeydown="OnRenameKeyAsync"
                        @onblur="CommitRenameAsync" />
+
+            @RenderStatus()
         </div>
 
         @* Beside the field rather than gone. The metadata line lives inside the
@@ -185,6 +187,8 @@
                 @onkeydown="OnRowKeyDownAsync"
                 @onclick="() => OnSelected.InvokeAsync(Task.Id)">
             <span class="task-item__title" data-testid="@Suffix("title")">@Task.Title</span>
+
+            @RenderStatus()
 
             @RenderMeta()
         </button>
@@ -305,6 +309,29 @@
 </li>
 
 @code {
+    /// <summary>
+    /// Where the row has got to, beside its title.
+    /// <para>
+    /// On the title's line rather than in the metadata line below it, because a
+    /// status is what the title is currently doing — the same reason
+    /// <see cref="TaskPanel"/> puts it beside the heading, drawn by the same
+    /// <see cref="StatusBadge"/>. A reader who opens a row from a list should find
+    /// the fact in the same shape and the same place they just left it in.
+    /// </para>
+    /// <para>
+    /// A fragment because it is drawn twice, for the reason
+    /// <see cref="RenderMeta"/> is: a row whose title has become a field must not
+    /// stop saying what state it is in.
+    /// </para>
+    /// </summary>
+    private RenderFragment RenderStatus() =>
+        @<text>
+        @if (!string.IsNullOrWhiteSpace(Task.Status))
+        {
+            <StatusBadge Status="@Task.Status" CssClass="task-item__status" TestId="@Suffix("status")" />
+        }
+        </text>;
+
     /// <summary>
     /// Everything the row knows about itself, in the order a reader asks for it:
     /// its place in the chain, then its own dates and tags.
