@@ -1249,7 +1249,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "aggregate-session-log",
           "level": 2,
-          "line": 31,
+          "line": 36,
           "status": "active",
           "related": [
             ".domain/dev-pc-management/domain.md#aggregate-machine-registry",

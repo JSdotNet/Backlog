@@ -13,6 +13,7 @@ related: [.domain/context-map.md, .domain/dev-pc-management/domain.md#aggregate-
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
+| Collections MCP | ACL (Sessions = customer) | Optional append/read of sanitized session-activity documents keyed by `Session Identity` | `.domain/sessions/domain.md#session-activity-stream`, `.domain/sessions/domain.md#domain-service-session-activity-publishing` | To layer externally reported milestone activity over the locally read session record without making the collection authoritative for session existence. Sessions owns the meaning of the stream and translates to and from the MCP's stored shape. **Planned.** Missing configuration is ordinary; configured-but-unreachable reporting reads as degraded rather than failed. |
 | Dev PC Management | Customer/Supplier (Sessions = customer) | Machine-name lookup against the machine registry | `.domain/dev-pc-management/domain.md#aggregate-machine-registry` | To say which registered machine an `Environment` corresponds to, when the two name the same box. **Not built.** A locally read session is stamped with the name of the environment that read it, so nothing is asked of the registry today; the dependency becomes real the first time sessions arrive from an environment other than the one reading them. |
 | Repository Management | Conformist | None — the `owner/name` string an agent wrote is held verbatim | `.domain/repository-management/domain.md#aggregate-repository-registry` | A session's `Working Location` names a repository in that context's form. Conformist and deliberately inert: the string is displayed, never resolved, so a repository this product does not know about still reads correctly. |
 
@@ -25,10 +26,10 @@ related: [.domain/context-map.md, .domain/dev-pc-management/domain.md#aggregate-
 
 ## Notes
 
-- **This context publishes no domain event yet, and the table above says so rather
-  than describing one.** Its only consumer today is its own surface, and inventing a
-  published language before there is a consumer would fix a contract nobody has had to
-  live with. When Productivity or Monitoring is wired up, the event belongs in
+- **This context still publishes no bounded-context domain event yet, and the table
+  above says so rather than inventing one early.** The planned Collections MCP
+  integration is a module-level reporting path, not a published language into another
+  bounded context. When Productivity or Monitoring is wired up, the event belongs in
   `domain.md` as a first-class chapter and in the context map's published-language
   table at the same time.
 
@@ -46,6 +47,7 @@ related: [.domain/context-map.md, .domain/dev-pc-management/domain.md#aggregate-
   `dependencies.md` now records this context as the dependent that took them.
 
 - **No dependency here crosses a boundary without a published language or an
-  anti-corruption layer**, because no dependency here is live. Both outbound rows are a
-  correspondence rather than a call: one is not built, and the other is a string held
-  verbatim precisely so that no resolution is required.
+  anti-corruption layer.** The planned Collections MCP path is explicitly an ACL so the
+  storage module never becomes the authority for session meaning; the Repository
+  Management row stays conformist because the string is held verbatim, and the Dev PC
+  Management row remains a future lookup rather than a live call.
