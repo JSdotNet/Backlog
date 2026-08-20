@@ -33,6 +33,32 @@ by naming that alias, and an entry without one falls back to the primary
 repository. Registering more than one repository is itself an opt-in capability,
 so a single-repository setup stays uncluttered.
 
+### Sub-feature: Repository identity colour
+
+```meta
+status: draft
+related: [.design/color-scheme.md#band-identity-tokens, .domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance]
+```
+
+Give each registered repository one colour, so a workspace holding several of
+them can be read one project at a time. The colour belongs to the repository
+rather than to any screen showing it: the same project is the same colour on the
+repository filter, on a plan, on an entry filed against it, on the agent sessions
+under that entry and on the row for a session in the Sessions area, and a screen
+that decided its own would be a second answer to which project is which.
+
+The registry records *which* of the colours the design system sanctions, never a
+colour of its own — inventing one is a design decision and is made where design
+decisions are made. A repository nobody has chosen for is placed automatically by
+its position in the working set, stepping over the colours already claimed so it
+never lands on the one a neighbour was deliberately given. Past the end of the
+set the placement wraps and two repositories may share a colour, which is
+acceptable because the colour is not the identifier — the alias is, and it is
+written wherever the colour is shown.
+
+The choice can be given back, which returns the repository to its automatic
+placement rather than leaving it colourless.
+
 ### Sub-feature: Repository knowledge folder settings
 
 ```meta

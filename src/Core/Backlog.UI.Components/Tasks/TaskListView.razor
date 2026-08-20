@@ -298,6 +298,7 @@
                    RowElementId="@RowElementId(task)"
                    OnTabForward="@TabForwardFor(task)"
                    OnKeyboardMove="delta => MoveByKeyboardAsync(task, delta)"
+                   CssClass="@RowCssClass?.Invoke(task)"
                    TestId="@RowTestId(task)" />;
 
     [Parameter, EditorRequired]
@@ -448,6 +449,19 @@
 
     [Parameter]
     public string? CssClass { get; set; }
+
+    /// <summary>
+    /// Extra classes for one row, asked per row.
+    /// <para>
+    /// A function rather than a field on <see cref="TaskRow"/>. That record is
+    /// deliberately a task and not an entry — no area, no repository — so anything a
+    /// host knows about a row that a task does not have is the host's to say. The
+    /// repository identity mark is exactly that: which project a row belongs to is a
+    /// workspace fact, and a list of checklist steps has no answer to it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<TaskRow, string?>? RowCssClass { get; set; }
 
     [Parameter]
     public string? TestId { get; set; }

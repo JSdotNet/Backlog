@@ -1,27 +1,27 @@
 namespace Backlog.Modules.Roadmap.DomainModels;
 
 /// <summary>
-/// Which colour each repository's band has been given, for the repositories somebody
-/// has actually chosen for.
+/// Which colour each repository's band was given, in plans written before the choice
+/// moved to Settings.
 /// <para>
-/// A first-class collection: the plan holds one of these and nothing else about
-/// colour, so there is one place that knows a choice is an index into a sanctioned set
-/// rather than a colour of its own. The plan stores <em>which</em> of the approved
-/// hues, never a hue — inventing a colour is a design decision and
-/// <c>.design/color-scheme.md#band-identity-tokens</c> is where it is made.
+/// <strong>Legacy, read-only.</strong> A repository's identity hue is now a fact about
+/// the repository rather than about one plan, and it is chosen once in Settings so the
+/// roadmap, the filter and the entry list cannot disagree about it — see
+/// <c>.design/color-scheme.md#band-identity-tokens</c>. This type survives so a plan
+/// file written before that still parses and so the choices in it can be carried over;
+/// nothing writes it any more.
 /// </para>
 /// <para>
 /// A repository absent from here is not an error and not a default: it means nobody
-/// has chosen, and the view is free to place it in whatever hue is still going. That
-/// is why this is a sparse map rather than a colour per configured repository — a
-/// plan should not have to be rewritten because a repository was added to Settings.
+/// had chosen when the file was written.
 /// </para>
 /// </summary>
 public sealed class BandColours
 {
-    /// <summary>How many hues the design system sanctions for bands. Stated here
-    /// because this is what validates a choice; the values themselves belong to the
-    /// stylesheet and this module never sees one.</summary>
+    /// <summary>How many hues the design system sanctions. Kept here because it is
+    /// what validates a stored choice while one is being read; the live definition is
+    /// <c>RepositoryColours.Available</c>, and the values themselves belong to the
+    /// stylesheet — this module never sees one.</summary>
     public const int Available = 5;
 
     private readonly Dictionary<string, int> _chosen;
@@ -65,8 +65,4 @@ public sealed class BandColours
         var normalized = RepositoryScope.Normalize(alias);
         return normalized.Length > 0 && _chosen.TryGetValue(normalized, out var colour) ? colour : null;
     }
-
-    internal void Choose(string alias, int colour) => _chosen[alias] = colour;
-
-    internal void Forget(string alias) => _chosen.Remove(alias);
 }

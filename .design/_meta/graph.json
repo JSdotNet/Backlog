@@ -440,7 +440,7 @@
           "path": ".design/color-scheme.md",
           "slug": "role-tokens",
           "level": 2,
-          "line": 351,
+          "line": 425,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -457,7 +457,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 493,
+          "line": 567,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -473,7 +473,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 520,
+          "line": 594,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -489,7 +489,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 547,
+          "line": 621,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -506,7 +506,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 583,
+          "line": 657,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -805,7 +805,7 @@
           "path": ".design/content-editing.md",
           "slug": "live-parse-confirmation",
           "level": 2,
-          "line": 195,
+          "line": 198,
           "status": "active",
           "related": [
             ".design/content-editing.md#editing-feedback-and-state"
@@ -821,7 +821,7 @@
           "path": ".design/content-editing.md",
           "slug": "paste-behavior",
           "level": 2,
-          "line": 213,
+          "line": 216,
           "status": "active"
         }
       },
@@ -834,7 +834,7 @@
           "path": ".design/content-editing.md",
           "slug": "slash-and-inline-commands",
           "level": 2,
-          "line": 235,
+          "line": 238,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#feedback-and-toasts",
@@ -851,7 +851,7 @@
           "path": ".design/content-editing.md",
           "slug": "unsupported-syntax-preservation",
           "level": 2,
-          "line": 251,
+          "line": 254,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#reorder--auto-save"
@@ -867,7 +867,7 @@
           "path": ".design/content-editing.md",
           "slug": "editing-feedback-and-state",
           "level": 2,
-          "line": 268,
+          "line": 271,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
@@ -884,7 +884,7 @@
           "path": ".design/content-editing.md",
           "slug": "ai-proposals-in-a-document",
           "level": 2,
-          "line": 283,
+          "line": 286,
           "status": "active",
           "related": [
             ".design/design-principles.md#ai-first-surfaces",
@@ -902,7 +902,7 @@
           "path": ".design/content-editing.md",
           "slug": "materialization",
           "level": 2,
-          "line": 308,
+          "line": 311,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -1464,7 +1464,7 @@
           "path": ".design/color-scheme.md",
           "slug": "chart-roles",
           "level": 3,
-          "line": 418
+          "line": 492
         }
       },
       {
@@ -1476,7 +1476,7 @@
           "path": ".design/color-scheme.md",
           "slug": "badge-and-chip-tones",
           "level": 3,
-          "line": 367
+          "line": 441
         }
       },
       {

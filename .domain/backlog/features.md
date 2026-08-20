@@ -52,6 +52,36 @@ status or tags of its own, and none of the entry's scheduling or dependency
 attributes. A breakdown step needing its own priority is an entry rather than a
 step, and a step inherits its parent's deadline by belonging to it.
 
+### Sub-feature: Attached material
+
+```meta
+status: draft
+related: [.domain/backlog/domain.md#attachment]
+```
+
+Point an entry at the folder or archive where its material is kept — the review
+pack, the screenshots, the exported data — and take the pointer off again. The
+entry says which place and what it is called, and whether that place is a folder
+or an archive.
+
+One place per entry, not a list. What a person means by "the files for this" is
+usually a folder they already keep them in, and an entry that listed members
+would grow its own presentation by however many files somebody dropped on it. A
+second place is not a second attachment; it is either the same folder further up
+or a different entry.
+
+A pointer, not a copy. Nothing is imported and nothing is stored beside the
+entry: the entry stays the Markdown that gets committed and shared, and the
+material stays where its owner put it. The consequence is stated rather than
+hidden — a path is meaningful on the machine that wrote it, so an entry read
+somewhere else may name a place that is not there, and the entry is no less valid
+for it. Attaching is a claim about where material lives, not a promise that the
+reader can reach it.
+
+How much is in the place is not recorded, only where it is. A count would be true
+at the moment it was written and wrong after the next file was added, and an
+entry that asserted one would be asserting something it cannot keep.
+
 ## Feature: Scheduling and recurrence
 
 ```meta

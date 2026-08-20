@@ -23,14 +23,27 @@ public sealed class TaskPanelTests
             .Add(t => t.Title, "Wire the pane into the shell")
             .Add(t => t.Status, "In progress")
             .Add(t => t.Tags, (IReadOnlyList<string>)["ui"])
+            .Add(t => t.Filing, "<p>the badges</p>")
             .Add(t => t.Details, "<p>the rows</p>")
             .Add(t => t.Body, "<p>the sub-items</p>")
+            .Add(t => t.Footer, "<p>close and delete</p>")
             .Add(t => t.TestId, "panel"));
 
         var panel = view.Find("[data-testid='panel']");
 
+        // Filing is with the tags rather than after the settings: "what kind of
+        // thing is this" and "what is it tagged" are the same question asked twice.
+        // The footer is after the body, so nothing that acts on the whole task
+        // stands between the reader and the part of it they came to write.
         Assert.Equal(
-            ["task-panel__header", "task-panel__tags", "task-panel__details", "task-panel__body"],
+            [
+                "task-panel__header",
+                "task-panel__tags",
+                "task-panel__filing",
+                "task-panel__details",
+                "task-panel__body",
+                "task-panel__footer"
+            ],
             panel.Children.Select(child => child.ClassName));
     }
 
@@ -262,9 +275,12 @@ public sealed class TaskPanelTests
             .Add(t => t.TestId, "panel"));
 
         Assert.Empty(view.FindAll("[data-testid='panel-status']"));
+        Assert.Empty(view.FindAll(".task-panel__status"));
         Assert.Empty(view.FindAll(".task-panel__tags"));
+        Assert.Empty(view.FindAll(".task-panel__filing"));
         Assert.Empty(view.FindAll(".task-panel__details"));
         Assert.Empty(view.FindAll(".task-panel__body"));
+        Assert.Empty(view.FindAll(".task-panel__footer"));
 
         // And the heading survives on its own.
         Assert.Equal("Ask about the Heerlen features", view.Find(".task-panel__title").TextContent);
@@ -432,11 +448,17 @@ public sealed class TaskPanelTests
     }
 
     [Fact]
-    public void A_group_is_named_by_its_caption()
+    public void A_group_is_named_by_a_caption_nobody_draws()
     {
-        // A paragraph rather than a heading: a panel does not know how deep in a
-        // page it is, and a group that guessed its own level would put a hole in
-        // the document outline for the sake of one word.
+        // The grouping a sighted reader gets is the layout — rows together, no
+        // break across the column gap, air between one group and the next — so the
+        // caption is not drawn. It is still the group's accessible name, which is
+        // the only grouping a reader who cannot see that layout gets, and that is
+        // why the label is still required.
+        //
+        // A paragraph rather than a heading, for when it is read: a panel does not
+        // know how deep in a page it is, and a group that guessed its own level
+        // would put a hole in the document outline for the sake of one word.
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
@@ -448,6 +470,11 @@ public sealed class TaskPanelTests
         Assert.Equal("group", group.GetAttribute("role"));
         Assert.Equal(caption.Id, group.GetAttribute("aria-labelledby"));
         Assert.Equal("Ranking", caption.TextContent);
+
+        // Hidden from sight, not from the accessibility tree. aria-hidden or
+        // display:none would take the name away with the picture.
+        Assert.Contains("sr-only", caption.ClassList);
+        Assert.Null(caption.GetAttribute("aria-hidden"));
     }
 
     [Fact]
@@ -555,5 +582,157 @@ public sealed class TaskPanelTests
 
         Assert.Equal("Wire it in", view.Instance.Title);
         Assert.Equal("Wire it in", view.Find("[data-testid='panel-title']").TextContent);
+    }
+
+    // --- The status on the heading line ------------------------------------
+
+    [Fact]
+    public void A_host_with_a_status_control_puts_it_on_the_heading_line()
+    {
+        // A product whose status can be changed from the panel has a picker rather
+        // than a label, and the alternative was the host putting that picker
+        // somewhere else — which would move the fact off the line the reader just
+        // read it on in the list.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Wire the pane into the shell")
+            .Add(t => t.StatusContent, "<select data-testid='picker'></select>")
+            .Add(t => t.TestId, "panel"));
+
+        var header = view.Find(".task-panel__header");
+
+        // Third on the line, where the badge would have been: title, then state.
+        Assert.Equal(["h2", "div"], header.Children.Select(child => child.LocalName));
+        Assert.Contains("task-panel__status", header.Children[1].ClassList);
+        Assert.NotNull(view.Find("[data-testid='panel-status'] [data-testid='picker']"));
+    }
+
+    [Fact]
+    public void The_slot_wins_over_the_word()
+    {
+        // Two statuses on one heading line is a question about which of them is the
+        // real one. The host that passed a control meant the control.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Wire the pane into the shell")
+            .Add(t => t.Status, "In progress")
+            .Add(t => t.StatusContent, "<select data-testid='picker'></select>")
+            .Add(t => t.TestId, "panel"));
+
+        Assert.NotNull(view.Find("[data-testid='panel-status'] [data-testid='picker']"));
+        Assert.DoesNotContain("In progress", view.Markup, StringComparison.Ordinal);
+        Assert.Empty(view.FindAll(".badge--status-inprogress"));
+    }
+
+    // --- The way in and the way back out -----------------------------------
+    //
+    // A panel sits beside a list, and reading order puts it after the whole of that
+    // list. Without these two a reader who tabs off the row they just opened walks
+    // every remaining row before reaching the panel about it.
+
+    [Fact]
+    public async Task The_panel_focuses_its_circle_when_a_host_tabs_into_it()
+    {
+        // By id, because the element to focus is a different node after every
+        // render — the same reason a row is focused by id rather than held.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Tab into me")
+            .Add(t => t.OnToggle, () => { })
+            .Add(t => t.OnRename, (string _) => { })
+            .Add(t => t.TestId, "panel"));
+
+        await view.Instance.FocusFirstAsync();
+
+        var focused = context.JSInterop.Invocations["backlogFocus"].Single();
+
+        Assert.Equal(view.Find("[data-testid='panel-check']").Id, focused.Arguments[0]);
+    }
+
+    [Fact]
+    public async Task With_no_circle_the_title_is_the_front_of_the_panel()
+    {
+        // Which control the front of the panel is, is the panel's business. A host
+        // that had to name one would be a host that knew whether this task can be
+        // ticked today.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Nothing to tick")
+            .Add(t => t.OnRename, (string _) => { })
+            .Add(t => t.TestId, "panel"));
+
+        await view.Instance.FocusFirstAsync();
+
+        var focused = context.JSInterop.Invocations["backlogFocus"].Single();
+
+        Assert.Equal(view.Find("[data-testid='panel-title']").Id, focused.Arguments[0]);
+    }
+
+    [Fact]
+    public async Task A_panel_with_nothing_to_focus_asks_for_nothing()
+    {
+        // A heading and that is all it is. Aiming the focus at an element that is
+        // not a control would be worse than leaving it where the reader put it.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p.Add(t => t.Title, "Just a heading"));
+
+        await view.Instance.FocusFirstAsync();
+
+        Assert.Empty(context.JSInterop.Invocations);
+    }
+
+    [Fact]
+    public void Shift_tab_off_the_circle_is_the_way_back_out()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var left = 0;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Shift+Tab off me")
+            .Add(t => t.OnToggle, () => { })
+            .Add(t => t.OnRename, (string _) => { })
+            .Add(t => t.OnTabBackward, () => left++)
+            .Add(t => t.TestId, "panel"));
+
+        view.Find("[data-testid='panel-check']").KeyDown(new KeyboardEventArgs { Key = "Tab", ShiftKey = true });
+
+        Assert.Equal(1, left);
+
+        // Plain Tab is the browser's, and so is Shift+Tab from the title: raising it
+        // there too would put the circle behind a Shift+Tab that no longer goes
+        // there, which is a circle no keyboard can reach.
+        view.Find("[data-testid='panel-check']").KeyDown(new KeyboardEventArgs { Key = "Tab" });
+        view.Find("[data-testid='panel-title']").KeyDown(new KeyboardEventArgs { Key = "Tab", ShiftKey = true });
+
+        Assert.Equal(1, left);
+    }
+
+    [Fact]
+    public void With_no_circle_the_title_is_what_reports_the_way_out()
+    {
+        // The rule is "the first control", not "the circle" — a panel with nothing
+        // to tick still has to be leavable.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var left = 0;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Nothing to tick")
+            .Add(t => t.OnRename, (string _) => { })
+            .Add(t => t.OnTabBackward, () => left++)
+            .Add(t => t.TestId, "panel"));
+
+        view.Find("[data-testid='panel-title']").KeyDown(new KeyboardEventArgs { Key = "Tab", ShiftKey = true });
+
+        Assert.Equal(1, left);
     }
 }

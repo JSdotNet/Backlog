@@ -44,7 +44,8 @@ public sealed record TaskItemDto(
     Recurrence? Recurrence = null,
     DateOnly? InMyDayOn = null,
     IReadOnlyList<string>? DependsOn = null,
-    EntryView? View = null);
+    EntryView? View = null,
+    Attachment? Attachment = null);
 
 /// <summary>Where an entry has been projected to outside this system — today a
 /// GitHub issue. Kept as data rather than a typed link so the module does not

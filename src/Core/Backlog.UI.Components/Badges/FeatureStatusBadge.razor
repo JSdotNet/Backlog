@@ -1,0 +1,58 @@
+@*
+    The flag a half-finished feature wears — DEV for something not usable yet,
+    BETA for something reachable but unproven.
+
+    The status arrives as a string rather than an enum for the reason StatusBadge
+    takes one: the library has to render in the storybook with no application
+    behind it, so the vocabulary belongs to whoever is calling. Here that caller
+    is the shell, which maps its own AppFeatureStatus onto these slugs in one
+    place so the settings screen and the app chrome cannot disagree.
+
+    A finished feature has nothing to say, so an empty status renders nothing at
+    all rather than an empty badge. That is what lets a caller drop this into a
+    header button unconditionally instead of wrapping every use in an @@if.
+*@
+
+@if (!string.IsNullOrWhiteSpace(Slug))
+{
+    <Badge Kind="feature" Slug="@Slug" BaseClass="@BaseClass" CssClass="@CssClass" Title="@Title" TestId="@TestId" @attributes="AdditionalAttributes">@Label</Badge>
+}
+
+@code {
+    /// <summary>The status this badge holds — <c>dev</c>, <c>beta</c>, or empty
+    /// for a feature that needs no flag.</summary>
+    [Parameter]
+    public string? Status { get; set; }
+
+    /// <summary>Overrides the visible text; the slug still comes from Status.</summary>
+    [Parameter]
+    public string? Text { get; set; }
+
+    /// <summary>Why this feature is flagged, for the tooltip. The badge itself is
+    /// two or three letters, so the sentence has to live somewhere.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string BaseClass { get; set; } = "badge";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>Empty rather than a fallback slug. StatusBadge falls back to
+    /// <c>draft</c> because a backlog entry always has a status and an unreadable
+    /// one is a bug worth showing; a feature status is genuinely optional, and
+    /// the honest rendering of "no status" is no badge.</summary>
+    private string Slug => BadgeSlug.Of(Status, string.Empty);
+
+    /// <summary>The slug is already lowercase and class-safe, and the stylesheet
+    /// uppercases it. Uppercasing here as well would put DEV in the accessibility
+    /// tree as a shout rather than as the word it is.</summary>
+    private string Label => string.IsNullOrWhiteSpace(Text) ? Slug : Text;
+}

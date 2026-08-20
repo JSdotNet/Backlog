@@ -35,6 +35,34 @@
         </div>
     </Story>
 
+    <Story Name="FeatureStatusBadge"
+           Description="How finished a feature is, for the settings switch and for the entry point in the app that leads to it. A released feature renders nothing at all rather than a badge saying so, which is what lets a caller drop this into a header button without an @@if around it."
+           Code="@FeatureStatusCode">
+        <div class="sb-stack">
+            <div class="sb-row">
+                @foreach (var status in FeatureStatusValues)
+                {
+                    <FeatureStatusBadge Status="@status" TestId="@($"feature-{status}")" />
+                }
+            </div>
+            <div class="sb-row">
+                <span class="sb-label">In a button</span>
+                <AppButton Variant="ButtonVariant.Secondary">
+                    Inbox
+                    <FeatureStatusBadge Status="dev" Title="In development — not usable yet." />
+                </AppButton>
+                <AppButton Variant="ButtonVariant.Secondary">
+                    AI usage metrics
+                    <FeatureStatusBadge Status="beta" Title="Ready to try, but not tested yet." />
+                </AppButton>
+                <AppButton Variant="ButtonVariant.Secondary">
+                    Backlog
+                    <FeatureStatusBadge Status="" />
+                </AppButton>
+            </div>
+        </div>
+    </Story>
+
     <Story Name="PriorityBadge"
            Description="Same shape, priority family."
            Code="@PriorityCode">
@@ -102,6 +130,7 @@
     private static readonly string[] Slugs = ["draft", "ready", "active", "blocked", "done"];
     private static readonly string[] StatusValues = ["draft", "ready", "active", "blocked", "done"];
     private static readonly string[] PriorityValues = ["highest", "high", "medium", "low", "lowest"];
+    private static readonly string[] FeatureStatusValues = ["dev", "beta"];
     private static readonly string[] FixedTags = ["ui", "markdown", "aspire"];
 
     private List<string> _tags = ["ui", "markdown", "sync", "aspire", "docs"];
@@ -116,6 +145,10 @@
 
     private const string StatusCode = """
         <StatusBadge Status="@entry.Status" />
+        """;
+
+    private const string FeatureStatusCode = """
+        <FeatureStatusBadge Status="dev" Title="In development — not usable yet." />
         """;
 
     private const string PriorityCode = """

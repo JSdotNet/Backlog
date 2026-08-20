@@ -511,6 +511,37 @@
 .badge--status-done { background: var(--color-success); }
 .badge--status-archived { background: transparent; color: var(--color-text-disabled); border: var(--border-width) solid var(--color-border); }
 
+/*
+  Feature maturity — a different question from status, and deliberately a
+  different shape. A status badge is a 7.5rem column in a table of them; a
+  maturity flag rides beside a button label inside the app chrome and has to take
+  the room a two- or three-letter word actually needs. Hence its own kind rather
+  than a slug on `--status`.
+
+  Both values are semantic surfaces with the primary ink on them, which is what
+  the palette says those tokens are for. DEV takes the error surface because it
+  is the stronger claim — not "unproven", but "not usable yet" — and BETA the
+  warning surface. There is no third rule: a released feature renders no badge at
+  all, so there is nothing for it to be styled as.
+*/
+.badge--feature {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0 var(--spacing-xs);
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-primary);
+    background: var(--color-background-raised);
+    /* Never the thing that shrinks when a header runs out of room: the label it
+       qualifies may wrap, but a flag reading "BET" is worse than no flag. */
+    flex: none;
+    white-space: nowrap;
+}
+
+.badge--feature-dev { background: var(--color-error); }
+.badge--feature-beta { background: var(--color-warning); }
+
 /* Type is quiet: it labels, it does not compete. */
 .badge--type {
     background: transparent;
@@ -550,8 +581,7 @@
 }
 
 .status-editor__select::-ms-expand,
-.metadata-editor__select::-ms-expand,
-.entry-doc__tag-input::-ms-expand {
+.metadata-editor__select::-ms-expand {
     display: none;
 }
 
@@ -604,6 +634,92 @@
     background: transparent;
     font-style: italic;
 }
+
+/* --- Repository identity edge --------------------------------------------- */
+
+/*
+   Which repository something belongs to, as a 4px rule down its leading edge.
+   See .design/color-scheme.md#band-identity-tokens, which sanctions the five hues
+   and names the four surfaces allowed to wear one.
+
+   An inset shadow rather than a border, and that is the whole point of the thing.
+   A border would take 4px out of the element's content box and shift every control
+   inside it; a shadow paints in the padding that is already there. So a chip or a
+   row keeps its own box, its own surface, its own border and its own text colour —
+   the hue is added to what was already correct rather than replacing part of it.
+
+   The mark is decoration and nothing else. Every surface that wears one also writes
+   the repository alias in words, so this is aria-hidden by construction: there is no
+   element here to label.
+*/
+.repo-mark {
+    box-shadow: inset var(--border-width-4) 0 0 0 var(--repo-mark-color, transparent);
+}
+
+.repo-mark--1 { --repo-mark-color: var(--color-band-1); }
+.repo-mark--2 { --repo-mark-color: var(--color-band-2); }
+.repo-mark--3 { --repo-mark-color: var(--color-band-3); }
+.repo-mark--4 { --repo-mark-color: var(--color-band-4); }
+.repo-mark--5 { --repo-mark-color: var(--color-band-5); }
+
+/*
+   The control that offers the choice. The one place a hue is a fill rather than an
+   edge, because a swatch you cannot see the colour of is not a swatch — argued in
+   .design/color-scheme.md#band-identity-tokens rather than assumed here.
+
+   The ring is the chosen state and it is drawn outside the swatch, so picking one
+   does not change how much of the hue is on screen. Every swatch carries its own
+   label, so the fill is never the only thing saying which one this is.
+*/
+.repo-swatches {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+}
+
+.repo-swatch {
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--repo-mark-color, transparent);
+    cursor: pointer;
+}
+
+.repo-swatch:hover {
+    border-color: var(--color-border-strong);
+}
+
+.repo-swatch:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.repo-swatch--chosen {
+    border-color: var(--color-text-primary);
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-background),
+                0 0 0 calc(var(--border-width-2) + var(--border-width)) var(--color-text-primary);
+}
+
+.repo-swatch--1 { --repo-mark-color: var(--color-band-1); }
+.repo-swatch--2 { --repo-mark-color: var(--color-band-2); }
+.repo-swatch--3 { --repo-mark-color: var(--color-band-3); }
+.repo-swatch--4 { --repo-mark-color: var(--color-band-4); }
+.repo-swatch--5 { --repo-mark-color: var(--color-band-5); }
+
+/* Room for the rule. Each surface adds it to its own leading padding, because only
+   that surface knows what its padding was — a shared override here would be this
+   utility guessing, and guessing wrong for anything that is not a chip. */
+.task-item.repo-mark {
+    padding-left: calc(var(--spacing-md) + var(--border-width-4));
+}
+
+.integration-link-list__group.repo-mark {
+    padding-left: var(--spacing-sm);
+}
+
 
 /* An entry a repository committed. It reads exactly like every other entry —
    what it does not do is pretend the controls around it would change anything,
@@ -2223,8 +2339,13 @@ button.task-panel__check:focus-visible {
 /* The row's own hit area. A button rather than a click handler on the li, so it
    is reachable, announced and activated the way every other row in this library
    is. */
+/* Two tracks: the line, and the status beside it. The second track collapses to
+   nothing on a row with no status, so a checklist of sub-items lays out exactly
+   as it did before statuses existed. The metadata line spans both, because it is
+   the line under all of it rather than a third column. */
 .task-item__body {
     display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 2px;
     /* The only child that gives up room. min-width:0 is what lets it, since a
        flex item will not shrink below its content without it — and the title's
@@ -2247,10 +2368,30 @@ button.task-panel__check:focus-visible {
 }
 
 .task-item__title {
+    grid-column: 1;
     color: var(--color-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.task-item__meta {
+    grid-column: 1 / -1;
+}
+
+/* Beside the title, and never squeezed by it: a badge that shrank would
+   hyphenate a single word. The title takes the space instead, which it already
+   knows how to give up — it ellipses.
+
+   Set apart from the title by its own gap rather than by the row's, because the
+   row lays out the circle, the line and the controls at the end; the status is
+   part of the line. */
+.task-item__status {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    flex: 0 0 auto;
+    margin-left: var(--spacing-xs);
 }
 
 /* Done is struck through and quieter, but still readable: a finished task is
@@ -2484,7 +2625,17 @@ button.task-panel__check:focus-visible {
 
 /* --- Renaming in place --------------------------------------------------- */
 
+/* A row whose title is a field keeps its status beside the field, for the reason
+   the metadata line is kept too: the same facts must not be dropped by a decision
+   about how the title is edited. The field gives up the room, as the title does. */
 .task-item__rename {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.task-item__rename > .task-item__rename-input {
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -2817,17 +2968,12 @@ button.task-panel__check:focus-visible {
     break-inside: avoid;
 }
 
-/* A caption, not a heading: the rows under it carry the weight, and a label
-   competing with them would turn the pane into a list of labels. Indented to the
-   row's own text inset, so the column reads down one edge. */
-.task-action-group__caption {
-    margin: 0 0 var(--spacing-2xs);
-    padding: 0 var(--spacing-md);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
+/* The caption carries `sr-only` and so needs no appearance of its own: the
+   grouping a sighted reader gets is the layout above — rows together, no break
+   across the gap, space between groups — and the caption is what a reader who
+   cannot see that layout gets instead. A rule here would be a rule for something
+   nobody draws; the margin it used to spend is now the space between one group's
+   rows and the next's. */
 
 /* --- Task panel ---------------------------------------------------------- */
 /*
@@ -2930,9 +3076,32 @@ button.task-panel__check:focus-visible {
     gap: var(--spacing-xs);
 }
 
+/* Badges, pickers and links on one line, wrapping rather than scrolling: this
+   strip is as long as the host made it, and a row of classification that ran off
+   the edge would hide the half of it nobody scrolled to. */
+.task-panel__filing {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
 .task-panel__body {
     display: flex;
     flex-direction: column;
+    min-width: 0;
+}
+
+/* A stack, not a row of buttons. What acts on the whole task is usually a couple
+   of controls, but it is sometimes a control and the thing it revealed — a source
+   view, a confirmation — and a slot that had laid its content out in a line would
+   be a slot those cannot go in. Which way the controls themselves sit is the
+   host's, the way it is in every other slot here. */
+.task-panel__footer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
     min-width: 0;
 }
 
@@ -3855,6 +4024,16 @@ button.tag-chip__label {
     color: var(--color-text-primary);
     font-size: var(--font-size-sm);
     font-weight: 600;
+}
+
+/* The label and whatever qualifies it, on one line. The text block above is a
+   grid, so without this a suffix would land on its own row under the name and
+   read as a second piece of copy rather than as a mark on the first. */
+.toggle__label-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    min-width: 0;
 }
 
 .toggle__description {

@@ -71,6 +71,21 @@ no invariant against one. A cycle spans aggregate boundaries, so no single entry
 can enforce its absence transactionally; and which edge in a loop is the wrong
 one is answerable only by the person who wrote them.
 
+`attachment` names one place on disk the entry's material lives: a folder or an
+archive, held as a path. One place and not a list, which is the decision worth
+recording here rather than in the surface that draws it - a collection would make
+the entry's presentation grow with however many files somebody happened to drop
+on it, and what a person means by "the files for this" is a folder they already
+keep them in. A path and not a copy, for the reason the whole context rests on:
+the entry is Markdown that gets committed and shared
+(`.arc42/02-constraints.md#technical-constraints`), and copying material into a
+store would make the text stop being the whole of the entry. So the entry points,
+and pointing is all it does. Whether the path still resolves is the file system's
+answer and a different answer on a different machine, so it carries no invariant
+and is never validated: an entry written on the desktop and read on the phone is
+not invalid for naming a drive the phone has never seen. Its spelling on the
+metadata line is `.design/content-editing.md#scheduling-and-dependency-tokens`.
+
 The entry also carries one attribute that is not a fact about the work at all.
 `view` records which reading of the body the person last asked for - the steps,
 or the Markdown block those steps are written in - and it is a display preference
@@ -132,7 +147,34 @@ the next occurrence falls - that is the `Recurrence` policy's calculation - and
 the repeat is anchored to `due_on` rather than to the completion date, so a
 weekly entry finished three days late still falls due on its original weekday.
 
-#### Usage Event`r`n`r`nAn immutable audit record of a prompt copy/use: `timestamp` and `action`.`r`nEquality is by value.`r`n`r`n#### AI Work Log`r`n`r`nAn immutable record that an AI-assisted action contributed to the entry: `timestamp`, `ai_tool`, `activity_kind`, optional `session_id`, and optional `outcome_ref`. Equality is by value.
+#### Attachment
+
+Where an entry's material is kept: a `path` naming a folder or an archive.
+Equality is by value.
+
+Two things are read off the path rather than stored beside it. Its `name` is the
+last segment - what a person would call the thing - and whether it is an archive
+is decided by the path's spelling rather than by asking the disk, so that the
+value object stays comparable and a file renamed underneath an entry cannot
+change what the entry says. A folder that happens to be called `backup.zip` is an
+archive by this rule, and that is the right answer for the only thing the answer
+decides: which word to call it.
+
+How much is in the place is deliberately not part of the value. A count is a
+question for whoever can see the file system at the moment it is asked, and an
+entry that stored one would be an entry asserting something that stopped being
+true the moment somebody added a file.
+
+#### Usage Event
+
+An immutable audit record of a prompt copy/use: `timestamp` and `action`.
+Equality is by value.
+
+#### AI Work Log
+
+An immutable record that an AI-assisted action contributed to the entry:
+`timestamp`, `ai_tool`, `activity_kind`, optional `session_id`, and optional
+`outcome_ref`. Equality is by value.
 
 ### Enums
 

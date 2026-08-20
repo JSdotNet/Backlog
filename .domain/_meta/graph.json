@@ -6,29 +6,29 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 399,
-    "edges": 614,
+    "nodes": 403,
+    "edges": 624,
     "nodesByFolder": {
-      "domain": 389,
+      "domain": 393,
       "arc42": 8,
       "design": 2
     },
     "nodesByType": {
       "file": 73,
-      "chapter": 277,
-      "heading": 49
+      "chapter": 280,
+      "heading": 50
     },
     "nodesByStatus": {
-      "draft": 287,
-      "proposed": 16,
+      "draft": 289,
+      "proposed": 17,
       "deprecated": 3,
       "idea": 1,
       "active": 43,
-      "none": 49
+      "none": 50
     },
     "edgesByType": {
-      "contains": 317,
-      "related": 268,
+      "contains": 321,
+      "related": 274,
       "depends-on": 29
     }
   },
@@ -81,7 +81,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-service-projection",
           "level": 2,
-          "line": 178,
+          "line": 220,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#aggregate-progress-signal",
@@ -98,7 +98,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-service-recurrence",
           "level": 2,
-          "line": 191,
+          "line": 233,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -116,7 +116,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-statuschanged",
           "level": 2,
-          "line": 232,
+          "line": 274,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -133,7 +133,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entryprojected",
           "level": 2,
-          "line": 258,
+          "line": 300,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -151,7 +151,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entrycompleted",
           "level": 2,
-          "line": 285,
+          "line": 327,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -169,7 +169,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-occurrencespawned",
           "level": 2,
-          "line": 310,
+          "line": 352,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -187,7 +187,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-aiworklogged",
           "level": 2,
-          "line": 338,
+          "line": 380,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -255,6 +255,22 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/features.md#sub-feature-attached-material",
+          "label": "Sub-feature: Attached material",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "sub-feature-attached-material",
+          "level": 3,
+          "line": 55,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/domain.md#attachment"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
           "label": "Feature: Scheduling and recurrence",
           "type": "chapter",
@@ -262,7 +278,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-scheduling-and-recurrence",
           "level": 2,
-          "line": 55,
+          "line": 85,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -281,7 +297,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-due-dates",
           "level": 3,
-          "line": 79,
+          "line": 109,
           "status": "proposed"
         }
       },
@@ -294,7 +310,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-reminders",
           "level": 3,
-          "line": 90,
+          "line": 120,
           "status": "proposed"
         }
       },
@@ -307,7 +323,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-recurring-entries",
           "level": 3,
-          "line": 105,
+          "line": 135,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#domain-service-recurrence",
@@ -324,7 +340,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-my-day",
           "level": 2,
-          "line": 124,
+          "line": 154,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -343,7 +359,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-entry-dependencies",
           "level": 2,
-          "line": 143,
+          "line": 173,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -363,7 +379,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-readiness-and-chain-order",
           "level": 3,
-          "line": 161,
+          "line": 191,
           "status": "proposed"
         }
       },
@@ -376,7 +392,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-multi-repo-targeting",
           "level": 2,
-          "line": 185,
+          "line": 215,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-backlog-entry-creation"
@@ -395,7 +411,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-projection",
           "level": 2,
-          "line": 197,
+          "line": 227,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-multi-repo-targeting"
@@ -414,7 +430,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-issue-projection-and-state-read-back",
           "level": 3,
-          "line": 209,
+          "line": 239,
           "status": "draft",
           "feature-flag": [
             "github-integration"
@@ -434,7 +450,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-search-filter-and-organize",
           "level": 2,
-          "line": 225,
+          "line": 255,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-bi-directional-linking"
@@ -450,7 +466,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-manual-ordering",
           "level": 3,
-          "line": 237,
+          "line": 267,
           "status": "draft"
         }
       },
@@ -463,7 +479,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-prompt-features",
           "level": 2,
-          "line": 247,
+          "line": 277,
           "status": "draft"
         }
       },
@@ -476,7 +492,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-hand-off-to-copilot-cli",
           "level": 3,
-          "line": 256,
+          "line": 286,
           "status": "draft",
           "feature-flag": [
             "copilot-cli"
@@ -495,7 +511,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 269,
+          "line": 299,
           "status": "draft",
           "feature-flag": [
             "ai-assistant"
@@ -515,7 +531,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-archive-and-lifecycle",
           "level": 2,
-          "line": 285,
+          "line": 315,
           "status": "draft"
         }
       },
@@ -528,7 +544,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-roadmap-planning",
           "level": 2,
-          "line": 294,
+          "line": 324,
           "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -549,7 +565,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-roadmap-views",
           "level": 3,
-          "line": 324,
+          "line": 354,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline"
@@ -835,6 +851,29 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/naming.md#term-attachment",
+          "label": "Term: Attachment",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-attachment",
+          "level": 2,
+          "line": 165,
+          "status": "proposed",
+          "aliases": [
+            "attachment",
+            "files",
+            "attached folder",
+            "attached material"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#attachment",
+            ".domain/backlog/features.md#sub-feature-attached-material"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/naming.md#term-readiness",
           "label": "Term: Readiness",
           "type": "chapter",
@@ -842,7 +881,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-readiness",
           "level": 2,
-          "line": 165,
+          "line": 180,
           "status": "proposed",
           "aliases": [
             "TaskReadiness",
@@ -863,7 +902,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-occurrence",
           "level": 2,
-          "line": 177,
+          "line": 192,
           "status": "proposed",
           "aliases": [
             "recurrence_source_id",
@@ -883,7 +922,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-roadmap",
           "level": 2,
-          "line": 190,
+          "line": 205,
           "status": "deprecated",
           "aliases": [
             "Roadmap planning",
@@ -3229,6 +3268,23 @@
       },
       {
         "data": {
+          "id": ".domain/repository-management/features.md#sub-feature-repository-identity-colour",
+          "label": "Sub-feature: Repository identity colour",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/repository-management/features.md",
+          "slug": "sub-feature-repository-identity-colour",
+          "level": 3,
+          "line": 36,
+          "status": "draft",
+          "related": [
+            ".design/color-scheme.md#band-identity-tokens",
+            ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
           "label": "Sub-feature: Repository knowledge folder settings",
           "type": "chapter",
@@ -3236,7 +3292,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "sub-feature-repository-knowledge-folder-settings",
           "level": 3,
-          "line": 36,
+          "line": 62,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-repository-knowledge-areas"
@@ -3252,7 +3308,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-package-and-dependency-tracking",
           "level": 2,
-          "line": 50,
+          "line": 76,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-registration"
@@ -3268,7 +3324,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-technology-stack-inventory",
           "level": 2,
-          "line": 61,
+          "line": 87,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-registration"
@@ -3287,7 +3343,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-github-integration",
           "level": 2,
-          "line": 72,
+          "line": 98,
           "status": "draft"
         }
       },
@@ -3300,7 +3356,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "sub-feature-github-access-resolution",
           "level": 3,
-          "line": 82,
+          "line": 108,
           "status": "draft",
           "related": [
             ".domain/backlog/features.md#feature-projection"
@@ -3316,7 +3372,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-repository-health-scoring",
           "level": 2,
-          "line": 96,
+          "line": 122,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-package-and-dependency-tracking",
@@ -3336,7 +3392,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-technology-trend-analysis",
           "level": 2,
-          "line": 108,
+          "line": 134,
           "status": "draft",
           "related": [
             ".domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking"
@@ -3352,7 +3408,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-bulk-operations",
           "level": 2,
-          "line": 119,
+          "line": 145,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-health-scoring"
@@ -3832,7 +3888,8 @@
           "line": 181,
           "status": "draft",
           "related": [
-            ".design/color-scheme.md#band-identity-tokens"
+            ".design/color-scheme.md#band-identity-tokens",
+            ".domain/repository-management/features.md#sub-feature-repository-identity-colour"
           ]
         }
       },
@@ -3845,7 +3902,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-editing-the-plan-in-place",
           "level": 2,
-          "line": 204,
+          "line": 210,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-owning-a-stored-plan"
@@ -3865,7 +3922,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-editing-what-something-waits-for",
           "level": 3,
-          "line": 221,
+          "line": 227,
           "status": "draft",
           "related": [
             ".domain/roadmap/features.md#sub-feature-refusing-a-circular-plan"
@@ -3881,7 +3938,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-refusing-an-edit-rather-than-half-applying-it",
           "level": 3,
-          "line": 234,
+          "line": 240,
           "status": "draft"
         }
       },
@@ -3894,7 +3951,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-publishing-planned-intent-for-observation",
           "level": 2,
-          "line": 244,
+          "line": 250,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-owning-a-stored-plan"
@@ -5323,6 +5380,18 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/domain.md#attachment",
+          "label": "Attachment",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "slug": "attachment",
+          "level": 4,
+          "line": 150
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/domain.md#sub-item",
           "label": "Sub-Item",
           "type": "heading",
@@ -5330,7 +5399,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "sub-item",
           "level": 4,
-          "line": 97
+          "line": 112
         }
       },
       {
@@ -5342,7 +5411,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-type",
           "level": 4,
-          "line": 139
+          "line": 181
         }
       },
       {
@@ -5354,7 +5423,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-status",
           "level": 4,
-          "line": 143
+          "line": 185
         }
       },
       {
@@ -5366,7 +5435,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "recurrence",
           "level": 4,
-          "line": 123
+          "line": 138
         }
       },
       {
@@ -5378,7 +5447,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "readiness",
           "level": 4,
-          "line": 164
+          "line": 206
         }
       },
       {
@@ -5726,7 +5795,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "priority",
           "level": 4,
-          "line": 147
+          "line": 189
         }
       },
       {
@@ -6058,22 +6127,6 @@
       },
       {
         "data": {
-          "id": ".design/interaction-guidelines.md",
-          "label": "Interaction Guidelines",
-          "type": "file",
-          "folder": "design",
-          "path": ".design/interaction-guidelines.md",
-          "status": "active",
-          "related": [
-            ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
-            ".design/accessibility.md",
-            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
-          ],
-          "outOfScope": true
-        }
-      },
-      {
-        "data": {
           "id": ".design/color-scheme.md#band-identity-tokens",
           "label": "Band Identity Tokens",
           "type": "chapter",
@@ -6087,6 +6140,22 @@
             ".design/design-principles.md#dark-mode-only",
             ".design/accessibility.md#contrast",
             ".domain/roadmap/features.md#feature-repository-scoped-planning"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md",
+          "label": "Interaction Guidelines",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
+            ".design/accessibility.md",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
           ],
           "outOfScope": true
         }
@@ -6178,6 +6247,14 @@
           "id": "contains:.domain/backlog/features.md#feature-refinement-and-prioritization->.domain/backlog/features.md#sub-feature-sub-items-and-steps",
           "source": ".domain/backlog/features.md#feature-refinement-and-prioritization",
           "target": ".domain/backlog/features.md#sub-feature-sub-items-and-steps",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md#feature-refinement-and-prioritization->.domain/backlog/features.md#sub-feature-attached-material",
+          "source": ".domain/backlog/features.md#feature-refinement-and-prioritization",
+          "target": ".domain/backlog/features.md#sub-feature-attached-material",
           "type": "contains"
         }
       },
@@ -6418,6 +6495,14 @@
           "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-dependency",
           "source": ".domain/backlog/naming.md",
           "target": ".domain/backlog/naming.md#term-dependency",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-attachment",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-attachment",
           "type": "contains"
         }
       },
@@ -7402,6 +7487,14 @@
           "id": "contains:.domain/repository-management/features.md#feature-repository-registration->.domain/repository-management/features.md#sub-feature-repository-registry-configuration",
           "source": ".domain/repository-management/features.md#feature-repository-registration",
           "target": ".domain/repository-management/features.md#sub-feature-repository-registry-configuration",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/repository-management/features.md#feature-repository-registration->.domain/repository-management/features.md#sub-feature-repository-identity-colour",
+          "source": ".domain/repository-management/features.md#feature-repository-registration",
+          "target": ".domain/repository-management/features.md#sub-feature-repository-identity-colour",
           "type": "contains"
         }
       },
@@ -8415,6 +8508,22 @@
       },
       {
         "data": {
+          "id": "contains:.domain/backlog/domain.md#aggregate-backlog-entry->.domain/backlog/domain.md#attachment",
+          "source": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "target": ".domain/backlog/domain.md#attachment",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#sub-feature-attached-material->.domain/backlog/domain.md#attachment",
+          "source": ".domain/backlog/features.md#sub-feature-attached-material",
+          "target": ".domain/backlog/domain.md#attachment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.domain/backlog/features.md#feature-scheduling-and-recurrence->.domain/backlog/features.md#feature-refinement-and-prioritization",
           "source": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
           "target": ".domain/backlog/features.md#feature-refinement-and-prioritization",
@@ -8730,6 +8839,22 @@
           "id": "related:.domain/backlog/naming.md#term-dependency->.domain/backlog/domain.md#aggregate-backlog-entry",
           "source": ".domain/backlog/naming.md#term-dependency",
           "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-attachment->.domain/backlog/domain.md#attachment",
+          "source": ".domain/backlog/naming.md#term-attachment",
+          "target": ".domain/backlog/domain.md#attachment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-attachment->.domain/backlog/features.md#sub-feature-attached-material",
+          "source": ".domain/backlog/naming.md#term-attachment",
+          "target": ".domain/backlog/features.md#sub-feature-attached-material",
           "type": "related"
         }
       },
@@ -9807,6 +9932,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/repository-management/features.md#sub-feature-repository-identity-colour->.design/color-scheme.md#band-identity-tokens",
+          "source": ".domain/repository-management/features.md#sub-feature-repository-identity-colour",
+          "target": ".design/color-scheme.md#band-identity-tokens",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/repository-management/features.md#sub-feature-repository-identity-colour->.domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
+          "source": ".domain/repository-management/features.md#sub-feature-repository-identity-colour",
+          "target": ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings->.domain/second-brain/features.md#feature-repository-knowledge-areas",
           "source": ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
           "target": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
@@ -10218,6 +10359,14 @@
           "id": "related:.domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance->.design/color-scheme.md#band-identity-tokens",
           "source": ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
           "target": ".design/color-scheme.md#band-identity-tokens",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance->.domain/repository-management/features.md#sub-feature-repository-identity-colour",
+          "source": ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
+          "target": ".domain/repository-management/features.md#sub-feature-repository-identity-colour",
           "type": "related"
         }
       },

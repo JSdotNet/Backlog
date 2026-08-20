@@ -14,16 +14,17 @@
    the grid template can never disagree. They are one decision: a grid that put the
    fixed column last while the attribute still said "start" would run the drag
    backwards, which is exactly the bug the attribute was added to fix. *@
-@* data-pane-drag: a split that does not own the JS resizer does not take part in
-   the JS drag either. The pointer handler is one document-level listener with one
-   owner, so a second split dragging through it would report its width to whoever
-   registered first — the host's own layout, not this one. The keyboard resize
-   below is unaffected, so the gesture still has an equivalent. *@
+@* data-pane-owner names this split to the shared resizer, so the width a drag
+   settles on comes back to this component and not to whichever one registered
+   first. It used to be data-pane-drag="off": the resizer kept a single owner for
+   the whole document, so a split sharing a page with the app's own resizable
+   layout had to sit the pointer drag out and keep only its keyboard resize. The
+   registry is keyed now, so both drag. *@
 <div class="@ClassValue"
      data-testid="@TestId"
      data-pane-split="true"
      data-pane-anchor="@AnchorAttribute"
-     data-pane-drag="@(UseJsResizer ? null : "off")"
+     data-pane-owner="@(UseJsResizer ? _ownerId : null)"
      style="--split-pane-fixed: @Rem(FixedWidthRem)rem"
      @attributes="AdditionalAttributes">
     <div class="split-pane__start">@Start</div>
@@ -35,7 +36,7 @@
          aria-orientation="vertical"
          aria-label="@AriaLabel"
          aria-valuemin="@Rem(MinRem)"
-         aria-valuemax="@Rem(MaxRem)"
+         aria-valuemax="@Rem(EffectiveMaxRem)"
          aria-valuenow="@Rem(FixedWidthRem)"
          tabindex="0"
          @onkeydown="OnKeyDownAsync"
@@ -87,14 +88,25 @@
     [Parameter]
     public double MinRem { get; set; } = 24;
 
+    /// <summary>
+    /// The widest the fixed pane may get, before the browser has been asked.
+    /// <para>
+    /// A ceiling stated here is a guess about a window nobody has measured, so it
+    /// only holds until the resizer reports the real one — see
+    /// <see cref="EffectiveMaxRem"/>. Leave it alone unless the pane has a reason
+    /// of its own to stop growing that has nothing to do with the room available.
+    /// </para>
+    /// </summary>
     [Parameter]
     public double MaxRem { get; set; } = 200;
 
     [Parameter]
     public string AriaLabel { get; set; } = "Pane width";
 
-    /// <summary>Set false when the host already owns the JS resizer, so the two
-    /// do not both claim the singleton on the JS side.</summary>
+    /// <summary>Set false for a split whose width nothing may drag — the
+    /// separator keeps its keyboard resize either way. It no longer has anything
+    /// to do with sharing the page: the resizer keys its owners by layout, so two
+    /// splits and the host's own layout can all be dragged.</summary>
     [Parameter]
     public bool UseJsResizer { get; set; } = true;
 
@@ -111,6 +123,27 @@
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private DotNetObjectReference<SplitPane>? _self;
+
+    /// <summary>This split's name to the shared resizer. Minted per instance
+    /// because the point of the name is to tell two splits apart.</summary>
+    private readonly string _ownerId = "split-pane-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>
+    /// The ceiling the browser measured, once it has.
+    /// <para>
+    /// Held separately from <see cref="MaxRem"/> rather than assigned over it,
+    /// because a host that states a ceiling re-states it on every render — and
+    /// this component re-renders whenever anything in either pane changes. Writing
+    /// the measurement into the parameter meant it survived exactly until the next
+    /// render, which is the same flaw the width had before the host started
+    /// holding it in a field.
+    /// </para>
+    /// </summary>
+    private double? _measuredMaxRem;
+
+    /// <summary>What the pane is actually clamped to: the measured room when there
+    /// is a measurement, and the host's guess until then.</summary>
+    private double EffectiveMaxRem => _measuredMaxRem ?? MaxRem;
 
     /// <summary>The anchor as the shared resizer spells it. One expression, so the
     /// attribute and the modifier class below are two readings of one field rather
@@ -136,7 +169,7 @@
 
         try
         {
-            await Js.InvokeVoidAsync("backlogPaneResizer.initialize", _self);
+            await Js.InvokeVoidAsync("backlogPaneResizer.initialize", _self, _ownerId);
         }
         catch (JSException)
         {
@@ -150,7 +183,7 @@
     [JSInvokable]
     public Task SetSidePaneMaxWidthAsync(double maxRem)
     {
-        MaxRem = maxRem;
+        _measuredMaxRem = maxRem;
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -182,13 +215,13 @@
         // Home and End are about the value's ends rather than about the screen's, so
         // they mean the same thing whichever edge the pane is fixed to.
         "Home" => CommitAsync(MinRem),
-        "End" => CommitAsync(MaxRem),
+        "End" => CommitAsync(EffectiveMaxRem),
         _ => Task.CompletedTask
     };
 
     private Task CommitAsync(double widthRem)
     {
-        var clamped = Math.Clamp(widthRem, MinRem, Math.Max(MinRem, MaxRem));
+        var clamped = Math.Clamp(widthRem, MinRem, Math.Max(MinRem, EffectiveMaxRem));
         if (Math.Abs(clamped - FixedWidthRem) < 0.001) return Task.CompletedTask;
 
         FixedWidthRem = clamped;
@@ -202,7 +235,7 @@
         {
             try
             {
-                await Js.InvokeVoidAsync("backlogPaneResizer.dispose");
+                await Js.InvokeVoidAsync("backlogPaneResizer.dispose", _ownerId);
             }
             catch (JSException)
             {

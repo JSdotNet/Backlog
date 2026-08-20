@@ -50,15 +50,22 @@ internal static class IntegrationFixtures
     /// <summary>The repository the entry lives in. The alias is what a heading
     /// says: "owner/name" is mostly punctuation to a reader who already knows
     /// which repository they are looking at.</summary>
-    public static readonly IntegrationRepositoryRef ProductRepo = new("repo-backlog", "jsdotnet/backlog", "Backlog");
+    /// <summary>The colours are the workspace's answer, which in the app means the one
+    /// chosen in Settings. A fixture stands in for it here because the library declines
+    /// to pick — see <c>.design/color-scheme.md#band-identity-tokens</c>.</summary>
+    public static readonly IntegrationRepositoryRef ProductRepo =
+        new("repo-backlog", "jsdotnet/backlog", "Backlog") { Colour = 1 };
 
-    public static readonly IntegrationRepositoryRef DesktopRepo = new("repo-desktop", "jsdotnet/backlog-desktop", "Desktop");
+    public static readonly IntegrationRepositoryRef DesktopRepo =
+        new("repo-desktop", "jsdotnet/backlog-desktop", "Desktop") { Colour = 2 };
 
-    public static readonly IntegrationRepositoryRef SyncRepo = new("repo-sync", "jsdotnet/backlog-sync", "Sync");
+    public static readonly IntegrationRepositoryRef SyncRepo =
+        new("repo-sync", "jsdotnet/backlog-sync", "Sync") { Colour = 3 };
 
     /// <summary>Deliberately without an alias, so one group heading on the
     /// eleven-link story shows what <c>DisplayName</c> falls back to.</summary>
-    public static readonly IntegrationRepositoryRef PluginsRepo = new("repo-plugins", "jsdotnet/claude-plugins");
+    public static readonly IntegrationRepositoryRef PluginsRepo =
+        new("repo-plugins", "jsdotnet/claude-plugins") { Colour = 4 };
 
     // --- Readiness ---------------------------------------------------------
 

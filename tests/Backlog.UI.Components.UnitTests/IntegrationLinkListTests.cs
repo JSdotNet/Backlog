@@ -44,6 +44,55 @@ public sealed class IntegrationLinkListTests
         Assert.Single(list.FindAll("[data-testid='empty'] [data-testid='create']"));
     }
 
+    // --- Repository identity ---------------------------------------------
+
+    [Fact]
+    public void A_headed_group_wears_the_repositorys_identity_mark()
+    {
+        using var context = new BunitContext();
+
+        var list = context.Render<IntegrationLinkList>(parameters => parameters
+            .Add(l => l.GroupTestIdPrefix, "group")
+            .Add(l => l.Links, new[]
+            {
+                Issue("1", Backlog with { Colour = 3 }),
+                Issue("2", Aspire with { Colour = 5 })
+            }));
+
+        Assert.Contains("repo-mark--3", list.Find("[data-testid='group-r1']").ClassName);
+        Assert.Contains("repo-mark--5", list.Find("[data-testid='group-r2']").ClassName);
+    }
+
+    [Fact]
+    public void An_unheaded_group_wears_no_mark()
+    {
+        // .design/color-scheme.md#band-identity-tokens requires the alias to be written
+        // wherever the hue is shown, and the heading is where it is written. One group
+        // gets no heading, so it gets no hue either — a coloured edge with nothing
+        // naming it would be colour as the sole carrier.
+        using var context = new BunitContext();
+
+        var list = context.Render<IntegrationLinkList>(parameters => parameters
+            .Add(l => l.GroupTestIdPrefix, "group")
+            .Add(l => l.Links, new[] { Issue("1", Backlog with { Colour = 3 }) }));
+
+        Assert.DoesNotContain("repo-mark", list.Find("[data-testid='group-r1']").ClassName);
+    }
+
+    [Fact]
+    public void A_repository_the_host_has_not_coloured_wears_no_mark()
+    {
+        // The library declines to pick one. Which repository is which is a workspace
+        // question, and a component that answered it would be a second answer.
+        using var context = new BunitContext();
+
+        var list = context.Render<IntegrationLinkList>(parameters => parameters
+            .Add(l => l.GroupTestIdPrefix, "group")
+            .Add(l => l.Links, new[] { Issue("1", Backlog), Issue("2", Aspire) }));
+
+        Assert.DoesNotContain("repo-mark", list.Find("[data-testid='group-r1']").ClassName);
+    }
+
     [Fact]
     public void One_repository_gets_no_heading()
     {

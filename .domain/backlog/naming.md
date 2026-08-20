@@ -162,6 +162,21 @@ two things finished before starting is ordinary. Written `after:<id>` in the
 metadata line. A weak reference across an aggregate boundary: an id resolving to
 nothing is still a dependency, and still blocks.
 
+## Term: Attachment
+
+```meta
+status: proposed
+aliases: [attachment, files, attached folder, attached material]
+related: [.domain/backlog/domain.md#attachment, .domain/backlog/features.md#sub-feature-attached-material]
+```
+
+The one place an entry's material is kept: a folder or an archive, named by path
+and written `files:<path>` in the metadata line. Singular by design — an entry has
+an attachment or it has none, never several — and a pointer rather than a copy, so
+"attached" means "this is where it lives" and not "this is stored here". Called
+"Folder" or "Archive" on screen depending on the path, never "Attachments" in the
+plural about one entry.
+
 ## Term: Readiness
 
 ```meta

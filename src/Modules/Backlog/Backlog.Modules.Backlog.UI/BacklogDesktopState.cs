@@ -141,6 +141,26 @@ public sealed class BacklogDesktopState : IDisposable
 
     public IReadOnlyList<GitHubRepositoryRef> Repositories => _gitHub.Repositories;
 
+    /// <summary>Which identity hue each configured repository wears, keyed by alias.
+    /// Read from the settings store rather than worked out here, so the filter, the
+    /// list and the roadmap are all reading one answer — see
+    /// <c>.design/color-scheme.md#band-identity-tokens</c>.</summary>
+    public IReadOnlyDictionary<string, int> RepositoryColours => _gitHub.Settings.Current.Colours();
+
+    /// <summary>The hue for a repository named any way the settings store recognises —
+    /// its alias, or the <c>owner/name</c> a session records. Null when nothing
+    /// configured answers to it.</summary>
+    public int? RepositoryColourFor(string? repository) => _gitHub.Settings.Current.ColourFor(repository);
+
+    /// <summary>The identity mark for a row, as classes, or null when the row's area
+    /// names no configured repository. The classes are the shared
+    /// <c>repo-mark</c> utility; nothing here knows what colour that turns out to
+    /// be.</summary>
+    public string? RepositoryMarkClass(EntryRow row) =>
+        RepositoryFor(row) is { } repository && RepositoryColours.TryGetValue(repository.Alias, out var colour)
+            ? $"repo-mark repo-mark--{colour}"
+            : null;
+
     public AppSaveState SaveState { get; private set; } = AppSaveState.Saved;
 
     /// <summary>The one row currently showing its raw markdown. Everything else
@@ -705,6 +725,13 @@ public sealed class BacklogDesktopState : IDisposable
 
     public async Task ChangeDependsOnAsync(EntryRow row, IEnumerable<string>? dependsOn) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithDependsOn(row.RawText, dependsOn));
+
+    /// <summary>Attaches a place, or detaches what was attached. A path and never a
+    /// copy, and one place and never a list — both decisions live on
+    /// <see cref="Attachment"/>, which also turns a blank path into "nothing
+    /// attached" so this method does not have to.</summary>
+    public async Task ChangeAttachmentAsync(EntryRow row, string? path) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithAttachment(row.RawText, Attachment.From(path)));
 
     /// <summary>
     /// Remembers which reading of the body the person asked for.
@@ -1482,6 +1509,13 @@ public sealed class EntryRow
         get { Render(); return _parsed!.DependsOn ?? []; }
     }
 
+    /// <summary>What is attached, as written down. One place or nothing — see
+    /// <see cref="Attachment"/> for why it is never a list.</summary>
+    public Attachment? PreviewAttachment
+    {
+        get { Render(); return _parsed!.Attachment; }
+    }
+
     /// <summary>
     /// Which reading of the body this entry was last looked at in, as written down.
     /// Null when nobody has said, which is a different answer from either view —
@@ -1600,6 +1634,11 @@ public sealed class EntryRow
             foreach (var id in PreviewDependsOn)
             {
                 readings.Add(new MetaReading("after", id, true));
+            }
+
+            if (PreviewAttachment is { } attachment)
+            {
+                readings.Add(new MetaReading("files", attachment.Path, true));
             }
 
             // Last, and only when it was written down. The reading line restates

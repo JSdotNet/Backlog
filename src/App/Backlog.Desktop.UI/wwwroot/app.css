@@ -286,6 +286,30 @@ h1, h2, h3 {
     border-color: var(--color-primary);
 }
 
+/* Room for the repository identity rule, added to the chip's own leading padding so
+   a coloured chip is exactly as wide as an uncoloured one beside it. The mark itself
+   is the shared .repo-mark utility in components.css. */
+.chip.repo-mark {
+    padding-left: calc(var(--spacing-sm) + var(--border-width-4));
+}
+
+/*
+   The one place two sanctioned colours meet. A selected scope chip is filled with
+   color-primary, and color-band-1 *is* color-primary — a band-1 chip would paint its
+   identity rule in the fill's own colour and lose it entirely. So the rule is held off
+   the fill by a 1px seam in color-background, which clears 3:1 against both sides.
+   See .design/color-scheme.md#band-identity-tokens.
+
+   The second inset shadow paints behind the first, so what shows of it is the strip
+   between 4px and 5px — the seam, and nothing over the rule itself.
+*/
+.chip.repo-mark.chip--active {
+    box-shadow:
+        inset var(--border-width-4) 0 0 0 var(--repo-mark-color, transparent),
+        inset calc(var(--border-width-4) + var(--border-width)) 0 0 0 var(--color-background);
+    padding-left: calc(var(--spacing-sm) + var(--border-width-4) + var(--border-width));
+}
+
 /* The count turns the area filter into a sense of where the work actually is. */
 .chip__count {
     margin-left: var(--spacing-xs);
@@ -392,39 +416,61 @@ h1, h2, h3 {
     container-name: backlog-list;
 }
 
+/*
+  The scroller, and only the scroller. The box the reader sees — the border, the
+  radius, the padding, the raised background — belongs to TaskPanel now, which is
+  what adopting it means: two boxes, one inside the other, would be a panel drawn
+  twice at slightly different radii. What is left here is the half of the split
+  the panel lives in and the fact that it scrolls.
+*/
 .entry-detail {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-background-alt);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
 }
 
-/* The entry wearing the same row the list wears. A list of one, so it gets no
-   gap of its own and reads as the pane's heading rather than as a list. */
+/* Only ever one panel in the scroller, and it takes the height it needs rather
+   than the height it is given: a short entry should not stretch its own box down
+   an empty column. */
+.entry-detail__panel {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
 /*
-  One row, for the entry this panel is about. Not the library's task-list class:
-  a list wearing that is a second TaskListView as far as the adoption rule is
-  concerned, and this is a container for exactly one row rather than a list of
-  them. TaskItem renders an li, so it still needs a list element around it, and
-  the reset it used to inherit lives here instead.
+  The classification strip stacks rather than running along one line, because two
+  of the things in it are sentences: the errors a hand-over comes back with. A
+  flex row would put "could not reach GitHub" beside a status picker and wrap it
+  mid-sentence. The badges themselves keep their own line — entry-doc__meta is
+  still a row — and the alerts sit above it, each on its own.
 */
-.entry-detail__row {
-    display: grid;
+.entry-detail__panel .task-panel__filing {
+    flex-direction: column;
+    align-items: stretch;
     gap: var(--spacing-xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
 }
 
-.entry-detail__row .task-item__title {
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-lg);
+/*
+  And inside it, everything reads left to right.
+
+  The strip used to split in two — classification pushed left, tags and links
+  pushed right — which is the shape it wants at the width the whole pane once
+  had. In a panel it has about 22rem, so the two halves wrap, and a wrapped line
+  that is still pushing right lands one badge on its own against the far edge
+  with a hole beside it. Left is where a reader starts, and a strip that wraps
+  wants every line starting in the same place.
+*/
+.entry-detail__panel .entry-doc__meta-end {
+    margin-left: 0;
+    justify-content: flex-start;
+}
+
+.entry-detail__panel .entry-doc__tags--end {
+    margin-right: 0;
+    justify-content: flex-start;
+    text-align: left;
 }
 
 .entry-detail__step-input {
@@ -741,15 +787,14 @@ h1, h2, h3 {
 
 /* --- Scheduling and dependency rows -------------------------------------- */
 
-/* A column, because that is the shape TaskAction is: one row per fact, each
-   saying either what it is set to or what it would do. The rows are already
-   styled by components.css; what is left here is where the block sits and how
-   far it is allowed to grow. */
+/* TaskActionPane lays the rows out now — one lead row across the top and the
+   rest in balanced, captioned columns — so the column and the gap that used to be
+   here have gone with it. What is left is the one thing the pane cannot know: how
+   wide this panel lets it get. No cap any more, because the pane's own column
+   width is what decides whether there are two columns or one, and a 24rem ceiling
+   would have held it to one in a panel the reader had dragged wider. */
 .entry-doc__schedule {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2xs);
-    max-width: 24rem;
+    min-width: 0;
 }
 
 .entry-doc__schedule-input,
@@ -845,56 +890,58 @@ h1, h2, h3 {
 
 /* --- Tags -------------------------------------------------------------- */
 
+/*
+  Chips and a field to type the next one into, which is TagMultiSelect wearing the
+  size this strip can spare rather than a picker of its own. The component draws
+  the chips, the popup and the whole keyboard route; what is decided here is only
+  that it belongs on a line of badges.
+
+  Which means it has to read as one. The picker's own dress is a form field — a
+  filled box with a border, sized for a form — and a form field standing among
+  eight badges is the loudest thing on the line for the one fact nobody came to
+  look at first. So the box goes: transparent until it is hovered or typed in,
+  which is the affordance every other editable badge on this strip has.
+
+  A ceiling and no floor. It is as wide as the tags on the entry until it reaches
+  the ceiling and then it wraps its own chips — an untagged entry should not
+  reserve a hole in the line for tags nobody has written.
+*/
 .entry-doc__tag-picker {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 6.5rem;
-    max-width: 13rem;
-    height: 1.5rem;
-    border: var(--border-width) solid transparent;
+    min-width: 0;
+    max-width: 16rem;
+}
+
+.entry-doc__tag-picker .tag-select__control {
+    min-height: 1.5rem;
+    padding: 0 var(--spacing-2xs);
+    border-color: transparent;
     border-radius: var(--border-radius-sm);
     background: transparent;
-    color: var(--color-primary);
-    font: inherit;
-    font-size: var(--font-size-xs);
+    gap: var(--spacing-2xs);
 }
 
-.entry-doc__tag-input {
-    width: 100%;
-    min-width: 0;
-    height: 100%;
-    padding: 0 var(--spacing-xs);
-    border: none;
-    background: transparent;
-    color: var(--color-primary);
-    font: inherit;
-    font-size: var(--font-size-xs);
-    text-align: center;
-    text-overflow: ellipsis;
-    cursor: text;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-}
-
-.entry-doc__tag-input::placeholder {
-    color: var(--color-text-disabled);
-}
-
-.entry-doc__tag-input::-webkit-calendar-picker-indicator {
-    display: none !important;
-}
-
-.entry-doc__tag-picker:hover,
-.entry-doc__tag-picker:focus-within {
+.entry-doc__tag-picker:hover .tag-select__control,
+.entry-doc__tag-picker .tag-select__control:focus-within {
     border-color: var(--color-border);
     background: var(--color-background-raised);
 }
 
-.entry-doc__tag-input:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 1px;
+/* Narrow enough to leave room for a chip or two beside it, and quiet enough that
+   an empty picker reads as "no tags" rather than as an empty field. */
+.entry-doc__tag-picker .tag-select__input {
+    flex: 1 1 4rem;
+    min-width: 4rem;
+    padding: 0 var(--spacing-2xs);
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+}
+
+.entry-doc__tag-picker .tag-select__input::placeholder {
+    color: var(--color-text-disabled);
+}
+
+.entry-doc__tag-picker .tag-chip {
+    font-size: var(--font-size-xs);
 }
 
 .knowledge-stack__repository {
@@ -1230,6 +1277,8 @@ h1, h2, h3 {
     margin: var(--spacing-md) 0 0;
     font-size: var(--font-size-sm);
     color: var(--color-text-disabled);
+    /* These notes quote absolute paths, and a path is one unbroken word. */
+    overflow-wrap: anywhere;
 }
 
 
@@ -1250,6 +1299,26 @@ h1, h2, h3 {
 .feature-flags > .setting__note {
     grid-column: 1 / -1;
     margin-top: 0;
+}
+
+/* The heading over each half of the flag list. Smaller than .setting__title:
+   that one names the tab, and a section heading that matched it would read as a
+   second page rather than a division of this one. The first heading loses its
+   top margin because the tab's own description is already directly above it. */
+.feature-group__title {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    margin: var(--spacing-lg) 0 0;
+}
+
+.feature-group__title:first-of-type {
+    margin-top: var(--spacing-md);
+}
+
+.feature-group__description {
+    margin: var(--spacing-2xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 .repo-subpages {

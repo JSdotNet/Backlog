@@ -130,8 +130,12 @@ Tick a row above and watch the count go up; open the section and untick one to s
         </ul>
     </Story>
 
-    <Story Name="Done, important, and in my day"
-           Description="Three flags on the record: `Done`, `Important` and `InMyDay`. `Important` has no control on the row today — the row carries the flag and whatever sets it is the host's.
+    <Story Name="Done, important, in my day, and where it has got to"
+           Description="Three flags on the record — `Done`, `Important` and `InMyDay` — and one word, `Status`. `Important` has no control on the row today: the row carries the flag and whatever sets it is the host's.
+
+`Status` is a badge beside the title rather than another glyph on the metadata line below it, and that placement is the decision worth stating. The line under a title says when the task happens and how far through it is; a status says what the task currently *is*, which is what the title is doing — so it reads on the title's line, drawn by the same `StatusBadge` that `TaskPanel` puts beside its heading. A reader who opens a row into a panel then finds the same fact in the same shape in the same place, rather than having to look for it again.
+
+Already formatted, like `Due` and `Reminder`: what a status is called, and in what language, is the host's. Absent leaves the badge off entirely, because not every list has a lifecycle — a checklist of sub-items has none at all, and a row drawing an empty badge would claim a state nobody set.
 
 A finished task stays readable rather than hidden; how it is set is the rule linked above."
            Code="@StatesCode">
@@ -314,7 +318,8 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
         new("important", "One that matters", Important: true, Group: "Tasks"),
         new("both", "Finished, and it mattered", Done: true, Important: true, Group: "Tasks"),
         new("today", "Picked for today", InMyDay: true, Group: "Tasks", Due: "Tomorrow"),
-        new("everything", "Everything at once", Important: true, InMyDay: true, Group: "Tasks", Due: "Friday", Reminder: "09:00", Repeats: true, StepsDone: 2, StepCount: 5)
+        new("status", "One that says where it has got to", Group: "Tasks", Status: "in progress"),
+        new("everything", "Everything at once", Important: true, InMyDay: true, Group: "Tasks", Due: "Friday", Reminder: "09:00", Repeats: true, StepsDone: 2, StepCount: 5, Status: "ready")
     ];
 
     private static readonly IReadOnlyList<TaskRow> ReadOnlySample =
@@ -498,7 +503,7 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
 
     private const string StatesCode = """
         new TaskRow("id", "Everything at once",
-            Important: true, InMyDay: true,
+            Important: true, InMyDay: true, Status: "ready",
             Due: "Friday", Reminder: "09:00", StepsDone: 2, StepCount: 5)
         """;
 

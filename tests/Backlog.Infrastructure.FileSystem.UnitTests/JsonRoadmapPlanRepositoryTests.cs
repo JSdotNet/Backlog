@@ -211,14 +211,16 @@ public class JsonRoadmapPlanRepositoryTests : IDisposable
     [Fact]
     public async Task APlanWideDateAndItsBandColoursRoundTrip()
     {
-        var plan = RoadmapPlan.Empty();
+        // The colours are legacy — nothing writes them any more — but a plan that
+        // already has them has to keep them until they have been carried over to the
+        // repository they were chosen for.
+        var plan = RoadmapPlan.Rehydrate([], [], BandColours.Of([new KeyValuePair<string, int>("backlog", 4)]));
         var freeze = plan.AddMilestone(
             "Freeze",
             new DateOnly(2026, 2, 2),
             MilestoneKind.Freeze,
             isPlanWide: true).Value;
         plan.AddMilestone("1.0", new DateOnly(2026, 3, 31));
-        Assert.True(plan.ColourBand("backlog", 4).IsSuccess);
 
         await _plans.SaveAsync(plan);
         var loaded = await _plans.LoadAsync();
@@ -245,9 +247,8 @@ public class JsonRoadmapPlanRepositoryTests : IDisposable
     [Fact]
     public async Task BandColoursAreStoredAsWhichOneRatherThanAsAColour()
     {
-        var plan = RoadmapPlan.Empty();
+        var plan = RoadmapPlan.Rehydrate([], [], BandColours.Of([new KeyValuePair<string, int>("backlog", 3)]));
         plan.AddMilestone("1.0", new DateOnly(2026, 3, 31));
-        plan.ColourBand("backlog", 3);
 
         await _plans.SaveAsync(plan);
         var json = await File.ReadAllTextAsync(_plans.PlanPath);

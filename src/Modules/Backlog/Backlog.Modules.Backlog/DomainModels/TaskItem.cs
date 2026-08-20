@@ -149,6 +149,12 @@ public sealed class TaskItem
     /// text at all.</summary>
     public EntryView? View { get; private set; }
 
+    /// <summary>The one place attached to this task, or null when nothing is.
+    /// One and not a list, and a path rather than a copy — see
+    /// <see cref="Attachment"/>, which holds both of those decisions and the
+    /// reasons for them.</summary>
+    public Attachment? Attachment { get; private set; }
+
     public IReadOnlyList<string> RepoIds => _repoIds;
 
     public IReadOnlyList<string> Tags => _tags;
@@ -220,6 +226,24 @@ public sealed class TaskItem
     public void SetRecurrence(Recurrence? recurrence) => Recurrence = recurrence;
 
     public void SetInMyDayOn(DateOnly? inMyDayOn) => InMyDayOn = inMyDayOn;
+
+    /// <summary>
+    /// Attaches a place, or detaches whatever was attached.
+    /// <para>
+    /// One setter and not an <c>Attach</c>/<c>Detach</c> pair, because there is
+    /// only ever one attachment: attaching a second place is replacing the first,
+    /// so a method named <c>Attach</c> would be a method whose name promised
+    /// something the model cannot do. Null detaches, the same way null clears
+    /// every other optional field here.
+    /// </para>
+    /// <para>
+    /// Nothing is checked. Whether the path resolves is the file system's answer
+    /// and it is a different answer on a different machine — a task written on the
+    /// desktop and read on the phone would fail a check here that has nothing to
+    /// do with whether the task is valid.
+    /// </para>
+    /// </summary>
+    public void SetAttachment(Attachment? attachment) => Attachment = attachment;
 
     /// <summary>Records which reading of the body was asked for, or clears it back
     /// to "never said". Grouped with the scheduling setters because it behaves like

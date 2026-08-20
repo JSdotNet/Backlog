@@ -73,7 +73,21 @@ internal sealed class CopilotSessionReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var lines = await File.ReadAllLinesAsync(descriptor.FullName, cancellationToken).ConfigureAwait(false);
+            // Guarded per descriptor for the reason the Claude reader states at its
+            // own read: a session's own process may be writing this file, and an
+            // IOException let out of here would cost every Copilot session instead
+            // of the one row it actually concerns.
+            string[] lines;
+
+            try
+            {
+                lines = await File.ReadAllLinesAsync(descriptor.FullName, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
             var session = FromDescriptor(Fields(lines), descriptor.Directory!.Name, descriptor, now);
 
             if (session is not null) sessions.Add(session);
