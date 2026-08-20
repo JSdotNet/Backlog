@@ -379,6 +379,24 @@ h1, h2, h3 {
     flex: 1 1 auto;
 }
 
+/* And the half itself passes the height on rather than stopping it. The shared
+   split gives each half `overflow: auto` and leaves it a block, which is right for
+   a half whose content is simply longer than the space — but it makes the half a
+   block formatting context, so the pane inside it resolves `height: auto` against
+   its own contents and the panel's `flex: 1 1 auto` has nothing to fill.
+
+   That is the same break as the workspace's, one level down: the split stretched,
+   the half stretched with it, and the pane inside stayed exactly as tall as the
+   entry. The scrolling goes with the change, because the panel below is the box
+   that should scroll — a scrollbar here would be the reason the pane is allowed to
+   be shorter than the half. */
+.backlog-split > .split-pane__end {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
 /* Nothing open, so there is nothing to divide: the list takes the whole width and
    the separator has no second pane to drag against. A modifier rather than a
    different element — the split stays mounted so the list keeps its scroll
@@ -426,6 +444,7 @@ h1, h2, h3 {
 .entry-detail {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
     overflow: hidden;

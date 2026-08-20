@@ -617,9 +617,19 @@ public sealed class GlobalPaneMarkupTests
         // A second scrollbar here is what would let the split stop short again.
         Assert.DoesNotContain("overflow: auto;", workspace, StringComparison.Ordinal);
 
+        // And the same for the half the pane sits in: the shared split leaves it a
+        // scrolling block, which is a block formatting context, which is a floor the
+        // height does not get through.
+        var half = RuleFor(css, ".backlog-split > .split-pane__end {");
+        Assert.Contains("display: flex;", half, StringComparison.Ordinal);
+        Assert.Contains("flex-direction: column;", half, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", half, StringComparison.Ordinal);
+        Assert.DoesNotContain("overflow: auto;", half, StringComparison.Ordinal);
+
         foreach (var block in new[]
         {
             ".backlog-split {",
+            ".entry-detail {",
             ".entry-detail__panel {",
             ".entry-detail__panel .task-panel__body {",
             ".entry-detail__body {",
