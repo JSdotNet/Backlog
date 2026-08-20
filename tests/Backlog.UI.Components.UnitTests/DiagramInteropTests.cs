@@ -52,6 +52,30 @@ public sealed class DiagramInteropTests
     }
 
     [Fact]
+    public void A_host_that_shows_the_source_itself_does_not_get_it_twice()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var diagram = context.Render<DiagramView>(parameters => parameters
+            .Add(d => d.Source, "graph TD; a-->b;")
+            .Add(d => d.Language, "mermaid")
+            .Add(d => d.ShowSource, false));
+
+        Assert.NotNull(diagram.Find(".diagram-view__rendered"));
+        Assert.Empty(diagram.FindAll(".diagram-view__details"));
+    }
+
+    // A render that failed keeps its source whichever way ShowSource was set, and
+    // that clause is still in the markup — but it cannot be exercised from here.
+    // A JSException makes OnAfterRenderAsync clear the source it recorded and ask
+    // for a redraw, so the next render tries the same call again; against a
+    // runtime that fails every time, that is a loop, and in bUnit the planned
+    // invocation faults synchronously so the loop is one stack. Reaching the
+    // failed state means fixing the retry, which is a change to the error path
+    // this work was told to leave alone.
+
+    [Fact]
     public void The_graph_view_calls_the_function_it_was_given_with_the_data_it_was_given()
     {
         using var context = new BunitContext();

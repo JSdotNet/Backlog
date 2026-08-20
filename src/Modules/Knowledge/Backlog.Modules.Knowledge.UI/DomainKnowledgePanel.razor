@@ -29,12 +29,10 @@
     }
     else
     {
-        @* Where the folder is, and nothing else. The repository it belongs to is
-           the pane's line above the tabs; repeating it here said the same name
-           twice on one screen, because the label this view carries resolves to
-           that very repository's full name. *@
-        <p class="domain-knowledge__source"><code>@_view.RootPath</code></p>
-
+        @* The folder's own path is gone from here. It said where the knowledge
+           folder is, which is a fact about the workspace rather than about
+           anything on this screen; the file the reader opened says where it is on
+           the file view's header, and that one is the file's identity. *@
         @if (string.IsNullOrWhiteSpace(SelectedPath))
         {
             <nav class="domain-knowledge__contexts" aria-label="Bounded contexts">
@@ -100,6 +98,11 @@
 
     private const string CommittedBaselineId = "committed";
 
+    /// <summary>This panel's own section, as the menu and the area catalog name
+    /// it. A reference into it moves the context column beside the chapter; a
+    /// reference out of it is somebody else's section to show.</summary>
+    private const string DomainAreaKey = "domain";
+
     private readonly HashSet<string> _copilotBusy = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _copilotErrors = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
@@ -127,6 +130,7 @@
     private string? _committedText;
     private string? _committedUnavailable;
     private bool _committedRead;
+    private bool _disposed;
     private int _nextComment = 1;
     private bool _editing;
     private bool _comparing;
@@ -150,6 +154,21 @@
 
     [Parameter]
     public string? SelectedPath { get; set; }
+
+    /// <summary>
+    /// Raised when a reader follows a reference to another chapter.
+    /// <para>
+    /// Which chapter is shown is <see cref="SelectedPath"/>, and that is the host's
+    /// — the pane holds one selection per section and this panel is one section's
+    /// screen. So following a reference is a request rather than a move: the panel
+    /// says which chapter was asked for and the host decides whether it exists and
+    /// what to select. A host that does not take the callback gets a reference that
+    /// still reads correctly and goes nowhere, which is what the standalone Domain
+    /// page has always had.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<KnowledgeChapterLink> OnNavigateToChapter { get; set; }
 
     private DomainKnowledgeContext? SelectedContext => _view?.Contexts.FirstOrDefault(c => c.Slug == _selectedContextSlug);
 
@@ -271,6 +290,42 @@
         // the chapter it belonged to, which is the condition the markup renders it
         // on.
         if (_chapter.Chapter is null) _editor = null;
+
+        BeginCommittedBaselineRead();
+    }
+
+    /// <summary>
+    /// Asks git what this chapter last looked like, as it opens, and lets the
+    /// answer land on its own.
+    /// <para>
+    /// The read used to wait for a reader to press Compare, which made the press
+    /// the only thing that could produce the answer — and the control deciding
+    /// whether to offer itself had to keep offering itself in the meantime. So the
+    /// button appeared on every chapter in the folder and said nothing about any of
+    /// them. Whether there is a difference worth showing is a question about the
+    /// file, and it has to be answered before the control claims there is.
+    /// </para>
+    /// <para>
+    /// Not awaited, because a git process in front of the first paint would make
+    /// every chapter open at the speed of a subprocess, and the chapter is what the
+    /// reader came for. It is a read per chapter open and not per keystroke:
+    /// <see cref="_committedRead"/> is reset only when the chapter changes, so the
+    /// debounced reloads that follow an edit find it already answered.
+    /// </para>
+    /// </summary>
+    private async void BeginCommittedBaselineRead()
+    {
+        if (_committedRead || _chapter.Chapter is null) return;
+
+        await ReadCommittedBaselineAsync();
+
+        // A reader can leave the section while git is still answering, and a
+        // re-render asked for after this panel is gone is asked of a renderer that
+        // may have shut down with it. The answer is kept either way — it is a field
+        // on a panel nobody is looking at — so there is nothing to report.
+        if (_disposed) return;
+
+        await InvokeAsync(StateHasChanged);
     }
 
     /// <summary>
@@ -326,9 +381,11 @@
     /// <para>
     /// The file goes to disk first, for the same reason the status handler flushes:
     /// a comparison is between two versions of a file, and a keystroke the debounce
-    /// has not written yet is not a version of anything. The committed side is read
-    /// here rather than on every render — it costs a git process, and this is the
-    /// moment the reader asked for it.
+    /// has not written yet is not a version of anything. The committed read is asked
+    /// for again here and is almost always already done — the chapter opening starts
+    /// it — but a reader who presses Compare while it is still in flight, or who
+    /// pressed it on a chapter whose read never began, must not be left comparing
+    /// against nothing.
     /// </para>
     /// </summary>
     private async Task OnComparingChangedAsync(bool comparing)
@@ -352,8 +409,14 @@
     }
 
     /// <summary>
-    /// The chapter's committed version, read once per chapter and only when a
-    /// reader asks for it.
+    /// The chapter's committed version, read once per chapter.
+    /// <para>
+    /// Once, and not once per baseline the reader picks: the guard is the chapter's
+    /// own <see cref="_committedRead"/> and nothing else. It used to also refuse
+    /// unless the committed baseline was the selected one, which made the selection
+    /// the only thing that could start the read — and the offer to compare was being
+    /// decided from an answer that selection was waiting for.
+    /// </para>
     /// <para>
     /// "Never committed" is an ordinary answer and not a failure — a chapter written
     /// this morning has no earlier version — so it is said in the reader's terms
@@ -364,7 +427,6 @@
     /// </summary>
     private async Task ReadCommittedBaselineAsync()
     {
-        if (!string.Equals(_baselineId, CommittedBaselineId, StringComparison.Ordinal)) return;
         if (_committedRead || _chapter.Chapter is not { } chapter) return;
 
         _committedRead = true;
@@ -379,21 +441,33 @@
         };
     }
 
-    /// <summary>What the chapter can be compared against, in the order a reader
-    /// reaches for them.</summary>
-    private IReadOnlyList<FileCompareBaseline> ChapterBaselines() =>
-    [
-        new FileCompareBaseline(
+    /// <summary>
+    /// What the chapter can be compared against, in the order a reader reaches for
+    /// them.
+    /// <para>
+    /// The commit joins the list when git has answered for it, and not before. A
+    /// baseline that is neither text nor unavailable reads to the file view as one
+    /// still being waited for, and the file view goes on offering the comparison
+    /// through that — rightly, for a host that only reads when the button is
+    /// pressed. This panel is no longer such a host: it starts the read as the
+    /// chapter opens, so the wait is a moment rather than a state, and listing the
+    /// commit during it would put the control on screen for the length of a git
+    /// process and then take it away again. A version nobody can compare against
+    /// yet is not one to offer.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<FileCompareBaseline> ChapterBaselines()
+    {
+        var opened = new FileCompareBaseline(
             OpenedBaselineId,
             "As opened",
             _openedText,
-            _openedText is null ? "Nothing was read from this chapter when it was opened." : null),
-        new FileCompareBaseline(
-            CommittedBaselineId,
-            "Last commit",
-            _committedText,
-            _committedRead ? _committedUnavailable : "Reading the committed version of this chapter...")
-    ];
+            _openedText is null ? "Nothing was read from this chapter when it was opened." : null);
+
+        return _committedRead
+            ? [opened, new FileCompareBaseline(CommittedBaselineId, "Last commit", _committedText, _committedUnavailable)]
+            : [opened];
+    }
 
     /// <summary>The remarks on the open chapter. A different chapter's remarks stay
     /// with that chapter — they are about its blocks and mean nothing against
@@ -569,8 +643,16 @@
     private static IReadOnlyList<SelectorOption> KnowledgeStatusOptions() =>
         [.. KnowledgeStatuses.Select(status => new SelectorOption(status, status))];
 
+    /// <summary>The modifier a document's article wears, so a stylesheet can tell
+    /// one kind of knowledge file from another. The context map is on the list
+    /// because it is reachable two ways — as the folder's own view when nothing is
+    /// selected, and as a document somebody picked out of the knowledge menu — and
+    /// it has to be the same document both times. It used to fall through to
+    /// nothing on the second route, which meant the map lost the treatment that
+    /// says it is the map.</summary>
     private static string DocumentClass(DomainKnowledgeDocument document) => document.Kind switch
     {
+        DomainKnowledgeDocumentKind.ContextMap => "domain-document--context-map",
         DomainKnowledgeDocumentKind.Domain => "domain-document--domain",
         DomainKnowledgeDocumentKind.Features => "domain-document--features",
         DomainKnowledgeDocumentKind.Model => "domain-document--model",
@@ -649,9 +731,11 @@
                       AllowCopy="true"
                       AllowChapterCopy="true"
                       RenderKnowledgeMetadata="true"
+                      RenderKnowledgeMetadataFields="false"
+                      ShowDiagramSource="false"
                       KnowledgeFolder="KnowledgeFolder.Domain"
                       OnKnowledgeStatusChanged="change => ChangeChapterStatusAsync(document, change)"
-                      OnKnowledgeNavigate="reference => NavigateKnowledgeLink(reference.Path)"
+                      OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
                       Comments="@ChapterComments()"
                       OnAddComment="index => AddChapterComment(index)"
                       OnResolveComment="ResolveChapterComment"
@@ -666,57 +750,61 @@
                       CompareBaselineId="@_baselineId"
                       CompareBaselineIdChanged="OnBaselineChangedAsync" />
         }
-        else if (!string.IsNullOrWhiteSpace(document.Summary))
+        else
         {
-            <p class="domain-document__summary">@document.Summary</p>
-        }
+            @* Everything below this point is a second reading of a file, assembled
+               out of the parse this panel holds: the summary, the metadata strip,
+               the diagrams, and one collapsible per heading with its excerpt. It
+               is what the pane has to draw for a document nobody opened — a
+               context's other files and the folder overview are a list, and a list
+               entry has to say something about itself.
 
-        @if (HasVisibleMetadata(document.Metadata, document.Links))
-        {
-            @RenderMetadata(document.Metadata, document.Links, "Document metadata")
-        }
+               For the document the file view *is* showing, the file says all of it
+               already, in the order the author wrote it. Drawing both put a strip
+               of raw field names and a stack of section cards under a file that
+               had just finished stating the same things, and the two disagree the
+               moment either is typed into. So the open chapter gets the file and
+               nothing after it. *@
+            @if (!string.IsNullOrWhiteSpace(document.Summary))
+            {
+                <p class="domain-document__summary">@document.Summary</p>
+            }
 
-        @* Only for a document the file view is not showing. The chapter's own
-           diagrams are rendered where they were written, inside the body. *@
-        @if (!IsEditedChapter(document))
-        {
+            @if (HasVisibleMetadata(document.Metadata, document.Links))
+            {
+                @RenderMetadata(document.Metadata, document.Links, "Document metadata")
+            }
+
             @foreach (var diagram in document.Diagrams)
             {
                 <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
             }
-        }
 
-        <div class="domain-sections">
-            @foreach (var section in document.Sections.Take(Compact ? 4 : 12))
-            {
-                <section class="domain-section" id="@ElementId(section.Anchor)">
-                    <header class="domain-section__header">
-                        <h4>@section.Title</h4>
-                        @RenderKnowledgeActions(
-                            new KnowledgeActionItem(section.Title, $"{document.KindLabel} section", section.Anchor, section.Metadata, section.Excerpt),
-                            showStatus: !ShowsStatusInBody(document, section.Title))
-                    </header>
-                    @if (HasVisibleMetadata(section.Metadata, section.Links))
-                    {
-                        @RenderMetadata(section.Metadata, section.Links, "Section metadata")
-                    }
-                    @if (!IsEditedChapter(document) && !string.IsNullOrWhiteSpace(section.Excerpt))
-                    {
-                        <p class="domain-section__excerpt">@section.Excerpt</p>
-                    }
-                    @* As above: a diagram written inside this chapter is drawn
-                       inside it, and only a chapter nobody has open is retold out
-                       here. *@
-                    @if (!IsEditedChapter(document))
-                    {
+            <div class="domain-sections">
+                @foreach (var section in document.Sections.Take(Compact ? 4 : 12))
+                {
+                    <section class="domain-section" id="@ElementId(section.Anchor)">
+                        <header class="domain-section__header">
+                            <h4>@section.Title</h4>
+                            @RenderKnowledgeActions(
+                                new KnowledgeActionItem(section.Title, $"{document.KindLabel} section", section.Anchor, section.Metadata, section.Excerpt))
+                        </header>
+                        @if (HasVisibleMetadata(section.Metadata, section.Links))
+                        {
+                            @RenderMetadata(section.Metadata, section.Links, "Section metadata")
+                        }
+                        @if (!string.IsNullOrWhiteSpace(section.Excerpt))
+                        {
+                            <p class="domain-section__excerpt">@section.Excerpt</p>
+                        }
                         @foreach (var diagram in section.Diagrams)
                         {
                             <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
                         }
-                    }
-                </section>
-            }
-        </div>
+                    </section>
+                }
+            </div>
+        }
     </article>;
 
     @* showStatus is false for a heading whose status the open file view is already
@@ -812,8 +900,18 @@
         builder.AddContent(0, value);
     };
 
+    /// <summary>A relation, drawn as a control only where there is somewhere to go.
+    /// The same rule KnowledgeReferenceLink keeps for the references it draws: given
+    /// a way to follow it, it is something to press; given none, it is the text the
+    /// author wrote. A relation naming a folder this pane has no section for is the
+    /// second, and a button on one would be a promise the panel cannot keep.</summary>
     private RenderFragment RenderKnowledgeLink(string link) =>
-        @<AppButton BaseClass="domain-metadata__link" Variant="ButtonVariant.None" OnClick="() => NavigateKnowledgeLink(link)">@link</AppButton>;
+        KnowledgeChapterLink.From(link) is { } target ? FollowableKnowledgeLink(link, target) : UnfollowableKnowledgeLink(link);
+
+    private RenderFragment FollowableKnowledgeLink(string link, KnowledgeChapterLink target) =>
+        @<AppButton BaseClass="domain-metadata__link" Variant="ButtonVariant.None" OnClick="() => NavigateKnowledgeLinkAsync(target)">@link</AppButton>;
+
+    private static RenderFragment UnfollowableKnowledgeLink(string link) => builder => builder.AddContent(0, link);
 
     private async Task ChangeKnowledgeStatusAsync(KnowledgeActionItem item, string? status)
     {
@@ -834,15 +932,40 @@
         }
     }
 
-    private void NavigateKnowledgeLink(string link)
+    /// <summary>
+    /// Follows a reference in the metadata strip or in the prose.
+    /// <para>
+    /// It used to read the context slug out of the path and stop there, which moved
+    /// the column beside the chapter and left the chapter itself where it was — the
+    /// reader pressed a reference to another file and the same file stayed on
+    /// screen. The slug still moves, because in the compact pane that is which
+    /// context the panel is showing; what is new is that the chapter is asked for
+    /// too, of the host that owns the selection.
+    /// </para>
+    /// <para>
+    /// A reference that resolves to no section is not followed. The prose can only
+    /// produce references into a section — <see cref="KnowledgeReference.ParseKnowledgePath"/>
+    /// refuses everything else — but a <c>related</c> field is a list of whatever
+    /// somebody wrote, and <c>.github/copilot-instructions.md</c> in one names a
+    /// real file that this pane has no section for.
+    /// </para>
+    /// </summary>
+    private Task NavigateKnowledgeLinkAsync(KnowledgeChapterLink target)
     {
-        var (path, _) = SplitKnowledgeLink(link);
-        if (!path.StartsWith(".domain/", StringComparison.OrdinalIgnoreCase)) return;
+        if (string.Equals(target.AreaKey, DomainAreaKey, StringComparison.Ordinal))
+        {
+            var slash = target.RelativePath.IndexOf('/');
+            _selectedContextSlug = slash < 0 ? null : target.RelativePath[..slash];
+        }
 
-        var remainder = path[".domain/".Length..];
-        var slash = remainder.IndexOf('/');
-        _selectedContextSlug = slash < 0 ? null : remainder[..slash];
+        return OnNavigateToChapter.InvokeAsync(target);
     }
+
+    /// <summary>The same, for a reference the file view parsed out of the prose. It
+    /// arrives whole — path and heading slug — where the old handler was handed the
+    /// path alone and dropped the slug on the floor.</summary>
+    private Task NavigateKnowledgeReferenceAsync(KnowledgeReference reference) =>
+        KnowledgeChapterLink.From(reference) is { } target ? NavigateKnowledgeLinkAsync(target) : Task.CompletedTask;
 
     private bool IsCopilotBusy(KnowledgeActionItem item) => _copilotBusy.Contains(item.Path);
 
@@ -879,12 +1002,6 @@
 
     private static bool IsKnowledgeLink(string value) => value.StartsWith(".", StringComparison.Ordinal) && value.Contains('/');
 
-    private static (string Path, string? Anchor) SplitKnowledgeLink(string link)
-    {
-        var parts = link.Split('#', 2, StringSplitOptions.TrimEntries);
-        return (parts[0], parts.Length == 2 ? parts[1] : null);
-    }
-
     private static string ElementId(string path) => "knowledge-" + new string(path.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-');
 
     private static string StateSelectId(KnowledgeActionItem item) => ElementId(item.Path) + "-state";
@@ -893,6 +1010,7 @@
 
     public void Dispose()
     {
+        _disposed = true;
         DomainKnowledge.Changed -= OnKnowledgeChanged;
     }
 }

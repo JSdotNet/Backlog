@@ -151,6 +151,37 @@
         }
     }
 
+    /// <summary>
+    /// Opens the chapter a knowledge reference names, wherever in the pane it
+    /// lives.
+    /// <para>
+    /// A panel renders the reference and this pane holds the selection, so this is
+    /// the other half of following one. It is the same move a menu click makes —
+    /// the section, the chapter, and the folders opened down to it — because
+    /// arriving from a reference and arriving from the menu should leave the reader
+    /// in the same place, with the menu showing where they are.
+    /// </para>
+    /// <para>
+    /// A target the menu has never heard of is not followed. A reference is prose:
+    /// it can name a chapter that was renamed, or one in a section this repository
+    /// has turned off, and the menu tree is the only thing that knows. Selecting a
+    /// path with nothing behind it would empty the panel, which reads as the
+    /// reference having broken the pane rather than as the reference being stale.
+    /// </para>
+    /// </summary>
+    private void SelectChapter(KnowledgeChapterLink target)
+    {
+        if (target is null) return;
+
+        var root = _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, target.AreaKey, StringComparison.Ordinal));
+        if (root is null || !root.Available || !ContainsPath(root, target.RelativePath)) return;
+
+        _selectedSection = target.AreaKey;
+        _selectedChapterPaths[target.AreaKey] = target.RelativePath;
+        _folderOpenError = null;
+        ExpandAncestorsToSelected(root.Children, target.RelativePath);
+    }
+
     private bool IsMenuNodeExpanded(KnowledgeMenuNode node) => _expandedMenuNodes.Contains(MenuNodeKey(node));
 
     private static bool IsSelectableMenuNode(KnowledgeMenuNode node) =>
@@ -310,7 +341,7 @@
         {
             "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
             "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
-            "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
+            "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" />,
             "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
             "backlog" => @<Alert Message="Select a backlog folder in the knowledge menu, or open it in VS Code." BaseClass="knowledge-empty" Role="status" />,

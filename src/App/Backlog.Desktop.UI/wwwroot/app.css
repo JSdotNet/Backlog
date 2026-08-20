@@ -3591,7 +3591,6 @@ h1, h2, h3 {
 
 .design-knowledge__source,
 .design-document__summary,
-.domain-knowledge__source,
 .domain-knowledge__state,
 .domain-document__summary,
 .knowledge-document__meta,
@@ -3600,11 +3599,11 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-/* Both of these were the last line of a header that also carried an eyebrow and
-   a title. With those gone the line stands on its own, so it stops relying on a
-   wrapper for the gap under it. */
-.design-knowledge__source,
-.domain-knowledge__source {
+/* This was the last line of a header that also carried an eyebrow and a title.
+   With those gone the line stands on its own, so it stops relying on a wrapper
+   for the gap under it. The domain panel's twin went with the folder path it
+   printed. */
+.design-knowledge__source {
     margin: 0 0 var(--spacing-md);
 }
 
@@ -3638,6 +3637,23 @@ h1, h2, h3 {
     border: 0;
     border-radius: 0;
     background: transparent;
+}
+
+/* The context map is the one document in this folder that is about the folder:
+   every other file describes a bounded context, and this one describes how they
+   stand to each other. Shouting its title is how the pane says so without a
+   badge or an eyebrow claiming the room a title already has.
+
+   Done in the stylesheet and never in the DOM. The file is called "Context Map:
+   Backlog" and that is what a screen reader must read, what a copy takes away,
+   and what the heading the knowledge menu matches on still says — text-transform
+   changes the drawing and leaves all three alone. Uppercase loses the shapes a
+   reader tracks words by, so the letter-spacing goes back some of what the caps
+   took. */
+.domain-document--context-map .file-view__name,
+.domain-document--context-map .file-view__body .md-heading--1 {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
 .design-token__name,

@@ -82,6 +82,30 @@ public sealed record KnowledgeReference
         return new KnowledgeReference(text, path, slug.Length == 0 ? null : slug);
     }
 
+    /// <summary>
+    /// The same reading, refused unless the text is unmistakably a reference to a
+    /// knowledge file.
+    ///
+    /// <para><see cref="Parse"/> is deliberately permissive because a metadata
+    /// field is a list of references and nothing else — every entry in it was
+    /// meant to be one. Prose is not like that: a code span in a chapter is a
+    /// path as often as it is a command, a type name or a single word, and
+    /// turning the wrong one into a link puts a destination on something that has
+    /// none. So this asks for all three of the things a real reference has — a
+    /// known knowledge folder at the front, <c>.md</c> at the end, and no
+    /// whitespace in between — and hands back nothing when any is missing.</para>
+    /// </summary>
+    public static KnowledgeReference? ParseKnowledgePath(string? raw)
+    {
+        if (Parse(raw) is not { } reference) return null;
+        if (reference.Folder is KnowledgeFolder.Unknown) return null;
+        if (!reference.Path.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) return null;
+
+        // `.domain/naming.md and .domain/model.md` clears both tests above and is
+        // two references written as one span, which is a link to neither.
+        return reference.Raw.Any(char.IsWhiteSpace) ? null : reference;
+    }
+
     /// <summary>The <c>Try</c> shape of <see cref="Parse"/>, for callers that
     /// keep unparseable entries rather than dropping them.</summary>
     public static bool TryParse(string? raw, out KnowledgeReference? reference)

@@ -126,13 +126,13 @@ public sealed class FileViewActionsTests
         // Read is the resting state: the host's editor is not on screen until it
         // is asked for.
         Assert.Empty(view.FindAll("[data-testid='supplied-editor']"));
-        Assert.Equal("Edit", view.Find("[data-testid='file-edit']").TextContent);
+        Assert.Equal("Edit", view.Find("[data-testid='file-edit']").GetAttribute("aria-label"));
 
         view.Find("[data-testid='file-edit']").Click();
 
         Assert.NotNull(view.Find(".file-view__body [data-testid='supplied-editor']"));
         Assert.Empty(view.FindAll(".file-view__body .md-heading"));
-        Assert.Equal("Done", view.Find("[data-testid='file-done']").TextContent);
+        Assert.Equal("Done", view.Find("[data-testid='file-done']").GetAttribute("aria-label"));
         Assert.Empty(view.FindAll("[data-testid='file-edit']"));
     }
 
@@ -231,12 +231,17 @@ public sealed class FileViewActionsTests
         var toggle = view.Find("[data-testid='file-compare']");
 
         Assert.Equal("false", toggle.GetAttribute("aria-pressed"));
-        Assert.Equal("Compare", toggle.TextContent);
+
+        // The name is what does not flip, and it is the whole reason this is a
+        // toggle: the glyph is the same glyph either way, so aria-pressed is the
+        // only thing left saying which state the pane is in.
+        Assert.Equal("Compare", toggle.GetAttribute("aria-label"));
+        Assert.Equal("Compare", toggle.GetAttribute("title"));
 
         toggle.Click();
 
         Assert.Equal("true", view.Find("[data-testid='file-compare']").GetAttribute("aria-pressed"));
-        Assert.Equal("Compare", view.Find("[data-testid='file-compare']").TextContent);
+        Assert.Equal("Compare", view.Find("[data-testid='file-compare']").GetAttribute("aria-label"));
     }
 
     [Fact]
@@ -261,7 +266,7 @@ public sealed class FileViewActionsTests
         Assert.Equal([true, false], editing);
         Assert.Empty(view.FindAll("[data-testid='supplied-editor']"));
         Assert.NotNull(view.Find("[data-testid='file-compare-view']"));
-        Assert.Equal("Edit", view.Find("[data-testid='file-edit']").TextContent);
+        Assert.Equal("Edit", view.Find("[data-testid='file-edit']").GetAttribute("aria-label"));
     }
 
     [Fact]
@@ -529,6 +534,174 @@ public sealed class FileViewActionsTests
 
         Assert.Contains("What the domain was.", changed.TextContent, StringComparison.Ordinal);
         Assert.Contains("What the domain is.", changed.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_baseline_that_says_what_the_file_already_says_is_not_a_comparison_worth_offering()
+    {
+        // Pressing it would show the reader the file they are looking at, with
+        // every block marked unchanged. The control is a promise that there is
+        // something to see.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CompareBaselines, new FileCompareBaseline[] { new("opened", "As opened", Body) }));
+
+        Assert.Empty(view.FindAll("[data-testid='file-compare']"));
+    }
+
+    [Fact]
+    public void Line_endings_are_not_a_change()
+    {
+        // A baseline read out of git and a body read off the working copy
+        // routinely disagree about \r on this platform, for a file nobody has
+        // touched. Offering a comparison on the strength of that would put the
+        // control on every chapter in the folder, permanently.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CompareBaselines, new FileCompareBaseline[]
+            {
+                // The same text, written the other way round. Spelled out of the
+                // constant rather than assumed, because a raw string literal
+                // carries whichever endings this source file happens to be saved
+                // with.
+                new("opened", "As opened", Body.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\r\n", StringComparison.Ordinal))
+            }));
+
+        Assert.Empty(view.FindAll("[data-testid='file-compare']"));
+    }
+
+    [Fact]
+    public void One_baseline_that_differs_is_enough_to_offer_the_comparison()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CompareBaselines, new FileCompareBaseline[]
+            {
+                new("opened", "As opened", Body),
+                new("commit", "Last commit", Older)
+            }));
+
+        Assert.NotNull(view.Find("[data-testid='file-compare']"));
+    }
+
+    [Fact]
+    public void A_baseline_nobody_has_answered_for_yet_keeps_the_offer_open()
+    {
+        // Neither text nor unavailable: the host has not read it, because reading
+        // it costs a process it only pays for when the reader asks. Withdrawing
+        // the control until the answer arrives would withdraw the press that
+        // produces the answer.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CompareBaselines, new FileCompareBaseline[]
+            {
+                new("opened", "As opened", Body),
+                new("commit", "Last commit")
+            }));
+
+        Assert.NotNull(view.Find("[data-testid='file-compare']"));
+    }
+
+    [Fact]
+    public void A_baseline_that_will_never_arrive_is_not_a_reason_to_offer_anything()
+    {
+        // "This chapter has never been committed" is a settled answer, and the
+        // answer is that there is no earlier version. The unchanged baseline
+        // beside it says the same thing a different way.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CompareBaselines, new FileCompareBaseline[]
+            {
+                new("opened", "As opened", Body),
+                new("commit", "Last commit", null, "This chapter has never been committed.")
+            }));
+
+        Assert.Empty(view.FindAll("[data-testid='file-compare']"));
+    }
+
+    [Fact]
+    public void Two_baselines_that_both_match_the_file_are_two_reasons_to_say_nothing()
+    {
+        // The shape a knowledge chapter arrives in once its host has read both
+        // sides: the text as it was opened, and the text as it was committed. A
+        // chapter nobody has touched since the commit matches both, and the control
+        // has to stay away — one baseline agreeing is not enough to offer, and
+        // neither is two.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CompareBaselines, new FileCompareBaseline[]
+            {
+                new("opened", "As opened", Body),
+                new("commit", "Last commit", Body)
+            }));
+
+        Assert.Empty(view.FindAll("[data-testid='file-compare']"));
+    }
+
+    [Fact]
+    public void A_host_that_asks_for_a_comparison_anyway_still_gets_one()
+    {
+        // Withholding the button is about what is worth offering; it is not a
+        // refusal to render. A host holds the mode, and it may hold it on.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CompareBaselines, new FileCompareBaseline[] { new("opened", "As opened", Body) })
+            .Add(v => v.Comparing, true));
+
+        Assert.Empty(view.FindAll("[data-testid='file-compare']"));
+        Assert.NotNull(view.Find("[data-testid='file-compare-view']"));
+    }
+
+    [Fact]
+    public void The_two_controls_are_marks_with_their_words_kept_where_a_reader_can_hear_them()
+    {
+        // An icon-only control says nothing on its own, so the name and the
+        // tooltip are the whole of what it says (.design/accessibility.md). The
+        // test ids do not move: they are what the panels and QA select on.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CanEdit, true)
+            .Add(v => v.EditBodyContent, Editor())
+            .Add(v => v.CompareBaselines, Opened));
+
+        var edit = view.Find("[data-testid='file-edit']");
+        Assert.Equal("Edit", edit.GetAttribute("aria-label"));
+        Assert.Equal("Edit", edit.GetAttribute("title"));
+        Assert.Equal("✎", edit.TextContent);
+        Assert.Contains("file-view__action", edit.ClassList);
+
+        Assert.Equal("⇄", view.Find("[data-testid='file-compare']").TextContent);
+
+        view.Find("[data-testid='file-edit']").Click();
+
+        var done = view.Find("[data-testid='file-done']");
+        Assert.Equal("Done", done.GetAttribute("aria-label"));
+        Assert.Equal("Done", done.GetAttribute("title"));
+        Assert.Equal("✓", done.TextContent);
+    }
+
+    [Fact]
+    public void A_host_with_a_better_mark_can_bring_its_own()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CanEdit, true)
+            .Add(v => v.EditBodyContent, Editor())
+            .Add(v => v.EditIcon, "📝")
+            .Add(v => v.CompareBaselines, Opened)
+            .Add(v => v.CompareIcon, "⧉"));
+
+        Assert.Equal("📝", view.Find("[data-testid='file-edit']").TextContent);
+        Assert.Equal("⧉", view.Find("[data-testid='file-compare']").TextContent);
     }
 
     [Fact]

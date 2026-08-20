@@ -39,7 +39,25 @@ public static class MarkdownRender
         _ => string.Empty
     }));
 
-    public static RenderFragment Inlines(IReadOnlyList<MdInline> parts) => builder =>
+    /// <summary>
+    /// A second reading of what an inline points at, offered to the caller before
+    /// the default rendering is chosen. It is handed the target — a code span's
+    /// own text, or a link's URL — and the words the author wrote, and it returns
+    /// the fragment to draw instead, or <see langword="null"/> to leave that
+    /// inline exactly as it has always rendered.
+    /// <para>
+    /// A hook rather than a rule baked in here, because the same code span means
+    /// different things in different places: <c>.domain/sessions/domain.md</c> in
+    /// a knowledge chapter is a chapter somebody can open, and the identical span
+    /// in an entry's body is a path being quoted. Only the caller knows which
+    /// document it is rendering.
+    /// </para>
+    /// </summary>
+    public delegate RenderFragment? MarkdownInlineTarget(string target, string text);
+
+    public static RenderFragment Inlines(IReadOnlyList<MdInline> parts) => Inlines(parts, null);
+
+    public static RenderFragment Inlines(IReadOnlyList<MdInline> parts, MarkdownInlineTarget? target) => builder =>
     {
         var seq = 0;
         foreach (var part in parts)
@@ -49,6 +67,17 @@ public static class MarkdownRender
                 case MdText text:
                     builder.AddContent(seq++, text.Text);
                     break;
+
+                // Both hooked cases come first so the caller gets the refusal —
+                // returning null — rather than having to reproduce the default it
+                // is declining to replace.
+                case MdCodeSpan codeSpan when target?.Invoke(codeSpan.Text, codeSpan.Text) is { } replacement:
+                    builder.AddContent(seq++, replacement);
+                    break;
+                case MdLink hooked when target?.Invoke(hooked.Url, hooked.Text) is { } replacement:
+                    builder.AddContent(seq++, replacement);
+                    break;
+
                 case MdStrong strong:
                     Wrap(builder, ref seq, "strong", null, strong.Text);
                     break;

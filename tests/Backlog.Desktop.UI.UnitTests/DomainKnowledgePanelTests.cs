@@ -85,6 +85,40 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
+    public async Task The_panel_does_not_print_the_folder_it_read_from()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-body']")));
+
+        // Where the knowledge folder is on this machine is a fact about the
+        // workspace, not about the chapter on screen. What the reader does need —
+        // which file this is — the file view's header says, and it says it as the
+        // file's own path.
+        Assert.Empty(component.FindAll(".domain-knowledge__source"));
+        Assert.Equal(ContextMapPath, component.Find(".file-view__path").TextContent);
+    }
+
+    [Fact]
+    public async Task The_context_map_is_marked_as_the_context_map_whichever_way_it_was_reached()
+    {
+        await using var harness = CreateHarness();
+
+        // Picked out of the knowledge menu, which is the route that used to lose
+        // the modifier: the folder view names it when nothing is selected, and the
+        // per-kind lookup had no entry for it. The stylesheet hangs the map's own
+        // treatment off this class, so both routes have to carry it.
+        var component = harness.Render(ContextMapPath);
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-body']")));
+        Assert.Contains(
+            "domain-document--context-map",
+            component.Find("[data-testid='domain-document']").GetAttribute("class") ?? string.Empty,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task The_chapter_article_gives_up_its_card_to_the_file_view()
     {
         await using var harness = CreateHarness();
@@ -137,17 +171,42 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public async Task The_shown_chapter_keeps_the_per_section_actions()
+    public async Task The_shown_chapter_is_the_file_and_nothing_after_it()
     {
         await using var harness = CreateHarness();
 
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-body']")));
 
-        // A Copilot launch for the document and one for its section: showing the
-        // file must not take a section's launch away with it, because nothing else
-        // in the product reaches it.
-        Assert.Equal(2, component.FindAll("[data-testid='knowledge-copilot-cli-button']").Count);
+        // The section list and the metadata strip are this panel's own reading of
+        // the file, assembled from the parse it holds. Under a file view that has
+        // just shown the same headings, the same fields and the same prose, they
+        // are the chapter told a second time — and the two disagree the moment
+        // either is typed into.
+        Assert.Empty(component.FindAll(".domain-sections"));
+        Assert.Empty(component.FindAll(".domain-metadata"));
+        Assert.Empty(component.FindAll(".domain-document__summary"));
+
+        // The headings themselves are still on screen, because the file has them.
+        Assert.Contains("Boundaries", component.Find("[data-testid='domain-chapter-file-body']").TextContent, StringComparison.Ordinal);
+
+        // One Copilot launch, for the document. The per-section ones went with the
+        // sections; what is left is the one thing on this header that is genuinely
+        // not in the file.
+        Assert.Single(component.FindAll("[data-testid='knowledge-copilot-cli-button']"));
+    }
+
+    [Fact]
+    public async Task A_document_the_file_view_is_not_showing_keeps_its_sections()
+    {
+        await using var harness = CreateHarness();
+
+        // The folder overview, where every document is one entry in a list and the
+        // section list is the only thing saying what is inside each. Withdrawing it
+        // for the open chapter must not withdraw it for these.
+        var component = harness.Render(null);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".domain-sections")));
         Assert.Contains("Boundaries", component.Markup, StringComparison.Ordinal);
     }
 
@@ -159,16 +218,30 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-body']")));
 
-        // The file states a status under its own heading and states none under
-        // "## Boundaries". So the body draws the record for the first, and this
-        // panel keeps the only control there is for the second. Two controls for
-        // one field is how the pane used to disagree with itself.
+        // The file states a status under its own heading, and the body is drawing
+        // the control for it. Two controls for one field is how the pane used to
+        // disagree with itself, so this panel offers none of its own.
         Assert.Single(component.FindAll("[data-testid='domain-chapter-file-body'] .knowledge-record__headline"));
-        Assert.Single(component.FindAll("[data-testid='knowledge-state-select']"));
+        Assert.Empty(component.FindAll("[data-testid='knowledge-state-select']"));
 
         // And no raw fence left over: a status drawn as a code block is what the
         // reader was seeing before.
         Assert.DoesNotContain("status: draft", component.Find("[data-testid='domain-chapter-file-body']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_read_view_shows_the_status_and_not_the_rest_of_the_fence()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-body']")));
+
+        // The status has a visualization worth the line it is on. `order` and the
+        // rest have none, and printed as label-and-value rows they are the fence
+        // again with the fence taken off.
+        Assert.Single(component.FindAll(".knowledge-record__headline .badge--status"));
+        Assert.Empty(component.FindAll("dl.knowledge-fields"));
     }
 
     [Fact]
@@ -184,7 +257,7 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         // The record lives in the read view, and the read view is not what is on
         // screen — so the panel's own control comes back rather than leaving the
         // document's state unreachable while its text is being written.
-        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='knowledge-state-select']").Count));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-state-select']")));
     }
 
     [Fact]
@@ -219,29 +292,84 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public async Task Comparing_reads_the_committed_version_only_when_it_is_asked_for()
+    public async Task The_committed_version_is_read_once_as_the_chapter_opens()
     {
         var history = StubGitFileHistory.Committed("# Context Map\n\n```meta\nstatus: draft\n```\n\nCommitted prose.\n");
         await using var harness = CreateHarness(history);
 
         var component = harness.Render(ContextMapPath);
+
+        // As the chapter opens, not when a reader presses Compare. Whether there is
+        // anything to compare is what decides that the button appears at all, so it
+        // cannot be a question only the press can answer.
+        component.WaitForAssertion(() => Assert.Equal(Path.Combine(harness.Root, ".domain", "context-map.md"), Assert.Single(history.Reads)));
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-compare']")));
 
-        // Reading a commit costs a git process, so nothing has been read while the
-        // reader was only looking at the file.
-        Assert.Empty(history.Reads);
-
         component.Find("[data-testid='domain-chapter-file-compare']").Click();
-
-        // Compared against the text as it was opened first, which needs no
-        // repository at all — so still nothing read.
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-compare-view']")));
-        Assert.Empty(history.Reads);
 
         component.Find("[data-testid='domain-chapter-file-baseline-committed']").Click();
 
+        // And one read, still: the answer is kept for as long as the chapter is
+        // open, so pressing through the modes does not spend a git process each
+        // time.
         component.WaitForAssertion(() => Assert.Contains("Committed prose.", component.Find("[data-testid='domain-chapter-file-body']").TextContent, StringComparison.Ordinal));
-        Assert.Equal(Path.Combine(harness.Root, ".domain", "context-map.md"), Assert.Single(history.Reads));
+        Assert.Single(history.Reads);
+    }
+
+    [Fact]
+    public async Task A_chapter_that_says_what_its_commit_says_is_not_offered_a_comparison()
+    {
+        // The bug this pins: the button was on every chapter in the folder, on the
+        // strength of a committed version nobody had read. A chapter with nothing
+        // uncommitted in it has nothing to show, and the control is a promise that
+        // there is something.
+        var history = StubGitFileHistory.Committed(ContextMap);
+        await using var harness = CreateHarness(history);
+
+        var component = harness.Render(ContextMapPath);
+
+        component.WaitForAssertion(() => Assert.Single(history.Reads));
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-compare']")));
+
+        // The file itself is on screen and can still be written to, which is what
+        // makes the missing button a statement about the file rather than about the
+        // panel having failed to render.
+        Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']"));
+    }
+
+    [Fact]
+    public async Task A_clean_chapter_that_has_never_been_committed_is_not_offered_one_either()
+    {
+        // The stub answers "not tracked" by default, which is the state of a chapter
+        // written this morning. There is no earlier version and the reader has typed
+        // nothing, so both sides of the comparison would be this file.
+        await using var harness = CreateHarness();
+
+        var component = harness.Render(ContextMapPath);
+
+        component.WaitForAssertion(() => Assert.Single(harness.History.Reads));
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-compare']")));
+    }
+
+    [Fact]
+    public async Task A_chapter_changed_in_this_sitting_is_offered_a_comparison()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.Single(harness.History.Reads));
+        Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-compare']"));
+
+        ChangeTheChapterState(component);
+
+        // "As opened" is now a different text from the one on screen, and that is a
+        // comparison worth offering however the commit answered.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-compare']")));
+
+        // The commit did not move while the reader typed, so the debounced reloads
+        // that follow the write do not go back to git.
+        Assert.Single(harness.History.Reads);
     }
 
     [Fact]
@@ -249,9 +377,19 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
+        // Changed first, because a clean chapter that was never committed is not
+        // offered a comparison at all now — the way to this message is a reader who
+        // has changed something and then asks what the commit said.
         var component = harness.Render(ContextMapPath);
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-compare']")));
+        component.WaitForAssertion(() => Assert.Single(harness.History.Reads));
+        ChangeTheChapterState(component);
 
+        // Back to reading first: the three modes are one at a time, and comparing is
+        // what a reader does to a file they have stopped typing into.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-done']")));
+        component.Find("[data-testid='domain-chapter-file-done']").Click();
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-compare']")));
         component.Find("[data-testid='domain-chapter-file-compare']").Click();
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-baseline-committed']")));
         component.Find("[data-testid='domain-chapter-file-baseline-committed']").Click();
@@ -262,6 +400,86 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-compare-unavailable']")));
         Assert.Contains("not been committed", component.Find("[data-testid='domain-chapter-file-compare-unavailable']").TextContent, StringComparison.Ordinal);
         Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-compare-view']"));
+    }
+
+    /// <summary>
+    /// Changes the chapter the way a reader can change it without waiting for a
+    /// debounce: the state dropdown writes the file and the panel re-reads it, so
+    /// the body on screen stops being the body that was opened.
+    /// <para>
+    /// The dropdown is the panel's own, which is only on screen while the reader is
+    /// writing — in the read view the record beside the heading is showing the state
+    /// instead.
+    /// </para>
+    /// </summary>
+    private static void ChangeTheChapterState(IRenderedComponent<DomainKnowledgePanel> component)
+    {
+        component.Find("[data-testid='domain-chapter-file-edit']").Click();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-state-select'] select")));
+        component.Find("[data-testid='knowledge-state-select'] select").Change("accepted");
+    }
+
+    [Fact]
+    public async Task Following_a_domain_relation_asks_the_host_for_that_chapter()
+    {
+        var followed = new List<KnowledgeChapterLink>();
+        await using var harness = CreateHarness();
+
+        var component = harness.RenderView(RelatedView(), ContextMapPath, followed.Add);
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".domain-metadata__link").Count));
+
+        component.FindAll(".domain-metadata__link")[0].Click();
+
+        // The whole target, not the folder it starts with: which file is what the
+        // reader pressed, and the heading slug is the part of it the old handler
+        // dropped on the way.
+        var target = Assert.Single(followed);
+        Assert.Equal("domain", target.AreaKey);
+        Assert.Equal(".domain/backlog/domain.md", target.Path);
+        Assert.Equal("backlog/domain.md", target.RelativePath);
+        Assert.Equal("domain-event-aiworklogged", target.Anchor);
+    }
+
+    [Fact]
+    public async Task Following_an_architecture_relation_asks_for_that_section()
+    {
+        // The loose end this closes: an .arc42 reference rendered as something to
+        // press and then did nothing, because the panel only understood its own
+        // folder. Which section a reference belongs to is read from the path, so
+        // every section the pane shows is reachable from every other.
+        var followed = new List<KnowledgeChapterLink>();
+        await using var harness = CreateHarness();
+
+        var component = harness.RenderView(CrossAreaView(), ContextMapPath, followed.Add);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".domain-metadata__link")));
+
+        component.Find(".domain-metadata__link").Click();
+
+        var target = Assert.Single(followed);
+        Assert.Equal("arc42", target.AreaKey);
+        Assert.Equal(".arc42/03-context-and-scope.md", target.Path);
+        Assert.Equal("03-context-and-scope.md", target.RelativePath);
+    }
+
+    [Fact]
+    public async Task A_relation_naming_no_section_is_left_as_the_words_it_was_written_as()
+    {
+        // `.github/copilot-instructions.md` is a real file and not a chapter this
+        // pane can show. A control on it would be a promise to go somewhere, and
+        // there is nowhere — so it stays text, which is also what keeps it out of
+        // the tab order.
+        var followed = new List<KnowledgeChapterLink>();
+        await using var harness = CreateHarness();
+
+        var component = harness.RenderView(CrossAreaView(), ContextMapPath, followed.Add);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".domain-metadata")));
+
+        Assert.Single(component.FindAll(".domain-metadata__link"));
+        Assert.Contains(".github/copilot-instructions.md", component.Find(".domain-metadata").TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            ".github/copilot-instructions.md",
+            component.FindAll(".domain-metadata__link").Select(link => link.TextContent.Trim()));
+        Assert.Empty(followed);
     }
 
     [Fact]
@@ -323,8 +541,8 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         // cannot tell the two orders apart, because the merge repairs both.
         harness.Folders.ArmStatusWriteSnapshot();
 
-        // The document's own dropdown is the first; the second belongs to the
-        // section below it.
+        // The document's own dropdown, which while editing is the only one on the
+        // panel: the record that draws the other lives in the read view.
         component.FindAll("[data-testid='knowledge-state-select'] select")[0].Change("accepted");
 
         component.WaitForAssertion(
@@ -404,6 +622,35 @@ public sealed class DomainKnowledgePanelTests : IDisposable
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["related"] = "[.domain/backlog/domain.md#domain-event-aiworklogged, .domain/backlog/domain.md#domain-event-entrycompleted]"
+                },
+                "A summary nobody can edit.",
+                [],
+                [],
+                []),
+            []);
+    }
+
+    /// <summary>A context map whose relations leave the domain folder: one into the
+    /// architecture section, and one into a folder this pane has no section for. The
+    /// two answers a reference can have — somewhere to go, and nowhere — beside each
+    /// other in one strip.</summary>
+    private static DomainKnowledgeView CrossAreaView()
+    {
+        var absent = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-cross-area", Guid.NewGuid().ToString("N"));
+
+        return new DomainKnowledgeView(
+            "JSdotNet/Backlog",
+            absent,
+            Path.Combine(absent, ".domain"),
+            null,
+            new DomainKnowledgeDocument(
+                ContextMapPath,
+                "Context Map",
+                DomainKnowledgeDocumentKind.ContextMap,
+                "draft",
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["related"] = "[.arc42/03-context-and-scope.md, .github/copilot-instructions.md]"
                 },
                 "A summary nobody can edit.",
                 [],
@@ -534,10 +781,24 @@ public sealed class DomainKnowledgePanelTests : IDisposable
                 .Add(panel => panel.RepositoryAlias, RepositoryAlias)
                 .Add(panel => panel.SelectedPath, selectedPath));
 
-        public IRenderedComponent<DomainKnowledgePanel> RenderView(DomainKnowledgeView view, string? selectedPath) =>
-            Context.Render<DomainKnowledgePanel>(parameters => parameters
-                .Add(panel => panel.View, view)
-                .Add(panel => panel.SelectedPath, selectedPath));
+        /// <summary>A view handed in rather than read, optionally with the host that
+        /// takes the panel's requests to open another chapter. Without one the panel
+        /// is the standalone Domain page, which has no pane to ask.</summary>
+        public IRenderedComponent<DomainKnowledgePanel> RenderView(
+            DomainKnowledgeView view,
+            string? selectedPath,
+            Action<KnowledgeChapterLink>? onNavigate = null) =>
+            Context.Render<DomainKnowledgePanel>(parameters =>
+            {
+                parameters
+                    .Add(panel => panel.View, view)
+                    .Add(panel => panel.SelectedPath, selectedPath);
+
+                if (onNavigate is not null)
+                {
+                    parameters.Add(panel => panel.OnNavigateToChapter, onNavigate);
+                }
+            });
 
         /// <summary>
         /// Awaited disposal, because the editing surface this harness renders

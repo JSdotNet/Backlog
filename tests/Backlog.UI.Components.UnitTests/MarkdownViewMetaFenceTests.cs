@@ -265,6 +265,50 @@ public sealed class MarkdownViewMetaFenceTests
         Assert.Single(view.FindAll("p.md-heading"));
     }
 
+    [Fact]
+    public void A_host_can_take_the_field_list_off_without_losing_the_status()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, Document, parameters => parameters
+            .Add(v => v.RenderKnowledgeMetadata, true)
+            .Add(v => v.RenderKnowledgeMetadataFields, false));
+
+        Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
+        Assert.Equal("Shared Technologies", view.Find(".knowledge-record__headline p.md-heading").TextContent);
+        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+
+        // And the fence is still not a code block: suppressing the rows is not the
+        // same as declining to read the block.
+        Assert.Empty(view.FindAll("pre.md-code"));
+    }
+
+    [Fact]
+    public void A_diagram_keeps_its_source_disclosure_until_a_host_says_otherwise()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = Render(context, "```mermaid\ngraph TD;\n  A-->B;\n```\n", parameters => parameters
+            .Add(v => v.RenderKnowledgeMetadata, true));
+
+        Assert.Equal("Diagram source", view.Find(".diagram-view__details summary").TextContent);
+    }
+
+    [Fact]
+    public void A_reading_surface_can_drop_the_fold_under_every_picture()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = Render(context, "```mermaid\ngraph TD;\n  A-->B;\n```\n", parameters => parameters
+            .Add(v => v.RenderKnowledgeMetadata, true)
+            .Add(v => v.ShowDiagramSource, false));
+
+        Assert.NotNull(view.Find("[data-testid='diagram-view']"));
+        Assert.Empty(view.FindAll(".diagram-view__details"));
+    }
+
     private static IRenderedComponent<MarkdownView> Render(
         BunitContext context,
         string source,

@@ -547,4 +547,78 @@ public sealed class KnowledgeMetaViewTests
         Assert.Single(headline.Children);
         Assert.Equal("active", headline.Children[0].TextContent);
     }
+
+    [Fact]
+    public void A_host_can_ask_for_the_status_without_the_fields_under_it()
+    {
+        // The status is the tier with a visualization behind it. The rest is the
+        // fence read back as label-and-value rows, which is worth having where the
+        // file is not on screen and is the file again where it is.
+        using var context = new BunitContext();
+
+        var view = context.Render<KnowledgeMetaView>(parameters => parameters
+            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+                status: adopted
+                order: ["inbox", "capture"]
+                related: [".tech/technology-graph.md"]
+                """))
+            .Add(v => v.ShowFields, false));
+
+        Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
+        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+    }
+
+    [Fact]
+    public void The_fields_are_there_until_a_host_says_otherwise()
+    {
+        // The default has to be the record every existing host already renders.
+        using var context = new BunitContext();
+
+        var view = context.Render<KnowledgeMetaView>(parameters => parameters
+            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+                status: adopted
+                order: ["inbox"]
+                """)));
+
+        Assert.NotNull(view.Find("dl.knowledge-fields"));
+    }
+
+    [Fact]
+    public void With_the_fields_suppressed_and_no_status_stated_there_is_nothing_to_draw()
+    {
+        // A bordered, labelled group holding an empty line is a frame around an
+        // answer the block never gave. Empty in, nothing out — the rule this
+        // component already kept for a block that stated nothing at all.
+        using var context = new BunitContext();
+
+        var view = context.Render<KnowledgeMetaView>(parameters => parameters
+            .Add(v => v.Metadata, KnowledgeMeta.Parse("order: [\"inbox\"]"))
+            .Add(v => v.ShowFields, false));
+
+        Assert.Equal(string.Empty, view.Markup.Trim());
+    }
+
+    [Fact]
+    public void A_heading_is_reason_enough_to_draw_the_record_around_it()
+    {
+        // In a document the headline is where the chapter's heading is rendered,
+        // so a record that stood down for want of a status would take the heading
+        // off the page with it.
+        using var context = new BunitContext();
+
+        var view = context.Render<KnowledgeMetaView>(parameters => parameters
+            .Add(v => v.Metadata, KnowledgeMeta.Parse("order: [\"inbox\"]"))
+            .Add(v => v.ShowFields, false)
+            .Add(v => v.Heading, (RenderFragment)(builder =>
+            {
+                builder.OpenElement(0, "p");
+                builder.AddAttribute(1, "class", "md-heading md-heading--1");
+                builder.AddContent(2, "Context Map");
+                builder.CloseElement();
+            })));
+
+        Assert.Equal("Context Map", view.Find(".knowledge-record__headline p.md-heading").TextContent);
+        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+        Assert.Empty(view.FindAll(".badge--status"));
+    }
 }

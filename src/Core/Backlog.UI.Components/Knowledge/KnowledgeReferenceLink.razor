@@ -22,7 +22,7 @@
            href="@Href"
            title="@Reference.Raw"
            data-testid="@TestId"
-           @attributes="AdditionalAttributes">@Text</a>
+           @attributes="AdditionalAttributes">@Display</a>
     }
     else if (OnNavigate.HasDelegate)
     {
@@ -31,11 +31,11 @@
                 title="@Reference.Raw"
                 data-testid="@TestId"
                 @onclick="Navigate"
-                @attributes="AdditionalAttributes">@Text</button>
+                @attributes="AdditionalAttributes">@Display</button>
     }
     else
     {
-        <code class="knowledge-ref knowledge-ref--inert" data-testid="@TestId" @attributes="AdditionalAttributes">@Text</code>
+        <code class="knowledge-ref knowledge-ref--inert" data-testid="@TestId" @attributes="AdditionalAttributes">@Display</code>
     }
 }
 
@@ -61,13 +61,23 @@
     [Parameter]
     public bool ShowFullPath { get; set; } = true;
 
+    /// <summary>The words this reads as, when the host has better ones than the
+    /// reference itself. A metadata field holds nothing but the path, so it has
+    /// none and leaves this null; a markdown link in prose brings the author's
+    /// own wording, and printing the path over it would lose what they were
+    /// saying. The full form stays on the title in both cases.</summary>
+    [Parameter]
+    public string? Text { get; set; }
+
     [Parameter]
     public string? TestId { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private string Text => ShowFullPath ? Reference.Raw : Reference.Label;
+    private string Display => string.IsNullOrWhiteSpace(Text)
+        ? ShowFullPath ? Reference.Raw : Reference.Label
+        : Text;
 
     private Task Navigate() => OnNavigate.InvokeAsync(Reference);
 }
