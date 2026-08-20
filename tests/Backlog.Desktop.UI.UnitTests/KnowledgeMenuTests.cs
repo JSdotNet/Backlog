@@ -110,6 +110,30 @@ public sealed class KnowledgeMenuTests : IDisposable
     }
 
     [Fact]
+    public async Task Labels_the_arc42_decision_record_folders_as_acronyms()
+    {
+        // "Adr" is a title-cased folder name; ADR is what the folder is called.
+        var repo = TempDir();
+        Directory.CreateDirectory(Path.Combine(repo, ".arc42", "adr"));
+        Directory.CreateDirectory(Path.Combine(repo, ".arc42", "tdr"));
+        File.WriteAllText(Path.Combine(repo, ".arc42", "adr", "0001-desktop-stack.md"), "# ADR 0001");
+        File.WriteAllText(Path.Combine(repo, ".arc42", "01-introduction-and-goals.md"), "# Introduction");
+
+        var settings = NewSettingsStore();
+        ConfigureRepository(settings, repo);
+
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["arc42"]);
+
+        var arc42 = Assert.Single(tree.Roots);
+        Assert.Equal(
+            ["01 Introduction And Goals", "ADR", "TDR"],
+            arc42.Children.Select(node => node.Label));
+
+        var adr = arc42.Children.Single(node => node.Label == "ADR");
+        Assert.Equal(["0001 Desktop Stack"], adr.Children.Select(node => node.Label));
+    }
+
+    [Fact]
     public async Task Builds_instruction_roots_from_agent_folders_and_all_files()
     {
         var repo = TempDir();

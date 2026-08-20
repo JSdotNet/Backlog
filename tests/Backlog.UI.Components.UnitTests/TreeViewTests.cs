@@ -91,6 +91,22 @@ public sealed class TreeViewTests
     }
 
     [Fact]
+    public void Only_a_row_with_children_carries_a_twisty()
+    {
+        // A leaf that reserved the twisty column would sit indented behind an
+        // empty gutter, so a flat chapter list would read as a nested one.
+        using var context = new BunitContext();
+
+        var tree = Render(context, expanded: _ => true);
+
+        var folder = tree.FindAll("[role='treeitem']").Single(item => item.TextContent.Contains("Intake", StringComparison.Ordinal));
+        var leaf = tree.FindAll("[role='treeitem']").Single(item => item.TextContent.Contains("Domain", StringComparison.Ordinal));
+
+        Assert.Single(folder.QuerySelectorAll(".knowledge-menu__twisty"));
+        Assert.Empty(leaf.QuerySelectorAll(".knowledge-menu__twisty"));
+    }
+
+    [Fact]
     public void The_class_prefix_renames_every_row_class()
     {
         using var context = new BunitContext();

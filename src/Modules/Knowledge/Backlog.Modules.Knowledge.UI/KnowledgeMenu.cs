@@ -234,10 +234,22 @@ public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
         return name.Equals("README", StringComparison.OrdinalIgnoreCase) ? "README" : Humanize(name);
     }
 
+    /// <summary>Name segments that are acronyms rather than words, so a folder
+    /// called "adr" reads as ADR instead of Adr. Deliberately only the segments
+    /// the knowledge folders actually use — anything else keeps title case
+    /// rather than being shouted on a guess.</summary>
+    private static readonly HashSet<string> Acronyms = new(StringComparer.OrdinalIgnoreCase) { "adr", "tdr" };
+
     private static string Humanize(string text) => string.Join(' ', text
         .Replace('_', '-')
         .Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-        .Select(word => word.Length == 0 ? word : char.ToUpperInvariant(word[0]) + word[1..]));
+        .Select(Titlecase));
+
+    private static string Titlecase(string word) => word.Length == 0
+        ? word
+        : Acronyms.Contains(word)
+            ? word.ToUpperInvariant()
+            : char.ToUpperInvariant(word[0]) + word[1..];
 }
 
 public sealed record KnowledgeMenuTree(IReadOnlyList<KnowledgeMenuNode> Roots)
