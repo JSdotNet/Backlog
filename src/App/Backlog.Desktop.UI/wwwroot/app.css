@@ -1254,6 +1254,8 @@ h1, h2, h3 {
     margin: var(--spacing-md) 0 0;
     font-size: var(--font-size-sm);
     color: var(--color-text-disabled);
+    /* These notes quote absolute paths, and a path is one unbroken word. */
+    overflow-wrap: anywhere;
 }
 
 
