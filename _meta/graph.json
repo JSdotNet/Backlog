@@ -5377,7 +5377,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "sub-feature-area-selection-and-scope",
           "level": 3,
-          "line": 76,
+          "line": 78,
           "status": "draft",
           "feature-flag": [
             "knowledge-sections"
@@ -5393,7 +5393,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "sub-feature-rendered-knowledge-documents",
           "level": 3,
-          "line": 89,
+          "line": 91,
           "status": "draft"
         }
       },
