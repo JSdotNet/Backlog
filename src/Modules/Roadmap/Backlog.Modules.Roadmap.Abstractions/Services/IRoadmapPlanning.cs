@@ -35,6 +35,8 @@ public interface IRoadmapPlanning
         string? lane = null,
         Guid? backlogEntryId = null,
         string? notes = null,
+        string? tag = null,
+        IReadOnlyList<string>? knowledgeRefs = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -58,6 +60,8 @@ public interface IRoadmapPlanning
         string? lane = null,
         Guid? backlogEntryId = null,
         string? notes = null,
+        string? tag = null,
+        IReadOnlyList<string>? knowledgeRefs = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Moves an item in time, and optionally to another lane. Both days

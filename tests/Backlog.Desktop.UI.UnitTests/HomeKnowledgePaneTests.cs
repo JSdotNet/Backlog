@@ -75,6 +75,12 @@ public sealed class HomeKnowledgePaneTests
         // same storage root, so the band draws what was stored rather than a fixture.
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
             BacklogTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
+        // The band gathers an item's linked and tagged work through this port before it
+        // opens the editor, so a host that composes the band composes the rollup with it.
+        context.Services.AddSingleton<IRoadmapItemRollup>(sp =>
+            new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(
+                BacklogTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
+                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         context.Services.AddSingleton<DesignKnowledgeProvider>();
         context.Services.AddSingleton<TechnologyKnowledgeService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();

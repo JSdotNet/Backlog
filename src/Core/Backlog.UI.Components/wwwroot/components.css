@@ -4193,6 +4193,19 @@ button.tag-chip__label {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     cursor: pointer;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+/* An aside on an option — where it comes from — kept quiet enough that it reads
+   as a note rather than a second label. */
+.tag-select__hint {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
 }
 
 /* The focus stays in the input, so the active option is the only thing that

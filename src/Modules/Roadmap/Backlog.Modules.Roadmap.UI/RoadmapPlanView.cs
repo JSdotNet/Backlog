@@ -277,18 +277,28 @@ public static class RoadmapPlanView
         _ => 3
     };
 
-    private static List<RoadmapFacet> Facets(RoadmapItemDto item, List<PlannedRepository> configured) =>
-    [
+    private static List<RoadmapFacet> Facets(RoadmapItemDto item, List<PlannedRepository> configured)
+    {
+        var facets = new List<RoadmapFacet>();
+
         // Every alias, not just the one whose band it landed in, so filtering by a
         // repository finds work that only mentions it second.
-        .. item.RepositoryAliases.Select(alias => new RoadmapFacet("Repository", TitleFor(alias, configured))),
-        new RoadmapFacet("Priority", Word(item.Priority)),
-        new RoadmapFacet("Lane", Lane(item.Lane))
-    ];
+        facets.AddRange(item.RepositoryAliases.Select(alias => new RoadmapFacet("Repository", TitleFor(alias, configured))));
+        facets.Add(new RoadmapFacet("Priority", Word(item.Priority)));
+        facets.Add(new RoadmapFacet("Lane", Lane(item.Lane)));
+
+        // The tag the item carries, so the timeline can filter by it — and so work
+        // grouped under one tag is found together. Only when there is one to show.
+        if (!string.IsNullOrEmpty(item.Tag)) facets.Add(new RoadmapFacet("Tag", item.Tag));
+
+        return facets;
+    }
 
     private static string Detail(RoadmapItemDto item, HashSet<Guid> contradicting)
     {
         var parts = new List<string> { $"{Word(item.Priority)} priority" };
+
+        if (!string.IsNullOrEmpty(item.Tag)) parts.Add($"tagged {item.Tag}");
 
         if (item.DependsOn.Count > 0)
         {
@@ -300,6 +310,15 @@ public static class RoadmapPlanView
         if (contradicting.Contains(item.Id)) parts.Add("starts before what it waits for has finished");
 
         if (item.BacklogEntryId is not null) parts.Add("linked to a backlog entry");
+
+        // A count rather than the references themselves: the detail line is a summary,
+        // and a chapter path is too long to belong on it.
+        if (item.Knowledge.Count > 0)
+        {
+            parts.Add(item.Knowledge.Count == 1
+                ? "references 1 knowledge chapter"
+                : $"references {item.Knowledge.Count} knowledge chapters");
+        }
 
         return string.Join(" · ", parts);
     }

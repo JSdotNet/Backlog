@@ -231,6 +231,72 @@ public class JsonRoadmapPlanRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ATagAndKnowledgeReferencesRoundTrip()
+    {
+        var plan = RoadmapPlan.Empty();
+        var item = plan.AddItem(
+            "Extract the sync service",
+            Window(5, 9),
+            tag: PlanningTag.Of("sync"),
+            knowledgeRefs: KnowledgeReferences.Of(
+                [".domain/backlog/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"])).Value;
+
+        await _plans.SaveAsync(plan);
+        var loaded = await _plans.LoadAsync();
+
+        var loadedItem = loaded.Items.Single(candidate => candidate.Id == item.Id);
+        Assert.Equal("sync", loadedItem.Tag.Value);
+        Assert.Equal(
+            [".domain/backlog/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"],
+            loadedItem.KnowledgeRefs.Refs);
+    }
+
+    [Fact]
+    public async Task AHandWrittenPlanWithNoTagStillLoads_AndGetsOneDerivedFromItsTitle()
+    {
+        // A plan.json from before tags existed: no tag field, no knowledge field. It
+        // has to load, and every item still comes back with a tag.
+        var json = JsonSerializer.Serialize(new
+        {
+            version = 1,
+            items = new[]
+            {
+                new
+                {
+                    id = Guid.NewGuid().ToString(),
+                    title = "Typed by hand",
+                    start = "2026-03-02",
+                    end = "2026-03-13",
+                    priority = "high"
+                }
+            }
+        });
+        Directory.CreateDirectory(Path.GetDirectoryName(_plans.PlanPath)!);
+        await File.WriteAllTextAsync(_plans.PlanPath, json);
+
+        var loaded = await _plans.LoadAsync();
+
+        var item = Assert.Single(loaded.Items);
+        Assert.Equal("typed-by-hand", item.Tag.Value);
+        Assert.True(item.KnowledgeRefs.IsEmpty);
+    }
+
+    [Fact]
+    public async Task AnEmptyKnowledgeListIsOmittedFromTheWrittenFile()
+    {
+        var plan = RoadmapPlan.Empty();
+        plan.AddItem("Points at nothing", Window(5, 9), tag: PlanningTag.Of("plain"));
+
+        await _plans.SaveAsync(plan);
+        var json = await File.ReadAllTextAsync(_plans.PlanPath);
+
+        // The file is meant to be read by hand; an empty array on every item is a line
+        // that says nothing. The tag is always written, because every item has one.
+        Assert.DoesNotContain("knowledge", json);
+        Assert.Contains("\"tag\": \"plain\"", json);
+    }
+
+    [Fact]
     public async Task AnOrdinaryDateCostsNoLineInTheFile()
     {
         var plan = RoadmapPlan.Empty();

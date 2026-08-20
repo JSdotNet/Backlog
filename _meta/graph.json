@@ -10,36 +10,36 @@
     ".design"
   ],
   "stats": {
-    "nodes": 622,
-    "edges": 1157,
+    "nodes": 638,
+    "edges": 1205,
     "nodesByFolder": {
       "arc42": 63,
-      "domain": 408,
+      "domain": 424,
       "backlog": 4,
       "tech": 53,
       "design": 94
     },
     "nodesByType": {
       "file": 103,
-      "chapter": 458,
-      "heading": 61
+      "chapter": 470,
+      "heading": 65
     },
     "nodesByStatus": {
       "active": 172,
       "proposed": 29,
-      "draft": 297,
+      "draft": 309,
       "accepted": 3,
       "deprecated": 3,
       "idea": 1,
       "done": 3,
       "candidate": 32,
       "adopted": 21,
-      "none": 61
+      "none": 65
     },
     "edgesByType": {
-      "contains": 519,
-      "related": 562,
-      "depends-on": 74,
+      "contains": 535,
+      "related": 591,
+      "depends-on": 77,
       "implements": 2
     }
   },
@@ -692,7 +692,10 @@
           "slug": "tagging-and-organization",
           "level": 2,
           "line": 64,
-          "status": "active"
+          "status": "active",
+          "related": [
+            ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"
+          ]
         }
       },
       {
@@ -704,7 +707,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 75,
+          "line": 85,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -720,7 +723,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 90,
+          "line": 100,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -736,7 +739,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 101,
+          "line": 111,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -747,7 +750,8 @@
             ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
             ".domain/sessions/domain.md#aggregate-session-log",
             ".domain/repository-management/domain.md#aggregate-repository-registry",
-            ".domain/technology-stack/domain.md#aggregate-technology-registry"
+            ".domain/technology-stack/domain.md#aggregate-technology-registry",
+            ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"
           ]
         }
       },
@@ -1043,7 +1047,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-service-projection",
           "level": 2,
-          "line": 220,
+          "line": 239,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#aggregate-progress-signal",
@@ -1060,7 +1064,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-service-recurrence",
           "level": 2,
-          "line": 233,
+          "line": 252,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1078,7 +1082,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-statuschanged",
           "level": 2,
-          "line": 274,
+          "line": 293,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1095,7 +1099,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entryprojected",
           "level": 2,
-          "line": 300,
+          "line": 319,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1113,7 +1117,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entrycompleted",
           "level": 2,
-          "line": 327,
+          "line": 346,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1131,7 +1135,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-occurrencespawned",
           "level": 2,
-          "line": 352,
+          "line": 371,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1149,7 +1153,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-aiworklogged",
           "level": 2,
-          "line": 380,
+          "line": 399,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1204,6 +1208,23 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag",
+          "label": "Sub-feature: Filing an entry against a roadmap tag",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "sub-feature-filing-an-entry-against-a-roadmap-tag",
+          "level": 3,
+          "line": 38,
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#roadmap-tag",
+            ".domain/backlog/features.md#feature-search-filter-and-organize"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/features.md#sub-feature-sub-items-and-steps",
           "label": "Sub-feature: Sub-items and steps",
           "type": "chapter",
@@ -1211,7 +1232,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-sub-items-and-steps",
           "level": 3,
-          "line": 38,
+          "line": 59,
           "status": "draft"
         }
       },
@@ -1224,10 +1245,30 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-attached-material",
           "level": 3,
-          "line": 55,
+          "line": 76,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#attachment"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#feature-effort-registration",
+          "label": "Feature: Effort registration",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "feature-effort-registration",
+          "level": 2,
+          "line": 106,
+          "status": "draft",
+          "depends-on": [
+            ".domain/backlog/features.md#feature-refinement-and-prioritization"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort"
           ]
         }
       },
@@ -1240,7 +1281,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-scheduling-and-recurrence",
           "level": 2,
-          "line": 85,
+          "line": 137,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1259,7 +1300,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-due-dates",
           "level": 3,
-          "line": 109,
+          "line": 161,
           "status": "proposed"
         }
       },
@@ -1272,7 +1313,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-reminders",
           "level": 3,
-          "line": 120,
+          "line": 172,
           "status": "proposed"
         }
       },
@@ -1285,7 +1326,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-recurring-entries",
           "level": 3,
-          "line": 135,
+          "line": 187,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#domain-service-recurrence",
@@ -1302,7 +1343,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-my-day",
           "level": 2,
-          "line": 154,
+          "line": 206,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1321,7 +1362,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-entry-dependencies",
           "level": 2,
-          "line": 173,
+          "line": 225,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1341,7 +1382,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-readiness-and-chain-order",
           "level": 3,
-          "line": 191,
+          "line": 243,
           "status": "proposed"
         }
       },
@@ -1354,7 +1395,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-multi-repo-targeting",
           "level": 2,
-          "line": 215,
+          "line": 267,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-backlog-entry-creation"
@@ -1373,7 +1414,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-projection",
           "level": 2,
-          "line": 227,
+          "line": 279,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-multi-repo-targeting"
@@ -1392,7 +1433,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-issue-projection-and-state-read-back",
           "level": 3,
-          "line": 239,
+          "line": 291,
           "status": "draft",
           "feature-flag": [
             "github-integration"
@@ -1412,7 +1453,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-search-filter-and-organize",
           "level": 2,
-          "line": 255,
+          "line": 307,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-bi-directional-linking"
@@ -1428,7 +1469,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-manual-ordering",
           "level": 3,
-          "line": 267,
+          "line": 319,
           "status": "draft"
         }
       },
@@ -1441,7 +1482,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-prompt-features",
           "level": 2,
-          "line": 277,
+          "line": 329,
           "status": "draft"
         }
       },
@@ -1454,7 +1495,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-hand-off-to-copilot-cli",
           "level": 3,
-          "line": 286,
+          "line": 338,
           "status": "draft",
           "feature-flag": [
             "copilot-cli"
@@ -1473,7 +1514,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 299,
+          "line": 351,
           "status": "draft",
           "feature-flag": [
             "ai-assistant"
@@ -1493,7 +1534,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-archive-and-lifecycle",
           "level": 2,
-          "line": 315,
+          "line": 367,
           "status": "draft"
         }
       },
@@ -1506,7 +1547,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-roadmap-planning",
           "level": 2,
-          "line": 324,
+          "line": 376,
           "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1527,7 +1568,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-roadmap-views",
           "level": 3,
-          "line": 354,
+          "line": 406,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline"
@@ -1877,6 +1918,49 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/naming.md#term-effort",
+          "label": "Term: Effort",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-effort",
+          "level": 2,
+          "line": 205,
+          "status": "draft",
+          "aliases": [
+            "effort",
+            "story points",
+            "story-point estimate"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/roadmap/naming.md#term-effort"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/naming.md#term-roadmap-tag",
+          "label": "Term: Roadmap Tag",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-roadmap-tag",
+          "level": 2,
+          "line": 221,
+          "status": "draft",
+          "aliases": [
+            "roadmap tag",
+            "tag"
+          ],
+          "related": [
+            ".domain/roadmap/naming.md#term-roadmap-tag",
+            ".domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/naming.md#term-roadmap",
           "label": "Term: Roadmap",
           "type": "chapter",
@@ -1884,7 +1968,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-roadmap",
           "level": 2,
-          "line": 205,
+          "line": 237,
           "status": "deprecated",
           "aliases": [
             "Roadmap planning",
@@ -4542,7 +4626,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "aggregate-roadmap-plan",
           "level": 2,
-          "line": 34,
+          "line": 37,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -4560,7 +4644,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "domain-service-plan-sequencing",
           "level": 2,
-          "line": 182,
+          "line": 269,
           "status": "draft",
           "related": [
             ".domain/roadmap/domain.md#aggregate-roadmap-plan"
@@ -4576,11 +4660,29 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "domain-service-repository-scope-resolution",
           "level": 2,
-          "line": 205,
+          "line": 292,
           "status": "draft",
           "related": [
             ".domain/repository-management/naming.md#term-repository",
             ".domain/environment/domain.md#domain-service-environment-shortcut-resolution"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "label": "Domain Service: Roadmap Item Gathering",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "domain-service-roadmap-item-gathering",
+          "level": 2,
+          "line": 310,
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/second-brain/domain.md#aggregate-knowledge-note"
           ]
         }
       },
@@ -4593,7 +4695,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "domain-event-roadmapitemscheduled",
           "level": 2,
-          "line": 223,
+          "line": 342,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#aggregate-progress-signal"
@@ -4689,6 +4791,46 @@
       },
       {
         "data": {
+          "id": ".domain/roadmap/features.md#feature-tagging-planned-work",
+          "label": "Feature: Tagging planned work",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-tagging-planned-work",
+          "level": 2,
+          "line": 74,
+          "status": "draft",
+          "depends-on": [
+            ".domain/roadmap/features.md#feature-owning-a-stored-plan"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#roadmap-tag"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort",
+          "label": "Feature: Gathering work under an item and totalling its effort",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "feature-gathering-work-under-an-item-and-totalling-its-effort",
+          "level": 2,
+          "line": 100,
+          "status": "draft",
+          "depends-on": [
+            ".domain/roadmap/features.md#feature-tagging-planned-work"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+            ".domain/backlog/features.md#feature-effort-registration",
+            ".domain/second-brain/features.md#feature-topic-and-tag-grouping"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/roadmap/features.md#feature-priority-planning",
           "label": "Feature: Priority planning",
           "type": "chapter",
@@ -4696,7 +4838,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-priority-planning",
           "level": 2,
-          "line": 74,
+          "line": 129,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-owning-a-stored-plan"
@@ -4715,7 +4857,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-dependency-planning",
           "level": 2,
-          "line": 88,
+          "line": 143,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-owning-a-stored-plan"
@@ -4735,7 +4877,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-refusing-a-circular-plan",
           "level": 3,
-          "line": 101,
+          "line": 156,
           "status": "draft"
         }
       },
@@ -4748,7 +4890,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-surfacing-contradictions-instead-of-fixing-them",
           "level": 3,
-          "line": 111,
+          "line": 166,
           "status": "draft",
           "related": [
             ".domain/roadmap/domain.md#domain-service-plan-sequencing"
@@ -4764,7 +4906,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-repository-scoped-planning",
           "level": 2,
-          "line": 124,
+          "line": 179,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-owning-a-stored-plan"
@@ -4784,7 +4926,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-reading-the-plan-by-repository",
           "level": 3,
-          "line": 136,
+          "line": 191,
           "status": "draft"
         }
       },
@@ -4797,7 +4939,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-surviving-a-repository-that-is-no-longer-configured",
           "level": 3,
-          "line": 147,
+          "line": 202,
           "status": "draft",
           "related": [
             ".domain/roadmap/domain.md#domain-service-repository-scope-resolution"
@@ -4813,7 +4955,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-reading-and-rescheduling-on-a-timeline",
           "level": 2,
-          "line": 158,
+          "line": 213,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-dependency-planning",
@@ -4834,7 +4976,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-rescheduling-without-a-mouse",
           "level": 3,
-          "line": 171,
+          "line": 226,
           "status": "draft"
         }
       },
@@ -4847,7 +4989,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-telling-one-project-from-another-at-a-glance",
           "level": 3,
-          "line": 181,
+          "line": 236,
           "status": "draft",
           "related": [
             ".design/color-scheme.md#band-identity-tokens",
@@ -4864,7 +5006,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-editing-the-plan-in-place",
           "level": 2,
-          "line": 210,
+          "line": 265,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-owning-a-stored-plan"
@@ -4884,7 +5026,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-editing-what-something-waits-for",
           "level": 3,
-          "line": 227,
+          "line": 282,
           "status": "draft",
           "related": [
             ".domain/roadmap/features.md#sub-feature-refusing-a-circular-plan"
@@ -4900,7 +5042,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-refusing-an-edit-rather-than-half-applying-it",
           "level": 3,
-          "line": 240,
+          "line": 295,
           "status": "draft"
         }
       },
@@ -4913,7 +5055,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-publishing-planned-intent-for-observation",
           "level": 2,
-          "line": 250,
+          "line": 305,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-owning-a-stored-plan"
@@ -5180,6 +5322,74 @@
       },
       {
         "data": {
+          "id": ".domain/roadmap/naming.md#term-roadmap-tag",
+          "label": "Term: Roadmap Tag",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-roadmap-tag",
+          "level": 2,
+          "line": 140,
+          "status": "draft",
+          "aliases": [
+            "RoadmapTag",
+            "tag",
+            "roadmap tag",
+            "slug"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#roadmap-tag",
+            ".domain/backlog/naming.md#term-roadmap-tag"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-knowledge-ref",
+          "label": "Term: Knowledge Ref",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-knowledge-ref",
+          "level": 2,
+          "line": 156,
+          "status": "draft",
+          "aliases": [
+            "KnowledgeRef",
+            "knowledge_refs",
+            "knowledge reference"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#knowledge-ref",
+            ".domain/second-brain/naming.md#term-knowledge-note"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/naming.md#term-effort",
+          "label": "Term: Effort",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/naming.md",
+          "slug": "term-effort",
+          "level": 2,
+          "line": 169,
+          "status": "draft",
+          "aliases": [
+            "effort",
+            "story points",
+            "story-point estimate",
+            "total registered effort"
+          ],
+          "related": [
+            ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+            ".domain/backlog/naming.md#term-effort"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/roadmap/naming.md#term-contradiction",
           "label": "Term: Contradiction",
           "type": "chapter",
@@ -5187,7 +5397,7 @@
           "path": ".domain/roadmap/naming.md",
           "slug": "term-contradiction",
           "level": 2,
-          "line": 140,
+          "line": 185,
           "status": "draft",
           "aliases": [
             "contradiction",
@@ -5244,7 +5454,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "domain-service-cross-linking",
           "level": 2,
-          "line": 70,
+          "line": 109,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry"
@@ -5260,7 +5470,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 83,
+          "line": 122,
           "status": "draft"
         }
       },
@@ -5329,7 +5539,11 @@
           "slug": "feature-topic-and-tag-grouping",
           "level": 2,
           "line": 40,
-          "status": "draft"
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/domain.md#tag",
+            ".domain/second-brain/domain.md#roadmap-contribution"
+          ]
         }
       },
       {
@@ -5341,7 +5555,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "feature-bi-directional-linking",
           "level": 2,
-          "line": 49,
+          "line": 59,
           "status": "draft",
           "related": [
             ".domain/backlog/features.md#feature-search-filter-and-organize"
@@ -5357,7 +5571,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "feature-repository-knowledge-areas",
           "level": 2,
-          "line": 60,
+          "line": 70,
           "status": "draft",
           "feature-flag": [
             "repository-knowledge"
@@ -5377,7 +5591,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "sub-feature-area-selection-and-scope",
           "level": 3,
-          "line": 78,
+          "line": 88,
           "status": "draft",
           "feature-flag": [
             "knowledge-sections"
@@ -5393,7 +5607,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "sub-feature-rendered-knowledge-documents",
           "level": 3,
-          "line": 91,
+          "line": 101,
           "status": "draft"
         }
       },
@@ -5504,6 +5718,50 @@
           ],
           "related": [
             ".domain/second-brain/domain.md#project-ref"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/naming.md#term-effort",
+          "label": "Term: Effort",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/naming.md",
+          "slug": "term-effort",
+          "level": 2,
+          "line": 56,
+          "status": "draft",
+          "aliases": [
+            "effort",
+            "story points",
+            "story-point estimate"
+          ],
+          "related": [
+            ".domain/second-brain/domain.md#aggregate-knowledge-note",
+            ".domain/backlog/naming.md#term-effort"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/naming.md#term-roadmap-contribution",
+          "label": "Term: Roadmap Contribution",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/naming.md",
+          "slug": "term-roadmap-contribution",
+          "level": 2,
+          "line": 71,
+          "status": "draft",
+          "aliases": [
+            "roadmap",
+            "roadmap contribution",
+            "contributes to"
+          ],
+          "related": [
+            ".domain/second-brain/domain.md#roadmap-contribution",
+            ".domain/roadmap/naming.md#term-roadmap-tag"
           ]
         }
       },
@@ -8980,6 +9238,18 @@
       },
       {
         "data": {
+          "id": ".domain/roadmap/domain.md#roadmap-tag",
+          "label": "Roadmap Tag",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "roadmap-tag",
+          "level": 4,
+          "line": 206
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/domain.md#attachment",
           "label": "Attachment",
           "type": "heading",
@@ -8987,7 +9257,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "attachment",
           "level": 4,
-          "line": 150
+          "line": 169
         }
       },
       {
@@ -8999,7 +9269,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "sub-item",
           "level": 4,
-          "line": 112
+          "line": 131
         }
       },
       {
@@ -9011,7 +9281,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-type",
           "level": 4,
-          "line": 181
+          "line": 200
         }
       },
       {
@@ -9023,7 +9293,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-status",
           "level": 4,
-          "line": 185
+          "line": 204
         }
       },
       {
@@ -9035,7 +9305,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "recurrence",
           "level": 4,
-          "line": 138
+          "line": 157
         }
       },
       {
@@ -9047,7 +9317,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "readiness",
           "level": 4,
-          "line": 206
+          "line": 225
         }
       },
       {
@@ -9323,7 +9593,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "milestone",
           "level": 4,
-          "line": 95
+          "line": 139
         }
       },
       {
@@ -9335,7 +9605,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "planning-priority",
           "level": 4,
-          "line": 164
+          "line": 251
         }
       },
       {
@@ -9347,7 +9617,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "dependency",
           "level": 4,
-          "line": 132
+          "line": 176
         }
       },
       {
@@ -9359,7 +9629,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "repository-scope",
           "level": 4,
-          "line": 121
+          "line": 165
         }
       },
       {
@@ -9371,7 +9641,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "roadmap-item",
           "level": 4,
-          "line": 82
+          "line": 99
         }
       },
       {
@@ -9383,7 +9653,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "planned-window",
           "level": 4,
-          "line": 111
+          "line": 155
         }
       },
       {
@@ -9395,7 +9665,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "priority",
           "level": 4,
-          "line": 189
+          "line": 208
         }
       },
       {
@@ -9407,7 +9677,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "planning-lane",
           "level": 4,
-          "line": 143
+          "line": 187
         }
       },
       {
@@ -9419,7 +9689,43 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "backlog-entry-link",
           "level": 4,
-          "line": 154
+          "line": 198
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#knowledge-ref",
+          "label": "Knowledge Ref",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "knowledge-ref",
+          "level": 4,
+          "line": 233
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/domain.md#tag",
+          "label": "Tag",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/second-brain/domain.md",
+          "slug": "tag",
+          "level": 4,
+          "line": 64
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/domain.md#roadmap-contribution",
+          "label": "Roadmap Contribution",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/second-brain/domain.md",
+          "slug": "roadmap-contribution",
+          "level": 4,
+          "line": 76
         }
       },
       {
@@ -9431,7 +9737,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "para-category",
           "level": 4,
-          "line": 57
+          "line": 96
         }
       },
       {
@@ -9443,7 +9749,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "backlog-link",
           "level": 4,
-          "line": 45
+          "line": 59
         }
       },
       {
@@ -9455,7 +9761,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "project-ref",
           "level": 4,
-          "line": 40
+          "line": 54
         }
       },
       {
@@ -10178,6 +10484,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/backlog/features.md#feature-refinement-and-prioritization->.domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag",
+          "source": ".domain/backlog/features.md#feature-refinement-and-prioritization",
+          "target": ".domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/backlog/features.md#feature-refinement-and-prioritization->.domain/backlog/features.md#sub-feature-sub-items-and-steps",
           "source": ".domain/backlog/features.md#feature-refinement-and-prioritization",
           "target": ".domain/backlog/features.md#sub-feature-sub-items-and-steps",
@@ -10189,6 +10503,14 @@
           "id": "contains:.domain/backlog/features.md#feature-refinement-and-prioritization->.domain/backlog/features.md#sub-feature-attached-material",
           "source": ".domain/backlog/features.md#feature-refinement-and-prioritization",
           "target": ".domain/backlog/features.md#sub-feature-attached-material",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#feature-effort-registration",
+          "source": ".domain/backlog/features.md",
+          "target": ".domain/backlog/features.md#feature-effort-registration",
           "type": "contains"
         }
       },
@@ -10453,6 +10775,22 @@
           "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-occurrence",
           "source": ".domain/backlog/naming.md",
           "target": ".domain/backlog/naming.md#term-occurrence",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-effort",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-effort",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-roadmap-tag",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-roadmap-tag",
           "type": "contains"
         }
       },
@@ -11562,6 +11900,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/roadmap/domain.md->.domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "source": ".domain/roadmap/domain.md",
+          "target": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/roadmap/domain.md->.domain/roadmap/domain.md#domain-event-roadmapitemscheduled",
           "source": ".domain/roadmap/domain.md",
           "target": ".domain/roadmap/domain.md#domain-event-roadmapitemscheduled",
@@ -11605,6 +11951,22 @@
           "id": "contains:.domain/roadmap/features.md#feature-owning-a-stored-plan->.domain/roadmap/features.md#sub-feature-a-date-the-whole-plan-is-read-against",
           "source": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
           "target": ".domain/roadmap/features.md#sub-feature-a-date-the-whole-plan-is-read-against",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md->.domain/roadmap/features.md#feature-tagging-planned-work",
+          "source": ".domain/roadmap/features.md",
+          "target": ".domain/roadmap/features.md#feature-tagging-planned-work",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md->.domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort",
+          "source": ".domain/roadmap/features.md",
+          "target": ".domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort",
           "type": "contains"
         }
       },
@@ -11802,6 +12164,30 @@
       },
       {
         "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-roadmap-tag",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-roadmap-tag",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-knowledge-ref",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-knowledge-ref",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-effort",
+          "source": ".domain/roadmap/naming.md",
+          "target": ".domain/roadmap/naming.md#term-effort",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#term-contradiction",
           "source": ".domain/roadmap/naming.md",
           "target": ".domain/roadmap/naming.md#term-contradiction",
@@ -11925,6 +12311,22 @@
           "id": "contains:.domain/second-brain/naming.md->.domain/second-brain/naming.md#term-project-ref",
           "source": ".domain/second-brain/naming.md",
           "target": ".domain/second-brain/naming.md#term-project-ref",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/naming.md->.domain/second-brain/naming.md#term-effort",
+          "source": ".domain/second-brain/naming.md",
+          "target": ".domain/second-brain/naming.md#term-effort",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/naming.md->.domain/second-brain/naming.md#term-roadmap-contribution",
+          "source": ".domain/second-brain/naming.md",
+          "target": ".domain/second-brain/naming.md#term-roadmap-contribution",
           "type": "contains"
         }
       },
@@ -13794,6 +14196,14 @@
       },
       {
         "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#tagging-and-organization->.domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "source": ".arc42/08-crosscutting-concepts.md#tagging-and-organization",
+          "target": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/08-crosscutting-concepts.md#authentication-and-authorization->.arc42/09-architecture-decisions.md",
           "source": ".arc42/08-crosscutting-concepts.md#authentication-and-authorization",
           "target": ".arc42/09-architecture-decisions.md",
@@ -13877,6 +14287,14 @@
           "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/technology-stack/domain.md#aggregate-technology-registry",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
           "target": ".domain/technology-stack/domain.md#aggregate-technology-registry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
           "type": "related"
         }
       },
@@ -14234,6 +14652,30 @@
       },
       {
         "data": {
+          "id": "contains:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/roadmap/domain.md#roadmap-tag",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#roadmap-tag",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag->.domain/roadmap/domain.md#roadmap-tag",
+          "source": ".domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag",
+          "target": ".domain/roadmap/domain.md#roadmap-tag",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag->.domain/backlog/features.md#feature-search-filter-and-organize",
+          "source": ".domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag",
+          "target": ".domain/backlog/features.md#feature-search-filter-and-organize",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/backlog/domain.md#aggregate-backlog-entry->.domain/backlog/domain.md#attachment",
           "source": ".domain/backlog/domain.md#aggregate-backlog-entry",
           "target": ".domain/backlog/domain.md#attachment",
@@ -14245,6 +14687,30 @@
           "id": "related:.domain/backlog/features.md#sub-feature-attached-material->.domain/backlog/domain.md#attachment",
           "source": ".domain/backlog/features.md#sub-feature-attached-material",
           "target": ".domain/backlog/domain.md#attachment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/backlog/features.md#feature-effort-registration->.domain/backlog/features.md#feature-refinement-and-prioritization",
+          "source": ".domain/backlog/features.md#feature-effort-registration",
+          "target": ".domain/backlog/features.md#feature-refinement-and-prioritization",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#feature-effort-registration->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/features.md#feature-effort-registration",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#feature-effort-registration->.domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort",
+          "source": ".domain/backlog/features.md#feature-effort-registration",
+          "target": ".domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort",
           "type": "related"
         }
       },
@@ -14605,6 +15071,38 @@
           "id": "related:.domain/backlog/naming.md#term-occurrence->.domain/backlog/domain.md#domain-service-recurrence",
           "source": ".domain/backlog/naming.md#term-occurrence",
           "target": ".domain/backlog/domain.md#domain-service-recurrence",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-effort->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/backlog/naming.md#term-effort",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-effort->.domain/roadmap/naming.md#term-effort",
+          "source": ".domain/backlog/naming.md#term-effort",
+          "target": ".domain/roadmap/naming.md#term-effort",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-roadmap-tag->.domain/roadmap/naming.md#term-roadmap-tag",
+          "source": ".domain/backlog/naming.md#term-roadmap-tag",
+          "target": ".domain/roadmap/naming.md#term-roadmap-tag",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-roadmap-tag->.domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag",
+          "source": ".domain/backlog/naming.md#term-roadmap-tag",
+          "target": ".domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag",
           "type": "related"
         }
       },
@@ -15898,6 +16396,30 @@
       },
       {
         "data": {
+          "id": "related:.domain/roadmap/domain.md#domain-service-roadmap-item-gathering->.domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "source": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "target": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/domain.md#domain-service-roadmap-item-gathering->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/domain.md#domain-service-roadmap-item-gathering->.domain/second-brain/domain.md#aggregate-knowledge-note",
+          "source": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "target": ".domain/second-brain/domain.md#aggregate-knowledge-note",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/roadmap/domain.md#domain-event-roadmapitemscheduled->.domain/monitoring/domain.md#aggregate-progress-signal",
           "source": ".domain/roadmap/domain.md#domain-event-roadmapitemscheduled",
           "target": ".domain/monitoring/domain.md#aggregate-progress-signal",
@@ -15941,6 +16463,54 @@
           "id": "related:.domain/roadmap/features.md#sub-feature-a-date-the-whole-plan-is-read-against->.domain/roadmap/domain.md#milestone",
           "source": ".domain/roadmap/features.md#sub-feature-a-date-the-whole-plan-is-read-against",
           "target": ".domain/roadmap/domain.md#milestone",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#feature-tagging-planned-work->.domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "source": ".domain/roadmap/features.md#feature-tagging-planned-work",
+          "target": ".domain/roadmap/features.md#feature-owning-a-stored-plan",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-tagging-planned-work->.domain/roadmap/domain.md#roadmap-tag",
+          "source": ".domain/roadmap/features.md#feature-tagging-planned-work",
+          "target": ".domain/roadmap/domain.md#roadmap-tag",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort->.domain/roadmap/features.md#feature-tagging-planned-work",
+          "source": ".domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort",
+          "target": ".domain/roadmap/features.md#feature-tagging-planned-work",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort->.domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "source": ".domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort",
+          "target": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort->.domain/backlog/features.md#feature-effort-registration",
+          "source": ".domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort",
+          "target": ".domain/backlog/features.md#feature-effort-registration",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort->.domain/second-brain/features.md#feature-topic-and-tag-grouping",
+          "source": ".domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort",
+          "target": ".domain/second-brain/features.md#feature-topic-and-tag-grouping",
           "type": "related"
         }
       },
@@ -16330,6 +16900,62 @@
       },
       {
         "data": {
+          "id": "related:.domain/roadmap/naming.md#term-roadmap-tag->.domain/roadmap/domain.md#roadmap-tag",
+          "source": ".domain/roadmap/naming.md#term-roadmap-tag",
+          "target": ".domain/roadmap/domain.md#roadmap-tag",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-roadmap-tag->.domain/backlog/naming.md#term-roadmap-tag",
+          "source": ".domain/roadmap/naming.md#term-roadmap-tag",
+          "target": ".domain/backlog/naming.md#term-roadmap-tag",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/domain.md#aggregate-roadmap-plan->.domain/roadmap/domain.md#knowledge-ref",
+          "source": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#knowledge-ref",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-knowledge-ref->.domain/roadmap/domain.md#knowledge-ref",
+          "source": ".domain/roadmap/naming.md#term-knowledge-ref",
+          "target": ".domain/roadmap/domain.md#knowledge-ref",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-knowledge-ref->.domain/second-brain/naming.md#term-knowledge-note",
+          "source": ".domain/roadmap/naming.md#term-knowledge-ref",
+          "target": ".domain/second-brain/naming.md#term-knowledge-note",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-effort->.domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "source": ".domain/roadmap/naming.md#term-effort",
+          "target": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/naming.md#term-effort->.domain/backlog/naming.md#term-effort",
+          "source": ".domain/roadmap/naming.md#term-effort",
+          "target": ".domain/backlog/naming.md#term-effort",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/roadmap/naming.md#term-contradiction->.domain/roadmap/domain.md#domain-service-plan-sequencing",
           "source": ".domain/roadmap/naming.md#term-contradiction",
           "target": ".domain/roadmap/domain.md#domain-service-plan-sequencing",
@@ -16374,6 +17000,38 @@
           "source": ".domain/second-brain/features.md#feature-para-organization",
           "target": ".domain/second-brain/features.md#feature-knowledge-capture",
           "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/domain.md#aggregate-knowledge-note->.domain/second-brain/domain.md#tag",
+          "source": ".domain/second-brain/domain.md#aggregate-knowledge-note",
+          "target": ".domain/second-brain/domain.md#tag",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#feature-topic-and-tag-grouping->.domain/second-brain/domain.md#tag",
+          "source": ".domain/second-brain/features.md#feature-topic-and-tag-grouping",
+          "target": ".domain/second-brain/domain.md#tag",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/domain.md#aggregate-knowledge-note->.domain/second-brain/domain.md#roadmap-contribution",
+          "source": ".domain/second-brain/domain.md#aggregate-knowledge-note",
+          "target": ".domain/second-brain/domain.md#roadmap-contribution",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#feature-topic-and-tag-grouping->.domain/second-brain/domain.md#roadmap-contribution",
+          "source": ".domain/second-brain/features.md#feature-topic-and-tag-grouping",
+          "target": ".domain/second-brain/domain.md#roadmap-contribution",
+          "type": "related"
         }
       },
       {
@@ -16461,6 +17119,38 @@
           "id": "related:.domain/second-brain/naming.md#term-project-ref->.domain/second-brain/domain.md#project-ref",
           "source": ".domain/second-brain/naming.md#term-project-ref",
           "target": ".domain/second-brain/domain.md#project-ref",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/naming.md#term-effort->.domain/second-brain/domain.md#aggregate-knowledge-note",
+          "source": ".domain/second-brain/naming.md#term-effort",
+          "target": ".domain/second-brain/domain.md#aggregate-knowledge-note",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/naming.md#term-effort->.domain/backlog/naming.md#term-effort",
+          "source": ".domain/second-brain/naming.md#term-effort",
+          "target": ".domain/backlog/naming.md#term-effort",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/naming.md#term-roadmap-contribution->.domain/second-brain/domain.md#roadmap-contribution",
+          "source": ".domain/second-brain/naming.md#term-roadmap-contribution",
+          "target": ".domain/second-brain/domain.md#roadmap-contribution",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/naming.md#term-roadmap-contribution->.domain/roadmap/naming.md#term-roadmap-tag",
+          "source": ".domain/second-brain/naming.md#term-roadmap-contribution",
+          "target": ".domain/roadmap/naming.md#term-roadmap-tag",
           "type": "related"
         }
       },

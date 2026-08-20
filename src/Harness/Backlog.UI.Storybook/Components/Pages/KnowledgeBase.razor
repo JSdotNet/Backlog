@@ -22,7 +22,7 @@ The status is a control here because this sample is read as `.tech`, and a folde
     </Story>
 
     <Story Name="One block, every field, drawn"
-           Description="Every shape the record draws, on one screen. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references a host can follow; `aliases`, `alternatives` and `order` hold plain strings and never become links, whatever a host wires up.
+           Description="Every shape the record draws, on one screen. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references a host can follow; `aliases`, `alternatives` and `order` hold plain strings and never become links, whatever a host wires up. `effort` reads at a glance as a points badge, and `roadmap` holds roadmap item tag slugs drawn as chips — tags, not addresses, so they never become links either.
 
 A field the schema has never heard of — `owner` here — is kept under Extra and drawn under its own name rather than dropped, and the same collection catches a `related` entry that will not parse. A typo is only useful once it is visible.
 
@@ -265,10 +265,12 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         status: adopted
         kind: framework
         version: "10.0"
+        effort: 5
         issue: JSdotNet/Backlog#118
         depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
         related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
         implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        roadmap: [sync-service, mobile-mvp]
         aliases: [TaskItem, backlog_entry_id, backlog_item_id]
         alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
         order: [overview.md, backlog, environment]

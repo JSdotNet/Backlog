@@ -84,6 +84,21 @@ internal sealed record RoadmapItemDocument
 
     public string? BacklogEntryId { get; init; }
 
+    /// <summary>The slug this item is known by wherever tags are used. Additive and
+    /// safe to omit: a plan.json written before tags existed simply has no <c>tag</c>,
+    /// and the item derives one from its title on load — which is why this did not
+    /// bump <see cref="RoadmapPlanDocument.Version"/>.</summary>
+    public string? Tag { get; init; }
+
+    /// <summary>The knowledge chapters this item points at, as opaque references.
+    /// Omitted when empty — written as <c>null</c> rather than <c>[]</c> so the
+    /// serializer's default rule drops it, the same habit <c>PlanWide</c> follows —
+    /// so an item that points at no chapter costs no line. Additive for the same
+    /// reason <see cref="Tag"/> is: an older file with no <c>knowledge</c> loads as an
+    /// empty set, so neither field bumped the version.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public List<string>? Knowledge { get; init; }
+
     public List<string> DependsOn { get; init; } = [];
 
     public string? Notes { get; init; }
@@ -98,6 +113,8 @@ internal sealed record RoadmapItemDocument
         Repositories = [.. item.Scope.Aliases],
         Lane = item.Lane.IsDefault ? null : item.Lane.Name,
         BacklogEntryId = item.BacklogEntryId?.ToString(),
+        Tag = item.Tag.Value,
+        Knowledge = item.KnowledgeRefs.IsEmpty ? null : [.. item.KnowledgeRefs.Refs],
         DependsOn = [.. item.Dependencies.All.Select(id => id.ToString())],
         Notes = item.Notes
     };
@@ -119,7 +136,11 @@ internal sealed record RoadmapItemDocument
             PlanningLane.Of(Lane),
             Dependencies.Of(RoadmapWire.ParseIds(DependsOn)),
             Guid.TryParse(BacklogEntryId, out var entryId) ? entryId : null,
-            Notes);
+            Notes,
+            // No tag in the file means a plan.json from before tags existed; the item
+            // derives one from its title when handed null.
+            string.IsNullOrWhiteSpace(Tag) ? null : PlanningTag.Of(Tag),
+            KnowledgeReferences.Of(Knowledge));
     }
 }
 

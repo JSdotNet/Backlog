@@ -6,27 +6,27 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 81,
-    "edges": 133,
+    "nodes": 82,
+    "edges": 135,
     "nodesByFolder": {
       "arc42": 63,
-      "domain": 15,
+      "domain": 16,
       "tech": 3
     },
     "nodesByType": {
       "file": 17,
-      "chapter": 64
+      "chapter": 65
     },
     "nodesByStatus": {
       "active": 53,
       "proposed": 1,
-      "draft": 21,
+      "draft": 22,
       "accepted": 3,
       "adopted": 3
     },
     "edgesByType": {
       "contains": 48,
-      "related": 85
+      "related": 87
     }
   },
   "problems": [],
@@ -678,7 +678,10 @@
           "slug": "tagging-and-organization",
           "level": 2,
           "line": 64,
-          "status": "active"
+          "status": "active",
+          "related": [
+            ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"
+          ]
         }
       },
       {
@@ -690,7 +693,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 75,
+          "line": 85,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -706,7 +709,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 90,
+          "line": 100,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -722,7 +725,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 101,
+          "line": 111,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -733,7 +736,8 @@
             ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
             ".domain/sessions/domain.md#aggregate-session-log",
             ".domain/repository-management/domain.md#aggregate-repository-registry",
-            ".domain/technology-stack/domain.md#aggregate-technology-registry"
+            ".domain/technology-stack/domain.md#aggregate-technology-registry",
+            ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"
           ]
         }
       },
@@ -1137,7 +1141,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "feature-repository-knowledge-areas",
           "level": 2,
-          "line": 60,
+          "line": 70,
           "status": "draft",
           "feature-flag": [
             "repository-knowledge"
@@ -1162,6 +1166,25 @@
           "status": "draft",
           "related": [
             ".domain/technology-stack/features.md#feature-technology-baseline-definition"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "label": "Domain Service: Roadmap Item Gathering",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/domain.md",
+          "slug": "domain-service-roadmap-item-gathering",
+          "level": 2,
+          "line": 310,
+          "status": "draft",
+          "related": [
+            ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/second-brain/domain.md#aggregate-knowledge-note"
           ],
           "outOfScope": true
         }
@@ -2111,6 +2134,14 @@
       },
       {
         "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#tagging-and-organization->.domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "source": ".arc42/08-crosscutting-concepts.md#tagging-and-organization",
+          "target": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/08-crosscutting-concepts.md#authentication-and-authorization->.arc42/09-architecture-decisions.md",
           "source": ".arc42/08-crosscutting-concepts.md#authentication-and-authorization",
           "target": ".arc42/09-architecture-decisions.md",
@@ -2194,6 +2225,14 @@
           "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/technology-stack/domain.md#aggregate-technology-registry",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
           "target": ".domain/technology-stack/domain.md#aggregate-technology-registry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
           "type": "related"
         }
       },

@@ -137,6 +137,51 @@ The optional foreign id naming the Backlog Entry that executes a Roadmap Item. I
 is how the plan shows real progress without owning any, it may dangle, and a
 dangling link reads as unlinked rather than as an error.
 
+## Term: Roadmap Tag
+
+```meta
+status: draft
+aliases: [RoadmapTag, tag, roadmap tag, slug]
+related: [.domain/roadmap/domain.md#roadmap-tag, .domain/backlog/naming.md#term-roadmap-tag]
+```
+
+The lowercase kebab-case slug a Roadmap Item is filed under, and the vocabulary
+two other contexts borrow to say work belongs to that item. Derived from the
+title when the item is created and then independent of it — **a rename never
+changes the tag**, because entries and chapters already written against it would
+stop matching. Every item has one; a title that slugifies to nothing takes the
+constant `item`. Not unique across items: a shared tag is how a person groups
+planned work on purpose.
+
+## Term: Knowledge Ref
+
+```meta
+status: draft
+aliases: [KnowledgeRef, knowledge_refs, knowledge reference]
+related: [.domain/roadmap/domain.md#knowledge-ref, .domain/second-brain/naming.md#term-knowledge-note]
+```
+
+A direct `<path>#<slug>` reference from a Roadmap Item to a knowledge chapter that
+informs it. The knowledge counterpart of the `Backlog Entry Link`: an id-shaped
+reference the plan holds, never reads through, and never validates. It may dangle
+and a dangling ref reads as unresolved rather than as an error.
+
+## Term: Effort
+
+```meta
+status: draft
+aliases: [effort, story points, story-point estimate, total registered effort]
+related: [.domain/roadmap/domain.md#domain-service-roadmap-item-gathering, .domain/backlog/naming.md#term-effort]
+```
+
+Size measured in story points. Roadmap Planning never registers effort — that is
+done on Backlog Entries and knowledge chapters — but it **totals** it: over
+everything a Roadmap Item gathers, the *total registered effort* is plain
+arithmetic over the points that were actually registered, reported alongside the
+count of gathered things that registered none. A total, not a measurement of time,
+and never an inference: unestimated work is counted as unestimated, not as zero
+that hides in the sum.
+
 ## Term: Contradiction
 
 ```meta

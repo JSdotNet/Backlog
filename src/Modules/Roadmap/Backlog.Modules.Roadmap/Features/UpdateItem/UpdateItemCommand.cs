@@ -25,7 +25,9 @@ public sealed record UpdateItemCommand(
     IReadOnlyList<string>? RepositoryAliases = null,
     string? Lane = null,
     Guid? BacklogEntryId = null,
-    string? Notes = null);
+    string? Notes = null,
+    string? Tag = null,
+    IReadOnlyList<string>? KnowledgeRefs = null);
 
 public sealed class UpdateItemCommandHandler(IRoadmapPlanRepository plans)
     : ICommandHandler<UpdateItemCommand, Result<RoadmapItemDto>>
@@ -48,7 +50,10 @@ public sealed class UpdateItemCommandHandler(IRoadmapPlanRepository plans)
             RepositoryScope.Of(command.RepositoryAliases),
             PlanningLane.Of(command.Lane),
             command.BacklogEntryId,
-            command.Notes);
+            command.Notes,
+            // A cleared tag means "derive one from the title"; the plan does that.
+            string.IsNullOrWhiteSpace(command.Tag) ? null : PlanningTag.Of(command.Tag),
+            KnowledgeReferences.Of(command.KnowledgeRefs));
 
         if (updated.IsFailure) return Result.Failure<RoadmapItemDto>(updated.Error);
 

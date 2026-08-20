@@ -2355,6 +2355,83 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+/* What a roadmap item has already gathered — its linked and tagged backlog
+   entries, its knowledge chapters, and the effort registered against them. A
+   read-only block below the editable fields, drawn quietly because it is context
+   for those fields rather than another one of them. */
+.roadmap-gathered {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--color-border);
+    min-width: min(28rem, 80vw);
+}
+
+.roadmap-gathered__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.roadmap-gathered__group {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-gathered__group-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-secondary);
+}
+
+.roadmap-gathered__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-gathered__item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.roadmap-gathered__title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* "not estimated" said in words, so an entry that registered no number reads as a
+   deliberate absence rather than a zero. */
+.roadmap-gathered__unestimated {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-style: italic;
+}
+
+.roadmap-gathered__effort {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-gathered__effort-total {
+    font-weight: var(--font-weight-semibold);
+}
+
+/* The count the total is not allowed to hide, kept beside it rather than under a
+   fold: unestimated work dropped silently would read as less work than there is. */
+.roadmap-gathered__effort-caveat {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* Choosing which colour each band takes.
 
    A row per repository, its name at one end and the five choices at the other. The
