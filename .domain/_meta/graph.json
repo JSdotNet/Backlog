@@ -6289,7 +6289,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 101,
+          "line": 111,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -6300,7 +6300,8 @@
             ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
             ".domain/sessions/domain.md#aggregate-session-log",
             ".domain/repository-management/domain.md#aggregate-repository-registry",
-            ".domain/technology-stack/domain.md#aggregate-technology-registry"
+            ".domain/technology-stack/domain.md#aggregate-technology-registry",
+            ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"
           ],
           "outOfScope": true
         }
@@ -6401,7 +6402,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 90,
+          "line": 100,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
