@@ -19,6 +19,13 @@ builder.Services.AddHttpClient<CloudSyncClient>(client =>
 // other's host, which is why there are two registrations rather than one.
 builder.Services.AddScoped<ISpeechTranscriber, WebSpeechTranscriber>();
 
+// The browser half of ISharedContentReceiver: a share arrives as ?shared=&subject=
+// because a browser cannot be given an Android intent. The MAUI head registers the
+// share target against the same abstraction; neither implementation runs in the
+// other's host, which is why there are two registrations rather than one. Scoped,
+// because it reads the address the current circuit was opened on.
+builder.Services.AddScoped<ISharedContentReceiver, QuerySharedContentReceiver>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

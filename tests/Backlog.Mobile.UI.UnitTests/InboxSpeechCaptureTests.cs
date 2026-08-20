@@ -155,6 +155,12 @@ public sealed class InboxSpeechCaptureTests
 
             _context.JSInterop.Mode = JSRuntimeMode.Loose;
             _context.Services.AddSingleton<ISpeechTranscriber>(Speech);
+
+            // The screen also takes a share source. Dictation has nothing to do
+            // with sharing, so this one is never triggered — it is here because
+            // the screen is injected with it, and a share that never arrives is
+            // the state these tests want anyway.
+            _context.Services.AddSingleton<ISharedContentReceiver>(new TestSharedContentReceiver());
             _context.Services.AddSingleton(new CloudSyncClient(
                 new HttpClient(new EmptyInboxHandler()) { BaseAddress = new Uri("https://sync.test") }));
         }
