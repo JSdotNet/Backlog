@@ -10,35 +10,35 @@
     ".design"
   ],
   "stats": {
-    "nodes": 604,
-    "edges": 1114,
+    "nodes": 607,
+    "edges": 1120,
     "nodesByFolder": {
       "arc42": 63,
-      "domain": 390,
+      "domain": 393,
       "backlog": 4,
       "tech": 53,
       "design": 94
     },
     "nodesByType": {
       "file": 103,
-      "chapter": 445,
-      "heading": 56
+      "chapter": 447,
+      "heading": 57
     },
     "nodesByStatus": {
       "active": 172,
-      "proposed": 17,
-      "draft": 296,
+      "proposed": 18,
+      "draft": 297,
       "accepted": 3,
       "deprecated": 3,
       "idea": 1,
       "done": 3,
       "candidate": 32,
       "adopted": 21,
-      "none": 56
+      "none": 57
     },
     "edgesByType": {
-      "contains": 501,
-      "related": 538,
+      "contains": 504,
+      "related": 541,
       "depends-on": 73,
       "implements": 2
     }
@@ -1043,7 +1043,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-service-projection",
           "level": 2,
-          "line": 178,
+          "line": 220,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#aggregate-progress-signal",
@@ -1060,7 +1060,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-service-recurrence",
           "level": 2,
-          "line": 191,
+          "line": 233,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1078,7 +1078,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-statuschanged",
           "level": 2,
-          "line": 232,
+          "line": 274,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1095,7 +1095,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entryprojected",
           "level": 2,
-          "line": 258,
+          "line": 300,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1113,7 +1113,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-entrycompleted",
           "level": 2,
-          "line": 285,
+          "line": 327,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1131,7 +1131,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-occurrencespawned",
           "level": 2,
-          "line": 310,
+          "line": 352,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1149,7 +1149,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "domain-event-aiworklogged",
           "level": 2,
-          "line": 338,
+          "line": 380,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -1214,6 +1214,22 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/features.md#sub-feature-attached-material",
+          "label": "Sub-feature: Attached material",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "sub-feature-attached-material",
+          "level": 3,
+          "line": 54,
+          "status": "draft",
+          "related": [
+            ".domain/backlog/domain.md#attachment"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
           "label": "Feature: Scheduling and recurrence",
           "type": "chapter",
@@ -1221,7 +1237,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-scheduling-and-recurrence",
           "level": 2,
-          "line": 54,
+          "line": 84,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1240,7 +1256,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-due-dates",
           "level": 3,
-          "line": 78,
+          "line": 108,
           "status": "proposed"
         }
       },
@@ -1253,7 +1269,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-reminders",
           "level": 3,
-          "line": 89,
+          "line": 119,
           "status": "proposed"
         }
       },
@@ -1266,7 +1282,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-recurring-entries",
           "level": 3,
-          "line": 104,
+          "line": 134,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#domain-service-recurrence",
@@ -1283,7 +1299,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-my-day",
           "level": 2,
-          "line": 123,
+          "line": 153,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1302,7 +1318,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-entry-dependencies",
           "level": 2,
-          "line": 142,
+          "line": 172,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1322,7 +1338,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-readiness-and-chain-order",
           "level": 3,
-          "line": 160,
+          "line": 190,
           "status": "proposed"
         }
       },
@@ -1335,7 +1351,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-multi-repo-targeting",
           "level": 2,
-          "line": 184,
+          "line": 214,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-backlog-entry-creation"
@@ -1354,7 +1370,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-projection",
           "level": 2,
-          "line": 196,
+          "line": 226,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-multi-repo-targeting"
@@ -1373,7 +1389,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-issue-projection-and-state-read-back",
           "level": 3,
-          "line": 208,
+          "line": 238,
           "status": "draft",
           "related": [
             ".domain/repository-management/features.md#sub-feature-github-access-resolution",
@@ -1390,7 +1406,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-search-filter-and-organize",
           "level": 2,
-          "line": 223,
+          "line": 253,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-bi-directional-linking"
@@ -1406,7 +1422,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-manual-ordering",
           "level": 3,
-          "line": 235,
+          "line": 265,
           "status": "draft"
         }
       },
@@ -1419,7 +1435,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-prompt-features",
           "level": 2,
-          "line": 245,
+          "line": 275,
           "status": "draft"
         }
       },
@@ -1432,7 +1448,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-hand-off-to-copilot-cli",
           "level": 3,
-          "line": 254,
+          "line": 284,
           "status": "draft",
           "related": [
             ".domain/productivity/features.md#sub-feature-ai-activity-capture"
@@ -1448,7 +1464,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 266,
+          "line": 296,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-repository-knowledge-areas",
@@ -1465,7 +1481,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-archive-and-lifecycle",
           "level": 2,
-          "line": 281,
+          "line": 311,
           "status": "draft"
         }
       },
@@ -1478,7 +1494,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-roadmap-planning",
           "level": 2,
-          "line": 290,
+          "line": 320,
           "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1499,7 +1515,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-roadmap-views",
           "level": 3,
-          "line": 320,
+          "line": 350,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline"
@@ -1785,6 +1801,29 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/naming.md#term-attachment",
+          "label": "Term: Attachment",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/naming.md",
+          "slug": "term-attachment",
+          "level": 2,
+          "line": 165,
+          "status": "proposed",
+          "aliases": [
+            "attachment",
+            "files",
+            "attached folder",
+            "attached material"
+          ],
+          "related": [
+            ".domain/backlog/domain.md#attachment",
+            ".domain/backlog/features.md#sub-feature-attached-material"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/naming.md#term-readiness",
           "label": "Term: Readiness",
           "type": "chapter",
@@ -1792,7 +1831,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-readiness",
           "level": 2,
-          "line": 165,
+          "line": 180,
           "status": "proposed",
           "aliases": [
             "TaskReadiness",
@@ -1813,7 +1852,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-occurrence",
           "level": 2,
-          "line": 177,
+          "line": 192,
           "status": "proposed",
           "aliases": [
             "recurrence_source_id",
@@ -1833,7 +1872,7 @@
           "path": ".domain/backlog/naming.md",
           "slug": "term-roadmap",
           "level": 2,
-          "line": 190,
+          "line": 205,
           "status": "deprecated",
           "aliases": [
             "Roadmap planning",
@@ -8100,7 +8139,7 @@
           "path": ".design/content-editing.md",
           "slug": "live-parse-confirmation",
           "level": 2,
-          "line": 195,
+          "line": 198,
           "status": "active",
           "related": [
             ".design/content-editing.md#editing-feedback-and-state"
@@ -8116,7 +8155,7 @@
           "path": ".design/content-editing.md",
           "slug": "paste-behavior",
           "level": 2,
-          "line": 213,
+          "line": 216,
           "status": "active"
         }
       },
@@ -8129,7 +8168,7 @@
           "path": ".design/content-editing.md",
           "slug": "slash-and-inline-commands",
           "level": 2,
-          "line": 235,
+          "line": 238,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#feedback-and-toasts",
@@ -8146,7 +8185,7 @@
           "path": ".design/content-editing.md",
           "slug": "unsupported-syntax-preservation",
           "level": 2,
-          "line": 251,
+          "line": 254,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#reorder--auto-save"
@@ -8162,7 +8201,7 @@
           "path": ".design/content-editing.md",
           "slug": "editing-feedback-and-state",
           "level": 2,
-          "line": 268,
+          "line": 271,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
@@ -8179,7 +8218,7 @@
           "path": ".design/content-editing.md",
           "slug": "ai-proposals-in-a-document",
           "level": 2,
-          "line": 283,
+          "line": 286,
           "status": "active",
           "related": [
             ".design/design-principles.md#ai-first-surfaces",
@@ -8197,7 +8236,7 @@
           "path": ".design/content-editing.md",
           "slug": "materialization",
           "level": 2,
-          "line": 308,
+          "line": 311,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -8692,6 +8731,18 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/domain.md#attachment",
+          "label": "Attachment",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "slug": "attachment",
+          "level": 4,
+          "line": 150
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/domain.md#sub-item",
           "label": "Sub-Item",
           "type": "heading",
@@ -8699,7 +8750,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "sub-item",
           "level": 4,
-          "line": 97
+          "line": 112
         }
       },
       {
@@ -8711,7 +8762,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-type",
           "level": 4,
-          "line": 139
+          "line": 181
         }
       },
       {
@@ -8723,7 +8774,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-status",
           "level": 4,
-          "line": 143
+          "line": 185
         }
       },
       {
@@ -8735,7 +8786,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "recurrence",
           "level": 4,
-          "line": 123
+          "line": 138
         }
       },
       {
@@ -8747,7 +8798,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "readiness",
           "level": 4,
-          "line": 164
+          "line": 206
         }
       },
       {
@@ -9095,7 +9146,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "priority",
           "level": 4,
-          "line": 147
+          "line": 189
         }
       },
       {
@@ -9838,6 +9889,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/backlog/features.md#feature-refinement-and-prioritization->.domain/backlog/features.md#sub-feature-attached-material",
+          "source": ".domain/backlog/features.md#feature-refinement-and-prioritization",
+          "target": ".domain/backlog/features.md#sub-feature-attached-material",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#feature-scheduling-and-recurrence",
           "source": ".domain/backlog/features.md",
           "target": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
@@ -10073,6 +10132,14 @@
           "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-dependency",
           "source": ".domain/backlog/naming.md",
           "target": ".domain/backlog/naming.md#term-dependency",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/naming.md->.domain/backlog/naming.md#term-attachment",
+          "source": ".domain/backlog/naming.md",
+          "target": ".domain/backlog/naming.md#term-attachment",
           "type": "contains"
         }
       },
@@ -13782,6 +13849,22 @@
       },
       {
         "data": {
+          "id": "contains:.domain/backlog/domain.md#aggregate-backlog-entry->.domain/backlog/domain.md#attachment",
+          "source": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "target": ".domain/backlog/domain.md#attachment",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#sub-feature-attached-material->.domain/backlog/domain.md#attachment",
+          "source": ".domain/backlog/features.md#sub-feature-attached-material",
+          "target": ".domain/backlog/domain.md#attachment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.domain/backlog/features.md#feature-scheduling-and-recurrence->.domain/backlog/features.md#feature-refinement-and-prioritization",
           "source": ".domain/backlog/features.md#feature-scheduling-and-recurrence",
           "target": ".domain/backlog/features.md#feature-refinement-and-prioritization",
@@ -14097,6 +14180,22 @@
           "id": "related:.domain/backlog/naming.md#term-dependency->.domain/backlog/domain.md#aggregate-backlog-entry",
           "source": ".domain/backlog/naming.md#term-dependency",
           "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-attachment->.domain/backlog/domain.md#attachment",
+          "source": ".domain/backlog/naming.md#term-attachment",
+          "target": ".domain/backlog/domain.md#attachment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/naming.md#term-attachment->.domain/backlog/features.md#sub-feature-attached-material",
+          "source": ".domain/backlog/naming.md#term-attachment",
+          "target": ".domain/backlog/features.md#sub-feature-attached-material",
           "type": "related"
         }
       },
