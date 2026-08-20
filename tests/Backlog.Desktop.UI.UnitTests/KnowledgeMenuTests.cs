@@ -134,6 +134,29 @@ public sealed class KnowledgeMenuTests : IDisposable
     }
 
     [Fact]
+    public async Task Orders_the_folder_readme_first()
+    {
+        // Alphabetically the design folder's README lands between
+        // "interaction-guidelines" and "typography"; it is the chapter that
+        // introduces the rest, so it opens the folder instead.
+        var repo = TempDir();
+        Directory.CreateDirectory(Path.Combine(repo, ".design"));
+        File.WriteAllText(Path.Combine(repo, ".design", "accessibility.md"), "# Accessibility");
+        File.WriteAllText(Path.Combine(repo, ".design", "README.md"), "# Design");
+        File.WriteAllText(Path.Combine(repo, ".design", "typography-and-layout.md"), "# Typography");
+
+        var settings = NewSettingsStore();
+        ConfigureRepository(settings, repo);
+
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["design"]);
+
+        var design = Assert.Single(tree.Roots);
+        Assert.Equal(
+            ["README.md", "accessibility.md", "typography-and-layout.md"],
+            design.Children.Select(node => node.Path));
+    }
+
+    [Fact]
     public async Task Builds_instruction_roots_from_agent_folders_and_all_files()
     {
         var repo = TempDir();
