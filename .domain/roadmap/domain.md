@@ -35,6 +35,8 @@ per-repository bands rather than one undifferentiated list.
 
 ```meta
 status: draft
+effort: 8
+roadmap: [roadmap-planning]
 related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/repository-management/domain.md#aggregate-repository-registry, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 

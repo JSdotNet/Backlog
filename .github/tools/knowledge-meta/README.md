@@ -129,10 +129,13 @@ included only because an in-scope node references them.
 | `related` | The `related` metadata field. |
 | `implements` | The `implements` metadata field (`.backlog`). |
 
-`aliases` (`.domain`), `alternatives` (`.tech`), and `feature-flag` (`.domain`)
-are plain-string fields, not references, so they stay node attributes and
-produce no edges. `feature-flag` accepts a scalar or a list but is always
-emitted as a list, so a consumer never has to branch on shape.
+`aliases` (`.domain`), `alternatives` (`.tech`), `feature-flag` (`.domain`), and
+`roadmap` (every folder) are plain-string fields, not references, so they stay
+node attributes and produce no edges. `roadmap` holds roadmap item tag slugs
+rather than `<path>#<slug>` chapter addresses, which is why it never becomes an
+edge. `effort` (every folder) is a non-negative integer story-point scalar and
+is surfaced as a node attribute too. `feature-flag` accepts a scalar or a list
+but is always emitted as a list, so a consumer never has to branch on shape.
 
 ## Output shape: `index.json`
 

@@ -20,14 +20,18 @@ export const GENERATOR = ".github/tools/knowledge-meta/build.mjs";
 
 // Metadata fields that hold `<path>` / `<path>#<slug>` references, and the edge
 // type each one produces. Non-reference list fields (`aliases`, `alternatives`,
-// `feature-flag`) are deliberately absent — they stay node attributes.
+// `feature-flag`, `roadmap`) are deliberately absent — they stay node
+// attributes. `roadmap` in particular is NOT a reference: its values are
+// roadmap item tag slugs, not `<path>#<slug>` chapter addresses, so it must
+// never be added here (doing so would turn tag slugs into broken-reference
+// problems).
 const REFERENCE_FIELDS = {
     "depends-on": "depends-on",
     related: "related",
     implements: "implements",
 };
 
-const ATTRIBUTE_FIELDS = ["kind", "version", "issue", "aliases", "alternatives"];
+const ATTRIBUTE_FIELDS = ["kind", "version", "issue", "aliases", "alternatives", "effort", "roadmap"];
 
 // Non-reference fields whose authored form may be a scalar or a bracket list,
 // and which are always emitted as a list so a consumer reading graph.json never

@@ -51,6 +51,20 @@ public sealed record KnowledgeMetadata
     /// <summary>The pinned version of a <c>.tech</c> entry, as authored.</summary>
     public string? Version { get; init; }
 
+    /// <summary>A story-point estimate, parsed to the integer the UI shows.
+    /// <see langword="null"/> when the field is absent, <c>null</c>, or holds
+    /// something that is not a non-negative integer — this side is a reader, so
+    /// an unreadable estimate surfaces as "not estimated" rather than throwing.
+    /// <c>0</c> is a real estimate and stays distinct from unset.</summary>
+    public int? Effort { get; init; }
+
+    /// <summary>Roadmap item tag slugs this chapter or file contributes to.
+    /// Plain strings by design — like <see cref="Aliases"/>, the values name
+    /// roadmap items by their tag rather than addressing a chapter, so they are
+    /// never read as <see cref="KnowledgeReference"/>s and never become
+    /// links.</summary>
+    public IReadOnlyList<string> Roadmap { get; init; } = [];
+
     /// <summary>
     /// Every key the schema does not define, kept verbatim.
     ///
@@ -79,6 +93,8 @@ public sealed record KnowledgeMetadata
         && Alternatives.Count == 0
         && string.IsNullOrWhiteSpace(Kind)
         && string.IsNullOrWhiteSpace(Version)
+        && Effort is null
+        && Roadmap.Count == 0
         && Extra.Count == 0;
 
     /// <summary>

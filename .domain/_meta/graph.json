@@ -3582,6 +3582,10 @@
           "level": 2,
           "line": 34,
           "status": "draft",
+          "effort": "8",
+          "roadmap": [
+            "roadmap-planning"
+          ],
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
             ".domain/repository-management/domain.md#aggregate-repository-registry",
@@ -3598,7 +3602,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "domain-service-plan-sequencing",
           "level": 2,
-          "line": 182,
+          "line": 184,
           "status": "draft",
           "related": [
             ".domain/roadmap/domain.md#aggregate-roadmap-plan"
@@ -3614,7 +3618,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "domain-service-repository-scope-resolution",
           "level": 2,
-          "line": 205,
+          "line": 207,
           "status": "draft",
           "related": [
             ".domain/repository-management/naming.md#term-repository",
@@ -3631,7 +3635,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "domain-event-roadmapitemscheduled",
           "level": 2,
-          "line": 223,
+          "line": 225,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#aggregate-progress-signal"
@@ -5723,7 +5727,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "milestone",
           "level": 4,
-          "line": 95
+          "line": 97
         }
       },
       {
@@ -5735,7 +5739,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "planning-priority",
           "level": 4,
-          "line": 164
+          "line": 166
         }
       },
       {
@@ -5747,7 +5751,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "dependency",
           "level": 4,
-          "line": 132
+          "line": 134
         }
       },
       {
@@ -5759,7 +5763,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "repository-scope",
           "level": 4,
-          "line": 121
+          "line": 123
         }
       },
       {
@@ -5771,7 +5775,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "roadmap-item",
           "level": 4,
-          "line": 82
+          "line": 84
         }
       },
       {
@@ -5783,7 +5787,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "planned-window",
           "level": 4,
-          "line": 111
+          "line": 113
         }
       },
       {
@@ -5807,7 +5811,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "planning-lane",
           "level": 4,
-          "line": 143
+          "line": 145
         }
       },
       {
@@ -5819,7 +5823,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "backlog-entry-link",
           "level": 4,
-          "line": 154
+          "line": 156
         }
       },
       {

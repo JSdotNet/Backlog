@@ -25,7 +25,8 @@ public static class KnowledgeMeta
     private static readonly HashSet<string> KnownFields = new(StringComparer.Ordinal)
     {
         "status", "related", "depends-on", "implements", "issue",
-        "order", "aliases", "alternatives", "kind", "version"
+        "order", "aliases", "alternatives", "kind", "version",
+        "effort", "roadmap"
     };
 
     /// <summary>Whether a fence opened a metadata block.</summary>
@@ -96,9 +97,19 @@ public static class KnowledgeMeta
             Alternatives = fields.GetValueOrDefault("alternatives", []),
             Kind = Scalar(fields, "kind"),
             Version = Scalar(fields, "version"),
+            Effort = ParseEffort(Scalar(fields, "effort")),
+            Roadmap = fields.GetValueOrDefault("roadmap", []),
             Extra = extra
         };
     }
+
+    // Story points are an integer the UI wants to show and compare, and this
+    // side is a reader: a value it cannot read back as a non-negative integer is
+    // treated as "no effort" rather than allowed to throw. The raw text is not
+    // kept — the number is the whole value, and an unparseable one carries
+    // nothing a viewer could honestly display.
+    private static int? ParseEffort(string? value) =>
+        int.TryParse(value, out var effort) && effort >= 0 ? effort : null;
 
     private static string? Scalar(IReadOnlyDictionary<string, IReadOnlyList<string>> fields, string key) =>
         fields.TryGetValue(key, out var values) && values.Count > 0 ? values[0] : null;
