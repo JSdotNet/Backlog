@@ -58,10 +58,16 @@ public sealed class KnowledgePaneOpenErrorTests
     }
 
     /// <summary>Taken from the launcher the harness registers rather than copied,
-    /// so the assertion follows the message the pane actually receives.</summary>
+    /// so the assertion follows the message the pane actually receives.
+    /// <para>The launcher throws the adapter's neutral
+    /// <see cref="FolderEditorLaunchException"/>; the message survives the
+    /// service's translation into <see cref="KnowledgeFolderOpenException"/>
+    /// unchanged, which is what lets this be the pane's expected text. That
+    /// preservation is asserted directly in
+    /// <c>KnowledgeFolderOpenServiceTests</c>.</para></summary>
     private static async Task<string> LauncherFailureMessageAsync()
     {
-        var failure = await Assert.ThrowsAsync<KnowledgeFolderOpenException>(
+        var failure = await Assert.ThrowsAsync<FolderEditorLaunchException>(
             () => new UnsupportedFolderEditorLauncher().OpenFolderAsync("unused"));
 
         return failure.Message;
