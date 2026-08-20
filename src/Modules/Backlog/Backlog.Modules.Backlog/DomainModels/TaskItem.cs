@@ -114,6 +114,16 @@ public sealed class TaskItem
     /// unfiled.</summary>
     public string? Area { get; private set; }
 
+    /// <summary>The rough size of the entry in story points, or null when nobody
+    /// has estimated it yet. Null and zero are different answers on purpose: zero
+    /// is "this is trivial", a genuine estimate, while null is "no one has said" —
+    /// so the field is nullable rather than defaulting to a size the reader never
+    /// chose. Deliberately a bare count with no unit: the number means whatever the
+    /// team's points mean, and the model has no opinion on the scale beyond
+    /// refusing one that cannot exist. Often filled in later by an agent, so it has
+    /// to be as writable from a parsed token as from a person's keystroke.</summary>
+    public int? Effort { get; private set; }
+
     /// <summary>The calendar day the entry is committed to, or null when it is not
     /// committed to one. A date rather than an instant: "due Friday" is a promise
     /// about a day, and an instant would move the deadline whenever the device
@@ -195,6 +205,21 @@ public sealed class TaskItem
     /// null so "unfiled" has exactly one representation.</summary>
     public void SetArea(string? area) =>
         Area = string.IsNullOrWhiteSpace(area) ? null : area.Trim();
+
+    /// <summary>Estimates the entry at a number of story points, or clears the
+    /// estimate with null. A negative size is refused rather than clamped: unlike
+    /// <see cref="SetArea"/>, which normalises a blank to null because "unfiled" is
+    /// a legal place, a negative count names no legal size the caller could have
+    /// meant, so silently rounding it to zero would invent an estimate. Any
+    /// non-negative number is accepted — the Fibonacci presets the UI offers are a
+    /// convenience, not the rule, because a value written by hand or by an agent
+    /// still has to load.</summary>
+    public void SetEffort(int? effort)
+    {
+        if (effort is < 0)
+            throw new ArgumentOutOfRangeException(nameof(effort), effort, "Effort cannot be negative.");
+        Effort = effort;
+    }
 
     public void SetRepoIds(IEnumerable<string> repoIds)
     {

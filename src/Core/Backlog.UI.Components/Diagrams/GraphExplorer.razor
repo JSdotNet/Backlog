@@ -8,20 +8,25 @@
     so this component styles and hosts a picture it never interprets.
 *@
 
-<section class="tech-graph" aria-labelledby="@_headingId">
-    <header class="tech-graph__header">
-        <div>
-            <h3 id="@_headingId">@Title</h3>
-            @if (!string.IsNullOrWhiteSpace(Description))
+<section class="tech-graph"
+         aria-labelledby="@(HasHeader ? _headingId : null)"
+         aria-label="@(HasHeader ? null : AriaLabel)">
+    @if (HasHeader)
+    {
+        <header class="tech-graph__header">
+            <div>
+                <h3 id="@_headingId">@Title</h3>
+                @if (!string.IsNullOrWhiteSpace(Description))
+                {
+                    <p>@Description</p>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(BadgeText))
             {
-                <p>@Description</p>
+                <span class="badge">@BadgeText</span>
             }
-        </div>
-        @if (!string.IsNullOrWhiteSpace(BadgeText))
-        {
-            <span class="badge">@BadgeText</span>
-        }
-    </header>
+        </header>
+    }
     <div @ref="_container" class="tech-graph__canvas" role="region" aria-label="@AriaLabel">
         <p class="tech-graph__status" role="status">@StatusText</p>
     </div>
@@ -35,6 +40,10 @@
     private ElementReference _container;
     private object? _renderedData;
 
+    /// <summary>The heading above the viewport. An empty title drops the header
+    /// altogether — for a host that already names the graph on the surface
+    /// around it — and the section takes <see cref="AriaLabel"/> as its own
+    /// name instead.</summary>
     [Parameter]
     public string Title { get; set; } = "Graph";
 
@@ -55,6 +64,8 @@
 
     [Parameter]
     public string AriaLabel { get; set; } = "Graph explorer";
+
+    private bool HasHeader => !string.IsNullOrWhiteSpace(Title);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

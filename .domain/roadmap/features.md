@@ -71,6 +71,61 @@ Whether a date is that kind of date is a planning judgement, so it is recorded o
 the milestone rather than decided by whatever is drawing it. A plan where every date
 claimed it would be a plan of lines.
 
+## Feature: Tagging planned work
+
+```meta
+status: draft
+depends-on: [.domain/roadmap/features.md#feature-owning-a-stored-plan]
+related: [.domain/roadmap/domain.md#roadmap-tag]
+```
+
+Give every planned item a short tag other work can be filed against, so a Backlog
+Entry or a knowledge chapter can say "this belongs to that plan item" without the
+plan having to name it first. The tag is derived from the item's title when the
+item is created — a person does not invent it — and is then editable on its own.
+
+It deliberately **does not** move when the title is later renamed. The tag is the
+word other places have already written down, and quietly reslugging it would make
+every entry filed under it and every chapter naming it stop matching, with nothing
+to say so. Renaming the title and retagging the item are two different acts, and
+keeping them apart is what makes a tag safe to write elsewhere.
+
+Every item has a tag — there is no untagged item — and a title that comes out
+empty once slugified falls back to a plain `item` so there is always something to
+file against. Tags are not forced to be unique: two items can share one on
+purpose, and the plan can list the tags in use and show the items sitting under
+any one of them, so grouping planned work under a shared tag is a first-class
+thing to do rather than an accident to be prevented.
+
+## Feature: Gathering work under an item and totalling its effort
+
+```meta
+status: draft
+depends-on: [.domain/roadmap/features.md#feature-tagging-planned-work]
+related: [.domain/roadmap/domain.md#domain-service-roadmap-item-gathering, .domain/backlog/features.md#feature-effort-registration, .domain/second-brain/features.md#feature-topic-and-tag-grouping]
+```
+
+Read, for one planned item, everything that belongs to it and what it all adds up
+to in story points — so an item on the plan can show the size of the work behind
+it without anyone maintaining that number by hand.
+
+An item gathers work two ways at once. It gathers what it **names** outright: the
+Backlog Entry it links, and the knowledge chapters it references directly. And it
+gathers what carries its **tag**: every Backlog Entry filed under the item's tag,
+and every knowledge chapter whose own roadmap list names that tag. Something
+reached both ways — linked and tagged — is shown once, but the plan remembers it
+was held by both threads, because a person about to remove a link needs to see
+whether the tag would still hold the work afterwards.
+
+Over all of it, the item reports its **total registered effort**: the story points
+that were actually registered, added up, with nothing invented for the work that
+was never estimated. Because dropping the unestimated work would make the total
+read smaller than the work really is, the item also says **how many gathered
+things carry no estimate**, so a small total that hides a pile of unsized work
+cannot be mistaken for a small pile of work. The plan owns none of these numbers —
+they are registered on the entries and the chapters, in Backlog Management and
+Second Brain — and it only reads and adds them.
+
 ## Feature: Priority planning
 
 ```meta

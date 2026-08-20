@@ -826,4 +826,119 @@ public class EntryTextParserTests
 
         Assert.Equal("some notes", Assert.Single(entry.SubItems).Notes);
     }
+
+    // --- Effort ------------------------------------------------------------
+    //
+    // The size token is `effort:<n>`. Parsing is as tolerant as every other value
+    // on the line: a value that is not a non-negative whole number leaves the field
+    // unset rather than failing the line around it.
+
+    [Fact]
+    public void An_effort_token_parses_to_a_point_count()
+    {
+        var parsed = EntryTextParser.Parse("# Size me\n`task` `effort:5`\n");
+
+        Assert.Equal(5, parsed.Effort);
+    }
+
+    [Fact]
+    public void Zero_effort_parses_and_is_not_null()
+    {
+        var parsed = EntryTextParser.Parse("# Size me\n`task` `effort:0`\n");
+
+        Assert.Equal(0, parsed.Effort);
+    }
+
+    [Fact]
+    public void A_missing_effort_token_leaves_the_size_unset()
+    {
+        var parsed = EntryTextParser.Parse("# Size me\n`task` `*high`\n");
+
+        Assert.Null(parsed.Effort);
+    }
+
+    [Theory]
+    [InlineData("effort:abc")]
+    [InlineData("effort:-2")]
+    [InlineData("effort:")]
+    [InlineData("effort:3.5")]
+    public void An_unreadable_effort_leaves_the_size_unset_without_throwing(string token)
+    {
+        var parsed = EntryTextParser.Parse($"# Size me\n`task` `{token}`\n");
+
+        Assert.Null(parsed.Effort);
+    }
+
+    [Fact]
+    public void The_canonical_form_carries_the_effort_token_after_the_dependencies()
+    {
+        var entry = new TaskItem("Deploy SpecManager", string.Empty, EntryType.Task, Priority.High);
+        entry.SetDueOn(new DateOnly(2026, 8, 21));
+        entry.SetDependsOn(["a1b2c3"]);
+        entry.SetEffort(8);
+
+        var raw = EntryTextParser.ToRawText(entry.ToDto());
+        var parsed = EntryTextParser.Parse(raw);
+
+        Assert.Equal(
+            "`task` `*high` `!draft` `due:2026-08-21` `after:a1b2c3` `effort:8`",
+            raw.Split('\n')[1]);
+        Assert.Equal(8, parsed.Effort);
+    }
+
+    [Fact]
+    public void Effort_round_trips_through_a_parse_write_parse()
+    {
+        var once = EntryTextParser.Parse("# Size me\n`task` `*medium` `!ready` `effort:13`\n\nBody.\n");
+
+        var entry = new TaskItem("Size me", once.Body, once.Type!.Value, once.Priority!.Value);
+        entry.SetEffort(once.Effort);
+        var raw = EntryTextParser.ToRawText(entry.ToDto());
+
+        var twice = EntryTextParser.Parse(raw);
+
+        Assert.Equal(13, once.Effort);
+        Assert.Equal(once.Effort, twice.Effort);
+        // Writing the same text again lands the same line.
+        Assert.Equal(raw, EntryTextParser.ToRawText(entry.ToDto()));
+    }
+
+    [Fact]
+    public void WithEffort_adds_the_token_when_there_is_none()
+    {
+        var raw = "# Size me\n`task` `*high` `!ready`\n";
+
+        var rewritten = EntryTextParser.WithEffort(raw, 5);
+
+        Assert.Contains("`effort:5`", rewritten, StringComparison.Ordinal);
+        Assert.Equal(5, EntryTextParser.Parse(rewritten).Effort);
+        // On the metadata line beside the other tokens, not before the sigils.
+        var metaLine = rewritten.Split('\n')[1];
+        Assert.EndsWith("`effort:5`", metaLine, StringComparison.Ordinal);
+        Assert.StartsWith("`task`", metaLine, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WithEffort_replaces_an_existing_token_rather_than_doubling_it()
+    {
+        var raw = "# Size me\n`task` `effort:3`\n";
+
+        var rewritten = EntryTextParser.WithEffort(raw, 8);
+
+        Assert.Contains("`effort:8`", rewritten, StringComparison.Ordinal);
+        Assert.DoesNotContain("effort:3", rewritten, StringComparison.Ordinal);
+        Assert.Equal(8, EntryTextParser.Parse(rewritten).Effort);
+    }
+
+    [Fact]
+    public void WithEffort_null_removes_the_token()
+    {
+        var raw = "# Size me\n`task` `effort:8`\n";
+
+        var rewritten = EntryTextParser.WithEffort(raw, null);
+
+        Assert.DoesNotContain("effort:", rewritten, StringComparison.Ordinal);
+        Assert.Null(EntryTextParser.Parse(rewritten).Effort);
+    }
 }
+

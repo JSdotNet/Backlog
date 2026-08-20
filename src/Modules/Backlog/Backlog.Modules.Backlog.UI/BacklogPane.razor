@@ -260,6 +260,7 @@
         Repeat,
         DependsOn,
         Priority,
+        Effort,
         Attachment
     }
 
@@ -598,16 +599,20 @@
                     }
 
                     <div class="entry-detail__footer">
+                        @* Delete leads the row and close ends it, which is the same
+                           arrangement the roadmap dialogs use: the destructive act at
+                           the far end from everything else, never beside it. *@
+                        <DeleteButton Lead="true"
+                                      Size="ButtonSize.Small"
+                                      id="@($"delete-entry-{row.Key}")"
+                                      TestId="delete-entry-button"
+                                      AriaLabel="Delete entry"
+                                      OnClick="() => OnDeleteTaskAsync(row)" />
+
                         <IconButton BaseClass="entry-detail__close"
                                     TestId="close-entry-button"
                                     AriaLabel="Close this entry"
                                     OnClick="() => State.SelectAsync(null)">×</IconButton>
-
-                        <IconButton BaseClass="entry-doc__delete"
-                                    id="@($"delete-entry-{row.Key}")"
-                                    TestId="delete-entry-button"
-                                    AriaLabel="Delete entry"
-                                    OnClick="() => OnDeleteTaskAsync(row)">🗑</IconButton>
                     </div>
                 </Footer>
             </TaskPanel>
@@ -934,6 +939,16 @@
                     <Badge Kind="draft" data-testid="draft-hint">Unsaved — give it a title line</Badge>
                 }
 
+                @* The size at a glance, so an estimate is visible on the entry
+                   without opening the Ranking picker to read it. Only when it is
+                   set: an entry nobody has sized wears no badge rather than one
+                   saying "none", the same way an unset scheduling field shows
+                   nothing on the row. *@
+                @if (row.PreviewEffort is { } effort)
+                {
+                    <Badge Kind="effort" data-testid="entry-effort-badge" title="Effort">@FormatEffort(effort)</Badge>
+                }
+
                 @* Grouped and named after the entry, out loud. Both of these act on
                    the whole task — one files it as an issue, the other hands the
                    entry to a tool — and a step used to carry buttons that looked
@@ -1168,6 +1183,34 @@
                                      TestId="entry-priority-select"
                                      CssClass="entry-doc__schedule-select"
                                      OnChanged="value => OnPriorityPickedAsync(row, value)" />
+                    }
+
+                    @* Unlike priority this one can be absent, and so it carries a ✕:
+                       "not estimated" is a real state an entry starts in and comes
+                       back to, where a priority is always something. The presets are
+                       the Fibonacci points estimation conventionally uses; the field
+                       itself holds any non-negative number a person or an agent
+                       writes into the text, so the picker is a convenience over the
+                       token rather than the limit of it. *@
+                    <TaskAction Icon="📐"
+                                Label="Effort"
+                                Value="@FormatEffort(row.PreviewEffort)"
+                                Set="@(row.PreviewEffort is not null)"
+                                OnSet="() => TogglePicker(SchedulePicker.Effort)"
+                                OnClear="() => State.ChangeEffortAsync(row, null)"
+                                TestId="entry-action-effort" />
+
+                    @if (IsPickerOpen(SchedulePicker.Effort))
+                    {
+                        <SelectField CurrentValue="@(row.PreviewEffort is { } effort ? effort.ToString(CultureInfo.InvariantCulture) : string.Empty)"
+                                     Options="@EffortSelectorOptions()"
+                                     IncludeEmptyOption="true"
+                                     EmptyLabel="Not estimated"
+                                     Label="Effort"
+                                     Id="@($"entry-effort-{row.Key}")"
+                                     TestId="entry-effort-select"
+                                     CssClass="entry-doc__schedule-select"
+                                     OnChanged="value => OnEffortPickedAsync(row, value)" />
                     }
                 </TaskActionGroup>
 
@@ -1484,6 +1527,27 @@
         }
     }
 
+    /// <summary>Estimates the entry, or clears the estimate when the empty option
+    /// is chosen. A value that is not one of the offered points is nothing being
+    /// asked for and writes nothing — but unlike priority the empty option is a
+    /// real answer here, because "not estimated" is a state the entry can be in and
+    /// the ✕ and this option are the two ways back to it.</summary>
+    private async Task OnEffortPickedAsync(EntryRow row, string? value)
+    {
+        ClosePicker();
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            await State.ChangeEffortAsync(row, null);
+            return;
+        }
+
+        if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var points))
+        {
+            await State.ChangeEffortAsync(row, points);
+        }
+    }
+
     /// <summary>Attaches whatever path was typed, and detaches on an empty one —
     /// clearing the field is the same gesture as the ✕ on the row above it.</summary>
     private async Task OnAttachmentPickedAsync(EntryRow row, ChangeEventArgs e)
@@ -1572,24 +1636,63 @@
     private static IReadOnlyList<SelectorOption> PrioritySelectorOptions() =>
         [.. Enum.GetValues<Priority>().Select(priority => new SelectorOption(priority.ToString(), Humanize(priority.ToString())))];
 
+    /// <summary>The Fibonacci points the picker offers — the scale story-point
+    /// estimation conventionally uses, where the gaps widen as the numbers grow so
+    /// a larger estimate is also a coarser one. The value is the plain number, the
+    /// same token the metadata line holds; the field accepts any non-negative
+    /// number typed into the text, so these are the presets the picker speaks
+    /// rather than the limit of what round-trips.</summary>
+    private static IReadOnlyList<SelectorOption> EffortSelectorOptions() =>
+        [.. new[] { 1, 2, 3, 5, 8, 13, 21 }.Select(points => new SelectorOption(
+            points.ToString(CultureInfo.InvariantCulture),
+            points.ToString(CultureInfo.CurrentCulture)))];
+
+    /// <summary>A size said in words for the row and the badge — "5 points", and
+    /// "1 point" rather than "1 points". Null when nothing is estimated, which is
+    /// what leaves the badge off and the action reading "Effort" rather than a
+    /// number. What the count is called is the host's the same way a date's
+    /// wording is; only the token form stays invariant.</summary>
+    private static string? FormatEffort(int? effort) => effort is { } points
+        ? $"{points.ToString(CultureInfo.CurrentCulture)} {(points == 1 ? "point" : "points")}"
+        : null;
+
     private static IReadOnlyList<EntryStatus> StatusOptions() => Enum.GetValues<EntryStatus>();
 
     private static IReadOnlyList<SelectorOption> StatusSelectorOptions() =>
         [.. StatusOptions().Select(status => new SelectorOption(status.ToString(), Humanize(status.ToString())))];
 
     private IReadOnlyList<string> TagOptions(EntryRow row) =>
-        State.Rows
-            .SelectMany(existing => existing.PreviewMetadataTags)
-            .Concat(row.PreviewMetadataTags)
+        BacklogTags(row)
+            .Concat(State.RoadmapTags)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    /// <summary>Every tag already in use, as the picker wants them. A tag is its
-    /// own label, so the two halves of the option are the same string — which is
-    /// what makes a tag typed here and a tag picked here the same value.</summary>
-    private IReadOnlyList<SelectorOption> TagSelectorOptions(EntryRow row) =>
-        [.. TagOptions(row).Select(tag => new SelectorOption(tag, tag))];
+    /// <summary>The tags the backlog itself is already using — every entry's, and the
+    /// one being edited. The roadmap's are unioned onto these; kept apart so an option
+    /// can be told which side it came from.</summary>
+    private IEnumerable<string> BacklogTags(EntryRow row) =>
+        State.Rows
+            .SelectMany(existing => existing.PreviewMetadataTags)
+            .Concat(row.PreviewMetadataTags);
+
+    /// <summary>Every tag on offer, as the picker wants them. A tag is its own label,
+    /// so the two halves of the option are the same string — which is what makes a tag
+    /// typed here and a tag picked here the same value. A tag the roadmap offers that
+    /// no entry uses yet carries a hint saying where it came from, so an option nothing
+    /// in the list explains does not read as a stray.</summary>
+    private IReadOnlyList<SelectorOption> TagSelectorOptions(EntryRow row)
+    {
+        var used = BacklogTags(row).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return
+        [
+            .. TagOptions(row).Select(tag => new SelectorOption(
+                tag,
+                tag,
+                used.Contains(tag) ? null : "from roadmap"))
+        ];
+    }
 
     private static string Humanize(string enumName)
     {

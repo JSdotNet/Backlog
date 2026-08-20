@@ -27,10 +27,35 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render();
+        var component = harness.RenderLayers();
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-surface']")));
         Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']"));
+    }
+
+    [Fact]
+    public async Task The_pane_opens_on_the_graph_with_the_layer_detail_behind_the_second_tab()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='technology-graph-tab']")));
+
+        // The header is the title and the action, and nothing between them: the
+        // folder path and the root document's summary were both removed from it.
+        Assert.Empty(component.FindAll(".knowledge-pane__source"));
+        Assert.Empty(component.FindAll(".knowledge-pane__subtitle"));
+        Assert.Single(component.FindAll(".knowledge-pane__header [data-testid='technology-open-vscode-button']"));
+
+        // The graph tab is the one the pane opens with, so none of the layer
+        // detail is on screen until the second tab is pressed.
+        Assert.Equal("true", component.Find("[data-testid='technology-graph-tab']").GetAttribute("aria-selected"));
+        Assert.Empty(component.FindAll("[data-testid='technology-node']"));
+
+        component.Find("[data-testid='technology-layers-tab']").Click();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-node']")));
     }
 
     [Fact]
@@ -38,7 +63,7 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render();
+        var component = harness.RenderLayers();
 
         // The grid is what the panel was for before it could be written to, so
         // both are asserted together: the surface is an addition, and an addition
@@ -66,7 +91,7 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render();
+        var component = harness.RenderLayers();
 
         component.WaitForAssertion(() => Assert.Contains(
             "Shared platform choices.",
@@ -78,7 +103,7 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     public async Task Switching_layer_switches_the_chapter_being_edited()
     {
         await using var harness = CreateHarness();
-        var component = harness.Render();
+        var component = harness.RenderLayers();
         component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".tech-layer-tab").Count));
 
         component.FindAll(".tech-layer-tab")[1].Click();
@@ -93,7 +118,7 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     public async Task A_typed_layer_chapter_reaches_the_file()
     {
         await using var harness = CreateHarness();
-        var component = harness.Render();
+        var component = harness.RenderLayers();
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
 
         component.Find("[data-testid='knowledge-chapter-edit']").Click();
@@ -119,7 +144,7 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     public async Task A_status_change_does_not_cost_the_pending_body_edit()
     {
         await using var harness = CreateHarness();
-        var component = harness.Render();
+        var component = harness.RenderLayers();
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
 
         component.Find("[data-testid='knowledge-chapter-edit']").Click();
@@ -275,6 +300,18 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         public IRenderedComponent<TechnologyKnowledgePanel> Render() =>
             Context.Render<TechnologyKnowledgePanel>(parameters => parameters
                 .Add(panel => panel.RepositoryAlias, "backlog"));
+
+        /// <summary>Renders the panel and opens its Layers tab. The graph is the
+        /// tab the panel opens with, and the layer detail these tests are about
+        /// — node grid, layer picker, editing surface — is behind the second
+        /// one; an inactive tab panel renders none of it.</summary>
+        public IRenderedComponent<TechnologyKnowledgePanel> RenderLayers()
+        {
+            var component = Render();
+            component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='technology-layers-tab']")));
+            component.Find("[data-testid='technology-layers-tab']").Click();
+            return component;
+        }
 
         /// <summary>
         /// Awaited disposal, because the editing surface this harness renders

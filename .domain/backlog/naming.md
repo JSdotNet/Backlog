@@ -202,6 +202,38 @@ and spawns the next as a separate entry, linked back by
 `recurrence_source_id`. A series is therefore a chain of entries rather than one
 entry that moves, so the record of each completion survives.
 
+## Term: Effort
+
+```meta
+status: draft
+aliases: [effort, story points, story-point estimate]
+related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/roadmap/naming.md#term-effort]
+```
+
+The size of a Backlog Entry in **story points**: a non-negative integer, optional,
+and three-valued at the edges — absent means "not estimated", `0` is a real
+zero-point estimate, and a negative is rejected. It sizes the work, not the time
+spent on it, and is an estimate however it was arrived at: often derived by an AI
+agent from the entry's content, always revisable, and never a measurement.
+Registered here and owned here; Roadmap Planning reads and totals it but never
+sets it.
+
+## Term: Roadmap Tag
+
+```meta
+status: draft
+aliases: [roadmap tag, tag]
+related: [.domain/roadmap/naming.md#term-roadmap-tag, .domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag]
+```
+
+A [Roadmap Item](../roadmap/domain.md#roadmap-item)'s tag, borrowed here as
+vocabulary. This context does not define the tag — it offers every roadmap tag in
+the entry's tag picker so an entry can be filed against planned work using the
+plan's own slug, and matching exactly is what lets the roadmap gather the entry
+back. An entry's `tags` stay free-form strings; a roadmap tag is simply one a
+person may pick from the shared vocabulary rather than invent. The canonical
+concept lives in [Roadmap Planning](../roadmap/naming.md#term-roadmap-tag).
+
 ## Term: Roadmap
 
 ```meta

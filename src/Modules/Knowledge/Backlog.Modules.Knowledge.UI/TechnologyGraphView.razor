@@ -5,9 +5,10 @@
     .tech metadata, so backlogDiagrams.renderTechnologyGraph in app.js maps that
     metadata into the explorer's model and hands it over.
 *@
-<GraphExplorer Title="Technology graph"
-               Description="@Summary"
-               BadgeText="Embedded views"
+@* No title, description or badge: the pane above already says Technology and
+   counts the technologies and dependencies in its stat tiles, so the header
+   here repeated both. An empty Title drops the explorer's header entirely. *@
+<GraphExplorer Title=""
                Data="@Graph"
                JsFunction="backlogDiagrams.renderTechnologyGraph"
                StatusText="Rendering technology visualizer..."
@@ -16,7 +17,4 @@
 @code {
     [Parameter, EditorRequired]
     public TechnologyGraphData Graph { get; set; } = TechnologyGraphData.Empty;
-
-    private string Summary =>
-        $"{Graph.Nodes.Count} technologies and {Graph.Edges.Count} dependencies rendered from .tech metadata.";
 }

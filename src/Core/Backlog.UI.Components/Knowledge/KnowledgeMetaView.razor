@@ -64,6 +64,8 @@
                 @RenderStrings("kind", Scalar(Metadata.Kind))
                 @RenderStrings("version", Scalar(Metadata.Version))
                 @RenderIssue()
+                @RenderEffort()
+                @RenderRoadmap()
                 @RenderStrings("order", Metadata.Order)
 
                 @* Fields the schema does not define are shown as themselves. A
@@ -134,6 +136,42 @@
                         else
                         {
                             <code class="knowledge-value">@Metadata.Issue</code>
+                        }
+                    </dd>
+                </div>
+            }
+        </text>;
+
+    // Story points read at a glance, like the status does, so they wear the
+    // application's badge rather than sitting as a plain value. The unit is
+    // spelled out because "5" on its own does not say what it counts. Absent
+    // when there is no estimate; 0 is an estimate and still shows.
+    private RenderFragment RenderEffort() =>
+        @<text>
+            @if (Metadata.Effort is int effort)
+            {
+                <div class="knowledge-fields__row">
+                    <dt class="knowledge-fields__label">effort</dt>
+                    <dd class="knowledge-fields__value">
+                        <Badge Kind="effort" TestId="knowledge-effort-badge">@effort pts</Badge>
+                    </dd>
+                </div>
+            }
+        </text>;
+
+    // Roadmap entries are tag slugs, not addresses, so each reads as a chip the
+    // way a tag does — never a link. The container carries the test id; nothing
+    // is drawn when the list is empty.
+    private RenderFragment RenderRoadmap() =>
+        @<text>
+            @if (Metadata.Roadmap.Count > 0)
+            {
+                <div class="knowledge-fields__row">
+                    <dt class="knowledge-fields__label">roadmap</dt>
+                    <dd class="knowledge-fields__value" data-testid="knowledge-roadmap-tags">
+                        @foreach (var tag in Metadata.Roadmap)
+                        {
+                            <TagChip Text="@tag" />
                         }
                     </dd>
                 </div>
@@ -276,6 +314,8 @@
         || !string.IsNullOrWhiteSpace(Metadata.Kind)
         || !string.IsNullOrWhiteSpace(Metadata.Version)
         || !string.IsNullOrWhiteSpace(Metadata.Issue)
+        || Metadata.Effort is not null
+        || Metadata.Roadmap.Count > 0
         || Metadata.Order.Count > 0
         || Metadata.Extra.Count > 0;
 

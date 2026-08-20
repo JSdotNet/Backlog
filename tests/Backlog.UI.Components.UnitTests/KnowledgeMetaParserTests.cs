@@ -156,6 +156,107 @@ public sealed class KnowledgeMetaParserTests
     }
 
     [Fact]
+    public void An_effort_reads_back_as_the_integer_it_states()
+    {
+        var meta = KnowledgeMeta.Parse("""
+            status: draft
+            effort: 5
+            """);
+
+        Assert.Equal(5, meta.Effort);
+        Assert.False(meta.IsEmpty);
+        Assert.Empty(meta.Extra);
+    }
+
+    [Fact]
+    public void An_effort_of_zero_is_an_estimate_and_never_read_as_unset()
+    {
+        // Zero story points is a real answer, distinct from "not estimated".
+        var meta = KnowledgeMeta.Parse("""
+            status: draft
+            effort: 0
+            """);
+
+        Assert.Equal(0, meta.Effort);
+        Assert.False(meta.IsEmpty);
+    }
+
+    [Fact]
+    public void An_omitted_effort_is_null()
+    {
+        var meta = KnowledgeMeta.Parse("status: draft");
+
+        Assert.Null(meta.Effort);
+    }
+
+    [Fact]
+    public void An_effort_of_null_reads_as_no_estimate()
+    {
+        var meta = KnowledgeMeta.Parse("""
+            status: draft
+            effort: null
+            """);
+
+        Assert.Null(meta.Effort);
+        Assert.Empty(meta.Extra);
+    }
+
+    [Theory]
+    [InlineData("large")]
+    [InlineData("-3")]
+    [InlineData("2.5")]
+    public void A_non_integer_effort_reads_as_no_estimate_rather_than_throwing(string value)
+    {
+        // This side is a reader: a value it cannot parse surfaces as "no effort"
+        // rather than an exception. The generator is what flags it as an error.
+        var meta = KnowledgeMeta.Parse($"""
+            status: draft
+            effort: {value}
+            """);
+
+        Assert.Null(meta.Effort);
+    }
+
+    [Fact]
+    public void Roadmap_entries_are_plain_strings_and_are_never_read_as_references()
+    {
+        var meta = KnowledgeMeta.Parse("""
+            status: draft
+            roadmap: [sync-service, mobile-mvp]
+            """);
+
+        Assert.Equal(["sync-service", "mobile-mvp"], meta.Roadmap);
+        Assert.Empty(meta.Related);
+        Assert.Empty(meta.References);
+        Assert.Empty(meta.Extra);
+    }
+
+    [Fact]
+    public void A_roadmap_block_list_is_read_the_same_as_the_inline_form()
+    {
+        var meta = KnowledgeMeta.Parse("""
+            status: draft
+            roadmap:
+              - sync-service
+              - mobile-mvp
+            """);
+
+        Assert.Equal(["sync-service", "mobile-mvp"], meta.Roadmap);
+    }
+
+    [Fact]
+    public void An_empty_roadmap_reads_as_absent()
+    {
+        var meta = KnowledgeMeta.Parse("""
+            status: draft
+            roadmap: []
+            """);
+
+        Assert.Empty(meta.Roadmap);
+        Assert.Empty(meta.Extra);
+    }
+
+    [Fact]
     public void Order_lists_sibling_names_and_stays_as_written()
     {
         // Verbatim from .tech/technology-graph.md.

@@ -143,7 +143,8 @@ public static class EntryTextParser
         IReadOnlyList<string>? DependsOn = null,
         IReadOnlyList<UnreadableToken>? Unreadable = null,
         EntryView? View = null,
-        Attachment? Attachment = null);
+        Attachment? Attachment = null,
+        int? Effort = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -158,7 +159,8 @@ public static class EntryTextParser
         IReadOnlyList<string>? DependsOn = null,
         IReadOnlyList<UnreadableToken>? Unreadable = null,
         EntryView? View = null,
-        Attachment? Attachment = null)
+        Attachment? Attachment = null,
+        int? Effort = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -279,7 +281,8 @@ public static class EntryTextParser
             metadata.DependsOn ?? [],
             metadata.Unreadable ?? [],
             metadata.View,
-            metadata.Attachment);
+            metadata.Attachment,
+            metadata.Effort);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -295,6 +298,7 @@ public static class EntryTextParser
         DateOnly? inMyDayOn = null;
         EntryView? view = null;
         Attachment? attachment = null;
+        int? effort = null;
         var dependsOn = new List<string>();
         var unreadable = new List<UnreadableToken>();
 
@@ -334,6 +338,23 @@ public static class EntryTextParser
                     case "myday":
                         if (TryParseDateToken(value, out var myDay)) inMyDayOn = myDay;
                         else unreadable.Add(new UnreadableToken("myday", value));
+                        break;
+
+                    case "effort":
+                        // A story-point size, kept tolerant like every other value
+                        // on this line: NumberStyles.None rejects a sign and a
+                        // decimal point, so `effort:-2` and `effort:abc` alike fall
+                        // through and leave the field unset rather than throwing.
+                        // A negative is refused here because the aggregate refuses
+                        // it too — writing one down would only fail on the next
+                        // save. Unlisted in the refused-token hint on purpose: the
+                        // number is a convenience the picker fills, not a promise
+                        // about the work a reader is waiting to see acknowledged.
+                        if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var points))
+                        {
+                            effort = points;
+                        }
+
                         break;
 
                     case "view":
@@ -435,7 +456,8 @@ public static class EntryTextParser
             dependsOn,
             unreadable,
             view,
-            attachment);
+            attachment,
+            effort);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -1120,6 +1142,13 @@ public static class EntryTextParser
             meta += $" `after:{id.Trim()}`";
         }
 
+        // After the scheduling and dependency tokens and before the two that are
+        // not about the work itself. A size sits with the facts about the task —
+        // when it is due, what it waits on — rather than with what is attached to
+        // it or how it is read, and pinning it to one fixed slot is what makes a
+        // parse→write→parse round trip land the line back exactly as it was.
+        if (entry.Effort is { } effort) meta += $" `effort:{effort.ToString(CultureInfo.InvariantCulture)}`";
+
         // Before the view token, because what is attached is a fact about the
         // work and the view is not: every token about the task comes first, and
         // the one about the reader comes last.
@@ -1220,6 +1249,15 @@ public static class EntryTextParser
     /// once they are gone.</summary>
     public static string WithDependsOn(string raw, IEnumerable<string>? dependsOn) =>
         RewriteMetaLine(raw, dependsOn: NormalizeDependsOn(dependsOn), updateDependsOn: true);
+
+    /// <summary>Writes a story-point estimate on to the metadata line, or clears
+    /// it when <paramref name="effort"/> is null. Clearing has to be expressible
+    /// for the reason it is on every other named token: "not estimated" and "zero
+    /// points" are different facts, and only one of them should survive into an
+    /// entry nobody has sized — so removing the estimate removes the token rather
+    /// than writing a zero.</summary>
+    public static string WithEffort(string raw, int? effort) =>
+        RewriteMetaLine(raw, effort: effort, updateEffort: true);
 
     /// <summary>Records which reading of the body the reader asked for, or clears
     /// the token. Clearing is expressible for the same reason it is on every other
@@ -1384,6 +1422,8 @@ public static class EntryTextParser
         bool updateMyDay = false,
         IReadOnlyList<string>? dependsOn = null,
         bool updateDependsOn = false,
+        int? effort = null,
+        bool updateEffort = false,
         EntryView? view = null,
         bool updateView = false,
         Attachment? attachment = null,
@@ -1470,6 +1510,18 @@ public static class EntryTextParser
             tokens.AddRange((dependsOn ?? []).Select(id => $"after:{id}"));
         }
 
+        // Slotted with the scheduling and dependency tokens above rather than with
+        // the two below it, for the reason the same token has that place in
+        // ToRawText: a size is a fact about the task, and files and view are not.
+        // Null removes it rather than writing `effort:` with nothing after the
+        // colon — clearing an estimate and having no token are the same gesture,
+        // the way they are for every other named field here.
+        if (updateEffort)
+        {
+            RemoveNamedToken(tokens, "effort");
+            if (effort is { } points) tokens.Add($"effort:{points.ToString(CultureInfo.InvariantCulture)}");
+        }
+
         if (updateAttachment)
         {
             RemoveNamedToken(tokens, "files");
@@ -1520,6 +1572,7 @@ public static class EntryTextParser
         if (parsed.Recurrence is { } recurrence) tokens.Add($"repeat:{RepeatToken(recurrence)}");
         if (parsed.InMyDayOn is { } inMyDayOn) tokens.Add($"myday:{DateToken(inMyDayOn)}");
         tokens.AddRange((parsed.DependsOn ?? []).Select(id => $"after:{id}"));
+        if (parsed.Effort is { } effort) tokens.Add($"effort:{effort.ToString(CultureInfo.InvariantCulture)}");
         if (parsed.View is { } view) tokens.Add($"view:{ViewToken(view)}");
 
         return tokens;

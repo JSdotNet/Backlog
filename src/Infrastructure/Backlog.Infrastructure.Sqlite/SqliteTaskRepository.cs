@@ -29,7 +29,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
     private const string Columns =
         "id, title, content_md, type, status, priority, sort_order, area, created_at, " +
         "source_inbox_id, recurrence_source_id, due_on, remind_at, recurrence, in_my_day_on, " +
-        "view, tags, repo_ids, depends_on, sub_items, usage_events, projections";
+        "view, tags, repo_ids, depends_on, sub_items, usage_events, projections, effort";
 
     private readonly string _databasePath;
 
@@ -66,7 +66,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
             VALUES (
                 $id, $title, $content_md, $type, $status, $priority, $sort_order, $area, $created_at,
                 $source_inbox_id, $recurrence_source_id, $due_on, $remind_at, $recurrence, $in_my_day_on,
-                $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections)
+                $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections, $effort)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 content_md = excluded.content_md,
@@ -88,7 +88,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 depends_on = excluded.depends_on,
                 sub_items = excluded.sub_items,
                 usage_events = excluded.usage_events,
-                projections = excluded.projections;
+                projections = excluded.projections,
+                effort = excluded.effort;
             """;
 
         command.Parameters.AddWithValue("$id", task.Id.ToString());
@@ -124,6 +125,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
             task.ProjectionRefs
                 .Select(p => new ProjectionPayload(p.RepoId, p.ExternalId, p.TargetType))
                 .ToList()));
+        command.Parameters.AddWithValue("$effort", (object?)task.Effort ?? DBNull.Value);
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -215,12 +217,24 @@ public sealed class SqliteTaskRepository : ITaskRepository
                     depends_on           TEXT NOT NULL DEFAULT '[]',
                     sub_items            TEXT NOT NULL DEFAULT '[]',
                     usage_events         TEXT NOT NULL DEFAULT '[]',
-                    projections          TEXT NOT NULL DEFAULT '[]'
+                    projections          TEXT NOT NULL DEFAULT '[]',
+                    effort               INTEGER NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS ix_tasks_rank ON tasks (sort_order, created_at DESC);
                 """;
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
+            // CREATE TABLE IF NOT EXISTS leaves a table that already exists exactly
+            // as it was, so a column added to the schema above never reaches a
+            // database an earlier build created. This store keeps no migration
+            // machinery on purpose (see the class remarks), so an additive column
+            // is brought in by hand: ask the table what it has and add only what it
+            // is missing. Cheap — one PRAGMA against a single-table file — and
+            // idempotent, so it is safe to run on the way into every operation the
+            // same way the CREATE above is. Additive-only, which is the only shape
+            // of change this local store's one table has ever needed.
+            await EnsureColumnAsync(connection, "effort", "INTEGER NULL", cancellationToken).ConfigureAwait(false);
 
             return connection;
         }
@@ -229,6 +243,42 @@ public sealed class SqliteTaskRepository : ITaskRepository
             await connection.DisposeAsync().ConfigureAwait(false);
             throw;
         }
+    }
+
+    /// <summary>Adds a column to the tasks table when it is not already there, and
+    /// does nothing when it is. The presence check is a read of
+    /// <c>PRAGMA table_info(tasks)</c> rather than a catch around a failing
+    /// <c>ALTER</c>, so the ordinary case — the column is present — costs no
+    /// exception. <paramref name="column"/> and <paramref name="definition"/> are
+    /// compile-time constants from this class and never anything a caller supplies,
+    /// which is what makes composing the DDL by string safe here.</summary>
+    private static async Task EnsureColumnAsync(
+        SqliteConnection connection,
+        string column,
+        string definition,
+        CancellationToken cancellationToken)
+    {
+        var present = false;
+        await using (var probe = connection.CreateCommand())
+        {
+            probe.CommandText = "PRAGMA table_info(tasks);";
+            await using var reader = await probe.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            var nameOrdinal = reader.GetOrdinal("name");
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (string.Equals(reader.GetString(nameOrdinal), column, StringComparison.OrdinalIgnoreCase))
+                {
+                    present = true;
+                    break;
+                }
+            }
+        }
+
+        if (present) return;
+
+        await using var alter = connection.CreateCommand();
+        alter.CommandText = $"ALTER TABLE tasks ADD COLUMN {column} {definition};";
+        await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
     // --- Reading ------------------------------------------------------------
@@ -243,7 +293,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         public const int SortOrder = 6, Area = 7, CreatedAt = 8, SourceInboxId = 9, RecurrenceSourceId = 10;
         public const int DueOn = 11, RemindAt = 12, Recurrence = 13, InMyDayOn = 14, View = 15;
         public const int Tags = 16, RepoIds = 17, DependsOn = 18;
-        public const int SubItems = 19, UsageEvents = 20, Projections = 21;
+        public const int SubItems = 19, UsageEvents = 20, Projections = 21, Effort = 22;
     }
 
     private static TaskItem Read(IDataRecord row)
@@ -269,6 +319,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         task.SetInMyDayOn(ParseDate(Text(row, Col.InMyDayOn)));
         task.SetView(EntryTextParser.ParseView(Text(row, Col.View)));
         task.SetDependsOn(TaskPayloads.Read<string>(Text(row, Col.DependsOn)));
+        task.SetEffort(Int(row, Col.Effort));
 
         foreach (var payload in TaskPayloads.Read<SubItemPayload>(Text(row, Col.SubItems)).OrderBy(s => s.Order))
         {
@@ -297,6 +348,13 @@ public sealed class SqliteTaskRepository : ITaskRepository
 
     private static string? Text(IDataRecord row, int ordinal) =>
         row.IsDBNull(ordinal) ? null : row.GetString(ordinal);
+
+    /// <summary>Reads a nullable integer column. Null in the database is null here,
+    /// which for the effort column is "not estimated" — a different value from a
+    /// stored zero, so the read has to keep the two apart rather than fold a
+    /// missing value into a default.</summary>
+    private static int? Int(IDataRecord row, int ordinal) =>
+        row.IsDBNull(ordinal) ? null : row.GetInt32(ordinal);
 
     private static object Nullable(string? value) =>
         string.IsNullOrWhiteSpace(value) ? DBNull.Value : value;

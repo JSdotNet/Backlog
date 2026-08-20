@@ -58,6 +58,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         task.SetArea("repos");
         task.SetOrder(4);
         task.SetStatus(EntryStatus.InProgress);
+        task.SetEffort(13);
         var step = task.AddSubItem("Write the tests", "xUnit");
         task.AddSubItem("Then the code");
         task.SetSubItemStatus(step.Id, SubItemStatus.Done);
@@ -76,6 +77,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Equal(Priority.High, loaded.Priority);
         Assert.Equal("repos", loaded.Area);
         Assert.Equal(4, loaded.Order);
+        Assert.Equal(13, loaded.Effort);
         Assert.Equal(["JSdotNet/Backlog"], loaded.RepoIds);
         Assert.Equal(["ship", "q3"], loaded.Tags);
         Assert.Equal(task.CreatedAt, loaded.CreatedAt);
@@ -346,6 +348,79 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         await repository.SaveAsync(new TaskItem("First ever", string.Empty, EntryType.Idea));
 
         Assert.Single(await repository.ListAsync());
+    }
+
+    /// <summary>
+    /// The one that matters. A database an earlier build wrote — before the effort
+    /// column existed — still opens, upgrades itself, and reads. There is no
+    /// migration framework here on purpose, so <c>OpenAsync</c> brings the column
+    /// in with an additive <c>ALTER</c> once <c>PRAGMA table_info</c> shows it
+    /// absent, and a row written under the old schema reads back with a null
+    /// estimate because the column it never had is null for it.
+    /// </summary>
+    [Fact]
+    public async Task A_database_written_before_the_effort_column_still_opens_and_reads()
+    {
+        var id = Guid.NewGuid();
+        var createdAt = new DateTimeOffset(2026, 8, 20, 9, 0, 0, TimeSpan.Zero);
+
+        Directory.CreateDirectory(_root);
+        var path = _repository.DatabasePath;
+
+        // Hand-build the pre-effort schema and a row in it, through no code path
+        // that knows the column was ever added.
+        await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = path }.ToString()))
+        {
+            await seed.OpenAsync();
+
+            await using var create = seed.CreateCommand();
+            create.CommandText = """
+                CREATE TABLE tasks (
+                    id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, content_md TEXT NOT NULL DEFAULT '',
+                    type TEXT NOT NULL, status TEXT NOT NULL, priority TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL DEFAULT 0, area TEXT NULL, created_at TEXT NOT NULL,
+                    source_inbox_id TEXT NULL, recurrence_source_id TEXT NULL, due_on TEXT NULL,
+                    remind_at TEXT NULL, recurrence TEXT NULL, in_my_day_on TEXT NULL, view TEXT NULL,
+                    tags TEXT NOT NULL DEFAULT '[]', repo_ids TEXT NOT NULL DEFAULT '[]',
+                    depends_on TEXT NOT NULL DEFAULT '[]', sub_items TEXT NOT NULL DEFAULT '[]',
+                    usage_events TEXT NOT NULL DEFAULT '[]', projections TEXT NOT NULL DEFAULT '[]'
+                );
+                """;
+            await create.ExecuteNonQueryAsync();
+
+            await using var insert = seed.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO tasks (id, title, type, status, priority, created_at)
+                VALUES ($id, $title, 'task', 'ready', 'high', $created_at);
+                """;
+            insert.Parameters.AddWithValue("$id", id.ToString());
+            insert.Parameters.AddWithValue("$title", "Written before effort existed");
+            insert.Parameters.AddWithValue(
+                "$created_at",
+                createdAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            await insert.ExecuteNonQueryAsync();
+        }
+
+        // Release the seed connection's handle on the file before the repository
+        // opens over it.
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        // Opening over that file must not throw, and the old row reads back with no
+        // estimate — the additive column defaults to null for a row that predates
+        // it.
+        var loaded = await _repository.GetAsync(id);
+
+        Assert.NotNull(loaded);
+        Assert.Equal("Written before effort existed", loaded.Title);
+        Assert.Null(loaded.Effort);
+
+        // And the upgraded column is writable: a fresh estimate saves and reads.
+        loaded.SetEffort(5);
+        await _repository.SaveAsync(loaded);
+        var again = await _repository.GetAsync(id);
+
+        Assert.Equal(5, again!.Effort);
     }
 
     private static TaskItem Rehydrate(string title, DateTimeOffset createdAt) =>

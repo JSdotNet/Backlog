@@ -83,6 +83,27 @@ public sealed class GraphExplorerTests
     }
 
     [Fact]
+    public void An_empty_title_drops_the_header_and_names_the_section_instead()
+    {
+        // For a host that already names the graph around it. The section keeps a
+        // name either way — the heading it no longer has would otherwise have
+        // taken the section's accessible name with it.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var explorer = context.Render<GraphExplorer>(parameters => parameters
+            .Add(g => g.Data, Model())
+            .Add(g => g.Title, string.Empty)
+            .Add(g => g.AriaLabel, "Crew explorer"));
+
+        var section = explorer.Find("section");
+
+        Assert.Empty(explorer.FindAll(".tech-graph__header"));
+        Assert.False(section.HasAttribute("aria-labelledby"));
+        Assert.Equal("Crew explorer", section.GetAttribute("aria-label"));
+    }
+
+    [Fact]
     public void Two_explorers_on_one_page_are_labelled_by_headings_of_their_own()
     {
         using var context = new BunitContext();

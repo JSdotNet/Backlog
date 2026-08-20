@@ -101,7 +101,7 @@ public class RoadmapBandTests : RoadmapBandHarness
 
         Assert.Empty(band.FindAll(".roadmap-timeline__filters .field__label"));
         Assert.Equal(
-            ["Repository", "Priority", "Lane"],
+            ["Repository", "Priority", "Lane", "Tag"],
             band.FindAll(".roadmap-timeline__filters input").Select(input => input.GetAttribute("aria-label")));
     }
 

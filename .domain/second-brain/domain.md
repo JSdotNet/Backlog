@@ -30,10 +30,24 @@ backlog entries and other notes are managed through the root; and status advance
 through the note lifecycle (created → organized → linked → archived, with
 restore). `updated_at` moves forward on every change.
 
+A knowledge chapter — this aggregate, and equally any chapter Second Brain renders
+from a repository's knowledge folders — may also carry two pieces of metadata in
+its `meta` block that describe how it relates to planned work. The first is an
+optional `effort`: a size in **story points**, a non-negative integer with exactly
+the meaning it has on a
+[Backlog Entry](../backlog/domain.md#aggregate-backlog-entry) — absent means "not
+estimated", `0` is a real zero-point estimate, a negative is rejected, and it
+sizes the knowledge work rather than timing it. The second is a `roadmap` list:
+the [Roadmap Item](../roadmap/domain.md#roadmap-item) tags this chapter declares it
+contributes to, held as a `Roadmap Contribution`. Both are read by Roadmap
+Planning when a Roadmap Item gathers and totals the work behind it; Second Brain
+registers them and owns them, and Roadmap only reads.
+
 ### Entities
 
 The Knowledge Note aggregate has no independently identified child entities;
-`Project Ref`, `Tag`, and `Backlog Link` are value objects owned by the root.
+`Project Ref`, `Tag`, `Roadmap Contribution`, and `Backlog Link` are value objects
+owned by the root.
 
 ### Value Objects
 
@@ -51,6 +65,31 @@ A typed link to a Backlog Entry: `backlog_entry_id`, `link_type`
 
 A `#keyword` for cross-cutting discovery (e.g. `#architecture`, `#performance`).
 Equality is by canonical `name`.
+
+It is **this context's own** vocabulary: a person invents a `#keyword` to find
+notes across projects later, and it means whatever they use it to mean. It is not
+a `Roadmap Contribution`, and the two must not be collapsed even though both are
+loosely "tags". A `Tag` is a discovery keyword owned here; a `Roadmap Contribution`
+names a slug owned by [Roadmap Planning](../roadmap/domain.md#roadmap-tag). One is
+for finding knowledge, the other for declaring which planned work a chapter feeds.
+
+#### Roadmap Contribution
+
+A [Roadmap Item](../roadmap/domain.md#roadmap-item) tag this chapter declares it
+contributes to: a lowercase kebab-case slug, held in the chapter's `roadmap` list.
+A note may declare several, or none. Equality is by value.
+
+It **names** a roadmap item rather than **addressing** a chapter, and that
+distinction is the one most easily misread. A `Backlog Link` and a knowledge
+cross-reference are `<path>#<slug>` addresses that resolve to a specific node and
+draw an edge in the knowledge graph; a `Roadmap Contribution` is a bare tag slug
+that resolves to nothing here at all — it is the same vocabulary a
+[Roadmap Item](../roadmap/domain.md#roadmap-tag) holds and a Backlog Entry files
+under, and it is Roadmap Planning that reads a chapter's contributions when it
+gathers work by tag. Because it names rather than addresses, it produces **no
+graph edge**, exactly like an alias: a chapter contributing to `sync-service` is
+not linked to any document called that. Nothing is validated and a slug matching
+no current roadmap item is a normal, harmless state.
 
 ### Enums
 

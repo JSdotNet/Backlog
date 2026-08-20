@@ -99,6 +99,30 @@ public sealed class RoadmapPlan
     /// never corrected.</summary>
     public IReadOnlyList<PlanContradiction> Contradictions() => PlanSequencing.Contradictions(Nodes());
 
+    /// <summary>
+    /// The distinct tags in use across the plan's items, in the order they first
+    /// appear. A plain query rather than an index: it is asked for on the read path
+    /// and answered from the items, so there is nothing to keep in step with them.
+    /// <para>
+    /// A tag is not unique across items — two may deliberately share one to be read as
+    /// a group. This is what lets a caller notice that: pair it with
+    /// <see cref="ItemsTagged"/> to see which items a shared tag gathers.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<PlanningTag> TagsInUse()
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        return [.. _items.Select(item => item.Tag).Where(tag => seen.Add(tag.Value))];
+    }
+
+    /// <summary>The items carrying a given tag, in plan order. Empty when nothing does.
+    /// More than one is not a fault: a shared tag is a deliberate grouping.</summary>
+    public IReadOnlyList<RoadmapItem> ItemsTagged(PlanningTag tag)
+    {
+        ArgumentNullException.ThrowIfNull(tag);
+        return [.. _items.Where(item => item.Tag == tag)];
+    }
+
     public Result<RoadmapItem> AddItem(
         string title,
         PlannedWindow window,
@@ -106,7 +130,9 @@ public sealed class RoadmapPlan
         RepositoryScope? scope = null,
         PlanningLane? lane = null,
         Guid? backlogEntryId = null,
-        string? notes = null)
+        string? notes = null,
+        PlanningTag? tag = null,
+        KnowledgeReferences? knowledgeRefs = null)
     {
         ArgumentNullException.ThrowIfNull(window);
 
@@ -121,7 +147,11 @@ public sealed class RoadmapPlan
             lane ?? PlanningLane.Default,
             Dependencies.None(),
             backlogEntryId,
-            notes);
+            notes,
+            // Null means "derive one from the title"; the item does that for itself so
+            // there is a single home for the rule.
+            tag,
+            knowledgeRefs ?? KnowledgeReferences.Empty);
 
         _items.Add(item);
         return Result.Success(item);
@@ -176,7 +206,9 @@ public sealed class RoadmapPlan
         RepositoryScope? scope = null,
         PlanningLane? lane = null,
         Guid? backlogEntryId = null,
-        string? notes = null)
+        string? notes = null,
+        PlanningTag? tag = null,
+        KnowledgeReferences? knowledgeRefs = null)
     {
         ArgumentNullException.ThrowIfNull(window);
 
@@ -191,6 +223,11 @@ public sealed class RoadmapPlan
         item.FileUnder(scope ?? RepositoryScope.Unfiled);
         item.LinkTo(backlogEntryId);
         item.Annotate(notes);
+        // The tag is set from what was submitted rather than recomputed from the new
+        // title: an edit is where a tag moves, and a rename is not. A submission with
+        // no tag means "derive one from the title" — the field was cleared on purpose.
+        item.Retag(tag ?? PlanningTag.From(title.Trim()));
+        item.ReferenceKnowledge(knowledgeRefs ?? KnowledgeReferences.Empty);
 
         return Result.Success(item);
     }

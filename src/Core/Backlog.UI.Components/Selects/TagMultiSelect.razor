@@ -62,7 +62,10 @@
                     role="option"
                     aria-selected="@(index == _activeIndex ? "true" : "false")"
                     @onmousedown:preventDefault="true"
-                    @onclick="() => AddAsync(option.Value)">@option.Label</li>
+                    @onclick="() => AddAsync(option.Value)"><span class="tag-select__option-label">@option.Label</span>@if (!string.IsNullOrWhiteSpace(option.Hint))
+                    {
+                        <span class="tag-select__hint">@option.Hint</span>
+                    }</li>
             }
             @if (CanCreate)
             {

@@ -32,7 +32,9 @@ public sealed class RoadmapItem
         PlanningLane lane,
         Dependencies dependencies,
         Guid? backlogEntryId,
-        string? notes)
+        string? notes,
+        PlanningTag? tag = null,
+        KnowledgeReferences? knowledgeRefs = null)
     {
         Id = id;
         Title = title;
@@ -43,6 +45,11 @@ public sealed class RoadmapItem
         Dependencies = dependencies;
         BacklogEntryId = backlogEntryId;
         Notes = notes;
+        // Derived from the title when none was given, so every item — freshly added,
+        // rehydrated, or read from a plan.json written before tags existed — always has
+        // one. Done here rather than in each caller so the guarantee has a single home.
+        Tag = tag ?? PlanningTag.From(title);
+        KnowledgeRefs = knowledgeRefs ?? KnowledgeReferences.Empty;
     }
 
     /// <summary>Stable across every reschedule. That is what makes it safe for a
@@ -70,6 +77,16 @@ public sealed class RoadmapItem
 
     public string? Notes { get; private set; }
 
+    /// <summary>The slug this item is known by wherever tags are used. Every item has
+    /// one; it is derived from the title when the item is first given none, and a
+    /// rename never moves it — see <see cref="PlanningTag"/> for why that boundary
+    /// matters.</summary>
+    public PlanningTag Tag { get; private set; }
+
+    /// <summary>The knowledge chapters this item points at, as opaque references that
+    /// may dangle. Empty means it points at none.</summary>
+    public KnowledgeReferences KnowledgeRefs { get; private set; }
+
     internal void Rename(string title) => Title = title;
 
     /// <summary>Moves the item in time. The lane is only changed when one is
@@ -89,4 +106,11 @@ public sealed class RoadmapItem
     internal void LinkTo(Guid? backlogEntryId) => BacklogEntryId = backlogEntryId;
 
     internal void Annotate(string? notes) => Notes = notes;
+
+    /// <summary>Replaces the tag. Deliberately its own operation and never a
+    /// consequence of <see cref="Rename"/>: moving the tag is a decision, because
+    /// something elsewhere may already be pointing at the old one.</summary>
+    internal void Retag(PlanningTag tag) => Tag = tag;
+
+    internal void ReferenceKnowledge(KnowledgeReferences knowledgeRefs) => KnowledgeRefs = knowledgeRefs;
 }

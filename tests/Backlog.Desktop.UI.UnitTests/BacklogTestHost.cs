@@ -66,6 +66,7 @@ internal static class BacklogTestHost
     public static BacklogDesktopState StateFor(
         WorkspaceSettingsStore store,
         GitHubIntegration gitHub,
-        BacklogCopilotCli? copilot = null) =>
-        new(BacklogStoreFor(store), EntriesFor(store), gitHub, copilot);
+        BacklogCopilotCli? copilot = null,
+        IRoadmapTagSource? roadmapTags = null) =>
+        new(BacklogStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags);
 }

@@ -42,7 +42,7 @@ related: [".arc42/04-solution-strategy.md", ".domain/second-brain/features.md#fe
 ```
 
 - **Optional capabilities are switchable per installation** — repository knowledge,
-  the non-backlog knowledge areas, additional repositories, system tools, GitHub
+  the individual knowledge areas, additional repositories, system tools, GitHub
   integration, feedback reporting, Copilot CLI, and AI assistance can each be turned
   on. Core backlog editing is always available and is never switchable.
 - **Disabled is the default**; the stored setting records only what has been switched
@@ -65,12 +65,22 @@ related: [".arc42/04-solution-strategy.md", ".domain/second-brain/features.md#fe
 
 ```meta
 status: active
+related: [".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"]
 ```
 
 - `#tags` embedded inside markdown, multiple per item.
 - Project tags, cross-cutting tags, and PARA-inspired grouping (Projects, Areas,
   Resources, Archive).
 - A tag index enables search across all domains.
+
+Tags are not drawn from a single vocabulary. Alongside freely authored tags, every
+roadmap item contributes its own slug as an available tag in both the backlog and the
+knowledge base, which is how a roadmap item gathers contributing work without having to
+reference each piece explicitly. A roadmap slug is derived from the item's title when it
+is created and stays editable, but is deliberately **not** rewritten when the title is
+later renamed — tags already written elsewhere would otherwise silently stop matching.
+Because a knowledge chapter's `roadmap:` entries are tag slugs rather than chapter
+references, they stay node attributes and produce no edges in the knowledge graph.
 
 ## Authentication and Authorization
 
@@ -102,7 +112,7 @@ follows the organization's OpenTelemetry guidance.
 
 ```meta
 status: active
-related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#aggregate-inbox-item", ".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/second-brain/domain.md#aggregate-knowledge-note", ".domain/monitoring/domain.md#aggregate-progress-signal", ".domain/dev-pc-management/domain.md#aggregate-machine-registry", ".domain/sessions/domain.md#aggregate-session-log", ".domain/repository-management/domain.md#aggregate-repository-registry", ".domain/technology-stack/domain.md#aggregate-technology-registry"]
+related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#aggregate-inbox-item", ".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/second-brain/domain.md#aggregate-knowledge-note", ".domain/monitoring/domain.md#aggregate-progress-signal", ".domain/dev-pc-management/domain.md#aggregate-machine-registry", ".domain/sessions/domain.md#aggregate-session-log", ".domain/repository-management/domain.md#aggregate-repository-registry", ".domain/technology-stack/domain.md#aggregate-technology-registry", ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"]
 ```
 
 The vocabulary exchanged across all applications and domains is owned per
@@ -121,6 +131,16 @@ architectural concern:
 | **SessionLog** | `.domain/sessions/domain.md#aggregate-session-log` |
 | **RepositoryRegistration** | `.domain/repository-management/domain.md#aggregate-repository-registry` |
 | **TechBaseline** | `.domain/technology-stack/domain.md#aggregate-technology-registry` |
+
+**Effort** is the one shared *scalar* rather than a shared type: an optional
+non-negative story-point estimate that appears on backlog entries, on knowledge
+chapters (as the `effort` field of a `meta` block, emitted into the knowledge graph as
+a number), and as the arithmetic rollup a roadmap item reports over what it gathers. It
+is architectural only because the same unit has to mean the same thing in all three
+places. Absent means *not estimated* and is distinct from `0`, which is a real estimate
+contributing zero; a rollup total is therefore always reported alongside a count of
+gathered items carrying no estimate, so the total is never mistaken for the whole
+picture.
 
 The cloud service persists only sync-oriented state derived from these types
 (`SyncState`, `SyncPayload`, `WebhookEvents`, `GitHubWebhookConfig`,

@@ -5,6 +5,8 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.SharedKernel.Results;
 
+using System.Globalization;
+
 using Backlog.UI.Components.Markdown;
 
 namespace Backlog.Desktop.UI.BacklogManagement;
@@ -51,6 +53,7 @@ public sealed class BacklogDesktopState : IDisposable
     private readonly GitHubIntegration _gitHub;
     private readonly BacklogIssues _issues;
     private readonly BacklogCopilotCli _copilot;
+    private readonly IRoadmapTagSource _roadmapTags;
 
     /// <summary>The last saved state of each persisted row, as the module
     /// describes it. Held so a badge or a GitHub link can be read without
@@ -72,13 +75,15 @@ public sealed class BacklogDesktopState : IDisposable
         IBacklogStore store,
         ITaskItems entryUseCases,
         GitHubIntegration gitHub,
-        BacklogCopilotCli? copilot = null)
+        BacklogCopilotCli? copilot = null,
+        IRoadmapTagSource? roadmapTags = null)
     {
         _store = store;
         _entryUseCases = entryUseCases;
         _gitHub = gitHub;
         _issues = new BacklogIssues(gitHub);
         _copilot = copilot ?? BacklogCopilotCli.Unavailable;
+        _roadmapTags = roadmapTags ?? EmptyRoadmapTagSource.Instance;
         _store.RootChanged += OnRootChanged;
     }
 
@@ -99,6 +104,19 @@ public sealed class BacklogDesktopState : IDisposable
     public List<EntryRow> Rows { get; private set; } = [];
 
     public List<EntryRow> FilteredRows { get; private set; } = [];
+
+    /// <summary>
+    /// The roadmap item tags the plan carries, offered in the tag picker beside the
+    /// tags the backlog itself uses.
+    /// <para>
+    /// Read from Roadmap Planning through the module's own port, not from the entries:
+    /// a tag planned but not yet filed against anything is exactly the one worth
+    /// offering, so a person can point an entry at planned work before any entry does.
+    /// Held here rather than fetched per keystroke because the picker asks for it every
+    /// time it draws, and the plan changes far less often than the list redraws.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> RoadmapTags { get; private set; } = [];
 
     /// <summary>The rows the repository scope leaves in view, before status, area
     /// and My Day narrow them. What the filter chips count: a count that shrank
@@ -607,6 +625,15 @@ public sealed class BacklogDesktopState : IDisposable
 
     public async Task ChangePriorityAsync(EntryRow row, Priority priority) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithPriority(row.RawText, priority));
+
+    /// <summary>Estimates the entry at a number of story points, or clears the
+    /// estimate. Null clears for the same reason the scheduling fields do: absent
+    /// means absent, so an unset effort carries no token rather than an
+    /// <c>effort:</c> with nothing after it. Written through the same rewrite path
+    /// as priority — the number ends up on the canonical metadata line, which is
+    /// the entry.</summary>
+    public async Task ChangeEffortAsync(EntryRow row, int? effort) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithEffort(row.RawText, effort));
 
     public async Task ChangeStatusAsync(EntryRow row, EntryStatus status) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status, cascadeSubItems: true), forceWhenEqual: row.Status != status);
@@ -1235,6 +1262,10 @@ public sealed class BacklogDesktopState : IDisposable
         // asked for the reload and for whatever reason.
         _spawnedOccurrencePending = false;
 
+        // The plan's tags travel with the reload, so the picker offers planned work
+        // the moment the list it sits in refreshes rather than a beat behind it.
+        RoadmapTags = await _roadmapTags.TagsInUseAsync();
+
         var rows = new List<EntryRow>();
 
         foreach (var entry in await _entryUseCases.ListAsync())
@@ -1542,6 +1573,16 @@ public sealed class EntryRow
         get { Render(); return _parsed!.DependsOn ?? []; }
     }
 
+    /// <summary>The story-point estimate, read from the text and nowhere else.
+    /// Null when the entry carries no <c>effort:</c> token — "not estimated", which
+    /// is a different answer from a zero-point estimate. Like the scheduling fields
+    /// there is no saved value to fall back to: the token is the whole of what the
+    /// entry knows about its size.</summary>
+    public int? PreviewEffort
+    {
+        get { Render(); return _parsed!.Effort; }
+    }
+
     /// <summary>What is attached, as written down. One place or nothing — see
     /// <see cref="Attachment"/> for why it is never a list.</summary>
     public Attachment? PreviewAttachment
@@ -1667,6 +1708,16 @@ public sealed class EntryRow
             foreach (var id in PreviewDependsOn)
             {
                 readings.Add(new MetaReading("after", id, true));
+            }
+
+            // The size, shown the same way and in the same slot the canonical line
+            // writes it: after what the entry waits on and before the two tokens
+            // that are not about the work. Only when it was written down — an entry
+            // nobody has estimated has no reading here, the same as an unset due
+            // date has none.
+            if (PreviewEffort is { } effort)
+            {
+                readings.Add(new MetaReading("effort", effort.ToString(CultureInfo.InvariantCulture), true));
             }
 
             if (PreviewAttachment is { } attachment)
