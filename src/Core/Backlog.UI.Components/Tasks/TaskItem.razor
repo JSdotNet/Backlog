@@ -1,14 +1,20 @@
 @inject IJSRuntime Js
 
 @*
-    One task, as a row: a circle that completes it, the line itself, and the two
-    things you can do to its text — rename it in place, or copy it.
+    One task, as a row: a circle that completes it, the line itself, the two things
+    you can do to its text — rename it in place, or copy it — and, on the end, a bin
+    that takes the whole row away.
 
     The circle is a real checkbox to a screen reader and a circle to everyone
     else, because that is what it is — round rather than square is this shape's
-    one convention, and it is not worth losing the semantics over. The pencil and
-    the copy button both stop the click before the row sees it: renaming a task
-    is not opening it, and neither is copying one.
+    one convention, and it is not worth losing the semantics over. The pencil, the
+    copy button and the bin all stop the click before the row sees it: renaming a
+    task is not opening it, and neither is copying one or deleting one.
+
+    The bin is last, after even the host's own action slot, because it is the only
+    control here whose result is that there is no row. What deleting means is the
+    host's — see OnDelete — and a row nobody is listening to has no bin at all,
+    which is what keeps it off the lists that have no answer for it.
 
     Read-only when nothing is listening. A row with no OnToggle renders its state
     as an image rather than a control, the same rule MarkdownView follows for a
@@ -228,10 +234,12 @@
            row cannot know what those are, and a host that had nowhere to put them
            would build a second row beside this one to hold them.
 
-           At the end, after the copy button, because everything to the left of
-           here is about the task's own text or state and these are about what
-           happens to it elsewhere. Clicks stop here for the same reason the pencil
-           stops them: pushing a task is not opening it. *@
+           After the copy button, because everything to the left of here is about
+           the task's own text or state and these are about what happens to it
+           elsewhere. Only the bin below is further right, and that is not a slot
+           this library filled — it is the one control on the row that ends the row.
+           Clicks stop here for the same reason the pencil stops them: pushing a
+           task is not opening it. *@
         <span class="task-item__actions"
               role="group"
               aria-label="@($"Actions for {Task.Title}")"
@@ -239,6 +247,34 @@
               @onclick:stopPropagation="true">
             @Actions(Task)
         </span>
+    }
+
+    @if (CanDelete)
+    {
+        @* Last on the row, after everything that acts on the task and after the
+           host's own slot. Everything to the left of here does something to the row;
+           this one ends it, and a destructive control sitting between two ordinary
+           ones is a control the pointer finds by accident.
+
+           Offered only when a host is listening, exactly like the pencil — which is
+           what keeps the bin off the lists that do not want one, since a list that
+           passes no OnDelete passes none of its rows one either.
+
+           The click stops here. Deleting a task is not opening one, which is the
+           same reason the pencil and the copy button stop theirs.
+
+           The glyph is aria-hidden and the label carries the meaning, naming the row
+           the way the pencil names itself: "Delete Wire up the store" rather than
+           "Delete", so a screen reader reading down a column of these says which
+           one each of them is. *@
+        <button type="button"
+                class="task-item__delete"
+                aria-label="@($"Delete {Task.Title}")"
+                data-testid="@Suffix("delete")"
+                @onclick="() => OnDelete.InvokeAsync(Task.Id)"
+                @onclick:stopPropagation="true">
+            <span aria-hidden="true">🗑</span>
+        </button>
     }
 
     @if (HasFold)
@@ -540,6 +576,25 @@
     public EventCallback<TaskRename> OnRename { get; set; }
 
     /// <summary>
+    /// Raised by the bin at the end of the row: this task, by id.
+    /// <para>
+    /// The id and nothing else, on the terms <see cref="OnToggle"/> and
+    /// <see cref="OnSelected"/> already set. What deleting a task means — whether
+    /// it is a row removed from a list, a chapter cut out of a document, or a
+    /// soft delete with a way back — is the host's, exactly as saving a rename and
+    /// applying a reorder are.
+    /// </para>
+    /// <para>
+    /// It is also what puts the bin on the row at all. Without it there is no
+    /// control, rather than a disabled one: a row does not offer to delete itself
+    /// where nobody would hear, and the lists in this product that have no answer
+    /// to "delete this" simply do not pass it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnDelete { get; set; }
+
+    /// <summary>
     /// Whether the title is a field from the start, with no pencil to press first.
     /// <para>
     /// Off by default, because a list of ten rows that opened ten inputs is not a
@@ -777,6 +832,11 @@
     }
 
     private bool CanRename => OnRename.HasDelegate;
+
+    /// <summary>Whether the row ends in a bin. One term, and it is the delegate:
+    /// unlike the rename there is no second way in and no mode to be in, so
+    /// "somebody is listening" is the whole question.</summary>
+    private bool CanDelete => OnDelete.HasDelegate;
 
     /// <summary>
     /// Whether the title is a field right now. One predicate, because everything

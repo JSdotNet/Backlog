@@ -682,6 +682,39 @@ public sealed class BacklogDesktopState : IDisposable
         await RewriteMetadataAsync(row, EntryTextParser.AppendSubItem(row.RawText, title));
     }
 
+    /// <summary>
+    /// Deletes one step: the chapter, its own metadata line and its notes.
+    /// <para>
+    /// No confirmation and no undo, which is the entry-level bin's bargain one level
+    /// down — <see cref="DeleteRowAsync"/> asks nothing and offers nothing back, and
+    /// a step that asked while the entry holding it did not would be inconsistent in
+    /// the wrong direction: the step is the cheaper of the two to lose and the
+    /// cheaper of the two to type again.
+    /// </para>
+    /// <para>
+    /// Indexed the way every other sub-item write here is — the nth chapter — and
+    /// guarded the way the move is, against an index that names no step: the id came
+    /// off a row, and a row the reader pressed may already have gone.
+    /// </para>
+    /// <para>
+    /// <c>_editingSubItemCount</c> is deliberately left alone, exactly as
+    /// <see cref="AddSubItemAsync"/> leaves it. It is the count the raw editor was
+    /// opened against, and a count higher than the chapters that remain falls back
+    /// to the first chapter in <c>ChildStartLine</c> — which is the honest boundary
+    /// for an entry nobody has typed a new <c>##</c> into. Rewriting it here would
+    /// be this method deciding what an open editor is showing, which is
+    /// <see cref="BeginEdit"/>'s answer rather than a step delete's.
+    /// </para>
+    /// </summary>
+    public async Task RemoveSubItemAsync(EntryRow row, int subItemIndex)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (subItemIndex < 0 || subItemIndex >= row.PreviewSubItems.Count) return;
+
+        await RewriteMetadataAsync(row, EntryTextParser.RemoveSubItem(row.RawText, subItemIndex));
+    }
+
     // No per-sub-item type, priority, status or tag edits. A sub-item carries a
     // title, a status, notes and an order and nothing else, and the four
     // rewrites that used to live here wrote tokens that TaskTextSync then

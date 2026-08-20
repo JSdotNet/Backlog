@@ -3,7 +3,7 @@
 <PageTitle>Task list — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Task list"
-           Summary="The controls a list of things-to-do is made of: `TaskItem` — a row with a circle, a title that renames in place and a copy button — and `TaskListView`, which adds the reordering and the Completed section. The pane a row opens into is Task side panel, next door; the fields a date, a time or a repeat is set with are on Inputs, along with `TaskAction`. Components only: nothing here decides what a task is, when a reminder fires, or what My Day means tomorrow."
+           Summary="The controls a list of things-to-do is made of: `TaskItem` — a row with a circle, a title that renames in place, a copy button and, where a host is listening for one, a bin — and `TaskListView`, which adds the reordering and the Completed section. The pane a row opens into is Task side panel, next door; the fields a date, a time or a repeat is set with are on Inputs, along with `TaskAction`. Components only: nothing here decides what a task is, when a reminder fires, or what My Day means tomorrow."
            Guidelines="@Rules">
 
     <Story Name="A task, as a row"
@@ -66,6 +66,26 @@ The field arrives with the caret in it and the title selected, so the first keys
                           TestId="quick" />
         </div>
         <p class="sb-state" data-testid="task-list-quick-edit-renames">@(_quickSettled.Count == 0 ? "nothing settled yet" : string.Join(" → ", _quickSettled))</p>
+    </Story>
+
+    <Story Name="Deleting a row"
+           Description="`OnDelete` puts a bin on the end of every row, and the delegate is what puts it there: a list that passes none grows none, which is how the desktop pane's entry list — where an entry is deleted from the footer of the open one — stays bin-free. The id goes out and the host decides what deleting means — nothing is applied here, exactly as with a rename or a reorder.
+
+No confirmation. Whether a delete needs one is the host's answer and not a row's, and in this product the entry-level bin asks for nothing either.
+
+The half worth trying with the keyboard is where the focus goes, because the element holding it is the one that disappears. Tab to a bin and press it: from the middle of the list the ring lands on the row that slid up into the gap, from the bottom row it lands on the row above, and from the last row left it lands in the add row. Each delete is also announced through the list's live region — a row that has gone is invisible to a screen reader otherwise."
+           Code="@DeleteCode">
+        <div class="sb-menu-wide" data-testid="task-list-delete">
+            <TaskListView Tasks="@_deletable"
+                          QuickEdit="true"
+                          OnRename="RenameDeletable"
+                          OnAdd="AddDeletable"
+                          AddLabel="Add a task"
+                          OnDelete="Delete"
+                          AriaLabel="Deletable tasks"
+                          TestId="delete" />
+        </div>
+        <p class="sb-state" data-testid="task-list-deleted">@(_lastDeleted ?? "nothing deleted yet")</p>
     </Story>
 
     <Story Name="The host's own row above Completed"
@@ -256,6 +276,21 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
         new("x3", "Drag me by the grip, not by the row", Group: "Steps", Due: "Friday")
     ];
 
+    private string? _lastDeleted;
+
+    /// <summary>Ids that say nothing about a position, on purpose: the focus rule
+    /// resolves where the ring goes after the host has applied the delete, so a list
+    /// whose ids are stable and one whose ids are positions — the desktop pane's
+    /// steps — both land on the row the reader can see slide up.</summary>
+    private IReadOnlyList<TaskRow> _deletable =
+    [
+        new("k1", "Delete me and the ring lands below", Group: "Tasks"),
+        new("k2", "Delete this one and it lands here", Group: "Tasks"),
+        new("k3", "Delete the bottom one and it goes up", Group: "Tasks")
+    ];
+
+    private int _deletableAdded;
+
     private int _slotCounter = 1;
 
     private IReadOnlyList<TaskRow> _slotted =
@@ -423,6 +458,23 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
         _quickSettled.Add($"added {id} as “{title}”");
     }
 
+    /// <summary>The host applying the delete, which is the arrangement the component
+    /// is built for: the list said which row and stored nothing, and the row is gone
+    /// from here rather than from the list's own state.</summary>
+    private void Delete(string id)
+    {
+        _lastDeleted = $"deleted {id}";
+        _deletable = [.. _deletable.Where(t => t.Id != id)];
+    }
+
+    private void RenameDeletable(TaskRename rename) =>
+        _deletable = [.. _deletable.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
+
+    /// <summary>Here so the story has something to delete again, and so the add row
+    /// exists at all — it is where the focus goes when the last row is deleted.</summary>
+    private void AddDeletable(string title) =>
+        _deletable = [.. _deletable, new TaskRow($"k{100 + ++_deletableAdded}", title, Group: "Tasks")];
+
     private void ToggleCompletable(string id) =>
         _completable = [.. _completable.Select(t => t.Id == id ? t with { Done = !t.Done } : t)];
 
@@ -479,6 +531,20 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
             // and an empty field is Tab's way out of the list, not an add.
             private void Add(string title) =>
                 _tasks = [.. _tasks, new TaskRow(NewId(), title)];
+        }
+        """;
+
+    private const string DeleteCode = """
+        @* The delegate is the control: no OnDelete, no bin. What is left after it —
+           the announcement, and putting the focus on the row that slid up — is the
+           list's, because a row cannot see the rows around it. *@
+        <TaskListView Tasks="@tasks" OnDelete="Delete" />
+
+        @code {
+            // The host applies it. Whether the row is gone for good, archived, or
+            // recoverable is a question a component has no business answering.
+            private void Delete(string id) =>
+                _tasks = [.. _tasks.Where(t => t.Id != id)];
         }
         """;
 

@@ -2642,7 +2642,14 @@ button.task-panel__check:focus-visible {
 
 /* The box sits exactly where the title was, so the row does not change height
    when it opens — an edit that moved everything under it would cost the reader
-   their place. */
+   their place.
+
+   The line under it belongs to the field the pencil opened, and to that field
+   alone: there it is the edit arriving, and it is also that field's focus
+   indicator, which is what lets the outline go without breaking
+   `.design/accessibility.md#focus` — outline: none is allowed with a compliant
+   replacement, and --border-width-2 of --color-border-focus is one. The two fields
+   that are open from the start take the outline back instead; see below. */
 .task-item__rename-input {
     width: 100%;
     padding: 0;
@@ -2659,22 +2666,47 @@ button.task-panel__check:focus-visible {
 }
 
 /*
-  A field that is the title rather than an edit of it.
+  The fields that are the title rather than an edit of it: a direct-rename row, and
+  the add row at the bottom of the list.
 
-  The focus rule below the box is what says "this is editable", and on a row whose
-  title is always a field that line would be permanent underlining on every row —
-  chrome shouting at a reader who is only reading. So it is quiet until the caret
-  is actually in it, which is the same bargain the pencil's field makes: the border
-  appears when the edit does.
+  No line under either, in any state. On a field that is open from the start an
+  underline is not the edit arriving — it is permanent chrome on every row, shouting
+  at a reader who is only reading, and down a column of steps it read as an orange
+  rule under every title. Bringing it back on hover and focus was the previous
+  answer and it solved the wrong half: it still put a border under the one row the
+  caret was in, to say "editable" about a field the caret is already sitting in.
+
+  Which leaves the focus ring to be paid for rather than borrowed off the border, so
+  it is paid for the way every other component here pays for it and the way
+  `.design/accessibility.md#focus` asks: --color-border-focus at --border-width-2,
+  offset, and an outline rather than a shadow so it survives Windows High Contrast.
+
+  The add row is named beside the direct one because it is not --direct — its field
+  is a composer and not a title — and without being named it would keep the base
+  rule's permanent underline, inside a box that is already dashed the whole way
+  round.
 */
-.task-item__rename--direct .task-item__rename-input {
-    border-bottom-color: transparent;
-    transition: border-color var(--transition-fast);
+.task-item__rename--direct .task-item__rename-input,
+.task-item--add .task-item__rename-input {
+    border-bottom: none;
+    transition: background-color var(--transition-fast);
 }
 
+.task-item__rename--direct .task-item__rename-input:focus-visible,
+.task-item--add .task-item__rename-input:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* Editable, said quietly. The underline was doing one job worth keeping — telling a
+   reader that a line of text will take a caret — and under the pointer is the one
+   place it can say so without charging a reader who is only reading for it. A tint
+   of the surface a selected row already wears, so no token is invented and none has
+   to be re-measured; a background rather than a border, so it cannot be mistaken
+   for the focus ring above it. */
 .task-item__rename--direct .task-item__rename-input:hover,
-.task-item__rename--direct .task-item__rename-input:focus {
-    border-bottom-color: var(--color-border-focus);
+.task-item--add .task-item__rename-input:hover {
+    background: var(--color-background-raised);
 }
 
 /*
@@ -2715,6 +2747,49 @@ button.task-panel__check:focus-visible {
 .task-item__edit:focus-visible {
     color: var(--color-text-primary);
     outline: none;
+}
+
+/*
+  The bin, at the end of the row.
+
+  The pencil's shape and the pencil's bargain: quiet until the row is under the
+  pointer or the control itself has the focus. A column of bins down a list of
+  steps, all of them lit, would read as a list of things to delete rather than as a
+  list with a way to delete one.
+
+  The focus ring is its own, and that is the one place it parts company with the
+  pencil above. `.design/accessibility.md#focus-visibility` allows outline: none
+  only with a compliant replacement, and the pencil's colour change is not one —
+  which is survivable on a control whose worst outcome is an editor opening, and is
+  not on the control that ends the row. So this one is paid for the way every other
+  component here pays for it: an outline rather than a shadow, so it survives
+  Windows High Contrast.
+*/
+.task-item__delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-disabled);
+    font: inherit;
+    cursor: pointer;
+}
+
+.task-item:hover .task-item__delete,
+.task-item__delete:hover,
+.task-item__delete:focus-visible {
+    color: var(--color-text-primary);
+}
+
+.task-item__delete:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* --- Completed ----------------------------------------------------------- */
