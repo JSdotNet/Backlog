@@ -1139,6 +1139,9 @@
           "level": 2,
           "line": 60,
           "status": "draft",
+          "feature-flag": [
+            "repository-knowledge"
+          ],
           "related": [
             ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
             ".domain/backlog/features.md#feature-search-filter-and-organize"

@@ -152,6 +152,7 @@ original source link and capture timestamp.
 
 ```meta
 status: draft
+feature-flag: feedback-reporting
 related: [.domain/repository-management/features.md#sub-feature-github-access-resolution]
 ```
 

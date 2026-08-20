@@ -11,6 +11,7 @@ status: draft
 
 ```meta
 status: draft
+feature-flag: backlog
 related: [.domain/inbox/features.md#feature-routing]
 ```
 
@@ -239,6 +240,7 @@ completion, without duplicating the backlog item.
 
 ```meta
 status: draft
+feature-flag: github-integration
 related: [.domain/repository-management/features.md#sub-feature-github-access-resolution, .domain/monitoring/features.md#sub-feature-backlog-and-github-progress]
 ```
 
@@ -285,6 +287,7 @@ and reopening historical prompts from the usage log.
 
 ```meta
 status: draft
+feature-flag: copilot-cli
 related: [.domain/productivity/features.md#sub-feature-ai-activity-capture]
 ```
 
@@ -297,6 +300,7 @@ that AI was put to work on it.
 
 ```meta
 status: draft
+feature-flag: ai-assistant
 related: [.domain/second-brain/features.md#feature-repository-knowledge-areas, .domain/productivity/features.md#feature-ai-productivity-tracking]
 ```
 

@@ -129,8 +129,10 @@ included only because an in-scope node references them.
 | `related` | The `related` metadata field. |
 | `implements` | The `implements` metadata field (`.backlog`). |
 
-`aliases` (`.domain`) and `alternatives` (`.tech`) are plain-string fields, not
-references, so they stay node attributes and produce no edges.
+`aliases` (`.domain`), `alternatives` (`.tech`), and `feature-flag` (`.domain`)
+are plain-string fields, not references, so they stay node attributes and
+produce no edges. `feature-flag` accepts a scalar or a list but is always
+emitted as a list, so a consumer never has to branch on shape.
 
 ## Output shape: `index.json`
 

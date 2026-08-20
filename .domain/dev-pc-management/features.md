@@ -90,6 +90,7 @@ require explicit confirmation.
 
 ```meta
 status: draft
+feature-flag: system-tools
 depends-on: [.domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog]
 ```
 

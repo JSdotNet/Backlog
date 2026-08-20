@@ -50,6 +50,7 @@ estimate visibly separate from measured activity.
 
 ```meta
 status: draft
+feature-flag: usage-metrics
 related: [.domain/productivity/dependencies.md#outbound-dependencies]
 ```
 
@@ -88,6 +89,7 @@ narrowing has to stay visible to the person reading the numbers.
 
 ```meta
 status: draft
+feature-flag: dashboard
 related: [.domain/monitoring/features.md#feature-multi-layer-dashboards]
 ```
 

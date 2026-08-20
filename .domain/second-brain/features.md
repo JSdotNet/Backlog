@@ -61,6 +61,7 @@ domains and embedding knowledge context directly in backlog item details.
 
 ```meta
 status: draft
+feature-flag: repository-knowledge
 related: [.domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings, .domain/backlog/features.md#feature-search-filter-and-organize]
 ```
 
@@ -76,6 +77,7 @@ compete for the same screen.
 
 ```meta
 status: draft
+feature-flag: knowledge-sections
 ```
 
 Switch between areas, and between repositories when more than one is registered,

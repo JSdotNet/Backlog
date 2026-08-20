@@ -19,8 +19,8 @@ export const REPO_SCOPE = ".";
 export const GENERATOR = ".github/tools/knowledge-meta/build.mjs";
 
 // Metadata fields that hold `<path>` / `<path>#<slug>` references, and the edge
-// type each one produces. Non-reference list fields (`aliases`, `alternatives`)
-// are deliberately absent — they stay node attributes.
+// type each one produces. Non-reference list fields (`aliases`, `alternatives`,
+// `feature-flag`) are deliberately absent — they stay node attributes.
 const REFERENCE_FIELDS = {
     "depends-on": "depends-on",
     related: "related",
@@ -28,6 +28,11 @@ const REFERENCE_FIELDS = {
 };
 
 const ATTRIBUTE_FIELDS = ["kind", "version", "issue", "aliases", "alternatives"];
+
+// Non-reference fields whose authored form may be a scalar or a bracket list,
+// and which are always emitted as a list so a consumer reading graph.json never
+// has to branch on shape. `aliases`/`alternatives` above stay verbatim.
+const LIST_ATTRIBUTE_FIELDS = ["feature-flag"];
 
 /** Recursively collect Markdown files under a folder, as repo-relative posix paths. */
 async function collectMarkdown(repoRoot, relFolder) {
@@ -59,6 +64,10 @@ function applyMeta(node, meta) {
     node.status = meta.status ?? null;
     for (const field of ATTRIBUTE_FIELDS) {
         if (meta[field] !== undefined && meta[field] !== null) node[field] = meta[field];
+    }
+    for (const field of LIST_ATTRIBUTE_FIELDS) {
+        const values = asList(meta[field]);
+        if (values.length) node[field] = values;
     }
     for (const field of Object.keys(REFERENCE_FIELDS)) {
         const refs = asList(meta[field]);
