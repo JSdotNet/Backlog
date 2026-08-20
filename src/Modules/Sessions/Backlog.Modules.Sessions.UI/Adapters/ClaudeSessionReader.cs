@@ -82,7 +82,24 @@ internal sealed class ClaudeSessionReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var json = await File.ReadAllTextAsync(file.FullName, cancellationToken).ConfigureAwait(false);
+            // The read is inside the guard, not just the parse. A live-session file
+            // is being written by the process it describes, so opening one can lose
+            // the race and throw a sharing violation — and letting that out of here
+            // costs every Claude session rather than the one row, because the caller
+            // reads an IOException as "this agent's folder cannot be read". A
+            // half-written file and a momentarily locked one are the same ordinary
+            // event and get the same proportionate answer.
+            string json;
+
+            try
+            {
+                json = await File.ReadAllTextAsync(file.FullName, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
             var session = FromLiveFile(json, file, now);
 
             if (session is not null) sessions.Add(session);
