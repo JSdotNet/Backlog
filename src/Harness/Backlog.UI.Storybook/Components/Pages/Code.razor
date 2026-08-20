@@ -1,9 +1,10 @@
-@page "/code"
+﻿@page "/code"
 
 <PageTitle>Code — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Code"
-           Summary="CodeView shows a snippet the way a snippet is read: coloured by CodeHighlighter, optionally numbered, and copyable in one click. The colouring is done in C#, so a block renders the same in the app, on a server and in a unit test.">
+           Summary="CodeView shows a snippet the way a snippet is read: coloured by CodeHighlighter, optionally numbered, and copyable in one click. The colouring is done in C#, so a block renders the same in the app, on a server and in a unit test."
+           Guidelines="@Rules">
 
     <Story Name="A code block"
            Description="The default: a caption naming where the code came from, the language, and a copy button — all three quiet, because the code is the thing worth looking at. The status line under the block says whether the copy worked; a WebView is allowed to refuse, and claiming a copy that never happened loses whatever the reader had before."
@@ -40,9 +41,13 @@
     <Story Name="Every language it colours"
            Description="The list is deliberately the set this product is written in and its entries are pasted from. It is not an IDE: a grammar nobody reads here is a grammar nobody maintains. Mermaid is on it for the source rather than the picture — a mermaid fence inside an entry is drawn by DiagramView, and this is the same text while it is still being written.">
         <div class="sb-stack" data-testid="code-languages">
+            @* TryGetValue, not an indexer. The list comes from the library and the
+               samples are this page's, so a language added there and not here is a
+               gap in the storybook rather than a reason to take the whole harness
+               down — which is exactly what the indexer did when `razor` arrived. *@
             @foreach (var language in CodeLanguages.All)
             {
-                <CodeView Source="@Samples[language.Id]" Language="@language.Id" />
+                <CodeView Source="@SampleFor(language)" Language="@language.Id" />
             }
         </div>
     </Story>
@@ -60,7 +65,7 @@
             {
                 <div>
                     <dt class="sb-label">@kind</dt>
-                    <dd class="sb-story__code"><span class="@CssClassFor(kind)">@SampleFor(kind)</span></dd>
+                    <dd class="sb-snippet"><span class="@CssClassFor(kind)">@SampleFor(kind)</span></dd>
                 </div>
             }
         </dl>
@@ -69,6 +74,13 @@
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#syntax-highlighting-tokens", "The colour each kind of token is drawn in."),
+        new("typography-and-layout.md#font-families", "The mono family and the size code is set at."),
+        new("accessibility.md#contrast", "The ratio a highlighted token has to clear.")
+    ];
+
     private const string CSharpSample = """
         public static IReadOnlyList<MdBlock> Parse(string? body)
         {
@@ -114,6 +126,15 @@
         (defn open? [entry]
           (not (contains? #{:done :archived} (:status entry))))
         """;
+
+    /// <summary>The snippet for one language, or a line saying there is not one.
+    /// The languages are the library's list and the samples are this page's, so the
+    /// two can disagree; when they do, the gap should be readable rather than
+    /// fatal.</summary>
+    private static string SampleFor(CodeLanguage language) =>
+        Samples.TryGetValue(language.Id, out var sample)
+            ? sample
+            : $"// No sample on this page for {language.Label} yet.";
 
     /// <summary>One snippet per language on the list, each chosen to hit the
     /// parts of its grammar that carry colour — a comment, a string, a number
@@ -170,6 +191,17 @@
                 <!-- The block scrolls, so it is focusable and named. -->
                 <pre class="code-view__body" tabindex="0" role="region"></pre>
             </figure>
+            """,
+
+        // Razor is what this library is written in, and what every "Markup" fold on
+        // every other page shows. The markup tokenizer colours the tags, the
+        // attributes and their values; an `@` expression stays plain, because
+        // guessing at C# inside markup is a claim this highlighter does not make.
+        ["razor"] = """
+            <Story Name="Badge kinds" Code="@BadgeCode">
+                @* Kind picks the family; Slug picks the value inside it. *@
+                <Badge Kind="status" Slug="ready">Ready</Badge>
+            </Story>
             """,
 
         ["xml"] = """

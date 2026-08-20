@@ -317,6 +317,18 @@ public sealed record IntegrationRepositoryRef(
     /// because "owner/name" is mostly punctuation to a reader who already knows
     /// which repository they are looking at.</summary>
     public string DisplayName => string.IsNullOrWhiteSpace(Alias) ? FullName : Alias;
+
+    /// <summary>
+    /// Which of the sanctioned identity hues this repository wears, 1 to 5, or null
+    /// when the host has not said.
+    /// <para>
+    /// The number arrives from the caller for the same reason a roadmap group's colour
+    /// does: the library declines to pick these. Which repository is which is a
+    /// workspace question, and a component that worked it out would be a second answer
+    /// to it. Null draws no mark, which is the honest rendering of "nobody said".
+    /// </para>
+    /// </summary>
+    public int? Colour { get; init; }
 }
 
 /// <summary>

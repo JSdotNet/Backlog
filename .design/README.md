@@ -80,6 +80,14 @@ and runnable. It renders every component of the shared Razor library on its own,
 against the same stylesheet the desktop app links, so it is the review surface
 for anything specified here.
 
+The division of labour is explicit and goes both ways. A storybook page says how
+a component is *used* — its parameters, its callbacks, what the host owns — and
+links the chapters here that govern how it is allowed to *look and behave*, from a
+**Design rules** block in its header. It does not restate a rule: a rule written
+in two places is a rule that can disagree with itself, which is what this split
+exists to stop. Anything normative belongs here; anything about the API belongs
+there.
+
 | What | Where |
 |---|---|
 | Storybook host | `src/Harness/Backlog.UI.Storybook` |
@@ -96,18 +104,33 @@ Page map — each file here and the storybook pages that show it:
 
 | File | Storybook pages |
 |---|---|
-| `design-principles.md` | *Foundations* (one dark palette, no light column); *Markdown* (edits auto-save, no save button) |
-| `color-scheme.md` | *Foundations* → **Colour**, which measures each token's contrast in the live document against the thresholds in `#contrast-rules-wcag-aa-minimum` |
-| `typography-and-layout.md` | *Foundations* → **Typography**, **Spacing**, **Radius and elevation**, **Motion** |
-| `interaction-guidelines.md` | *Feedback* (SaveIndicator, Toast, Alert, EmptyState, Spinner); *Overlays*; *Markdown* (debounced text save, immediate task-toggle save) |
-| `content-editing.md` | *Markdown*, *File view*, *Code* |
+| `design-principles.md` | *Foundations* (one dark palette, no light column); *Entry edit* (edits auto-save, no save button); *Integrations* → **AI in the document** (AI attribution) |
+| `color-scheme.md` | *Foundations* → **Colour**, which measures each token's contrast in the live document against the thresholds in `#contrast-rules-wcag-aa-minimum`; `#badge-and-chip-tones` → *Badges* and *Knowledge base* → **State**; `#chart-roles` → *Usage metrics*, *Productivity over time*; `#integration-roles` → the five *Integrations* pages |
+| `typography-and-layout.md` | *Foundations* → **Typography**, **Spacing**, **Radius and elevation**, **Motion**; `#metadata-lines` → *Task list*, *Integrations* → **References** |
+| `interaction-guidelines.md` | *Feedback* (SaveIndicator, Toast, Alert, EmptyState, Spinner); *Overlays*; *Entry edit* (debounced text save, immediate task-toggle save); `#task-rows` → *Task list*; `#action-density-and-overflow` → *Integrations* → **Density and overflow**; `#timelines-and-roadmaps` → *Roadmap* |
+| `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *File view*, *Code*, *Entry edit*, *Section comparison*; `#ai-proposals-in-a-document` → *Integrations* → **AI in the document** |
 | `accessibility.md` | every page — components carry their own roles, labels and focus styles; *Foundations* reports contrast |
-| `component-libraries.md` | *Diagrams* and *Graph explorer* (Mermaid, AntV G6), plus the library itself |
+| `component-libraries.md` | *Diagrams*, *Diagrams in markdown* and *Graph explorer* (Mermaid, AntV G6), plus the library itself |
+
+The storybook's own order is a rule of its own: **nothing is shown before its
+parts.** Its groups run parts (input and action, structure, feedback, content,
+knowledge metadata), then subjects that are a convention rather than a component
+(Integrations, Task list, Roadmap, Dashboard), then *Combined usage*, where whole
+surfaces — a document, a file, a folder, an editor, a comparison — are composed
+out of everything above. A reviewer reading top to bottom therefore meets every
+component before the thing built out of it.
 
 Rules:
 
 - The storybook MUST NOT restyle a library component; it adds page chrome only,
   so what it shows is what the app shows.
+- A storybook page MUST NOT state a design or UX rule. It explains how a component
+  is used and links the chapter here that governs it; a page whose prose argued for
+  a tone, a hierarchy or a contrast ratio is keeping a second copy of one of these
+  files.
+- Every component page MUST carry at least one link back into this folder, so a
+  rule with no review surface and a component with no governing rule are both
+  visible as omissions.
 - `components.css` is the single declaration of tokens in code — the desktop's
   `app.css` links it and declares only app-specific values on top. A token value
   changed in one place MUST be changed in the other and here.
@@ -124,10 +147,10 @@ status: active
 | File | Scope |
 |---|---|
 | [`design-principles.md`](design-principles.md) | Product-level UX principles: local-first/offline UX, keyboard-first, low-chrome, AI-first surfaces, dark-mode-only. |
-| [`color-scheme.md`](color-scheme.md) | MCP-sourced dark palette, semantic token table, contrast rules, elevation-by-color, per-stack token mapping. |
-| [`typography-and-layout.md`](typography-and-layout.md) | Type scale, font choices, spacing scale, density, grid/layout rules, iconography. |
-| [`interaction-guidelines.md`](interaction-guidelines.md) | Auto-save, drag-and-drop reordering of items and chapters, keyboard alternatives, feedback, motion, empty/loading/error states. |
-| [`content-editing.md`](content-editing.md) | Direct Markdown editing via a rich text (WYSIWYG) editor where Markdown is canonical. |
+| [`color-scheme.md`](color-scheme.md) | MCP-sourced dark palette, semantic token table, badge and chip tones, chart and integration roles, contrast rules, elevation-by-color, per-stack token mapping. |
+| [`typography-and-layout.md`](typography-and-layout.md) | Type scale, font choices, spacing scale, density, grid/layout rules, iconography, metadata lines. |
+| [`interaction-guidelines.md`](interaction-guidelines.md) | Auto-save, drag-and-drop reordering of items and chapters, keyboard alternatives, feedback, motion, empty/loading/error states, task rows, action density and overflow, timelines. |
+| [`content-editing.md`](content-editing.md) | Direct Markdown editing where Markdown is canonical, and what AI may propose against a document. |
 | [`accessibility.md`](accessibility.md) | WCAG AA target, keyboard nav, screen-reader announcements, focus visibility, reduced motion, target sizes. |
 | [`component-libraries.md`](component-libraries.md) | Per-channel component-library research and recommendation. |
 

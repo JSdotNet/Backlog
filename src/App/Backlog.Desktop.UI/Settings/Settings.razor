@@ -596,6 +596,54 @@
                             </AppButton>
                         </header>
 
+                        @* Which colour this repository wears everywhere it appears —
+                           the filter above the backlog, its roadmap band, its entries
+                           and the sessions under them. Here rather than on any one of
+                           those surfaces, because it is one fact about the repository
+                           and a surface that chose its own would be a second answer to
+                           the same question.
+
+                           A radiogroup: five hues and a default, exactly one of which
+                           holds at a time. Reset is a button and not a sixth swatch —
+                           it is not one more colour to sit among them, it is the
+                           taking back of a choice. *@
+                        <div class="repo-card__section" data-testid="repo-colour">
+                            <h4 class="knowledge-folders__title">Colour</h4>
+                            <p class="setting__note">
+                                A quiet marker on this repository's filter, roadmap band and entries. Leave it on default and Backlog picks one that no other repository is using.
+                            </p>
+
+                            <div class="repo-swatches" role="radiogroup" aria-label="@($"Colour for {activeRepo.FullName}")">
+                                @for (var option = 1; option <= RepositoryColours.Available; option++)
+                                {
+                                    var colour = option;
+                                    var chosen = activeRepo.Colour == colour;
+
+                                    <AppButton BaseClass="@($"repo-swatch repo-swatch--{colour}")"
+                                               Variant="ButtonVariant.None"
+                                               CssClass="@(chosen ? "repo-swatch--chosen" : null)"
+                                               TestId="@($"repo-colour-{colour}")"
+                                               role="radio"
+                                               aria-checked="@(chosen ? "true" : "false")"
+                                               aria-label="@($"Colour {colour}")"
+                                               Title="@($"Colour {colour}")"
+                                               OnClick="() => ApplyRepositoryColour(activeRepo, colour)" />
+                                }
+
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           TestId="repo-colour-reset"
+                                           Disabled="@(activeRepo.Colour is null)"
+                                           OnClick="() => ApplyRepositoryColour(activeRepo, null)">
+                                    Reset to default
+                                </AppButton>
+                            </div>
+
+                            <p class="setting__status" data-testid="repo-colour-status" role="status">
+                                @RepositoryColourSummary(activeRepo)
+                            </p>
+                        </div>
+
                         @* Two columns: how this machine reaches the repository,
                            and which of its knowledge folders Backlog reads. *@
                         <div class="setting-columns">
@@ -923,6 +971,26 @@
     }
 
     private void ShowRepositoryPage(string alias) => _activeRepositoryAlias = GitHubRepositoryRef.NormalizeAlias(alias);
+
+    /// <summary>
+    /// Records the repository's colour, or clears it back to automatic. No save
+    /// button, the way every other choice on this screen works.
+    /// </summary>
+    private void ApplyRepositoryColour(GitHubRepositoryRef repository, int? colour) =>
+        _repoError = GitHub.Settings.SetRepositoryColour(repository.Alias, colour);
+
+    /// <summary>What the reader is actually getting, said in words — because the
+    /// swatches are the only thing on this screen that carries its meaning in colour,
+    /// and a reader who cannot see which one is ringed still has to be able to tell
+    /// whether they have chosen or are on the default.</summary>
+    private string RepositoryColourSummary(GitHubRepositoryRef repository)
+    {
+        var effective = GitHub.Settings.Current.Colours().GetValueOrDefault(repository.Alias);
+
+        return repository.Colour is null
+            ? $"Default — colour {effective}, chosen from the ones no other repository has claimed."
+            : $"Colour {repository.Colour} for {repository.FullName}.";
+    }
 
     protected override Task OnInitializedAsync()
     {

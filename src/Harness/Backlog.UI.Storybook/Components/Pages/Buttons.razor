@@ -1,9 +1,10 @@
-@page "/buttons"
+﻿@page "/buttons"
 
 <PageTitle>Buttons — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Buttons"
-           Summary="One button component with four variants and two sizes, plus the three shapes built on the same conventions.">
+           Summary="One button component with four variants and two sizes, plus the three shapes built on the same conventions."
+           Guidelines="@Rules">
 
     <Story Name="Variants and sizes"
            Description="Variant and size are modifiers on the same button, so any combination is valid. There are two sizes because the product uses two — an earlier third, Medium, emitted a .btn--medium class that no stylesheet defined, so it rendered identically to the default."
@@ -163,6 +164,15 @@ The confirmation is a role=&quot;status&quot; line beside the button rather than
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#semantic-soft-surface-tokens", "Which variant may carry which tone."),
+        new("accessibility.md#target-sizes-and-text", "How small a button is allowed to get."),
+        new("accessibility.md#focus-visibility", "What a focused control has to show."),
+        new("typography-and-layout.md#iconography", "When a button is an icon, and what the icon may be."),
+        new("design-principles.md#keyboard-first", "Why every act needs a key as well as a click.")
+    ];
+
     private const string CopyButtonCode = """
         <CopyButton Text="@source" Label="Copy the release notes" />
         """;

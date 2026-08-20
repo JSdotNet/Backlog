@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Inputs;
+﻿using Backlog.UI.Components.Inputs;
 using Bunit;
 
 namespace Backlog.UI.Components.UnitTests;
@@ -21,6 +21,7 @@ public class TextFieldTypeTests
     [InlineData("url")]
     [InlineData("email")]
     [InlineData("date")]
+    [InlineData("time")]
     [InlineData("datetime-local")]
     public void A_known_type_reaches_the_input(string type)
     {

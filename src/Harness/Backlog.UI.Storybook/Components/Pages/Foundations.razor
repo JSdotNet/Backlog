@@ -1,11 +1,11 @@
-@page "/foundations"
+﻿@page "/foundations"
 @inject IJSRuntime Js
 
 <PageTitle>Foundations — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Foundations"
-           Summary="The tokens in components.css. Every component on every other page is assembled out of these, so a change here is a change everywhere.">
-
+           Summary="The tokens in components.css. Every component on every other page is assembled out of these, so a change here is a change everywhere."
+           Guidelines="@Rules">
     @if (_tokens is null)
     {
         <Story Name="Reading the tokens"
@@ -126,6 +126,16 @@
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("design-principles.md#dark-mode-only", "Why there is one palette and no theme toggle."),
+        new("color-scheme.md#full-token-reference", "Every colour token, and the value each one holds."),
+        new("color-scheme.md#contrast-rules-wcag-aa-minimum", "The ratio each kind of text has to clear."),
+        new("typography-and-layout.md#type-scale", "The sizes, weights and line heights on the scale."),
+        new("typography-and-layout.md#spacing-scale", "The spacing steps, and what each is for."),
+        new("interaction-guidelines.md#motion-and-reduced-motion", "How long anything is allowed to take, and what stops moving.")
+    ];
+
     private TokenReport? _tokens;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

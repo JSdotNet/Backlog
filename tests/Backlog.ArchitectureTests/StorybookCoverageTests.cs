@@ -71,6 +71,78 @@ public class StorybookCoverageTests
             + string.Join(", ", unlisted.Select(route => "/" + route)));
     }
 
+    /// <summary>
+    /// Every rule a storybook page claims to be governed by still exists.
+    ///
+    /// <para>The restructure moved the rules out of the story prose and into
+    /// <c>.design</c>, so a page now names its chapter and anchor and
+    /// <c>DesignGuideline</c> renders that section beside the component. The
+    /// failure mode came with it: rename a heading in <c>.design</c> and the page
+    /// silently draws a sentence saying the rule cannot be found, in a host that
+    /// nothing in CI opens. Every other convention in this library is enforced by a
+    /// test; this makes that one too.</para>
+    ///
+    /// <para>The slug rule has to match <c>DesignGuideline.Slug</c>, which is
+    /// GitHub's, because these same anchors are written into <c>.design</c>'s own
+    /// cross-links and into pull-request comments.</para>
+    /// </summary>
+    [Fact]
+    public void Every_design_rule_a_story_names_resolves_to_a_heading()
+    {
+        var design = new DirectoryInfo(Path.Combine(Repository.Root.FullName, ".design"));
+
+        var headings = design.EnumerateFiles("*.md")
+            .ToDictionary(
+                chapter => chapter.Name,
+                chapter => File.ReadLines(chapter.FullName)
+                    .Select(line => Regex.Match(line, @"^(#{1,6}) (.+)$"))
+                    .Where(heading => heading.Success)
+                    .Select(heading => Slug(heading.Groups[2].Value.Trim()))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
+
+        // A DesignGuideline is constructed target-typed inside a page's Rules
+        // array, so the reference is a bare new("chapter.md#anchor", ...).
+        var references = StorybookPages.EnumerateFiles("*.razor")
+            .SelectMany(page => Regex
+                .Matches(File.ReadAllText(page.FullName), @"new\(""([a-z0-9-]+\.md(?:#[^""]*)?)""")
+                .Select(reference => (Page: page.Name, Reference: reference.Groups[1].Value)))
+            .ToList();
+
+        // Against the test passing because the pattern stopped matching anything.
+        Assert.NotEmpty(headings);
+        Assert.NotEmpty(references);
+
+        var broken = references
+            .Where(named =>
+            {
+                var parts = named.Reference.Split('#', 2);
+
+                return !headings.TryGetValue(parts[0], out var anchors)
+                    || (parts.Length == 2 && !anchors.Contains(parts[1]));
+            })
+            .Select(named => $"{named.Page} names .design/{named.Reference}")
+            .Distinct()
+            .Order()
+            .ToList();
+
+        Assert.True(
+            broken.Count == 0,
+            "A storybook page is governed by a rule that is not there any more, so the page renders an "
+            + "apology instead of the rule. Either the heading moved and the reference needs updating, or "
+            + "the rule was dropped and the page's claim to follow it goes with it: "
+            + string.Join("; ", broken));
+    }
+
+    /// <summary>GitHub's heading slug, and the same one
+    /// <c>DesignGuideline.Slug</c> applies: lower-cased, letters and digits kept,
+    /// spaces and hyphens to hyphens, every other character dropped.</summary>
+    private static string Slug(string heading) =>
+        string.Concat(heading.ToLowerInvariant().Select(character =>
+            char.IsLetterOrDigit(character) ? character.ToString()
+            : character is ' ' or '-' ? "-"
+            : string.Empty));
+
     /// <summary>Every component the library offers a host: one .razor file each,
     /// minus _Imports, which is compiler plumbing rather than a component.</summary>
     private static IEnumerable<string> ComponentNames() =>

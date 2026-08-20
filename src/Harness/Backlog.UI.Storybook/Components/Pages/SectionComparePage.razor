@@ -3,16 +3,13 @@
 <PageTitle>Section comparison — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Section comparison"
-           Summary="Three components and one question: which change to look at, which file, and what moved in it. The comparison is aligned by heading and never by line — it reads both versions as markdown and reports what happened to each section and each block, which is a different thing from a text diff and is deliberately named so.">
+           Summary="Three components and one question: which change to look at, which file, and what moved in it. The comparison is aligned by heading and never by line — it reads both versions as markdown and reports what happened to each section and each block, which is a different thing from a text diff and is deliberately named so."
+           Guidelines="@Rules">
 
     <Story Name="Which change, and how much of it"
-           Description="Two kinds of thing in one list: computed ranges at the top, individual commits under the divider. A listbox rather than a row of buttons, because a plain list would put one tab stop on every row — eight between this pane and the file list beside it — and because `aria-current` means &quot;current within a set of links&quot;, which is not what &quot;the scope in effect&quot; means. A `radiogroup` was the other candidate and was rejected for a subtler reason: ARIA gives it no sanctioned nested labelled subgroup, so the ranges/commits distinction would exist for the eye and not in the accessibility tree, which is the &quot;colour alone&quot; failure one level up.
+           Description="Two kinds of thing in one list: computed ranges at the top, individual commits under the divider. It is a listbox with a roving tabindex, so the whole pane is one tab stop, and the caption names the commit group in the accessibility tree as well as for the eye.
 
-The caption is doing two jobs at once. It separates a range from a point in history for a reader — two words instead of a bare rule they have to interpret — and it names the commit group for everything else, so nothing here needs an aria-label with no visible counterpart.
-
-&quot;Uncommitted — 0 files&quot; is selectable, not disabled and not dimmed. The count is the answer: the question was &quot;show me the uncommitted changes&quot;, and &quot;there are none&quot; answers it completely and often reassuringly. Disabling it would put that fact behind a wall — arrow keys skip disabled rows rather than landing on them and refusing — and it would invert the control's meaning, because disabled means you may not, and there is nothing here a reader may not do.
-
-Selection is carried four ways so it never rests on colour: `aria-selected`, the tick — which survives Windows High Contrast, where a background tint is dropped — the border and accent strip, and a heavier label, which is allowed only because it is the fourth. Hover is a fill and nothing else, focus is an outline outside the box where the selection border sits on it, so all three can be true of one row at once and still be told apart."
+“Uncommitted — 0 files” is selectable rather than disabled: the count is the answer to the question that was asked."
            Code="@PickerCode">
         <div class="sb-narrow" data-testid="compare-picker">
             <ChangeScopePicker Scopes="CompareFixtures.Scopes"
@@ -23,9 +20,7 @@ Selection is carried four ways so it never rests on colour: `aria-selected`, the
     </Story>
 
     <Story Name="Nothing uncommitted"
-           Description="The empty range selected, and both downstream panes saying so. The library's own EmptyState, in its action-free form: there is no call to action because there is nothing for the reader to do and nothing they failed to do. An empty scope is a finished state, not an unstarted one, and a button here would imply otherwise.
-
-Note what does not happen. The picker does not grey the row out, and the panes do not go blank or show a spinner that never resolves. The reader asked a question and got an answer."
+           Description="The empty range selected, and both downstream panes saying so with the library's own `EmptyState` in its action-free form. The picker does not grey the row out, and the panes do not go blank."
            Code="@EmptyCode">
         <div class="sb-columns" data-testid="compare-empty">
             <ChangeScopePicker Scopes="CompareFixtures.Scopes"
@@ -50,14 +45,19 @@ Note what does not happen. The picker does not grey the row out, and the panes d
     </Story>
 
     <Story Name="Aligned by heading, not by line"
-           Description="One chapter, and all four states in it: a paragraph edited under Prerequisites, a section that went, a section that arrived, and — most of the document — a table, a fence, a meta block and a whole chapter body that did not move. The folds are opened here so every state is visible at once; every other story leaves them as the component ships them.
+           Description="One chapter with all four states in it: a paragraph edited, a section that went, a section that arrived, and — most of the document — blocks that did not move. The folds are opened here so every state is visible at once.
 
-Each state is carried four ways: the gutter glyph, the written label, the surface tint, and what the label makes a screen reader say. The label is real DOM text and not an `aria-label`, so it cannot drift out of sync with the tint above it, and a user hears &quot;Added.&quot; and then the content — state, then substance. Unchanged blocks say nothing extra and wear no chrome at all, because prefixing several hundred paragraphs with &quot;Unchanged&quot; would drown the three that matter.
-
-The colour is a tint and never a stripe. All four semantic tokens in this product are dark surfaces — success is #1A3A22, error is #3D0A0D — so a 4px coloured rule against the base surface measures about 1.2:1, nowhere near the 3:1 a non-text indicator owes its background. It would be invisible, and &quot;not by colour alone&quot; would hold only by accident. Getting a visible green and red would have meant adding palette colours, and the library's own token comment records that exact mistake being undone.
-
-A Changed block shows both halves, stacked and labelled Was and Now, sharing one gutter mark. Without an intra-block text diff, showing only the after and calling it Changed is an assertion this component cannot back up: for a one-word edit in a long paragraph, the after-only rendering looks unchanged. Side-by-side columns were rejected independently of scope — rendered blocks have wildly different heights, so two columns desynchronise after the first table, and at pane width they halve the measure the type scale asks for."
+Each state is carried four ways: the gutter glyph, the written label, the surface tint, and what the label makes a screen reader say. The label is real DOM text rather than an `aria-label`, so it cannot drift out of sync with the tint. Unchanged blocks say nothing extra and wear no chrome."
            Code="@CompareCode">
+        <SourceContent>
+            <div class="sb-stack">
+                <CodeView Source="@CompareFixtures.Deploy.Before" Language="markdown"
+                          Title="Last commit" CssClass="sb-raw__code" TestId="compare-states-before" />
+                <CodeView Source="@CompareFixtures.Deploy.After" Language="markdown"
+                          Title="Working tree" CssClass="sb-raw__code" TestId="compare-states-after" />
+            </div>
+        </SourceContent>
+        <ChildContent>
         <div data-testid="compare-states">
             <MarkdownCompareView Section="CompareFixtures.Deploy.Comparison"
                                  FileName="@CompareFixtures.Deploy.File.Name"
@@ -68,16 +68,13 @@ A Changed block shows both halves, stacked and labelled Was and Now, sharing one
                                  MaxHeight="32rem"
                                  TestId="story-compare" />
         </div>
+        </ChildContent>
     </Story>
 
     <Story Name="A heading that was renamed"
-           Description="`## Setup` became `## Getting started` and nothing underneath it moved. One changed row, and below it only what really moved — which is nothing.
+           Description="`## Setup` became `## Getting started` and nothing underneath it moved: one changed row, and below it only what really moved.
 
-Keying sections on heading text alone would answer this with the whole section removed and the whole section added: every untouched paragraph reported twice, once in red and once in green, and the one edit that happened buried in the lines that did not. So a heading whose position among its siblings and whose body still line up is read as a changed heading, and the body is then aligned block by block underneath it.
-
-The cost is real and is accepted. A genuine delete-plus-insert landing in the same slot with a similar body will be described as a rename. Nothing is hidden by that — both heading texts stay on screen and every body difference is still reported — it is only labelled differently, and that is the cheaper of the two errors. The opposite one, splitting a single edit into two whole-section reports, hides the change inside the noise it creates.
-
-Both texts are shown, Was above Now, taking the same tints a Removed half and an Added half take elsewhere on the page. Only the Now line carries `role=&quot;heading&quot;`: two would put one section into the outline twice and land heading navigation on a title that is no longer there."
+A heading whose position among its siblings and whose body still line up is read as a changed heading, and the body is aligned block by block underneath it — otherwise every untouched paragraph would be reported twice, once removed and once added. Both texts are shown, Was above Now."
            Code="@RenameCode">
         <div data-testid="compare-rename">
             <MarkdownCompareView Section="CompareFixtures.Session.Comparison"
@@ -91,15 +88,9 @@ Both texts are shown, Was above Now, taking the same tints a Removed half and an
     </Story>
 
     <Story Name="What is not shown"
-           Description="Eleven steps in one section, two of them edited, and the nine that were not are mostly behind one fold. A section further down that nobody touched at all is behind another, labelled with its own heading.
+           Description="Unchanged runs are collapsed by default, behind a fold labelled with what it hides; a section nobody touched is behind another, labelled with its own heading.
 
-Collapsed by default, and the reason is worth stating because the opposite is the obvious choice. The request behind this view is &quot;show me what changed&quot;. A comparison that opens with ninety per cent unchanged prose is a document viewer with some highlights in it, and the reader has to scroll past everything that did not happen to find the things that did. Collapsing makes the common case — skim what moved — free, and the rare case one keystroke. The rejected alternative, expanded by default with a &quot;collapse unchanged&quot; control, charges the frequent task and subsidises the infrequent one, repeatedly, in every long file.
-
-The threshold is on the hidden count and not the run length: a fold that hides one paragraph replaces one paragraph with one line of chrome and one click, which costs the reader more than it saves. One block of context is kept adjacent to each neighbouring change, so a run bounded on both sides folds at four and a run at the edge of a section folds at three — one rule, two thresholds.
-
-Two hard rules keep it honest. A section with any change anywhere beneath it is never collapsed, so a changed grandchild always has visible ancestors — which is also why there is no breadcrumb anywhere in this component: the one case where a breadcrumb would earn its place cannot occur. And the trigger's label is the count with no verb, because `aria-expanded` already carries the state and a verb that flipped would contradict it.
-
-The cost, named rather than hidden: browser find-in-page will not match text inside a collapsed fold, because the region is hidden rather than removed. The header toggle is what keeps that cost to one click — turn &quot;Unchanged sections&quot; on and the whole file is readable as a file."
+The threshold is on the hidden count rather than the run length, so a fold never replaces one paragraph with one line of chrome, and one block of context is kept beside each neighbour."
            Code="@CollapseCode">
         <div data-testid="compare-collapse">
             <MarkdownCompareView Section="CompareFixtures.Checklist.Comparison"
@@ -113,13 +104,11 @@ The cost, named rather than hidden: browser find-in-page will not match text ins
     </Story>
 
     <Story Name="The whole surface"
-           Description="The three components composed the way a host actually builds them: pick a change, pick a file, read what moved. Everything is Fill, so the column heights come from the layout and not from a number any of the three is carrying.
+           Description="The three components composed the way a host builds them: pick a change, pick a file, read what moved. Everything is `Fill`, so the column heights come from the layout.
 
-The picker and the file list are deliberately the same widget — same roles, same roving tabindex, same tick slot, same selected, hover and focus treatment — because two lists side by side that each pick one thing must not be two different widgets. A reader who learns the arrow keys in the left column should not have to relearn them in the middle one, and a screen-reader user should not meet a listbox and then a tree.
+The picker and the file list are deliberately the same widget — same roles, same roving tabindex, same tick slot, same selected, hover and focus treatment. The glyph column shows its whole vocabulary here: a chapter edited, added, deleted. There is no Renamed, because this feature detects renames of headings and not of paths.
 
-This range is the one with all three file kinds in it, so the glyph column shows its whole vocabulary: a chapter edited, a chapter added, a chapter deleted. There is no Renamed, and its absence is deliberate — this feature detects renames of headings, not of paths, so a file-rename badge would be a claim the model cannot support.
-
-The comparison pane's scroll region is named &quot;{file}, {before} to {after}&quot; rather than after the file alone. A body that shows a relationship needs to say which relationship: with a compare pane and a plain file view open in one app, two regions both called &quot;deploy-foundry.md&quot; would be indistinguishable by region navigation, and the difference between them is exactly what this component is for."
+The comparison pane's scroll region is named “{file}, {before} to {after}”, so a keyboard user who lands in it hears which two versions they are reading."
            Code="@SurfaceCode">
         <div class="sb-tall" data-testid="compare-surface">
             <div class="sb-compare-surface">
@@ -157,6 +146,13 @@ The comparison pane's scroll region is named &quot;{file}, {before} to {after}&q
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#round-trip-fidelity", "Why a comparison is made by heading and not by line."),
+        new("color-scheme.md#semantic-soft-surface-tokens", "The tones added, removed and changed are drawn in."),
+        new("typography-and-layout.md#density", "How two versions of one section are laid out side by side.")
+    ];
+
     /// <summary>The first story's picker holds its own selection so clicking
     /// through it does not move the composed surface further down the page —
     /// two stories sharing one selection would make the second one change while

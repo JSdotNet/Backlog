@@ -14,6 +14,7 @@ using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -131,6 +132,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<ICopilotToolService>(sp => new CopilotToolService(
             sp.GetRequiredService<IBacklogStore>(),
             sp.GetService<ILogger<CopilotToolService>>()));
+
+        // The session list reads the two agents' own folders in the profile of
+        // whoever is signed in, so unlike the tool service above there is nothing
+        // for a host to differ about and both hosts compose the same adapter.
+        builder.Services.AddAgentSessionSource();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

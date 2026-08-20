@@ -1,9 +1,10 @@
-@page "/menus"
+﻿@page "/menus"
 
 <PageTitle>Menus — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Menus"
-           Summary="A tree, a flat menu, the same menu at a pointer position, and the navigation list this storybook's own sidebar is built from.">
+           Summary="A tree, a flat menu, the same menu at a pointer position, and the navigation list this storybook's own sidebar is built from."
+           Guidelines="@Rules">
 
     <Story Name="TreeView"
            Description="Expansion and selection live in the page, not the tree — the component asks two predicates and raises one event, so a host keeps whatever state model it already has.
@@ -23,11 +24,9 @@ No open-in-VS-Code button here: a tree of rows is a tree of rows, and this one h
     </Story>
 
     <Story Name="OpenFolderButton"
-           Description="&quot;Open this in VS Code&quot;, as a control of its own. It is one button used in two headers — TreeView puts it beside its heading, FolderView puts it in its own because it hides that heading — and two implementations of the same thing is how they drift apart.
+           Description="“Open this in VS Code”, as a control of its own — one button used in two headers, because `TreeView` puts it beside its heading and `FolderView` puts it in its own.
 
-The mark rather than the letters: &quot;VS&quot; in a 2rem box reads as an abbreviation of something the reader has to have been told, and the logo is what they already know from their own taskbar. The name is words either way — the icon is aria-hidden and the accessible name says which folder. The SVG is drawn here rather than fetched, because a button that needs the network to show itself does not work in a WebView with no egress.
-
-Busy keeps it in place and the same size instead of vanishing under the pointer that just hit it."
+The icon is `aria-hidden` and the accessible name says which folder. The SVG is drawn here rather than fetched, so it renders in a WebView with no egress. `Busy` keeps it in place and the same size."
            Code="@OpenButtonCode">
         <div class="sb-row" data-testid="open-folder-states">
             <OpenFolderButton Label="Open .arc42 in VS Code"
@@ -80,6 +79,13 @@ Busy keeps it in place and the same size instead of vanishing under the pointer 
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#keyboard-navigation", "What a tree and a menu have to be walkable with."),
+        new("interaction-guidelines.md#focus-and-selection", "What the selected row looks like, and what keeps it."),
+        new("typography-and-layout.md#density", "Row heights and indent steps in a navigation pane.")
+    ];
+
     private static readonly IReadOnlyList<TreeNode> Nodes =
     [
         new("arc42", "Architecture", TreeNodeKind.Folder, true, null,

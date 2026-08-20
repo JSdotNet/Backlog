@@ -32,17 +32,6 @@ public static class RoadmapErrors
     public static Error SelfDependency() =>
         Error.Validation("roadmap.self_dependency", "Something cannot wait for itself.");
 
-    public static Error BandNotNamed() =>
-        Error.Validation("roadmap.band_not_named", "Say which repository's band the colour is for.");
-
-    /// <summary>Refused rather than clamped: a plan is not the place to invent a
-    /// colour, and giving somebody a hue they did not ask for would look like a choice
-    /// they had made.</summary>
-    public static Error UnknownBandColour(int colour) =>
-        Error.Validation(
-            "roadmap.unknown_band_colour",
-            $"There is no band colour {colour}. Choose one of the five the design system defines.");
-
     /// <summary>A cycle is a conflict with the plan's current state rather than
     /// bad input: the same edge would have been fine before the others were
     /// added.</summary>

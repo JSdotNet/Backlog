@@ -286,6 +286,30 @@ h1, h2, h3 {
     border-color: var(--color-primary);
 }
 
+/* Room for the repository identity rule, added to the chip's own leading padding so
+   a coloured chip is exactly as wide as an uncoloured one beside it. The mark itself
+   is the shared .repo-mark utility in components.css. */
+.chip.repo-mark {
+    padding-left: calc(var(--spacing-sm) + var(--border-width-4));
+}
+
+/*
+   The one place two sanctioned colours meet. A selected scope chip is filled with
+   color-primary, and color-band-1 *is* color-primary — a band-1 chip would paint its
+   identity rule in the fill's own colour and lose it entirely. So the rule is held off
+   the fill by a 1px seam in color-background, which clears 3:1 against both sides.
+   See .design/color-scheme.md#band-identity-tokens.
+
+   The second inset shadow paints behind the first, so what shows of it is the strip
+   between 4px and 5px — the seam, and nothing over the rule itself.
+*/
+.chip.repo-mark.chip--active {
+    box-shadow:
+        inset var(--border-width-4) 0 0 0 var(--repo-mark-color, transparent),
+        inset calc(var(--border-width-4) + var(--border-width)) 0 0 0 var(--color-background);
+    padding-left: calc(var(--spacing-sm) + var(--border-width-4) + var(--border-width));
+}
+
 /* The count turns the area filter into a sense of where the work actually is. */
 .chip__count {
     margin-left: var(--spacing-xs);
@@ -1230,6 +1254,8 @@ h1, h2, h3 {
     margin: var(--spacing-md) 0 0;
     font-size: var(--font-size-sm);
     color: var(--color-text-disabled);
+    /* These notes quote absolute paths, and a path is one unbroken word. */
+    overflow-wrap: anywhere;
 }
 
 
@@ -2061,9 +2087,10 @@ h1, h2, h3 {
     grid-template-rows: minmax(0, 1fr);
 }
 
-/* A takeover: Tools or the Dashboard, filling everything below the header. The
-   panel inside owns the scrollbar rather than this landmark, so the header — and
-   the control that closes the surface — can never be scrolled out of reach. */
+/* A takeover: Tools, the Dashboard or Sessions, filling everything below the
+   header. The panel inside owns the scrollbar rather than this landmark, so the
+   header — and the control that closes the surface — can never be scrolled out of
+   reach. */
 .workspace-surface {
     display: flex;
     flex-direction: column;
@@ -2073,7 +2100,8 @@ h1, h2, h3 {
 }
 
 .workspace-surface > .tools-panel,
-.workspace-surface > .dashboard-panel {
+.workspace-surface > .dashboard-panel,
+.workspace-surface > .sessions-panel {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
@@ -2555,6 +2583,167 @@ h1, h2, h3 {
     display: grid;
     gap: var(--spacing-md);
     min-width: 0;
+}
+
+/* The sessions takeover. The same frame as the dashboard's — a takeover is a
+   takeover, and two different-looking full-screen panels would read as two
+   different applications — but its own block rather than a shared one, because
+   what is inside them has nothing in common and a shared block would be a
+   coupling between a list of records and a grid of charts. */
+.sessions-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
+    box-shadow: var(--shadow-md);
+}
+
+.sessions-panel__header {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.sessions-panel__header-actions {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.sessions-panel__eyebrow,
+.sessions-panel__title,
+.sessions-panel__subtitle {
+    margin: 0;
+}
+
+.sessions-panel__eyebrow {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sessions-panel__title {
+    font-size: var(--font-size-lg);
+}
+
+.sessions-panel__subtitle {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The row count, as a quiet outline rather than a filled pill: it is a fact about
+   the list, not something to act on. */
+.sessions-panel__count {
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* The grouping strip, above the table rather than inside it: it scopes the whole
+   list, and a control inside the table's frame would read as the table's own. */
+.sessions-panel__filters {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: var(--spacing-md) var(--spacing-lg);
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.sessions-filter {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    min-width: 0;
+}
+
+/* Pushed to the trailing edge on a wide window, and simply next in line once the
+   strip wraps — margin-left: auto does both without a second layout. */
+.sessions-filter--end {
+    margin-left: auto;
+}
+
+.sessions-filter__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* The table owns the scrollbar, not this: the panel's header and grouping strip
+   must stay put while a long list moves under them. */
+.sessions-panel__content {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-md);
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+.sessions-panel__notice {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sessions-panel__empty {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The name column is the one that may take the width it needs; every other column
+   is a date, a chip or a short string. */
+.sessions-table__session {
+    white-space: normal;
+}
+
+.sessions-table__title {
+    color: var(--color-text-primary);
+    font-weight: 500;
+}
+
+/* The mark and the word read as one thing, so they sit on one baseline rather
+   than the mark floating at the top of the cell. */
+.sessions-table__kind {
+    display: table-cell;
+    white-space: nowrap;
+}
+
+.sessions-table__mark {
+    margin-right: var(--spacing-2xs);
+    vertical-align: text-bottom;
+}
+
+/* Two more columns allowed to be cut short, and narrower than the library's
+   default because there are two of them in every row. A branch name here is a
+   slug with a hash on the end and a repository is owner/name: both are
+   recognisable from their first characters, and neither is worth the state column
+   falling off the right edge of the table. */
+.sessions-table__repository {
+    max-width: 12rem;
+}
+
+.sessions-table__branch {
+    max-width: 16rem;
 }
 
 /* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is

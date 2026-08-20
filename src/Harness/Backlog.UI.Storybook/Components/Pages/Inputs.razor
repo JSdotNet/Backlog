@@ -1,12 +1,13 @@
-@page "/inputs"
+﻿@page "/inputs"
 
 <PageTitle>Inputs — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Inputs"
-           Summary="Text, long text, search, and the two switches. Every one of them is two-way bound to the state shown underneath it.">
+           Summary="Text, long text, search, the two switches, and the fields a date, a time or a repeat is set with. Every one of them is two-way bound to the state shown underneath it. Reordering is not here: the handle that moves a row is part of the row, so it is in the Task list chapter with the component that draws it."
+           Guidelines="@Rules">
 
     <Story Name="TextField"
-           Description="Label, help text and error message are all optional; when an error is set it replaces the help text and is announced."
+           Description="Label, help text and error message are all optional; when an error is set it replaces the help text and is announced. `Type` takes text, number, url and email here — the date and time types have a story of their own below."
            Code="@TextFieldCode">
         <div class="sb-grid">
             <div>
@@ -32,21 +33,6 @@
                            ValueChanged="v => _estimate = v"
                            TestId="input-estimate" />
                 <p class="sb-state" data-testid="input-estimate-value">@Show(_estimate)</p>
-            </div>
-            <div>
-                @* A real date field, which it was not until recently: the type
-                   allowlist did not include "date", so this story quietly rendered
-                   a text box for as long as it has existed. The value is the
-                   native wire format, yyyy-MM-dd, and stays invariant — what the
-                   date is called on screen is the browser's from the locale. *@
-                <TextField Label="Due date" Type="date" Value="@_due" ValueChanged="v => _due = v" TestId="input-due" />
-                <p class="sb-state" data-testid="input-due-value">@Show(_due)</p>
-            </div>
-            <div>
-                @* datetime-local, and deliberately local: it carries no zone and
-                   no offset, which is what a wall-clock reminder is. *@
-                <TextField Label="Remind me at" Type="datetime-local" Value="@_remindAt" ValueChanged="v => _remindAt = v" TestId="input-remind" />
-                <p class="sb-state" data-testid="input-remind-value">@Show(_remindAt)</p>
             </div>
             <div>
                 <TextField Label="Alias"
@@ -191,6 +177,82 @@
         </Checkbox>
     </Story>
 
+    <Story Name="A date, a time and a repeat"
+           Description="The three fields a scheduled thing is set with. `Type=&quot;date&quot;` takes and returns `yyyy-MM-dd`, `Type=&quot;time&quot;` takes `HH:mm`, and `Type=&quot;datetime-local&quot;` takes `yyyy-MM-ddTHH:mm` — the native wire formats, invariant. What each is called on screen is the browser's, from the locale.
+
+Bind `@@onchange` rather than `ValueChanged` for any of them: a half-typed date raises input events that read as empty, and a host for which empty means &quot;clear it&quot; would clear the field mid-keystroke. A date commits when it is a date.
+
+A repeat is a SelectField over the repeat tokens themselves, so what the picker offers and what the metadata line can hold cannot drift apart."
+           Code="@ScheduleFieldCode">
+        <div class="sb-grid">
+            <div>
+                <TextField Label="Due date" Type="date" Value="@_due" ValueChanged="v => _due = v" TestId="schedule-due" />
+                <p class="sb-state" data-testid="schedule-due-value">@Show(_due)</p>
+            </div>
+            <div>
+                <TextField Label="Reminder time" Type="time" Value="@_remindTime" ValueChanged="v => _remindTime = v" TestId="schedule-time" />
+                <p class="sb-state" data-testid="schedule-time-value">@Show(_remindTime)</p>
+            </div>
+            <div>
+                <TextField Label="Remind me at" Type="datetime-local" Value="@_remindAt" ValueChanged="v => _remindAt = v" TestId="schedule-remind" />
+                <p class="sb-state" data-testid="schedule-remind-value">@Show(_remindAt)</p>
+            </div>
+            <div>
+                <SelectField Label="Repeat"
+                             CurrentValue="@_repeat"
+                             Options="@RepeatOptions"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="Never"
+                             OnChanged="v => _repeat = v ?? string.Empty"
+                             TestId="schedule-repeat" />
+                <p class="sb-state" data-testid="schedule-repeat-value">@Show(_repeat)</p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="TaskAction — set it, see it, clear it"
+           Description="The control that puts one of those values on something: an icon, a label, the value once it is set, and an ✕ to take it off. One component for all of them, because a row that is set says what it is set to and a row that is not says what it would do — that difference is the whole state model, which is why &quot;Remind me&quot; and &quot;Reminder · Monday 09:00&quot; are one control and not two.
+
+`Togglable` is for a value with nothing to pick: My Day is on or off, so pressing it again is how it comes off and there is no ✕. For the others, `OnSet` opens whichever field above this story fits, and `OnClear` unsets it. `Disabled` is for an act the host cannot perform yet."
+           Code="@ActionCode">
+        <div class="sb-menu-wide sb-surface" data-testid="task-actions">
+            <TaskAction Icon="+" Label="Add step" TestId="action-step" OnSet="() => { }" />
+
+            <TaskAction Icon="☀"
+                        Label="@(_inMyDay ? "Added to My Day" : "Add to My Day")"
+                        Set="@_inMyDay"
+                        Togglable="true"
+                        OnSet="() => _inMyDay = !_inMyDay"
+                        TestId="action-myday" />
+
+            <TaskAction Icon="⏰"
+                        Label="Remind me"
+                        Value="Monday · 09:00"
+                        Set="@_reminded"
+                        OnSet="() => _reminded = true"
+                        OnClear="() => _reminded = false"
+                        TestId="action-remind" />
+
+            <TaskAction Icon="🗓"
+                        Label="Due date"
+                        Value="Friday, 21 August"
+                        Set="@_dueSet"
+                        OnSet="() => _dueSet = true"
+                        OnClear="() => _dueSet = false"
+                        TestId="action-due" />
+
+            <TaskAction Icon="🔁"
+                        Label="Repeat"
+                        Value="Weekly"
+                        Set="@_repeats"
+                        OnSet="() => _repeats = true"
+                        OnClear="() => _repeats = false"
+                        TestId="action-repeat" />
+
+            <TaskAction Icon="📎" Label="Add file" Disabled="true" TestId="action-file" />
+        </div>
+    </Story>
+
     <Story Name="Fields without their wrapper"
            Description="Bare emits the label, the control and the messages as siblings, for a form whose own layout already places them — the same escape hatch Tabs offers. The part classes come with it: a host that has its own field styling replaces `field__label` and `field__input` rather than styling against ours as well as its own. A textarea's grow wrapper carries the border, so a host whose box is already bordered clears GrowCssClass instead of doubling it up."
            Code="@BareCode">
@@ -228,6 +290,23 @@
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#save-timing-and-debounce", "How long a field waits before it saves, and which edits commit at once."),
+        new("content-editing.md#scheduling-and-dependency-tokens", "The date, time and repeat grammar these fields read and write."),
+        new("accessibility.md#keyboard-navigation", "What every control has to be reachable and operable with."),
+        new("typography-and-layout.md#density", "Control heights, label pairing and how tight a form is allowed to be.")
+    ];
+
+    private static readonly IReadOnlyList<SelectorOption> RepeatOptions =
+    [
+        new("daily", "Every day"),
+        new("weekdays", "Every weekday"),
+        new("weekly", "Every week"),
+        new("monthly", "Every month"),
+        new("yearly", "Every year")
+    ];
+
     private static readonly string[] Areas = ["Product", "Platform", "Design"];
 
     private string _title = "Storybook for Backlog.UI.Components";
@@ -235,6 +314,12 @@
     private string _estimate = "3";
     private string _due = "2026-08-31";
     private string _remindAt = "2026-08-31T09:00";
+    private string _remindTime = "09:00";
+    private string _repeat = "weekly";
+    private bool _inMyDay = true;
+    private bool _reminded = true;
+    private bool _dueSet;
+    private bool _repeats;
     private string _alias = "backlog";
     private string _notes = "The read view and the editor show the same text.\nAdd a line to see AutoGrow work.";
     private string _query = string.Empty;
@@ -310,6 +395,33 @@
         <Checkbox Checked="_enabled" CheckedChanged="v => _enabled = v" Label="Architecture">
             <code>.arc42</code>
         </Checkbox>
+        """;
+
+    private const string ScheduleFieldCode = """
+        <TextField Label="Due date" Type="date"
+                   Value="@_due" @onchange="OnDuePicked" />
+
+        <TextField Label="Remind me at" Type="datetime-local"
+                   Value="@_remindAt" @onchange="OnReminderPicked" />
+
+        <SelectField Label="Repeat"
+                     CurrentValue="@_repeat"
+                     Options="@RepeatOptions"
+                     IncludeEmptyOption="true"
+                     EmptyLabel="Never"
+                     OnChanged="OnRepeatPicked" />
+        """;
+
+    private const string ActionCode = """
+        <TaskAction Icon="🗓"
+                    Label="Due date"
+                    Value="@FormatDate(row.DueOn)"
+                    Set="@(row.DueOn is not null)"
+                    OnSet="() => OpenPicker(Picker.Due)"
+                    OnClear="() => ClearDueAsync(row)" />
+
+        <TaskAction Icon="☀" Label="Add to My Day" Togglable="true"
+                    Set="@row.InMyDay" OnSet="() => ToggleMyDayAsync(row)" />
         """;
 
     private const string BareCode = """

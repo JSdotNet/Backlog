@@ -1,3 +1,6 @@
+using System.Text.Json.Nodes;
+
+using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Roadmap.UI;
 
@@ -77,6 +80,41 @@ public abstract class RoadmapBandHarness : IDisposable
     {
         band.Find($"[data-testid=\"{controlTestId}\"]").Click();
         band.WaitForElement($"[data-testid=\"{dialogTestId}\"]");
+    }
+
+    /// <summary>Renders a band with one item filed under <c>backlog</c>, which is the
+    /// smallest plan that actually draws a repository band.</summary>
+    protected async Task<IRenderedComponent<RoadmapBand>> PlannedAsync(BunitContext context)
+    {
+        await Planning.AddItemAsync(
+            "Work",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"]);
+
+        return Drawn(context);
+    }
+
+    /// <summary>
+    /// Puts a band colour into the plan file the way a build from before the choice
+    /// moved to Settings wrote one.
+    /// <para>
+    /// Written into the JSON rather than through the module, because the module no
+    /// longer has a way to write one — which is the whole point of the migration these
+    /// tests are about.
+    /// </para>
+    /// </summary>
+    protected async Task StoreLegacyBandColourAsync(string alias, int colour)
+    {
+        var path = Path.Combine(
+            Settings.RootDirectory,
+            JsonRoadmapPlanRepository.RoadmapFolderName,
+            JsonRoadmapPlanRepository.PlanFileName);
+
+        var document = JsonNode.Parse(await File.ReadAllTextAsync(path))!.AsObject();
+        document["bands"] = new JsonObject { [alias] = colour };
+
+        await File.WriteAllTextAsync(path, document.ToJsonString());
     }
 
     protected void Configure(params string[] lines)

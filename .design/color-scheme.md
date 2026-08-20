@@ -275,13 +275,35 @@ status: active
 related: [".design/design-principles.md#dark-mode-only", ".design/accessibility.md#contrast", ".domain/roadmap/features.md#feature-repository-scoped-planning"]
 ```
 
-The roadmap band draws one horizontal band per configured repository, and a reader
-of a portfolio plan needs to tell one project's row from another's at a glance.
-That is the second thing in this product to need more than one hue, and it is the
-same *kind* of thing as the first: like the code theme above, this is **a theme,
-not a second semantic palette**. Each token names *which repository* a row belongs
-to — an identity — never what a piece of UI *means*. Nothing outside a roadmap band
-may use one.
+A workspace holds several repositories at once, and a reader needs to tell one
+project's work from another's at a glance — on a portfolio plan, in a list of
+entries, and on the filter that scopes the whole app. That is the second thing in
+this product to need more than one hue, and it is the same *kind* of thing as the
+first: like the code theme above, this is **a theme, not a second semantic
+palette**. Each token names *which repository* something belongs to — an identity —
+never what a piece of UI *means*.
+
+The set was introduced for the roadmap band and was restricted to it while the band
+was its only consumer. It is now the product's **repository identity**, and the
+restriction is a list rather than a single surface. Exactly these may use one:
+
+| Consumer | Mark |
+|---|---|
+| Roadmap band label and its bars | the band painting below |
+| Repository scope filter chip in the app header | the identity edge below |
+| An entry row whose area resolves to a repository | the identity edge below |
+| An agent session row under such an entry | the identity edge below |
+| The repository cell of a row in the Sessions area | the identity edge below |
+| The colour picker in Settings → Repositories | a solid swatch of the hue itself |
+
+The picker is the one place a hue is painted as a fill rather than an edge, and that
+is not an exception to the rule below — it is the rule's own consequence. A control
+whose subject *is* the colour has to show the colour; a swatch reading "sample of
+band 3" in a 4px sliver would be a picker you cannot pick from. Every swatch is
+labelled and the chosen one is marked, so the fill is still not the sole carrier.
+
+Nothing else may. A new consumer is an addition to that table, argued here, and
+never a hue added to the set.
 
 **No new colour value is introduced.** Every value below already appears in this
 document: one is `color-primary`, and the other four are the hues the code theme
@@ -305,6 +327,8 @@ mistaken for one.
 | `color-band-4` | `#F0A868` | the same value as `code-number` |
 | `color-band-5` | `#8595AD` | the same value as `code-comment` |
 
+### Band painting
+
 A band colour is painted three ways: a 4px left border on the band's own label, the
 label's surface as `color-mix(in srgb, <token> 24%, color-background)`, and
 `color-text-primary` on that surface. A border is a non-text mark and owes 3:1; ink
@@ -324,6 +348,44 @@ Every ratio is the WCAG 2.1 relative-luminance formula. The binding pair is
 half times the 3:1 it owes, because the set was chosen from values already measured
 against these surfaces rather than picked for looks.
 
+### The identity edge
+
+Off the roadmap the hue is **additive only**: a 4px rule down the leading edge of a
+control that was already there, painted as an inset shadow rather than a border so
+the element's own box, padding and alignment are untouched. Nothing is tinted,
+nothing is recoloured, and every surface, border and text token the control already
+wore stays exactly as it was. A chip that read correctly before the repository had a
+colour reads identically after it, with a stripe down its left edge.
+
+That restraint is the whole reason the set may leave the roadmap. A band is a region
+of a chart and can afford a 24% wash; a filter chip and an entry row sit inside dense
+chrome that already spends its contrast on status, priority and selection. A wash
+there would put an identity hue in competition with colours that carry meaning, which
+is the one thing the rule above forbids.
+
+The edge is a non-text mark and owes 3:1 against whatever the control is filled with.
+The two fills it lands on that the table above does not already cover are
+`color-background-raised` — the resting scope chip and a selected entry row — and
+`color-primary`, the active scope chip.
+
+| Token | Edge vs `color-background-raised` |
+|---|---|
+| `color-band-1` | 7.28:1 |
+| `color-band-2` | 6.86:1 |
+| `color-band-3` | 6.87:1 |
+| `color-band-4` | 6.11:1 |
+| `color-band-5` | 4.01:1 |
+
+`color-band-5` at 4.01:1 is the binding pair for the edge, a third above the 3:1 it
+owes.
+
+**The active scope chip is the one case the ratio cannot answer.** It is filled with
+`color-primary`, and `color-band-1` *is* `color-primary` — a band-1 edge on a
+selected chip would measure 1:1 and disappear. The edge is therefore separated from
+that fill by a 1px seam in `color-background`, which clears 3:1 on both sides
+(11.15:1 against `color-band-1`, 11.15:1 against `color-primary`). The seam is drawn
+only on the active chip, because it is the only place two sanctioned colours meet.
+
 Rules:
 
 - **Colour here is identity, never meaning.** A band's hue says which repository.
@@ -332,10 +394,22 @@ Rules:
 - **Colour is never the sole carrier.** Every band is also labelled with its
   repository alias written down its own side, every bar names its band in its
   accessible name, and the repository filter lists them by full name. The band
-  sidebar is `aria-hidden`, so a reader who never sees a hue loses nothing.
+  sidebar is `aria-hidden` and so is every identity edge, so a reader who never sees
+  a hue loses nothing — on any of the surfaces above, the alias is still written
+  there in words.
+- **Colour never competes with meaning.** Status, priority, severity and selection
+  keep the colours they have. An identity hue is only ever an edge beside them, never
+  the fill behind them, so the two can be read at the same time without either
+  becoming ambiguous.
+- **One choice, one place.** A repository's hue is chosen in Settings and every
+  surface reads that one answer, so the same project is the same colour on the
+  roadmap, on the filter and on a row. A surface that picked its own would be a
+  second identity for the same thing.
 - **Hues are assigned by position** in the configured-repository list and wrap after
-  five, so a sixth repository repeats the first hue. Two bands sharing a hue is
-  acceptable precisely because the hue is not the identifier — the label is.
+  five, so a sixth repository repeats the first hue. An explicit choice in Settings
+  overrides the position, and an automatic hue steps over the ones already claimed so
+  it never lands on a neighbour's. Two repositories sharing a hue is acceptable
+  precisely because the hue is not the identifier — the label is.
 - A new consumer wanting categorical colour MUST justify itself against this
   section rather than adding hues, exactly as a new language MUST map onto the code
   theme rather than adding a colour.
@@ -363,6 +437,57 @@ second palette** — with one difference that matters: **every value below is
 derived.** Each is a `var()` of a palette token or a `color-mix()` of one against
 the surface it is drawn on, so none holds a colour of its own, the palette is
 still twenty colours, and there is no new value for this file to disagree with.
+
+### Badge and chip tones
+
+A badge is a value with a class on it, and the class is what says which family
+the value belongs to. Three families ship — `status`, `priority` and `type` — and
+each maps its own vocabulary onto **one shared tone scale**, so a reader learns
+the scale once and reads it in every family. The vocabulary is always the
+caller's; the tone is always this file's.
+
+| Tone | What it means | Palette derivation |
+|---|---|---|
+| `quiet` | Nothing has happened to it yet — draft, proposed, unset | `color-secondary` ink on `color-background-alt` |
+| `live` | In progress, and the product may act on it | `color-primary-light` ink, `color-primary-dark` edge |
+| `alert` | Wants attention, but is not a fault | `color-warning` as a **surface** |
+| `fault` | Failed, blocked, or contradicted | `color-error` as a **surface** |
+| `settled` | Finished, and correct — done, merged, adopted | `color-success` as a **surface** |
+| `archived` | Out of force, and spends no colour: a transparent surface inside a border | `color-border-strong` edge only |
+
+Rules:
+
+- A badge MUST take its tone from this scale. A family that needed a sixth tone
+  would be a second palette, which `design-principles.md#dark-mode-only` does not
+  allow.
+- **Filled means the product acts on it.** `alert`, `fault` and `settled` are
+  filled surfaces; everything else is outlined, so a filled chip in a list is
+  always the one to look at. A state that is merely information MUST NOT be
+  filled.
+- A filled chip takes `color-border-strong` as its boundary rather than a mix of
+  its own surface — the semantic tokens are 1.04:1 to 1.31:1 against the raised
+  surface and are invisible as boundaries. See `#integration-roles`, which records
+  the same finding for state chips.
+- A badge's text is small, so it MUST clear the 4.5:1 that
+  `#contrast-rules-wcag-aa-minimum` sets for supporting text. `color-text-disabled`
+  is **not** available to a badge: an out-of-force value is information, not a
+  disabled control, and takes `archived` instead.
+- Colour MUST NOT be the only carrier. Every badge prints its value as text, and
+  a badge carrying a glyph keeps the words beside it (see
+  `accessibility.md#iconography-accessibility`).
+- **A value in no vocabulary is flagged, not styled.** Where the folder or family
+  defines a vocabulary and the value is not in it, the badge MUST render the value
+  verbatim, wear `archived`, and name the expected values on its `title`. Painting
+  an unrecognised value like every other unknown word lets a typo sit in a file
+  indefinitely.
+- A status that can be changed MUST be drawn as the same badge as one that cannot.
+  A reader must never learn from a colour or a shape that an editable status is a
+  different kind of status.
+
+Knowledge chapters are the largest consumer of this scale: five folders spell
+their lifecycles five different ways, and `README.md#status-vocabulary` maps each
+word onto the tones above. Review surface: storybook → *Badges*, and
+*Knowledge base* → **State**.
 
 ### Chart roles
 

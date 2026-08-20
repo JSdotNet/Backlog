@@ -1,24 +1,36 @@
-@page "/markdown/diagrams"
+﻿@page "/markdown/diagrams"
 
 <PageTitle>Diagrams in markdown — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Diagrams in markdown"
-           Summary="A subpage of Markdown, about one block: the fenced code block whose language names a diagram. MarkdownView hands those to DiagramView instead of rendering a code block, so a diagram is something you write in a body rather than something you attach to one. Everything else about fences — that nothing inside them is parsed, that a `- [ ]` in one is a sample — still holds.">
-
+           Summary="A subpage of Markdown, about one block: the fenced code block whose language names a diagram. MarkdownView hands those to DiagramView instead of rendering a code block, so a diagram is something you write in a body rather than something you attach to one. Everything else about fences — that nothing inside them is parsed, that a `- [ ]` in one is a sample — still holds."
+           Guidelines="@Rules">
     <Alert Message="@OfflineNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="A fence that names a diagram becomes one"
            Description="The whole of the integration is one line in MarkdownView: an MdCode whose language DiagramView recognises is handed to DiagramView, and everything else becomes a `pre.md-code`. The parser is not involved and does not need to be — it already captured the language off the opening fence, and a diagram is a code block that happens to be drawable.
 
 Nothing about the surrounding body changes. The prose above and below is parsed as prose, the diagram sits in the flow where it was written, and the block keeps the fence's own language on its header."
-           Code="@IntegrationCode">
+           Code="@IntegrationCode"
+           Source="@FlowchartSample">
         <MarkdownStory Source="@FlowchartSample" TestId="markdown-diagram-flowchart" />
     </Story>
 
     <Story Name="Which fences are diagrams, and which of those can be drawn"
-           Description="Two questions, and they have different answers. IsDiagram decides whether a fence goes to DiagramView at all; CanRender decides whether DiagramView can draw it. Mermaid answers yes to both. PlantUML and Graphviz answer yes to the first and no to the second — they are recognised as diagrams, so they get the diagram frame and its caption, and then show their source because nothing here draws them. Anything else is not a diagram and renders as an ordinary code block.
+           Description="Two questions with different answers. `IsDiagram` decides whether a fence goes to `DiagramView` at all; `CanRender` decides whether `DiagramView` can draw it.
 
-That middle case is deliberate. A `plantuml` fence is a diagram the author wrote and this product cannot yet draw, and framing it as one says so; rendering it as anonymous code would say the language went unrecognised, which is a different and less true thing.">
+Mermaid answers yes to both. PlantUML and Graphviz answer yes to the first and no to the second, so they get the diagram frame and its caption and then show their source. Anything else renders as an ordinary code block."
+           SourceLabel="Every fence above">
+        <SourceContent>
+            <div class="sb-stack">
+                @foreach (var language in Languages)
+                {
+                    <CodeView Source="@language.Source" Language="markdown"
+                              Title="@language.Fence" CssClass="sb-raw__code" />
+                }
+            </div>
+        </SourceContent>
+        <ChildContent>
         <div class="sb-stack" data-testid="markdown-diagram-languages">
             @foreach (var language in Languages)
             {
@@ -28,16 +40,29 @@ That middle case is deliberate. A `plantuml` fence is a diagram the author wrote
                 </div>
             }
         </div>
+        </ChildContent>
     </Story>
 
     <Story Name="The source is always one disclosure away"
            Description="A drawn diagram keeps a `Diagram source` disclosure under it. A picture is not always the thing a reader wants — reviewing a change to one means reading the text — and a diagram that renders is otherwise the one block in a body whose content you cannot select. The disclosure is closed by default, so it costs a reader who wanted the picture nothing."
-           Code="@SourceCode">
-        <MarkdownStory Source="@SequenceSample" TestId="markdown-diagram-sequence" />
+           Code="@SourceCode"
+           Source="@SequenceSample">
+        <MarkdownStory Source="@SequenceSample" ShowDiagramSource="true" TestId="markdown-diagram-sequence" />
     </Story>
 
     <Story Name="The kinds worth writing in an entry"
-           Description="Mermaid draws more than this, and this is the set that earns its place in a backlog body: how something flows, who talks to whom, what states a thing moves between, and how the pieces relate. Each is an ordinary fence in ordinary prose.">
+           Description="Mermaid draws more than this, and this is the set that earns its place in a backlog body: how something flows, who talks to whom, what states a thing moves between, and how the pieces relate. Each is an ordinary fence in ordinary prose."
+           SourceLabel="Every fence above">
+        <SourceContent>
+            <div class="sb-stack">
+                @foreach (var kind in Kinds)
+                {
+                    <CodeView Source="@kind.Source" Language="markdown"
+                              Title="@kind.Name" CssClass="sb-raw__code" />
+                }
+            </div>
+        </SourceContent>
+        <ChildContent>
         <div class="sb-stack" data-testid="markdown-diagram-kinds">
             @foreach (var kind in Kinds)
             {
@@ -47,24 +72,34 @@ That middle case is deliberate. A `plantuml` fence is a diagram the author wrote
                 </div>
             }
         </div>
+    </ChildContent>
     </Story>
 
     <Story Name="A body that happens to contain a diagram"
            Description="The realistic case, and the reason this integration is worth having: a decision record with prose, a table, a diagram and a footnote, where the diagram is a paragraph like any other rather than an attachment. This is one string, parsed once, rendered by one component."
-           Code="@DocumentCode">
+           Code="@DocumentCode"
+           Source="@DocumentSample">
         <MarkdownStory Source="@DocumentSample" TestId="markdown-diagram-document" />
     </Story>
 
     <Story Name="When the renderer cannot start"
            Description="Mermaid is fetched from a CDN on first use. In a WebView with no egress, or behind a proxy that refuses it, the import fails — and the block says so and shows the source rather than leaving an empty frame where a picture was promised. The same path covers a diagram whose syntax mermaid rejects: the message is the renderer's own, and the source is underneath it either way.
 
-A body is content that may have come from a repository file nobody here wrote, so a diagram that fails is an expected outcome and not an error state. Nothing about the surrounding prose is affected by it.">
-        <MarkdownStory Source="@BrokenSample" TestId="markdown-diagram-broken" />
+A body is content that may have come from a repository file nobody here wrote, so a diagram that fails is an expected outcome and not an error state. Nothing about the surrounding prose is affected by it."
+           Source="@BrokenSample">
+        <MarkdownStory Source="@BrokenSample" ShowDiagramSource="true" TestId="markdown-diagram-broken" />
     </Story>
 
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("component-libraries.md#diagram-and-graph-strategy", "Which renderer draws a diagram, and why that one."),
+        new("content-editing.md#supported-constructs", "Which fences are diagrams and which stay code."),
+        new("color-scheme.md#chart-roles", "The hues a drawn diagram is allowed to use.")
+    ];
+
     private const string OfflineNotice =
         "Mermaid is fetched from a CDN the first time a diagram renders. On a machine with no egress "
         + "every diagram on this page falls back to its source, which is what the last story is about — "

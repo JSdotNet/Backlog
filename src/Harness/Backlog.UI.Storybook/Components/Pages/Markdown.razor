@@ -1,75 +1,16 @@
-@page "/markdown"
+﻿@page "/markdown"
 
 <PageTitle>Markdown — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Markdown"
-           Summary="MarkdownPreview parses the source into blocks, MarkdownView renders them. This chapter is the read side only: what each block and each inline looks like, and what it is styled with. Every story shows the rendering beside the markdown that produced it, so a sample can never quietly stop matching what it claims to show. Writing markdown — auto-save, checkboxes that write back, sub-items — is the Entry edit chapter.">
+           Summary="MarkdownPreview parses the source into blocks, MarkdownView renders them. The base content items only: what each block and each inline is, what makes one, and what element it becomes. Every story shows the rendering beside the source that produced it. A document as a surface — copy, comments, a way into the editor — is the Markdown document chapter under Combined usage; writing markdown is Rich text editing and Entry edit."
+           Guidelines="@Rules">
 
     <Story Name="Everything the read view renders"
-           Description="One source, every block kind in it. Everything below takes one piece of this apart; this is the whole of it in one place, so the vertical rhythm between blocks is visible — the spacing between a heading and the paragraph under it is as much a part of the read view as the type is."
-           Code="@ReadCode">
+           Description="One source, every block kind in it. Pass `Blocks` and nothing else and this is what a body renders as. Everything below takes one piece of it apart."
+           Code="@ReadCode"
+           Source="@EverythingSample">
         <MarkdownStory Source="@EverythingSample" TestId="markdown-everything" />
-    </Story>
-
-    <Story Name="Copying the source out of a read view"
-           Description="A read view can offer a copy button, and what it copies is the markdown rather than the rendering. That is the whole point of it: the source is what pastes back into another one of these, what a diff shows, and what every surface in this product stores. Copying the rendered text would hand back something that goes nowhere.
-
-It is the same control the code block uses — one CopyButton, one clipboard call, and the line that says whether it worked. That line is the part that keeps being left off: the clipboard belongs to the browser and the browser is allowed to refuse, and a button that reported nothing would leave a reader believing they had copied something they had not."
-           Code="@CopyCode">
-        <div data-testid="markdown-copyable">
-            <MarkdownView Blocks="@CopyBlocks" Source="@CopySample" AllowCopy="true" CopyLabel="Copy this section" />
-        </div>
-    </Story>
-
-    <Story Name="Reading, then editing"
-           Description="MarkdownDocument is the read view with a way into the editor. Read is the resting state, and that is the decision the component is: these bodies are read far more often than they are written, so the rendering is the default and writing is a thing you ask for.
-
-One text either way. Editing hands the same string to the editor that the parser was reading, so there is no moment where a body exists twice and the two can disagree — and the copy button is offered in read mode only, because in edit mode the text is already in front of you and selectable.
-
-Focus leaving the text is a save, not an exit. The formatting buttons sit outside the textarea, so every reach for bold blurs it, and a surface that read blur as &quot;finished&quot; would close itself on the way to the click that was about to format the selection. So blur flushes whatever is pending and the mode stays exactly where the author left it; **Done** remains the only thing that ends an edit. Press **Edit**, type, then click a toolbar button or out of the box: the line below moves and the editor is still open."
-           Code="@DocumentCode">
-        <div class="sb-surface" data-testid="markdown-document">
-            <MarkdownDocument @bind-Value="_documentSource"
-                              @bind-Editing="_editing"
-                              OnBlur="FlushDocument"
-                              Title="release-checklist.md"
-                              TestId="doc" />
-        </div>
-        <p class="sb-state" data-testid="markdown-document-mode">@(_editing ? "editing" : "reading")</p>
-        <p class="sb-state" data-testid="markdown-document-flush">@DocumentFlushState</p>
-    </Story>
-
-    <Story Name="Commenting on a section"
-           Description="Every block in a read view can carry remarks. Hover one and an affordance appears in its margin; a block that already has comments keeps it visible, because a comment nobody can see is a comment nobody answers.
-
-Comments are anchored to a block index rather than to a character range, and that is the load-bearing decision. A range survives nothing — insert a word above it and every offset below moves — so following the text would mean rewriting every anchor on every keystroke. An index moves only when blocks are added or removed, which a host can notice and fix, and when it is wrong it is wrong by a paragraph rather than by half a sentence. Re-anchoring is the host's; this renders comments against the blocks it is told and never guesses.
-
-A resolved comment stays visible and goes quiet rather than disappearing — the reason a paragraph reads the way it does is usually in the comment that got it there. And a comment whose block has gone is shown at the end, marked adrift, because a lost comment is worse than a stray one."
-           Code="@CommentCode">
-        <div data-testid="markdown-commented">
-            <MarkdownView Blocks="@CommentBlocks"
-                          Comments="@_comments"
-                          OnAddComment="AddComment"
-                          OnEditComment="EditComment"
-                          OnResolveComment="ResolveComment" />
-        </div>
-    </Story>
-
-    <Story Name="The same comments, in the margin"
-           Description="The other shape. Inline puts a remark as close as possible to what it is about, and pushes the body apart to do it — a heavily annotated document stops reading as a document. Margin keeps the prose continuous and the remarks level with their blocks, which is what you want when reviewing rather than when reading.
-
-One markup, two layouts: the margin cell is always emitted and simply follows its block until the grid picks it up, so the two shapes cannot drift apart. Below the narrow breakpoint the second column costs more than it is worth — a margin note in a phone-width gutter is an inline note made harder to read — so it falls back to inline on its own rather than asking the caller to notice. Narrow this window and watch it.
-
-Editing works the same either way. Edit opens the comment in a box with Save and Cancel rather than committing on Enter: a remark is prose that may run to a paragraph, and Enter has to stay a newline. The draft lives in the view until it is saved, so Cancel means something."
-           Code="@MarginCode">
-        <div data-testid="markdown-commented-margin">
-            <MarkdownView Blocks="@CommentBlocks"
-                          Comments="@_marginComments"
-                          Layout="MarkdownCommentLayout.Margin"
-                          OnAddComment="AddMarginComment"
-                          OnEditComment="EditMarginComment"
-                          OnResolveComment="ResolveMarginComment" />
-        </div>
     </Story>
 
     <Story Name="Blocks the parser produces"
@@ -83,7 +24,7 @@ The set is closed and small on purpose. It covers the markdown people actually w
                     <dt class="sb-label">@block.Record</dt>
                     <dd class="sb-stack">
                         <p>@block.Made</p>
-                        <pre class="sb-story__code"><code>@block.Source</code></pre>
+                        <CodeView Source="@block.Source" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" />
                         <p class="sb-state">@block.Renders</p>
                     </dd>
                 </div>
@@ -102,16 +43,16 @@ The set is closed and small on purpose. It covers the markdown people actually w
     </Story>
 
     <Story Name="Headings"
-           Description="Six levels, each rendered as a `p.md-heading.md-heading--N` carrying `role=&quot;heading&quot;` and `aria-level`. Not an `h1`–`h6`, on purpose: an entry's body is content inside a page that already has an outline of its own, and real heading elements would splice the body's structure into the host's. The level still reaches a screen reader, so heading navigation works, without the body claiming a rank in a document it does not own.
-
-The ramp is two ramps. One to three are the heading face at falling sizes — 18, 16, 14 — in primary text; four to six stop shrinking and become an uppercase, letter-spaced label in secondary. Six sizes would have meant differences of a pixel or two that nobody can see, so the deeper levels change kind instead of size. Worth knowing that level three is smaller than the body text it introduces, which is a consequence of the entry body starting small in the first place."
-           Code="@HeadingCode">
+           Description="Six levels, each rendered as a `p.md-heading.md-heading--N` carrying `role=&quot;heading&quot;` and `aria-level`. Not an `h1`–`h6`, on purpose: an entry's body is content inside a page that already has an outline of its own, and real heading elements would splice the body's structure into the host's. The level still reaches a screen reader, so heading navigation works."
+           Code="@HeadingCode"
+           Source="@HeadingSample">
         <MarkdownStory Source="@HeadingSample" TestId="markdown-headings" />
     </Story>
 
     <Story Name="Inline styling"
            Description="What the parser finds inside a line, and what each one is wrapped in. Emphasis, strong and strikethrough get the plain elements, because that is what they mean; a code span and a #tag get classes, because they are this product's own vocabulary. MdText is the rest — the run between two matches, emitted as content and nothing more."
-           Code="@InlineCode">
+           Code="@InlineCode"
+           Source="@InlineSample">
         <MarkdownStory Source="@InlineSample" TestId="markdown-inlines" />
     </Story>
 
@@ -123,7 +64,7 @@ The ramp is two ramps. One to three are the heading face at falling sizes — 18
                 <div class="sb-stack">
                     <dt class="sb-label">@inline.Record</dt>
                     <dd class="sb-stack">
-                        <pre class="sb-story__code"><code>@inline.Source</code></pre>
+                        <CodeView Source="@inline.Source" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" />
                         <div><MarkdownView Blocks="@MarkdownPreview.ParseDocument(inline.Source)" /></div>
                         <p class="sb-state">@inline.Renders</p>
                     </dd>
@@ -136,53 +77,69 @@ The ramp is two ramps. One to three are the heading face at falling sizes — 18
            Description="Bulleted, ordered, and checklists — all three are one MdList, and what separates them is the item. A checklist item carries `Done`; a plain bullet's is null, which is what lets the two sit in the same list and keep their own markers. A checklist item that is not being listened to renders its state as an `img` with a label rather than as a control, so Tab walks past it instead of stopping on a checkbox that would do nothing.
 
 Indentation nests. An indented run belongs to the item above it, as deep as it is written, and a nested list may be a different kind from its parent — numbers under a bullet are normal. A tab counts as four columns. Nesting does not disturb the checklist indices: the parser numbers task lines in the order they were written, which is the order the rewriter walks them in, so a nested checkbox still writes back to its own line."
-           Code="@ListCode">
+           Code="@ListCode"
+           Source="@ListSample">
         <MarkdownStory Source="@ListSample" TestId="markdown-lists" />
     </Story>
 
     <Story Name="Tables"
-           Description="A header, a row of dashes, and rows. The dashes are what make it a table — a sentence with a pipe in it is still a sentence, and without that test the parser would turn one into a one-column table. Colons on the delimiter set the column: `:---` left, `:---:` centre, `---:` right, and a right-set column gets tabular figures, because lining up numbers is the only reason to set one that way. Outer pipes are optional.
+           Description="A header, a row of dashes, and rows. The dashes are what make it a table — a sentence with a pipe in it is still a sentence. Colons on the delimiter set the column: `:---` left, `:---:` centre, `---:` right. Outer pipes are optional, and a short row is padded rather than dropped.
 
-A table is the one block in a body with a width of its own — prose reflows into whatever column it is given and a table does not. So the wrapper scrolls and the table keeps its shape, rather than the columns being crushed until comparing down one stops working. The wrapper is the labelled, focusable scroll region, not the table, so a keyboard can reach the overflow while the table stays a table to a screen reader. A short row is padded rather than dropped: losing a cell loses what the author wrote."
-           Code="@TableCode">
+The table is wrapped in `div.md-table-scroll`, and the wrapper — not the table — is the labelled, focusable scroll region, so a keyboard can reach the overflow while the table stays a table to a screen reader."
+           Code="@TableCode"
+           Source="@TableSample">
         <MarkdownStory Source="@TableSample" TestId="markdown-tables" />
     </Story>
 
     <Story Name="Footnotes"
            Description="A `[^label]` in the prose and a `[^label]: …` on its own line anywhere in the body. Definitions are collected before anything is parsed, so it does not matter whether one is written above or below the reference that uses it — people put them at the bottom, and the reference still resolves.
 
-Numbering follows the order marks are first met, not the order definitions were written, which is what makes them read 1, 2, 3 down the page. The same label referenced twice is one note with one number. A reference with no definition behind it stays the text that was typed: a mark that points nowhere is worse than no mark, because a reader will go looking for it. A `[^1]:` inside a code fence is a sample, the same blindness the parser has to a `- [ ]` in one.
+Numbering follows the order marks are first met, not the order definitions were written. The same label referenced twice is one note with one number, and a reference with no definition behind it stays the text that was typed. A `[^1]:` inside a code fence is a sample, the same blindness the parser has to a `- [ ]` in one.
 
-Each mark is a real anchor into the note, and each note carries a link back. Following a mark down is only half of it — without the way back, a reader who took the link has lost their place."
-           Code="@FootnoteCode">
+Each mark is a real anchor into the note, and each note carries a link back."
+           Code="@FootnoteCode"
+           Source="@FootnoteSample">
         <MarkdownStory Source="@FootnoteSample" TestId="markdown-footnotes" />
     </Story>
 
     <Story Name="Quotes over more than one line"
-           Description="Consecutive `>` lines are one quote. They used to be one quote per line, which put a bar and a gap down the middle of a sentence that had only been wrapped. A blank line still separates two quotes, because that is how you write two."
-           Code="@QuoteCode">
+           Description="Consecutive `>` lines are one quote; a blank line separates two."
+           Code="@QuoteCode"
+           Source="@QuoteSample">
         <MarkdownStory Source="@QuoteSample" TestId="markdown-quotes" />
     </Story>
 
     <Story Name="Images"
            Description="`![alt](url)` is an image, and the `!` matters — without it the parser read the same text as a link with a stray bang in front of it. The URL goes through the same scheme allow-list a link does, and for a stronger reason: an `src` fetches on its own, with no click to consent to it, so a `javascript:` or `data:` URL shows its alt text instead of being loaded. The alt text is also what PlainText reports, because it is the whole of what the image says to something that cannot see it."
-           Code="@ImageCode">
+           Code="@ImageCode"
+           Source="@ImageSample">
         <MarkdownStory Source="@ImageSample" TestId="markdown-images" />
     </Story>
 
     <Story Name="Links we will not follow"
-           Description="A link is only rendered as one when its scheme is http, https, mailto, or a relative path. Anything else — `javascript:`, `data:` — keeps its text and loses its href, styled `md-link--inert` so it is visibly not a link. Escaping keeps typed markup out of the document; an href is the second door, because these bodies render in a WebView and can arrive from a repository file nobody here wrote. So the scheme is an allow-list: anything unrecognised is text.">
+           Description="A link is only rendered as one when its scheme is http, https, mailto, or a relative path. Anything else — `javascript:`, `data:` — keeps its text and loses its href, styled `md-link--inert` so it is visibly not a link. Escaping keeps typed markup out of the document; an href is the second door, because these bodies render in a WebView and can arrive from a repository file nobody here wrote. So the scheme is an allow-list: anything unrecognised is text."
+           Source="@LinkSample">
         <MarkdownStory Source="@LinkSample" TestId="markdown-links" />
     </Story>
 
     <Story Name="Anything it does not know is still readable"
-           Description="The parser is partial on purpose, and this is what that buys. Setext headings, reference-style links, raw HTML, definition lists, a quote inside a list item — none of them are handled, and every one comes back with its text intact. The failure mode of a body being written one character at a time is prose that looks slightly wrong, never a line that vanishes and never an exception.">
+           Description="The parser is partial on purpose, and this is what that buys. Setext headings, reference-style links, raw HTML, definition lists, a quote inside a list item — none of them are handled, and every one comes back with its text intact. The failure mode of a body being written one character at a time is prose that looks slightly wrong, never a line that vanishes and never an exception."
+           Source="@UnknownSample">
         <MarkdownStory Source="@UnknownSample" TestId="markdown-unknown" />
     </Story>
 
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#supported-constructs", "Which markdown constructs the product renders, and which it leaves as text."),
+        new("typography-and-layout.md#heading-defaults", "The heading ramp a body's own levels are set in."),
+        new("typography-and-layout.md#type-scale", "The sizes and line heights prose is read at."),
+        new("accessibility.md#screen-reader--announcements", "What a body's structure has to expose to a screen reader."),
+        new("color-scheme.md#syntax-highlighting-tokens", "The colours a fenced block inside a body is drawn with.")
+    ];
+
     /// <summary>One row of the block reference: the record, what in the source
     /// produces it, and what MarkdownView turns it into.</summary>
     private sealed record BlockKind(string Record, string Made, string Source, string Renders);
@@ -393,172 +350,9 @@ Each mark is a real anchor into the note, and each note carries a link back. Fol
 
     private static readonly IReadOnlyList<MdBlock> EverythingBlocks = MarkdownPreview.ParseDocument(EverythingSample);
 
-    private const string CopySample = """
-        # A section worth taking with you
-
-        The button copies **this markdown**, not the words you can see — the
-        source is what pastes back into another read view.
-
-        - Including the list
-        - And its markers
-        """;
-
-    private static readonly IReadOnlyList<MdBlock> CopyBlocks = MarkdownPreview.ParseDocument(CopySample);
-
-    private const string CommentSample = """
-        # Sync runs through the cloud service
-
-        The desktop head cannot hold a GitHub token safely, so it talks to the
-        cloud service and only the cloud service talks to GitHub.
-
-        - The token never reaches a box we do not control
-        - Two heads writing the same file agree in one place
-
-        > Superseded once the device-code flow lands.
-        """;
-
-    private static readonly IReadOnlyList<MdBlock> CommentBlocks = MarkdownPreview.ParseDocument(CommentSample);
-
-    private string _documentSource = """
-        # Before tagging
-
-        Everything here is read far more often than it is written, which is why
-        this opens as a rendering rather than as a textarea.
-
-        - [x] Tests green on main
-        - [ ] Release notes written
-
-        Press **Edit** to change it, and **Done** to read it again.
-        """;
-
-    private bool _editing;
-    private int _documentFlushes;
-    private string? _documentFlushed;
-
-    /// <summary>A real host would write the body somewhere. The storybook writes
-    /// it to a line under the editor, because the part worth watching is not
-    /// where it went — it is that the flush happened and the editor is still
-    /// open afterwards.</summary>
-    private void FlushDocument()
-    {
-        _documentFlushes++;
-        _documentFlushed = _documentSource;
-    }
-
-    private string DocumentFlushState
-    {
-        get
-        {
-            if (_documentFlushes == 0)
-            {
-                return "nothing flushed yet — edit the text, then click a toolbar button or out of the box";
-            }
-
-            var flushes = _documentFlushes == 1 ? "one flush" : $"{_documentFlushes} flushes";
-            var drift = _documentFlushed == _documentSource
-                ? "the saved copy matches the editor"
-                : "with edits typed since the last one";
-
-            return $"{flushes}, {drift}";
-        }
-    }
-
-    private int _nextComment = 3;
-
-    private IReadOnlyList<MarkdownComment> _comments =
-    [
-        new("c1", 1, "Worth saying which token — the PAT or the app installation?", "Reviewer", "2 hours ago"),
-        new("c2", 2, "Both bullets are the same point stated twice.", "Reviewer", "yesterday", Resolved: true),
-        // Anchored past the end: the block it was written against has gone.
-        new("c3", 9, "This was against a paragraph that no longer exists.", "Reviewer", "last week")
-    ];
-
-    /// <summary>A real host would open a composer. The storybook has nowhere to
-    /// type, so it writes a placeholder and shows where it lands.</summary>
-    private void AddComment(int blockIndex)
-    {
-        var id = $"c{_nextComment++}";
-        _comments = [.. _comments, new MarkdownComment(id, blockIndex, "A new remark, left where it was asked for.", "You", "just now")];
-    }
-
-    private void ResolveComment(string id) =>
-        _comments = [.. _comments.Select(c => c.Id == id ? c with { Resolved = !c.Resolved } : c)];
-
-    /// <summary>The whole comment comes back, body already replaced — so a host
-    /// storing more than the view shows can match it up.</summary>
-    private void EditComment(MarkdownComment edited) =>
-        _comments = [.. _comments.Select(c => c.Id == edited.Id ? edited : c)];
-
-    private IReadOnlyList<MarkdownComment> _marginComments =
-    [
-        new("m1", 1, "The same remarks, drawn beside the prose instead of through it.", "Reviewer", "2 hours ago"),
-        new("m2", 2, "Level with the block it belongs to, so nothing is pushed apart.", "Reviewer", "yesterday"),
-        new("m3", 3, "Resolved, and still here.", "Reviewer", "last week", Resolved: true)
-    ];
-
-    private int _nextMarginComment = 4;
-
-    private void AddMarginComment(int blockIndex)
-    {
-        var id = $"m{_nextMarginComment++}";
-        _marginComments = [.. _marginComments, new MarkdownComment(id, blockIndex, "A new remark, in the margin.", "You", "just now")];
-    }
-
-    private void EditMarginComment(MarkdownComment edited) =>
-        _marginComments = [.. _marginComments.Select(c => c.Id == edited.Id ? edited : c)];
-
-    private void ResolveMarginComment(string id) =>
-        _marginComments = [.. _marginComments.Select(c => c.Id == id ? c with { Resolved = !c.Resolved } : c)];
-
     private const string ReadCode = """
         @* No OnTaskItemToggled: this is the read view, so checkboxes are state. *@
         <MarkdownView Blocks="@MarkdownPreview.ParseDocument(body)" />
-        """;
-
-    private const string CopyCode = """
-        @* Source is only for the copy button — the view renders from Blocks. *@
-        <MarkdownView Blocks="@blocks" Source="@markdown" AllowCopy="true" />
-        """;
-
-    private const string DocumentCode = """
-        <MarkdownDocument @bind-Value="_source"
-                          @bind-Editing="_editing"
-                          OnBlur="Flush"
-                          Title="notes.md" />
-
-        @code {
-            // Blur is a save, not an exit. The toolbar is outside the textarea, so
-            // reaching for bold blurs it and the editor has to still be there.
-            private void Flush() => Save(_source);
-        }
-        """;
-
-    private const string CommentCode = """
-        <MarkdownView Blocks="@blocks"
-                      Comments="@comments"
-                      OnAddComment="Add"
-                      OnResolveComment="Resolve" />
-
-        @code {
-            // Anchored to a block index. Re-anchoring when blocks move is the
-            // host's — the view renders what it is told and never guesses.
-            private void Add(int blockIndex) => _comments = [.. _comments, Compose(blockIndex)];
-        }
-        """;
-
-    private const string MarginCode = """
-        <MarkdownView Blocks="@blocks"
-                      Comments="@comments"
-                      Layout="MarkdownCommentLayout.Margin"
-                      OnAddComment="Add"
-                      OnEditComment="Save"
-                      OnResolveComment="Resolve" />
-
-        @code {
-            // The whole record comes back, body replaced.
-            private void Save(MarkdownComment edited) =>
-                _comments = [.. _comments.Select(c => c.Id == edited.Id ? edited : c)];
-        }
         """;
 
     private const string HeadingCode = """

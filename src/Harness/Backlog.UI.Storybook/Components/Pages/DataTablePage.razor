@@ -1,0 +1,208 @@
+﻿@page "/data-table"
+
+<PageTitle>Data table — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Data table"
+           Summary="DataTable: rows of records under column headings, optionally carved into named sections. The first table in this library that is not a chart — the Metric family already holds five, and every one of those is a table of figures whose columns are named by a measure and whose cells are formatted numbers. This one answers the other question: which things are there, and what does each one say."
+           Guidelines="@Rules">
+
+    <Story Name="Rows under headings"
+           Description="The frame is the component's and the cells are the caller's. That split is the whole design: this owns the scroll box, the heading row, the section headings, the empty state and the row element, and the caller owns what goes in a cell — which is where a provider mark, a state chip, or an em dash for “not reported” belongs.
+
+Sharing one component with the Metric tables would have meant a Rows parameter that is either MetricRow or anything at all, and the version that is anything at all stops being able to format its own cells. So the columns are declared as data and the cells are a template, and nothing here can check that the two agree. That is the price of a cell holding a chip rather than a string, and it is paid once per table rather than per row.
+
+Cells do not wrap. A folder path and a branch name are both long, and a wrapped one turns eight short rows into eight paragraphs — so the table is routinely wider than its box and scrolls inside it rather than taking the surface sideways with it. The one cell allowed to be cut short is the one carrying a path: `data-table__clamp` truncates it and leaves the whole value in the cell's title."
+           Code="@RowsCode">
+        <DataTable TItem="Run"
+                   Columns="Columns"
+                   Items="Sample"
+                   RowKey="@(run => (object)run.Id)"
+                   RowNoun="session"
+                   AriaLabel="Sessions"
+                   TestId="data-table-flat">
+            <Row Context="run">
+                <td>
+                    <span>@run.Title</span>
+                    <span class="data-table__detail data-table__mono">
+                        <span class="data-table__clamp" title="@run.Folder">@run.Folder</span>
+                    </span>
+                </td>
+                <td>
+                    <ProviderMark Provider="@run.Provider" />
+                    <span>@run.Kind</span>
+                </td>
+                <td>@run.Environment</td>
+                <td class="data-table__mono">@run.Branch</td>
+                <td>@run.LastActivity</td>
+                <td><IntegrationStateChip Session="@run.State" /></td>
+            </Row>
+        </DataTable>
+    </Story>
+
+    <Story Name="The same rows, in sections"
+           Description="Grouped or not is one shape, not two. An ungrouped table is a single section whose name is null, so nothing in the component — and nothing in the stylesheet — branches on whether grouping is on.
+
+Sections rather than a GroupBy parameter, for the reason MetricBreakdown gives about sorting: the reader asked for this grouping using a control somewhere above the table, and a component that re-derived the grouping from the rows would be a second definition of it, free to disagree with the first. Sections and rows render in the order given.
+
+A section heading is a `th` with `scope=&quot;colgroup&quot;`, not a `td` dressed as one. It labels every column beneath it, and that is the element that says so — a screen-reader user gets the group announced as they cross into it rather than having to infer a boundary from a bold row. It stays a table cell rather than becoming a flex container, because a cell that is not a cell loses its colspan and takes the layout with it, which is why the count sits beside the name rather than pushed to the far edge.
+
+The count is why grouping is worth having: it answers “how many on that machine” without the reader counting rows. `RowNoun` names what one row is, singular; the plural is that plus an s, which is every noun a table of records has needed so far."
+           Code="@SectionsCode">
+        <DataTable TItem="Run"
+                   Columns="Columns"
+                   Sections="Grouped"
+                   RowKey="@(run => (object)run.Id)"
+                   RowNoun="session"
+                   AriaLabel="Sessions by environment"
+                   TestId="data-table-grouped">
+            <Row Context="run">
+                <td>
+                    <span>@run.Title</span>
+                    <span class="data-table__detail data-table__mono">
+                        <span class="data-table__clamp" title="@run.Folder">@run.Folder</span>
+                    </span>
+                </td>
+                <td>
+                    <ProviderMark Provider="@run.Provider" />
+                    <span>@run.Kind</span>
+                </td>
+                <td>@run.Environment</td>
+                <td class="data-table__mono">@run.Branch</td>
+                <td>@run.LastActivity</td>
+                <td><IntegrationStateChip Session="@run.State" /></td>
+            </Row>
+        </DataTable>
+    </Story>
+
+    <Story Name="Nothing to show"
+           Description="A heading row over an empty body reads as a broken feature. So an empty table is not rendered at all: the component collapses to the library's own EmptyState, which says what is missing and — where it is worth saying — why.
+
+Two lines rather than one, because “no rows” and “no rows yet, and here is what would produce some” are different messages and the second is the one that stops a reader looking for a fault. The distinction between empty and unavailable stays the caller's: a source that could not be read is a notice above the table, not an empty state inside it, because the rows that did arrive are still perfectly good."
+           Code="@EmptyCode">
+        @* The row template is still passed, and is still never invoked. A caller
+           does not stop knowing how to draw a row because this reading of the
+           folders came back with none. *@
+        <DataTable TItem="Run"
+                   Columns="Columns"
+                   Items="@(Array.Empty<Run>())"
+                   RowNoun="session"
+                   EmptyMessage="No sessions on this PC."
+                   EmptyDescription="Neither Claude nor Copilot has left a session record in this profile yet."
+                   TestId="data-table-empty">
+            <Row Context="run">
+                <td>@run.Title</td>
+            </Row>
+        </DataTable>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("typography-and-layout.md#density", "Row heights, and how tight a table of records may be."),
+        new("typography-and-layout.md#metadata-lines", "How a second line under a cell's value is set."),
+        new("interaction-guidelines.md#focus-and-selection", "What a selected row looks like, and what keeps it."),
+        new("interaction-guidelines.md#empty-loading-and-error-states", "What a table with nothing in it shows."),
+        new("accessibility.md#keyboard-navigation", "What a scrolling table has to be reachable with.")
+    ];
+
+    /// <summary>
+    /// A row of the kind this component was built for, declared here rather than
+    /// imported. The storybook renders the library with nothing behind it — no app,
+    /// no module, no cloud — so a story that reached for the real session record
+    /// would be the one thing this host is not allowed to do.
+    /// </summary>
+    private sealed record Run(
+        string Id,
+        string Title,
+        string Folder,
+        string Kind,
+        IntegrationProvider Provider,
+        string Environment,
+        string Branch,
+        string LastActivity,
+        IntegrationSessionState State);
+
+    private static readonly DataTableColumn[] Columns =
+    [
+        new("Session"),
+        new("Type"),
+        new("Environment"),
+        new("Branch"),
+        new("Last activity"),
+        new("State")
+    ];
+
+    private static readonly Run[] Sample =
+    [
+        new("1", "keen-bose-667825", @"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825",
+            "Claude", IntegrationProvider.Claude, "DEV-TOWER", "claude/desktop-session-area", "4 minutes ago",
+            IntegrationSessionState.Running),
+        new("2", "JSdotNet/Backlog", @"C:\Users\dev\.copilot\repos\Backlog",
+            "Copilot", IntegrationProvider.Copilot, "DEV-TOWER", "main", "2 hours ago",
+            IntegrationSessionState.Finished),
+        new("3", "bold-bell-1f9ca7", @"D:\Repos\Backlog\.claude\worktrees\bold-bell-1f9ca7",
+            "Claude", IntegrationProvider.Claude, "DEV-TOWER", "claude/bold-bell", "yesterday",
+            IntegrationSessionState.Finished),
+        new("4", "JSdotNet/Project-Guidelines-MCP", @"C:\Users\dev\.copilot\repos\project-guidelines-mcp",
+            "Copilot", IntegrationProvider.Copilot, "DEV-LAPTOP", "main", "51 minutes ago",
+            IntegrationSessionState.Stalled)
+    ];
+
+    /// <summary>The same four rows, by environment. Grouped here in the page for the
+    /// reason the story gives: the component is handed sections and does not derive
+    /// them, so this is where a grouping control's answer would land.</summary>
+    private static readonly DataTableSection<Run>[] Grouped =
+    [
+        new("DEV-LAPTOP", [.. Sample.Where(run => run.Environment == "DEV-LAPTOP")]),
+        new("DEV-TOWER", [.. Sample.Where(run => run.Environment == "DEV-TOWER")])
+    ];
+
+    private const string RowsCode = """
+        <DataTable TItem="Run"
+                   Columns="Columns"
+                   Items="Sample"
+                   RowKey="@(run => (object)run.Id)"
+                   RowNoun="session"
+                   AriaLabel="Sessions">
+            <Row Context="run">
+                <td>
+                    <span>@run.Title</span>
+                    <span class="data-table__detail data-table__mono">
+                        <span class="data-table__clamp" title="@run.Folder">@run.Folder</span>
+                    </span>
+                </td>
+                <td><ProviderMark Provider="@run.Provider" /> <span>@run.Kind</span></td>
+                <td>@run.Environment</td>
+                <td class="data-table__mono">@run.Branch</td>
+                <td>@run.LastActivity</td>
+                <td><IntegrationStateChip Session="@run.State" /></td>
+            </Row>
+        </DataTable>
+        """;
+
+    private const string SectionsCode = """
+        @* One section per group, in the order they should read. The grouping itself
+           belongs to whatever control the reader used to ask for it. *@
+        <DataTable TItem="Run"
+                   Columns="Columns"
+                   Sections="Grouped"
+                   RowKey="@(run => (object)run.Id)"
+                   RowNoun="session"
+                   AriaLabel="Sessions by environment">
+            <Row Context="run">
+                ...
+            </Row>
+        </DataTable>
+        """;
+
+    private const string EmptyCode = """
+        <DataTable TItem="Run"
+                   Columns="Columns"
+                   Items="@(Array.Empty<Run>())"
+                   RowNoun="session"
+                   EmptyMessage="No sessions on this PC."
+                   EmptyDescription="Neither Claude nor Copilot has left a session record in this profile yet." />
+        """;
+}

@@ -182,24 +182,30 @@ edit.
 
 ```meta
 status: draft
-related: [.design/color-scheme.md#band-identity-tokens]
+related: [.design/color-scheme.md#band-identity-tokens, .domain/repository-management/features.md#sub-feature-repository-identity-colour]
 ```
 
-Give each repository's band its own colour, so a plan spanning a portfolio can be
-read one project at a time without tracing every row back to its label.
+Draw each repository's band in that repository's own colour, so a plan spanning a
+portfolio can be read one project at a time without tracing every row back to its
+label.
 
 The colour is an **identity and nothing more**: it says which repository, never a
 status, a severity or a priority. It is never the only thing saying it either — the
 band is labelled, every span names its band when read aloud, and the repository
 filter lists them in full — so a reader who cannot tell two hues apart loses
-nothing.
+nothing. Priority on a plan is the ordinal shade ramp on the spans, which is one
+colour and stays that way.
 
-Which colour a band takes can be chosen, from the set the design system sanctions,
-and the choice is kept with the plan. A repository nobody has chosen for is placed
-automatically and steps over the hues that were chosen, so an automatic band never
-lands on the colour its neighbour was deliberately given. The plan records *which*
-of the approved colours, never a colour of its own: inventing one is a design
-decision and is made where design decisions are made.
+**The plan does not decide the colour and does not store it.** Which colour a
+repository wears is a fact about that repository, settled in the registry, and the
+plan is told it — the same reason this context holds repository aliases as opaque
+strings rather than resolving them. A plan that recorded a colour of its own would
+make the same project one colour here and another on the filter beside it, and
+would have to be rewritten whenever the choice changed.
+
+The band for work naming no repository, and the band carrying the plan's dates,
+take no colour at all. A colour here means "which repository", and neither of those
+is one.
 
 ## Feature: Editing the plan in place
 

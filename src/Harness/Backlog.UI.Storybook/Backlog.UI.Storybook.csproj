@@ -17,4 +17,22 @@
     <ProjectReference Include="..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
   </ItemGroup>
 
+  <!--
+    The design guidelines, embedded rather than read off disk.
+
+    Every page here links the `.design` chapters that govern it and renders them
+    inline, so the rule a reviewer is checking against is on the same screen as
+    the component. Embedding is what makes that work wherever the host runs: a
+    relative path out of the project would resolve differently under `dotnet run`,
+    under Aspire and from the published output, and the first thing to break would
+    be the one thing this block exists to guarantee — that the rule shown is the
+    rule in the repository.
+
+    A LogicalName per file, so the reader asks for `design/color-scheme.md` rather
+    than for a namespace-mangled resource id.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\.design\*.md" LogicalName="design/%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

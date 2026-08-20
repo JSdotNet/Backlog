@@ -412,6 +412,69 @@ public sealed class DomainKnowledgePanelTests : IDisposable
             []);
     }
 
+    /// <summary>
+    /// The badge used to be born open: <c>badge--gh-open</c> was a literal, so a
+    /// closed issue was still drawn as an open one. Nothing on this path knows the
+    /// state - <see cref="KnowledgeIssueLink"/> carries a repo, a number and a
+    /// label and no more - so the fix is not to derive the state but to stop
+    /// claiming it. Asserted as the absence of every state class rather than the
+    /// presence of one, because that is the property that matters: whichever
+    /// treatment the unknown case wears, the badge must not assert a state.
+    /// </summary>
+    [Fact]
+    public async Task A_linked_issue_is_not_drawn_as_an_open_one()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.RenderView(IssueLinkedView(), ContextMapPath);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='knowledge-issue-badge']")));
+
+        Assert.All(
+            component.FindAll("[data-testid='knowledge-issue-badge']"),
+            badge =>
+            {
+                var classes = badge.GetAttribute("class") ?? string.Empty;
+                Assert.Contains("badge--gh", classes, StringComparison.Ordinal);
+                Assert.DoesNotContain("badge--gh-open", classes, StringComparison.Ordinal);
+                Assert.DoesNotContain("badge--gh-closed", classes, StringComparison.Ordinal);
+                Assert.DoesNotContain("badge--gh-merged", classes, StringComparison.Ordinal);
+
+                // The visible word was always honest about this - it says the issue
+                // is linked, not that it is open - and it stays that way.
+                Assert.Equal("linked", badge.QuerySelector(".badge__state")!.TextContent.Trim());
+            });
+    }
+
+    /// <summary>A context map whose metadata links a GitHub issue. The link is what
+    /// the badge is drawn from, and this is the only fixture that carries one, so a
+    /// test about the badge does not have to reach through a folder on disk to get
+    /// a fence written.</summary>
+    private static DomainKnowledgeView IssueLinkedView()
+    {
+        var absent = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-issue", Guid.NewGuid().ToString("N"));
+
+        return new DomainKnowledgeView(
+            "JSdotNet/Backlog",
+            absent,
+            Path.Combine(absent, ".domain"),
+            null,
+            new DomainKnowledgeDocument(
+                ContextMapPath,
+                "Context Map",
+                DomainKnowledgeDocumentKind.ContextMap,
+                "draft",
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["issue"] = "42"
+                },
+                "A summary nobody can edit.",
+                [],
+                [],
+                []),
+            []);
+    }
+
     private Harness CreateHarness(StubGitFileHistory? history = null, bool diagramChapter = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-tests", Guid.NewGuid().ToString("N"));

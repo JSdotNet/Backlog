@@ -1,4 +1,5 @@
 ﻿using Backlog.Modules.Backlog.Abstractions;
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions;
@@ -76,6 +77,11 @@ public static class AppFeatures
         new(KnowledgeFeatures.KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
         new(KnowledgeFeatures.RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
         new(DevPcFeatures.SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers.", Status: AppFeatureStatus.Dev),
+        new(
+            SessionFeatures.Sessions,
+            "Sessions",
+            "Open the full-screen list of Claude and Copilot sessions this PC has a record of, grouped by environment or by assistant.",
+            Status: AppFeatureStatus.Dev),
         new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost.", Status: AppFeatureStatus.Dev),
 
         // --- Cross-cutting: something the whole product uses -----------------

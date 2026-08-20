@@ -67,6 +67,7 @@ public sealed class AppFeatureSettingsStoreTests
                 KnowledgeFeatures.KnowledgeSections,
                 KnowledgeFeatures.RepositoryKnowledge,
                 DevPcFeatures.SystemTools,
+                SessionFeatures.Sessions,
                 DashboardFeatures.Dashboard,
 
                 // Cross-cutting

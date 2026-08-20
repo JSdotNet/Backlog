@@ -2,7 +2,7 @@
 
 ```meta
 status: draft
-order: ["inbox", "capture", "backlog", "roadmap", "second-brain", "productivity", "environment", "repository-management", "dev-pc-management", "monitoring", "technology-stack"]
+order: ["inbox", "capture", "backlog", "roadmap", "second-brain", "productivity", "environment", "repository-management", "dev-pc-management", "sessions", "monitoring", "technology-stack"]
 ```
 
 > Strategic DDD view of the Backlog product domain: bounded-context roles,
@@ -29,6 +29,7 @@ order: ["inbox", "capture", "backlog", "roadmap", "second-brain", "productivity"
 | Technology Stack | Supporting | It supplies portfolio-wide standards, baselines, and deprecation policy to the core work contexts. |
 | Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
+| Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
 
 ## Context map
 
@@ -45,6 +46,7 @@ flowchart LR
     Tech[Technology Stack]
     Repo[Repository Management]
     DevPC[Dev PC Management]
+    Sessions[Sessions]
 
     Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Backlog
@@ -74,6 +76,12 @@ flowchart LR
     Repo -->|Customer/Supplier<br/>Repository/environment registry lookup| Environment
     Environment -->|Customer/Supplier<br/>Launchable environment links| Backlog
     Environment -->|Customer/Supplier<br/>Environment shortcuts| DevPC
+
+    %% Sessions. Dashed edges are named and not built: see the strategic rules
+    %% below and .domain/sessions/dependencies.md.
+    DevPC -.->|Customer/Supplier (not built)<br/>Machine identity for an environment| Sessions
+    Sessions -.->|Customer/Supplier (not built)<br/>Agent session facts| Productivity
+    Sessions -.->|Customer/Supplier (not built)<br/>Stalled-session observation| Monitor
 
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Backlog
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Roadmap
@@ -120,3 +128,17 @@ flowchart LR
 - `Environment` owns the user's launchable environment shortcuts and access
   preferences. It resolves repository and health facts through suppliers instead
   of duplicating Repository Management or Monitoring data.
+- `Sessions` is the single owner of the agent-session record. `Dev PC Management`
+  modelled Copilot sessions on the `Machine` while Copilot was the only agent the
+  machines ran; those chapters were removed rather than left as a second model of
+  the same subject, and `Monitoring`'s own `copilot_session` signal kind is
+  superseded by this context the moment the two are wired together.
+- `Sessions` publishes no contract yet, which is why all three of its edges are
+  dashed and why it appears in no row of the published-language table above. Its
+  only consumer today is its own surface; the day `Productivity` or `Monitoring`
+  consumes it, the event belongs in `.domain/sessions/domain.md` and in that table
+  in the same change.
+- A `Sessions` **Environment** is not an `Environment`-context Environment, and not
+  a `Dev PC Management` **Machine**. It is wherever an agent ran. The two words
+  collide across three contexts and the concepts do not; each context defines its own
+  in its `naming.md`, and no aggregate holds another context's identity for it.
