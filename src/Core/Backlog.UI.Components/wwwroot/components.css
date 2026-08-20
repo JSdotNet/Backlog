@@ -2955,6 +2955,24 @@ button.task-panel__check:focus-visible {
     cursor: pointer;
 }
 
+/* One height, set or not, and it is the reason the two columns line up.
+
+   A row that is set carries a second line under its label and a row that is not
+   carries nothing, so left to their contents the rows of one column stand at
+   different heights from the rows of the other and the pane stops being two
+   columns after the first row of it. The value's line is reserved here instead:
+   it is part of what a row is, whether or not there is a value on it yet.
+
+   On the label rather than on the row, so the label itself does not move. Given
+   to the row it would be centred in the space, and the same word would sit lower
+   on a row with nothing set than on the row above it.
+
+   Stated as the sum rather than as a number so it follows the type ramp — the day
+   font-size-xs changes, this changes with it. */
+.task-action__label {
+    min-height: calc((var(--font-size-sm) + var(--font-size-xs)) * var(--line-height-normal));
+}
+
 .task-action__main:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: calc(-1 * var(--border-width-2));
@@ -3050,6 +3068,13 @@ button.task-panel__check:focus-visible {
    that insisted on two would give it two unreadable ones. 16rem is also the cap
    at the other end — a third column needs past 50rem, wider than a side panel
    gets, so the pane cannot quietly become a row of captions on a large screen.
+
+   The groups sit on one rhythm rather than being spaced apart from one another,
+   which is what makes the balancing readable: every row is the same height, so
+   row three of the second column is level with row three of the first whichever
+   group the break happened to fall in. A margin between groups is a gap in one
+   column and not in the other, and one gap is all it takes for the rest of the
+   pane to read as two lists that happen to be side by side.
 */
 .task-action-pane {
     display: flex;
@@ -3061,19 +3086,21 @@ button.task-panel__check:focus-visible {
 .task-action-pane__columns {
     columns: 16rem;
     column-gap: var(--spacing-md);
+}
 
-    /* The groups carry their own bottom margin, because a column's gap between
-       stacked children is not something multi-column has to give. That leaves one
-       margin hanging under the last group in each column, and this takes it back
-       so the pane ends where its rows do. */
-    margin-bottom: calc(-1 * var(--spacing-md));
+/* Under the columns and across both, for the group whose value is a list rather
+   than a word. Out of the balancing as well as out of the columns, so the two
+   columns still end level with each other. */
+.task-action-pane__trailing {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
 .task-action-group {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    margin-bottom: var(--spacing-md);
 
     /* A group split across the column break would put its caption at the bottom
        of one column and its rows at the top of the next, which is the one thing
@@ -3082,11 +3109,10 @@ button.task-panel__check:focus-visible {
 }
 
 /* The caption carries `sr-only` and so needs no appearance of its own: the
-   grouping a sighted reader gets is the layout above — rows together, no break
-   across the gap, space between groups — and the caption is what a reader who
-   cannot see that layout gets instead. A rule here would be a rule for something
-   nobody draws; the margin it used to spend is now the space between one group's
-   rows and the next's. */
+   grouping a sighted reader gets is the layout above — the rows of a group sit
+   together and never break across the column gap — and the caption is what a
+   reader who cannot see that layout gets instead. A rule here would be a rule for
+   something nobody draws. */
 
 /* --- Task panel ---------------------------------------------------------- */
 /*

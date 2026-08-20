@@ -74,6 +74,51 @@ public sealed class BacklogDetailPaneTests
         Assert.Empty(pane.FindAll("[data-testid='entry-detail']"));
     }
 
+    /// <summary>Selection follows the list. A filter that empties the list used to
+    /// leave the pane beside it open on an entry that was no longer in it — a panel
+    /// for "tes" standing next to "Nothing here yet." Filtered out is the same fact
+    /// as deleted as far as this half of the split is concerned.</summary>
+    [Fact]
+    public async Task Filtering_the_open_entry_out_of_the_list_closes_the_pane()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `!draft`\n");
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+        Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
+
+        host.State.SetStatusFilter("done");
+        pane.Render();
+
+        Assert.Empty(host.State.FilteredRows);
+        Assert.Null(host.State.SelectedRow);
+        Assert.Empty(pane.FindAll("[data-testid='entry-detail']"));
+
+        // And the split collapses to the one column it now has something in.
+        Assert.Contains("backlog-split--solo", pane.Find("[data-testid='backlog-split']").ClassList);
+    }
+
+    /// <summary>The entry that is still in view stays open, which is the other half
+    /// of the same rule: closing the pane on every filter change would shut it on a
+    /// reader who narrowed the list around the entry they were reading.</summary>
+    [Fact]
+    public async Task Filtering_leaves_an_entry_that_is_still_in_view_open()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Provision the box\n`task` `!draft`\n");
+        var kept = await host.WriteEntryAsync("# Ship the spike\n`task` `!ready`\n");
+        await host.OpenAsync(kept);
+
+        var pane = host.Render();
+
+        host.State.SetStatusFilter("ready");
+        pane.Render();
+
+        Assert.Same(kept, host.State.SelectedRow);
+        Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
+    }
+
     /// <summary>Deleting the open entry closes the pane. A detail pane pointed at a
     /// deleted entry is a pane about nothing, and leaving the view to notice would be
     /// two answers to "what is selected".</summary>
@@ -744,7 +789,7 @@ public sealed class BacklogDetailPaneTests
 
         var pane = host.Render();
 
-        foreach (var testId in new[] { "entry-schedule-scheduling", "entry-schedule-ranking", "entry-schedule-attachments" })
+        foreach (var testId in new[] { "entry-schedule-scheduling", "entry-schedule-ranking", "entry-schedule-attachments", "entry-schedule-dependencies" })
         {
             var group = pane.Find($"[data-testid='{testId}']");
             var caption = group.QuerySelector(".task-action-group__caption");
@@ -754,5 +799,35 @@ public sealed class BacklogDetailPaneTests
             Assert.Equal(caption.Id, group.GetAttribute("aria-labelledby"));
             Assert.False(string.IsNullOrWhiteSpace(caption.TextContent));
         }
+    }
+
+    /// <summary>What the entry waits on is under the columns rather than in one of
+    /// them. Its value is a list of other entries where every other row's is a word,
+    /// and a column is about sixteen rem wide: in one the picker's chips wrapped one
+    /// per line and the row read as a paragraph. Out of the columns it is also out of
+    /// their balancing, which is what leaves them three rows each and level.</summary>
+    [Fact]
+    public async Task Waiting_for_sits_below_the_columns_across_the_whole_pane()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Ship it\n`task`\n");
+
+        var pane = host.Render();
+        var schedule = pane.Find("[data-testid='entry-schedule']");
+
+        Assert.Equal(
+            ["task-action-pane__lead", "task-action-pane__columns", "task-action-pane__trailing"],
+            schedule.Children.Select(child => child.ClassName));
+
+        // The three that balance into two columns, and nothing else.
+        Assert.Equal(
+            ["entry-schedule-scheduling", "entry-schedule-ranking", "entry-schedule-attachments"],
+            schedule.QuerySelector(".task-action-pane__columns")!
+                .Children.Select(child => child.GetAttribute("data-testid")));
+
+        Assert.Equal(
+            "entry-schedule-dependencies",
+            schedule.QuerySelector(".task-action-pane__trailing")!
+                .Children.Single().GetAttribute("data-testid"));
     }
 }

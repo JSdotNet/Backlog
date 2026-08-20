@@ -516,9 +516,11 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("entry-read-view", pane, StringComparison.Ordinal);
         Assert.DoesNotContain("State.BeginEdit", pane, StringComparison.Ordinal);
 
-        // The source is reached deliberately instead — a toggle, and the shortcut
-        // .design/content-editing.md#raw-markdown-escape-hatch asks for.
-        Assert.Contains("TestId=\"entry-raw-toggle\"", pane, StringComparison.Ordinal);
+        // The source is reached deliberately instead — the shortcut
+        // .design/content-editing.md#raw-markdown-escape-hatch asks for. There is no
+        // control for it: the row that used to open it said "Markdown" under a body
+        // switch that already said "Markdown".
+        Assert.DoesNotContain("entry-raw-toggle", pane, StringComparison.Ordinal);
         Assert.Contains("Ctrl+Shift+M", pane, StringComparison.Ordinal);
     }
 
@@ -562,6 +564,11 @@ public sealed class GlobalPaneMarkupTests
     /// somebody simplified it — one scrollbar for both halves, which would mean
     /// scrolling the list to reach the bottom of the entry next to it.
     /// </para>
+    /// <para>
+    /// The pane half scrolls one box deeper than the list's does: the panel fills the
+    /// height it is given so the body inside it can, and a box that both stretched
+    /// its child and scrolled it is a box that could do neither.
+    /// </para>
     /// </summary>
     [Fact]
     public void Each_half_of_the_backlog_split_scrolls_on_its_own()
@@ -571,7 +578,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains(".backlog-list {", css, StringComparison.Ordinal);
         Assert.Contains(".entry-detail {", css, StringComparison.Ordinal);
 
-        foreach (var block in new[] { ".backlog-list {", ".entry-detail {" })
+        foreach (var block in new[] { ".backlog-list {", ".entry-detail__panel {" })
         {
             var start = css.IndexOf(block, StringComparison.Ordinal);
             var rules = css[start..css.IndexOf('}', start)];

@@ -388,14 +388,21 @@ public sealed class TaskPanelTests
         var pane = view.Find("[data-testid='pane']");
 
         // The lead is outside the columns, or it would be balanced along with the
-        // groups and end up as the top of one of them rather than across both.
+        // groups and end up as the top of one of them rather than across both. The
+        // trailing row is outside them for the mirror reason: a group whose value is
+        // a list of other tasks needs the width, and leaving it in the balancing
+        // would stop the two columns ending level.
         Assert.Equal(
-            ["task-action-pane__lead", "task-action-pane__columns"],
+            ["task-action-pane__lead", "task-action-pane__columns", "task-action-pane__trailing"],
             pane.Children.Select(child => child.ClassName));
 
         Assert.Equal(
             ["task-action-group", "task-action-group", "task-action-group"],
             view.Find(".task-action-pane__columns").Children.Select(child => child.ClassName));
+
+        Assert.Equal(
+            "dependencies",
+            view.Find(".task-action-pane__trailing .task-action-group").GetAttribute("data-testid"));
 
         // The caption, then the rows it names.
         var scheduling = view.Find("[data-testid='scheduling']");

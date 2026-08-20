@@ -428,15 +428,30 @@ h1, h2, h3 {
     flex-direction: column;
     min-width: 0;
     min-height: 0;
+    overflow: hidden;
+}
+
+/* The panel takes the height it is given rather than the height it needs, and
+   scrolls inside it. It used to do the opposite, and what that cost was the
+   writing: a short entry drew a panel a few rows tall with the rest of the column
+   empty under it, so the one part of the pane with anything to grow into — the
+   body — was the one part boxed in at six rows. Full height is what lets the
+   editor below have the room, and the panel rather than this box is the scroller
+   because a panel that scrolled its own contents is the only way the body can
+   both fill the space and overflow it. */
+.entry-detail__panel {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
     overflow-y: auto;
 }
 
-/* Only ever one panel in the scroller, and it takes the height it needs rather
-   than the height it is given: a short entry should not stretch its own box down
-   an empty column. */
-.entry-detail__panel {
-    flex: 0 0 auto;
-    min-width: 0;
+/* And the body is what gets the leftover. TaskPanel is a column of regions; every
+   one of them is as tall as its contents except this, which is why it is the one
+   that grows. */
+.entry-detail__panel .task-panel__body {
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 /*
@@ -473,10 +488,6 @@ h1, h2, h3 {
     text-align: left;
 }
 
-.entry-detail__note {
-    min-width: 0;
-}
-
 /* --- The body's two readings -------------------------------------------- */
 /*
   The steps and the markdown block are two views of one text, so they share a
@@ -492,6 +503,40 @@ h1, h2, h3 {
     flex-direction: column;
     gap: var(--spacing-sm);
     min-width: 0;
+    min-height: 0;
+
+    /* The body is the part of the panel with room to grow, so it takes the room:
+       the view switch stays where it is and whichever reading is under it fills
+       the rest of the column. */
+    flex: 1 1 auto;
+}
+
+/* The markdown reading, filling what the body was given. Auto-grow is still what
+   sizes it past that — the editor grows with the text once the text is longer
+   than the space — so this is a floor rather than a height, and the panel above
+   scrolls when the two disagree. */
+.entry-detail__note {
+    min-width: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.entry-detail__note .markdown-editor__surface {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.entry-detail__note .markdown-editor__grow {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* The editor is as tall as the panel gives it, so a drag handle offering to make
+   it taller would be offering to fight the layout. */
+.entry-detail__note .markdown-editor__input {
+    resize: none;
 }
 
 /*
@@ -531,40 +576,11 @@ h1, h2, h3 {
 /* --- The raw-markdown escape hatch --------------------------------------- */
 /*
   Always available and never the default, per
-  .design/content-editing.md#raw-markdown-escape-hatch. The toggle reads as
-  chrome rather than as content: it is the one control here that changes what
-  kind of surface you are looking at.
+  .design/content-editing.md#raw-markdown-escape-hatch. Reached by Ctrl+Shift+M
+  rather than by a control of its own — the toggle that used to open it sat under
+  the body saying "Markdown" beside a view switch that already said "Markdown",
+  and the switch is the one a reader means.
 */
-
-.entry-detail__raw-toggle {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-2xs) var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-xs);
-}
-
-.entry-detail__raw-toggle:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
-
-.entry-detail__raw-toggle:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 1px;
-}
-
-.entry-detail__raw-toggle--on {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
 
 .entry-detail__raw {
     display: flex;

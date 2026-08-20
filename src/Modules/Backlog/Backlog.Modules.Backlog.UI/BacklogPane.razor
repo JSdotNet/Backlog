@@ -15,7 +15,7 @@
 
     The detail pane is where every control over one entry now lives: its title
     row, its body, the five scheduling and dependency rows, the selectors, and —
-    behind a toggle and a shortcut — the canonical markdown itself. That last one
+    behind Ctrl+Shift+M — the canonical markdown itself. That last one
     is the escape hatch `.design/content-editing.md#raw-markdown-escape-hatch`
     asks for, and it is deliberately no longer the primary mode: `#editing-model`
     says edit-in-place, "not a split write-raw/preview as the primary mode", and
@@ -541,25 +541,22 @@
                     @RenderBodyViews(row)
                 </Body>
                 <Footer>
-                    @* The escape hatch. Always available, toggleable from this row
-                       and from Ctrl+Shift+M on the pane, showing the exact canonical
-                       markdown that will be stored, in mono, two-way, and auto-saving
-                       under the same rules as everything else here.
+                    @* The escape hatch. Reached from Ctrl+Shift+M on the pane, and
+                       showing the exact canonical markdown that will be stored, in
+                       mono, two-way, and auto-saving under the same rules as
+                       everything else here.
 
-                       In the footer because it acts on the whole entry rather than on
-                       one field of it, which is the same sentence that puts close and
-                       delete beside it. *@
-                    <ToggleButton BaseClass="entry-detail__raw-toggle"
-                                  PressedCssClass="entry-detail__raw-toggle--on"
-                                  Pressed="@State.RawHatchOpen"
-                                  TestId="entry-raw-toggle"
-                                  AriaLabel="Show the entry's markdown source (Ctrl+Shift+M)"
-                                  Title="Markdown source — Ctrl+Shift+M"
-                                  PressedChanged="_ => State.ToggleRawHatchAsync()">
-                        <span aria-hidden="true">&lt;/&gt;</span>
-                        <span>Markdown</span>
-                    </ToggleButton>
+                       There is no button for it any more. The row that used to open
+                       it sat under the body reading "</> Markdown" while the body's
+                       own view switch above already said "Markdown" — two controls,
+                       one word, and only one of them the source. The switch is the
+                       one a reader means nine times in ten, so the other one went
+                       rather than being renamed into a distinction nobody was
+                       looking for.
 
+                       In the footer because it acts on the whole entry rather than
+                       on one field of it, which is the same sentence that puts close
+                       and delete beside it. *@
                     @if (State.RawHatchOpen)
                     {
                         <div class="entry-detail__raw">
@@ -1152,14 +1149,13 @@
                    until the storybook's shape was adopted, where it read as one more
                    label rather than as the decision it is.
 
-                   First of the three groups that follow "Scheduling", and that is a
+                   First of the two groups that follow "Scheduling", and that is a
                    layout fact rather than a claim about importance: TaskActionPane
                    flows its groups down one column and then into the next, so the
                    order they are written in is the order the second column reads.
-                   Priority is one line where "Waiting for" is often two, so leading
-                   with it lands "Attach" level with "Repeat" at the foot of the first
-                   column instead of one row below it — and a pane whose two columns
-                   end level reads as one block rather than as a step. *@
+                   Ranking's two rows and Attachments' one make a second column of
+                   three, level with Scheduling's three in the first — which is what
+                   a pane reads as one block rather than as a step. *@
                 <TaskActionGroup Label="Ranking" TestId="entry-schedule-ranking">
                     @* Always set, and so no ✕. Every other row here can be absent,
                        but an entry has a priority whether or not anybody typed one
@@ -1214,34 +1210,6 @@
                     }
                 </TaskActionGroup>
 
-                @* Its own group rather than a fourth row under "Scheduling". What an
-                   entry waits on is not when it happens: a chain is about the other
-                   entries, and standing it beside a due date would read as a
-                   deadline it is not. *@
-                <TaskActionGroup Label="Dependencies" TestId="entry-schedule-dependencies">
-                    <TaskAction Icon="⏳"
-                                Label="Waiting for"
-                                Value="@FormatDependencies(row)"
-                                Set="@(row.PreviewDependsOn.Count > 0)"
-                                OnSet="() => TogglePicker(SchedulePicker.DependsOn)"
-                                OnClear="() => State.ChangeDependsOnAsync(row, [])"
-                                TestId="entry-action-depends" />
-
-                    @if (IsPickerOpen(SchedulePicker.DependsOn))
-                    {
-                        @* The library ships no dependency editor and is not going to:
-                           a chain is data the host owns, so the picker is built here
-                           out of TagMultiSelect, its options the other entries in view
-                           and its chips this entry's own ids. *@
-                        <TagMultiSelect Options="@DependencyOptions(row)"
-                                        SelectedValues="@row.PreviewDependsOn"
-                                        SelectedValuesChanged="ids => State.ChangeDependsOnAsync(row, ids)"
-                                        Placeholder="Add an entry"
-                                        CssClass="entry-doc__schedule-depends"
-                                        TestId="entry-depends-select" />
-                    }
-                </TaskActionGroup>
-
                 @* One row pointing at one place, and never a row per file. What is
                    attached is a folder or an archive; the row says which and what it
                    is called. A row each would make the pane's height a function of
@@ -1285,6 +1253,42 @@
                    control here would be inventing domain state: the flag would go
                    nowhere and the reader would think they had said something. *@
             </Groups>
+            <Trailing>
+                @* Its own group rather than a fourth row under "Scheduling". What an
+                   entry waits on is not when it happens: a chain is about the other
+                   entries, and standing it beside a due date would read as a
+                   deadline it is not.
+
+                   Under the columns rather than in them, because what it is set to
+                   is a list of other entries and a column is about sixteen rem wide.
+                   In a column the picker's chips wrapped one per line and the row
+                   became a paragraph; across the full width they read as the row
+                   they are. It also leaves the columns three rows each, which is
+                   what makes them end level with one another. *@
+                <TaskActionGroup Label="Dependencies" TestId="entry-schedule-dependencies">
+                    <TaskAction Icon="⏳"
+                                Label="Waiting for"
+                                Value="@FormatDependencies(row)"
+                                Set="@(row.PreviewDependsOn.Count > 0)"
+                                OnSet="() => TogglePicker(SchedulePicker.DependsOn)"
+                                OnClear="() => State.ChangeDependsOnAsync(row, [])"
+                                TestId="entry-action-depends" />
+
+                    @if (IsPickerOpen(SchedulePicker.DependsOn))
+                    {
+                        @* The library ships no dependency editor and is not going to:
+                           a chain is data the host owns, so the picker is built here
+                           out of TagMultiSelect, its options the other entries in view
+                           and its chips this entry's own ids. *@
+                        <TagMultiSelect Options="@DependencyOptions(row)"
+                                        SelectedValues="@row.PreviewDependsOn"
+                                        SelectedValuesChanged="ids => State.ChangeDependsOnAsync(row, ids)"
+                                        Placeholder="Add an entry"
+                                        CssClass="entry-doc__schedule-depends"
+                                        TestId="entry-depends-select" />
+                    }
+                </TaskActionGroup>
+            </Trailing>
         </TaskActionPane>;
     /// <summary>
     /// The entry's tags, as chips you can drop and a field you can type a new one
