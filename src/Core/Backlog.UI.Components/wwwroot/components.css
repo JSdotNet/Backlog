@@ -3922,6 +3922,36 @@ button.tag-chip__label {
     overflow: hidden;
 }
 
+/* Only rendered for a field that was given a suffix, so nothing here reaches a
+   field without one. Block rather than inline-flex because this box replaces the
+   input as the grid or flex item its host placed, and an inline box would stop
+   filling the column the input filled. */
+.field__control {
+    position: relative;
+    display: block;
+    min-width: 0;
+}
+
+/* The element, not .field__input: a host that swapped the input class for one of
+   its own still has to leave room for the suffix it asked for, or a value long
+   enough to scroll runs underneath it. --spacing-xl is the suffix box plus the
+   inset on either side of it. */
+.field__control > input {
+    padding-right: var(--spacing-xl);
+}
+
+/* Never a pointer target. The suffix sits over the input's own hit area, and a
+   click on it has to reach the field rather than stop on the marker. */
+.field__suffix {
+    position: absolute;
+    top: 50%;
+    right: var(--spacing-sm);
+    display: inline-flex;
+    align-items: center;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
 .search-box {
     display: flex;
     align-items: center;

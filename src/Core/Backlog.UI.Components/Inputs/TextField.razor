@@ -94,6 +94,26 @@ else
     [Parameter]
     public string InputCssClass { get; set; } = "field__input";
 
+    /// <summary>Something inside the input's trailing edge: a state marker, a
+    /// unit, a lock. The library positions it and pads the input to leave room,
+    /// so a long value scrolls behind nothing and a click on it still lands in
+    /// the field.
+    /// <para>
+    /// The positioning box it needs is only rendered when it is set. A field with
+    /// no suffix emits the input as its own child exactly as it always did, which
+    /// is what every form already laid out against this component depends on.
+    /// </para></summary>
+    [Parameter]
+    public RenderFragment? Suffix { get; set; }
+
+    /// <summary>Replaces <c>field__suffix</c> on the element the suffix is placed
+    /// in. The box around it has no hook of its own: the trailing padding that
+    /// keeps the value clear of the suffix is measured against
+    /// <c>field__control</c>, so a host replacing that name would take the room
+    /// away rather than restyle it.</summary>
+    [Parameter]
+    public string SuffixCssClass { get; set; } = "field__suffix";
+
     /// <summary>Lands on the wrapper, or on the input itself when
     /// <see cref="Bare"/> removes the wrapper.</summary>
     [Parameter]
@@ -144,19 +164,17 @@ else
             {
                 <label class="@LabelCssClass" for="@FieldId">@Label</label>
             }
-            <input id="@FieldId"
-                   class="@InputCssClass"
-                   data-testid="@BareTestId"
-                   type="@Type"
-                   value="@Value"
-                   placeholder="@Placeholder"
-                   disabled="@Disabled"
-                   readonly="@Readonly"
-                   aria-invalid="@(HasError ? "true" : null)"
-                   aria-describedby="@DescribedBy"
-                   aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
-                   @oninput="OnInput"
-                   @attributes="AdditionalAttributes" />
+            @if (Suffix is null)
+            {
+                @InputPart
+            }
+            else
+            {
+                <span class="field__control">
+                    @InputPart
+                    <span class="@SuffixCssClass">@Suffix</span>
+                </span>
+            }
             @if (!string.IsNullOrWhiteSpace(HelpText))
             {
                 <p id="@HelpId" class="field__help">@HelpText</p>
@@ -166,6 +184,24 @@ else
                 <Alert Message="@ErrorMessage" CssClass="field__error" Id="@ErrorId" />
             }
         </text>;
+
+    /// <summary>Its own fragment only so the suffix can be wrapped around it
+    /// without the input being written twice - two copies of this attribute list
+    /// is how they stop matching.</summary>
+    private RenderFragment InputPart =>
+        @<input id="@FieldId"
+                class="@InputCssClass"
+                data-testid="@BareTestId"
+                type="@Type"
+                value="@Value"
+                placeholder="@Placeholder"
+                disabled="@Disabled"
+                readonly="@Readonly"
+                aria-invalid="@(HasError ? "true" : null)"
+                aria-describedby="@DescribedBy"
+                aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
+                @oninput="OnInput"
+                @attributes="AdditionalAttributes" />;
 
     protected override void OnParametersSet()
     {
