@@ -364,6 +364,32 @@ html, body {
     max-width: 44rem;
 }
 
+/* The footer slot's contents, dressed the way a host would dress them. The panel
+   stacks whatever is put in the slot; that the two controls which end a task sit
+   together at the right is this page's decision and not the component's, which is
+   the point the story is making. */
+.sb-panel-source {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.sb-panel-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
 /* A menu beside the thing it opens, laid out the way the app lays it out: a
    fixed gutter and everything else. Equal columns would have made the pane and
    the document look like peers, which is exactly what they are not. */

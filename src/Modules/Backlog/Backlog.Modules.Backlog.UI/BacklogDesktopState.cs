@@ -726,6 +726,13 @@ public sealed class BacklogDesktopState : IDisposable
     public async Task ChangeDependsOnAsync(EntryRow row, IEnumerable<string>? dependsOn) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithDependsOn(row.RawText, dependsOn));
 
+    /// <summary>Attaches a place, or detaches what was attached. A path and never a
+    /// copy, and one place and never a list — both decisions live on
+    /// <see cref="Attachment"/>, which also turns a blank path into "nothing
+    /// attached" so this method does not have to.</summary>
+    public async Task ChangeAttachmentAsync(EntryRow row, string? path) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithAttachment(row.RawText, Attachment.From(path)));
+
     /// <summary>
     /// Remembers which reading of the body the person asked for.
     /// <para>
@@ -1502,6 +1509,13 @@ public sealed class EntryRow
         get { Render(); return _parsed!.DependsOn ?? []; }
     }
 
+    /// <summary>What is attached, as written down. One place or nothing — see
+    /// <see cref="Attachment"/> for why it is never a list.</summary>
+    public Attachment? PreviewAttachment
+    {
+        get { Render(); return _parsed!.Attachment; }
+    }
+
     /// <summary>
     /// Which reading of the body this entry was last looked at in, as written down.
     /// Null when nobody has said, which is a different answer from either view —
@@ -1620,6 +1634,11 @@ public sealed class EntryRow
             foreach (var id in PreviewDependsOn)
             {
                 readings.Add(new MetaReading("after", id, true));
+            }
+
+            if (PreviewAttachment is { } attachment)
+            {
+                readings.Add(new MetaReading("files", attachment.Path, true));
             }
 
             // Last, and only when it was written down. The reading line restates

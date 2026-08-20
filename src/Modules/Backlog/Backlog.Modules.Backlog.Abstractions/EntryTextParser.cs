@@ -142,7 +142,8 @@ public static class EntryTextParser
         DateOnly? InMyDayOn = null,
         IReadOnlyList<string>? DependsOn = null,
         IReadOnlyList<UnreadableToken>? Unreadable = null,
-        EntryView? View = null);
+        EntryView? View = null,
+        Attachment? Attachment = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -156,7 +157,8 @@ public static class EntryTextParser
         DateOnly? InMyDayOn = null,
         IReadOnlyList<string>? DependsOn = null,
         IReadOnlyList<UnreadableToken>? Unreadable = null,
-        EntryView? View = null)
+        EntryView? View = null,
+        Attachment? Attachment = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -276,7 +278,8 @@ public static class EntryTextParser
             metadata.InMyDayOn,
             metadata.DependsOn ?? [],
             metadata.Unreadable ?? [],
-            metadata.View);
+            metadata.View,
+            metadata.Attachment);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -291,6 +294,7 @@ public static class EntryTextParser
         Recurrence? recurrence = null;
         DateOnly? inMyDayOn = null;
         EntryView? view = null;
+        Attachment? attachment = null;
         var dependsOn = new List<string>();
         var unreadable = new List<UnreadableToken>();
 
@@ -341,6 +345,19 @@ public static class EntryTextParser
                         // `view:kanban` leaves the field unset and says so.
                         if (TryParseViewToken(value, out var chosenView)) view = chosenView;
                         else unreadable.Add(new UnreadableToken("view", value));
+                        break;
+
+                    case "files":
+                        // The one named token whose value is not a shape this
+                        // grammar can check. A path is whatever the file system
+                        // will take, and a parser that refused the ones it did not
+                        // like would be a parser with an opinion about operating
+                        // systems. Empty is the only malformed one there is:
+                        // absent means absent, so `files:` with nothing after it
+                        // is a reader asking for something rather than for
+                        // nothing.
+                        if (Attachment.From(value) is { } attached) attachment = attached;
+                        else unreadable.Add(new UnreadableToken("files", value));
                         break;
 
                     case "after":
@@ -417,7 +434,8 @@ public static class EntryTextParser
             inMyDayOn,
             dependsOn,
             unreadable,
-            view);
+            view,
+            attachment);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -1049,6 +1067,11 @@ public static class EntryTextParser
             meta += $" `after:{id.Trim()}`";
         }
 
+        // Before the view token, because what is attached is a fact about the
+        // work and the view is not: every token about the task comes first, and
+        // the one about the reader comes last.
+        if (entry.Attachment is { } attachment) meta += $" `files:{attachment.Path}`";
+
         // Last, after the dependencies, because it is the only token here that is
         // about how the entry is read rather than about the work — and an entry
         // nobody expressed a preference about acquires no token by being saved.
@@ -1151,6 +1174,13 @@ public static class EntryTextParser
     /// and only one of them should survive into an entry nobody chose for.</summary>
     public static string WithView(string raw, EntryView? view) =>
         RewriteMetaLine(raw, view: view, updateView: true);
+
+    /// <summary>Writes the attached place on to the metadata line, or clears it.
+    /// Detaching and attaching nothing are the same gesture, for the reason every
+    /// other field here gives: an unset field carries no token rather than an
+    /// empty one.</summary>
+    public static string WithAttachment(string raw, Attachment? attachment) =>
+        RewriteMetaLine(raw, attachment: attachment, updateAttachment: true);
 
     /// <summary>
     /// Replaces the whole body, keeping the title and the metadata line exactly as
@@ -1302,7 +1332,9 @@ public static class EntryTextParser
         IReadOnlyList<string>? dependsOn = null,
         bool updateDependsOn = false,
         EntryView? view = null,
-        bool updateView = false)
+        bool updateView = false,
+        Attachment? attachment = null,
+        bool updateAttachment = false)
     {
         var normalized = Normalize(raw);
         var lines = normalized.Split('\n').ToList();
@@ -1383,6 +1415,12 @@ public static class EntryTextParser
         {
             RemoveNamedToken(tokens, "after");
             tokens.AddRange((dependsOn ?? []).Select(id => $"after:{id}"));
+        }
+
+        if (updateAttachment)
+        {
+            RemoveNamedToken(tokens, "files");
+            if (attachment is { } attached) tokens.Add($"files:{attached.Path}");
         }
 
         if (updateView)

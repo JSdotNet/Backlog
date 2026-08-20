@@ -43,9 +43,11 @@
 
 <section @key=@("backlog-pane") class="backlog-workspace" id="backlog-pane" data-testid="backlog-pane" aria-label="Backlog entries" @onfocusout="OnPaneFocusOutAsync">
 
-    @* UseJsResizer is off because the desktop shell already owns the JS resizer
-       for its knowledge panel, and there is one owner per document. The
-       separator's keyboard resize is unaffected.
+    @* The separator drags now, which it did not before: the shared resizer kept a
+       single owner for the whole document and the desktop shell claims it for the
+       knowledge panel, so this split had to opt out of the pointer gesture and
+       keep only its keyboard resize — a handle you could tab to and not drag. The
+       resizer keys its owners by layout, so this one is its own.
 
        The split stays mounted with nothing selected and collapses to one column
        through a modifier class instead. Swapping it for a bare list would rebuild
@@ -64,9 +66,7 @@
                Anchor="SplitPaneAnchor.End"
                FixedWidthRem="@_detailWidthRem"
                FixedWidthRemChanged="rem => _detailWidthRem = rem"
-               MinRem="20"
-               MaxRem="48"
-               UseJsResizer="false">
+               MinRem="24">
         <Start>
             <div class="backlog-list">
                 @* Areas are local piles/tags inside the selected repository scope.
@@ -196,11 +196,30 @@
     /// <summary>
     /// How wide the open entry's panel is, in rem. The list takes the rest.
     /// <para>
-    /// 24rem, which is not a taste: it is <c>BACKLOG_PANE_MIN_REM</c> in
-    /// <c>components.js</c> and <c>SplitPane.MinRem</c>'s own default — the one width
-    /// this layout system already treats as "a pane rather than a sliver". Starting
-    /// at the floor everything else agrees on means the reader only ever drags the
-    /// panel wider, and the list gets the whole remainder until they ask otherwise.
+    /// 36rem, which is the width the panel needs rather than the least it will
+    /// survive. It opened at 24rem — the floor <c>BACKLOG_PANE_MIN_REM</c> and
+    /// <c>SplitPane.MinRem</c> agree on — on the theory that a reader only ever
+    /// drags a panel wider. What that actually did was open every entry in the one
+    /// shape the detail pane is worst in: 24rem leaves about 22rem of content,
+    /// under the pane's 16rem column width doubled, so the groups came out in a
+    /// single stack and the classification strip wrapped into stranded lines. The
+    /// pane's own storybook reviews it at 44rem for the same reason.
+    /// </para>
+    /// <para>
+    /// 40rem, and the number is arithmetic rather than taste. The detail pane's
+    /// columns are <c>16rem</c> wide with a <c>--spacing-md</c> gutter, so two of
+    /// them need 33rem of content; the panel spends <c>--spacing-lg</c> of padding
+    /// on each side and a border. 36rem was tried first and came out 2px short of
+    /// the second column — a single stack on every entry, which is exactly the
+    /// shape the width was raised to avoid. 40rem clears it by about 60px, which is
+    /// the margin that keeps it two columns rather than two columns on this
+    /// machine.
+    /// </para>
+    /// <para>
+    /// On a 1400px window that leaves the list about 47rem, still wider than the
+    /// 480px column it had when the list was the fixed half. The floor stays 24rem,
+    /// so the old width is still reachable — it is just no longer the one a reader
+    /// is given.
     /// </para>
     /// <para>
     /// Held here rather than handed over as a literal, because the split keeps the
@@ -210,22 +229,19 @@
     /// those.
     /// </para>
     /// </summary>
-    private double _detailWidthRem = 24;
+    private double _detailWidthRem = 40;
 
     /// <summary>The list, held so the focus can be put back on the open row from
     /// the pane beside it. The list names its own row elements, so asking it is the
     /// only honest way to reach one.</summary>
     private TaskListView? _list;
 
-    /// <summary>The row at the head of the detail pane, held for the same reason
-    /// and in the other direction: it is where the focus goes when the reader tabs
-    /// off the selected row.</summary>
-    private TaskItem? _detailRow;
-
-    /// <summary>The detail row's element id. Fixed rather than per entry: there is
-    /// only ever one open, and the id exists so the focus can be aimed at the pane
-    /// without knowing which entry is in it.</summary>
-    private const string DetailRowId = "entry-detail-row";
+    /// <summary>The open entry's panel, held for the same reason and in the other
+    /// direction: it is where the focus goes when the reader tabs off the selected
+    /// row. The panel names its own controls, so it is asked to focus itself rather
+    /// than handed an id to put on one — unlike a row in a list, it is one instance
+    /// this pane already holds.</summary>
+    private TaskPanel? _panel;
 
     /// <summary>The element holding both halves of the split — the region the
     /// selection survives inside. Matches the <c>id</c> on the section above.</summary>
@@ -249,7 +265,9 @@
         Due,
         Reminder,
         Repeat,
-        DependsOn
+        DependsOn,
+        Priority,
+        Attachment
     }
 
     protected override void OnInitialized()
@@ -350,6 +368,13 @@
     /// twice. The note glyph still appears, because <c>Note</c> says there is more
     /// here than the title.
     /// </para>
+    /// <para>
+    /// <c>Status</c> is here and reads as the same badge the open entry's heading
+    /// shows, in the app's own lowercase rather than the enum's spelling. A reader
+    /// scanning the column can see which entries are in progress without opening
+    /// any of them, and one who does open a row finds the fact where they just left
+    /// it instead of somewhere further down the panel.
+    /// </para>
     /// </summary>
     private IReadOnlyList<TaskRow> EntryTasks() =>
         [.. State.FilteredRows.Select(row => new TaskRow(
@@ -365,7 +390,8 @@
             StepCount: row.PreviewSubItems.Count,
             Note: row.HasExpandableContent,
             Tags: row.PreviewMetadataTags,
-            DependsOn: row.PreviewDependsOn)
+            DependsOn: row.PreviewDependsOn,
+            Status: Humanize(row.PreviewStatus.ToString()))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence)
         })];
@@ -456,127 +482,150 @@
     // --- The detail pane ---------------------------------------------------
 
     /// <summary>
-    /// One entry, in the order the To Do layout puts it: the entry itself as a
-    /// row, its metadata, its steps, the row that adds one, the five scheduling
-    /// and dependency rows, the note, and the raw markdown behind a toggle.
+    /// One entry, as the shared side panel: the heading line, what it is filed
+    /// under, the rows you set things on, its body, and — last — what acts on the
+    /// whole entry.
+    /// <para>
+    /// The order is <c>TaskPanel</c>'s and not this pane's, which is the point of
+    /// adopting it. What was here before was the same four regions in a slightly
+    /// different order, drawn out of a <c>ul</c> of one row and a stack of divs;
+    /// the panel says identity, classification, settings, content, and every
+    /// screen that opens a task now says it the same way.
+    /// </para>
+    /// <para>
+    /// Each slot is filled with what the backlog specifically has, because that is
+    /// the line the library draws: the panel says where a metadata strip goes and
+    /// nothing about statuses, repositories or GitHub. <c>Status</c> is left unset
+    /// for the same reason in reverse — the panel's is a word, and this entry's
+    /// status is a picker, so it belongs in the strip with the other pickers.
+    /// </para>
+    /// <para>
+    /// The panel is also the pane's way in and out of the keyboard: it is asked to
+    /// focus itself when the reader tabs off the selected row, and it reports the
+    /// Shift+Tab that sends them back. Which control either of those lands on is
+    /// the panel's business, which is why neither is named here.
+    /// </para>
     /// </summary>
     private RenderFragment RenderDetail(EntryRow row) =>
         @<div class="entry-detail" data-testid="entry-detail" @onkeydown="e => OnDetailKeyDownAsync(row, e)">
+            <TaskPanel @ref="_panel"
+                       Title="@DetailTitle(row)"
+                       Done="@(row.PreviewStatus is EntryStatus.Done)"
+                       OnToggle="() => State.ToggleDoneAsync(row)"
+                       OnRename="title => State.RenameEntryAsync(row, title)"
+                       OnTabBackward="MoveFocusToListAsync"
+                       CssClass="entry-detail__panel"
+                       TestId="entry-panel">
+                <StatusContent>
+                    @* On the heading line, where the list row also shows it. The
+                       status was in the strip below with the other pickers, which
+                       made a reader who opened a row look for it in a second place
+                       — and it is the one thing in that strip that is a state
+                       rather than a classification. *@
+                    <StatusSelector CurrentValue="@row.PreviewStatus.ToString()"
+                                    Options="@StatusSelectorOptions()"
+                                    Label="Change status"
+                                    TestId="status-badge"
+                                    OnChanged="value => OnStatusChangedAsync(row, value)" />
+                </StatusContent>
+                <Filing>
+                    @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration))
+                    {
+                        <Alert Message="@row.GitHubError" BaseClass="entry-doc__gh-error" TestId="github-error" Role="status" />
+                    }
 
-            @* The entry wearing the same row the list wears. A ul because TaskItem
-               renders an li, and a list of one is what this is.
+                    @if (IsFeatureEnabled(AppFeatureKeys.CopilotCli))
+                    {
+                        <Alert Message="@row.CopilotError" BaseClass="entry-doc__gh-error" TestId="copilot-cli-error" Role="status" />
+                    }
 
-               It is also the pane's way in and out: named so the focus can be put
-               on it when the reader tabs off the selected row, and listening for
-               the Shift+Tab that sends them back. Which control that lands on is
-               the row's business — the circle today — which is why the pane asks
-               the row to focus itself rather than naming an element inside it. *@
-            <ul class="entry-detail__row">
-                @* DirectRename: the title is a field from the start here. There is
-                   one row on this surface and the reader opened it to change it, so
-                   a pencil is a press between them and the thing they came for. The
-                   list keeps its pencil, because a column of ten open inputs is not
-                   a column anybody scans. *@
-                <TaskItem @ref="_detailRow"
-                          Task="@DetailTask(row)"
-                          RowElementId="@DetailRowId"
-                          OnTabBackward="MoveFocusToListAsync"
-                          OnToggle="_ => State.ToggleDoneAsync(row)"
-                          OnRename="rename => State.RenameEntryAsync(row, rename.Title)"
-                          DirectRename="true"
-                          AllowCopy="false"
-                          TestId="entry-detail-task" />
-            </ul>
+                    @RenderEntryMetadata(row)
+                </Filing>
+                <Details>
+                    @RenderEntrySchedule(row)
+                </Details>
+                <Body>
+                    @RenderBodyViews(row)
+                </Body>
+                <Footer>
+                    @* The escape hatch. Always available, toggleable from this row
+                       and from Ctrl+Shift+M on the pane, showing the exact canonical
+                       markdown that will be stored, in mono, two-way, and auto-saving
+                       under the same rules as everything else here.
 
-            @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration))
-            {
-                <Alert Message="@row.GitHubError" BaseClass="entry-doc__gh-error" TestId="github-error" Role="status" />
-            }
+                       In the footer because it acts on the whole entry rather than on
+                       one field of it, which is the same sentence that puts close and
+                       delete beside it. *@
+                    <ToggleButton BaseClass="entry-detail__raw-toggle"
+                                  PressedCssClass="entry-detail__raw-toggle--on"
+                                  Pressed="@State.RawHatchOpen"
+                                  TestId="entry-raw-toggle"
+                                  AriaLabel="Show the entry's markdown source (Ctrl+Shift+M)"
+                                  Title="Markdown source — Ctrl+Shift+M"
+                                  PressedChanged="_ => State.ToggleRawHatchAsync()">
+                        <span aria-hidden="true">&lt;/&gt;</span>
+                        <span>Markdown</span>
+                    </ToggleButton>
 
-            @if (IsFeatureEnabled(AppFeatureKeys.CopilotCli))
-            {
-                <Alert Message="@row.CopilotError" BaseClass="entry-doc__gh-error" TestId="copilot-cli-error" Role="status" />
-            }
+                    @if (State.RawHatchOpen)
+                    {
+                        <div class="entry-detail__raw">
+                            @* data-testid goes on the textarea rather than through
+                               TestId, which lives on a wrapper Bare does not render —
+                               the same way the date and reminder pickers are named. *@
+                            <TextArea Bare="true"
+                                      Id="@RawEditorId"
+                                      AriaLabel="Entry markdown"
+                                      Placeholder="@BacklogDesktopState.NewEntryPlaceholder"
+                                      InputCssClass="entry-detail__raw-input"
+                                      GrowCssClass="entry-detail__raw-grow"
+                                      AutoGrow="true"
+                                      Rows="8"
+                                      data-testid="entry-raw-input"
+                                      Value="@State.EntryEditText(row)"
+                                      ValueChanged="value => State.OnRawTextInput(row, value)"
+                                      @onblur="() => State.EndEditAsync(row)" />
 
-            @RenderEntryMetadata(row)
-
-            @RenderBodyViews(row)
-
-            @RenderEntrySchedule(row)
-
-            @* The escape hatch. Always available, toggleable from this row and from
-               Ctrl+Shift+M on the pane, showing the exact canonical markdown that
-               will be stored, in mono, two-way, and auto-saving under the same
-               rules as everything else here. *@
-            <ToggleButton BaseClass="entry-detail__raw-toggle"
-                          PressedCssClass="entry-detail__raw-toggle--on"
-                          Pressed="@State.RawHatchOpen"
-                          TestId="entry-raw-toggle"
-                          AriaLabel="Show the entry's markdown source (Ctrl+Shift+M)"
-                          Title="Markdown source — Ctrl+Shift+M"
-                          PressedChanged="_ => State.ToggleRawHatchAsync()">
-                <span aria-hidden="true">&lt;/&gt;</span>
-                <span>Markdown</span>
-            </ToggleButton>
-
-            @if (State.RawHatchOpen)
-            {
-                <div class="entry-detail__raw">
-                    @* data-testid goes on the textarea rather than through TestId,
-                       which lives on a wrapper Bare does not render — the same way
-                       the date and reminder pickers below are named. *@
-                    <TextArea Bare="true"
-                              Id="@RawEditorId"
-                              AriaLabel="Entry markdown"
-                              Placeholder="@BacklogDesktopState.NewEntryPlaceholder"
-                              InputCssClass="entry-detail__raw-input"
-                              GrowCssClass="entry-detail__raw-grow"
-                              AutoGrow="true"
-                              Rows="8"
-                              data-testid="entry-raw-input"
-                              Value="@State.EntryEditText(row)"
-                              ValueChanged="value => State.OnRawTextInput(row, value)"
-                              @onblur="() => State.EndEditAsync(row)" />
-
-                    @* Answers "which one is the status?" by simply saying so, live,
-                       from the same parse the save will use. *@
-                    <p class="entry-doc__reading" data-testid="entry-meta-reading">
-                        <span class="entry-doc__reading-lead">reads as</span>
-                        @foreach (var reading in row.MetaReadings)
-                        {
-                            <span class="entry-doc__reading-item @(reading.Explicit ? string.Empty : "entry-doc__reading-item--default") @(reading.Note is null ? string.Empty : "entry-doc__reading-item--refused")">
-                                <span class="entry-doc__reading-kind">@reading.Kind</span>
-                                <span class="entry-doc__reading-value">@reading.Value</span>
-                                @if (reading.Note is not null)
+                            @* Answers "which one is the status?" by simply saying so,
+                               live, from the same parse the save will use. *@
+                            <p class="entry-doc__reading" data-testid="entry-meta-reading">
+                                <span class="entry-doc__reading-lead">reads as</span>
+                                @foreach (var reading in row.MetaReadings)
                                 {
-                                    <span class="entry-doc__reading-note">@reading.Note</span>
+                                    <span class="entry-doc__reading-item @(reading.Explicit ? string.Empty : "entry-doc__reading-item--default") @(reading.Note is null ? string.Empty : "entry-doc__reading-item--refused")">
+                                        <span class="entry-doc__reading-kind">@reading.Kind</span>
+                                        <span class="entry-doc__reading-value">@reading.Value</span>
+                                        @if (reading.Note is not null)
+                                        {
+                                            <span class="entry-doc__reading-note">@reading.Note</span>
+                                        }
+                                    </span>
                                 }
-                            </span>
-                        }
-                    </p>
-                </div>
-            }
+                            </p>
+                        </div>
+                    }
 
-            <div class="entry-detail__footer">
-                <IconButton BaseClass="entry-detail__close"
-                            TestId="close-entry-button"
-                            AriaLabel="Close this entry"
-                            OnClick="() => State.SelectAsync(null)">×</IconButton>
+                    <div class="entry-detail__footer">
+                        <IconButton BaseClass="entry-detail__close"
+                                    TestId="close-entry-button"
+                                    AriaLabel="Close this entry"
+                                    OnClick="() => State.SelectAsync(null)">×</IconButton>
 
-                <IconButton BaseClass="entry-doc__delete"
-                            id="@($"delete-entry-{row.Key}")"
-                            TestId="delete-entry-button"
-                            AriaLabel="Delete entry"
-                            OnClick="() => OnDeleteTaskAsync(row)">🗑</IconButton>
-            </div>
+                        <IconButton BaseClass="entry-doc__delete"
+                                    id="@($"delete-entry-{row.Key}")"
+                                    TestId="delete-entry-button"
+                                    AriaLabel="Delete entry"
+                                    OnClick="() => OnDeleteTaskAsync(row)">🗑</IconButton>
+                    </div>
+                </Footer>
+            </TaskPanel>
         </div>;
-    /// <summary>The selected entry as a row. The same shape the list draws, minus
-    /// the group line — which list it came from is not news in the pane that is
-    /// showing it.</summary>
-    private TaskRow DetailTask(EntryRow row) => new(
-        EntryTaskId(row),
-        string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle,
-        Done: row.PreviewStatus is EntryStatus.Done);
+    /// <summary>What the panel is called. An entry with no title line yet is
+    /// "Untitled" rather than a blank heading, which is the same word the list
+    /// puts on the same row — a panel that named it differently would look like a
+    /// different entry.</summary>
+    private static string DetailTitle(EntryRow row) =>
+        string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle;
 
     // --- The body: steps, or the markdown block ----------------------------
 
@@ -812,11 +861,11 @@
                              CssClass="metadata-editor--type badge badge--type"
                              OnChanged="value => OnTypeChangedAsync(row, value)" />
 
-                <PrioritySelector TEnum="Priority" CurrentValue="@row.PreviewPriority"
-                                  Options="@PriorityOptions()"
-                                  Label="Change priority"
-                                  TestId="priority-badge"
-                                  OnChanged="priority => State.ChangePriorityAsync(row, priority)" />
+                @* Priority is not here. It is a row in the detail pane's Ranking
+                   group, which is where the storybook puts it and where it stops
+                   being read as one more label on a line of labels: how much
+                   something matters is a decision, and this strip is where the
+                   entry's classification is stated. *@
 
                 @if (KnowledgeRepositories.Count > 0)
                 {
@@ -827,11 +876,10 @@
                                         OnChanged="value => OnRepositoryChangedAsync(row, value)" />
                 }
 
-                <StatusSelector CurrentValue="@row.PreviewStatus.ToString()"
-                                Options="@StatusSelectorOptions()"
-                                Label="Change status"
-                                TestId="status-badge"
-                                OnChanged="value => OnStatusChangedAsync(row, value)" />
+                @* Status is not here. It is on the panel's heading line, beside the
+                   title, which is where the list row shows it too — a state is what
+                   the title is currently doing, and this strip is for what the entry
+                   is filed under. *@
             </span>
 
             <span class="entry-doc__meta-end">
@@ -965,137 +1013,245 @@
     /// <para>In the detail pane rather than under the entry in the list, which is
     /// where they were and where a one-line entry could never reach them: which
     /// row is open no longer depends on how much it has been written in.</para>
+    ///
+    /// <para>The rows are laid out by <c>TaskActionPane</c> rather than stacked
+    /// here, which is what changed when the pane adopted the shared panel. Two
+    /// things follow from that and both are improvements rather than side effects.
+    /// My Day is the lead row, across the top and carrying weight, because it is
+    /// the one row here that is a decision somebody makes again every morning
+    /// where the rest are facts about the entry that were settled once. And the
+    /// facts are grouped and captioned instead of running down one column: a due
+    /// date standing next to a dependency reads as related whether or not it is,
+    /// and the reader picks the subject before the row.</para>
+    ///
+    /// <para>Each picker is rendered inside the group of the row that opens it, so
+    /// a date field appears under "Due date" and not at the bottom of the pane.</para>
     /// </summary>
     private RenderFragment RenderEntrySchedule(EntryRow row) =>
-        @<div class="entry-doc__schedule" role="group" aria-label="Scheduling and dependencies">
+        @<TaskActionPane CssClass="entry-doc__schedule" TestId="entry-schedule">
+            <Lead>
+                @* The decision rather than a fact, so the one row with a border and
+                   the brand colour on it. Togglable, so it has no ✕: pressing it
+                   again is how it comes off. *@
+                <TaskAction Icon="☀"
+                            Label="@(IsInMyDay(row) ? "Added to My Day" : "Add to My Day")"
+                            Set="@IsInMyDay(row)"
+                            Togglable="true"
+                            Prominent="true"
+                            OnSet="() => OnMyDayToggledAsync(row)"
+                            TestId="entry-action-myday" />
+            </Lead>
+            <Groups>
 
-            <TaskAction Icon="☀"
-                        Label="@(IsInMyDay(row) ? "Added to My Day" : "Add to My Day")"
-                        Set="@IsInMyDay(row)"
-                        Togglable="true"
-                        OnSet="() => OnMyDayToggledAsync(row)"
-                        TestId="entry-action-myday" />
+                <TaskActionGroup Label="Scheduling" TestId="entry-schedule-scheduling">
+                    <TaskAction Icon="⏰"
+                                Label="Remind me"
+                                Value="@FormatReminder(row.PreviewRemindAt)"
+                                Set="@(row.PreviewRemindAt is not null)"
+                                OnSet="() => TogglePicker(SchedulePicker.Reminder)"
+                                OnClear="() => State.ChangeReminderAsync(row, null)"
+                                TestId="entry-action-remind" />
 
-            <TaskAction Icon="⏰"
-                        Label="Remind me"
-                        Value="@FormatReminder(row.PreviewRemindAt)"
-                        Set="@(row.PreviewRemindAt is not null)"
-                        OnSet="() => TogglePicker(SchedulePicker.Reminder)"
-                        OnClear="() => State.ChangeReminderAsync(row, null)"
-                        TestId="entry-action-remind" />
+                    @if (IsPickerOpen(SchedulePicker.Reminder))
+                    {
+                        <TextField Bare="true"
+                                   Type="datetime-local"
+                                   AriaLabel="Reminder"
+                                   InputCssClass="entry-doc__schedule-input"
+                                   data-testid="entry-remind-input"
+                                   Value="@(row.PreviewRemindAt is { } remindAt ? EntryTextParser.ReminderToken(remindAt) : string.Empty)"
+                                   @onchange="(ChangeEventArgs e) => OnReminderPickedAsync(row, e)" />
+                    }
 
-            @if (IsPickerOpen(SchedulePicker.Reminder))
-            {
-                <TextField Bare="true"
-                           Type="datetime-local"
-                           AriaLabel="Reminder"
-                           InputCssClass="entry-doc__schedule-input"
-                           data-testid="entry-remind-input"
-                           Value="@(row.PreviewRemindAt is { } remindAt ? EntryTextParser.ReminderToken(remindAt) : string.Empty)"
-                           @onchange="(ChangeEventArgs e) => OnReminderPickedAsync(row, e)" />
-            }
+                    <TaskAction Icon="🗓"
+                                Label="Add due date"
+                                Value="@FormatDate(row.PreviewDueOn)"
+                                Set="@(row.PreviewDueOn is not null)"
+                                OnSet="() => TogglePicker(SchedulePicker.Due)"
+                                OnClear="() => State.ChangeDueAsync(row, null)"
+                                TestId="entry-action-due" />
 
-            <TaskAction Icon="🗓"
-                        Label="Add due date"
-                        Value="@FormatDate(row.PreviewDueOn)"
-                        Set="@(row.PreviewDueOn is not null)"
-                        OnSet="() => TogglePicker(SchedulePicker.Due)"
-                        OnClear="() => State.ChangeDueAsync(row, null)"
-                        TestId="entry-action-due" />
+                    @if (IsPickerOpen(SchedulePicker.Due))
+                    {
+                        @* TextField rather than a hand-rolled input: the library's
+                           field grew date support for this, which is the deal the
+                           shared-control rules ask for — give the component the hook,
+                           do not ship a second implementation beside it.
 
-            @if (IsPickerOpen(SchedulePicker.Due))
-            {
-                @* TextField rather than a hand-rolled input: the library's field
-                   grew date support for this, which is the deal the shared-control
-                   rules ask for — give the component the hook, do not ship a
-                   second implementation beside it.
+                           @onchange rather than ValueChanged, because a half-typed
+                           date raises input events reading as empty, and empty means
+                           "clear the due date". A date commits when it is a date. *@
+                        <TextField Bare="true"
+                                   Type="date"
+                                   AriaLabel="Due date"
+                                   InputCssClass="entry-doc__schedule-input"
+                                   data-testid="entry-due-input"
+                                   Value="@(row.PreviewDueOn is { } due ? EntryTextParser.DateToken(due) : string.Empty)"
+                                   @onchange="(ChangeEventArgs e) => OnDuePickedAsync(row, e)" />
+                    }
 
-                   @onchange rather than ValueChanged, because a half-typed date
-                   raises input events reading as empty, and empty means "clear the
-                   due date". A date commits when it is a date. *@
-                <TextField Bare="true"
-                           Type="date"
-                           AriaLabel="Due date"
-                           InputCssClass="entry-doc__schedule-input"
-                           data-testid="entry-due-input"
-                           Value="@(row.PreviewDueOn is { } due ? EntryTextParser.DateToken(due) : string.Empty)"
-                           @onchange="(ChangeEventArgs e) => OnDuePickedAsync(row, e)" />
-            }
+                    <TaskAction Icon="🔁"
+                                Label="Repeat"
+                                Value="@FormatRepeat(row.PreviewRecurrence)"
+                                Set="@(row.PreviewRecurrence is not null)"
+                                OnSet="() => TogglePicker(SchedulePicker.Repeat)"
+                                OnClear="() => State.ChangeRepeatAsync(row, null)"
+                                TestId="entry-action-repeat" />
 
-            <TaskAction Icon="🔁"
-                        Label="Repeat"
-                        Value="@FormatRepeat(row.PreviewRecurrence)"
-                        Set="@(row.PreviewRecurrence is not null)"
-                        OnSet="() => TogglePicker(SchedulePicker.Repeat)"
-                        OnClear="() => State.ChangeRepeatAsync(row, null)"
-                        TestId="entry-action-repeat" />
+                    @if (IsPickerOpen(SchedulePicker.Repeat))
+                    {
+                        @* The option values are the repeat tokens themselves, so what
+                           the select offers and what the metadata line can hold cannot
+                           drift apart — a shape with no spelling in the grammar has no
+                           option here either. *@
+                        <SelectField CurrentValue="@(row.PreviewRecurrence is { } repeat ? EntryTextParser.RepeatToken(repeat) : string.Empty)"
+                                     Options="@RepeatOptions()"
+                                     IncludeEmptyOption="true"
+                                     EmptyLabel="Never"
+                                     Label="Repeat"
+                                     Id="@($"entry-repeat-{row.Key}")"
+                                     TestId="entry-repeat-select"
+                                     CssClass="entry-doc__schedule-select"
+                                     OnChanged="value => OnRepeatPickedAsync(row, value)" />
+                    }
+                </TaskActionGroup>
 
-            @if (IsPickerOpen(SchedulePicker.Repeat))
-            {
-                @* The option values are the repeat tokens themselves, so what the
-                   select offers and what the metadata line can hold cannot drift
-                   apart — a shape with no spelling in the grammar has no option
-                   here either. *@
-                <SelectField CurrentValue="@(row.PreviewRecurrence is { } repeat ? EntryTextParser.RepeatToken(repeat) : string.Empty)"
-                             Options="@RepeatOptions()"
-                             IncludeEmptyOption="true"
-                             EmptyLabel="Never"
-                             Label="Repeat"
-                             Id="@($"entry-repeat-{row.Key}")"
-                             TestId="entry-repeat-select"
-                             CssClass="entry-doc__schedule-select"
-                             OnChanged="value => OnRepeatPickedAsync(row, value)" />
-            }
+                @* Its own group rather than a fourth row under "Scheduling". What an
+                   entry waits on is not when it happens: a chain is about the other
+                   entries, and standing it beside a due date would read as a
+                   deadline it is not. *@
+                <TaskActionGroup Label="Dependencies" TestId="entry-schedule-dependencies">
+                    <TaskAction Icon="⏳"
+                                Label="Waiting for"
+                                Value="@FormatDependencies(row)"
+                                Set="@(row.PreviewDependsOn.Count > 0)"
+                                OnSet="() => TogglePicker(SchedulePicker.DependsOn)"
+                                OnClear="() => State.ChangeDependsOnAsync(row, [])"
+                                TestId="entry-action-depends" />
 
-            <TaskAction Icon="⏳"
-                        Label="Waiting for"
-                        Value="@FormatDependencies(row)"
-                        Set="@(row.PreviewDependsOn.Count > 0)"
-                        OnSet="() => TogglePicker(SchedulePicker.DependsOn)"
-                        OnClear="() => State.ChangeDependsOnAsync(row, [])"
-                        TestId="entry-action-depends" />
+                    @if (IsPickerOpen(SchedulePicker.DependsOn))
+                    {
+                        @* The library ships no dependency editor and is not going to:
+                           a chain is data the host owns, so the picker is built here
+                           out of TagMultiSelect, its options the other entries in view
+                           and its chips this entry's own ids. *@
+                        <TagMultiSelect Options="@DependencyOptions(row)"
+                                        SelectedValues="@row.PreviewDependsOn"
+                                        SelectedValuesChanged="ids => State.ChangeDependsOnAsync(row, ids)"
+                                        Placeholder="Add an entry"
+                                        CssClass="entry-doc__schedule-depends"
+                                        TestId="entry-depends-select" />
+                    }
+                </TaskActionGroup>
 
-            @if (IsPickerOpen(SchedulePicker.DependsOn))
-            {
-                @* The library ships no dependency editor and is not going to:
-                   a chain is data the host owns, so the picker is built here
-                   out of TagMultiSelect, its options the other entries in view
-                   and its chips this entry's own ids. *@
-                <TagMultiSelect Options="@DependencyOptions(row)"
-                                SelectedValues="@row.PreviewDependsOn"
-                                SelectedValuesChanged="ids => State.ChangeDependsOnAsync(row, ids)"
-                                Placeholder="Add an entry"
-                                CssClass="entry-doc__schedule-depends"
-                                TestId="entry-depends-select" />
-            }
+                @* How much it matters, kept well away from when it is due. A
+                   ranking and a deadline are the two facts most often mistaken for
+                   each other, and the pane's job is to stop saying them in the same
+                   breath: "critical" is how much this matters, "Friday" is when it
+                   stops being possible. It was a badge on the line above until the
+                   storybook's shape was adopted, where it read as one more label
+                   rather than as the decision it is. *@
+                <TaskActionGroup Label="Ranking" TestId="entry-schedule-ranking">
+                    @* Always set, and so no ✕. Every other row here can be absent,
+                       but an entry has a priority whether or not anybody typed one
+                       — the field is not nullable and `*medium` is what a silent
+                       entry means. A clear button would offer to unset something
+                       that has no unset state, and would write `*low` while
+                       claiming to have removed a ranking. *@
+                    <TaskAction Icon="⚑"
+                                Label="Priority"
+                                Value="@Humanize(row.PreviewPriority.ToString())"
+                                Set="true"
+                                OnSet="() => TogglePicker(SchedulePicker.Priority)"
+                                TestId="entry-action-priority" />
 
-            @* Deliberately not here, and both for the same reason: the star and
-               "Add file". TaskRow carries an Important flag and the storybook shows
-               a disabled paperclip, but a backlog entry has no importance field and
-               the domain has no attachment at all. A control over state the model
-               cannot hold is a control that lies about having saved something, and a
-               permanently disabled one is fine in a storybook and dead weight in a
-               product. *@
-        </div>;
+                    @if (IsPickerOpen(SchedulePicker.Priority))
+                    {
+                        <SelectField CurrentValue="@row.PreviewPriority.ToString()"
+                                     Options="@PrioritySelectorOptions()"
+                                     Label="Priority"
+                                     Id="@($"entry-priority-{row.Key}")"
+                                     TestId="entry-priority-select"
+                                     CssClass="entry-doc__schedule-select"
+                                     OnChanged="value => OnPriorityPickedAsync(row, value)" />
+                    }
+                </TaskActionGroup>
+
+                @* One row pointing at one place, and never a row per file. What is
+                   attached is a folder or an archive; the row says which and what it
+                   is called. A row each would make the pane's height a function of
+                   how many files somebody dropped on the entry, and the height of a
+                   side panel is the one measurement everything else has to live with
+                   — every row it grows is a row the body loses. *@
+                <TaskActionGroup Label="Attachments" TestId="entry-schedule-attachments">
+                    <TaskAction Icon="📁"
+                                Label="@(row.PreviewAttachment is { } attached ? (attached.IsArchive ? "Archive" : "Folder") : "Attach a folder or zip")"
+                                Value="@row.PreviewAttachment?.Name"
+                                Set="@(row.PreviewAttachment is not null)"
+                                OnSet="() => TogglePicker(SchedulePicker.Attachment)"
+                                OnClear="() => State.ChangeAttachmentAsync(row, null)"
+                                TestId="entry-action-files" />
+
+                    @if (IsPickerOpen(SchedulePicker.Attachment))
+                    {
+                        @* A path, typed or pasted. There is no file dialog behind
+                           this and there deliberately is not one yet: the desktop
+                           channel could open one and the phone and the IDE could
+                           not, and a control that only exists on one head is a
+                           control the grammar cannot promise. The token is a path,
+                           so a path is what this asks for.
+
+                           @onchange rather than ValueChanged, because a half-typed
+                           path raises input events and every one of them would be a
+                           save — and an empty one means "detach". A path commits
+                           when the reader is done with it. *@
+                        <TextField Bare="true"
+                                   AriaLabel="Path to a folder or zip"
+                                   Placeholder="C:\folder, or a .zip"
+                                   InputCssClass="entry-doc__schedule-input"
+                                   data-testid="entry-files-input"
+                                   Value="@(row.PreviewAttachment?.Path ?? string.Empty)"
+                                   @onchange="(ChangeEventArgs e) => OnAttachmentPickedAsync(row, e)" />
+                    }
+                </TaskActionGroup>
+
+                @* The star is still deliberately absent. TaskRow carries an
+                   Important flag and a backlog entry has no importance field, so a
+                   control here would be inventing domain state: the flag would go
+                   nowhere and the reader would think they had said something. *@
+            </Groups>
+        </TaskActionPane>;
+    /// <summary>
+    /// The entry's tags, as chips you can drop and a field you can type a new one
+    /// into.
+    /// <para>
+    /// <c>TagMultiSelect</c> rather than the line of space-separated text this used
+    /// to be, and the reason is the panel it now sits in: <c>TaskPanel</c> draws
+    /// tags as <c>TagChip</c>s because that is what a tag looks like everywhere in
+    /// the product, and a strip of chips beside a field spelling the same tags out
+    /// again would be the same fact said twice in two shapes. This is the one
+    /// control that is both — the chips are the reading and the removing, the field
+    /// is the adding, and the popup offers every tag already in use.
+    /// </para>
+    /// <para>
+    /// <c>AllowCreate</c>, because a tag is whatever somebody typed. The options are
+    /// suggestions and never the whole vocabulary, which is exactly what the
+    /// datalist behind the old field was.
+    /// </para>
+    /// <para>
+    /// The panel's own <c>Tags</c> parameter is deliberately left unset. Its strip
+    /// reads tags; this entry's are edited, and a control is not something a
+    /// read-only strip can stand in for.
+    /// </para>
+    /// </summary>
     private RenderFragment RenderTagEditor(EntryRow row) =>
-        @<label class="entry-doc__tag-picker">
-            <span class="sr-only">Edit tags</span>
-            <TextField Bare="true"
-                       InputCssClass="entry-doc__tag-input"
-                       AriaLabel="Edit tags"
-                       data-testid="entry-tags-input"
-                       title="Edit tags"
-                       list="@($"entry-tags-options-{row.Key}")"
-                       Placeholder="Tags"
-                       Value="@TagsInputValue(row)"
-                       @onchange="(ChangeEventArgs e) => OnTagsChangedAsync(row, e)" />
-            <datalist id="entry-tags-options-@row.Key">
-                @foreach (var tag in TagOptions(row))
-                {
-                    <option value="@tag"></option>
-                }
-            </datalist>
-        </label>;
+        @<TagMultiSelect Options="@TagSelectorOptions(row)"
+                         SelectedValues="@row.PreviewMetadataTags"
+                         SelectedValuesChanged="tags => State.ChangeTagsAsync(row, tags)"
+                         AllowCreate="true"
+                         Placeholder="Tags"
+                         CssClass="entry-doc__tag-picker"
+                         TestId="entry-tags-input" />;
     // --- Keyboard ----------------------------------------------------------
 
     /// <summary>
@@ -1134,9 +1290,9 @@
     /// <summary>Tab off the open row moves into the pane beside it.</summary>
     private async Task MoveFocusToDetailAsync()
     {
-        if (State.SelectedRow is null || _detailRow is null) return;
+        if (State.SelectedRow is null || _panel is null) return;
 
-        await _detailRow.FocusFirstAsync();
+        await _panel.FocusFirstAsync();
     }
 
     /// <summary>Shift+Tab off the front of the pane moves back to the open row.
@@ -1225,9 +1381,6 @@
         }
     }
 
-    private async Task OnTagsChangedAsync(EntryRow row, ChangeEventArgs e) =>
-        await State.ChangeTagsAsync(row, e.Value?.ToString() ?? string.Empty);
-
     // The scheduling and dependency controls. Reading a clock is the pane's job
     // rather than the state's or the row's: My Day expires by arithmetic against
     // "the reader's current local date", and there is exactly one place here that
@@ -1294,6 +1447,27 @@
     {
         ClosePicker();
         await State.ChangeRepeatAsync(row, EntryTextParser.ParseRepeat(value));
+    }
+
+    /// <summary>A ranking that does not parse is nothing being asked for, so
+    /// nothing is written — unlike the fields around it there is no "clear" to fall
+    /// back to, because an entry always has a priority.</summary>
+    private async Task OnPriorityPickedAsync(EntryRow row, string? value)
+    {
+        ClosePicker();
+
+        if (Enum.TryParse<Priority>(value, out var priority))
+        {
+            await State.ChangePriorityAsync(row, priority);
+        }
+    }
+
+    /// <summary>Attaches whatever path was typed, and detaches on an empty one —
+    /// clearing the field is the same gesture as the ✕ on the row above it.</summary>
+    private async Task OnAttachmentPickedAsync(EntryRow row, ChangeEventArgs e)
+    {
+        ClosePicker();
+        await State.ChangeAttachmentAsync(row, e.Value?.ToString());
     }
 
     /// <summary>The repeat shapes this grammar can write down, which is
@@ -1370,7 +1544,11 @@
     private static IReadOnlyList<SelectorOption> TypeSelectorOptions() =>
         [.. Enum.GetValues<EntryType>().Select(type => new SelectorOption(type.ToString(), Humanize(type.ToString())))];
 
-    private static IReadOnlyList<Priority> PriorityOptions() => [Priority.Low, Priority.Medium, Priority.High];
+    /// <summary>All four rankings the domain has, lowest first. The badge this
+    /// replaced offered three — Critical was in the enum, in the grammar and in the
+    /// storybook, and unreachable from the pane.</summary>
+    private static IReadOnlyList<SelectorOption> PrioritySelectorOptions() =>
+        [.. Enum.GetValues<Priority>().Select(priority => new SelectorOption(priority.ToString(), Humanize(priority.ToString())))];
 
     private static IReadOnlyList<EntryStatus> StatusOptions() => Enum.GetValues<EntryStatus>();
 
@@ -1385,7 +1563,11 @@
             .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    private static string TagsInputValue(EntryRow row) => EntryTextParser.FormatTagsInput(row.PreviewMetadataTags);
+    /// <summary>Every tag already in use, as the picker wants them. A tag is its
+    /// own label, so the two halves of the option are the same string — which is
+    /// what makes a tag typed here and a tag picked here the same value.</summary>
+    private IReadOnlyList<SelectorOption> TagSelectorOptions(EntryRow row) =>
+        [.. TagOptions(row).Select(tag => new SelectorOption(tag, tag))];
 
     private static string Humanize(string enumName)
     {

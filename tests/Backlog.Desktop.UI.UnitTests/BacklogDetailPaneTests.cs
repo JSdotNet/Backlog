@@ -1,4 +1,4 @@
-using Backlog.Modules.Backlog.DomainModels;
+﻿using Backlog.Modules.Backlog.DomainModels;
 using Microsoft.AspNetCore.Components.Web;
 using Bunit;
 
@@ -48,12 +48,17 @@ public sealed class BacklogDetailPaneTests
 
         Assert.Same(first, host.State.SelectedRow);
 
-        // The title is a field here rather than a line of text — the pane's row is
-        // DirectRename — so the entry's name is the field's value, not the region's
-        // text content.
+        // The open entry is the panel's heading, and the heading is the control that
+        // retitles it — there is no pencil, so the title is its own target. That is
+        // TaskPanel's decision rather than this pane's, which is the point of the
+        // pane rendering the panel instead of a row of its own.
+        Assert.Equal("Provision the box", pane.Find("[data-testid='entry-panel-title']").TextContent);
+
+        await pane.Find("[data-testid='entry-panel-title']").ClickAsync(new());
+
         Assert.Equal(
             "Provision the box",
-            pane.Find("[data-testid='entry-detail-task-rename']").GetAttribute("value"));
+            pane.Find("[data-testid='entry-panel-rename']").GetAttribute("value"));
     }
 
     [Fact]
@@ -486,37 +491,66 @@ public sealed class BacklogDetailPaneTests
         await pane.Find("[data-testid='type-badge'] select").ChangeAsync(new() { Value = nameof(EntryType.Prompt) });
         Assert.Contains("`prompt`", row.RawText, StringComparison.Ordinal);
 
-        await pane.Find("[data-testid='priority-badge'] select").ChangeAsync(new() { Value = nameof(Priority.High) });
+        // Priority is a row in the Ranking group now rather than a badge on this
+        // strip, so setting it is press-the-row-then-pick — the same two steps as
+        // a repeat.
+        await pane.Find("[data-testid='entry-action-priority-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-priority-select'] select").ChangeAsync(new() { Value = nameof(Priority.High) });
         Assert.Contains("`*high`", row.RawText, StringComparison.Ordinal);
 
         await pane.Find("[data-testid='status-badge'] select").ChangeAsync(new() { Value = nameof(EntryStatus.Ready) });
         Assert.Contains("`!ready`", row.RawText, StringComparison.Ordinal);
 
-        await pane.Find("[data-testid='entry-tags-input']").ChangeAsync(new() { Value = "#sync desktop" });
+        // The tags are chips and a field to type the next one into — TagMultiSelect
+        // with AllowCreate, because a tag is whatever somebody typed. Typing and
+        // pressing Enter is what the old space-separated line was; what is new is
+        // that the tags already on the entry are chips beside the field rather than
+        // more text inside it.
+        await AddTagAsync(pane, "sync");
+        await AddTagAsync(pane, "desktop");
+
         Assert.Contains("`#sync`", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("`#desktop`", row.RawText, StringComparison.Ordinal);
+
+        // And taking one off is the chip's ✕, not editing a string back down.
+        await pane.Find("[data-testid='entry-tags-input'] .tag-chip__remove").ClickAsync(new());
+
+        Assert.DoesNotContain("`#sync`", row.RawText, StringComparison.Ordinal);
         Assert.Contains("`#desktop`", row.RawText, StringComparison.Ordinal);
 
         Assert.Single(pane.FindAll("[data-testid='area-badge']"));
     }
 
+    /// <summary>Types a tag into the picker and commits it, which is the gesture the
+    /// picker calls "create": the popup opens on input, the new tag is the active
+    /// option when nothing else matches, and Enter takes it.</summary>
+    private static async Task AddTagAsync(IRenderedComponent<BacklogPane> pane, string tag)
+    {
+        var field = pane.Find("[data-testid='entry-tags-input'] input");
+        await field.InputAsync(new() { Value = tag });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+    }
+
     // --- What is deliberately absent --------------------------------------
 
     /// <summary>
-    /// Two controls the To Do layout has and this pane does not.
+    /// The one control the To Do layout has and this pane does not: the star.
     /// <para>
-    /// The star, because <c>TaskRow.Important</c> exists and a backlog entry has no
-    /// importance field: whatever ends up setting it is a decision the product has not
-    /// made, and a control that set it here would be inventing domain state — the flag
-    /// would go nowhere and the reader would think they had said something.
+    /// <c>TaskRow.Important</c> exists and a backlog entry has no importance field,
+    /// so whatever would set it is a decision the product has not made. A control
+    /// here would be inventing domain state — the flag would go nowhere and the
+    /// reader would think they had said something.
     /// </para>
     /// <para>
-    /// "Add file", because the domain has no attachment concept at all. The storybook
-    /// shows it disabled as a placeholder, which is what a storybook is for; shipping a
-    /// permanently dead control is not.
+    /// Attachments used to be listed beside it for the same reason and are not any
+    /// more: the entry carries one now, written on the metadata line as
+    /// <c>files:</c>, so the row has somewhere to put what it is handed. Which is
+    /// the rule these assertions are really about — the pane offers a control when
+    /// the model can hold the answer, and not before.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task Neither_the_star_nor_add_file_is_offered()
+    public async Task The_star_is_not_offered_because_nothing_could_hold_it()
     {
         using var host = await BacklogPaneHost.CreateAsync();
         await host.WriteEntryAsync(WithSteps);
@@ -524,10 +558,126 @@ public sealed class BacklogDetailPaneTests
         var pane = host.Render();
 
         Assert.Empty(pane.FindAll("[data-testid='entry-action-important']"));
-        Assert.Empty(pane.FindAll("[data-testid='entry-action-file']"));
-        Assert.DoesNotContain("Add file", pane.Markup, StringComparison.Ordinal);
 
         // Nothing sets Important either, so no row can be wearing the star.
         Assert.Empty(pane.FindAll(".task-item__detail--important"));
     }
+
+    /// <summary>
+    /// Attaching a place, and detaching it again.
+    /// <para>
+    /// One row and one path, which is the whole of the model: what is attached is a
+    /// folder or an archive, so the row says which and what it is called. The ✕ and
+    /// an emptied field are the same gesture, because an unset field carries no
+    /// token rather than an empty one.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_folder_can_be_attached_to_an_entry_and_taken_off_again()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Review the panel\n`task`\n");
+
+        var pane = host.Render();
+
+        // Nothing attached: the row says what it would do rather than what it is.
+        Assert.Contains(
+            "Attach a folder or zip",
+            pane.Find("[data-testid='entry-action-files-set']").TextContent,
+            StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='entry-action-files-clear']"));
+
+        await pane.Find("[data-testid='entry-action-files-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-files-input']")
+            .ChangeAsync(new() { Value = "D:/reviews/panel-review" });
+
+        Assert.Contains("`files:D:/reviews/panel-review`", row.RawText, StringComparison.Ordinal);
+
+        // The row names the place rather than reciting the path to it, and calls it
+        // what it is.
+        var set = pane.Find("[data-testid='entry-action-files-set']").TextContent;
+        Assert.Contains("Folder", set, StringComparison.Ordinal);
+        Assert.Contains("panel-review", set, StringComparison.Ordinal);
+
+        await pane.Find("[data-testid='entry-action-files-clear']").ClickAsync(new());
+
+        Assert.DoesNotContain("files:", row.RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>A zip is an archive and reads as one, because "Folder" over a file
+    /// is a word the row would be keeping untrue.</summary>
+    [Fact]
+    public async Task A_zip_reads_as_an_archive_rather_than_as_a_folder()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Review the panel\n`task` `files:D:/reviews/panel.zip`\n");
+
+        var pane = host.Render();
+        var set = pane.Find("[data-testid='entry-action-files-set']").TextContent;
+
+        Assert.Contains("Archive", set, StringComparison.Ordinal);
+        Assert.Contains("panel.zip", set, StringComparison.Ordinal);
+        Assert.DoesNotContain("Folder", set, StringComparison.Ordinal);
+    }
+
+    // --- Where the status is -----------------------------------------------
+
+    /// <summary>
+    /// The status is on the panel's heading line and on the row in the list, and
+    /// it is the same fact in the same shape in both places.
+    /// <para>
+    /// It used to be a badge in the classification strip below the heading, which
+    /// made a reader who opened a row look for it in a second place — and it is the
+    /// one thing in that strip that is a state rather than something the entry is
+    /// filed under. The row had no status at all, so the column could not be
+    /// scanned for what was in progress without opening entries one at a time.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_status_reads_on_the_heading_line_and_on_the_row()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Ship it\n`task` `!in-progress`\n");
+
+        var pane = host.Render();
+
+        // On the heading line, as the panel's status slot rather than in Filing.
+        var header = pane.Find("[data-testid='entry-panel'] .task-panel__header");
+        Assert.NotNull(header.QuerySelector("[data-testid='status-badge']"));
+        Assert.Null(pane.Find(".task-panel__filing").QuerySelector("[data-testid='status-badge']"));
+
+        // And on the row, as the badge the shared list draws.
+        var badge = pane.Find($"[data-testid='{RowTestId(row)}-status']");
+        Assert.Contains("task-item__status", badge.ClassList);
+        Assert.Equal("in progress", badge.TextContent);
+
+        // Still editable from the heading line, and the write still goes to the text.
+        await pane.Find("[data-testid='status-badge'] select").ChangeAsync(new() { Value = nameof(EntryStatus.Ready) });
+
+        Assert.Contains("`!ready`", row.RawText, StringComparison.Ordinal);
+        Assert.Equal("ready", pane.Find($"[data-testid='{RowTestId(row)}-status']").TextContent);
+    }
+
+    /// <summary>The detail pane's groups carry no visible caption — the layout does
+    /// that work — but each one is still named for a reader who cannot see the
+    /// layout.</summary>
+    [Fact]
+    public async Task The_action_groups_are_named_without_drawing_a_caption()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Ship it\n`task`\n");
+
+        var pane = host.Render();
+
+        foreach (var testId in new[] { "entry-schedule-scheduling", "entry-schedule-ranking", "entry-schedule-attachments" })
+        {
+            var group = pane.Find($"[data-testid='{testId}']");
+            var caption = group.QuerySelector(".task-action-group__caption");
+
+            Assert.NotNull(caption);
+            Assert.Contains("sr-only", caption!.ClassList);
+            Assert.Equal(caption.Id, group.GetAttribute("aria-labelledby"));
+            Assert.False(string.IsNullOrWhiteSpace(caption.TextContent));
+        }
+    }
 }

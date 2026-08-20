@@ -34,6 +34,28 @@
     prose, and a word over it would be a word to keep true: "Steps" over a body
     that turned out to be a paragraph is worse than nothing over either.
 
+    Two of those slots are for the parts a panel in a real product has and a
+    storybook one does not. Filing is the line of badges and pickers that says what
+    kind of thing this is and where it is filed — beside the tags, because they
+    are the same question asked twice. Footer is what acts on the whole task
+    rather than on one field of it: closing it, deleting it, showing its source.
+    Both are drawn only when something is passed, like everything else here, so a
+    panel that has neither is the panel this component started as.
+
+    Footer is last for the reason the body is second to last: what acts on the
+    whole task should not sit between the reader and the part of it they are
+    writing. Filing is above the details rather than below the heading, because a
+    reader who wanted the title got it in the first line, and one who wanted the
+    filing wants the tags with it.
+
+    The panel can be tabbed into and out of, which is not a decoration: a panel is
+    beside a list, and reading order puts it after the whole of that list. A host
+    that hands the keyboard over on Tab needs somewhere to hand it to, so the panel
+    names its first control and offers a way back off the front of it — the same
+    pair TaskItem carries, for the same reason. The ids are minted here rather than
+    handed in, because unlike a row the panel is one instance the host already
+    holds.
+
     Tags are the exception to the slots, and only just: the panel draws the chips
     because TagChip is what a tag looks like everywhere in the product and a slot
     here would be an invitation to draw a second kind. Which affordances those
@@ -58,10 +80,12 @@
         {
             <button type="button"
                     class="task-panel__check"
+                    id="@_checkId"
                     role="checkbox"
                     aria-checked="@(Done ? "true" : "false")"
                     aria-label="@Title"
                     data-testid="@Suffix("check")"
+                    @onkeydown="e => OnLeadingKeyAsync(e, leading: true)"
                     @onclick="() => OnToggle.InvokeAsync()">
                 @if (Done)
                 {
@@ -106,6 +130,7 @@
                         class="task-panel__title-button"
                         id="@_titleButtonId"
                         data-testid="@Suffix("title")"
+                        @onkeydown="e => OnLeadingKeyAsync(e, leading: !CanToggle)"
                         @onclick="StartRenameAsync">@Title</button>
             }
             else
@@ -115,8 +140,20 @@
         </h2>
 
         @* Beside the title rather than under it: a status is what the title is
-           currently doing, and a reader who wants both wants them in one look. *@
-        @if (!string.IsNullOrWhiteSpace(Status))
+           currently doing, and a reader who wants both wants them in one look.
+
+           A slot when the host has a control, a badge when it has a word. A
+           product whose status can be changed from here has a picker, not a
+           label, and the alternative was the host putting that picker somewhere
+           else on the panel — which would move the fact off the line the reader
+           just read it on in the list. *@
+        @if (StatusContent is not null)
+        {
+            <div class="task-panel__status" data-testid="@Suffix("status")">
+                @StatusContent
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(Status))
         {
             <StatusBadge Status="@Status" CssClass="task-panel__status" TestId="@Suffix("status")" />
         }
@@ -135,6 +172,17 @@
         </div>
     }
 
+    @* Beside the tags rather than under the heading: "what kind of thing is this
+       and where is it filed" is the same question the chips answer, and a badge
+       strip separated from the tags by a pane of settings would be two answers
+       with the rows for something else in between. *@
+    @if (Filing is not null)
+    {
+        <div class="task-panel__filing" data-testid="@Suffix("filing")">
+            @Filing
+        </div>
+    }
+
     @if (Details is not null)
     {
         <div class="task-panel__details" data-testid="@Suffix("details")">
@@ -146,6 +194,15 @@
     {
         <div class="task-panel__body" data-testid="@Suffix("body")">
             @Body
+        </div>
+    }
+
+    @* After the body, because what acts on the whole task must not stand between
+       the reader and the part of it they came to write. *@
+    @if (Footer is not null)
+    {
+        <div class="task-panel__footer" data-testid="@Suffix("footer")">
+            @Footer
         </div>
     }
 </aside>
@@ -179,9 +236,28 @@
 
     /// <summary>Where it has got to, as the word to show — "Ready", "In
     /// progress". Already said: what a status is called, and in what language,
-    /// belongs to the host, exactly as a due date does.</summary>
+    /// belongs to the host, exactly as a due date does.
+    /// <para>
+    /// Ignored when <see cref="StatusContent"/> is given: two statuses on one
+    /// heading line is a question about which of them is the real one.
+    /// </para></summary>
     [Parameter]
     public string? Status { get; set; }
+
+    /// <summary>
+    /// The status as a control rather than a word, for a product where it can be
+    /// changed from here.
+    /// <para>
+    /// A slot and not a list of options, for the reason <see cref="Filing"/> is one:
+    /// which statuses exist, what they are called and which moves between them are
+    /// legal are all the host's answers. What the panel decides is only that the
+    /// status belongs on the heading line — so a reader who opened a row from a list
+    /// finds the fact where they just read it, rather than further down the panel
+    /// among the things it is filed under.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? StatusContent { get; set; }
 
     /// <summary>What it is filed under. Left off entirely when there is nothing
     /// — an empty tag strip is a row of blank space where the reader learns
@@ -200,6 +276,21 @@
     [Parameter]
     public EventCallback<string> OnTagRemoved { get; set; }
 
+    /// <summary>
+    /// What kind of thing it is and where it is filed — the badges, selectors and
+    /// links a product puts on a task.
+    /// <para>
+    /// A slot rather than parameters, because every one of those is the host's
+    /// vocabulary: which statuses there are, whether a task belongs to a
+    /// repository, what an issue link looks like. A panel that took a status
+    /// <em>list</em> would be a panel that had answered a question this library
+    /// does not get to answer — which is why <see cref="Status"/> is one already
+    /// formatted word and not a picker.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Filing { get; set; }
+
     /// <summary>The rows you set things on — <see cref="TaskActionPane"/> in
     /// practice.</summary>
     [Parameter]
@@ -211,12 +302,47 @@
     [Parameter]
     public RenderFragment? Body { get; set; }
 
+    /// <summary>
+    /// What acts on the whole task rather than on one field of it — close it,
+    /// delete it, show where it is stored.
+    /// <para>
+    /// Last, and that is the whole of what this slot decides. These controls have
+    /// to be somewhere, and every other place puts them between the reader and the
+    /// body: above it they push the part with no natural height further down on
+    /// every task, and beside the heading they sit next to the one control that
+    /// looks like them and does the opposite.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Footer { get; set; }
+
+    /// <summary>
+    /// The reader tabbed backward off the front of the panel: the way back out of
+    /// a panel a host tabbed them into.
+    /// <para>
+    /// Raised from the panel's <em>first</em> control only — the circle when there
+    /// is one, the title when there is not. Raising it from the title as well would
+    /// put the circle behind a Shift+Tab that no longer goes there, which is the
+    /// same bargain <see cref="TaskItem.OnTabBackward"/> refuses for a row.
+    /// </para>
+    /// <para>
+    /// Nothing is prevented, for the reason a row gives: Blazor resolves
+    /// <c>preventDefault</c> when the component renders rather than when the key
+    /// arrives, so suppressing Shift+Tab here would suppress Tab and Enter with it.
+    /// The browser's own move still happens, and the focus a host sets afterwards
+    /// is the one that lasts.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnTabBackward { get; set; }
+
     [Parameter]
     public string? CssClass { get; set; }
 
     [Parameter]
     public string? TestId { get; set; }
 
+    private readonly string _checkId = "task-panel-check-" + Guid.NewGuid().ToString("N");
     private readonly string _titleId = "task-panel-title-" + Guid.NewGuid().ToString("N");
     private readonly string _titleButtonId = "task-panel-title-button-" + Guid.NewGuid().ToString("N");
     private readonly string _renameId = "task-panel-rename-" + Guid.NewGuid().ToString("N");
@@ -240,6 +366,32 @@
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    /// <summary>Where <see cref="FocusFirstAsync"/> aims and which element raises
+    /// <see cref="OnTabBackward"/>: the circle when the panel has one, the title
+    /// when it does not. Null on a panel that is only a heading, in which case
+    /// there is nothing here to focus.</summary>
+    private string? FirstControlId => CanToggle ? _checkId : CanRename ? _titleButtonId : null;
+
+    /// <summary>
+    /// Puts the focus on the first control in the panel.
+    /// <para>
+    /// The counterpart to <see cref="OnTabBackward"/>. A host that hands the
+    /// keyboard over to the panel — because reading order puts it after the whole
+    /// list it is beside — needs somewhere to hand it to, and which control that is
+    /// today is exactly what it should not have to know.
+    /// </para>
+    /// </summary>
+    public Task FocusFirstAsync() =>
+        FirstControlId is { } id ? QuickEditField.FocusAsync(Js, id, select: false) : Task.CompletedTask;
+
+    /// <summary>Shift+Tab off the front of the panel, from the one control that is
+    /// the front of it. <paramref name="leading"/> is false on the title whenever
+    /// there is a circle before it, so the circle stays reachable.</summary>
+    private async Task OnLeadingKeyAsync(KeyboardEventArgs e, bool leading)
+    {
+        if (leading && e.Key is "Tab" && e.ShiftKey) await OnTabBackward.InvokeAsync();
+    }
 
     /// <summary>The chip's click, carrying the tag it was on. Default when
     /// nobody is listening, so TagChip renders the label as text rather than as

@@ -9,23 +9,40 @@
     a column is a subject, so the reader picks the subject and then the row
     instead of scanning every row for the one they wanted.
 
-    The caption is a paragraph rather than a heading, and the group is named by
-    it through aria-labelledby. A heading would have to guess its own level — a
-    panel does not know how deep in a page it is, and a group that guessed wrong
-    would put a hole in the document outline for the sake of two words. Naming
-    the group from the caption rather than repeating it in aria-label keeps it one
-    string: the same words twice is the same words twice to a screen reader.
+    The caption is not drawn, and the label is still required.
+
+    Those two facts are one decision. On screen the grouping is already doing the
+    work: the rows of a group sit together, the group never breaks across the
+    column gap, and there is a gap between one group and the next — so a reader
+    can see which rows belong together without a word over them. Three or four
+    captions in a pane of eight short rows spends a line each on saying what the
+    spacing has already said, and they were the loudest text in the pane while
+    naming the least interesting thing in it.
+
+    What a caption is genuinely for is the reader who cannot see the layout. A
+    screen reader gets no grouping from proximity, so the group is still named,
+    still by this string, and still through aria-labelledby rather than a repeated
+    aria-label — the same words twice is the same words twice to a screen reader.
+    That is why the parameter stays required: a group with no name is a group only
+    half the audience can perceive.
+
+    A paragraph rather than a heading, for when it is read: a heading would have to
+    guess its own level, and a panel does not know how deep in a page it is.
 *@
 
 <div class="@ClassValue" role="group" aria-labelledby="@_captionId" data-testid="@TestId">
-    <p class="task-action-group__caption" id="@_captionId">@Label</p>
+    <p class="task-action-group__caption sr-only" id="@_captionId">@Label</p>
     @ChildContent
 </div>
 
 @code {
     /// <summary>What the rows in it have in common — "Scheduling", "Ranking".
-    /// One word where one will do: this is a caption over three short rows, not
-    /// a section heading.</summary>
+    /// One word where one will do.
+    /// <para>
+    /// Required although it is not drawn. On screen the grouping is carried by the
+    /// layout; this is the group's accessible name, which is the only grouping a
+    /// reader who cannot see that layout gets.
+    /// </para></summary>
     [Parameter, EditorRequired]
     public string Label { get; set; } = string.Empty;
 

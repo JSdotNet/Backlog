@@ -416,39 +416,61 @@ h1, h2, h3 {
     container-name: backlog-list;
 }
 
+/*
+  The scroller, and only the scroller. The box the reader sees — the border, the
+  radius, the padding, the raised background — belongs to TaskPanel now, which is
+  what adopting it means: two boxes, one inside the other, would be a panel drawn
+  twice at slightly different radii. What is left here is the half of the split
+  the panel lives in and the fact that it scrolls.
+*/
 .entry-detail {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-background-alt);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
 }
 
-/* The entry wearing the same row the list wears. A list of one, so it gets no
-   gap of its own and reads as the pane's heading rather than as a list. */
+/* Only ever one panel in the scroller, and it takes the height it needs rather
+   than the height it is given: a short entry should not stretch its own box down
+   an empty column. */
+.entry-detail__panel {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
 /*
-  One row, for the entry this panel is about. Not the library's task-list class:
-  a list wearing that is a second TaskListView as far as the adoption rule is
-  concerned, and this is a container for exactly one row rather than a list of
-  them. TaskItem renders an li, so it still needs a list element around it, and
-  the reset it used to inherit lives here instead.
+  The classification strip stacks rather than running along one line, because two
+  of the things in it are sentences: the errors a hand-over comes back with. A
+  flex row would put "could not reach GitHub" beside a status picker and wrap it
+  mid-sentence. The badges themselves keep their own line — entry-doc__meta is
+  still a row — and the alerts sit above it, each on its own.
 */
-.entry-detail__row {
-    display: grid;
+.entry-detail__panel .task-panel__filing {
+    flex-direction: column;
+    align-items: stretch;
     gap: var(--spacing-xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
 }
 
-.entry-detail__row .task-item__title {
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-lg);
+/*
+  And inside it, everything reads left to right.
+
+  The strip used to split in two — classification pushed left, tags and links
+  pushed right — which is the shape it wants at the width the whole pane once
+  had. In a panel it has about 22rem, so the two halves wrap, and a wrapped line
+  that is still pushing right lands one badge on its own against the far edge
+  with a hole beside it. Left is where a reader starts, and a strip that wraps
+  wants every line starting in the same place.
+*/
+.entry-detail__panel .entry-doc__meta-end {
+    margin-left: 0;
+    justify-content: flex-start;
+}
+
+.entry-detail__panel .entry-doc__tags--end {
+    margin-right: 0;
+    justify-content: flex-start;
+    text-align: left;
 }
 
 .entry-detail__step-input {
@@ -765,15 +787,14 @@ h1, h2, h3 {
 
 /* --- Scheduling and dependency rows -------------------------------------- */
 
-/* A column, because that is the shape TaskAction is: one row per fact, each
-   saying either what it is set to or what it would do. The rows are already
-   styled by components.css; what is left here is where the block sits and how
-   far it is allowed to grow. */
+/* TaskActionPane lays the rows out now — one lead row across the top and the
+   rest in balanced, captioned columns — so the column and the gap that used to be
+   here have gone with it. What is left is the one thing the pane cannot know: how
+   wide this panel lets it get. No cap any more, because the pane's own column
+   width is what decides whether there are two columns or one, and a 24rem ceiling
+   would have held it to one in a panel the reader had dragged wider. */
 .entry-doc__schedule {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2xs);
-    max-width: 24rem;
+    min-width: 0;
 }
 
 .entry-doc__schedule-input,
@@ -869,56 +890,58 @@ h1, h2, h3 {
 
 /* --- Tags -------------------------------------------------------------- */
 
+/*
+  Chips and a field to type the next one into, which is TagMultiSelect wearing the
+  size this strip can spare rather than a picker of its own. The component draws
+  the chips, the popup and the whole keyboard route; what is decided here is only
+  that it belongs on a line of badges.
+
+  Which means it has to read as one. The picker's own dress is a form field — a
+  filled box with a border, sized for a form — and a form field standing among
+  eight badges is the loudest thing on the line for the one fact nobody came to
+  look at first. So the box goes: transparent until it is hovered or typed in,
+  which is the affordance every other editable badge on this strip has.
+
+  A ceiling and no floor. It is as wide as the tags on the entry until it reaches
+  the ceiling and then it wraps its own chips — an untagged entry should not
+  reserve a hole in the line for tags nobody has written.
+*/
 .entry-doc__tag-picker {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 6.5rem;
-    max-width: 13rem;
-    height: 1.5rem;
-    border: var(--border-width) solid transparent;
+    min-width: 0;
+    max-width: 16rem;
+}
+
+.entry-doc__tag-picker .tag-select__control {
+    min-height: 1.5rem;
+    padding: 0 var(--spacing-2xs);
+    border-color: transparent;
     border-radius: var(--border-radius-sm);
     background: transparent;
-    color: var(--color-primary);
-    font: inherit;
-    font-size: var(--font-size-xs);
+    gap: var(--spacing-2xs);
 }
 
-.entry-doc__tag-input {
-    width: 100%;
-    min-width: 0;
-    height: 100%;
-    padding: 0 var(--spacing-xs);
-    border: none;
-    background: transparent;
-    color: var(--color-primary);
-    font: inherit;
-    font-size: var(--font-size-xs);
-    text-align: center;
-    text-overflow: ellipsis;
-    cursor: text;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-}
-
-.entry-doc__tag-input::placeholder {
-    color: var(--color-text-disabled);
-}
-
-.entry-doc__tag-input::-webkit-calendar-picker-indicator {
-    display: none !important;
-}
-
-.entry-doc__tag-picker:hover,
-.entry-doc__tag-picker:focus-within {
+.entry-doc__tag-picker:hover .tag-select__control,
+.entry-doc__tag-picker .tag-select__control:focus-within {
     border-color: var(--color-border);
     background: var(--color-background-raised);
 }
 
-.entry-doc__tag-input:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 1px;
+/* Narrow enough to leave room for a chip or two beside it, and quiet enough that
+   an empty picker reads as "no tags" rather than as an empty field. */
+.entry-doc__tag-picker .tag-select__input {
+    flex: 1 1 4rem;
+    min-width: 4rem;
+    padding: 0 var(--spacing-2xs);
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+}
+
+.entry-doc__tag-picker .tag-select__input::placeholder {
+    color: var(--color-text-disabled);
+}
+
+.entry-doc__tag-picker .tag-chip {
+    font-size: var(--font-size-xs);
 }
 
 .knowledge-stack__repository {
