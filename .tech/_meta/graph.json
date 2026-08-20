@@ -1230,6 +1230,9 @@
           "level": 3,
           "line": 49,
           "status": "draft",
+          "feature-flag": [
+            "usage-metrics"
+          ],
           "related": [
             ".domain/productivity/dependencies.md#outbound-dependencies"
           ],

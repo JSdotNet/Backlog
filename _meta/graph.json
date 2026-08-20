@@ -1178,6 +1178,9 @@
           "level": 2,
           "line": 10,
           "status": "draft",
+          "feature-flag": [
+            "backlog"
+          ],
           "related": [
             ".domain/inbox/features.md#feature-routing"
           ]
@@ -1192,7 +1195,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-refinement-and-prioritization",
           "level": 2,
-          "line": 21,
+          "line": 22,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-backlog-entry-creation"
@@ -1208,7 +1211,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-sub-items-and-steps",
           "level": 3,
-          "line": 37,
+          "line": 38,
           "status": "draft"
         }
       },
@@ -1221,7 +1224,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-scheduling-and-recurrence",
           "level": 2,
-          "line": 54,
+          "line": 55,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1240,7 +1243,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-due-dates",
           "level": 3,
-          "line": 78,
+          "line": 79,
           "status": "proposed"
         }
       },
@@ -1253,7 +1256,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-reminders",
           "level": 3,
-          "line": 89,
+          "line": 90,
           "status": "proposed"
         }
       },
@@ -1266,7 +1269,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-recurring-entries",
           "level": 3,
-          "line": 104,
+          "line": 105,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#domain-service-recurrence",
@@ -1283,7 +1286,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-my-day",
           "level": 2,
-          "line": 123,
+          "line": 124,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1302,7 +1305,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-entry-dependencies",
           "level": 2,
-          "line": 142,
+          "line": 143,
           "status": "proposed",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1322,7 +1325,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-readiness-and-chain-order",
           "level": 3,
-          "line": 160,
+          "line": 161,
           "status": "proposed"
         }
       },
@@ -1335,7 +1338,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-multi-repo-targeting",
           "level": 2,
-          "line": 184,
+          "line": 185,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-backlog-entry-creation"
@@ -1354,7 +1357,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-projection",
           "level": 2,
-          "line": 196,
+          "line": 197,
           "status": "draft",
           "depends-on": [
             ".domain/backlog/features.md#feature-multi-repo-targeting"
@@ -1373,8 +1376,11 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-issue-projection-and-state-read-back",
           "level": 3,
-          "line": 208,
+          "line": 209,
           "status": "draft",
+          "feature-flag": [
+            "github-integration"
+          ],
           "related": [
             ".domain/repository-management/features.md#sub-feature-github-access-resolution",
             ".domain/monitoring/features.md#sub-feature-backlog-and-github-progress"
@@ -1390,7 +1396,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-search-filter-and-organize",
           "level": 2,
-          "line": 223,
+          "line": 225,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-bi-directional-linking"
@@ -1406,7 +1412,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-manual-ordering",
           "level": 3,
-          "line": 235,
+          "line": 237,
           "status": "draft"
         }
       },
@@ -1419,7 +1425,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-prompt-features",
           "level": 2,
-          "line": 245,
+          "line": 247,
           "status": "draft"
         }
       },
@@ -1432,8 +1438,11 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-hand-off-to-copilot-cli",
           "level": 3,
-          "line": 254,
+          "line": 256,
           "status": "draft",
+          "feature-flag": [
+            "copilot-cli"
+          ],
           "related": [
             ".domain/productivity/features.md#sub-feature-ai-activity-capture"
           ]
@@ -1448,8 +1457,11 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 266,
+          "line": 269,
           "status": "draft",
+          "feature-flag": [
+            "ai-assistant"
+          ],
           "related": [
             ".domain/second-brain/features.md#feature-repository-knowledge-areas",
             ".domain/productivity/features.md#feature-ai-productivity-tracking"
@@ -1465,7 +1477,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-archive-and-lifecycle",
           "level": 2,
-          "line": 281,
+          "line": 285,
           "status": "draft"
         }
       },
@@ -1478,7 +1490,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-roadmap-planning",
           "level": 2,
-          "line": 290,
+          "line": 294,
           "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"
@@ -1499,7 +1511,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "sub-feature-roadmap-views",
           "level": 3,
-          "line": 320,
+          "line": 324,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline"
@@ -2167,6 +2179,9 @@
           "level": 2,
           "line": 151,
           "status": "draft",
+          "feature-flag": [
+            "feedback-reporting"
+          ],
           "related": [
             ".domain/repository-management/features.md#sub-feature-github-access-resolution"
           ]
@@ -2529,6 +2544,9 @@
           "level": 3,
           "line": 89,
           "status": "draft",
+          "feature-flag": [
+            "system-tools"
+          ],
           "depends-on": [
             ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog"
           ]
@@ -2543,7 +2561,7 @@
           "path": ".domain/dev-pc-management/features.md",
           "slug": "feature-security",
           "level": 2,
-          "line": 103,
+          "line": 104,
           "status": "draft"
         }
       },
@@ -3873,6 +3891,9 @@
           "level": 3,
           "line": 49,
           "status": "draft",
+          "feature-flag": [
+            "usage-metrics"
+          ],
           "related": [
             ".domain/productivity/dependencies.md#outbound-dependencies"
           ]
@@ -3887,7 +3908,7 @@
           "path": ".domain/productivity/features.md",
           "slug": "sub-feature-local-usage-accumulation",
           "level": 3,
-          "line": 63,
+          "line": 64,
           "status": "idea",
           "related": [
             ".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"
@@ -3903,8 +3924,11 @@
           "path": ".domain/productivity/features.md",
           "slug": "feature-personal-productivity-dashboard",
           "level": 2,
-          "line": 87,
+          "line": 88,
           "status": "draft",
+          "feature-flag": [
+            "dashboard"
+          ],
           "related": [
             ".domain/monitoring/features.md#feature-multi-layer-dashboards"
           ]
@@ -4156,6 +4180,9 @@
           "level": 3,
           "line": 20,
           "status": "draft",
+          "feature-flag": [
+            "additional-repositories"
+          ],
           "related": [
             ".domain/backlog/features.md#feature-multi-repo-targeting",
             ".domain/second-brain/features.md#feature-repository-knowledge-areas"
@@ -4171,7 +4198,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "sub-feature-repository-knowledge-folder-settings",
           "level": 3,
-          "line": 35,
+          "line": 36,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-repository-knowledge-areas"
@@ -4187,7 +4214,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-package-and-dependency-tracking",
           "level": 2,
-          "line": 49,
+          "line": 50,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-registration"
@@ -4203,7 +4230,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-technology-stack-inventory",
           "level": 2,
-          "line": 60,
+          "line": 61,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-registration"
@@ -4222,7 +4249,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-github-integration",
           "level": 2,
-          "line": 71,
+          "line": 72,
           "status": "draft"
         }
       },
@@ -4235,7 +4262,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "sub-feature-github-access-resolution",
           "level": 3,
-          "line": 81,
+          "line": 82,
           "status": "draft",
           "related": [
             ".domain/backlog/features.md#feature-projection"
@@ -4251,7 +4278,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-repository-health-scoring",
           "level": 2,
-          "line": 95,
+          "line": 96,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-package-and-dependency-tracking",
@@ -4271,7 +4298,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-technology-trend-analysis",
           "level": 2,
-          "line": 107,
+          "line": 108,
           "status": "draft",
           "related": [
             ".domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking"
@@ -4287,7 +4314,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-bulk-operations",
           "level": 2,
-          "line": 118,
+          "line": 119,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-health-scoring"
@@ -5275,6 +5302,9 @@
           "level": 2,
           "line": 60,
           "status": "draft",
+          "feature-flag": [
+            "repository-knowledge"
+          ],
           "related": [
             ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
             ".domain/backlog/features.md#feature-search-filter-and-organize"
@@ -5290,8 +5320,11 @@
           "path": ".domain/second-brain/features.md",
           "slug": "sub-feature-area-selection-and-scope",
           "level": 3,
-          "line": 75,
-          "status": "draft"
+          "line": 76,
+          "status": "draft",
+          "feature-flag": [
+            "knowledge-sections"
+          ]
         }
       },
       {
@@ -5303,7 +5336,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "sub-feature-rendered-knowledge-documents",
           "level": 3,
-          "line": 87,
+          "line": 89,
           "status": "draft"
         }
       },

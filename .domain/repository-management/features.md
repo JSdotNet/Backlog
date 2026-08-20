@@ -21,6 +21,7 @@ configured folders, and track when each was last scanned.
 
 ```meta
 status: draft
+feature-flag: additional-repositories
 related: [.domain/backlog/features.md#feature-multi-repo-targeting, .domain/second-brain/features.md#feature-repository-knowledge-areas]
 ```
 

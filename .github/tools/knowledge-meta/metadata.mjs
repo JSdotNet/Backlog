@@ -42,7 +42,7 @@ const TECH_KINDS = [
 const COMMON_OPTIONAL_FIELDS = ["related", "issue"];
 const FILE_ONLY_FIELDS = ["order"];
 const FOLDER_EXTRA_FIELDS = {
-    domain: ["depends-on", "aliases"],
+    domain: ["depends-on", "aliases", "feature-flag"],
     arc42: [],
     backlog: ["depends-on", "implements"],
     tech: ["kind", "version", "depends-on", "alternatives"],
@@ -82,6 +82,12 @@ function stripQuotes(value) {
         return value.slice(1, -1);
     }
     return value;
+}
+
+/** Normalize a scalar-or-list metadata value to a list. */
+function toList(value) {
+    if (value === null || value === undefined) return [];
+    return Array.isArray(value) ? value : [value];
 }
 
 /** Parse the body of a fenced ```meta block (without the fences) into an object. */
@@ -240,6 +246,22 @@ export function validateDocument(relPath, markdown) {
                 severity: "error",
                 message: `${label} has kind "${chapter.meta.kind}", expected one of: ${TECH_KINDS.join(", ")}.`,
             });
+        }
+
+        // A feature flag key names an application feature in the consuming
+        // repository, whose constants this tooling cannot see — so the key
+        // itself is deliberately never validated. What is checked is that it is
+        // a key at all: an entry carrying `#` or `/` is a chapter or file
+        // reference pasted into a field that produces no edge.
+        if (kind === "domain" && chapter.meta["feature-flag"] != null) {
+            for (const key of toList(chapter.meta["feature-flag"])) {
+                if (key.includes("#") || key.includes("/")) {
+                    issues.push({
+                        severity: "error",
+                        message: `${label} has \`feature-flag\` entry "${key}" — feature flag keys are application identifiers, not \`<path>#<slug>\` chapter references.`,
+                    });
+                }
+            }
         }
 
         for (const [key, value] of Object.entries(chapter.meta)) {
