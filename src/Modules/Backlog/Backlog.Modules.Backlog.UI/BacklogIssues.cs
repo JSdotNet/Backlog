@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.BacklogManagement;
 public sealed class BacklogIssues(GitHubIntegration gitHub)
 {
     /// <summary>The issue an entry was already pushed to, or null.</summary>
-    public static GitHubIssueLink? FindLink(BacklogEntryDto entry)
+    public static GitHubIssueLink? FindLink(TaskItemDto entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
 
@@ -37,7 +37,7 @@ public sealed class BacklogIssues(GitHubIntegration gitHub)
     /// <summary>Files the issue for an entry and hands back the link. Recording
     /// it on the entry is the module's job — nothing here can change one.</summary>
     public Task<GitHubIssueLink> PushAsync(
-        BacklogEntryDto entry,
+        TaskItemDto entry,
         GitHubRepositoryRef repository,
         CancellationToken cancellationToken = default)
     {
@@ -54,7 +54,7 @@ public sealed class BacklogIssues(GitHubIntegration gitHub)
     // A sub-item used to have a push of its own here, filing the chapter as a
     // separate issue. It has gone, and not as tidying: `.domain/backlog/domain.md`
     // says a Sub-Item "may project to GitHub issue task-list checkboxes" — inside
-    // the entry's issue — and ProjectionRef is owned by BacklogEntry, never by
+    // the entry's issue — and ProjectionRef is owned by TaskItem, never by
     // SubItem. There was never a model for a step that is its own issue, so the
     // link the push handed back had nowhere on a step to be recorded and the same
     // step could be filed again and again with nothing noticing.

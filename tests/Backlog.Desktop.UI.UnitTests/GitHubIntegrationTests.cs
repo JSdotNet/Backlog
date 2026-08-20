@@ -438,7 +438,7 @@ public sealed class GitHubLinkTests
         Assert.Null(BacklogIssues.FindLink(entry));
     }
 
-    private static BacklogEntryDto Entry(params EntryProjectionDto[] projections) => new(
+    private static TaskItemDto Entry(params EntryProjectionDto[] projections) => new(
         Guid.NewGuid(),
         "Add GitHub support",
         string.Empty,

@@ -47,17 +47,16 @@ public sealed class BacklogDesktopState : IDisposable
     private const int DebounceMilliseconds = 750;
 
     private readonly IBacklogStore _store;
-    private readonly IBacklogEntries _entryUseCases;
+    private readonly ITaskItems _entryUseCases;
     private readonly GitHubIntegration _gitHub;
     private readonly BacklogIssues _issues;
     private readonly BacklogCopilotCli _copilot;
-    private readonly RepositoryBacklogSource? _repositoryBacklog;
 
     /// <summary>The last saved state of each persisted row, as the module
     /// describes it. Held so a badge or a GitHub link can be read without
     /// re-parsing text — never to change an entry, which only ever happens by
-    /// saving its text through <see cref="IBacklogEntries"/>.</summary>
-    private readonly Dictionary<Guid, BacklogEntryDto> _entries = new();
+    /// saving its text through <see cref="ITaskItems"/>.</summary>
+    private readonly Dictionary<Guid, TaskItemDto> _entries = new();
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
 
     /// <summary>How many sub-items <see cref="EditingRow"/> had when its editor
@@ -71,27 +70,16 @@ public sealed class BacklogDesktopState : IDisposable
 
     public BacklogDesktopState(
         IBacklogStore store,
-        IBacklogEntries entryUseCases,
+        ITaskItems entryUseCases,
         GitHubIntegration gitHub,
-        BacklogCopilotCli? copilot = null,
-        RepositoryBacklogSource? repositoryBacklog = null)
+        BacklogCopilotCli? copilot = null)
     {
         _store = store;
         _entryUseCases = entryUseCases;
         _gitHub = gitHub;
         _issues = new BacklogIssues(gitHub);
         _copilot = copilot ?? BacklogCopilotCli.Unavailable;
-        _repositoryBacklog = repositoryBacklog;
         _store.RootChanged += OnRootChanged;
-
-        // Repository-authored rows come from a configured repository's .backlog
-        // folder, so what invalidates them is a repository settings change. The
-        // storage root moving is the other half and is already OnRootChanged,
-        // which reloads everything rather than only these rows.
-        if (_repositoryBacklog is not null)
-        {
-            _gitHub.Settings.Changed += OnRepositoryKnowledgeChanged;
-        }
     }
 
     /// <summary>Raised whenever rows or save state change from a background
@@ -435,8 +423,7 @@ public sealed class BacklogDesktopState : IDisposable
 
         // An entry someone opened and left untouched was never an entry. Drop
         // it rather than leaving an "Untitled" husk in the list.
-        // Repository-origin rows are always retained — they come from a file.
-        if (!row.IsPersisted && row.Origin is null && row.IsUntouched)
+        if (!row.IsPersisted && row.IsUntouched)
         {
             Rows.Remove(row);
             ApplyFilter();
@@ -449,10 +436,7 @@ public sealed class BacklogDesktopState : IDisposable
         // keystroke, so the caret never jumps mid-word.
         row.RawText = EnsureTitleHeading(row.RawText);
 
-        if (row.Origin is { } origin)
-            await SaveRepositoryRowAsync(row, origin);
-        else
-            await SaveRowAsync(row, isFlush: true);
+        await SaveRowAsync(row, isFlush: true);
 
         // What was just typed can change which area an entry belongs to, so the
         // area chips are rebuilt against the text as it now stands.
@@ -506,28 +490,7 @@ public sealed class BacklogDesktopState : IDisposable
             return;
         }
 
-        var removedIndex = Rows.IndexOf(row);
         Rows.Remove(row);
-
-        if (row.Origin is { } origin)
-        {
-            SetSaveState(AppSaveState.Saving);
-            try
-            {
-                RepositoryBacklogWriter.DeleteSegment(origin.FilePath, origin.SegmentIndex);
-                ReloadRepositoryFileRows(origin, row.PreviewArea, removedIndex);
-                SetSaveState(AppSaveState.Saved);
-            }
-            catch
-            {
-                Rows.Insert(Math.Max(removedIndex, 0), row);
-                SetSaveState(AppSaveState.Error);
-            }
-
-            ApplyFilter();
-            Changed?.Invoke();
-            return;
-        }
 
         await NormalizeOrderAsync();
         ApplyFilter();
@@ -589,10 +552,7 @@ public sealed class BacklogDesktopState : IDisposable
         CancelDebounce(row);
         row.RawText = rewritten;
 
-        if (row.Origin is { } origin)
-            await SaveRepositoryRowAsync(row, origin);
-        else
-            await SaveRowAsync(row, isFlush: true);
+        await SaveRowAsync(row, isFlush: true);
 
         ApplyFilter();
         Changed?.Invoke();
@@ -631,10 +591,7 @@ public sealed class BacklogDesktopState : IDisposable
         CancelDebounce(row);
         row.RawText = rewritten;
 
-        if (row.Origin is { } origin)
-            await SaveRepositoryRowAsync(row, origin);
-        else
-            await SaveRowAsync(row, isFlush: true);
+        await SaveRowAsync(row, isFlush: true);
 
         ApplyFilter();
         Changed?.Invoke();
@@ -722,7 +679,7 @@ public sealed class BacklogDesktopState : IDisposable
 
     // No per-sub-item type, priority, status or tag edits. A sub-item carries a
     // title, a status, notes and an order and nothing else, and the four
-    // rewrites that used to live here wrote tokens that EntryTextSync then
+    // rewrites that used to live here wrote tokens that TaskTextSync then
     // discarded on the next save — the UI was editing values the domain had no
     // room for. Sub-item completion is still expressible, through the checkbox
     // and ToggleSubItemAsync above.
@@ -813,14 +770,7 @@ public sealed class BacklogDesktopState : IDisposable
         CancelDebounce(row);
         row.RawText = rewritten;
 
-        if (row.Origin is { } origin)
-        {
-            await SaveRepositoryRowAsync(row, origin);
-        }
-        else
-        {
-            await SaveRowAsync(row, isFlush: true);
-        }
+        await SaveRowAsync(row, isFlush: true);
 
         ApplyFilter();
         Changed?.Invoke();
@@ -857,10 +807,7 @@ public sealed class BacklogDesktopState : IDisposable
 
         // A re-rank is a finished gesture, not a keystroke: save it now rather
         // than on a debounce that a drag never generates.
-        if (row.Origin is { } origin)
-            await SaveRepositoryRowAsync(row, origin);
-        else
-            await SaveRowAsync(row, isFlush: true);
+        await SaveRowAsync(row, isFlush: true);
 
         ApplyFilter();
         Changed?.Invoke();
@@ -869,11 +816,6 @@ public sealed class BacklogDesktopState : IDisposable
     public void Dispose()
     {
         _store.RootChanged -= OnRootChanged;
-
-        if (_repositoryBacklog is not null)
-        {
-            _gitHub.Settings.Changed -= OnRepositoryKnowledgeChanged;
-        }
 
         foreach (var timer in _debounceTimers.Values)
         {
@@ -956,7 +898,7 @@ public sealed class BacklogDesktopState : IDisposable
 
     // PushSubItemToGitHubAsync used to sit here, filing one step as an issue of its
     // own. It is gone with the two buttons that reached it, and deliberately this
-    // time: `.domain/backlog/domain.md` gives ProjectionRef to BacklogEntry and says
+    // time: `.domain/backlog/domain.md` gives ProjectionRef to TaskItem and says
     // a Sub-Item "may project to GitHub issue task-list checkboxes" — checkboxes
     // inside the entry's issue. A step that was its own issue had nowhere to record
     // the link, so nothing could tell that it had already been pushed. The method
@@ -1075,10 +1017,7 @@ public sealed class BacklogDesktopState : IDisposable
     {
         _debounceTimers.Remove(row.Key);
 
-        if (row.Origin is { } origin)
-            await SaveRepositoryRowAsync(row, origin);
-        else
-            await SaveRowAsync(row, isFlush: false);
+        await SaveRowAsync(row, isFlush: false);
 
         Changed?.Invoke();
     }
@@ -1089,32 +1028,6 @@ public sealed class BacklogDesktopState : IDisposable
         {
             timer.Dispose();
         }
-    }
-
-    /// <summary>
-    /// Writes a repository-authored row back to its source <c>.backlog</c> file,
-    /// translating backlog sigils to knowledge meta vocabulary and preserving
-    /// non-status meta fields. Errors are surfaced through the save-state
-    /// indicator.</summary>
-    private Task SaveRepositoryRowAsync(EntryRow row, RepositoryBacklogOrigin origin)
-    {
-        SetSaveState(AppSaveState.Saving);
-        try
-        {
-            RepositoryBacklogWriter.SaveRowToSource(origin, row.RawText);
-            SetSaveState(AppSaveState.Saved);
-            FlashSaved(row);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or FileNotFoundException)
-        {
-            SetSaveState(AppSaveState.Error);
-        }
-        catch (Exception)
-        {
-            SetSaveState(AppSaveState.Error);
-        }
-
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -1163,7 +1076,7 @@ public sealed class BacklogDesktopState : IDisposable
     {
         SetSaveState(AppSaveState.Saving);
 
-        Result<SavedEntryDto> saved;
+        Result<SavedTaskDto> saved;
         try
         {
             saved = await _entryUseCases.SaveFromTextAsync(row.Id, text, Math.Max(Rows.IndexOf(row), 0));
@@ -1250,7 +1163,7 @@ public sealed class BacklogDesktopState : IDisposable
         SaveState = state;
     }
 
-    private static void RefreshRowFromEntry(EntryRow row, BacklogEntryDto entry, bool rewriteText)
+    private static void RefreshRowFromEntry(EntryRow row, TaskItemDto entry, bool rewriteText)
     {
         row.Type = entry.Type;
         row.Priority = entry.Priority;
@@ -1288,67 +1201,8 @@ public sealed class BacklogDesktopState : IDisposable
             rows.Add(row);
         }
 
-        rows.AddRange(LoadRepositoryRows());
-
         Rows = rows;
         ApplyFilter();
-    }
-
-    /// <summary>Entries the configured repositories authored in their own
-    /// <c>.backlog</c> folders. They are filed under the repository's alias so
-    /// the global repository scope can keep them with matching local entries.</summary>
-    private List<EntryRow> LoadRepositoryRows()
-    {
-        if (_repositoryBacklog is null) return [];
-
-        var rows = new List<EntryRow>();
-
-        foreach (var repository in _gitHub.Repositories)
-        {
-            foreach (var document in _repositoryBacklog.Load(repository.Alias))
-            {
-                rows.Add(MapRepositoryRow(document));
-            }
-        }
-
-        return rows;
-    }
-
-    private void ReloadRepositoryFileRows(RepositoryBacklogOrigin origin, string? repositoryAlias, int insertAt)
-    {
-        if (_repositoryBacklog is null || string.IsNullOrWhiteSpace(repositoryAlias)) return;
-
-        Rows.RemoveAll(row => string.Equals(row.Origin?.FilePath, origin.FilePath, StringComparison.OrdinalIgnoreCase));
-
-        var reloaded = _repositoryBacklog.Load(repositoryAlias)
-            .Where(document => string.Equals(document.FilePath, origin.FilePath, StringComparison.OrdinalIgnoreCase))
-            .Select(MapRepositoryRow)
-            .ToList();
-
-        var normalizedInsertAt = insertAt < 0 ? Rows.Count : Math.Min(insertAt, Rows.Count);
-        Rows.InsertRange(normalizedInsertAt, reloaded);
-    }
-
-    private static EntryRow MapRepositoryRow(RepositoryBacklogDocument document) =>
-        new()
-        {
-            RawText = document.RawText,
-            Area = document.Area,
-            Status = document.Status ?? EntryStatus.Draft,
-            Origin = new RepositoryBacklogOrigin(
-                document.RepositoryFullName,
-                document.RelativePath,
-                document.FilePath,
-                document.SegmentIndex)
-        };
-
-    /// <summary>A repository was added, pointed somewhere else, or had its
-    /// knowledge folders turned on or off — which repository entries exist is
-    /// now a different answer.</summary>
-    private async void OnRepositoryKnowledgeChanged()
-    {
-        await ReloadRowsAsync();
-        Changed?.Invoke();
     }
 
     private void ApplyFilter()
@@ -1520,13 +1374,9 @@ public sealed class EntryRow
 
     public bool IsPersisted => Id.HasValue;
 
-    /// <summary>Where this row came from when the local store did not write it —
-    /// a repository's committed <c>.backlog</c> file.</summary>
-    public RepositoryBacklogOrigin? Origin { get; set; }
-
-    /// <summary>True for rows the app only reads. Local and repository-authored
-    /// entries are both editable; this property is reserved for future sources
-    /// that truly cannot be written back.</summary>
+    /// <summary>True for rows the app only reads. Every task is editable today;
+    /// this property is reserved for future sources that truly cannot be written
+    /// back.</summary>
     public bool IsReadOnly => false;
 
     /// <summary>True briefly after a successful save, driving the inline

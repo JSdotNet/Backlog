@@ -14,8 +14,11 @@ status: active
 related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".arc42/06-runtime-view.md#copilot-app-session-capture", ".domain/capture/domain.md#domain-service-source-adapter"]
 ```
 
-- **Local-first, markdown canonical** — the desktop's markdown files are the single
-  source of truth; JSON files hold derived indexes, metadata, and relationships.
+- **Local-first, one canonical local store** — the desktop's own store is the single
+  source of truth. Tasks live in one SQLite database (`backlog.db`) under the
+  workspace root, with a task's content held as markdown text; JSON files hold the
+  workspace settings and feature flags. Markdown is the content of a task, not the
+  storage format. See `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
 - **Configurable repo paths** via a repo registry (`config/repos.json`).
 - **Scope-portable dot-folder contract** — `.inbox/`, `.backlog/`, `.brain/` exist at
   workspace, repo, and project levels; shared tags/relationships live in the
@@ -99,7 +102,7 @@ follows the organization's OpenTelemetry guidance.
 
 ```meta
 status: active
-related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#aggregate-inbox-item", ".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/second-brain/domain.md#aggregate-knowledge-note", ".domain/monitoring/domain.md#aggregate-progress-signal", ".domain/dev-pc-management/domain.md#aggregate-machine-registry", ".domain/repository-management/domain.md#aggregate-repository-registry", ".domain/technology-stack/domain.md#aggregate-technology-registry"]
+related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#aggregate-inbox-item", ".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/second-brain/domain.md#aggregate-knowledge-note", ".domain/monitoring/domain.md#aggregate-progress-signal", ".domain/dev-pc-management/domain.md#aggregate-machine-registry", ".domain/sessions/domain.md#aggregate-session-log", ".domain/repository-management/domain.md#aggregate-repository-registry", ".domain/technology-stack/domain.md#aggregate-technology-registry"]
 ```
 
 The vocabulary exchanged across all applications and domains is owned per
@@ -110,11 +113,12 @@ architectural concern:
 | Type | Owning aggregate |
 |---|---|
 | **InboxItem** | `.domain/inbox/domain.md#aggregate-inbox-item` |
-| **BacklogEntry** | `.domain/backlog/domain.md#aggregate-backlog-entry` |
+| **TaskItem** (ubiquitous term: Task) | `.domain/backlog/domain.md#aggregate-backlog-entry` |
 | **KnowledgeNote** | `.domain/second-brain/domain.md#aggregate-knowledge-note` |
 | **ProgressSignal** | `.domain/monitoring/domain.md#aggregate-progress-signal` |
 | **RoutingRule** | Not yet modeled in `.domain` — tracked in `.arc42/11-risks-and-technical-debt.md` |
 | **MachineRegistration** | `.domain/dev-pc-management/domain.md#aggregate-machine-registry` |
+| **SessionLog** | `.domain/sessions/domain.md#aggregate-session-log` |
 | **RepositoryRegistration** | `.domain/repository-management/domain.md#aggregate-repository-registry` |
 | **TechBaseline** | `.domain/technology-stack/domain.md#aggregate-technology-registry` |
 

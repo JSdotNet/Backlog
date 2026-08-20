@@ -20,6 +20,11 @@
          folder in Backlog.Desktop.UI to keep a namespace from, so its types say
          Backlog.Modules.DevPc.Abstractions. -->
     <Using Include="Backlog.Modules.DevPc.Abstractions" />
+    <!-- Sessions publishes the session port, the DTOs behind it, the stale
+         threshold and the grouping. Same shape as Dev PC Management above: a context
+         that never had a folder in Backlog.Desktop.UI, so its types say
+         Backlog.Modules.Sessions.Abstractions. -->
+    <Using Include="Backlog.Modules.Sessions.Abstractions" />
     <!-- Second Brain publishes the knowledge-folder port, the configured-folder
          format and the location it resolves to. Like Dev PC Management it never
          had a folder in Backlog.Desktop.UI, so its types say
@@ -59,12 +64,15 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Backlog\Backlog.Modules.Backlog.UI\Backlog.Modules.Backlog.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.UI\Backlog.Modules.Knowledge.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.UI\Backlog.Modules.Sessions.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />

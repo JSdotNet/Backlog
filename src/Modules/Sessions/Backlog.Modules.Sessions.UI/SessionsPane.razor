@@ -1,0 +1,310 @@
+@inject IAgentSessionSource Sessions
+
+@*
+    The sessions pane: the Claude and Copilot sessions this environment has a record
+    of. The Sessions context's only surface (see .domain/sessions/).
+
+    It was first built as a second pane on Dev PC Management, which read plausibly
+    and was wrong about the boundary. Both are about the machine, but they answer
+    different questions in different languages: one is how a PC is configured and
+    what an operator can change about it, the other is what has been running on it,
+    for how long, and in which repository. This is a list read down and grouped, not
+    a set of things to act on, and its vocabulary — session, agent, environment,
+    stalled — is its own.
+
+    Like the tools pane, it owns its own loading: the list is the pane's subject, and
+    a shell holding it would be holding state about a context it only makes room for.
+    The shell decides *whether* there is a sessions pane — the feature flag and the
+    header toggle stay there — and this decides what is in one.
+
+    Three things this pane deliberately is not:
+
+    It is not a monitor. It reads the folders once when it opens and again when
+    somebody asks, and there is no timer. A surface that re-read itself every few
+    seconds would be a claim to be live that the underlying files do not support: a
+    Copilot session leaves no liveness marker at all, so a moving list would move
+    without meaning.
+
+    It is not exhaustive, and it says so out loud. Each reader stops at the most
+    recent hundred sessions, because a developer's profile holds hundreds of records —
+    the machine this was validated on held 842, and 705 of them were Copilot's, which
+    as one list was 40,000 pixels of table with the four running sessions somewhere in
+    it. When the cap takes anything, the line under the title names both numbers: a
+    capped list presented as the whole history is the one thing a cap must not do.
+
+    It is not a filter. Grouping rearranges the rows and removes none of them, which
+    is why the count in the header does not change when the grouping does — and why
+    that count is worth having beside a control that carves the same rows up.
+
+    The ✕ only reports that it was pressed; what that closes is the shell's business.
+*@
+
+<section @key=@("sessions-pane") class="sessions-panel" id="sessions-pane" aria-labelledby="sessions-title" data-testid="sessions-panel">
+    <header class="sessions-panel__header">
+        <div>
+            <p class="sessions-panel__eyebrow">Sessions</p>
+            <h2 id="sessions-title" class="sessions-panel__title">Claude and Copilot</h2>
+            <p class="sessions-panel__subtitle" data-testid="sessions-subtitle">
+                @Subtitle
+            </p>
+        </div>
+        <div class="sessions-panel__header-actions">
+            @* The library's badge wearing this pane's count class. It counts rows,
+               not groups, so it stays put while the grouping control moves them. *@
+            <Badge BaseClass="sessions-panel__count" Kind="" TestId="sessions-count">@CountLabel</Badge>
+            <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
+        </div>
+    </header>
+
+    <div class="sessions-panel__filters" data-testid="sessions-filters">
+        <div class="sessions-filter">
+            <span class="sessions-filter__label">Group by</span>
+            @* A one-of-many strip over a closed set of three, which is what the
+               dashboard's window filter is and for the same reason: the options are
+               not a list somebody's configuration can lengthen. *@
+            <ButtonGroup AriaLabel="How to group the sessions" TestId="sessions-grouping-filter">
+                @foreach (var grouping in Groupings)
+                {
+                    @* PressedChanged rather than the pressed state itself: the strip
+                       is one-of-many, so this pane owns the selection and the button
+                       only announces the press. *@
+                    <ToggleButton Pressed="_grouping == grouping"
+                                  PressedChanged="_ => ChooseGrouping(grouping)"
+                                  TestId="@($"sessions-group-{Slug(grouping)}")">
+                        @GroupingLabel(grouping)
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+        </div>
+
+        <div class="sessions-filter sessions-filter--end">
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@_loading"
+                       TestId="sessions-refresh"
+                       OnClick="RefreshAsync">
+                @(_loading ? "Reading..." : "Refresh")
+            </AppButton>
+        </div>
+    </div>
+
+    <div class="sessions-panel__content" id="sessions-content">
+        @if (_catalog.Unreadable.Count > 0)
+        {
+            @* Named, not swallowed. One agent's folder being unreadable leaves the
+               other agent's rows perfectly good, and the reader has to be able to
+               tell "no Copilot sessions" from "Copilot could not be read". *@
+            <Alert Message="@UnreadableMessage" BaseClass="sessions-panel__notice" Role="status" TestId="sessions-unreadable" />
+        }
+
+        @if (_loading && Count == 0)
+        {
+            <p class="sessions-panel__empty">Reading the sessions on this PC.</p>
+        }
+        else
+        {
+            <DataTable TItem="AgentSession"
+                       Columns="Columns"
+                       Sections="Sections"
+                       RowKey="@(session => (object)$"{session.Kind}/{session.Id}")"
+                       RowNoun="session"
+                       AriaLabel="Claude and Copilot sessions on this PC"
+                       EmptyMessage="No sessions on this PC."
+                       EmptyDescription="Neither Claude nor Copilot has left a session record in this profile yet."
+                       TestId="sessions-table">
+                <Row Context="session">
+                    @* The folder is the second line of the name rather than a column
+                       of its own: it is the longest value in the row and the least
+                       often the thing being looked for, and as a column it set the
+                       table's width and pushed the dates off screen. *@
+                    <td class="sessions-table__session">
+                        <span class="sessions-table__title">@session.Title</span>
+                        @if (!string.IsNullOrWhiteSpace(session.WorkingFolder))
+                        {
+                            <span class="data-table__detail data-table__mono">
+                                <span class="data-table__clamp" title="@session.WorkingFolder">@session.WorkingFolder</span>
+                            </span>
+                        }
+                    </td>
+
+                    @* The mark carries no title, because the word is right beside it
+                       and the library's rule is that a labelled mark next to its own
+                       label is announced twice. *@
+                    <td class="sessions-table__kind">
+                        <ProviderMark Provider="@Provider(session.Kind)" CssClass="sessions-table__mark" />
+                        <span>@AgentSessionGroups.Label(session.Kind)</span>
+                    </td>
+
+                    <td>@session.Environment</td>
+
+                    @* Clamped for the same reason the folder is, and it is the state
+                       column that pays for not doing it: a branch name in this product
+                       is a slug with a hash on the end, and at 200 rows the longest one
+                       set the table's width and pushed State off the right edge — the
+                       one column a reader scanning for a running session actually
+                       needs. The full value stays in the cell's title. *@
+                    <td class="data-table__mono">
+                        <span class="data-table__clamp sessions-table__repository" title="@session.Repository">@Or(session.Repository)</span>
+                    </td>
+                    <td class="data-table__mono">
+                        <span class="data-table__clamp sessions-table__branch" title="@session.Branch">@Or(session.Branch)</span>
+                    </td>
+                    <td>@Moment(session.StartedAt)</td>
+                    <td title="@Moment(session.LastActivityAt)">@Ago(session.LastActivityAt)</td>
+
+                    @* The library's chip, so colour is never the only carrier of the
+                       state — it brings its own glyph and its own word. *@
+                    <td><IntegrationStateChip Session="@State(session.State)" /></td>
+                </Row>
+            </DataTable>
+        }
+    </div>
+</section>
+
+@code {
+    /// <summary>The groupings on offer, in the order the strip lists them. Ungrouped
+    /// first, because it is the shape the list has when the pane opens.</summary>
+    private static readonly AgentSessionGrouping[] Groupings =
+    [
+        AgentSessionGrouping.None,
+        AgentSessionGrouping.Environment,
+        AgentSessionGrouping.Kind
+    ];
+
+    /// <summary>The headings, in the order the row template writes its cells.</summary>
+    private static readonly DataTableColumn[] Columns =
+    [
+        new("Session"),
+        new("Type"),
+        new("Environment"),
+        new("Repository"),
+        new("Branch"),
+        new("Started"),
+        new("Last activity"),
+        new("State")
+    ];
+
+    /// <summary>An em dash: the agent did not record this. Distinct from an empty
+    /// string, which would read as a value that happens to be blank.</summary>
+    private const string Missing = "—";
+
+    private AgentSessionCatalog _catalog = AgentSessionCatalog.Empty;
+    private AgentSessionGrouping _grouping = AgentSessionGrouping.None;
+    private bool _loading;
+
+    /// <summary>When the list was read, so "12 minutes ago" is measured against the
+    /// reading rather than against the render. Two renders of the same list — a
+    /// grouping change — then say the same thing about the same row, which is what a
+    /// control that only rearranges rows should do.</summary>
+    private DateTimeOffset _readAt = DateTimeOffset.UtcNow;
+
+    /// <summary>Raised when somebody dismisses the pane. Whether that returns to the
+    /// workspace, opens something else or does nothing is the shell's decision — the
+    /// pane only reports that the ✕ was pressed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    private async Task RefreshAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _catalog = await Sessions.GetSessionsAsync();
+            _readAt = DateTimeOffset.UtcNow;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ChooseGrouping(AgentSessionGrouping grouping) => _grouping = grouping;
+
+    /// <summary>
+    /// The sections to render, derived from the module's own grouping rather than
+    /// worked out here. The pane translates the module's group into the table's —
+    /// two records of the same shape in two projects, because the control library
+    /// may not see a module and the module may not depend on a control library.
+    /// </summary>
+    private IReadOnlyList<DataTableSection<AgentSession>> Sections =>
+        [.. AgentSessionGroups.Of(_catalog.Sessions, _grouping)
+            .Select(group => new DataTableSection<AgentSession>(group.Name, group.Sessions))];
+
+    private int Count => _catalog.Sessions.Count;
+
+    private string CountLabel => Count == 1 ? "1 session" : $"{Count} sessions";
+
+    /// <summary>
+    /// Both numbers when the cap took something, and only the honest claim when it
+    /// did not. "The most recent" on an uncapped list would be hedging about a list
+    /// that is in fact complete.
+    /// </summary>
+    private string Subtitle => _catalog.Capped
+        ? $"The {Count} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
+        : "The sessions this PC has a record of, most recently active first.";
+
+    private string UnreadableMessage =>
+        $"Could not read {string.Join(" or ", _catalog.Unreadable)} on this PC. Everything else below is complete.";
+
+    private static string GroupingLabel(AgentSessionGrouping grouping) => grouping switch
+    {
+        AgentSessionGrouping.Environment => "Environment",
+        AgentSessionGrouping.Kind => "Type",
+        _ => "Nothing"
+    };
+
+    private static string Slug(AgentSessionGrouping grouping) => grouping switch
+    {
+        AgentSessionGrouping.Environment => "environment",
+        AgentSessionGrouping.Kind => "type",
+        _ => "none"
+    };
+
+    private static IntegrationProvider Provider(AgentSessionKind kind) => kind switch
+    {
+        AgentSessionKind.Copilot => IntegrationProvider.Copilot,
+        _ => IntegrationProvider.Claude
+    };
+
+    /// <summary>
+    /// The three states this context can evidence, in the control library's
+    /// vocabulary. The library's enum has more members and none of the extra ones is
+    /// derivable from a file on disk, which is why the mapping is this narrow rather
+    /// than clever.
+    /// </summary>
+    private static IntegrationSessionState State(AgentSessionState state) => state switch
+    {
+        AgentSessionState.Running => IntegrationSessionState.Running,
+        AgentSessionState.Stalled => IntegrationSessionState.Stalled,
+        _ => IntegrationSessionState.Finished
+    };
+
+    private static string Or(string? value) => string.IsNullOrWhiteSpace(value) ? Missing : value;
+
+    /// <summary>Local time, because a person comparing a session against their own
+    /// morning is not thinking in UTC.</summary>
+    private static string Moment(DateTimeOffset? moment) =>
+        moment is null ? Missing : moment.Value.ToLocalTime().ToString("ddd d MMM HH:mm");
+
+    /// <summary>
+    /// How long ago, coarsely. The exact timestamp is in the cell's title, so this
+    /// can round: down to the minute is what tells a reader whether a session is
+    /// theirs from this morning, and no reader is comparing two sessions by seconds.
+    /// </summary>
+    private string Ago(DateTimeOffset moment)
+    {
+        var elapsed = _readAt - moment;
+
+        if (elapsed < TimeSpan.Zero) return "just now";
+        if (elapsed < TimeSpan.FromMinutes(1)) return "just now";
+        if (elapsed < TimeSpan.FromHours(1)) return Plural((int)elapsed.TotalMinutes, "minute");
+        if (elapsed < TimeSpan.FromDays(1)) return Plural((int)elapsed.TotalHours, "hour");
+
+        return Plural((int)elapsed.TotalDays, "day");
+    }
+
+    private static string Plural(int count, string unit) =>
+        count == 1 ? $"1 {unit} ago" : $"{count} {unit}s ago";
+}

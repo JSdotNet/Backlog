@@ -3,7 +3,8 @@
 <PageTitle>File view — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="File view"
-           Summary="FileView shows one file: what it is in the header, what it says in the body, and what you can do to it — copy it, edit it, compare it — beside the name in that same header. The body scrolls on its own so the header never leaves the screen. What the body is read as comes from the file's own name: markdown for prose, coloured and numbered source for everything the highlighter has a grammar for. A markdown file is read whole — each chapter's status where its heading is, each diagram where its fence is, a copy button per chapter, and remarks in the margin — so a host never has to parse the same text a second time to draw those around the outside.">
+           Summary="FileView shows one file: what it is in the header, what it says in the body, and what you can do to it — copy it, edit it, compare it — beside the name in that same header. The body scrolls on its own so the header never leaves the screen. What the body is read as comes from the file's own name: markdown for prose, coloured and numbered source for everything the highlighter has a grammar for. A markdown file is read whole — each chapter's status where its heading is, each diagram where its fence is, a copy button per chapter, and remarks in the margin — so a host never has to parse the same text a second time to draw those around the outside."
+           Guidelines="@Rules">
 
     <Story Name="The file's name decides how it is read"
            Description="Same component, same parameters, three files. A name the highlighter knows is shown as source: coloured, numbered, and never run through the markdown parser — a `#` in a shell script is a comment, and reading it as a heading is how a file view loses the file. A name it does not know is shown as markdown, which is also what a file of plain prose wants. Nothing here had to be told which was which."
@@ -82,7 +83,9 @@
 
     <Story Name="A file that fits"
            Description="Same component, short file. The body only scrolls when there is something to scroll to, so a small file gets no track and no empty space under it."
-           Code="@ShortCode">
+           Code="@ShortCode"
+           Source="@ShortBody"
+           SourceLabel="The file on disk">
         <div data-testid="file-view-short">
             <FileView Name="README.md"
                       Path="src\harness\README.md"
@@ -115,7 +118,9 @@
     </Story>
 
     <Story Name="Checklists are state, not controls"
-           Description="Neither shape FileView renders itself writes back to disk, so it passes MarkdownView no toggle handler and the checkboxes render as state. Tab goes from the body straight past them — a checkbox that silently does nothing is worse than no checkbox. That is a claim about the two built-in shapes and not about the component: a host that needs a writable body brings one, which is the story below.">
+           Description="Neither shape FileView renders itself writes back to disk, so it passes MarkdownView no toggle handler and the checkboxes render as state. Tab goes from the body straight past them — a checkbox that silently does nothing is worse than no checkbox. That is a claim about the two built-in shapes and not about the component: a host that needs a writable body brings one, which is the story below."
+           Source="@ChecklistBody"
+           SourceLabel="The file on disk">
         <div data-testid="file-view-checklist">
             <FileView Name="release-checklist.md"
                       Path="docs\release-checklist.md"
@@ -127,11 +132,9 @@
     </Story>
 
     <Story Name="A knowledge chapter, whole"
-           Description="Every capability at once, on the file that prompted them: a `.domain` chapter. Each chapter's `meta` fence is drawn as the record it is — the status beside the heading it describes, as a select where the folder has a vocabulary to offer — and each heading offers to copy its own chapter, hover it to see. The mermaid fence renders where it was written rather than below the file that contains it. Remarks sit in the margin, level with the block they are about; narrow the window and they fall back to inline on their own.
+           Description="Every capability at once, on the file that prompted them: a `.domain` chapter. `RenderKnowledgeMetadata` and `KnowledgeFolder` draw each chapter's `meta` fence as the record it is; `AllowChapterCopy` puts a copy button on every heading; the mermaid fence renders where it was written; `Comments` sit in the margin and fall back to inline when the pane narrows.
 
-Read is the resting state. Edit swaps the body for the one this page supplies and the header says Done; Compare swaps it for the two versions aligned by heading. One at a time, and the pane keeps the same header and the same single scroll region through all three — which is the whole reason for putting the buttons up there rather than in a second bar underneath.
-
-Status and comments used to be mutually exclusive: a document anybody had annotated kept the stacked rendering, so its `meta` fences showed as raw code. A reviewed chapter is exactly the one whose currency a reader needs, so the paired row now carries both indices' notes instead."
+`CanEdit` with `@@bind-Editing` swaps the body for the one `EditBodyContent` supplies, and `@@bind-Comparing` with `CompareBaselines` swaps it for two versions aligned by heading. One at a time, and the pane keeps the same header and the same single scroll region through all three."
            Code="@ChapterCode">
         <div class="sb-tall" data-testid="file-view-knowledge">
             <FileView Name="Domain: Backlog Management"
@@ -166,9 +169,9 @@ Status and comments used to be mutually exclusive: a document anybody had annota
     </Story>
 
     <Story Name="Compared against two versions of itself"
-           Description="A comparison is the same body with its history beside it, so it lands in the same frame: MarkdownCompareView is handed the result Bare, which gives up its own card, header and scroll region because this pane already has all three. Without that, a comparison inside a file view named the file twice and put a second scrollbar inside the one the reader can see.
+           Description="`MarkdownCompareView` is handed the result `Bare`, so it gives up its own card, header and scroll region — this pane already has all three.
 
-What a baseline *is* stays the host's. This page holds two strings; the domain panel holds one string and asks git for the other, and neither arrangement is something the component needs to know about. A baseline that has nothing to offer says so — press Compare, then pick 'Never committed' — because 'this file has no earlier version' is an ordinary answer for a chapter written this morning, and it is not the same answer as an empty file."
+What a baseline *is* stays the host's: this page holds two strings, and the domain panel holds one and asks git for the other. A baseline with nothing to offer says so — press Compare, then pick “Never committed”."
            Code="@CompareCode">
         <div class="sb-tall" data-testid="file-view-compare">
             <FileView Name="context-map.md"
@@ -184,9 +187,9 @@ What a baseline *is* stays the host's. This page holds two strings; the domain p
     </Story>
 
     <Story Name="A body the host brings itself"
-           Description="Aligning the knowledge panes on this component ran straight into the story above: the body it renders is read-only, and a chapter you can edit in place is not. BodyContent is the answer that does not turn FileView into an editor — the host hands in the body and keeps everything that comes with writing, while the frame, the identity, the path and the one scroll region stay here. Which is the point of using this component at all: an author editing `05-building-block-view.md` should still be able to see which file that is, without scrolling back up to find out. Type in it and watch the size in the header move — the header describes the file, and what the file now says is the host's to report.
+           Description="`BodyContent` hands the body in, so a host that needs a writable one keeps everything that comes with writing while the frame, the identity, the path and the one scroll region stay here. Type in it and watch the size in the header move: what the file now says is the host's to report.
 
-Tab through this one and then through the story above it. A supplied body gives up the region's tabindex, because the editor inside is a tab stop already and a synthetic stop in front of it announces the pane and then does nothing on the way to typing. The built-in shapes keep the stop: they render nothing focusable, so it is the only way a keyboard reaches the overflow."
+Tab through this one and then the story above it. A supplied body gives up the region's `tabindex`, because the editor inside is a tab stop already; the built-in shapes keep it, because they render nothing focusable."
            Code="@HostedBodyCode">
         <div class="sb-tall" data-testid="file-view-hosted-body">
             <FileView Name="05-building-block-view.md"
@@ -210,6 +213,14 @@ Tab through this one and then through the story above it. A supplied body gives 
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#raw-markdown-escape-hatch", "When a file is shown as source rather than as a rendering."),
+        new("color-scheme.md#syntax-highlighting-tokens", "The colours a file read as code is drawn with."),
+        new("design-principles.md#low-chrome-content-first", "How much of a file view may be header and actions."),
+        new("typography-and-layout.md#layout-grid-and-breakpoints", "The measure a file's contents are read at.")
+    ];
+
     // The one piece of state on this page: the hosted-body story is only worth
     // looking at if it can actually be typed in.
     private string _chapter = ChapterSource;

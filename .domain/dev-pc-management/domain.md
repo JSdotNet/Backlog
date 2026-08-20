@@ -14,7 +14,15 @@ Dev PC Management supports multiple development PCs from a single interface:
 register machines, wake them remotely, start remote desktop sessions, monitor
 tool versions and compliance against the
 [Technology Stack](../technology-stack/domain.md#aggregate-technology-registry)
-baseline, trigger remote updates, and track Copilot sessions.
+baseline, and trigger remote updates.
+
+It used to track Copilot sessions too, back when Copilot was the only agent the
+machines ran. That subject is
+[Sessions](../sessions/domain.md#aggregate-session-log) now — "which
+agent worked where, for how long" turned out to be a different question in a
+different language from "how is this PC configured", and it needed to describe a
+second agent without a parallel list. What stays here is the machine; what left is
+everything about what ran on it.
 
 ## Aggregate: Machine Registry
 
@@ -37,10 +45,15 @@ aggregated from daily snapshots. All machine mutations go through the root.
 A single development PC identified by `MachineId` (e.g. "work-laptop-001"). Holds
 network identity (`ip_local`, `ip_public`, `mac_address`, `rdp_port`), `status`,
 `last_heartbeat`, `desktop_version`, installed tool versions, compliance flag,
-queued updates, active/archived Copilot sessions, and daily uptime/compliance/
-update history. Invariants: `pending_updates` is bounded per machine; a completed
-or failed update moves from `pending_updates` to `updates_history`; active
-sessions live in `copilot_sessions`, completed ones in `session_history`.
+queued updates, and daily uptime/compliance/update history. Invariants:
+`pending_updates` is bounded per machine; a completed or failed update moves from
+`pending_updates` to `updates_history`.
+
+It holds no sessions. An `Environment` in
+[Sessions](../sessions/naming.md#term-environment) corresponds to a
+Machine when the two name the same box, but that is a lookup rather than a shared
+identity — a Machine is registered, wakeable and compliance-tracked, and an
+environment is wherever an agent can run.
 
 ### Value Objects
 
@@ -54,16 +67,6 @@ by `(tool_name, version)`.
 A queued tool update: `tool_name`, `target_version`, `requested_by`,
 `requested_at`, `status`, optional `error_message`. On completion/failure it is
 archived to an `Update Record`.
-
-#### Active Session
-
-An active Copilot session on the machine: `session_id`, `started_at`,
-`last_activity_at`, optional `github_issue_url` and `backlog_item_id`.
-
-#### Session Record
-
-A completed/archived Copilot session: `session_id`, `started_at`, `ended_at`,
-`duration`, optional `github_issue_url` and `backlog_item_id`.
 
 #### Uptime Metric
 
@@ -136,18 +139,6 @@ runs them via native package managers on the desktop component, reports progress
 (in-progress/completed/failed) with rollback, and requires authorization. It is a
 service because it orchestrates queued work against offline/online machines and
 external package managers. Invocation semantics: command-invoked orchestration service.
-
-## Domain Service: Copilot Session Tracking
-
-```meta
-status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/monitoring/domain.md#aggregate-progress-signal]
-```
-
-Records Copilot session start/end per machine, links sessions to GitHub issues or
-backlog items when available, alerts on stalled/inactive sessions, and archives
-history for audit. It is a service because session identity may originate cloud-
-or locally and must be correlated with external work items. Invocation semantics: event-triggered tracking service consuming session start/end and heartbeat updates.
 
 ## Domain Event: MachineStatusChanged
 

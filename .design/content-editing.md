@@ -280,6 +280,31 @@ related: [".design/interaction-guidelines.md#save-state-indicator-vocabulary", "
 | Spellcheck scope | Spellcheck applies to prose, not to code blocks, inline code, or raw passthrough blocks. |
 | Domain-rule refusal | A parsed value the domain model refuses (e.g. an illegal status transition, see `#live-parse-confirmation`) is surfaced inline, next to the text that produced it, not through the save-state indicator — the save still succeeds; only that one value is refused. |
 
+## AI Proposals in a Document
+
+```meta
+status: active
+related: [".design/design-principles.md#ai-first-surfaces", ".design/content-editing.md#editing-model", ".design/accessibility.md#screen-reader--announcements"]
+```
+
+The product may offer to rewrite a passage or to answer a remark. What it may
+**not** do is change the document on its own.
+
+| Rule | Requirement |
+|---|---|
+| Anchoring | A proposal is anchored to a block, the same way a remark is — never to a character range, which no edit survives. "Rewrite part" therefore means rewrite this paragraph, and the product MUST NOT offer a finer grain than its anchors can carry. |
+| Never in place | The change does not happen until a person says so. Original and suggested text are shown together, and rejecting leaves the document byte-identical rather than restored. |
+| Applied upstream | Accepting raises a callback; the host re-parses and hands the document back. The view MUST NOT write into the document itself. |
+| Attribution survives | An accepted proposal keeps who wrote it, when, and where it came from, and moves to an accepted state rather than disappearing. "Did a person write this paragraph" is a question the document has to be able to answer later. |
+| One act, one answer | Where a proposal answers a remark, accepting the text and resolving the remark are two acts with two callbacks. One button doing both denies a reader who wanted the wording but not the resolution. |
+| Two carriers | AI-authored content MUST be distinguishable visually **and** named for assistive technology: a tint for the eye, an accessible name for everything else. Neither alone reaches everybody. |
+| The tint | The tint is a mix of the one brand hue against the card surface. A second semantic hue is not available (`color-scheme.md#role-tokens`). |
+| The product's own AI | An AI act that runs inside the product carries **no vendor mark**, and what it writes is attributed to AI and nothing further. A vendor logo is a claim about where a reader's content travelled; only an act that leaves the application may make one. |
+| Offline | An AI act offline is an unavailable act like any other: present, disabled, with a calm sentence and no remedy. Editing, commenting and reading MUST remain untouched — nothing may suggest the document depends on it. |
+| Lost anchors | A proposal whose block has gone joins the same orphan region a remark does, rather than being dropped. |
+
+Review surface: storybook → *Integrations* → **AI in the document**.
+
 ## Materialization
 
 ```meta
@@ -290,14 +315,14 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/typogr
 | Piece | Where | Review surface |
 |---|---|---|
 | Parser | `MarkdownPreview` (`src/Core/Backlog.UI.Components/Markdown`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
-| Read view | `MarkdownView` | Storybook → *Markdown* |
+| Read view | `MarkdownView` | Storybook → *Markdown* for every block and inline; *Markdown document* for a section with copy, remarks and a way into the editor |
 | Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header. The header also carries what a reader does to the file (copy, edit, compare), and a Markdown body is read whole: each chapter's `meta` status beside its heading, each diagram where its fence is, a copy button per chapter, and remarks in the margin | Storybook → *File view* → **A knowledge chapter, whole** |
 | Comparison surface | `MarkdownCompare` (a pure function over two texts) and `MarkdownCompareView`, aligned by heading and never by line. `Bare` gives up its frame so `FileView` can show it without a second header or a second scroll region | Storybook → *Section comparison*, and *File view* → **Compared against two versions of itself** |
-| Chapter remarks | `MarkdownView` comments, anchored to a block index rather than a character range, drawn inline or in a margin column | Storybook → *Markdown* → **The same comments, in the margin** |
+| Chapter remarks | `MarkdownView` comments, anchored to a block index rather than a character range, drawn inline or in a margin column | Storybook → *Markdown document* → **The same comments, in the margin** |
 | Code blocks | `CodeView` — line numbers, copy button, per-language highlighting on the tokens in `color-scheme.md#syntax-highlighting-tokens` | Storybook → *Code* |
 | Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
-| Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Markdown* → **Edit and read** |
-| Scheduling and dependency tokens | Read and written by `EntryTextParser`; `TaskAction` is the shape a control over one takes | Storybook → *Task list* → **The detail pane's rows** |
+| Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Entry edit* → **A checkbox writes back to the source** |
+| Scheduling and dependency tokens | Read and written by `EntryTextParser`; `TaskAction` is the shape a control over one takes, over the date, time and repeat fields beside it | Storybook → *Inputs* → **A date, a time and a repeat**, **TaskAction — set it, see it, clear it** |
 | Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as either a `TaskListView` of steps or one `MarkdownEditor`, the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **Split pane**, **Split pane, anchored to the end** |
 | The body's two readings | One region, switched by `view:` and remembered on the entry; the steps reading says so when the body holds prose it is not showing | Backlog pane → the **Steps** / **Markdown** chips |
 | Raw-Markdown escape hatch | The whole entry's canonical text in a mono `TextArea`, with the live "reads as" hint under it | Backlog pane → the **Markdown** toggle, or Ctrl+Shift+M |

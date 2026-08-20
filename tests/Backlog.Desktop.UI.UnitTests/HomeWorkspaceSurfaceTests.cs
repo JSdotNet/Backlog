@@ -7,9 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The shell shows one surface at a time. Tools and the Dashboard are whole
-/// domains rather than panes: opening either takes the screen and hides every
-/// other domain concern — the roadmap band included — and closing it puts the
+/// The shell shows one surface at a time. Tools, the Dashboard and Sessions are
+/// whole domains rather than panes: opening any of them takes the screen and hides
+/// every other domain concern — the roadmap band included — and closing it puts the
 /// reader back exactly where they were.
 /// <para>
 /// That last part is worth a test even though no code implements it. The surface
@@ -59,32 +59,52 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    /// <summary>
-    /// One field with three states, so opening the second takeover is the same act
-    /// as closing the first. There is no arrangement in which both are on screen.
-    /// </summary>
     [Fact]
-    public void The_two_surfaces_cannot_be_open_at_the_same_time()
+    public void Opening_the_sessions_list_hides_the_roadmap_band_and_every_pane()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.Find("[data-testid='tools-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='tools-surface']")));
+        component.Find("[data-testid='sessions-toggle-button']").Click();
 
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
-            Assert.Empty(component.FindAll("[data-testid='tools-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']"));
+            Assert.Empty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Empty(component.FindAll("[data-testid='workspace']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
         });
+    }
 
-        component.Find("[data-testid='tools-toggle-button']").Click();
-        component.WaitForAssertion(() =>
+    /// <summary>
+    /// One field with four states, so opening a takeover is the same act as closing
+    /// whichever one was already there. There is no arrangement in which two are on
+    /// screen, and the loop ends where it started to prove that reopening the first
+    /// one is the same act rather than a special case.
+    /// </summary>
+    [Fact]
+    public void No_two_surfaces_can_be_open_at_the_same_time()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        string[] surfaces = ["tools", "dashboard", "sessions", "tools"];
+
+        foreach (var surface in surfaces)
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='tools-surface']"));
-            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
-        });
+            component.Find($"[data-testid='{surface}-toggle-button']").Click();
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll($"[data-testid='{surface}-surface']"));
+
+                // Exactly one <main> on the page, which is what makes the exclusivity
+                // structural rather than a rule this test happens to check pairwise.
+                Assert.Single(component.FindAll("main"));
+            });
+        }
     }
 
     /// <summary>
@@ -186,6 +206,52 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='dashboard-toggle-button']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-layout']"));
+        });
+    }
+
+    /// <summary>
+    /// The whole point of the flag: with it off there is no way in and nothing to
+    /// find. One key gates both halves — whether the header offers the surface, and
+    /// whether the surface may be shown — so this is the same assertion twice on
+    /// purpose.
+    /// </summary>
+    [Fact]
+    public void With_the_sessions_feature_off_there_is_no_button_and_no_surface()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(SessionFeatures.Sessions, false));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='sessions-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-panel']"));
+
+            // The other takeover in the same context is untouched: one flag, one area.
+            Assert.NotEmpty(component.FindAll("[data-testid='tools-toggle-button']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-layout']"));
+        });
+    }
+
+    /// <summary>
+    /// Closing is the ✕ inside the pane as well as the header toggle, which is what
+    /// keeps the header on screen while a takeover is open.
+    /// </summary>
+    [Fact]
+    public void The_sessions_pane_closes_itself_back_to_the_workspace()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.Find("[data-testid='sessions-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
+
+        component.Find("[data-testid='sessions-panel'] button.btn--ghost").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='knowledge-layout']"));
         });
     }
@@ -471,6 +537,7 @@ public sealed class HomeWorkspaceSurfaceTests
         _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, true);
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
+        _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
         _ = featureSettings.SetEnabled(KnowledgeFeatures.KnowledgeSections, true);
         _ = featureSettings.SetEnabled(KnowledgeFeatures.RepositoryKnowledge, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
@@ -493,8 +560,6 @@ public sealed class HomeWorkspaceSurfaceTests
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
         var knowledgeFolderSource = new KnowledgeFolderSource(gitHubSettings, store);
-        var repositoryBacklog = new RepositoryBacklogSource(
-            BacklogTestHost.BacklogStoreFor(store, knowledgeFolderSource));
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
@@ -504,13 +569,18 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
         context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
         context.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
+
+        // The sessions takeover, with nothing on the machine behind it. A shell test
+        // asking whether the takeover replaced the panes should not also be reading
+        // whatever the person running it had been doing that morning — and a pane that
+        // only worked with rows in it would fail here, which is the point.
+        context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the
         // same storage root, so the band draws what was stored rather than a fixture.
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
             BacklogTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
-        context.Services.AddSingleton(repositoryBacklog);
         context.Services.AddSingleton<DesignKnowledgeProvider>();
         context.Services.AddSingleton<TechnologyKnowledgeService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
@@ -527,8 +597,7 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddScoped(sp => BacklogTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
-            BacklogCopilotCli.Unavailable,
-            sp.GetRequiredService<RepositoryBacklogSource>()));
+            BacklogCopilotCli.Unavailable));
 
         return new Harness(root, context);
     }
@@ -547,6 +616,12 @@ public sealed class HomeWorkspaceSurfaceTests
             {
             }
         }
+    }
+
+    private sealed class EmptySessionSource : IAgentSessionSource
+    {
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(AgentSessionCatalog.Empty);
     }
 
     private sealed class StubAzureFoundryChatClient : IAzureFoundryChatClient

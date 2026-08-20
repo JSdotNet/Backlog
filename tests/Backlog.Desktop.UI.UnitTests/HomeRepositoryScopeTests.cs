@@ -93,6 +93,7 @@ public sealed class HomeRepositoryScopeTests
         _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, true);
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
+        _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
         _ = featureSettings.SetEnabled(KnowledgeFeatures.KnowledgeSections, true);
         _ = featureSettings.SetEnabled(KnowledgeFeatures.RepositoryKnowledge, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
@@ -117,8 +118,6 @@ public sealed class HomeRepositoryScopeTests
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
         var knowledgeFolderSource = new KnowledgeFolderSource(gitHubSettings, store);
-        var repositoryBacklog = new RepositoryBacklogSource(
-            BacklogTestHost.BacklogStoreFor(store, knowledgeFolderSource));
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
@@ -128,13 +127,18 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
         context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
         context.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
+
+        // The sessions takeover, with nothing on the machine behind it. A shell test
+        // asking whether the takeover replaced the panes should not also be reading
+        // whatever the person running it had been doing that morning — and a pane that
+        // only worked with rows in it would fail here, which is the point.
+        context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the
         // same storage root, so the band draws what was stored rather than a fixture.
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
             BacklogTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
-        context.Services.AddSingleton(repositoryBacklog);
         context.Services.AddSingleton<DesignKnowledgeProvider>();
         context.Services.AddSingleton<TechnologyKnowledgeService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
@@ -151,8 +155,7 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddScoped(sp => BacklogTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
-            BacklogCopilotCli.Unavailable,
-            sp.GetRequiredService<RepositoryBacklogSource>()));
+            BacklogCopilotCli.Unavailable));
 
         return new Harness(root, context);
     }
@@ -171,6 +174,12 @@ public sealed class HomeRepositoryScopeTests
             {
             }
         }
+    }
+
+    private sealed class EmptySessionSource : IAgentSessionSource
+    {
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(AgentSessionCatalog.Empty);
     }
 
     private sealed class StubAzureFoundryChatClient : IAzureFoundryChatClient

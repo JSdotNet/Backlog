@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
@@ -17,6 +18,7 @@ using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
@@ -36,14 +38,13 @@ builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderS
     sp.GetRequiredService<GitHubSettingsStore>(),
     sp.GetRequiredService<WorkspaceSettingsStore>()));
 builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
-    sp.GetRequiredService<WorkspaceSettingsStore>(),
-    sp.GetRequiredService<IKnowledgeFolderSource>()));
+    sp.GetRequiredService<WorkspaceSettingsStore>()));
 
 // Composition: the Backlog module brings its own use cases, and the host decides
 // which adapter is behind them. The repository follows the storage folder rather
 // than being pinned to wherever it was at startup.
-builder.Services.AddSingleton<IBacklogRepository>(sp =>
-    new RootedFileBacklogRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+builder.Services.AddSingleton<ITaskRepository>(sp =>
+    new RootedSqliteTaskRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddBacklogModule();
 
 // The same arrangement for the plan: the Roadmap module brings its use cases, and
@@ -92,7 +93,6 @@ builder.Services.AddDashboardAdapters();
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<FeedbackReporter>();
 builder.Services.AddSingleton<DesignKnowledgeProvider>();
-builder.Services.AddSingleton<RepositoryBacklogSource>();
 builder.Services.AddSingleton<TechnologyKnowledgeService>();
 builder.Services.AddSingleton<InstructionSourceDiscovery>();
 builder.Services.AddSingleton<KnowledgeMenu>();
@@ -110,6 +110,12 @@ builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
 builder.Services.AddSingleton<ICopilotToolService, LocalDevelopmentCopilotToolService>();
+
+// The session list reads the two agents' own folders in the profile of whoever is
+// signed in, and the harness runs as that person on that machine — so unlike the
+// tool service above there is nothing for a local-development variant to differ
+// about, and both hosts compose the same adapter.
+builder.Services.AddAgentSessionSource();
 
 var app = builder.Build();
 

@@ -15,6 +15,13 @@ html, body {
     line-height: var(--line-height-normal);
 }
 
+/* The chevron gutter every fold in the harness aligns on: the glyph's box, and
+   that plus the trigger's own gap, which is what the region is indented by. */
+:root {
+    --sb-fold-gutter-glyph: 0.9rem;
+    --sb-fold-gutter: calc(0.9rem + var(--spacing-xs));
+}
+
 .sb-page__header {
     border-bottom: var(--border-width) solid var(--color-border);
     padding-bottom: var(--spacing-md);
@@ -108,8 +115,22 @@ html, body {
     background-color: var(--color-background);
 }
 
-.sb-story__code {
-    margin: var(--spacing-md) 0 0;
+/* The two blocks in a story's Code-and-source disclosure. Both are CodeView — the
+   library's own block, coloured by the library's own highlighter — so all that is
+   left here is a size: reference material under the thing it produced, which at
+   the body size out-measured the example above it. */
+.sb-story__code,
+.sb-raw__code {
+    font-size: var(--font-size-xs);
+}
+
+/* A code-shaped fragment that cannot be a CodeView: a line the page has already
+   coloured itself, or one cell of a reference grid. CodeView takes a string, and
+   these carry markup — the highlighting story shows what one token class does to
+   a span, which is the one thing a highlighter cannot be asked to draw for you.
+   Everything else that shows source is a CodeView. */
+.sb-snippet {
+    margin: 0;
     padding: var(--spacing-sm) var(--spacing-md);
     background-color: var(--color-background);
     border: var(--border-width) solid var(--color-border);
@@ -119,6 +140,142 @@ html, body {
     font-size: var(--font-size-xs);
     overflow-x: auto;
     white-space: pre;
+}
+
+/* Every disclosure in the harness: the explanation above an example, the markup
+   below it, the source beside it, and the design rules in a page header. One
+   class rather than four, because they are the same affordance — and the trigger
+   is the library's FoldControl, so what folds here folds the way it folds in the
+   app.
+
+   Quieter than a heading and quieter than the example: a fold trigger is how you
+   get to something, never the thing itself. */
+.sb-fold {
+    margin: var(--spacing-xs) 0 0;
+}
+
+.sb-fold > .fold__trigger {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-secondary);
+}
+
+/* One left edge for everything in a story: the title, the collapse icon, the
+   example, and whatever a fold reveals. The icon is part of that alignment rather
+   than hanging outside it — it is the first thing in the row it belongs to, so it
+   starts where the row starts — and no region is indented, so nothing moves
+   sideways as a fold opens.
+
+   A fixed chevron width rather than the glyph's own, because ▸ and ▾ are not the
+   same width in every mono face and the label after it would shift by the
+   difference as a fold opened. */
+.sb-fold > .fold__trigger {
+    margin-left: 0;
+}
+
+.sb-fold > .fold__trigger > .fold__chevron {
+    width: var(--sb-fold-gutter-glyph);
+    text-align: left;
+}
+
+.sb-fold--code {
+    margin-top: var(--spacing-md);
+}
+
+/* The code fold starts closed, so its own top margin is all the space there is
+   between the example and the next story. */
+.sb-fold--code > .fold__region {
+    margin-top: var(--spacing-sm);
+}
+
+/* The text behind the example: the markup that produced it, and the content it was
+   given. Two columns when there are two, because they are read against each other
+   — this call, over that body — and one when there is only one, because a grid with
+   an empty track leaves a sample at half width for nothing.
+
+   Equal columns here, unlike the source column beside a rendering: neither of these
+   is the subject. They are both reference, and a reader comparing them wants the
+   same measure on each. */
+.sb-story__text {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    align-items: start;
+}
+
+.sb-story__text--pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 64rem) {
+    .sb-story__text--pair {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* The rules a page has to obey, rendered from `.design` itself. Set apart from
+   the summary above it by a rule rather than a surface: it is part of the header,
+   not a story. */
+.sb-guidelines {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.sb-guidelines__title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-secondary);
+}
+
+.sb-guidelines__list {
+    margin: var(--spacing-xs) 0 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* One chapter. The path and what it governs sit on the trigger, so a reader
+   chooses which rule to open by reading both. */
+.sb-guideline > .sb-fold {
+    margin: 0;
+}
+
+/* Two parts on one trigger, so the label wraps rather than truncating: the
+   library's own `.fold__label` ellipsises, which is right for an entry title and
+   wrong for a path followed by a sentence. */
+.sb-guideline .fold__label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.sb-guideline__path {
+    font-family: var(--font-family-mono);
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-primary);
+}
+
+.sb-guideline__governs {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-text-secondary);
+}
+
+/* The chapter itself, drawn by the same MarkdownView the product reads a
+   knowledge file with. Inset and ruled on the left, because it is quoted material
+   — the repository's words, not this page's. */
+.sb-guideline__body {
+    margin: var(--spacing-sm) 0 var(--spacing-md);
+    padding-left: var(--spacing-md);
+    border-left: var(--border-width-2) solid var(--color-border);
 }
 
 /* Shared layout helpers the pages use to lay examples out. */

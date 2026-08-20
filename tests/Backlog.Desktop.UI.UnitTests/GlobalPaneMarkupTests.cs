@@ -41,15 +41,19 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// The three workspace surfaces are one segmented control, because
-    /// <c>WorkspaceSurface</c> is one field with three states. They used to be two
+    /// The workspace surfaces are one segmented control, because
+    /// <c>WorkspaceSurface</c> is one field with one state at a time. They used to be
     /// independent <c>AppButton</c> disclosures carrying <c>aria-expanded</c>, which
     /// described neither their exclusivity nor the fact that a takeover replaces the
     /// workspace instead of expanding beside it. Pressed states describe both, and
     /// the Workspace segment gives the way back a control of its own.
+    /// <para>
+    /// Every takeover is named here rather than counted, so adding one to the header
+    /// without adding it to the group cannot pass.
+    /// </para>
     /// </summary>
     [Fact]
-    public void The_three_surfaces_are_one_segmented_group_with_a_way_back()
+    public void The_surfaces_are_one_segmented_group_with_a_way_back()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
@@ -57,6 +61,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("TestId=\"workspace-surface-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"tools-toggle-button\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"dashboard-toggle-button\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"sessions-toggle-button\"", home, StringComparison.Ordinal);
 
         // Workspace leads, because it is the surface the reader starts on and the
         // one the other two return to.
@@ -70,8 +75,10 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("PressedChanged=\"CloseSurface\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleTools\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleDashboard\"", home, StringComparison.Ordinal);
+        Assert.Contains("PressedChanged=\"ToggleSessions\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-expanded=\"@(ToolsVisible", home, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-expanded=\"@(DashboardVisible", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-expanded=\"@(SessionsVisible", home, StringComparison.Ordinal);
         // Written out, not bound to the bool: Blazor renders a true bool attribute
         // as `aria-expanded=""` and drops it when false, and aria-expanded accepts
         // neither.
@@ -264,9 +271,9 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// Tools and the Dashboard are takeovers, not panes. Each is the page's single
-    /// <c>main</c> landmark while it is open, which is only true as long as the
-    /// three branches stay mutually exclusive in the markup.
+    /// Tools, the Dashboard and Sessions are takeovers, not panes. Each is the
+    /// page's single <c>main</c> landmark while it is open, which is only true as
+    /// long as the branches stay mutually exclusive in the markup.
     /// </summary>
     [Fact]
     public void Only_one_surface_renders_and_it_owns_the_main_landmark()
@@ -275,13 +282,16 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("@if (ToolsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("else if (DashboardVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("else if (SessionsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"tools-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"dashboard-surface\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"sessions-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"workspace\"", home, StringComparison.Ordinal);
 
         // One landmark per branch, and the branches are exclusive, so the page has
-        // exactly one. Two <main> elements is the failure this counts.
-        Assert.Equal(3, CountOccurrences(home, "<main class="));
+        // exactly one. Two <main> elements is the failure this counts, which is why
+        // the number rises with each takeover rather than being loosened to "some".
+        Assert.Equal(4, CountOccurrences(home, "<main class="));
 
         // The pane row keeps the test id the resizer's JavaScript selects on; what
         // changed is that it is no longer the landmark itself.

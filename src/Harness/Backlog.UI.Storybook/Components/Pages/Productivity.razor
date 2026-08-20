@@ -1,14 +1,15 @@
-@page "/productivity"
+﻿@page "/productivity"
 
 <PageTitle>Productivity over time — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Productivity over time"
-           Summary="A score, what it is made of, and the four ways this palette can compare it across repositories over time.">
+           Summary="A score, what it is made of, and the four ways this palette can compare it across repositories over time."
+           Guidelines="@Rules">
 
     <Story Name="The controls, and what they drive"
-           Description="Window, granularity and subject, built from the library's existing ButtonGroup, ToggleButton and NavList rather than from anything new — a metrics view is a view like any other, and it should compose with the controls the rest of the product already uses.
+           Description="Window, granularity and subject, built from the library's existing `ButtonGroup`, `ToggleButton` and `NavList` rather than from anything new.
 
-Everything below this story reacts to these three. Change the subject and the trellis highlight, the spotlight and the score all follow; change the window and every chart re-buckets. That is the point of showing them here rather than describing them: a control that silently fails to drive half a page is the usual way a dashboard goes stale.">
+Everything below reacts to these three: change the subject and the trellis highlight, the spotlight and the score all follow.">
         <div class="sb-stack">
             <div class="sb-row">
                 <span class="sb-label">Window</span>
@@ -53,11 +54,7 @@ Everything below this story reacts to these three. Change the subject and the tr
     </Story>
 
     <Story Name="MetricScore"
-           Description="The score, its band, and — the part that earns the component — what it is made of.
-
-A score is a claim, not a measurement. Nobody can check “68” against anything, so a bare score is either taken on faith or ignored, and it is usually ignored. Showing each input, its weight as a share of the total, and the points it contributed turns the number into an argument someone can join: a reader who thinks throughput is over-weighted can see it is worth 30 of the 100 and say so.
-
-Weights are normalised by their total rather than assumed to add to one, so adding a fifth input does not mean rebalancing the other four."
+           Description="The score, its band, and what it is made of. Each input is passed with its weight and its contribution, so the number arrives as an argument rather than as a claim a reader has to take on faith."
            Code="@ScoreCode">
         <MetricScore Label="@($"Productivity score — {_subject}")"
                      Components="ProductivityFixtures.ScoreInputsFor(_subject)"
@@ -68,9 +65,9 @@ Weights are normalised by their total rather than assumed to add to one, so addi
     </Story>
 
     <Story Name="MetricScore in its other states"
-           Description="A score with no visible composition says so, in the calm info surface rather than as a warning: it is a legitimate case — a score computed by a service that did not return its inputs — but the reader should know they are being asked to take it on trust.
+           Description="A score with no visible composition says so, in the calm info surface rather than as a warning — a service that did not return its inputs is a legitimate case.
 
-Bands take a ramp step and a name. Never a red-amber-green light: the palette has one saturated hue and no strong semantic text colours, and a score is exactly the kind of number somebody prints in greyscale for a review."
+Bands take a ramp step and a name, never a red-amber-green light."
            Code="@ScoreStatesCode">
         <div class="sb-stack">
             <MetricScore Label="Arrived without its inputs"
@@ -96,11 +93,7 @@ Bands take a ramp step and a name. Never a red-amber-green light: the palette ha
     </Story>
 
     <Story Name="MetricTrellis — small multiples"
-           Description="One panel per repository, every panel on the same scale. This is the first thing to reach for when comparing series across repositories, and the reason is the palette: a multi-series line chart needs one categorical colour per series, and components.css is explicit that charts are single-hue and that two providers are drawn as two charts rather than two series on one plot.
-
-Small multiples are what that leaves — and they were the better answer anyway. Five overlaid lines are hard to read at any number of colours; five panels side by side are read at a glance.
-
-The shared scale is the whole mechanism, and the header states it once. Left to themselves, panels scale to their own peak, every repository draws an equally busy mountain, and one with a tenth of its neighbour's activity looks identical to it. Compare the erratic repository against the flat one here — on independent scales they would be indistinguishable."
+           Description="One panel per repository, every panel on the same scale. The first thing to reach for when comparing series across repositories, because a multi-series line chart would need one categorical colour per series and the palette carries a single hue."
            Code="@TrellisCode">
         <div class="sb-stack">
             <MetricTrellis Series="Windowed"
@@ -125,11 +118,9 @@ The shared scale is the whole mechanism, and the header states it once. Left to 
     </Story>
 
     <Story Name="MetricHeatmap — repositories against periods"
-           Description="The chart that scales when a trellis stops fitting. Twenty repositories over twenty-six weeks is five hundred readings: five hundred cells here, or twenty unreadably narrow panels there.
+           Description="The chart that scales when a trellis stops fitting: twenty repositories over twenty-six weeks is five hundred cells here, or twenty unreadably narrow panels there.
 
-A heatmap is also the one chart type this palette is built for. Every other way of comparing series wants a categorical scale — one colour per repository — and there is one hue to spend. A heatmap wants a sequential scale, which is exactly what an ordinal ramp of one hue is.
-
-Zero takes the track rather than the palest step, and a week a repository did not report takes an outline and no fill. “Nothing happened”, “a little happened” and “there is no reading here” are three different facts, and the newest repository has six weeks of the third."
+It is also the one chart type a single-hue palette suits, because it wants a sequential scale rather than a categorical one."
            Code="@HeatmapCode">
         <MetricHeatmap Series="Windowed"
                        Label="@($"Score by repository and week, last {_weeks} weeks")"
@@ -139,11 +130,7 @@ Zero takes the track rather than the palest step, and a week a repository did no
     </Story>
 
     <Story Name="MetricSpotlight — one series against the pack"
-           Description="Every repository on one plot, the subject in the brand hue and the rest in a muted grey. This is how a multi-series line chart is done with one saturated hue: only one series is ever the subject, so only one needs a colour.
-
-It answers the question a trellis cannot — whether the subject sits above or below the pack — and gives up the one a trellis is best at, which is reading any individual series that is not the subject. Use both; they are not alternatives.
-
-The context lines are grey rather than a paler gold on purpose. A muted brand hue reads as “a slightly less important subject”, and these are not subjects at all."
+           Description="Every repository on one plot, the subject in the brand hue and the rest muted. It answers whether the subject sits above or below the pack, and gives up reading any individual series that is not the subject."
            Code="@SpotlightCode">
         <MetricSpotlight Series="Windowed"
                          Selected="@_subject"
@@ -155,11 +142,9 @@ The context lines are grey rather than a paler gold on purpose. A muted brand hu
     </Story>
 
     <Story Name="MetricStackedArea — where the time went"
-           Description="What share of the week each project took, every bucket adding to 100%. The chart normalises, so the caller passes raw hours and the arithmetic cannot drift out of step with the picture.
+           Description="What share of each bucket a project took. The chart normalises, so the caller passes raw hours and the arithmetic cannot drift out of step with the picture.
 
-The bands are named in place rather than only in a legend, and that is not decoration. The ramp has four steps and there are five projects here, so two bands share a shade — the name written across the band is the only thing telling them apart. Labels are HTML positioned over the plot, not SVG text, because the viewBox stretches to its box and would stretch glyphs with it.
-
-W32 is a week nobody logged anything. The bands break there instead of drawing a straight line across it: a bridge over missing data is an invention, and a hundred-percent chart has no honest way to show a share of nothing."
+Bands are named in place rather than only in a legend, which is what tells two bands sharing a shade apart."
            Code="@StackedCode">
         <MetricStackedArea Series="ProductivityFixtures.TimeByRepository"
                            Label="Share of logged time by repository"
@@ -169,9 +154,9 @@ W32 is a week nobody logged anything. The bands break there instead of drawing a
     </Story>
 
     <Story Name="What a hundred-percent chart cannot tell you"
-           Description="Its one lie, and the reason the bucket totals are printed under the axis by default. A hundred percent of a 38-hour week and a hundred percent of a 6-hour week are the same height here, so composition alone cannot say whether the work grew or collapsed.
+           Description="Its one lie, and the reason `ShowTotals` is on by default: a hundred percent of a 38-hour week and of a 6-hour week are the same height, so composition alone cannot say whether the work grew or collapsed.
 
-Turn the totals off — as below — and the two charts are indistinguishable, which is exactly the problem. Read the shares here and the volume from the column chart beside it; neither answers the other's question."
+Turn the totals off — as below — and the two charts are indistinguishable."
            Code="@StackedTotalsCode">
         <div class="sb-stack">
             <MetricStackedArea Series="ProductivityFixtures.TimeByRepository"
@@ -192,9 +177,7 @@ Turn the totals off — as below — and the two charts are indistinguishable, w
     </Story>
 
     <Story Name="MetricStackedArea with one project as the subject"
-           Description="Selecting a band mutes the others to the track shade and leaves the stack in place. It does not reorder: a stack whose bands move between renders is not the same chart, and the reader would lose the position they were using to find things.
-
-For a view that is about one project's share of the whole rather than about the whole split."
+           Description="Selecting a band mutes the others to the track shade and leaves the stack in place. It does not reorder: a stack whose bands move between renders is not the same chart."
            Code="@StackedSelectedCode">
         <MetricStackedArea Series="ProductivityFixtures.TimeByRepository"
                            Selected="@_subject"
@@ -230,9 +213,7 @@ For a view that is about one project's share of the whole rather than about the 
     </Story>
 
     <Story Name="The estate as one line"
-           Description="The mean score across whichever repositories reported that week — not a sum, because a score is already normalised and five scores added together sit on no scale at all.
-
-Worth having as the one figure a weekly summary can carry, and worth distrusting: a mean over five repositories hides the one that fell off a cliff, which is what the three charts above exist to show.">
+           Description="The mean score across whichever repositories reported that week — not a sum, because a score is already normalised. Worth having as the one figure a weekly summary can carry, and worth distrusting: a mean hides the repository that fell off a cliff.">
         <MetricGrid Label="Estate score">
             <MetricTile Label="Estate score, this week"
                         Value="@MetricFormat.Score(ProductivityFixtures.EstateScore[^1].Value)"
@@ -260,6 +241,13 @@ Worth having as the one figure a weekly summary can carry, and worth distrusting
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#chart-roles", "The one hue these comparisons are allowed to vary."),
+        new("typography-and-layout.md#layout-grid-and-breakpoints", "How small multiples are laid out as the pane narrows."),
+        new("accessibility.md#contrast", "The ratio a heatmap cell and a stacked band have to clear.")
+    ];
+
     private int _weeks = 12;
     private string _subject = ProductivityFixtures.Subject;
 

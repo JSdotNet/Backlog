@@ -23,15 +23,13 @@ sequenceDiagram
     actor ME
     participant UI as Desktop UI
     participant Backlog as Backlog Service
-    participant Store as Local Storage
-    participant Index as Local JSON Index
+    participant Store as Local SQLite Store
     participant GitHub as GitHub API
 
-    ME->>UI: Create backlog entry
-    UI->>Backlog: createEntry(title, body, repo_ids, tags)
-    Backlog->>Store: Write markdown file
-    Backlog->>Index: Update JSON index
-    Backlog-->>UI: Entry created (id)
+    ME->>UI: Create task
+    UI->>Backlog: createTask(title, body, repo_ids, tags)
+    Backlog->>Store: Upsert task row
+    Backlog-->>UI: Task created (id)
 
     Note over Backlog,GitHub: Async GitHub sync - one issue per repo_id
     loop For each repo_id

@@ -1,10 +1,10 @@
-@page "/graph-explorer"
+﻿@page "/graph-explorer"
 
 <PageTitle>Graph explorer — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Graph explorer"
-           Summary="GraphExplorer draws a node/edge model in one of three layouts — lanes, spine and cluster — with view tabs, zoom, panning and a legend around it. Every word on screen arrives in the model, so the stories below are a delivery team rather than anything the app happens to show.">
-
+           Summary="GraphExplorer draws a node/edge model in one of three layouts — lanes, spine and cluster — with view tabs, zoom, panning and a legend around it. Every word on screen arrives in the model, so the stories below are a delivery team rather than anything the app happens to show."
+           Guidelines="@Rules">
     @*
         One story per layout. They used to share a single explorer whose tabs
         switched between them, which meant only the default view was ever on
@@ -54,6 +54,13 @@
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("component-libraries.md#diagram-and-graph-strategy", "Why the graph is drawn by this engine and not another."),
+        new("color-scheme.md#chart-roles", "The hues a cluster, a lane and a spine may use."),
+        new("interaction-guidelines.md#motion-and-reduced-motion", "What a relayout is allowed to animate.")
+    ];
+
     private sealed record DemoNode(string Id, string Label, string Kind, string Status, string Description, string Squad, string Discipline);
 
     private static readonly IReadOnlyList<DemoNode> Crew =

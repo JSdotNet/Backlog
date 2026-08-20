@@ -39,10 +39,23 @@ Use it to review a component, and to test one without starting the application.
 - **`Backlog.UI.Storybook` is the one exception, and only for stories.** Its pages
   *are* its hosting glue — a storybook with no stories hosts nothing. What it may
   contain is examples, the chrome that frames them (`Story`, `StoryPage`,
-  `StorybookIndex`, `app.css`, `storybook.js`), and nothing else. Any logic worth
-  testing still belongs in the library: a story sets up a component and shows it,
-  and if a page starts needing behaviour of its own, that behaviour is a component
-  the library is missing.
+  `MarkdownStory`, `StorybookIndex`, `DesignGuideline`, `GuidelineChapter`,
+  `app.css`, `storybook.js`), and nothing else. Any logic worth testing still
+  belongs in the library: a story sets up a component and shows it, and if a page
+  starts needing behaviour of its own, that behaviour is a component the library
+  is missing.
+- **A page says how a component is used; it does not say what the design rule is.**
+  The rules live in `.design`, and every page renders the chapters that govern it
+  from a *Design rules* block in its header — `DesignGuideline` slices the anchored
+  section out of the `.design` files the csproj embeds, and `GuidelineChapter` draws
+  it with `MarkdownView`. A page whose prose argued for a tone, a hierarchy or a
+  contrast ratio would be keeping a second copy of one of those files. See
+  `.design/README.md#living-reference-the-ui-storybook`.
+- **Nothing is shown before its parts.** The sidebar order is that rule, not taste:
+  the component groups first, then the subjects that are a convention rather than a
+  component, then *Combined usage*, where whole surfaces are composed out of
+  everything above. A page may only use components a page above it has already
+  introduced, which is why the reasoning lives in `StorybookIndex`'s own remarks.
 - `Directory.Build.props` in this folder marks every project `IsPublishable=false`,
   `IsPackable=false`, and `IsShippingAssembly=false`, so publishing one fails.
 - The release workflow only publishes from `src/App/`.

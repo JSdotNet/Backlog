@@ -27,7 +27,7 @@ internal static class RecurrencePolicy
     /// <para>
     /// What carries over is what the repeat is <em>of</em>: title, content, type,
     /// priority, area, tags, repo ids, dependencies and the recurrence itself,
-    /// plus a <see cref="BacklogEntry.RecurrenceSourceId"/> pointing back at the
+    /// plus a <see cref="TaskItem.RecurrenceSourceId"/> pointing back at the
     /// occurrence it followed so a series can be traced. What does not carry over
     /// is everything that was about the occurrence rather than the repeat: the new
     /// entry starts at <see cref="EntryStatus.Ready"/> with its sub-items reset to
@@ -35,13 +35,13 @@ internal static class RecurrencePolicy
     /// already fired and no My Day stamp.
     /// </para>
     /// </summary>
-    public static BacklogEntry NextOccurrence(BacklogEntry completed)
+    public static TaskItem NextOccurrence(TaskItem completed)
     {
         ArgumentNullException.ThrowIfNull(completed);
         if (completed.Recurrence is null)
             throw new InvalidOperationException("Only an entry that carries a recurrence has a next occurrence.");
 
-        var successor = new BacklogEntry(
+        var successor = new TaskItem(
             Guid.NewGuid(),
             completed.Title,
             completed.ContentMd,

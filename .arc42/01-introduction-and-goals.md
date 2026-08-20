@@ -32,6 +32,7 @@ buildable, and extendable on its own.
 | **Monitoring & Dashboard** | Track progress signals, queue health, and operational follow-up views |
 | **Technology Stack** | Define baselines, version requirements, and adoption signals |
 | **Dev PC Management** | Register machines, track compliance, and orchestrate remote updates |
+| **Sessions** | Record what the AI coding agents have been doing on each environment |
 | **Repository Management** | Track repositories, package versions, issues, and health scoring |
 
 Capture delivers normalized `InboxItem`s to the Inbox incoming queue; Inbox does not

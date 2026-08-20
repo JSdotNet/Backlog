@@ -62,6 +62,7 @@ public sealed class AppFeatureSettingsStoreTests
                 KnowledgeFeatures.RepositoryKnowledge,
                 BacklogFeatures.AdditionalRepositories,
                 DevPcFeatures.SystemTools,
+                SessionFeatures.Sessions,
                 DashboardFeatures.Dashboard,
                 BacklogFeatures.GitHubIntegration,
                 AppFeatures.FeedbackReporting,

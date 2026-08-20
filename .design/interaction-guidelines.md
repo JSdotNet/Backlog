@@ -304,6 +304,117 @@ status: active
 | Editing continues | Reading and editing MUST continue offline; only genuinely network-only actions (e.g. GitHub sync) are disabled with explanation. |
 | Save state | The save-state indicator shows `Offline — changes saved locally` (see `#save-state-indicator-vocabulary`). |
 
+## Task Rows
+
+```meta
+status: active
+related: [".design/typography-and-layout.md#metadata-lines", ".design/content-editing.md#backlog-entry-structure", ".design/interaction-guidelines.md#auto-save-no-save-buttons"]
+```
+
+A task row is the product's densest composition: a completion control, a title
+that can be renamed in place, a metadata line, badges and actions, all on one
+line of a list that may be hundreds long.
+
+| Rule | Requirement |
+|---|---|
+| Completion | The completion control is round — the one convention this shape has — and MUST remain a real checkbox to assistive technology. |
+| No inert controls | A row with nothing listening MUST render its completion state as an image with an accessible label rather than as a control. A control that takes focus and then does nothing, or records something untrue, is worse than no control. |
+| Renaming | A rename happens where the title is, so the row MUST NOT change height while it is being renamed. Enter commits, Escape abandons, clicking away commits; there is no Save button, per `#auto-save-no-save-buttons`. |
+| Rename reporting | A rename is reported when it settles, not per keystroke. An empty title and an unchanged one are not renames. |
+| Repeated renaming | Where retitling many rows is the task, the keystroke that finishes one rename MUST start the next (Tab down, Shift+Tab up), and the field MUST arrive with the title selected so the first keystroke replaces it. |
+| Finished rows | A finished row leaves the open list and joins a Completed section of its own, folded by default, behind a count. It MUST NOT be deleted — the record of what was done is the point — and it MUST stay readable rather than being hidden. |
+| Reorder | A finished row MUST NOT be draggable: its place in the order stopped meaning anything when it left the list. |
+| Blocked rows | A row that cannot start yet MUST refuse twice: its completion control renders as state, and its metadata line names what it is waiting for, first on the line. |
+| One next | Where an order is derived, exactly one row is marked as the one to start; rows that are merely startable take a second, quieter marker. The vocabulary MUST NOT change with the count. |
+| Recorded beats derived | A row somebody marked done is done, even where a step it waits on is outstanding. A recorded fact outranks a derived conclusion. |
+| Unresolvable dependencies | An id that names nothing in view keeps the row blocked and MUST be shown verbatim. Dropping it would report the row ready when the step it waits on is merely missing. |
+| Cycles | A cycle is flagged on every row in it, nothing is offered, and no edge is silently broken. Choosing which dependency is the wrong one is the author's decision. |
+| Bodies | A row may carry a body, folded by default; a list of ten open bodies is not a list. The fold reuses the product's shared disclosure rather than a second implementation of one. |
+
+Review surface: storybook → *Task list*, and *Task list* → **Prompt tasks**.
+
+## Action Density and Overflow
+
+```meta
+status: active
+related: [".design/typography-and-layout.md#density", ".design/accessibility.md#target-sizes-and-text", ".design/design-principles.md#low-chrome-content-first"]
+```
+
+An act the product performs on an external tool appears on a backlog entry, a
+knowledge chapter, a roadmap bar and inside a menu, and the set of acts does not
+change between them. What changes is how many of them survive the room available.
+
+Density selects a button shape, a size and a visible budget **together**, as one
+choice rather than three, so the three cannot be set inconsistently.
+
+| Density | Shape | Visible budget |
+|---|---|---|
+| Toolbar | Label and glyph, default size | 4 |
+| Inline | Label and glyph, small | 3 |
+| Compact | Glyph only | 2 |
+| Menu | Trigger only | 0 |
+
+Rules:
+
+- The budgets are deliberately smaller than the act set. A busy surface's resting
+  state is a short row and a menu, which is what
+  `design-principles.md#low-chrome-content-first` asks for.
+- **A primary act is pinned and still counts.** It displaces a standard act rather
+  than adding a slot, so the budget is the budget.
+- **A copy is pinned and does not count.** A copy is served by the clipboard
+  component, and a menu item has no clipboard interop — a copy in overflow would
+  claim to copy and silently not.
+- An act the host explicitly marked as overflow is removed unconditionally and is
+  never pulled back out.
+- **One item never gets a menu.** Where the rule would put exactly one act into
+  overflow, it stays visible and no trigger is rendered: a menu holding a single
+  item costs a click, hides a label, and buys nothing.
+- **A running act is exempt.** Collapse is recomputed as state changes, and an act
+  the reader has just pressed MUST NOT be moved out from under them.
+- **Unavailability never affects placement.** An unavailable act occupies the slot
+  it would have occupied, disabled, carrying its reason. A reader who never sees an
+  act concludes the product cannot do it, and files that as a missing feature
+  rather than as an unconnected account.
+- In a menu, where a row has no room for a second line, an unavailable act's
+  reason MUST be folded into its label, and the item MUST be skipped by the arrow
+  keys rather than focused to refuse.
+- Icon-only means **visually** icon-only. Every control keeps its accessible name,
+  and is padded to the ≥ 44 × 44 px target
+  (`accessibility.md#target-sizes-and-text`) even where the glyph is 16 px — so a
+  compact cluster is the same touch target with less ink in it.
+
+Review surface: storybook → *Integrations* → **Density and overflow**.
+
+## Timelines and Roadmaps
+
+```meta
+status: active
+related: [".design/color-scheme.md#chart-roles", ".design/interaction-guidelines.md#keyboard-accessible-reordering", ".design/accessibility.md#keyboard-navigation"]
+```
+
+A roadmap is a plan drawn against a time axis: quarters across the top, swimlanes
+down the left, and bars, milestones and dependency arrows placed by their dates.
+It is the one surface in the product where position carries meaning in two
+dimensions at once.
+
+| Rule | Requirement |
+|---|---|
+| What a bar means | A bar's horizontal extent is its dates and nothing else. Its vertical position is its row, which carries no ordering claim of its own. |
+| Snapping | Every gesture snaps to the week. A plan is not accurate to the day, and an axis ruled in quarters cannot show that it is. |
+| Preview is the result | The bar under the pointer mid-gesture MUST already be at the position the drop will commit, rather than a ghost drawn beside it. A preview that can disagree with its result will. |
+| Keyboard parity | Every gesture MUST have a key: pick up, move by a week, move by a row, pull either end, drop, cancel. A chart that can only be dragged is a chart some people can read and nobody can edit. See `#keyboard-accessible-reordering`. |
+| Announcements | Each keyboard step is announced through a live region, and focus returns to the bar after a drop. |
+| Milestones | A milestone has no duration, so it MUST NOT be drawn as a one-day bar: it takes a glyph, on a row of its own, and has no edge to pull. At a year's zoom a one-day bar is a sliver nobody can hit. |
+| Marker kinds | Kinds of marker are told apart by **shape** as well as by colour, and each carries its full description — what it is, which lane and row, and its date — as text. |
+| Dependencies | An arrow is resolved from where its two ends are drawn *now*, including a bar mid-drag, so it is never a stale line. An arrow with one end missing draws nothing. |
+| Contradictions are drawn | Where dependent work starts before the thing it waits on has finished, the arrow MUST double back rather than being straightened. The detour is the reader's cue that the plan contradicts itself. |
+| Refusals | An invalid drop is refused rather than ignored, so a reader learns the rule rather than concluding the gesture missed. |
+| Locked bars | A committed bar loses its grips and refuses to be picked up at all. |
+| Colour | Lanes and bars take the chart roles in `#chart-roles`; a caller passing hues of its own owns them, and the library ships none. |
+| Empty plans | No lanes, or lanes with no rows, renders an empty state rather than an axis over nothing. An axis above nothing promises a plan that has not been made. |
+
+Review surface: storybook → *Roadmap*.
+
 ## Materialization
 
 ```meta
@@ -313,7 +424,7 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/access
 
 | Rule area | Where it lives | Review surface |
 |---|---|---|
-| Auto-save, debounce, indicator | `SaveIndicator` in the shared library; `BacklogDesktopState` in the desktop app | Storybook → *Feedback* → **SaveIndicator**, and *Markdown* → **Edit and read**, which runs the real sequence: debounced text save while typing, immediate save on a task toggle, nothing shown while idle |
+| Auto-save, debounce, indicator | `SaveIndicator` in the shared library; `BacklogDesktopState` in the desktop app | Storybook → *Feedback* → **SaveIndicator**, and *Entry edit*, which runs the real sequence: debounced text save while typing, immediate save on a task toggle, nothing shown while idle |
 | Toasts and feedback | `Toast`, `ToastHost`, `Alert`, `EmptyState`, `Spinner` | Storybook → *Feedback* |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
@@ -321,15 +432,16 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/access
 
 Known gaps:
 
-- **Reorder has no storybook page.** Both reorder implementations live in the
-  desktop app rather than in the shared library, so the storybook cannot show
-  them and this section has no runnable review surface. Reorder is the single
-  largest interaction spec here; lifting a reorderable list into the library
-  would put it under review like everything else.
-- **No reorder announcements.** `accessibility.md#reorder-announcements` requires
-  a live region announcing "Moved to position 3 of 8"; there is no `aria-live`
-  region in the desktop app today. Keyboard reorder itself works — the grips take
-  focus and respond to the arrow keys, and each grip is labelled with that.
+- **Chapter reorder has no review surface.** Item reorder is now in the shared
+  library — `TaskListView` owns the grip, the drop preview and the keyboard move,
+  and `RoadmapTimeline` owns the same gesture against a time axis — so both are
+  under review at storybook → *Task list* → **Reordering, by pointer and by key**
+  and *Roadmap* → **Moving a bar, and moving it without a mouse**. Reordering
+  *chapters within a document* is still desktop-app-only and has no page.
+- **Item reorder announces; chapter reorder does not.** Both library
+  implementations carry the `aria-live` region
+  `accessibility.md#reorder-announcements` requires. The desktop app's chapter
+  grips take focus and respond to the arrow keys but announce nothing.
 - **No `Offline` or `Conflict` save state.** The `SaveState` enum stops at
   `Failed`. Both states are specified in `#save-state-indicator-vocabulary` and
   both need building before sync ships.

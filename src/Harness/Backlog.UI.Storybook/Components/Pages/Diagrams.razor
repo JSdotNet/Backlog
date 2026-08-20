@@ -1,25 +1,35 @@
-@page "/diagrams"
+﻿@page "/diagrams"
 
 <PageTitle>Diagrams — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Diagrams"
-           Summary="DiagramView renders mermaid in the browser and shows the source for everything else. GraphView hands arbitrary node/edge data to a JS renderer.">
+           Summary="DiagramView renders mermaid in the browser and shows the source for everything else. GraphView hands arbitrary node/edge data to a JS renderer."
+           Guidelines="@Rules">
 
     <Story Name="Flow diagram with decisions"
            Description="A process with branches, which is what most entries draw. Mermaid runs on theme 'base' with themeVariables read from the live tokens, so nodes carry the brand colour instead of mermaid's own grey-and-lavender dark theme — a diagram should look like it belongs to this product, not like a screenshot pasted into it."
-           Code="@FlowCode">
-        <DiagramView Title="Entry lifecycle" Language="mermaid" Source="@FlowWithDecisions" />
+           Code="@FlowCode"
+           Source="@FlowWithDecisions"
+           SourceLanguage="mermaid"
+           SourceLabel="entry-lifecycle.mmd">
+        <DiagramView Title="Entry lifecycle" Language="mermaid" Source="@FlowWithDecisions" ShowSource="false" />
     </Story>
 
     <Story Name="Mermaid flowchart"
            Description="Rendered by backlogDiagrams.render, which loads mermaid on first use. The source stays available under the diagram."
-           Code="@FlowchartCode">
-        <DiagramView Title="Slice flow" Language="mermaid" Source="@Flowchart" />
+           Code="@FlowchartCode"
+           Source="@Flowchart"
+           SourceLanguage="mermaid"
+           SourceLabel="slice-flow.mmd">
+        <DiagramView Title="Slice flow" Language="mermaid" Source="@Flowchart" ShowSource="false" />
     </Story>
 
     <Story Name="Mermaid sequence diagram"
-           Description="Same component, different mermaid dialect — the language attribute is all that decides whether it renders.">
-        <DiagramView Title="Auto-save" Language="mermaid" Source="@Sequence" />
+           Description="Same component, different mermaid dialect — the language attribute is all that decides whether it renders."
+           Source="@Sequence"
+           SourceLanguage="mermaid"
+           SourceLabel="auto-save.mmd">
+        <DiagramView Title="Auto-save" Language="mermaid" Source="@Sequence" ShowSource="false" />
     </Story>
 
     <Story Name="A language that cannot be rendered"
@@ -44,6 +54,13 @@
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("component-libraries.md#diagram-and-graph-strategy", "Which renderer draws which kind of picture."),
+        new("color-scheme.md#chart-roles", "The hues a node, an edge and a lane may use."),
+        new("interaction-guidelines.md#motion-and-reduced-motion", "Whether a layout may animate as it settles.")
+    ];
+
     // Decision diamonds, a loop back and a terminal state: the shapes a flow
     // diagram has that a dependency graph does not.
     private const string FlowWithDecisions = """

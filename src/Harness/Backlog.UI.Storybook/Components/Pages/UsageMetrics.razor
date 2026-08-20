@@ -1,14 +1,15 @@
-@page "/usage-metrics"
+﻿@page "/usage-metrics"
 
 <PageTitle>Usage metrics — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Usage metrics"
-           Summary="The pieces a usage dashboard is assembled from, each on its own. Composed into an actual view on the AI usage and cost page.">
+           Summary="The pieces a usage dashboard is assembled from, each on its own. Composed into an actual view on the AI usage and cost page."
+           Guidelines="@Rules">
 
     <Story Name="MetricTile"
-           Description="A label, a number, and how it moved. The number is already formatted by the caller — the tile does not know whether it is holding tokens, money or sessions, which is why it takes a string and not a decimal.
+           Description="A label, a number, and how it moved. The number is already formatted by the caller, so the tile takes a string and not a decimal — it does not know whether it is holding tokens, money or sessions.
 
-Whether up is good is a parameter, because the answer differs per metric: more sessions is better, more spend is not. It changes the wording and the arrow, never the text colour — the palette has soft semantic surfaces and no strong semantic text ramp to paint a red number from."
+`HigherIsBetter` is a parameter, because the answer differs per metric: more sessions is better, more spend is not. It changes the wording and the arrow, never the text colour."
            Code="@TileCode">
         <MetricGrid Label="Metric tile examples">
             <MetricTile Label="Total tokens"
@@ -31,9 +32,7 @@ Whether up is good is a parameter, because the answer differs per metric: more s
     </Story>
 
     <Story Name="MetricTile with emphasis and a trend"
-           Description="One hero figure per view. Emphasis is a rule down the left edge and a larger number rather than a different surface, so it reads as “this one first” instead of as a different kind of thing.
-
-The Trend slot is shaped for a sparkline but takes anything."
+           Description="`Emphasis` marks the one hero figure in a view: a rule down the left edge and a larger number, not a different surface. The `Trend` slot is shaped for a sparkline but takes anything."
            Code="@EmphasisCode">
         <MetricGrid Label="Emphasised tile">
             <MetricTile Label="Spend"
@@ -78,9 +77,9 @@ Loading and empty are the other two. Empty means the period really had nothing i
     </Story>
 
     <Story Name="MetricSparkline"
-           Description="Twelve to thirty readings, no axes and no labels: context beside a number that is already printed an inch away.
+           Description="Twelve to thirty readings, no axes and no labels — context beside a number that is already printed an inch away.
 
-The y scale runs zero to max, never min to max. Zeroed on its own minimum, a series that moved two percent becomes a mountain range and the reader has no axis to catch it with. Fewer than two points renders nothing at all — one point is a dot pretending to be a trend."
+The y scale runs zero to max rather than min to max, so a series that moved two percent does not become a mountain range. Fewer than two points renders nothing at all."
            Code="@SparklineCode">
         <div class="sb-stack">
             <MetricSparkline Points="UsageFixtures.TokensPerDay"
@@ -100,9 +99,9 @@ The y scale runs zero to max, never min to max. Zeroed on its own minimum, a ser
     </Story>
 
     <Story Name="MetricBars"
-           Description="The same series with an axis, for when a reader needs to take figures off it rather than glance at the shape. Columns are CSS boxes rather than SVG, so the axis labels are real text that scales with the reader's font size.
+           Description="The same series with an axis, for when a reader takes figures off it rather than glancing at the shape. Columns are CSS boxes rather than SVG, so the axis labels are real text that scales with the reader's font size.
 
-Fourteen dates do not fit under a chart this size, so only every nth is printed — the last one always among them. Every column is also a row in a visually-hidden table, because a number rendered only as a bar length is not readable, and these figures appear nowhere else on the page."
+Only every nth date is printed, the last one always among them, and every column is also a row in a visually-hidden table."
            Code="@BarsCode">
         <div class="sb-stack">
             <MetricBars Points="UsageFixtures.TokensPerDay"
@@ -123,9 +122,9 @@ Fourteen dates do not fit under a chart this size, so only every nth is printed 
     </Story>
 
     <Story Name="MetricBreakdownBar"
-           Description="Part-to-whole in one bar, with the legend as the real content — the bar is aria-hidden, because a share rendered only as a width is not a number anyone can read.
+           Description="Part-to-whole in one bar, with the legend as the real content: the bar is `aria-hidden`, because a share rendered only as a width is not a number anyone can read.
 
-Parts take ramp steps in the order given, so the caller owns the ordinal scale. For tokens that means cheapest first, which is why the pale band on the left is the biggest: cache reads cost a fraction of uncached input, and the difference between this bar and a bar that is mostly output is the difference between a bill and a much larger one."
+Parts take ramp steps in the order given, so the caller owns the ordinal scale — for tokens that means cheapest first."
            Code="@BreakdownBarCode">
         <div class="sb-stack">
             <MetricBreakdownBar Parts="UsageFixtures.TokenKinds"
@@ -146,9 +145,9 @@ Parts take ramp steps in the order given, so the caller owns the ordinal scale. 
     </Story>
 
     <Story Name="MetricMeter"
-           Description="Spend against a cap — the one component here about a limit rather than a quantity, which is why it is a meter with a known maximum and a reading inside it.
+           Description="Spend against a cap: the one component here about a limit rather than a quantity, so it is a meter with a known maximum and a reading inside it.
 
-The threshold is passed as a value on the same scale rather than as a fraction, so the call site reads Max * 0.8m instead of a bare 0.8. Going over does not turn the fill red: over-budget is a modifier, a frame, and a caption saying so by how much, all of which survive being printed in greyscale."
+The threshold is passed as a value on the same scale rather than as a fraction, so the call site reads `Max * 0.8m` instead of a bare `0.8`. Going over renders a modifier, a frame and a caption saying by how much."
            Code="@MeterCode">
         <div class="sb-stack">
             <MetricMeter Label="Spend this month"
@@ -187,9 +186,9 @@ The threshold is passed as a value on the same scale rather than as a fraction, 
     </Story>
 
     <Story Name="MetricBreakdown"
-           Description="The rows behind the tiles. A table rather than a chart, because the question is “which one, and how much”, and that is read off figures — the share bar in the last cell is decoration on top of a printed percentage, not a substitute for it.
+           Description="The rows behind the tiles: a table, because the question is “which one, and how much”. The share bar in the last cell sits on top of a printed percentage rather than replacing it.
 
-Which column the share is a share of is a parameter, because tokens and cost do not produce the same ranking: Sonnet burns more tokens than Opus and costs less than half as much. Rows render in the order given; sorting belongs to the caller, because the useful order depends on the question."
+Which column the share is a share of is a parameter, because tokens and cost do not produce the same ranking."
            Code="@BreakdownCode">
         <div class="sb-stack">
             <MetricBreakdown Rows="UsageFixtures.ByModel"
@@ -246,9 +245,9 @@ A total across two currencies is a wrong number rather than a missing one, so th
     </Story>
 
     <Story Name="MetricStatus"
-           Description="One rendering of not-having-a-number, so the components that can be in that position do not each invent their own. Ready renders nothing at all, the way SaveIndicator renders nothing when it is idle, so a caller can bind Kind straight to whatever it knows.
+           Description="One rendering of not-having-a-number, so the components that can be in that position do not each invent their own. `Ready` renders nothing at all, the way `SaveIndicator` renders nothing when idle, so a caller can bind `Kind` straight to whatever it knows.
 
-Unavailable takes the soft info surface rather than the error one, and the default message is replaced by the provider's own reason — that sentence is the only thing on screen telling the reader which credential is missing."
+`Unavailable` takes the soft info surface, and its default message is replaced by the provider's own reason."
            Code="@StatusCode">
         <div class="sb-stack">
             <MetricStatus Kind="MetricStatusKind.Loading" TestId="status-loading" />
@@ -263,9 +262,7 @@ Unavailable takes the soft info surface rather than the error one, and the defau
     </Story>
 
     <Story Name="MetricFormat"
-           Description="A cost figure gets a formatter rather than a component: something whose whole body is one string earns a story and a test file for no review value.
-
-Everything formats invariant. Not a style preference — on a machine with a comma decimal separator, “12,35 USD” would break every assertion that spells a number out, and it would break there and nowhere else."
+           Description="A cost figure gets a formatter rather than a component. Everything formats invariant: on a machine with a comma decimal separator, “12,35 USD” would break every assertion that spells a number out, and it would break there and nowhere else."
            Code="@FormatCode">
         <div class="sb-table-scroll">
             <table class="sb-table">
@@ -289,6 +286,13 @@ Everything formats invariant. Not a style preference — on a machine with a com
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#chart-roles", "The hues a series, a threshold and a breakdown may use."),
+        new("typography-and-layout.md#type-scale", "How a number, its unit and its label are set."),
+        new("accessibility.md#contrast", "The ratio a bar, a spark and a meter have to clear.")
+    ];
+
     private decimal _seats = 9m;
 
     private static readonly IReadOnlyList<MetricPoint> OnePoint = [new("18 Aug", 42m)];

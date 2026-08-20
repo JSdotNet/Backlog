@@ -3,14 +3,13 @@
 <PageTitle>Integration references — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="References"
-           Summary="A reference to something that lives outside the product: a pull request, an issue, a Copilot or Claude session — every one of them marked, because everything on this page is by definition outside. What state it is in, whether that state disagrees with what the product believes, when the state was last read, and what happens when there are none, one, or eleven of them across four repositories.">
+           Summary="A reference to something that lives outside the product: a pull request, an issue, a Copilot or Claude session. What state it is in, whether that state disagrees with what the product believes, when it was last read, and what a list of eleven across four repositories looks like. Which tone each state wears is the rule linked above."
+           Guidelines="@Rules">
 
     <Story Name="A reference renders what the host can do with it"
-           Description="Given a URL it is an anchor; given a callback it is a button; given neither it is inert text. This is KnowledgeReferenceLink's tri-state, copied rather than re-derived, and the argument is the same one recorded there: an anchor can be middle-clicked, copied and opened in a new window, a button cannot, and a reference nobody can follow should not invite a click or take a tab stop to refuse one.
+           Description="One component, three shapes, chosen by what it is given: a `Url` makes an anchor, an `OnActivate` callback makes a button, neither makes inert text. The same tri-state `KnowledgeReferenceLink` has.
 
-It matters more here than it did there, because sessions genuinely differ. A pull request has a URL. A Copilot CLI session is a local process — the launcher starts one with no addressable id, so there is nothing to put in an href — and it arrives as a callback and renders as a button. Inventing a fourth renderer for that case is precisely the drift this family is against, so it does not get one.
-
-A URL wins over a callback when both are given. A link already navigates, and two ways to reach one place is one too many; the callback is what a host falls back to when there is no place to link to."
+It matters here because sessions differ. A pull request has a URL; a Copilot CLI session is a local process with no addressable id, so it arrives as a callback and renders as a button."
            Code="@ShapesCode">
         <div class="sb-stack" data-testid="references-shapes">
             <dl class="sb-grid sb-grid--addresses">
@@ -57,13 +56,9 @@ A URL wins over a callback when both are given. A link already navigates, and tw
     </Story>
 
     <Story Name="Five artifact states, and the glyph changes with the kind"
-           Description="Open, Draft, Merged, Closed, Not checked. Merged is kept apart from Closed because for a pull request they mean opposite things — the same distinction the product's own GitHub vocabulary already draws — and Not checked is a real state rather than a null, because we have not looked and it is closed are different facts and a reader is entitled to know which they are seeing.
+           Description="`Open`, `Draft`, `Merged`, `Closed` and `NotChecked`. `Merged` is its own state rather than a flavour of `Closed`, and `NotChecked` is a state rather than a null — “we have not looked” and “it is closed” are different facts.
 
-The icon is chosen from the kind as well as the state: an open issue is a circle with a dot, an open pull request is two branches meeting. At Compact density where the label is gone, that difference is the only thing separating them.
-
-Which is why the icon-only form is not merely the labelled one with the text removed. The label moves to the title and into a visually hidden span inside the chip, so the accessible name is unchanged and a screen reader still hears Open rather than a class name. Colour is never a sole carrier here either: every chip is icon plus text plus colour, and the compact form keeps two of the three where they can still be read.
-
-The chip is a component rather than a convention because that is what makes the triple unmissable. It takes an enum, so the slug, the icon and the label cannot be mismatched — which is exactly the failure mode of the hand-rolled badge classes it replaces, where the class and the word were two separate decisions."
+The icon comes from the kind as well as the state: an open issue is a circle with a dot, an open pull request is two branches meeting. At Compact density, where the label is gone, that is the only thing separating them, so the icon-only form is not the labelled one with the text removed."
            Code="@ArtifactCode">
         <div class="sb-stack" data-testid="references-artifact-states">
             <table class="sb-table">
@@ -110,11 +105,9 @@ The chip is a component rather than a convention because that is what makes the 
     </Story>
 
     <Story Name="Seven session states, and why Waiting is not Stalled"
-           Description="Both look like nothing happening. One is correct — the session asked a question and is waiting for an answer — and the other is the thing the monitoring rules raise an alert on. Collapsing them into one idle would make the alert unexplainable: the reader would see the badge that fired the notification sitting on a session that is behaving perfectly.
+           Description="Both look like nothing happening. `Waiting` is a session that asked a question; `Stalled` is the one the monitoring rules raise an alert on, so they cannot be one state.
 
-Stalled is one of only two filled chips in this family. The fill rule is worth stating once because it is the whole reason the colour survives review: a chip is filled when the product acts on it. A stalled session raises a monitoring signal and a failed one wants a retry; every other state is information, and information is outlined so that a row carrying four of them is readable.
-
-Nothing here decides that a session is stalled. A threshold is a policy and a policy needs a clock, and this library has neither — no timer, no clock, no elapsed time anywhere in it. The host computes it and passes the member in, which is recorded on the enum member itself so that nobody adds a timer here later. The same reasoning is why a succeeded action's status line does not clear itself and why nothing polls for freshness."
+`Stalled` is one of two filled chips in this family — a chip is filled when the product acts on it, and everything else is outlined. The tone scale behind that is the rule linked above."
            Code="@SessionCode">
         <div class="sb-stack" data-testid="references-session-states">
             @foreach (var state in SessionStates)
@@ -129,13 +122,9 @@ Nothing here decides that a session is stalled. A threshold is a policy and a po
     </Story>
 
     <Story Name="Two providers, two marks, one shape"
-           Description="Claude and GitHub Copilot sessions are the same record with a different Provider. That is the requirement stated as an API: if they were two components they would drift, and the point of this page is that they cannot.
+           Description="Claude and GitHub Copilot sessions are the same record with a different `Provider`.
 
-Where one of these comes from is worth saying, because it is the other half of a rule stated on Actions. A session is what a hand-off turns into: somebody pressed Send to Claude in Desktop, a section left this application, and what came back is this row — a thing running somewhere else that has to be found again. The act was marked and the reference is marked, and both for the same reason. The in-app AI acts have no counterpart here at all, which is the cleanest proof the rule is about crossing rather than about AI: Rewrite part with AI produces a card in the document and nothing on this page.
-
-The mark is doing real work here rather than decorating. Below Toolbar density the title goes and the state chip shrinks, so on a list row the provider mark is the only thing separating a Claude session from a Copilot one — which is why the marks are the providers' own rather than three interchangeable circles.
-
-The second row is the same two references in different states, which is the other half of the claim: one record shape, two providers, seven states, and no combination that needs a component of its own."
+A session is what a hand-off turns into: a section left the application and this row is the thing running elsewhere that has to be found again. The act was marked and so is the reference; the in-app AI acts have no counterpart here at all."
            Code="@ProvidersCode">
         <div class="sb-stack" data-testid="references-providers">
             <div class="sb-stack">
@@ -171,11 +160,9 @@ The second row is the same two references in different states, which is the othe
     </Story>
 
     <Story Name="Drift is a second chip, not a different colour on the first"
-           Description="This entry is done but the issue is still open is not a state of the issue. The issue is open, and that is correct; what is wrong is the pair. Painting the artifact chip a warning colour would say the issue is in a bad state, which is false, and would leave nowhere to show what the issue's actual state is.
+           Description="Drift renders as its own chip beside the artifact's, with its own icon and label — `StillOpen`, `AlreadyClosed`, `Missing`. The artifact chip keeps saying what state the artifact is actually in.
 
-So drift renders as a second chip beside the first, with its own icon and its own short label — Still open, Already closed, Missing. Three labels rather than one, because the reader's next move differs in each case and three synonyms would make them look interchangeable.
-
-The row with no drift is the control. Nothing renders for None — no empty element, no reserved space — so the appearance and disappearance of the second chip is the whole visible difference between a reference that agrees with local truth and one that does not."
+Nothing renders for `None`: no empty element and no reserved space, so a row with no drift is the control below."
            Code="@DriftCode">
         <div class="sb-stack" data-testid="references-drift">
             @foreach (var drift in Drifts)
@@ -193,11 +180,9 @@ The row with no drift is the control. Nothing renders for None — no empty elem
     </Story>
 
     <Story Name="Zero, one, many"
-           Description="Zero is the case worth building for, because an entry that has never been projected is the common one, and an empty region that renders nothing tells the reader the feature does not exist. IntegrationLinkList renders the existing EmptyState with the create action in its slot, so nothing is linked and here is how to link something are the same block.
+           Description="`IntegrationLinkList` renders `EmptyState` when there is nothing to list, with the create action in its slot — so “nothing is linked” and “here is how to link something” are one block. The action is an ordinary `IntegrationActionBar`, so an unavailable GitHub reads the same there as anywhere.
 
-One is the case that has no heading, because a heading over the only group is a heading over nothing — the next story is that rule on its own. Many is where grouping earns itself.
-
-The empty state's action is an ordinary IntegrationActionBar in the slot rather than a second kind of button, so an unavailable GitHub reads exactly the same there as it does on a full panel: the act is present, disabled, and carrying its reason. A host that dropped the button when there was nothing to show would produce the one thing this family is against — a reader who concludes the product cannot create issues at all."
+One group gets no heading; many is where grouping earns itself, which the next story is about."
            Code="@ZeroOneManyCode">
         <div class="sb-stack" data-testid="references-counts">
             <div class="sb-stack">
@@ -232,11 +217,9 @@ The empty state's action is an ordinary IntegrationActionBar in the slot rather 
     </Story>
 
     <Story Name="A repository heading only when there is more than one repository"
-           Description="An entry can project into several repositories, so grouping is necessary; a heading over the only group is a heading over nothing. The rule is that plain.
+           Description="`GroupByRepository` adds a heading per repository, and only when there is more than one to name. Links with no repository sort last under their own heading rather than being dropped.
 
-Links with no repository sort last under their own heading rather than being dropped, on the same principle MarkdownView uses for orphaned comments: a stray is better than a loss. A session started from a scratch folder belongs to no repository and is still a session somebody is running.
-
-The three lists below are the same rule from three sides. Grouping off is the flat list a host asks for when its surface already says which repository it is about; grouping on with four repositories is the heading doing its job; grouping on with one repository is the heading suppressed, which is the same parameter producing no headings because there is nothing for them to distinguish."
+The three lists below are grouping off, grouping on with four repositories, and grouping on with one."
            Code="@GroupingCode">
         <div class="sb-stack" data-testid="references-grouping">
             <div class="sb-stack">
@@ -266,11 +249,9 @@ The three lists below are the same rule from three sides. Grouping off is the fl
     </Story>
 
     <Story Name="As of, and a button that asks"
-           Description="State is read on demand and never polled. The backlog features give the reason in one line — reading GitHub state is a deliberate act rather than a background poll, because the backlog has to open instantly and offline — and the consequence for this component is that a state without a time on it is a claim it cannot support. So the freshness line is not decoration; it is the disclaimer that makes the chips honest.
+           Description="`IntegrationFreshness` takes an `AsOf` string and a refresh callback. State is read on demand and never polled, so there is no interval to configure and no clock in the library to run one against — `AsOf` arrives already formatted, because what “four minutes ago” is, and in what language, belongs to the host.
 
-Refresh is an explicit button for the same reason. There is no auto-refresh interval to configure because there is no interval, and there is no clock in the library to run one against — AsOf arrives already formatted, because what four minutes ago is, and in what language, belongs to the host.
-
-Without a delegate there is no button at all, only the line. That is the never-read case at the bottom: a surface that cannot re-read should not offer to."
+The line is what makes the chips honest: a state with no time on it is a claim the component cannot support."
            Code="@FreshnessCode">
         <div class="sb-stack" data-testid="references-freshness">
             <div class="sb-stack">
@@ -305,11 +286,9 @@ Without a delegate there is no button at all, only the line. That is the never-r
     </Story>
 
     <Story Name="A read that failed is still a status"
-           Description="When a refresh cannot reach GitHub the line says so and stays a status region. It does not escalate, it does not clear the chips, and it does not open anything. The chips keep their last-known values and the line keeps its old timestamp alongside the failure, because we could not check does not make what we knew untrue.
+           Description="A failed refresh keeps the status region, keeps the chips at their last-known values, and keeps the old timestamp beside the failure. It does not escalate and it does not clear anything.
 
-That is the same rule the availability page states for offline, applied to the one case where it is tempting to break it. A failed read looks like an error and is not one: nothing the reader did failed, nothing is in an inconsistent state, and the product is still showing the truth as of the last time it could see it.
-
-Blanking the chips would be the alternative, and it is worse in the specific way this family cares about — it would replace known information with nothing, and the reader would have no way to tell a pull request that was closed from one the product simply could not look at."
+Same position as offline on the availability page: nothing the reader did failed, and “we could not check” does not make what we knew untrue."
            Code="@FailedReadCode">
         <div class="sb-stack" data-testid="references-failed-read">
             <IntegrationLinkList Links="@IntegrationFixtures.OneRepository"
@@ -325,11 +304,9 @@ Blanking the chips would be the alternative, and it is worse in the specific way
     </Story>
 
     <Story Name="A cue for leaving the app — not yet"
-           Description="Every anchor here carries target blank and rel noopener, so following one leaves the product, and nothing visible says so before the click. An external-destination cue — a trailing glyph, and the destination host on the accessible name — is not built.
+           Description="Every anchor here carries `target=&quot;_blank&quot;` and `rel=&quot;noopener&quot;`, and nothing visible says so before the click. An external-destination cue — a trailing glyph, and the destination host on the accessible name — is not built.
 
-It belongs on IntegrationLink and only there, since that is the only component in the family that emits an anchor: a chip has no destination, a session button stays in process, and a freshness line goes nowhere. Putting the cue anywhere else would be putting it where it cannot be true.
-
-The anchor below is the same pull request from the first story on this page, which is where the cue would land. Nothing is drawn for it here on purpose — a story that mocked up the missing glyph would look like the feature exists."
+It belongs on `IntegrationLink`, the only component in the family that emits an anchor. The anchor below is where it would land."
            Code="@ExternalCode">
         <div class="sb-stack" data-testid="references-external">
             <IntegrationLink Link="@IntegrationFixtures.PullRequest"
@@ -344,6 +321,13 @@ The anchor below is the same pull request from the first story on this page, whi
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#integration-roles", "The tone each artifact and session state is drawn in."),
+        new("design-principles.md#local-first-offline-first-ux", "Why drift against local truth is shown rather than resolved."),
+        new("typography-and-layout.md#metadata-lines", "How a reference's state, drift and freshness sit on one line.")
+    ];
+
     private static readonly IReadOnlyList<IntegrationArtifactState> ArtifactStates =
     [
         IntegrationArtifactState.Open,

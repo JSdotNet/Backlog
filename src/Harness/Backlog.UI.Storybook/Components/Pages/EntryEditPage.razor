@@ -1,10 +1,11 @@
-@page "/entry-edit"
+﻿@page "/entry-edit"
 @implements IDisposable
 
 <PageTitle>Entry edit — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Entry edit"
-           Summary="The same markdown as the Markdown chapter, being written rather than read. Everything here is what this product does on top of markdown: an entry auto-saves instead of being saved, a checkbox in the read view writes back into the source, and a `##` heading is a sub-item rather than a heading. Read the Markdown chapter first — that one is about what the blocks look like, this one is about what happens to them.">
+           Summary="The same markdown as the Markdown chapter, being written rather than read. Everything here is what this product does on top of markdown: an entry auto-saves instead of being saved, a checkbox in the read view writes back into the source, and a `##` heading is a sub-item rather than a heading. Read the Markdown chapter first — that one is about what the blocks look like, this one is about what happens to them."
+           Guidelines="@Rules">
 
     <Story Name="Edit and read"
            Description="Source on the left, read view on the right, one text seen twice. There is no save button on purpose: the product auto-saves, so the indicator under the editor goes Saving then Saved as you type, and renders nothing at all while idle."
@@ -30,9 +31,9 @@
     </Story>
 
     <Story Name="A checkbox writes back to the source"
-           Description="Passing OnTaskItemToggled is what turns the read view's checkboxes from state into controls. Tick one above and watch the `- [ ]` in the source on the left become `- [x]`: the source is the truth, so a click is a text rewrite rather than a change to something the view is holding. It saves at once with no debounce, because a toggle is a discrete change and there is nothing more to wait for.
+           Description="`OnTaskItemToggled` is what turns the read view's checkboxes from state into controls. Tick one and watch the `- [ ]` in the source become `- [x]`: the source is the truth, so a click is a text rewrite. It saves at once with no debounce, because a toggle is a discrete change.
 
-Try ticking a box while the source has a code fence containing one. The `- [ ]` inside the fence is a code sample, not a task — the parser never gave it an index, and MarkdownPreview.ToggleTask walks the text the same way and skips it too. Counting the checkboxes yourself instead of using the index the parser reported is how you rewrite the wrong line."
+Try ticking a box while the source has a code fence containing one: the `- [ ]` inside the fence never got an index, and `MarkdownPreview.ToggleTask` skips it the same way. Use the index the parser reported rather than counting the checkboxes yourself."
            Code="@ToggleCode">
         <div class="sb-stack" data-testid="entry-edit-toggle">
             <p class="sb-label">Live count from the source above</p>
@@ -48,7 +49,7 @@ That is why the Markdown chapter uses no `##` anywhere — half of each sample w
         <div class="sb-columns">
             <div class="sb-stack">
                 <p class="sb-label">Source</p>
-                <pre class="sb-story__code"><code>@SubItemSample</code></pre>
+                <CodeView Source="@SubItemSample" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Parse — as an entry</p>
@@ -90,6 +91,14 @@ That is why the Markdown chapter uses no `##` anywhere — half of each sample w
 </StoryPage>
 
 @code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#editing-model", "What editing canonical markdown in place means."),
+        new("content-editing.md#round-trip-fidelity", "What a write has to preserve exactly."),
+        new("content-editing.md#backlog-entry-structure", "What a heading, a task line and a sub-item are in the file."),
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "When an edit commits, and what says so.")
+    ];
+
     private const string InitialSource = """
         # Storybook entry
 

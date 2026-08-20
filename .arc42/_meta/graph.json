@@ -6,27 +6,27 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 79,
-    "edges": 127,
+    "nodes": 81,
+    "edges": 133,
     "nodesByFolder": {
-      "arc42": 62,
-      "domain": 14,
+      "arc42": 63,
+      "domain": 15,
       "tech": 3
     },
     "nodesByType": {
-      "file": 16,
-      "chapter": 63
+      "file": 17,
+      "chapter": 64
     },
     "nodesByStatus": {
-      "active": 52,
+      "active": 53,
       "proposed": 1,
       "draft": 21,
-      "accepted": 2,
+      "accepted": 3,
       "adopted": 3
     },
     "edgesByType": {
       "contains": 48,
-      "related": 79
+      "related": 85
     }
   },
   "problems": [],
@@ -64,7 +64,7 @@
           "path": ".arc42/01-introduction-and-goals.md",
           "slug": "quality-goals",
           "level": 2,
-          "line": 42,
+          "line": 43,
           "status": "active"
         }
       },
@@ -77,7 +77,7 @@
           "path": ".arc42/01-introduction-and-goals.md",
           "slug": "person",
           "level": 2,
-          "line": 61,
+          "line": 62,
           "status": "active"
         }
       },
@@ -322,7 +322,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "desktop-app",
           "level": 2,
-          "line": 158,
+          "line": 159,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
@@ -339,7 +339,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "mobile-app",
           "level": 2,
-          "line": 234,
+          "line": 235,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#mobile-capture-and-sync",
@@ -356,7 +356,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "ide-extensions",
           "level": 2,
-          "line": 274,
+          "line": 275,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#ide-context-aware-capture",
@@ -373,7 +373,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "cloud-service",
           "level": 2,
-          "line": 334,
+          "line": 335,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
@@ -419,7 +419,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "state-sync-and-webhook-forwarding",
           "level": 2,
-          "line": 48,
+          "line": 46,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service"
@@ -435,7 +435,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "mobile-capture-and-sync",
           "level": 2,
-          "line": 84,
+          "line": 82,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#mobile-app"
@@ -451,7 +451,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "sync-item-lifecycle",
           "level": 2,
-          "line": 121,
+          "line": 119,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#mobile-app"
@@ -467,7 +467,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "ide-context-aware-capture",
           "level": 2,
-          "line": 147,
+          "line": 145,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#ide-extensions"
@@ -483,7 +483,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "copilot-app-session-capture",
           "level": 2,
-          "line": 179,
+          "line": 177,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#ide-extensions",
@@ -501,7 +501,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "repository-baseline-scan-and-health-signal",
           "level": 2,
-          "line": 212,
+          "line": 210,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#desktop-app",
@@ -518,7 +518,7 @@
           "path": ".arc42/06-runtime-view.md",
           "slug": "remote-pc-wake-and-status-update",
           "level": 2,
-          "line": 246,
+          "line": 244,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#desktop-app",
@@ -562,7 +562,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates",
           "level": 3,
-          "line": 37,
+          "line": 38,
           "status": "active",
           "related": [
             ".tech/desktop.md#msix-packaging",
@@ -579,7 +579,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "local-deployment-mobile",
           "level": 2,
-          "line": 76,
+          "line": 77,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#mobile-app",
@@ -596,7 +596,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates-mobile",
           "level": 3,
-          "line": 89,
+          "line": 90,
           "status": "active",
           "related": [
             ".tech/mobile.md#apk-packaging",
@@ -613,7 +613,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 142,
+          "line": 143,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -659,7 +659,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 34,
+          "line": 37,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -677,7 +677,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 61,
+          "line": 64,
           "status": "active"
         }
       },
@@ -690,7 +690,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 72,
+          "line": 75,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -706,7 +706,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 87,
+          "line": 90,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -722,7 +722,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 98,
+          "line": 101,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -731,6 +731,7 @@
             ".domain/second-brain/domain.md#aggregate-knowledge-note",
             ".domain/monitoring/domain.md#aggregate-progress-signal",
             ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+            ".domain/sessions/domain.md#aggregate-session-log",
             ".domain/repository-management/domain.md#aggregate-repository-registry",
             ".domain/technology-stack/domain.md#aggregate-technology-registry"
           ]
@@ -962,6 +963,23 @@
             ".domain/backlog/domain.md",
             ".domain/context-map.md",
             ".arc42/05-building-block-view.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "label": "ADR 0003: SQLite is the canonical local task store; markdown is the content",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "status": "accepted",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/07-deployment-view.md",
+            ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+            ".domain/backlog/domain.md#aggregate-backlog-entry"
           ]
         }
       },
@@ -1209,12 +1227,30 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "aggregate-machine-registry",
           "level": 2,
-          "line": 19,
+          "line": 27,
           "status": "draft",
           "related": [
             ".domain/technology-stack/domain.md#aggregate-technology-registry",
             ".domain/monitoring/domain.md#aggregate-progress-signal",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/domain.md#aggregate-session-log",
+          "label": "Aggregate: Session Log",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/domain.md",
+          "slug": "aggregate-session-log",
+          "level": 2,
+          "line": 31,
+          "status": "active",
+          "related": [
+            ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+            ".domain/sessions/dependencies.md"
           ],
           "outOfScope": true
         }
@@ -2136,6 +2172,14 @@
       },
       {
         "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/sessions/domain.md#aggregate-session-log",
+          "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
+          "target": ".domain/sessions/domain.md#aggregate-session-log",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/repository-management/domain.md#aggregate-repository-registry",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
           "target": ".domain/repository-management/domain.md#aggregate-repository-registry",
@@ -2283,6 +2327,46 @@
           "id": "related:.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md->.arc42/05-building-block-view.md",
           "source": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
           "target": ".arc42/05-building-block-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.arc42/02-constraints.md#technical-constraints",
+          "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.arc42/07-deployment-view.md",
+          "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "target": ".arc42/07-deployment-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "target": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
           "type": "related"
         }
       }

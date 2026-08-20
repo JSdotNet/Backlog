@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.UnitTests;
+﻿namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// Reading a language off a file's name. This is what decides whether FileView
@@ -50,13 +50,23 @@ public sealed class CodeLanguageForFileNameTests
     }
 
     [Theory]
-    [InlineData(@"src\Core\Backlog.UI.Components\Code\CodeView.razor")]
-    [InlineData("src/Core/Backlog.UI.Components/Code/CodeView.razor")]
+    [InlineData(@"src\Core\Backlog.UI.Components\Code\notes.txt")]
+    [InlineData("src/Core/Backlog.UI.Components/Code/notes.txt")]
     public void A_path_is_read_from_its_last_segment(string path)
     {
-        // `.razor` is not on the list, and the `.Components` folder above it must
-        // not be allowed to answer for the file.
+        // `.txt` is not on the list, and the `.Components` folder above it must
+        // not be allowed to answer for the file. This case used to be spelled
+        // with a `.razor` file, which stopped being an unknown extension when
+        // the storybook's own samples needed a razor grammar to be coloured by.
         Assert.Null(CodeLanguages.ForFileName(path));
+    }
+
+    [Theory]
+    [InlineData(@"src\Core\Backlog.UI.Components\Code\CodeView.razor")]
+    [InlineData("src/Core/Backlog.UI.Components/Code/CodeView.razor")]
+    public void A_razor_component_is_read_as_razor(string path)
+    {
+        Assert.Equal("razor", CodeLanguages.ForFileName(path));
     }
 
     [Theory]

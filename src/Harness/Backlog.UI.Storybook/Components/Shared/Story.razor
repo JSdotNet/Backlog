@@ -6,6 +6,26 @@
     The same slug is the element id, so every story has a permalink. Fifty-odd
     stories is well past the point where "the third one down on the layout page"
     is a usable way to point at one in review.
+
+    Three parts, in the order they are wanted: what it is, the thing itself, and
+    the text behind it.
+
+    Both folds start closed, and the example between them does not. A page of
+    fifteen stories is read by looking at the components; the prose above and the
+    text below are what you open when looking is not enough. The explanation only
+    gets a fold at all when there is enough of it to be in the way — a sentence or
+    two costs less to read than the trigger that would hide it.
+
+    Code and source are one disclosure with two columns, not two disclosures. They
+    are the same kind of thing — the text behind what is on screen, the markup that
+    produced the example and the content it was given — and they are read together:
+    "this call, over that body". Two triggers meant two clicks for one question and
+    left the reader arranging columns by hand.
+
+    The explanation says how to use the component. It does not say what the design
+    rule is: those are in `.design`, rendered in the page header. A story that
+    argued for a tone scale or a hierarchy was a second copy of a rule nobody
+    diffs against the first.
 *@
 
 <section id="@Anchor" class="sb-story" data-testid="@("story-" + Anchor)" aria-label="@Name">
@@ -14,13 +34,19 @@
             @Name
             <a class="sb-story__anchor" href="@($"#{Anchor}")" aria-label="@($"Link to the {Name} story")">#</a>
         </h2>
-        @* A blank line starts a new paragraph. Some of these descriptions explain
-           why a component is shaped the way it is, and that is more than one
-           paragraph's worth — run together in a single <p>, HTML collapses the
-           break and the reader gets a wall. *@
-        @foreach (var paragraph in Paragraphs)
+
+        @if (Foldable)
         {
-            <p class="sb-story__description">@paragraph</p>
+            <FoldControl @bind-Expanded="_explanationOpen"
+                         Label="How it is used"
+                         CssClass="sb-fold sb-fold--explanation"
+                         TestId="@($"story-{Anchor}-explanation")">
+                @Explanation
+            </FoldControl>
+        }
+        else
+        {
+            @Explanation
         }
     </header>
 
@@ -28,38 +54,136 @@
         @ChildContent
     </div>
 
-    @if (!string.IsNullOrWhiteSpace(Code))
+    @if (HasCode || HasSource)
     {
-        <pre class="sb-story__code"><code>@Code.Trim()</code></pre>
+        <FoldControl @bind-Expanded="_textOpen"
+                     Label="@TextLabel"
+                     CssClass="sb-fold sb-fold--code"
+                     TestId="@($"story-{Anchor}-code")">
+            <div class="@GridClass">
+                @if (HasCode)
+                {
+                    <CodeView Source="@Code!.Trim()"
+                              Language="@Language"
+                              Title="@($"{Name} — usage")"
+                              AllowCopy="true"
+                              CssClass="sb-story__code"
+                              TestId="@($"story-{Anchor}-markup")" />
+                }
+
+                @if (SourceContent is not null)
+                {
+                    @SourceContent
+                }
+                else if (HasSource)
+                {
+                    <CodeView Source="@Source!.Trim()"
+                              Language="@SourceLanguage"
+                              Title="@SourceLabel"
+                              AllowCopy="true"
+                              CssClass="sb-raw__code"
+                              TestId="@($"story-{Anchor}-source")" />
+                }
+            </div>
+        </FoldControl>
     }
 </section>
 
 @code {
+    /// <summary>Where an explanation stops being a note and starts being something
+    /// a reader scrolls past. Two lines at this measure, which is the length the
+    /// short stories on the input and badge pages actually run to.</summary>
+    private const int FoldAbove = 220;
+
+    private bool _explanationOpen;
+    private bool _textOpen;
+
     [Parameter, EditorRequired]
     public string Name { get; set; } = string.Empty;
 
     [Parameter]
     public string? Description { get; set; }
 
-    /// <summary>The razor usage shown under the example. Optional: a story that
-    /// is only about behaviour does not need one.</summary>
+    /// <summary>The usage shown under the example. Optional: a story that is only
+    /// about behaviour does not need one.</summary>
     [Parameter]
     public string? Code { get; set; }
+
+    /// <summary>What <see cref="Code"/> is written in. Razor, nearly always —
+    /// these samples are component usage — so a story that shows C# or a
+    /// stylesheet says so rather than every other story repeating the default.</summary>
+    [Parameter]
+    public string Language { get; set; } = "razor";
+
+    /// <summary>The content the example was given, when the example draws content:
+    /// the markdown a read view rendered, the fence a diagram was drawn from, the
+    /// body a file view showed. It sits beside <see cref="Code"/> in the same
+    /// disclosure, because a call and the text it was handed are one thing to
+    /// read.</summary>
+    [Parameter]
+    public string? Source { get; set; }
+
+    /// <summary>What <see cref="Source"/> is written in, by the name a fenced block
+    /// would use. <c>markdown</c> is the usual answer and is deliberately not a
+    /// language the highlighter colours.</summary>
+    [Parameter]
+    public string SourceLanguage { get; set; } = "markdown";
+
+    /// <summary>What the source is called on its caption. Names the content, not
+    /// the act: "Source", "The file on disk", "Diagram source".</summary>
+    [Parameter]
+    public string SourceLabel { get; set; } = "Source";
+
+    /// <summary>The source column, when it is more than one string — two versions
+    /// of a file being compared, for instance. Replaces <see cref="Source"/>.</summary>
+    [Parameter]
+    public RenderFragment? SourceContent { get; set; }
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
     private string Anchor => Slug(Name);
 
+    private bool HasCode => !string.IsNullOrWhiteSpace(Code);
+
+    private bool HasSource => SourceContent is not null || !string.IsNullOrWhiteSpace(Source);
+
+    /// <summary>Says what opening it costs, so a reader with one of the two
+    /// questions knows whether their answer is in there.</summary>
+    private string TextLabel => (HasCode, HasSource) switch
+    {
+        (true, true) => "Code and source",
+        (true, false) => "Code",
+        _ => "Source"
+    };
+
+    /// <summary>Two columns when there are two things, one when there is one — a
+    /// grid with an empty second track leaves a sample at half width for no
+    /// reason.</summary>
+    private string GridClass => HasCode && HasSource ? "sb-story__text sb-story__text--pair" : "sb-story__text";
+
     /// <summary>The description split on blank lines. A description with no blank
     /// line in it is one paragraph, which is what every story used to be.</summary>
-    private IEnumerable<string> Paragraphs =>
+    private IReadOnlyList<string> Paragraphs =>
         string.IsNullOrWhiteSpace(Description)
             ? []
-            : Description.Replace("\r\n", "\n")
+            : [.. Description.Replace("\r\n", "\n")
                 .Split("\n\n", StringSplitOptions.RemoveEmptyEntries)
                 .Select(part => part.Trim())
-                .Where(part => part.Length > 0);
+                .Where(part => part.Length > 0)];
+
+    /// <summary>More than one paragraph, or one long enough to be worth hiding.</summary>
+    private bool Foldable =>
+        Paragraphs.Count > 1 || (Paragraphs.Count == 1 && Paragraphs[0].Length > FoldAbove);
+
+    @* A blank line starts a new paragraph. Run together in a single <p>, HTML
+       collapses the break and the reader gets a wall. *@
+    private RenderFragment Explanation => @<text>
+        @foreach (var paragraph in Paragraphs)
+        {
+            <p class="sb-story__description">@paragraph</p>
+        }
+    </text>;
 
     internal static string Slug(string? value)
     {

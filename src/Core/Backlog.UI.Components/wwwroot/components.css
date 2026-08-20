@@ -5156,21 +5156,15 @@ button.tag-chip__label {
   FoldControl also carries the app's `entry-doc__title-button` classes, which
   are styled above; these are the generic names for hosts that do not have
   them.
-*/
 
-.fold {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    min-width: 0;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
+  There is no `.fold` rule here. There used to be one — a button reset, centred
+  and inline — and it was a second declaration of the wrapper further down the
+  file than the real one, so it won: every disclosure in the library rendered as
+  an inline, centre-aligned box, which put the trigger in the middle of the
+  region it controls and made the text jump sideways as a fold opened. The
+  button reset it was written for belongs to `.fold__trigger`, which already has
+  it; the wrapper is the flex column declared under `#fold-control` above.
+*/
 
 .fold__label {
     min-width: 0;
@@ -8119,4 +8113,119 @@ button.tag-chip__label {
     .integration-chip__spin {
         animation: none;
     }
+}
+
+/* --- Data table ---------------------------------------------------------- */
+
+/* Rows of records, optionally in named sections. The Metric family's five tables
+   are tables of figures and style themselves out of the chart tokens; this one is
+   a table of things and uses the plain surface and text tokens, because a list of
+   sessions is not a reading off a scale. */
+.data-table {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* Cells do not wrap — a folder path and a branch name are both long, and a
+   wrapped one turns eight short rows into eight paragraphs — so the table is
+   routinely wider than its box and scrolls inside this one. min-width: 0 is what
+   lets it: as a grid child the default min-width of auto would have it refuse to
+   shrink below its content and push the surface sideways instead. */
+.data-table__scroll {
+    overflow-x: auto;
+    min-width: 0;
+    max-width: 100%;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.data-table__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.data-table__table th,
+.data-table__table td {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+}
+
+/* The heading row stays put while the rows pass under it. A list of sessions is
+   long by nature and eight columns is more than a reader holds in their head, so
+   losing the headings is losing the meaning of every cell. Opaque, because rows
+   scroll behind it. */
+.data-table__table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* A section heading spans every column, so it is one cell rather than a row of
+   empties. Left with display: table-cell: making it a flex container to push the
+   count to the right edge would stop it being a table cell at all, and colspan
+   would go with it. */
+.data-table__group-heading {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* Quieter than the name, and not shouting with it: the group is what the reader
+   is looking for and the tally is what they read next. */
+.data-table__group-count {
+    margin-left: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+}
+
+.data-table__row:hover {
+    background: var(--color-background-alt);
+}
+
+/* The frame already draws the last edge, so the last row's own border would sit
+   just inside it as a doubled line. */
+.data-table__section:last-child .data-table__row:last-child td,
+.data-table__section:last-child .data-table__row:last-child th {
+    border-bottom: none;
+}
+
+/* Secondary text under a row's primary cell: the folder under the session name.
+   A block, so it is a second line rather than a continuation of the first. */
+.data-table__detail {
+    display: block;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+}
+
+/* A path or a branch, in the family the reader reads paths in. */
+.data-table__mono {
+    font-family: var(--font-family-mono);
+}
+
+/* The one cell that is allowed to be cut short. Everything else in a row is a
+   name, a date or a chip and is either short or worth its width; a folder path is
+   neither, and letting it set the table's width pushes the columns that answer
+   the question off screen. The full value stays in the cell's title. */
+.data-table__clamp {
+    display: inline-block;
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
 }

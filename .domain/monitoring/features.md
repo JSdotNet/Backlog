@@ -71,7 +71,7 @@ automation run status.
 
 ```meta
 status: draft
-related: [.domain/dev-pc-management/features.md#feature-copilot-session-tracking]
+related: [.domain/sessions/features.md#feature-session-inventory]
 ```
 
 Monitor active Copilot sessions linked to issues/backlog items and alert when a

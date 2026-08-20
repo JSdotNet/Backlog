@@ -1,24 +1,26 @@
 @* The shell is the composition root: it is the one place allowed to see every
    context at once, because wiring them together is its whole job. Dev PC
-   Management is here for its pane and nothing else — the shell names no tool
-   type, so it does not reference that module's abstractions either. Roadmap and
-   Monitoring are here on the same terms, for the band and the dashboard: each
-   brings one component and one feature key, and neither has an abstractions
-   project to reference because neither has a domain module yet. *@
+   Management and Sessions are here for their panes and nothing else — the
+   shell names no tool type and no session type, so it takes each module's
+   abstractions only for the feature key it gates on. Roadmap and Monitoring are
+   here on the same terms, for the band and the dashboard: each brings one component
+   and one feature key. *@
 @using Backlog.Desktop.UI.Shell
 @using Backlog.Desktop.UI.AppUpdate
 @using Backlog.Desktop.UI.Inbox
 @using Backlog.Desktop.UI.BacklogManagement
 @using Backlog.Desktop.UI.Knowledge
 @using Backlog.Modules.DevPc.UI
+@using Backlog.Modules.Sessions.UI
 @using Backlog.Modules.Roadmap.UI
 @using Backlog.Modules.Dashboard.UI
 @using Backlog.Modules.Dashboard.Abstractions
-@* The feature port and the three published surfaces the feature catalog
-   gathers its keys from. Constants only: the shell reads no DTO and calls no
-   port on any of them. *@
+@* The feature port and the published surfaces the feature catalog gathers its
+   keys from. Constants only: the shell reads no DTO and calls no port on any of
+   them. *@
 @using Backlog.SharedKernel
 @using Backlog.Modules.Backlog.Abstractions
 @using Backlog.Modules.Knowledge.Abstractions
 @using Backlog.Modules.DevPc.Abstractions
 @using Backlog.Modules.Roadmap.Abstractions
+@using Backlog.Modules.Sessions.Abstractions

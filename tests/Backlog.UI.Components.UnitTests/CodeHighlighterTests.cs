@@ -53,9 +53,9 @@ public sealed class CodeHighlighterTests
     {
         // C# has no list of every type there is, and a snippet is not compiled
         // here anyway, so the convention is the only signal available.
-        var tokens = CodeHighlighter.Highlight("BacklogEntry entry = new();", "csharp");
+        var tokens = CodeHighlighter.Highlight("TaskItem entry = new();", "csharp");
 
-        Assert.Contains(tokens, t => t is { Kind: CodeTokenKind.Type, Text: "BacklogEntry" });
+        Assert.Contains(tokens, t => t is { Kind: CodeTokenKind.Type, Text: "TaskItem" });
     }
 
     [Fact]

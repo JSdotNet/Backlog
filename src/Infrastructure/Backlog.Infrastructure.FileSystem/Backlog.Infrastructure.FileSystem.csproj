@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Cross-cutting file-system adapter: markdown + JSON on local disk, the
-    canonical store for every module. Implements ports declared by the modules;
-    no module may reference this project except through its own port interfaces.
+    Cross-cutting file-system adapter: the settings, feature flags, knowledge
+    folders and roadmap plan that genuinely are files on local disk. The tasks
+    themselves live in Backlog.Infrastructure.Sqlite. Implements ports declared by
+    the modules; no module may reference this project except through its own port
+    interfaces.
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Infrastructure.FileSystem</RootNamespace>
@@ -18,17 +20,16 @@
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
-         folder resolver: Backlog Management's IBacklogStore and Second Brain's
+         settings file: Backlog Management's IBacklogStore and Second Brain's
          IKnowledgeFolderSource. Answering them needs the GitHub repository
          settings as well as the local root, and holding that join is exactly
          what an adapter is for — it is what keeps either context from having to
          see the other. -->
     <ProjectReference Include="..\..\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
     <ProjectReference Include="..\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="YamlDotNet" />
+    <!-- For where the task database lives: the settings store shows the path on
+         the settings screen, and the Sqlite adapter owns the file name. -->
+    <ProjectReference Include="..\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 
 </Project>
