@@ -6,30 +6,30 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 403,
-    "edges": 624,
+    "nodes": 418,
+    "edges": 661,
     "nodesByFolder": {
-      "domain": 393,
+      "domain": 408,
       "arc42": 8,
       "design": 2
     },
     "nodesByType": {
       "file": 73,
-      "chapter": 280,
-      "heading": 50
+      "chapter": 291,
+      "heading": 54
     },
     "nodesByStatus": {
       "draft": 289,
-      "proposed": 17,
+      "proposed": 28,
       "deprecated": 3,
       "idea": 1,
       "active": 43,
-      "none": 50
+      "none": 54
     },
     "edgesByType": {
-      "contains": 321,
-      "related": 274,
-      "depends-on": 29
+      "contains": 336,
+      "related": 295,
+      "depends-on": 30
     }
   },
   "problems": [],
@@ -4578,7 +4578,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "aggregate-session-log",
           "level": 2,
-          "line": 31,
+          "line": 36,
           "status": "active",
           "related": [
             ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
@@ -4595,7 +4595,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "domain-service-liveness-assessment",
           "level": 2,
-          "line": 132,
+          "line": 183,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-state",
@@ -4612,11 +4612,47 @@
           "path": ".domain/sessions/domain.md",
           "slug": "domain-service-session-grouping",
           "level": 2,
-          "line": 152,
+          "line": 203,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#aggregate-session-log",
             ".domain/sessions/features.md#feature-session-grouping"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "label": "Domain Service: Session Activity Publishing",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/domain.md",
+          "slug": "domain-service-session-activity-publishing",
+          "level": 2,
+          "line": 228,
+          "status": "proposed",
+          "related": [
+            ".domain/sessions/features.md#feature-session-activity-enrichment",
+            ".domain/sessions/flow.md",
+            ".domain/sessions/dependencies.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/domain.md#domain-service-session-activity-enrichment",
+          "label": "Domain Service: Session Activity Enrichment",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/domain.md",
+          "slug": "domain-service-session-activity-enrichment",
+          "level": 2,
+          "line": 247,
+          "status": "proposed",
+          "related": [
+            ".domain/sessions/features.md#feature-session-activity-enrichment",
+            ".domain/sessions/flow.md",
+            ".domain/sessions/dependencies.md"
           ]
         }
       },
@@ -4629,7 +4665,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-value-objects",
           "level": 2,
-          "line": 177,
+          "line": 266,
           "status": "active"
         }
       },
@@ -4642,7 +4678,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 189,
+          "line": 278,
           "status": "active"
         }
       },
@@ -4819,6 +4855,76 @@
       },
       {
         "data": {
+          "id": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "label": "Feature: Session activity enrichment",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/features.md",
+          "slug": "feature-session-activity-enrichment",
+          "level": 2,
+          "line": 145,
+          "status": "proposed",
+          "depends-on": [
+            ".domain/sessions/features.md#feature-session-inventory"
+          ],
+          "related": [
+            ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+            ".domain/sessions/domain.md#domain-service-session-activity-enrichment"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/features.md#sub-feature-optional-collections-mcp-reporting",
+          "label": "Sub-feature: Optional Collections MCP reporting",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/features.md",
+          "slug": "sub-feature-optional-collections-mcp-reporting",
+          "level": 3,
+          "line": 161,
+          "status": "proposed",
+          "related": [
+            ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+            ".domain/sessions/naming.md#term-collections-mcp"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/features.md#sub-feature-latest-meaningful-activity",
+          "label": "Sub-feature: Latest meaningful activity",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/features.md",
+          "slug": "sub-feature-latest-meaningful-activity",
+          "level": 3,
+          "line": 175,
+          "status": "proposed",
+          "related": [
+            ".domain/sessions/domain.md#session-enrichment-summary",
+            ".domain/sessions/domain.md#session-activity-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/features.md#sub-feature-reporting-degrades-honestly",
+          "label": "Sub-feature: Reporting degrades honestly",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/features.md",
+          "slug": "sub-feature-reporting-degrades-honestly",
+          "level": 3,
+          "line": 189,
+          "status": "proposed",
+          "related": [
+            ".domain/sessions/domain.md#reporting-capability"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/sessions/features.md#feature-turn-the-area-off",
           "label": "Feature: Turn the area off",
           "type": "chapter",
@@ -4826,7 +4932,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "feature-turn-the-area-off",
           "level": 2,
-          "line": 145,
+          "line": 203,
           "status": "active"
         }
       },
@@ -4839,7 +4945,9 @@
           "path": ".domain/sessions/flow.md",
           "status": "active",
           "related": [
-            ".domain/sessions/domain.md#domain-service-liveness-assessment"
+            ".domain/sessions/domain.md#domain-service-liveness-assessment",
+            ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+            ".domain/sessions/domain.md#domain-service-session-activity-enrichment"
           ]
         }
       },
@@ -5010,6 +5118,92 @@
       },
       {
         "data": {
+          "id": ".domain/sessions/naming.md#term-session-activity-stream",
+          "label": "Term: Session Activity Stream",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/naming.md",
+          "slug": "term-session-activity-stream",
+          "level": 2,
+          "line": 128,
+          "status": "proposed",
+          "aliases": [
+            "SessionActivityStream",
+            "activity stream",
+            "session updates"
+          ],
+          "related": [
+            ".domain/sessions/domain.md#session-activity-stream",
+            ".domain/sessions/features.md#feature-session-activity-enrichment"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/naming.md#term-session-activity-entry",
+          "label": "Term: Session Activity Entry",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/naming.md",
+          "slug": "term-session-activity-entry",
+          "level": 2,
+          "line": 143,
+          "status": "proposed",
+          "aliases": [
+            "SessionActivityEntry",
+            "event_id",
+            "sequence",
+            "activity summary"
+          ],
+          "related": [
+            ".domain/sessions/domain.md#session-activity-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/naming.md#term-session-enrichment-summary",
+          "label": "Term: Session Enrichment Summary",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/naming.md",
+          "slug": "term-session-enrichment-summary",
+          "level": 2,
+          "line": 157,
+          "status": "proposed",
+          "aliases": [
+            "SessionEnrichmentSummary",
+            "latest activity",
+            "enrichment"
+          ],
+          "related": [
+            ".domain/sessions/domain.md#session-enrichment-summary"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/naming.md#term-collections-mcp",
+          "label": "Term: Collections MCP",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/naming.md",
+          "slug": "term-collections-mcp",
+          "level": 2,
+          "line": 172,
+          "status": "proposed",
+          "aliases": [
+            "collections mcp",
+            "collection store",
+            "activity collection"
+          ],
+          "related": [
+            ".domain/sessions/dependencies.md"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/sessions/naming.md#term-session-catalog",
           "label": "Term: Session Catalog",
           "type": "chapter",
@@ -5017,7 +5211,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "term-session-catalog",
           "level": 2,
-          "line": 128,
+          "line": 186,
           "status": "active",
           "aliases": [
             "AgentSessionCatalog"
@@ -5036,7 +5230,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "term-session-limit",
           "level": 2,
-          "line": 142,
+          "line": 200,
           "status": "active",
           "aliases": [
             "AgentSessionLimits",
@@ -5049,6 +5243,28 @@
       },
       {
         "data": {
+          "id": ".domain/sessions/naming.md#term-reporting-capability",
+          "label": "Term: Reporting Capability",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/naming.md",
+          "slug": "term-reporting-capability",
+          "level": 2,
+          "line": 218,
+          "status": "proposed",
+          "aliases": [
+            "reporting status",
+            "capability",
+            "enabled",
+            "degraded"
+          ],
+          "related": [
+            ".domain/sessions/domain.md#reporting-capability"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/sessions/naming.md#term-session-grouping",
           "label": "Term: Session Grouping",
           "type": "chapter",
@@ -5056,7 +5272,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "term-session-grouping",
           "level": 2,
-          "line": 160,
+          "line": 232,
           "status": "active",
           "aliases": [
             "AgentSessionGrouping"
@@ -5867,7 +6083,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-state",
           "level": 4,
-          "line": 119
+          "line": 157
         }
       },
       {
@@ -5879,7 +6095,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "working-location",
           "level": 4,
-          "line": 83
+          "line": 91
         }
       },
       {
@@ -5891,7 +6107,43 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-catalog",
           "level": 4,
-          "line": 99
+          "line": 137
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/domain.md#session-enrichment-summary",
+          "label": "Session Enrichment Summary",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/sessions/domain.md",
+          "slug": "session-enrichment-summary",
+          "level": 4,
+          "line": 127
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/domain.md#session-activity-entry",
+          "label": "Session Activity Entry",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/sessions/domain.md",
+          "slug": "session-activity-entry",
+          "level": 4,
+          "line": 117
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/domain.md#reporting-capability",
+          "label": "Reporting Capability",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/sessions/domain.md",
+          "slug": "reporting-capability",
+          "level": 4,
+          "line": 170
         }
       },
       {
@@ -5903,7 +6155,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent-session",
           "level": 4,
-          "line": 64
+          "line": 69
         }
       },
       {
@@ -5915,7 +6167,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent",
           "level": 4,
-          "line": 111
+          "line": 149
         }
       },
       {
@@ -5927,7 +6179,19 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-identity",
           "level": 4,
-          "line": 77
+          "line": 85
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/domain.md#session-activity-stream",
+          "label": "Session Activity Stream",
+          "type": "heading",
+          "folder": "domain",
+          "path": ".domain/sessions/domain.md",
+          "slug": "session-activity-stream",
+          "level": 4,
+          "line": 107
         }
       },
       {
@@ -8020,6 +8284,22 @@
       },
       {
         "data": {
+          "id": "contains:.domain/sessions/domain.md->.domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "source": ".domain/sessions/domain.md",
+          "target": ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/domain.md->.domain/sessions/domain.md#domain-service-session-activity-enrichment",
+          "source": ".domain/sessions/domain.md",
+          "target": ".domain/sessions/domain.md#domain-service-session-activity-enrichment",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/sessions/domain.md->.domain/sessions/domain.md#shared-value-objects",
           "source": ".domain/sessions/domain.md",
           "target": ".domain/sessions/domain.md#shared-value-objects",
@@ -8124,6 +8404,38 @@
       },
       {
         "data": {
+          "id": "contains:.domain/sessions/features.md->.domain/sessions/features.md#feature-session-activity-enrichment",
+          "source": ".domain/sessions/features.md",
+          "target": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/features.md#feature-session-activity-enrichment->.domain/sessions/features.md#sub-feature-optional-collections-mcp-reporting",
+          "source": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "target": ".domain/sessions/features.md#sub-feature-optional-collections-mcp-reporting",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/features.md#feature-session-activity-enrichment->.domain/sessions/features.md#sub-feature-latest-meaningful-activity",
+          "source": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "target": ".domain/sessions/features.md#sub-feature-latest-meaningful-activity",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/features.md#feature-session-activity-enrichment->.domain/sessions/features.md#sub-feature-reporting-degrades-honestly",
+          "source": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "target": ".domain/sessions/features.md#sub-feature-reporting-degrades-honestly",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/sessions/features.md->.domain/sessions/features.md#feature-turn-the-area-off",
           "source": ".domain/sessions/features.md",
           "target": ".domain/sessions/features.md#feature-turn-the-area-off",
@@ -8188,6 +8500,38 @@
       },
       {
         "data": {
+          "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#term-session-activity-stream",
+          "source": ".domain/sessions/naming.md",
+          "target": ".domain/sessions/naming.md#term-session-activity-stream",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#term-session-activity-entry",
+          "source": ".domain/sessions/naming.md",
+          "target": ".domain/sessions/naming.md#term-session-activity-entry",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#term-session-enrichment-summary",
+          "source": ".domain/sessions/naming.md",
+          "target": ".domain/sessions/naming.md#term-session-enrichment-summary",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#term-collections-mcp",
+          "source": ".domain/sessions/naming.md",
+          "target": ".domain/sessions/naming.md#term-collections-mcp",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#term-session-catalog",
           "source": ".domain/sessions/naming.md",
           "target": ".domain/sessions/naming.md#term-session-catalog",
@@ -8199,6 +8543,14 @@
           "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#term-session-limit",
           "source": ".domain/sessions/naming.md",
           "target": ".domain/sessions/naming.md#term-session-limit",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#term-reporting-capability",
+          "source": ".domain/sessions/naming.md",
+          "target": ".domain/sessions/naming.md#term-reporting-capability",
           "type": "contains"
         }
       },
@@ -10812,6 +11164,54 @@
       },
       {
         "data": {
+          "id": "related:.domain/sessions/domain.md#domain-service-session-activity-publishing->.domain/sessions/features.md#feature-session-activity-enrichment",
+          "source": ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "target": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#domain-service-session-activity-publishing->.domain/sessions/flow.md",
+          "source": ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "target": ".domain/sessions/flow.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#domain-service-session-activity-publishing->.domain/sessions/dependencies.md",
+          "source": ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "target": ".domain/sessions/dependencies.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#domain-service-session-activity-enrichment->.domain/sessions/features.md#feature-session-activity-enrichment",
+          "source": ".domain/sessions/domain.md#domain-service-session-activity-enrichment",
+          "target": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#domain-service-session-activity-enrichment->.domain/sessions/flow.md",
+          "source": ".domain/sessions/domain.md#domain-service-session-activity-enrichment",
+          "target": ".domain/sessions/flow.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#domain-service-session-activity-enrichment->.domain/sessions/dependencies.md",
+          "source": ".domain/sessions/domain.md#domain-service-session-activity-enrichment",
+          "target": ".domain/sessions/dependencies.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/sessions/features.md#feature-session-inventory->.domain/sessions/domain.md#aggregate-session-log",
           "source": ".domain/sessions/features.md#feature-session-inventory",
           "target": ".domain/sessions/domain.md#aggregate-session-log",
@@ -10876,9 +11276,113 @@
       },
       {
         "data": {
+          "id": "depends-on:.domain/sessions/features.md#feature-session-activity-enrichment->.domain/sessions/features.md#feature-session-inventory",
+          "source": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "target": ".domain/sessions/features.md#feature-session-inventory",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#feature-session-activity-enrichment->.domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "source": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "target": ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#feature-session-activity-enrichment->.domain/sessions/domain.md#domain-service-session-activity-enrichment",
+          "source": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "target": ".domain/sessions/domain.md#domain-service-session-activity-enrichment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#sub-feature-optional-collections-mcp-reporting->.domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "source": ".domain/sessions/features.md#sub-feature-optional-collections-mcp-reporting",
+          "target": ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#sub-feature-optional-collections-mcp-reporting->.domain/sessions/naming.md#term-collections-mcp",
+          "source": ".domain/sessions/features.md#sub-feature-optional-collections-mcp-reporting",
+          "target": ".domain/sessions/naming.md#term-collections-mcp",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/domain.md#aggregate-session-log->.domain/sessions/domain.md#session-enrichment-summary",
+          "source": ".domain/sessions/domain.md#aggregate-session-log",
+          "target": ".domain/sessions/domain.md#session-enrichment-summary",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#sub-feature-latest-meaningful-activity->.domain/sessions/domain.md#session-enrichment-summary",
+          "source": ".domain/sessions/features.md#sub-feature-latest-meaningful-activity",
+          "target": ".domain/sessions/domain.md#session-enrichment-summary",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/domain.md#aggregate-session-log->.domain/sessions/domain.md#session-activity-entry",
+          "source": ".domain/sessions/domain.md#aggregate-session-log",
+          "target": ".domain/sessions/domain.md#session-activity-entry",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#sub-feature-latest-meaningful-activity->.domain/sessions/domain.md#session-activity-entry",
+          "source": ".domain/sessions/features.md#sub-feature-latest-meaningful-activity",
+          "target": ".domain/sessions/domain.md#session-activity-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/domain.md#aggregate-session-log->.domain/sessions/domain.md#reporting-capability",
+          "source": ".domain/sessions/domain.md#aggregate-session-log",
+          "target": ".domain/sessions/domain.md#reporting-capability",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#sub-feature-reporting-degrades-honestly->.domain/sessions/domain.md#reporting-capability",
+          "source": ".domain/sessions/features.md#sub-feature-reporting-degrades-honestly",
+          "target": ".domain/sessions/domain.md#reporting-capability",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/sessions/flow.md->.domain/sessions/domain.md#domain-service-liveness-assessment",
           "source": ".domain/sessions/flow.md",
           "target": ".domain/sessions/domain.md#domain-service-liveness-assessment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/flow.md->.domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "source": ".domain/sessions/flow.md",
+          "target": ".domain/sessions/domain.md#domain-service-session-activity-publishing",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/flow.md->.domain/sessions/domain.md#domain-service-session-activity-enrichment",
+          "source": ".domain/sessions/flow.md",
+          "target": ".domain/sessions/domain.md#domain-service-session-activity-enrichment",
           "type": "related"
         }
       },
@@ -10980,6 +11484,54 @@
       },
       {
         "data": {
+          "id": "contains:.domain/sessions/domain.md#aggregate-session-log->.domain/sessions/domain.md#session-activity-stream",
+          "source": ".domain/sessions/domain.md#aggregate-session-log",
+          "target": ".domain/sessions/domain.md#session-activity-stream",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#term-session-activity-stream->.domain/sessions/domain.md#session-activity-stream",
+          "source": ".domain/sessions/naming.md#term-session-activity-stream",
+          "target": ".domain/sessions/domain.md#session-activity-stream",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#term-session-activity-stream->.domain/sessions/features.md#feature-session-activity-enrichment",
+          "source": ".domain/sessions/naming.md#term-session-activity-stream",
+          "target": ".domain/sessions/features.md#feature-session-activity-enrichment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#term-session-activity-entry->.domain/sessions/domain.md#session-activity-entry",
+          "source": ".domain/sessions/naming.md#term-session-activity-entry",
+          "target": ".domain/sessions/domain.md#session-activity-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#term-session-enrichment-summary->.domain/sessions/domain.md#session-enrichment-summary",
+          "source": ".domain/sessions/naming.md#term-session-enrichment-summary",
+          "target": ".domain/sessions/domain.md#session-enrichment-summary",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#term-collections-mcp->.domain/sessions/dependencies.md",
+          "source": ".domain/sessions/naming.md#term-collections-mcp",
+          "target": ".domain/sessions/dependencies.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/sessions/naming.md#term-session-catalog->.domain/sessions/domain.md#session-catalog",
           "source": ".domain/sessions/naming.md#term-session-catalog",
           "target": ".domain/sessions/domain.md#session-catalog",
@@ -10991,6 +11543,14 @@
           "id": "related:.domain/sessions/naming.md#term-session-limit->.domain/sessions/features.md#sub-feature-say-how-much-was-left-out",
           "source": ".domain/sessions/naming.md#term-session-limit",
           "target": ".domain/sessions/features.md#sub-feature-say-how-much-was-left-out",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#term-reporting-capability->.domain/sessions/domain.md#reporting-capability",
+          "source": ".domain/sessions/naming.md#term-reporting-capability",
+          "target": ".domain/sessions/domain.md#reporting-capability",
           "type": "related"
         }
       },

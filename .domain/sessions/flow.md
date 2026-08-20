@@ -2,7 +2,7 @@
 
 ```meta
 status: active
-related: [.domain/sessions/domain.md#domain-service-liveness-assessment]
+related: [.domain/sessions/domain.md#domain-service-liveness-assessment, .domain/sessions/domain.md#domain-service-session-activity-publishing, .domain/sessions/domain.md#domain-service-session-activity-enrichment]
 ```
 
 > Lifecycle and process flows for this bounded context: how aggregates move through
@@ -78,3 +78,64 @@ sequenceDiagram
 - **How many exist travels back with what was described.** The reading may stop at the
   most recent sessions per agent, so the count of what it found is part of the answer
   rather than something the reader has to go and check.
+
+## How optional session activity reporting works
+
+```mermaid
+sequenceDiagram
+    participant Session as Running session
+    participant Capability as Reporting Capability
+    participant Publisher as Session Activity Publishing
+    participant MCP as Collections MCP
+
+    Session->>Capability: is reporting configured and reachable?
+    alt reporting enabled
+        Session->>Publisher: started / meaningful activity / finished
+        Publisher->>Publisher: sanitize, assign event_id and sequence
+        Publisher->>MCP: append or upsert activity update
+        MCP-->>Publisher: acknowledged
+    else reporting disabled
+        Capability-->>Session: local-only session
+    else reporting degraded
+        Publisher->>Publisher: keep local session work moving
+        Publisher-->>Session: reporting marked degraded
+    end
+```
+
+- **Reporting is milestone-based, not transcript-shaped.** The session emits start,
+  meaningful deltas, and finish because those are the facts a later reader can use;
+  token streams and tool bodies would bloat the evidence without improving the answer.
+- **Capability is checked as a path state, not guessed from missing events.** No
+  external updates can mean "not configured" or "temporarily unreachable", so the
+  reporting path carries its own reading.
+
+## How external activity enriches a reading
+
+```mermaid
+sequenceDiagram
+    participant Reader
+    participant Log as Session Log
+    participant Local as Local agent records
+    participant MCP as Collections MCP
+    participant Merge as Session Activity Enrichment
+    participant Liveness as Liveness Assessment
+
+    Reader->>Log: what have my agents been doing here?
+    Log->>Local: read local session evidence
+    Local-->>Log: sessions found
+    opt activity reporting available
+        Log->>MCP: read activity streams for known sessions
+        MCP-->>Merge: activity entries by session identity
+        Log->>Merge: local sessions + external activity
+        Merge-->>Log: enriched sessions + reporting capability
+    end
+    Log->>Liveness: assess local activity windows
+    Liveness-->>Log: running / stalled / finished
+    Log-->>Reader: Session Catalog with optional enrichment
+```
+
+- **The enrichment path starts from known local sessions.** The MCP adds depth to a
+  row the log already has; it does not manufacture a second session list of its own.
+- **Ordering and de-duplication belong to the merge, not to the storage.** The
+  Collections MCP is allowed to deliver duplicates or late arrivals; the Sessions
+  context is what gives them their domain meaning.
