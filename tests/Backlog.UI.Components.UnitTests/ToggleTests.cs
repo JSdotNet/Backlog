@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.UnitTests;
+﻿namespace Backlog.UI.Components.UnitTests;
 
 public sealed class ToggleTests
 {
@@ -32,6 +32,50 @@ public sealed class ToggleTests
         Assert.Empty(toggle.FindAll("[role='switch']"));
         Assert.Equal("label", toggle.Find(".toggle").NodeName.ToLowerInvariant());
         Assert.NotNull(toggle.Find("label > input[type='checkbox']"));
+    }
+
+    /// <summary>The suffix wrapper is conditional, and this is the half of that
+    /// worth protecting: the text block is a grid, so a wrapper rendered
+    /// unconditionally would put every existing caller's label inside a box it
+    /// did not have before.</summary>
+    [Fact]
+    public void A_toggle_with_no_label_suffix_keeps_the_markup_it_had()
+    {
+        using var context = new BunitContext();
+
+        var toggle = context.Render<Toggle>(parameters => parameters
+            .Add(t => t.Label, "Show archived"));
+
+        Assert.Empty(toggle.FindAll(".toggle__label-row"));
+        Assert.Equal("toggle__text", toggle.Find(".toggle__label").ParentElement!.GetAttribute("class"));
+    }
+
+    [Fact]
+    public void A_label_suffix_shares_the_label_line_without_joining_the_name()
+    {
+        using var context = new BunitContext();
+
+        var toggle = context.Render<Toggle>(parameters => parameters
+            .Add(t => t.Label, "Inbox pane")
+            .Add(t => t.LabelSuffix, builder =>
+            {
+                builder.OpenElement(0, "span");
+                builder.AddAttribute(1, "data-testid", "suffix");
+                builder.AddContent(2, "DEV");
+                builder.CloseElement();
+            }));
+
+        var row = toggle.Find(".toggle__label-row");
+        var label = toggle.Find(".toggle__label");
+
+        // Same line as the label...
+        Assert.Equal(row, toggle.Find("[data-testid='suffix']").ParentElement);
+        Assert.Equal(row, label.ParentElement);
+
+        // ...and outside the span the control is named by, so the switch is still
+        // called "Inbox pane" rather than "Inbox pane DEV".
+        Assert.Equal("Inbox pane", label.TextContent);
+        Assert.Equal(label.Id, toggle.Find("[role='switch']").GetAttribute("aria-labelledby"));
     }
 
     [Fact]

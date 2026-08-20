@@ -1,4 +1,4 @@
-@page "/settings"
+﻿@page "/settings"
 @*
     The namespace deliberately does not match the folder, and must not be
     "tidied" to match it — doing so does not compile.
@@ -72,8 +72,16 @@
             <p class="setting__description">
                 Turn off parts of the app that are not ready yet. Backlog stays available.
             </p>
-            <div class="feature-flags" role="list" aria-label="Feature flags">
-                @foreach (var feature in AppFeatures.All)
+            @* Two headings rather than one grid of thirteen. A reader turning
+               something off is asking one of two quite different questions —
+               "do I want this area of the product" or "do I want this thing the
+               whole product uses" — and the flat list answered neither. *@
+            @foreach (var section in AppFeatures.Sections)
+            {
+            <h3 class="feature-group__title">@section.Title</h3>
+            <p class="feature-group__description">@section.Description</p>
+            <div class="feature-flags" role="list" aria-label="@($"{section.Title} feature flags")">
+                @foreach (var feature in section.Features)
                 {
                     @* A flag row is the shared Toggle in its native-checkbox
                        shape: the whole row is a label, so the box is reachable
@@ -90,6 +98,21 @@
                             CheckedChanged="enabled => SetFeatureEnabled(feature, enabled)"
                             Disabled="@feature.AlwaysEnabled"
                             role="listitem">
+                        @* The maturity flag qualifies the name of the thing, so it
+                           goes on the label's line rather than into the note below
+                           it: somebody scanning the switches has to see which ones
+                           are unfinished without reading a paragraph each. It
+                           renders nothing for a released feature, which is why
+                           there is no @@if around it.
+
+                           Unconditional on the switch, unlike everywhere else this
+                           badge appears — this row *is* the switch, so it describes
+                           the feature whether or not it is currently on. *@
+                        <LabelSuffix>
+                            <FeatureStatusBadge Status="@AppFeatureStatusBadge.Slug(feature.Status)"
+                                                Title="@AppFeatureStatusBadge.Title(feature.Status)"
+                                                TestId="@($"feature-status-{feature.Key}")" />
+                        </LabelSuffix>
                         <TextContent>
                             @if (feature.AlwaysEnabled)
                             {
@@ -106,6 +129,7 @@
                     }
                 }
             </div>
+            }
             @* The library's alert wearing this page's note class. It renders
                nothing when the message is empty, which is what the @@if around the
                hand-rolled paragraph used to do. *@

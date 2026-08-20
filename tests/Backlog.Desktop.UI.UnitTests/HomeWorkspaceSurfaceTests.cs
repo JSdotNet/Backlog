@@ -1,3 +1,4 @@
+﻿using AngleSharp.Dom;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
@@ -274,7 +275,10 @@ public sealed class HomeWorkspaceSurfaceTests
 
             Assert.Equal("true", option.GetAttribute("aria-pressed"));
             Assert.Equal("roadmap-band", option.GetAttribute("aria-controls"));
-            Assert.Equal("Roadmap", option.TextContent.Trim());
+            // The label, with the maturity flag taken back out: Roadmap is a Dev
+            // feature and is on in this harness, so the option now holds a badge
+            // as well as its name.
+            Assert.Equal("Roadmap", LabelWithoutFlag(option));
 
             // No capacity rule, so unlike the three panes it is never blocked.
             Assert.False(option.HasAttribute("disabled"));
@@ -517,6 +521,68 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Contains("workspace--no-roadmap",
                 component.Find("[data-testid='workspace']").GetAttribute("class"));
         });
+    }
+
+    /// <summary>
+    /// The maturity flag follows an unfinished feature out of the settings screen
+    /// and onto the control that leads to it.
+    ///
+    /// <para>Inbox is the catalog's <c>Dev</c> feature and ships off, which makes
+    /// it the pair worth testing: the option only exists in the header once the
+    /// feature is on, and the badge only exists once the option does.</para>
+    /// </summary>
+    [Fact]
+    public void An_enabled_unfinished_feature_carries_its_flag_into_the_header()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            var badge = component.Find("[data-testid='inbox-feature-status']");
+
+            Assert.Contains("badge--feature-dev", badge.ClassList);
+            Assert.Equal("DEV", badge.TextContent.ToUpperInvariant());
+
+            // On the control itself, not floating near it.
+            Assert.Equal(
+                component.Find("[data-testid='inbox-pane-option']"),
+                badge.ParentElement);
+        });
+    }
+
+    /// <summary>A released feature is the ordinary case and the header stays quiet
+    /// about it — otherwise the flag would be wallpaper rather than a warning.
+    /// Knowledge is the released one of the four enabled here; the other three
+    /// were moved to Dev and are the control group.</summary>
+    [Fact]
+    public void A_released_feature_adds_no_flag_to_the_header()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            // Present and unflagged.
+            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-pane-option']"));
+            Assert.Empty(component.FindAll("[data-testid='knowledge-feature-status']"));
+
+            // Present and flagged — proving the absence above is the status
+            // talking rather than the badge being broken everywhere.
+            Assert.Single(component.FindAll("[data-testid='roadmap-feature-status']"));
+            Assert.Single(component.FindAll("[data-testid='tools-feature-status']"));
+            Assert.Single(component.FindAll("[data-testid='dashboard-feature-status']"));
+        });
+    }
+
+    /// <summary>An option's own label, with any maturity flag inside it removed.
+    /// The badge is a child of the control rather than a sibling, so plain
+    /// TextContent now returns "Roadmap dev".</summary>
+    private static string LabelWithoutFlag(IElement option)
+    {
+        var flag = option.QuerySelector("[class*='badge--feature']")?.TextContent ?? string.Empty;
+
+        return option.TextContent.Replace(flag, string.Empty).Trim();
     }
 
     private static IRenderedComponent<Home> Render(Harness harness)

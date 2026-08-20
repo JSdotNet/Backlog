@@ -1,16 +1,89 @@
-namespace Backlog.SharedKernel;
+﻿namespace Backlog.SharedKernel;
+
+/// <summary>
+/// How far along a feature is, which is a different question from whether it is
+/// switched on: a half-built feature can be enabled by whoever wants to try it,
+/// and the point of saying so is that they know what they are looking at.
+/// <para>
+/// Three values rather than a lifecycle, because only three of them change what
+/// somebody sees. The scale is deliberately not <c>.domain</c>'s
+/// draft/proposed/active/deprecated: those describe how settled a written model
+/// is, and a chapter can sit at <c>draft</c> for a year while the feature it
+/// describes ships. What is wanted here is whether the thing on screen can be
+/// relied on. The two can be brought into line later by a script that writes
+/// this value from the matching <c>.domain</c> chapter — which is why the
+/// statuses are authored in one table rather than scattered across the screens
+/// that read them.
+/// </para>
+/// </summary>
+public enum AppFeatureStatus
+{
+    /// <summary>Finished, and carries no flag. First so that it is the default:
+    /// a feature nobody has classified is an ordinary feature, and the scale
+    /// only ever has to be mentioned by the features that are not.</summary>
+    Released,
+
+    /// <summary>Built and reachable, but not yet proven — worth trying, not yet
+    /// worth trusting. Drawn as <c>BETA</c>.</summary>
+    Beta,
+
+    /// <summary>Under construction and not usable yet. Drawn as <c>DEV</c>, and
+    /// the strongest thing the scale says.</summary>
+    Dev
+}
+
+/// <summary>
+/// Which half of the settings screen a feature is listed under.
+/// <para>
+/// The split is the one the kernel already draws for feature <em>keys</em>, read
+/// back as product copy: a key that belongs to a bounded context is a
+/// <see cref="Domain"/> feature, and a key that belongs to no single context —
+/// the ones <see cref="AppFeatureKeys"/> exists for, plus the app chrome and the
+/// integrations every area reaches through — is <see cref="CrossCutting"/>.
+/// Thirteen switches in one undifferentiated grid gave a reader no way to tell
+/// "an area of the product" from "something the whole product uses", which are
+/// the two quite different things you might be turning off.
+/// </para>
+/// </summary>
+public enum AppFeatureGroup
+{
+    /// <summary>An area of the product: a context's own capability. First
+    /// because it is what somebody opening the screen is usually looking
+    /// for.</summary>
+    Domain,
+
+    /// <summary>Something the whole product uses rather than one area of it —
+    /// app chrome, an integration, an assistant.</summary>
+    CrossCutting
+}
 
 /// <summary>
 /// A switchable part of the app. Most features ship on and are opt-out; a
 /// feature that is not proven yet sets <paramref name="EnabledByDefault"/> to
 /// false so nobody meets it without asking for it.
+/// <para>
+/// <paramref name="Status"/> answers the neighbouring question — not whether the
+/// feature is on, but whether it is finished. The two are independent: a
+/// <see cref="AppFeatureStatus.Dev"/> feature that somebody has switched on is
+/// exactly the case the flag exists for, and it is why the badge follows the
+/// feature into the app rather than staying on the settings screen.
+/// </para>
+/// <para>
+/// <paramref name="Group"/> is presentation and nothing else: it decides which
+/// heading the switch is listed under and has no bearing on whether the feature
+/// is on. It sits on the record rather than in the screen because the catalog is
+/// already the one list, and a second list pairing keys with headings would be a
+/// second thing to keep in step.
+/// </para>
 /// </summary>
 public sealed record AppFeatureDefinition(
     string Key,
     string Name,
     string Description,
     bool AlwaysEnabled = false,
-    bool EnabledByDefault = true);
+    bool EnabledByDefault = true,
+    AppFeatureStatus Status = AppFeatureStatus.Released,
+    AppFeatureGroup Group = AppFeatureGroup.Domain);
 
 /// <summary>
 /// Which features have been switched away from their default. Two sets rather

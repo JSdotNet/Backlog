@@ -1,4 +1,4 @@
-@* Deliberately free of the app's own domain namespaces. Each context now lives
+﻿@* Deliberately free of the app's own domain namespaces. Each context now lives
    in its own module UI project with its own _Imports.razor, so a component can
    only reach into another context by saying so in writing — the Shell folder's
    _Imports.razor is the one place that does. What is left here is what the
@@ -14,6 +14,7 @@
 @using Backlog.Infrastructure.AzureFoundry
 @using Backlog.Infrastructure.GitHub
 @using Backlog.UI.Components.Feedback
+@using Backlog.UI.Components.Badges
 @using Backlog.UI.Components.Buttons
 @using Backlog.UI.Components.Inputs
 @using Backlog.UI.Components.Layout
