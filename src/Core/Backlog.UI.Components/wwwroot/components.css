@@ -4758,6 +4758,19 @@ button.tag-chip__label {
     min-width: 0;
 }
 
+/* Stacking is also what breaks that truncation unless this is said. The aside's
+   main axis is vertical, so a child's flex-shrink and its own min-width: 0 size
+   it in height; its width comes off the cross axis as fit-content, and
+   fit-content never drops below min-content — which, for a nowrap string, is the
+   whole string. So the path grew to the string, spilled left out of the column and
+   drew over the name, with the ellipsis it declares never engaging. A cap is the
+   one constraint the cross axis honours here, and it is what finally gives
+   overflow: hidden something to truncate against. The actions and the baselines
+   take it too: they wrap rather than reach past the column that holds them. */
+.file-view__aside > * {
+    max-width: 100%;
+}
+
 .file-view__actions,
 .file-view__baselines {
     display: inline-flex;
