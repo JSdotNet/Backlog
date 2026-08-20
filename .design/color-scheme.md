@@ -405,6 +405,17 @@ Rules:
   surface reads that one answer, so the same project is the same colour on the
   roadmap, on the filter and on a row. A surface that picked its own would be a
   second identity for the same thing.
+- **The layer is opt-in, and off is the default.** Which hue a repository wears is
+  chosen in Settings; whether the hues are drawn at all is a switch on the main
+  page, off until somebody asks for it. Two controls because they are two
+  questions: one is set once and left alone, the other is about the screen in front
+  of you. The consumer table above therefore says which surfaces *may* carry an
+  identity, not which ones always do — with the layer off, each renders the
+  uncoloured presentation it already has for a repository nobody gave a colour to,
+  and the Settings picker keeps showing its swatches, because a control whose
+  subject is the colour has to show it. That the layer can be off in its entirety
+  is also why **colour is never the sole carrier** above is not a formality: with
+  the hues gone, the alias written in words is all that is left.
 - **Hues are assigned by position** in the configured-repository list and wrap after
   five, so a sixth repository repeats the first hue. An explicit choice in Settings
   overrides the position, and an automatic hue steps over the ones already claimed so
