@@ -1413,6 +1413,45 @@ h1, h2, h3 {
     color: var(--color-text-disabled);
 }
 
+/* Only the reason is marked, not the path it follows: the path is the same fact
+   whichever state the row is in, and colouring the lot would make a working
+   section shout as loudly as a broken one. color-error-text is the one semantic
+   foreground the palette sanctions, and this is what needs it - the found state
+   has no sentence of its own any more, only the badge below. */
+.knowledge-folder__status--error { color: var(--color-error-text); }
+
+/* The badge inside the path field. Round, because the row's own control is a
+   square gold checkbox immediately to the left and the two must not be read as
+   the same kind of thing: this one answers a question, it does not take an
+   instruction. Small and unlabelled for the same reason, and the field's suffix
+   box already refuses pointer events, so a click on it opens the field.
+
+   color-success and color-error are surfaces - color-scheme.md files them that
+   way - so they are worn as the fill with a legible glyph over them rather than
+   painted on the glyph. text-primary on color-success measures 11.9:1 and
+   color-error-text on color-error 7.1:1, both well past 4.5:1, and the glyph
+   differs between the two states as well so the answer survives without colour. */
+.knowledge-folder__marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    line-height: 1;
+}
+
+.knowledge-folder__marker--found {
+    background: var(--color-success);
+    color: var(--color-text-primary);
+}
+
+.knowledge-folder__marker--missing {
+    background: var(--color-error);
+    color: var(--color-error-text);
+}
+
 /* --- Instructions ---------------------------------------------------------- */
 
 .instructions-repository__header {

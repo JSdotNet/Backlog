@@ -182,6 +182,7 @@ public sealed class FeatureStatusIndicatorTests
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        context.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(githubSettings, store));
 
         return new SettingsRenderContext(root, context, context.Render<Settings>());
     }

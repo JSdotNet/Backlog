@@ -17,6 +17,137 @@ public sealed class GitHubSettingsTests
     {
         Assert.Equal("instructions", KnowledgeFolderSetting.Defaults().First().Key);
     }
+
+    /// <summary>A default carrying a path would be an override of itself, and the
+    /// settings screen would read it as a choice somebody made.</summary>
+    [Fact]
+    public void Knowledge_folder_defaults_carry_no_path_override()
+    {
+        Assert.All(KnowledgeFolderSetting.Defaults(), folder => Assert.Null(folder.Path));
+    }
+
+    [Fact]
+    public void The_architecture_section_is_named_for_what_it_holds_not_for_the_template()
+    {
+        var architecture = KnowledgeFolderSetting.Defaults().Single(f => f.Key == ".arc42");
+
+        Assert.Equal("Architecture", architecture.DisplayName);
+        Assert.Equal(".arc42", architecture.DefaultRelativePath);
+    }
+
+    /// <summary>
+    /// An override that names the section's own conventional folder is the default
+    /// written down, not a choice — older settings files carry one for every
+    /// section, and the row read it as an override.
+    /// </summary>
+    [Theory]
+    [InlineData(".arc42")]
+    [InlineData(" .arc42 ")]
+    [InlineData(".arc42\\")]
+    [InlineData(".arc42/")]
+    [InlineData(".ARC42")]
+    public void An_override_naming_the_conventional_folder_is_not_an_override(string configured)
+    {
+        var normalized = KnowledgeFolderSetting.Normalize(
+            [new KnowledgeFolderSetting(".arc42", string.Empty, string.Empty) { Path = configured }]);
+
+        Assert.Null(normalized.Single(f => f.Key == ".arc42").Path);
+    }
+
+    [Theory]
+    [InlineData(@"docs\.arc42", @"docs\.arc42")]
+    [InlineData("architecture", "architecture")]
+    [InlineData(@"  knowledge\arc42  ", @"knowledge\arc42")]
+    // A rooted path that merely ends in the conventional folder name is somewhere
+    // else that happens to be called the same thing.
+    [InlineData(@"D:\Repos\Other\.arc42", @"D:\Repos\Other\.arc42")]
+    public void An_override_naming_somewhere_else_is_kept(string configured, string expected)
+    {
+        var normalized = KnowledgeFolderSetting.Normalize(
+            [new KnowledgeFolderSetting(".arc42", string.Empty, string.Empty) { Path = configured }]);
+
+        Assert.Equal(expected, normalized.Single(f => f.Key == ".arc42").Path);
+    }
+
+    /// <summary>
+    /// Every read and write funnels through <c>Normalize</c>, so the leftover has
+    /// to be gone on load <em>and</em> stay gone the next time the file is
+    /// written — a load-only fix would put it back on the first save.
+    /// </summary>
+    [Fact]
+    public void A_stored_path_equal_to_the_default_loads_as_no_override_and_is_not_written_again()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+            {
+              "repositories": [
+                {
+                  "alias": "backlog",
+                  "owner": "JSdotNet",
+                  "name": "Backlog",
+                  "knowledgeFolders": [
+                    { "key": ".arc42", "enabled": true, "path": ".arc42" }
+                  ]
+                }
+              ],
+              "apiEndpoint": "https://api.github.com"
+            }
+            """);
+
+            var store = new GitHubSettingsStore(path);
+            var architecture = store.Current.Find("backlog")!.KnowledgeFolders.Single(f => f.Key == ".arc42");
+            Assert.Null(architecture.Path);
+            Assert.Equal(".arc42", architecture.EffectivePath);
+
+            Assert.Null(store.SetCloneDirectory("backlog", @"D:\Repos\Backlog"));
+
+            Assert.All(StoredKnowledgeFolderPaths(path), stored => Assert.Equal(JsonValueKind.Null, stored.ValueKind));
+        }
+        finally
+        {
+            try { Directory.Delete(Path.GetDirectoryName(path)!, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
+    public void A_clean_install_writes_no_knowledge_path_overrides()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");
+
+        try
+        {
+            var store = new GitHubSettingsStore(path);
+            var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
+            Assert.Null(store.SetRepositories(repositories));
+
+            Assert.All(store.Current.Repositories[0].KnowledgeFolders, folder => Assert.Null(folder.Path));
+            Assert.All(StoredKnowledgeFolderPaths(path), stored => Assert.Equal(JsonValueKind.Null, stored.ValueKind));
+        }
+        finally
+        {
+            try { Directory.Delete(Path.GetDirectoryName(path)!, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    /// <summary>The <c>path</c> of every knowledge folder of every repository as the
+    /// settings file itself holds it, rather than as the store re-normalizes it on
+    /// the way back in.</summary>
+    private static List<JsonElement> StoredKnowledgeFolderPaths(string settingsPath)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(settingsPath));
+
+        return
+        [
+            .. document.RootElement.GetProperty("repositories").EnumerateArray()
+                .SelectMany(repository => repository.GetProperty("knowledgeFolders").EnumerateArray())
+                .Select(folder => folder.GetProperty("path").Clone())
+        ];
+    }
+
     [Theory]
     [InlineData("JSdotNet/Backlog", "backlog", "JSdotNet", "Backlog")]
     [InlineData("  JSdotNet/Backlog  ", "backlog", "JSdotNet", "Backlog")]

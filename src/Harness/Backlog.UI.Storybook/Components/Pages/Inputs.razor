@@ -50,6 +50,52 @@
         </div>
     </Story>
 
+    <Story Name="A marker inside the field"
+           Description="Suffix puts something at the input's trailing edge, and the field makes room for it rather than letting it overlap: type past the width and the value scrolls behind nothing. The marker takes no clicks either — a click on it lands in the field. It carries its own accessible name, because a badge is where a fact like 'folder found' lives once the line under the field stops saying it. A field given no suffix renders exactly as the ones above; the box only appears when there is something to put in it."
+           Code="@SuffixCode">
+        <div class="sb-columns">
+            <div>
+                <p class="sb-label">Bare, host classes, found</p>
+                <TextField Bare="true"
+                           LabelCssClass="sb-label"
+                           InputCssClass="sb-host-input"
+                           Label="Domain folder"
+                           Value="@_domainFolder"
+                           ValueChanged="v => _domainFolder = v"
+                           data-testid="input-suffix-found">
+                    <Suffix>
+                        <span class="sb-marker sb-marker--found" role="img" aria-label="Folder found.">&#x2713;</span>
+                    </Suffix>
+                </TextField>
+            </div>
+            <div>
+                <p class="sb-label">Bare, host classes, missing</p>
+                <TextField Bare="true"
+                           LabelCssClass="sb-label"
+                           InputCssClass="sb-host-input"
+                           Label="Design folder"
+                           Value="@_designFolder"
+                           ValueChanged="v => _designFolder = v"
+                           data-testid="input-suffix-missing">
+                    <Suffix>
+                        <span class="sb-marker sb-marker--missing" role="img" aria-label="Folder not found.">&#x2715;</span>
+                    </Suffix>
+                </TextField>
+            </div>
+            <div>
+                <TextField Label="Estimate"
+                           Value="@_estimate"
+                           ValueChanged="v => _estimate = v"
+                           HelpText="A suffix is not only a state: a unit reads the same way."
+                           TestId="input-suffix-unit">
+                    <Suffix>
+                        <span class="sb-state">hrs</span>
+                    </Suffix>
+                </TextField>
+            </div>
+        </div>
+    </Story>
+
     <Story Name="TextArea"
            Description="AutoGrow is on by default: the box follows the text instead of introducing an inner scrollbar. The fixed one shows the difference."
            Code="@TextAreaCode">
@@ -324,6 +370,13 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
     private string _notes = "The read view and the editor show the same text.\nAdd a line to see AutoGrow work.";
     private string _query = string.Empty;
     private string _folder = @"C:\Repos\Backlog";
+
+    // Long enough to overflow the box, which is the case the trailing padding is
+    // there for: the end of the path has to disappear at the edge of the input
+    // rather than under the marker.
+    private string _domainFolder = @"C:\Repos\Backlog\knowledge\.domain";
+    private string _designFolder = ".design";
+
     private string _repos = "JSdotNet/Backlog\nJSdotNet/Infra";
     private bool _folderEnabled = true;
     private bool _syncEnabled = true;
@@ -364,6 +417,16 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
 
     private const string TextFieldCode = """
         <TextField Label="Title" @bind-Value="_title" Placeholder="What is this about?" />
+        """;
+
+    private const string SuffixCode = """
+        <TextField Bare="true" InputCssClass="setting__input"
+                   Label="Domain folder" @bind-Value="_domainFolder">
+            <Suffix>
+                <span class="knowledge-folder__marker knowledge-folder__marker--found"
+                      role="img" aria-label="Folder found.">✓</span>
+            </Suffix>
+        </TextField>
         """;
 
     private const string TextAreaCode = """
