@@ -738,7 +738,10 @@
 
         @if (KnowledgeActionMetadata.Issue(item.Metadata, _view?.RepositoryLabel) is { } issue)
         {
-            <a class="badge badge--gh badge--gh-open"
+            @* Unknown rather than open: the link carries a repo, a number and a
+               label, and nothing on this path fetches the issue's state, so the
+               badge must not claim one. The visible word already says "linked". *@
+            <a class="badge badge--gh badge--gh-unknown"
                data-testid="knowledge-issue-badge"
                href="@issue.Url"
                target="_blank"
