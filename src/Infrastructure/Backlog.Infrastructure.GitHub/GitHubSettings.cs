@@ -38,6 +38,25 @@ public sealed class GitHubSettings
             ?? Repositories.FirstOrDefault(r => string.Equals(r.FullName, trimmed, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Which identity hue each configured repository wears, keyed by alias.
+    /// <para>
+    /// Worked out from the whole list rather than per repository, because an
+    /// unchosen repository's hue depends on what its neighbours have claimed. Callers
+    /// that need one repository's hue ask this and index into it, so every surface is
+    /// reading the same answer.
+    /// </para>
+    /// </summary>
+    public IReadOnlyDictionary<string, int> Colours() => RepositoryColours.Resolve(Repositories);
+
+    /// <summary>The hue a repository wears, or null when the alias names no configured
+    /// repository.</summary>
+    public int? ColourFor(string? alias)
+    {
+        var repository = Find(alias);
+        return repository is null ? null : Colours().GetValueOrDefault(repository.Alias);
+    }
+
     public string? TokenForPath(string? path)
     {
         var repository = RepositoryFromApiPath(path);
@@ -216,6 +235,37 @@ public sealed class GitHubSettingsStore
         });
     }
 
+    /// <summary>
+    /// Records which identity hue a repository wears, or clears the choice so the hue
+    /// falls back to the repository's position. Follows the house rule of no save
+    /// button: the choice is persisted as it is made.
+    /// </summary>
+    public string? SetRepositoryColour(string alias, int? colour)
+    {
+        var normalized = GitHubRepositoryRef.NormalizeAlias(alias);
+        if (!Current.Repositories.Any(r => string.Equals(r.Alias, normalized, StringComparison.Ordinal)))
+        {
+            return "That repository is no longer configured.";
+        }
+
+        if (colour is not null && !RepositoryColours.IsSanctioned(colour))
+        {
+            return $"{colour} is not one of the {RepositoryColours.Available} colours.";
+        }
+
+        return Save(new GitHubSettings
+        {
+            Repositories =
+            [
+                .. Current.Repositories.Select(r =>
+                    string.Equals(r.Alias, normalized, StringComparison.Ordinal)
+                        ? r with { Colour = colour }
+                        : r)
+            ],
+            ApiEndpoint = Current.ApiEndpoint
+        });
+    }
+
     public string? SetKnowledgeFolder(string alias, string key, bool enabled, string? path)
     {
         var normalized = GitHubRepositoryRef.NormalizeAlias(alias);
@@ -268,6 +318,7 @@ public sealed class GitHubSettingsStore
                     Name = r.Name,
                     CloneDirectory = r.CloneDirectory,
                     Token = r.Token,
+                    Colour = r.Colour,
                     KnowledgeFolders =
                     [
                         .. KnowledgeFolderSetting.Normalize(r.KnowledgeFolders).Select(f => new KnowledgeFolderDto
@@ -315,6 +366,7 @@ public sealed class GitHubSettingsStore
                         {
                             CloneDirectory = CleanPath(r.CloneDirectory),
                             Token = CleanToken(r.Token) ?? CleanToken(dto.Token),
+                            Colour = CleanColour(r.Colour),
                             KnowledgeFolders = KnowledgeFolderSetting.Normalize(
                                 r.KnowledgeFolders.Select(f => new KnowledgeFolderSetting(
                                     string.IsNullOrWhiteSpace(f.Key) ? string.Empty : f.Key!,
@@ -347,6 +399,7 @@ public sealed class GitHubSettingsStore
             return repository with
             {
                 Token = CleanToken(repository.Token) ?? CleanToken(Current.Token),
+                Colour = CleanColour(repository.Colour),
                 KnowledgeFolders = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
             };
         }
@@ -355,6 +408,7 @@ public sealed class GitHubSettingsStore
         {
             CloneDirectory = string.IsNullOrWhiteSpace(repository.CloneDirectory) ? existing.CloneDirectory : repository.CloneDirectory,
             Token = CleanToken(repository.Token) ?? existing.Token ?? CleanToken(Current.Token),
+            Colour = CleanColour(repository.Colour) ?? existing.Colour,
             KnowledgeFolders = KnowledgeFolderSetting.Normalize(existing.KnowledgeFolders)
         };
     }
@@ -365,6 +419,7 @@ public sealed class GitHubSettingsStore
         {
             CloneDirectory = CleanPath(r.CloneDirectory),
             Token = CleanToken(r.Token),
+            Colour = CleanColour(r.Colour),
             KnowledgeFolders = KnowledgeFolderSetting.Normalize(r.KnowledgeFolders)
         })
     ];
@@ -372,6 +427,11 @@ public sealed class GitHubSettingsStore
     private static string? CleanPath(string? path) => string.IsNullOrWhiteSpace(path) ? null : path.Trim();
 
     private static string? CleanToken(string? token) => string.IsNullOrWhiteSpace(token) ? null : token.Trim();
+
+    /// <summary>A colour outside the sanctioned range is dropped rather than clamped,
+    /// for the reason <c>.design/color-scheme.md</c> gives: clamping would hand somebody
+    /// a hue they did not ask for and make it look like a choice they had made.</summary>
+    private static int? CleanColour(int? colour) => RepositoryColours.IsSanctioned(colour) ? colour : null;
 
     private static string? CleanEndpoint(string? endpoint)
     {
@@ -397,6 +457,7 @@ public sealed class GitHubSettingsStore
         public string? Name { get; set; }
         public string? CloneDirectory { get; set; }
         public string? Token { get; set; }
+        public int? Colour { get; set; }
         public List<KnowledgeFolderDto> KnowledgeFolders { get; set; } = [];
     }
 

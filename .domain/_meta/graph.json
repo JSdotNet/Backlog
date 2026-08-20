@@ -6,20 +6,20 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 399,
-    "edges": 614,
+    "nodes": 400,
+    "edges": 618,
     "nodesByFolder": {
-      "domain": 389,
+      "domain": 390,
       "arc42": 8,
       "design": 2
     },
     "nodesByType": {
       "file": 73,
-      "chapter": 277,
+      "chapter": 278,
       "heading": 49
     },
     "nodesByStatus": {
-      "draft": 287,
+      "draft": 288,
       "proposed": 16,
       "deprecated": 3,
       "idea": 1,
@@ -27,8 +27,8 @@
       "none": 49
     },
     "edgesByType": {
-      "contains": 317,
-      "related": 268,
+      "contains": 318,
+      "related": 271,
       "depends-on": 29
     }
   },
@@ -3202,6 +3202,23 @@
       },
       {
         "data": {
+          "id": ".domain/repository-management/features.md#sub-feature-repository-identity-colour",
+          "label": "Sub-feature: Repository identity colour",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/repository-management/features.md",
+          "slug": "sub-feature-repository-identity-colour",
+          "level": 3,
+          "line": 35,
+          "status": "draft",
+          "related": [
+            ".design/color-scheme.md#band-identity-tokens",
+            ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
           "label": "Sub-feature: Repository knowledge folder settings",
           "type": "chapter",
@@ -3209,7 +3226,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "sub-feature-repository-knowledge-folder-settings",
           "level": 3,
-          "line": 35,
+          "line": 61,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#feature-repository-knowledge-areas"
@@ -3225,7 +3242,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-package-and-dependency-tracking",
           "level": 2,
-          "line": 49,
+          "line": 75,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-registration"
@@ -3241,7 +3258,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-technology-stack-inventory",
           "level": 2,
-          "line": 60,
+          "line": 86,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-registration"
@@ -3260,7 +3277,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-github-integration",
           "level": 2,
-          "line": 71,
+          "line": 97,
           "status": "draft"
         }
       },
@@ -3273,7 +3290,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "sub-feature-github-access-resolution",
           "level": 3,
-          "line": 81,
+          "line": 107,
           "status": "draft",
           "related": [
             ".domain/backlog/features.md#feature-projection"
@@ -3289,7 +3306,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-repository-health-scoring",
           "level": 2,
-          "line": 95,
+          "line": 121,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-package-and-dependency-tracking",
@@ -3309,7 +3326,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-technology-trend-analysis",
           "level": 2,
-          "line": 107,
+          "line": 133,
           "status": "draft",
           "related": [
             ".domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking"
@@ -3325,7 +3342,7 @@
           "path": ".domain/repository-management/features.md",
           "slug": "feature-bulk-operations",
           "level": 2,
-          "line": 118,
+          "line": 144,
           "status": "draft",
           "depends-on": [
             ".domain/repository-management/features.md#feature-repository-health-scoring"
@@ -3805,7 +3822,8 @@
           "line": 181,
           "status": "draft",
           "related": [
-            ".design/color-scheme.md#band-identity-tokens"
+            ".design/color-scheme.md#band-identity-tokens",
+            ".domain/repository-management/features.md#sub-feature-repository-identity-colour"
           ]
         }
       },
@@ -3818,7 +3836,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-editing-the-plan-in-place",
           "level": 2,
-          "line": 204,
+          "line": 210,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-owning-a-stored-plan"
@@ -3838,7 +3856,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-editing-what-something-waits-for",
           "level": 3,
-          "line": 221,
+          "line": 227,
           "status": "draft",
           "related": [
             ".domain/roadmap/features.md#sub-feature-refusing-a-circular-plan"
@@ -3854,7 +3872,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "sub-feature-refusing-an-edit-rather-than-half-applying-it",
           "level": 3,
-          "line": 234,
+          "line": 240,
           "status": "draft"
         }
       },
@@ -3867,7 +3885,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-publishing-planned-intent-for-observation",
           "level": 2,
-          "line": 244,
+          "line": 250,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-owning-a-stored-plan"
@@ -6025,22 +6043,6 @@
       },
       {
         "data": {
-          "id": ".design/interaction-guidelines.md",
-          "label": "Interaction Guidelines",
-          "type": "file",
-          "folder": "design",
-          "path": ".design/interaction-guidelines.md",
-          "status": "active",
-          "related": [
-            ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
-            ".design/accessibility.md",
-            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
-          ],
-          "outOfScope": true
-        }
-      },
-      {
-        "data": {
           "id": ".design/color-scheme.md#band-identity-tokens",
           "label": "Band Identity Tokens",
           "type": "chapter",
@@ -6054,6 +6056,22 @@
             ".design/design-principles.md#dark-mode-only",
             ".design/accessibility.md#contrast",
             ".domain/roadmap/features.md#feature-repository-scoped-planning"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".design/interaction-guidelines.md",
+          "label": "Interaction Guidelines",
+          "type": "file",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "status": "active",
+          "related": [
+            ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
+            ".design/accessibility.md",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
           ],
           "outOfScope": true
         }
@@ -7369,6 +7387,14 @@
           "id": "contains:.domain/repository-management/features.md#feature-repository-registration->.domain/repository-management/features.md#sub-feature-repository-registry-configuration",
           "source": ".domain/repository-management/features.md#feature-repository-registration",
           "target": ".domain/repository-management/features.md#sub-feature-repository-registry-configuration",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/repository-management/features.md#feature-repository-registration->.domain/repository-management/features.md#sub-feature-repository-identity-colour",
+          "source": ".domain/repository-management/features.md#feature-repository-registration",
+          "target": ".domain/repository-management/features.md#sub-feature-repository-identity-colour",
           "type": "contains"
         }
       },
@@ -9774,6 +9800,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/repository-management/features.md#sub-feature-repository-identity-colour->.design/color-scheme.md#band-identity-tokens",
+          "source": ".domain/repository-management/features.md#sub-feature-repository-identity-colour",
+          "target": ".design/color-scheme.md#band-identity-tokens",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/repository-management/features.md#sub-feature-repository-identity-colour->.domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
+          "source": ".domain/repository-management/features.md#sub-feature-repository-identity-colour",
+          "target": ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings->.domain/second-brain/features.md#feature-repository-knowledge-areas",
           "source": ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
           "target": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
@@ -10185,6 +10227,14 @@
           "id": "related:.domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance->.design/color-scheme.md#band-identity-tokens",
           "source": ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
           "target": ".design/color-scheme.md#band-identity-tokens",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance->.domain/repository-management/features.md#sub-feature-repository-identity-colour",
+          "source": ".domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance",
+          "target": ".domain/repository-management/features.md#sub-feature-repository-identity-colour",
           "type": "related"
         }
       },

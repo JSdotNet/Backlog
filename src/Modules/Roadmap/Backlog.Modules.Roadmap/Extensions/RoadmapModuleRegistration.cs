@@ -3,7 +3,6 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Features.AddDependency;
 using Backlog.Modules.Roadmap.Features.AddItem;
 using Backlog.Modules.Roadmap.Features.AddMilestone;
-using Backlog.Modules.Roadmap.Features.ColourBand;
 using Backlog.Modules.Roadmap.Features.RemoveMilestone;
 using Backlog.Modules.Roadmap.Features.UpdateMilestone;
 using Backlog.Modules.Roadmap.Features.GetPlan;
@@ -44,7 +43,6 @@ public static class RoadmapModuleRegistration
         services.AddScoped<ICommandHandler<AddMilestoneCommand, Result<RoadmapMilestoneDto>>, AddMilestoneCommandHandler>();
         services.AddScoped<ICommandHandler<UpdateMilestoneCommand, Result<RoadmapMilestoneDto>>, UpdateMilestoneCommandHandler>();
         services.AddScoped<ICommandHandler<RemoveMilestoneCommand, Result>, RemoveMilestoneCommandHandler>();
-        services.AddScoped<ICommandHandler<ColourBandCommand, Result>, ColourBandCommandHandler>();
         services.AddScoped<ICommandHandler<AddDependencyCommand, Result>, AddDependencyCommandHandler>();
         services.AddScoped<ICommandHandler<RemoveDependencyCommand, Result>, RemoveDependencyCommandHandler>();
 
