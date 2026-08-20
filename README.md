@@ -54,18 +54,23 @@ Primary domains:
 - Capture
 - Inbox
 - Backlog Management
+- Roadmap Planning
 - Second Brain
+- Productivity
+- Environment
 - Monitoring and Dashboard
 - Technology Stack
 - Dev PC Management
 - Repository Management
+- Sessions
 
 Access channels:
 - Desktop client
 - IDE extensions (VS Code, Visual Studio)
 - Phone app
 
-See [domain/domain.md](domain/domain.md) for functional boundaries and [architecture/Architecture.md](architecture/Architecture.md) for technical design.
+See [`.domain/context-map.md`](.domain/context-map.md) for functional boundaries and
+[`.arc42/`](.arc42/) for technical design.
 
 ## Solution structure
 
@@ -98,18 +103,27 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Aspire/Backlog.Aspire.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
 | `src/Core/Backlog.SharedKernel` | Shared kernel — `Result`, `Result<T>`, and `Error` primitives used by every module |
 | `src/Core/Backlog.UI.Components` | Shared Razor control library — no domain in it, rendered on its own in the storybook |
-| `src/Modules/Backlog/Backlog.Modules.Backlog` | Backlog module — domain model (entries, sub-items, lifecycle rules), ports, and vertical-slice features |
-| `src/Modules/Backlog/Backlog.Modules.Backlog.Abstractions` | The Backlog module's published surface — DTOs, the entry text format, and `IBacklogEntries` |
-| `src/Modules/Backlog/Backlog.Modules.Backlog.UI` | Backlog Management's desktop face — the entry pane, its state, and the GitHub and Copilot CLI projections |
+| `src/Modules/Backlog/Backlog.Modules.Backlog` | Backlog module — domain model (`TaskItem`, sub-items, lifecycle rules), the `ITaskRepository` port, and vertical-slice features |
+| `src/Modules/Backlog/Backlog.Modules.Backlog.Abstractions` | The Backlog module's published surface — DTOs, the entry text format, and `ITaskItems` |
+| `src/Modules/Backlog/Backlog.Modules.Backlog.UI` | Backlog Management's desktop face — the task pane, its state, and the GitHub and Copilot CLI projections |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox's desktop face — what has been captured but not decided on |
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.Abstractions` | Second Brain's published surface — `IKnowledgeFolderSource`, the configured-folder format, and the location a folder resolves to |
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI` | Second Brain's desktop face — the knowledge menu and the arc42, domain, design, technology, and instruction panels |
-| `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap planning over roadmap-ready entries — scaffolding only so far |
-| `src/Modules/DevPc/Backlog.Modules.DevPc.UI` | Dev PC Management's desktop face — scaffolding only so far |
+| `src/Modules/Roadmap/Backlog.Modules.Roadmap` | Roadmap module — the plan and its items, the sequencing rules between them, and the `IRoadmapPlanRepository` port |
+| `src/Modules/Roadmap/Backlog.Modules.Roadmap.Abstractions` | The Roadmap module's published surface — the plan DTOs, `IRoadmapPlanning`, and `RoadmapFeatures` |
+| `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning's desktop face — the band above the panes and its editor |
+| `src/Modules/Sessions/Backlog.Modules.Sessions.Abstractions` | Sessions' published surface — the session record, its states and groupings, and the `IAgentSessionSource` port |
+| `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions' desktop face — the full-screen session list, and the readers over what Claude and Copilot leave in the user profile |
+| `src/Modules/DevPc/Backlog.Modules.DevPc.Abstractions` | Dev PC Management's published surface — `DevPcFeatures` and the types its screens exchange |
+| `src/Modules/DevPc/Backlog.Modules.DevPc.UI` | Dev PC Management's desktop face — the tools surface |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard` | Dashboard module — the derivations behind the dashboard: productivity scoring, weekly bucketing, churn rates, month-to-date spend, and the session cache in front of the providers |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions` | The Dashboard module's published surface — the scope, the insight DTOs, `IProductivityInsights` and `ICostInsights`, and the four ports its adapters answer |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | The Dashboard's face — the full-screen surface, its seven independent parts, and the adapters over GitHub and Anthropic |
-| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — Markdown + JSON file storage (canonical local data), and the workspace settings behind `IBacklogStore`, `IKnowledgeFolderSource` and `IAppFeatureSettings` |
+| `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local task store, one SQLite database behind `ITaskRepository`. See [ADR 0003](.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
+| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `IBacklogStore`, `IKnowledgeFolderSource` and `IAppFeatureSettings`, and the stored roadmap plan |
+| `src/Infrastructure/Backlog.Infrastructure.Claude` | Cross-cutting adapter — Claude usage and spend from the Anthropic organization APIs |
+| `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
+| `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
 | `src/Infrastructure/Backlog.Infrastructure.GitHub` | Cross-cutting adapter — GitHub issue projection, pull request and issue activity with review detail, Copilot seats, and AI-credit billing |
 | `src/App/Backlog.Desktop.UI` | Desktop shell — layout, routes, settings, and the composition that decides which context panes are on screen |
 | `src/App/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
@@ -119,11 +133,19 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Sync/Backlog.Modules.Sync.Api` | Sync module's API — thin ASP.NET Core sync service, deployed to Azure |
 | `src/Harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
 | `src/Harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
+| `src/Harness/Backlog.UI.Storybook` | **Test harness, not shipped** — the shared control library rendered on its own, with each page's governing `.design` rule beside it |
+| `src/Harness/Backlog.AzureFoundry.TestService` | **Test harness, not shipped** — a stand-in for Azure Foundry so the assistant can be driven without a cloud account |
 | `tests/Backlog.Modules.Backlog.UnitTests` | Unit tests for the Backlog module domain |
 | `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
-| `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the file storage adapter |
-| `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services and GitHub integration |
-| `tests/Backlog.ArchitectureTests` | Executable structure rules — module boundaries, desktop context boundaries, and "harness is never shipped" |
+| `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
+| `tests/Backlog.Infrastructure.Sqlite.UnitTests` | Unit tests for the SQLite task store — round-tripping an aggregate, and rank order |
+| `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the stored roadmap plan. The same adapter's workspace-settings and feature-flag tests sit in `Backlog.Desktop.UI.UnitTests`, where the collection fixture they serialize on lives |
+| `tests/Backlog.Infrastructure.GitHub.UnitTests` | Unit tests for the GitHub adapter — issue projection, activity, and billing |
+| `tests/Backlog.Infrastructure.Claude.UnitTests` | Unit tests for the Claude usage adapter |
+| `tests/Backlog.UI.Components.UnitTests` | Unit tests for the shared control library, rendered without an application behind it |
+| `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services, the context panes, and GitHub integration |
+| `tests/Backlog.Mobile.UI.UnitTests` | Unit tests for the mobile channel's components |
+| `tests/Backlog.ArchitectureTests` | Executable structure rules — module boundaries, desktop context boundaries, design-token and storybook coverage, and "harness is never shipped" |
 
 ### The desktop channel's bounded contexts
 
@@ -136,7 +158,10 @@ rather than a folder inside the shell. The split follows
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox — what has been captured but not decided on. Publishes `InboxItem`; reads nothing back |
 | `src/Modules/Backlog/Backlog.Modules.Backlog.UI` | Backlog Management — the entry pane, its drafts, and its GitHub and Copilot CLI projections |
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI` | Second Brain — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
+| `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning — the forward plan, as a band above the panes |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | Dashboard — productivity and cost insight over what the other systems already hold. Reads only; writes nothing back |
+| `src/Modules/DevPc/Backlog.Modules.DevPc.UI` | Dev PC Management — the tools surface: plugins, repository tools, and MCP servers |
+| `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions — what the coding agents have been doing on this PC. Reads the profile; writes nothing |
 | `src/App/Backlog.Desktop.UI` | Not a context — app chrome, routes, settings, and the composition root. The one place allowed to see all of them at once |
 
 Making each context a project turns most of the boundary into a reference graph:
@@ -156,9 +181,10 @@ Partnership `.domain/context-map.md` describes. Those four types are now module
 ports — `IBacklogStore` in Backlog Management's Abstractions,
 `IKnowledgeFolderSource` in Second Brain's, `IAppFeatureSettings` in the shared
 kernel — with the adapters that answer them in
-`Backlog.Infrastructure.FileSystem`. Resolving a repository's `.backlog` folder
-still needs both contexts' settings; the adapter holds that join, because an
-adapter is allowed to see both and a screen is not.
+`Backlog.Infrastructure.FileSystem` and, for tasks themselves,
+`Backlog.Infrastructure.Sqlite`. Where an answer needs more than one context's
+settings the adapter holds that join, because an adapter is allowed to see both and
+a screen is not.
 `ModuleBoundaryTests.A_module_ui_asks_only_its_own_modules_published_surface`
 is what keeps it that way.
 
@@ -184,9 +210,10 @@ shadows the repository root: under `Backlog.Modules.Backlog.UI`, `@using
 Backlog.UI.Components.Markdown` binds to `Backlog.Modules.Backlog` and fails with
 CS0234. The namespace segment is `BacklogManagement`, not `Backlog`, for the same
 reason, and it is also the context's name in the context map — so the constraint
-and the domain language agree. The scaffold modules that carry no moved code
-(`Roadmap`, `DevPc`, `Monitoring`) use their own `Backlog.Modules.<Context>.UI`
-namespaces.
+and the domain language agree. The modules whose code was never in the shell to
+begin with (`Dashboard`, `Roadmap`, `DevPc`, `Sessions`) use their own
+`Backlog.Modules.<Context>.UI` namespaces, because there was no original namespace
+for them to keep.
 
 Everything under `src/Harness/` is a development-time host. It ships nothing to a
 user; it exists so the shared Razor components can be started by the Aspire
@@ -305,4 +332,5 @@ automatically, so they do not need to be on `PATH`.
 
 ## Language and conventions
 
-Term definitions and naming conventions are in [domain/naming.md](domain/naming.md).
+Term definitions and naming conventions are in each context's `naming.md` under
+[`.domain/`](.domain/), indexed by [`.domain/context-map.md`](.domain/context-map.md).

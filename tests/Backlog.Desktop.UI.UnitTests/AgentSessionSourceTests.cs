@@ -295,6 +295,53 @@ public sealed class AgentSessionSourceTests : IDisposable
     }
 
     /// <summary>
+    /// A live file held open by the process that owns it. The same event as the
+    /// half-written one above and it has to cost the same: one row. It is the
+    /// <em>open</em> rather than the parse that fails here, which is why the two are
+    /// separate tests — a guard around only the parse leaves this one blanking every
+    /// Claude session and reporting the agent as unreadable.
+    /// </summary>
+    [Fact]
+    public async Task A_locked_claude_live_file_costs_its_own_row_and_no_more()
+    {
+        GivenClaudeLiveSession("locked", @"D:\Repos\Other", "other", Noon.AddHours(-2), Noon.AddMinutes(-9), pid: 4242);
+        GivenClaudeLiveSession("good", @"D:\Repos\Backlog", "worktree", Noon.AddHours(-1), Noon.AddMinutes(-2));
+
+        await using var _ = new FileStream(
+            Path.Combine(ClaudeHome, "sessions", "4242.json"),
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.None);
+
+        var catalog = await ReadAsync();
+
+        var session = Assert.Single(catalog.Sessions);
+        Assert.Equal("good", session.Id);
+        Assert.Empty(catalog.Unreadable);
+    }
+
+    /// <summary>A Copilot descriptor open for writing, for the same reason and with
+    /// the same answer.</summary>
+    [Fact]
+    public async Task A_locked_copilot_descriptor_costs_its_own_row_and_no_more()
+    {
+        GivenCopilotSession("locked", @"D:\Repos\Other", "JSdotNet/Other", "main", Noon.AddHours(-4), Noon.AddHours(-3));
+        GivenCopilotSession("good", @"D:\Repos\Backlog", "JSdotNet/Backlog", "main", Noon.AddHours(-3), Noon.AddHours(-2));
+
+        await using var _ = new FileStream(
+            Path.Combine(CopilotHome, "session-state", "locked", "workspace.yaml"),
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.None);
+
+        var catalog = await ReadAsync();
+
+        var session = Assert.Single(catalog.Sessions);
+        Assert.Equal("good", session.Id);
+        Assert.Empty(catalog.Unreadable);
+    }
+
+    /// <summary>
     /// The cap is on work and on the length of a list, not on truth: every transcript
     /// costs an open and a few reads, and a developer's profile holds hundreds. What
     /// is dropped is the oldest history, which is the part a reader scanning a session

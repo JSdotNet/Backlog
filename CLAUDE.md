@@ -2,7 +2,7 @@
 
 Backlog is a local-first, AI-first work management product: desktop, mobile, and IDE
 channels plus a thin cloud sync service. Solution: `Backlog.sln`. Product code under
-`src/` (including development-time hosts under `src/harness/`), tests under `tests/`.
+`src/` (including development-time hosts under `src/Harness/`), tests under `tests/`.
 
 This file carries the repository rules that apply to **Claude Code**. The equivalent
 GitHub Copilot instructions live in `.github/copilot-instructions.md`; where the two
