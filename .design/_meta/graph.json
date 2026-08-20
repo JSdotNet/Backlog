@@ -1542,7 +1542,7 @@
           "path": ".domain/roadmap/features.md",
           "slug": "feature-repository-scoped-planning",
           "level": 2,
-          "line": 124,
+          "line": 179,
           "status": "draft",
           "depends-on": [
             ".domain/roadmap/features.md#feature-owning-a-stored-plan"

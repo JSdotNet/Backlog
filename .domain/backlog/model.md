@@ -33,6 +33,7 @@ classDiagram
         +Date in_my_day_on
         +List~Id~ depends_on
         +Id recurrence_source_id
+        +Integer effort
     }
     class SubItem {
         <<entity>>
@@ -168,3 +169,10 @@ classDiagram
   ownership. A spawned occurrence is a separate aggregate with its own lifecycle,
   which is why there is no containment relationship between a series and its
   members.
+- `effort` is a plain scalar on the root, not a value object: a non-negative
+  integer of story points, three-valued at the edges (`null`/absent means "not
+  estimated", `0` is a real zero-point estimate, a negative is rejected). It sizes
+  the work rather than measuring time spent, so it is neither a `Timestamp` nor a
+  duration, and it carries no relationship to another type. Roadmap Planning reads
+  and totals it across the items it gathers but never registers it, which is why
+  the field lives here and nowhere else.

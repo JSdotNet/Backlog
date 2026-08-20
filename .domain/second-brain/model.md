@@ -21,6 +21,7 @@ classDiagram
         +String topic
         +PARACategory category
         +NoteSource source
+        +Integer effort
         +Timestamp created_at
         +Timestamp updated_at
     }
@@ -32,6 +33,10 @@ classDiagram
     class Tag {
         <<value object>>
         +String name
+    }
+    class RoadmapContribution {
+        <<value object>>
+        +String tag
     }
     class BacklogLink {
         <<value object>>
@@ -57,13 +62,26 @@ classDiagram
     KnowledgeNote --> NoteSource : originated from
     KnowledgeNote "1" *-- "0..*" ProjectRef : scoped to
     KnowledgeNote "1" *-- "0..*" Tag : tagged with
+    KnowledgeNote "1" *-- "0..*" RoadmapContribution : contributes to
     KnowledgeNote "1" *-- "0..*" BacklogLink : linked to
 ```
 
 ## Relationship notes
 
-- `KnowledgeNote` is the aggregate root; `ProjectRef`, `Tag`, and `BacklogLink`
-  are owned value objects. There are no separately identified child entities.
+- `KnowledgeNote` is the aggregate root; `ProjectRef`, `Tag`,
+  `RoadmapContribution`, and `BacklogLink` are owned value objects. There are no
+  separately identified child entities.
 - `BacklogLink` references a Backlog Entry by id only, never by object reference,
   so the two contexts stay decoupled; the Cross-Linking service keeps both
   directions consistent.
+- `effort` is a plain scalar of story points on the root, with the same three-value
+  meaning as a Backlog Entry's `effort` (`null`/absent = not estimated, `0` a real
+  estimate, negative rejected). It carries no relationship to another type. Roadmap
+  Planning reads and totals it; Second Brain owns it.
+- `Tag` and `RoadmapContribution` are **two different value objects on purpose**,
+  even though both read as "tags". `Tag` is a `#keyword` this context owns for
+  cross-cutting discovery; `RoadmapContribution` is a
+  [Roadmap Item](../roadmap/model.md) tag slug the chapter declares it contributes
+  to. Neither draws an edge: `Tag` groups notes here, and `RoadmapContribution`
+  *names* a roadmap item rather than *addressing* a chapter, so — like an alias —
+  it stays a node attribute and produces no cross-reference in the knowledge graph.

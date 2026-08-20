@@ -53,6 +53,8 @@ flowchart LR
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Brain
     Backlog <-->|Partnership<br/>Cross-link by id| Brain
     Backlog <-->|Partnership<br/>Optional cross-link by id| Roadmap
+    Roadmap -->|Customer/Supplier<br/>Roadmap tag vocabulary| Backlog
+    Brain -->|Customer/Supplier<br/>Chapters by tag/ref + registered effort| Roadmap
 
     Roadmap -->|OHS + Published Language<br/>RoadmapItemScheduled| Monitor
 
@@ -97,6 +99,7 @@ flowchart LR
 | Backlog Management | `.domain/backlog/domain.md#domain-event-aiworklogged` | Productivity |
 | Roadmap Planning | `.domain/roadmap/domain.md#domain-event-roadmapitemscheduled` | Monitoring & Dashboard |
 | Roadmap Planning | `.domain/roadmap/naming.md#term-roadmap-item` | Backlog Management |
+| Roadmap Planning | `.domain/roadmap/naming.md#term-roadmap-tag` | Backlog Management, Second Brain |
 | Monitoring & Dashboard | `.domain/monitoring/domain.md#domain-event-followupcaptured` | Inbox |
 | Dev PC Management | `.domain/dev-pc-management/domain.md#domain-event-machinestatuschanged`, `.domain/dev-pc-management/domain.md#domain-event-complianceupdated` | Monitoring & Dashboard |
 | Productivity | `.domain/productivity/domain.md#domain-event-productivityrecorded` | Monitoring & Dashboard |
@@ -118,6 +121,15 @@ flowchart LR
 - `Backlog Management` and `Second Brain` are a deliberate `Partnership`: both
   sides keep only foreign ids and the link semantics are coordinated through the
   Cross-Linking service rather than a shared aggregate.
+- `Roadmap Planning` **totals** what it does not **own**. Story-point `effort` is
+  registered on Backlog Entries and on knowledge chapters; a roadmap item's tag is
+  the vocabulary Backlog offers in its picker and a knowledge chapter names in its
+  `roadmap` list. Roadmap reads those — gathering entries and chapters by tag and by
+  direct reference, and adding their registered effort — but registers no effort and
+  defines no tag. This is why a roadmap tag must not change when its item's title is
+  renamed: entries and chapters already filed under it would silently stop matching.
+  The tag is a slug that *names* a roadmap item rather than *addressing* a chapter,
+  so it draws no edge in the knowledge graph.
 - `Technology Stack` is the standards supplier for both `Repository Management`
   and `Dev PC Management`; those contexts may cache or copy baselines locally,
   but they do not become the authority for baseline meaning.

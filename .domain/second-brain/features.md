@@ -41,10 +41,20 @@ across projects by tag.
 
 ```meta
 status: draft
+related: [.domain/second-brain/domain.md#tag, .domain/second-brain/domain.md#roadmap-contribution]
 ```
 
 Group notes by topic (not just project), support cross-cutting tags, and search
 across all knowledge content via the tag index.
+
+These discovery tags are the context's own `#keyword`s and are a different thing
+from a chapter's **roadmap contribution** — the roadmap-item tags a chapter names
+in its `roadmap` metadata to say which planned work it feeds. A discovery tag finds
+notes here; a roadmap contribution is read by Roadmap Planning when it gathers work
+by tag, draws no edge, and is never confused with a `#keyword` even though both are
+loosely "tags". A chapter may also declare an `effort` in story points, sized the
+same way a Backlog Entry is; like the roadmap contribution it is registered here
+and only read by Roadmap Planning.
 
 ## Feature: Bi-directional linking
 

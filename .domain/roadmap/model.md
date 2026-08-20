@@ -29,6 +29,8 @@ classDiagram
     class RoadmapItem {
         +RoadmapItemId Id
         +string Title
+        +RoadmapTag Tag
+        +KnowledgeRef[] KnowledgeRefs
         +string? Notes
     }
 
@@ -60,6 +62,15 @@ classDiagram
         +Guid EntryId
     }
 
+    class RoadmapTag {
+        +string Slug
+    }
+
+    class KnowledgeRef {
+        +string Path
+        +string Slug
+    }
+
     class PlanningPriority {
         <<enumeration>>
         Low
@@ -88,15 +99,24 @@ classDiagram
         +Resolve(RepositoryScope)
     }
 
+    class RoadmapItemGathering {
+        <<service>>
+        +Gather(RoadmapItem) GatheredSet
+        +TotalRegisteredEffort(GatheredSet)
+        +UnestimatedCount(GatheredSet)
+    }
+
     RoadmapPlan "1" *-- "many" RoadmapItem : owns
     RoadmapPlan "1" *-- "many" Milestone : owns
 
     RoadmapItem --> PlannedWindow : has
+    RoadmapItem --> RoadmapTag : filed under
     RoadmapItem --> PlanningPriority : has
     RoadmapItem --> RepositoryScope : has
     RoadmapItem --> PlanningLane : filed under
     RoadmapItem "1" --> "many" Dependency : waits on
     RoadmapItem --> BacklogEntryLink : optionally names
+    RoadmapItem "1" --> "0..*" KnowledgeRef : references
 
     Milestone --> MilestoneKind : has
     Milestone --> RepositoryScope : optionally has
@@ -108,6 +128,10 @@ classDiagram
 
     PlanSequencing ..> RoadmapPlan : reads
     RepositoryScopeResolution ..> RepositoryScope : reads
+    RoadmapItemGathering ..> RoadmapItem : reads
+    RoadmapItemGathering ..> RoadmapTag : gathers by
+    RoadmapItemGathering ..> BacklogEntryLink : gathers by
+    RoadmapItemGathering ..> KnowledgeRef : gathers by
 ```
 
 ## Relationship notes
@@ -135,9 +159,26 @@ classDiagram
   from `RoadmapItem` to `BacklogEntry` in this diagram, and there deliberately
   cannot be: they are separate aggregates in separate contexts, related by
   Partnership (see `dependencies.md`).
-- `PlanSequencing` and `RepositoryScopeResolution` are drawn as services because
-  neither answer belongs to a single node's own state — the first needs the whole
-  graph, the second needs a foreign registry.
+- `RoadmapTag` is a **value object held by the item, not a shared registry**. Every
+  item has exactly one; there is no `Tag` table the items point into, because two
+  items are allowed to carry the same slug and a shared row would imply a
+  uniqueness the model refuses. It is derived from the title at creation and then
+  independent of it — the diagram shows no relationship from `Title` to `Tag`,
+  which is the point: renaming the title does not touch the tag.
+- `KnowledgeRef` is **an id-shaped reference, not an association**, for the same
+  reason as `BacklogEntryLink`: the chapter it names lives in
+  [Second Brain](../second-brain/model.md), so there is no line to it and no
+  navigation through it. Both foreign references may dangle and neither is
+  validated.
+- `RoadmapItemGathering` is drawn as a service because the thing it computes is not
+  in any node's own state. It reads the item's tag and named references, then reads
+  **foreign** data — Backlog Entries and knowledge chapters — to gather and total.
+  The dotted lines to `RoadmapTag`, `BacklogEntryLink`, and `KnowledgeRef` are the
+  two threads it follows; the foreign entries and chapters themselves are not on
+  this diagram because they are not this context's model.
+- `PlanSequencing` and `RepositoryScopeResolution` are drawn as services for the
+  same reason — neither answer belongs to a single node's own state: the first
+  needs the whole graph, the second a foreign registry.
 - Both enumerations are the plan's own. `PlanningPriority` shares its four values
   with Backlog Management's `Priority` on purpose, but the two are distinct types;
   there is no association between them and no conversion in either direction.

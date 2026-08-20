@@ -52,3 +52,35 @@ related: [.domain/second-brain/domain.md#project-ref]
 
 Scopes a note to a repository/project by `repo_id`, aligned with the shared
 repository identifier used across contexts.
+
+## Term: Effort
+
+```meta
+status: draft
+aliases: [effort, story points, story-point estimate]
+related: [.domain/second-brain/domain.md#aggregate-knowledge-note, .domain/backlog/naming.md#term-effort]
+```
+
+The size of a knowledge chapter in **story points**, carried in its `meta` block:
+a non-negative integer, optional, with the same three-valued edges as a Backlog
+Entry's effort (absent means "not estimated", `0` is a real estimate, negative is
+rejected). It sizes the knowledge work rather than timing it. Registered and owned
+here; Roadmap Planning reads and totals it across the chapters an item gathers, but
+never sets it.
+
+## Term: Roadmap Contribution
+
+```meta
+status: draft
+aliases: [roadmap, roadmap contribution, contributes to]
+related: [.domain/second-brain/domain.md#roadmap-contribution, .domain/roadmap/naming.md#term-roadmap-tag]
+```
+
+The [Roadmap Item](../roadmap/naming.md#term-roadmap-tag) tags a chapter declares
+it contributes to, listed in its `meta` block's `roadmap` field. **Distinct from a
+`Tag`**: a `Tag` is this context's own `#keyword` for discovery, while a Roadmap
+Contribution names a slug owned by Roadmap Planning. It *names* a roadmap item
+rather than *addressing* a chapter, so it is not a `<path>#<slug>` reference and
+draws no edge in the knowledge graph — it is the thread Roadmap Planning follows
+when it gathers knowledge by tag. Nothing is validated; a slug naming no current
+item is harmless.

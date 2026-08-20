@@ -35,6 +35,27 @@ stay on one line when they only need metadata-level refinement.
 
 ![Desktop backlog entry with inline Markdown editing](assets/backlog-entry-inline-markdown-editing.png)
 
+### Sub-feature: Filing an entry against a roadmap tag
+
+```meta
+status: draft
+related: [.domain/roadmap/domain.md#roadmap-tag, .domain/backlog/features.md#feature-search-filter-and-organize]
+```
+
+Choose an entry's tags from a picker that offers every
+[Roadmap Item](../roadmap/domain.md#roadmap-item) tag alongside the tags already
+in use, so a person can file an entry against planned work by picking the plan's
+own vocabulary rather than retyping — and matching it exactly, which is what lets
+the roadmap gather the entry back under that tag later.
+
+The picker offers **every** roadmap tag, including ones no entry has used yet, so
+an entry can be filed against planned work before anything else has been. That is
+the point of borrowing the vocabulary rather than inventing a parallel one: the
+tag a person picks here is the same slug the roadmap item holds, and it keeps
+matching because the roadmap tag does not change when the item's title is renamed.
+Tags remain free-form strings on the entry — nothing forces a tag to come from the
+roadmap — but the ones that do come from it line up on both sides on purpose.
+
 ### Sub-feature: Sub-items and steps
 
 ```meta
@@ -81,6 +102,37 @@ reader can reach it.
 How much is in the place is not recorded, only where it is. A count would be true
 at the moment it was written and wrong after the next file was added, and an
 entry that asserted one would be asserting something it cannot keep.
+
+## Feature: Effort registration
+
+```meta
+status: draft
+depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
+related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort]
+```
+
+Record how big an entry is in **story points**, so the size of the work is a fact
+about the entry rather than a guess made every time someone reads the plan it sits
+under. The estimate is optional: an entry with none is simply not estimated, and
+that is a normal state rather than a gap to be nagged about. Zero is a real
+estimate — a genuinely trivial entry — and is not the same as leaving it blank.
+
+Story points size the work, they do not clock it. Two entries that both took a day
+can carry very different estimates if one was a far larger problem, and the number
+does not move because the work turned out to take longer than expected; a
+re-estimate happens when the *understanding of the size* changes, not when time
+passes.
+
+The estimate is often the AI's to make. Deriving a point value from the entry's
+own content is exactly the kind of judgement an assistant can offer, and it is
+expected to do so — but a derived estimate is still an estimate, revised as the
+work is understood better, and a person can always set or correct it by hand. The
+deriving is not built yet; this feature makes the value **registrable and
+visible**, which is what has to exist before anything can total it. When a roadmap
+item gathers this entry, the points registered here are what it
+[adds up](../roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort) —
+and an entry left unestimated is counted as unestimated there, never silently as
+zero.
 
 ## Feature: Scheduling and recurrence
 
