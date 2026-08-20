@@ -143,7 +143,7 @@
                        one column a reader scanning for a running session actually
                        needs. The full value stays in the cell's title. *@
                     <td class="data-table__mono">
-                        <span class="data-table__clamp sessions-table__repository" title="@session.Repository">@Or(session.Repository)</span>
+                        <span class="@RepositoryClass(session)" title="@session.Repository">@Or(session.Repository)</span>
                     </td>
                     <td class="data-table__mono">
                         <span class="data-table__clamp sessions-table__branch" title="@session.Branch">@Or(session.Branch)</span>
@@ -202,6 +202,39 @@
     /// pane only reports that the ✕ was pressed.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
+
+    /// <summary>
+    /// Which identity colour a repository wears, asked per session, or null for one
+    /// this pane's host cannot place.
+    /// <para>
+    /// A callback rather than a lookup of its own, for the reason this context holds
+    /// <c>owner/name</c> as an opaque string in the first place: which repositories
+    /// exist is a workspace question and answering it here would tie sessions to
+    /// repository management. It is also the answer three other surfaces read, and a
+    /// pane that worked its own out would be a second answer to which project is
+    /// which. See <c>.design/color-scheme.md#band-identity-tokens</c>.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<string?, int?>? RepositoryColour { get; set; }
+
+    /// <summary>
+    /// The repository cell, plus its identity mark when the host placed it.
+    /// <para>
+    /// On the cell that names the repository rather than down the whole row: a row
+    /// here is a session and the repository is one of eight things it reports, so a
+    /// rule down its leading edge would read as if the row itself belonged to that
+    /// project. Beside the name is also where the design rule wants it — the mark is
+    /// never the sole carrier, and the name is right there.
+    /// </para>
+    /// </summary>
+    private string RepositoryClass(AgentSession session)
+    {
+        var stem = "data-table__clamp sessions-table__repository";
+        var colour = RepositoryColour?.Invoke(session.Repository);
+
+        return colour is null ? stem : $"{stem} repo-mark repo-mark--{colour}";
+    }
 
     protected override async Task OnInitializedAsync() => await RefreshAsync();
 

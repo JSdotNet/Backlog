@@ -103,16 +103,6 @@ public interface IRoadmapPlanning
     /// <summary>Takes a date off the plan, and every dependency that waited on it.</summary>
     Task<Result> RemoveMilestoneAsync(Guid milestoneId, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Gives a repository's band one of the sanctioned colours, or takes the choice
-    /// back with a null colour so the view places it again.
-    /// <para>
-    /// A number, 1 through 5, not a colour: which hue each one is belongs to the
-    /// stylesheet, and a plan that stored a hue would be a plan inventing one.
-    /// </para>
-    /// </summary>
-    Task<Result> ColourBandAsync(string alias, int? colour, CancellationToken cancellationToken = default);
-
     /// <summary>Records that one node has to land before another can. Fails when
     /// either end is unknown, when a node would wait on itself, or when the edge
     /// would close a cycle — in which case the plan is left exactly as it was.</summary>

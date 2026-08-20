@@ -286,6 +286,30 @@ h1, h2, h3 {
     border-color: var(--color-primary);
 }
 
+/* Room for the repository identity rule, added to the chip's own leading padding so
+   a coloured chip is exactly as wide as an uncoloured one beside it. The mark itself
+   is the shared .repo-mark utility in components.css. */
+.chip.repo-mark {
+    padding-left: calc(var(--spacing-sm) + var(--border-width-4));
+}
+
+/*
+   The one place two sanctioned colours meet. A selected scope chip is filled with
+   color-primary, and color-band-1 *is* color-primary — a band-1 chip would paint its
+   identity rule in the fill's own colour and lose it entirely. So the rule is held off
+   the fill by a 1px seam in color-background, which clears 3:1 against both sides.
+   See .design/color-scheme.md#band-identity-tokens.
+
+   The second inset shadow paints behind the first, so what shows of it is the strip
+   between 4px and 5px — the seam, and nothing over the rule itself.
+*/
+.chip.repo-mark.chip--active {
+    box-shadow:
+        inset var(--border-width-4) 0 0 0 var(--repo-mark-color, transparent),
+        inset calc(var(--border-width-4) + var(--border-width)) 0 0 0 var(--color-background);
+    padding-left: calc(var(--spacing-sm) + var(--border-width-4) + var(--border-width));
+}
+
 /* The count turns the area filter into a sense of where the work actually is. */
 .chip__count {
     margin-left: var(--spacing-xs);

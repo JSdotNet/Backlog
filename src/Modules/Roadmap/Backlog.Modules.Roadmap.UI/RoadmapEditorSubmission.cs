@@ -55,12 +55,3 @@ public sealed record RoadmapMilestoneSubmission(
     MilestoneKind Kind,
     IReadOnlyList<string> RepositoryAliases,
     bool IsPlanWide);
-
-/// <summary>
-/// A colour chosen for one repository's band.
-/// </summary>
-/// <param name="Alias">The repository, by the alias the plan files work under.</param>
-/// <param name="Colour">Which of the sanctioned colours, 1 through 5, or null to go
-/// back to automatic. Never a colour value: the plan stores which one, and which hue
-/// each number is belongs to the stylesheet.</param>
-public sealed record RoadmapBandColourChoice(string Alias, int? Colour);

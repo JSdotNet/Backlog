@@ -26,6 +26,19 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// GitHub CLI is not signed in. Null means "rely on <c>gh</c>".</summary>
     public string? Token { get; init; }
 
+    /// <summary>
+    /// Which of the sanctioned identity hues this repository wears, 1 to
+    /// <see cref="RepositoryColours.Available"/>. Null is the ordinary case and means
+    /// nobody has chosen — the hue is then taken from the repository's position, which
+    /// is why this is nullable rather than defaulted.
+    /// <para>
+    /// A number, never a colour. Inventing a hue is a design decision and
+    /// <c>.design/color-scheme.md#band-identity-tokens</c> is where it is made; this
+    /// records only which of the approved ones somebody picked.
+    /// </para>
+    /// </summary>
+    public int? Colour { get; init; }
+
 
     /// <summary>The knowledge folders configured for this repository. The type
     /// is Second Brain's published language rather than this adapter's: a

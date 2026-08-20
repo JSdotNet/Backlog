@@ -4,8 +4,10 @@ using Backlog.Modules.Roadmap.DomainModels;
 namespace Backlog.Modules.Roadmap.UnitTests;
 
 /// <summary>
-/// Editing a date, and choosing which colour a repository's band takes. Both are
-/// stored with the plan, so both are the plan's to accept or refuse.
+/// Editing a date, and reading the band colours a plan written before the choice moved
+/// to Settings still carries. The date is the plan's to accept or refuse; the colours
+/// are only ever read now, so what is asserted here is that an old file still parses
+/// and that a value outside the sanctioned set is dropped rather than clamped.
 /// </summary>
 public class PlanMilestoneAndColourTests
 {
@@ -115,66 +117,12 @@ public class PlanMilestoneAndColourTests
         Assert.Null(plan.BandColours.For("backlog"));
     }
 
-    [Theory]
-    [InlineData(1)]
-    [InlineData(3)]
-    [InlineData(5)]
-    public void ABandTakesOneOfTheSanctionedColours(int colour)
-    {
-        var plan = RoadmapPlan.Empty();
-
-        var coloured = plan.ColourBand("backlog", colour);
-
-        Assert.True(coloured.IsSuccess);
-        Assert.Equal(colour, plan.BandColours.For("backlog"));
-    }
-
     [Fact]
-    public void TheAliasIsNormalizedTheWayTheRestOfThePlanNormalizesOne()
+    public void AStoredAliasIsNormalizedTheWayTheRestOfThePlanNormalizesOne()
     {
-        var plan = RoadmapPlan.Empty();
+        var colours = BandColours.Of([new KeyValuePair<string, int>("  BACKLOG  ", 2)]);
 
-        plan.ColourBand("  BACKLOG  ", 2);
-
-        Assert.Equal(2, plan.BandColours.For("backlog"));
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(6)]
-    [InlineData(-1)]
-    public void AColourOutsideTheSanctionedSetIsRefused(int colour)
-    {
-        var plan = RoadmapPlan.Empty();
-
-        var coloured = plan.ColourBand("backlog", colour);
-
-        Assert.True(coloured.IsFailure);
-        Assert.Equal("roadmap.unknown_band_colour", coloured.Error.Code);
-        Assert.Null(plan.BandColours.For("backlog"));
-    }
-
-    [Fact]
-    public void AColourChoiceCanBeGivenBack()
-    {
-        var plan = RoadmapPlan.Empty();
-        plan.ColourBand("backlog", 4);
-
-        var cleared = plan.ColourBand("backlog", null);
-
-        Assert.True(cleared.IsSuccess);
-        Assert.Null(plan.BandColours.For("backlog"));
-    }
-
-    [Fact]
-    public void ABandHasToBeNamed()
-    {
-        var plan = RoadmapPlan.Empty();
-
-        var coloured = plan.ColourBand("   ", 2);
-
-        Assert.True(coloured.IsFailure);
-        Assert.Equal("roadmap.band_not_named", coloured.Error.Code);
+        Assert.Equal(2, colours.For("backlog"));
     }
 
     [Fact]

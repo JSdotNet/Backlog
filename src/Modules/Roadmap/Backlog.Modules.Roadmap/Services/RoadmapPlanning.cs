@@ -4,7 +4,6 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Features.AddDependency;
 using Backlog.Modules.Roadmap.Features.AddItem;
 using Backlog.Modules.Roadmap.Features.AddMilestone;
-using Backlog.Modules.Roadmap.Features.ColourBand;
 using Backlog.Modules.Roadmap.Features.RemoveMilestone;
 using Backlog.Modules.Roadmap.Features.UpdateMilestone;
 using Backlog.Modules.Roadmap.Features.GetPlan;
@@ -33,7 +32,6 @@ internal sealed class RoadmapPlanning(
     ICommandHandler<AddMilestoneCommand, Result<RoadmapMilestoneDto>> addMilestone,
     ICommandHandler<UpdateMilestoneCommand, Result<RoadmapMilestoneDto>> updateMilestone,
     ICommandHandler<RemoveMilestoneCommand, Result> removeMilestone,
-    ICommandHandler<ColourBandCommand, Result> colourBand,
     ICommandHandler<AddDependencyCommand, Result> addDependency,
     ICommandHandler<RemoveDependencyCommand, Result> removeDependency) : IRoadmapPlanning
 {
@@ -113,9 +111,6 @@ internal sealed class RoadmapPlanning(
 
     public Task<Result> RemoveMilestoneAsync(Guid milestoneId, CancellationToken cancellationToken = default) =>
         removeMilestone.Handle(new RemoveMilestoneCommand(milestoneId), cancellationToken);
-
-    public Task<Result> ColourBandAsync(string alias, int? colour, CancellationToken cancellationToken = default) =>
-        colourBand.Handle(new ColourBandCommand(alias, colour), cancellationToken);
 
     public Task<Result> AddDependencyAsync(
         Guid nodeId,

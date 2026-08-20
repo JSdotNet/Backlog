@@ -167,6 +167,7 @@
                                   OnReorder="OnEntryReorderedAsync"
                                   GroupCompleted="true"
                                   AllowCopy="false"
+                                  RowCssClass="@RepositoryMark"
                                   AriaLabel="Backlog entries"
                                   TestId="entry-list">
                         <AfterOpenRows>
@@ -371,6 +372,18 @@
 
     private EntryRow? EntryFor(string id) =>
         State.Rows.FirstOrDefault(row => string.Equals(EntryTaskId(row), id, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Which repository a row belongs to, as the identity mark's classes.
+    /// <para>
+    /// The pane's answer rather than the row's: <c>TaskRow</c> is a task and has no
+    /// repository, which is why <c>TaskListView</c> asks for this per row instead of
+    /// reading it off one. A row whose area names nothing configured gets no mark,
+    /// which reads as "nobody said" rather than as one more project.
+    /// </para>
+    /// </summary>
+    private string? RepositoryMark(TaskRow task) =>
+        EntryFor(task.Id) is { } row ? State.RepositoryMarkClass(row) : null;
 
     private async Task OnEntrySelectedAsync(string id)
     {

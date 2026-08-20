@@ -255,6 +255,63 @@ public sealed class SessionsPaneTests
         });
     }
 
+    // --- Repository identity ---------------------------------------------
+
+    [Fact]
+    public void The_repository_cell_wears_the_colour_its_host_placed()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryColour, repository =>
+                repository == "JSdotNet/Backlog" ? 4 : null));
+
+        pane.WaitForAssertion(() =>
+        {
+            var marked = pane.FindAll(".sessions-table__repository")
+                .Where(cell => cell.ClassName?.Contains("repo-mark") == true)
+                .ToList();
+
+            var cell = Assert.Single(marked);
+
+            Assert.Contains("repo-mark--4", cell.ClassName);
+
+            // On the cell that names the repository, not down the whole row: a row
+            // here is a session, and the repository is one of eight things it says.
+            Assert.Contains("JSdotNet/Backlog", cell.TextContent);
+        });
+    }
+
+    [Fact]
+    public void A_repository_the_host_cannot_place_wears_no_mark()
+    {
+        // The ordinary case: work done in a clone this workspace was never told
+        // about. Colouring it would be inventing a project.
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryColour, _ => null));
+
+        pane.WaitForAssertion(() => Assert.All(
+            pane.FindAll(".sessions-table__repository"),
+            cell => Assert.DoesNotContain("repo-mark", cell.ClassName)));
+    }
+
+    [Fact]
+    public void With_no_host_answering_the_pane_colours_nothing()
+    {
+        // The pane declines to work it out. Which repositories exist is a workspace
+        // question, and answering it here would tie sessions to repository
+        // management — the same reason it holds owner/name as an opaque string.
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.All(
+            pane.FindAll(".sessions-table__repository"),
+            cell => Assert.DoesNotContain("repo-mark", cell.ClassName)));
+    }
+
     private static BunitContext Context(
         IReadOnlyList<AgentSession> sessions,
         IReadOnlyList<string>? unreadable = null,
