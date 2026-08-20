@@ -371,14 +371,47 @@
     const BACKLOG_THREE_PANE_MIN_REM = 96;
     // The app's own knowledge layout, or any SplitPane the library renders.
     const BACKLOG_PANE_LAYOUT_SELECTOR = '[data-testid="knowledge-layout"], [data-pane-split]';
-    let backlogPaneOwner = null;
+
+    /**
+     * Who to tell when a drag settles, one entry per resizable layout.
+     *
+     * This was a single owner, and a single owner is why a page could only ever
+     * have one draggable pane: the second layout to register replaced the first,
+     * and every drag reported its width to whichever component happened to be in
+     * the variable. The desktop shell registers for its knowledge layout on
+     * startup, so a SplitPane inside that shell had to opt out of the pointer
+     * drag entirely and keep only its keyboard resize — a separator you could
+     * tab to and not drag.
+     *
+     * Keyed by the layout's `data-pane-owner`, which the component mints, so the
+     * drag settles to the layout it was actually performed on. The empty key is
+     * the app's own layout, which has no attribute because it was here first.
+     */
+    const backlogPaneOwners = new Map();
+
+    function backlogOwnerKey(layout) {
+        return layout.getAttribute('data-pane-owner') ?? '';
+    }
+
+    /**
+     * The owner for one layout, and never a fallback to somebody else's.
+     *
+     * A layout that names an owner and has not registered one is mid-render or
+     * disposed, and reporting its width to the default owner is the exact
+     * cross-talk the key was added to stop.
+     */
+    function backlogPaneOwnerFor(layout) {
+        return backlogPaneOwners.get(backlogOwnerKey(layout)) ?? null;
+    }
+
+    function backlogLayoutForKey(key) {
+        return key
+            ? document.querySelector(`[data-pane-owner="${key}"]`)
+            : document.querySelector(BACKLOG_PANE_LAYOUT_SELECTOR);
+    }
 
     function backlogRootFontSize() {
         return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    }
-
-    function backlogPaneLayout() {
-        return document.querySelector(BACKLOG_PANE_LAYOUT_SELECTOR);
     }
 
     // The pane may take everything the backlog does not strictly need, so the real
@@ -435,19 +468,27 @@
     // window resized while a full-screen surface was open reported neither, so
     // the panes came back sized for a window that was gone.
     function backlogReportPaneBounds() {
-        if (!backlogPaneOwner) return;
+        const capacity = backlogPaneCapacity();
 
-        backlogPaneOwner.invokeMethodAsync('SetGlobalPaneCapacityAsync', backlogPaneCapacity());
+        for (const [key, owner] of backlogPaneOwners) {
+            owner.invokeMethodAsync('SetGlobalPaneCapacityAsync', capacity);
 
-        const layout = backlogPaneLayout();
-        if (!layout) return;
-
-        backlogPaneOwner.invokeMethodAsync('SetSidePaneMaxWidthAsync', backlogPaneMaxRem(layout));
+            // Measured per owner, because two layouts on one page do not have the
+            // same room: the shell's knowledge panel may take the window, while a
+            // split nested inside it may only take what its own box has left.
+            const layout = backlogLayoutForKey(key);
+            if (layout) owner.invokeMethodAsync('SetSidePaneMaxWidthAsync', backlogPaneMaxRem(layout));
+        }
     }
 
     window.backlogPaneResizer = {
-        initialize(owner) {
-            backlogPaneOwner = owner;
+        /**
+         * @param owner the .NET object to report settled widths to.
+         * @param key the layout's `data-pane-owner`, or omitted for the app's own
+         *        layout — which carries no attribute because it predates the key.
+         */
+        initialize(owner, key) {
+            backlogPaneOwners.set(key ?? '', owner);
             backlogReportPaneBounds();
         },
         /**
@@ -464,8 +505,8 @@
         refresh() {
             backlogReportPaneBounds();
         },
-        dispose() {
-            backlogPaneOwner = null;
+        dispose(key) {
+            backlogPaneOwners.delete(key ?? '');
         }
     };
 
@@ -480,10 +521,12 @@
         const layout = handle.closest(BACKLOG_PANE_LAYOUT_SELECTOR);
         if (!layout) return;
 
-        // A split that did not register an owner is not this drag's to settle.
-        // There is one owner for the whole document, so honouring a second layout
-        // would hand its width to whichever component registered first.
-        if (layout.getAttribute('data-pane-drag') === 'off') return;
+        // A layout with nobody listening is not this drag's to settle. Looked up
+        // per layout rather than globally, which is what lets two resizable panes
+        // share a document: the width goes to the component that drew this
+        // separator, not to whichever one registered first.
+        const owner = backlogPaneOwnerFor(layout);
+        if (!owner) return;
 
         event.preventDefault();
         handle.focus();
@@ -505,7 +548,7 @@
             document.removeEventListener('pointerup', onUp);
             document.removeEventListener('pointercancel', onUp);
             document.body.classList.remove('is-resizing-pane');
-            backlogPaneOwner?.invokeMethodAsync('SetSidePaneWidthAsync', width);
+            owner.invokeMethodAsync('SetSidePaneWidthAsync', width);
         };
 
         document.addEventListener('pointermove', onMove);

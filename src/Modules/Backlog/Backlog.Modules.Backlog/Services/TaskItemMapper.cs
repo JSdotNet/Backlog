@@ -28,5 +28,6 @@ internal static class TaskItemMapper
         entry.Recurrence,
         entry.InMyDayOn,
         [.. entry.DependsOn],
-        entry.View);
+        entry.View,
+        entry.Attachment);
 }

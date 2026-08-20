@@ -91,11 +91,12 @@ public sealed class BacklogPaneFocusTests
     /// keyboard.
     /// </para>
     /// <para>
-    /// The panel is the fixed half of the split now and the list flexes, so the
-    /// number under test is the panel's 24rem rather than the list's 30rem — and
-    /// Left, which drags the separator left, is what makes a right-hand panel wider.
-    /// An arrow read as "less" regardless of which edge the pane is fixed to is
-    /// exactly the bug <c>data-pane-anchor</c> was added to fix for the pointer.
+    /// The panel is the fixed half of the split and the list flexes, so the number
+    /// under test is the panel's own width — 36rem now that the panel opens wide
+    /// enough for its two columns, so one Left step is 38 — and Left, which drags
+    /// the separator left, is what makes a right-hand panel wider. An arrow read as
+    /// "less" regardless of which edge the pane is fixed to is exactly the bug
+    /// <c>data-pane-anchor</c> was added to fix for the pointer.
     /// </para>
     /// </summary>
     [Fact]
@@ -110,7 +111,7 @@ public sealed class BacklogPaneFocusTests
             .KeyDownAsync(new KeyboardEventArgs { Key = "ArrowLeft" });
 
         Assert.Contains(
-            "26rem",
+            "38rem",
             pane.Find("[data-testid='backlog-split']").GetAttribute("style") ?? string.Empty,
             StringComparison.Ordinal);
 
@@ -118,7 +119,7 @@ public sealed class BacklogPaneFocusTests
         pane.Render();
 
         Assert.Contains(
-            "26rem",
+            "38rem",
             pane.Find("[data-testid='backlog-split']").GetAttribute("style") ?? string.Empty,
             StringComparison.Ordinal);
     }

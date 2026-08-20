@@ -147,6 +147,14 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries)
         entry.SetRecurrence(parsed.Recurrence);
         entry.SetInMyDayOn(parsed.InMyDayOn);
         entry.SetDependsOn(parsed.DependsOn ?? []);
+
+        // Not scheduling, and here anyway. What is attached is a fact about the
+        // work like the five above it — set once, cleared by deleting the token —
+        // and the alternative was a method of one line whose only claim was that a
+        // folder is not a date. Unconditional for the same reason they are:
+        // deleting `files:` is how a reader detaches, which is only true while an
+        // absent token means absent.
+        entry.SetAttachment(parsed.Attachment);
     }
 
     /// <summary>

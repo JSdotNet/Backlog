@@ -491,7 +491,11 @@ public sealed class BacklogDetailPaneTests
         await pane.Find("[data-testid='type-badge'] select").ChangeAsync(new() { Value = nameof(EntryType.Prompt) });
         Assert.Contains("`prompt`", row.RawText, StringComparison.Ordinal);
 
-        await pane.Find("[data-testid='priority-badge'] select").ChangeAsync(new() { Value = nameof(Priority.High) });
+        // Priority is a row in the Ranking group now rather than a badge on this
+        // strip, so setting it is press-the-row-then-pick — the same two steps as
+        // a repeat.
+        await pane.Find("[data-testid='entry-action-priority-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-priority-select'] select").ChangeAsync(new() { Value = nameof(Priority.High) });
         Assert.Contains("`*high`", row.RawText, StringComparison.Ordinal);
 
         await pane.Find("[data-testid='status-badge'] select").ChangeAsync(new() { Value = nameof(EntryStatus.Ready) });
@@ -530,21 +534,23 @@ public sealed class BacklogDetailPaneTests
     // --- What is deliberately absent --------------------------------------
 
     /// <summary>
-    /// Two controls the To Do layout has and this pane does not.
+    /// The one control the To Do layout has and this pane does not: the star.
     /// <para>
-    /// The star, because <c>TaskRow.Important</c> exists and a backlog entry has no
-    /// importance field: whatever ends up setting it is a decision the product has not
-    /// made, and a control that set it here would be inventing domain state — the flag
-    /// would go nowhere and the reader would think they had said something.
+    /// <c>TaskRow.Important</c> exists and a backlog entry has no importance field,
+    /// so whatever would set it is a decision the product has not made. A control
+    /// here would be inventing domain state — the flag would go nowhere and the
+    /// reader would think they had said something.
     /// </para>
     /// <para>
-    /// "Add file", because the domain has no attachment concept at all. The storybook
-    /// shows it disabled as a placeholder, which is what a storybook is for; shipping a
-    /// permanently dead control is not.
+    /// Attachments used to be listed beside it for the same reason and are not any
+    /// more: the entry carries one now, written on the metadata line as
+    /// <c>files:</c>, so the row has somewhere to put what it is handed. Which is
+    /// the rule these assertions are really about — the pane offers a control when
+    /// the model can hold the answer, and not before.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task Neither_the_star_nor_add_file_is_offered()
+    public async Task The_star_is_not_offered_because_nothing_could_hold_it()
     {
         using var host = await BacklogPaneHost.CreateAsync();
         await host.WriteEntryAsync(WithSteps);
@@ -552,10 +558,65 @@ public sealed class BacklogDetailPaneTests
         var pane = host.Render();
 
         Assert.Empty(pane.FindAll("[data-testid='entry-action-important']"));
-        Assert.Empty(pane.FindAll("[data-testid='entry-action-file']"));
-        Assert.DoesNotContain("Add file", pane.Markup, StringComparison.Ordinal);
 
         // Nothing sets Important either, so no row can be wearing the star.
         Assert.Empty(pane.FindAll(".task-item__detail--important"));
+    }
+
+    /// <summary>
+    /// Attaching a place, and detaching it again.
+    /// <para>
+    /// One row and one path, which is the whole of the model: what is attached is a
+    /// folder or an archive, so the row says which and what it is called. The ✕ and
+    /// an emptied field are the same gesture, because an unset field carries no
+    /// token rather than an empty one.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_folder_can_be_attached_to_an_entry_and_taken_off_again()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Review the panel\n`task`\n");
+
+        var pane = host.Render();
+
+        // Nothing attached: the row says what it would do rather than what it is.
+        Assert.Contains(
+            "Attach a folder or zip",
+            pane.Find("[data-testid='entry-action-files-set']").TextContent,
+            StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='entry-action-files-clear']"));
+
+        await pane.Find("[data-testid='entry-action-files-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-files-input']")
+            .ChangeAsync(new() { Value = "D:/reviews/panel-review" });
+
+        Assert.Contains("`files:D:/reviews/panel-review`", row.RawText, StringComparison.Ordinal);
+
+        // The row names the place rather than reciting the path to it, and calls it
+        // what it is.
+        var set = pane.Find("[data-testid='entry-action-files-set']").TextContent;
+        Assert.Contains("Folder", set, StringComparison.Ordinal);
+        Assert.Contains("panel-review", set, StringComparison.Ordinal);
+
+        await pane.Find("[data-testid='entry-action-files-clear']").ClickAsync(new());
+
+        Assert.DoesNotContain("files:", row.RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>A zip is an archive and reads as one, because "Folder" over a file
+    /// is a word the row would be keeping untrue.</summary>
+    [Fact]
+    public async Task A_zip_reads_as_an_archive_rather_than_as_a_folder()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Review the panel\n`task` `files:D:/reviews/panel.zip`\n");
+
+        var pane = host.Render();
+        var set = pane.Find("[data-testid='entry-action-files-set']").TextContent;
+
+        Assert.Contains("Archive", set, StringComparison.Ordinal);
+        Assert.Contains("panel.zip", set, StringComparison.Ordinal);
+        Assert.DoesNotContain("Folder", set, StringComparison.Ordinal);
     }
 }

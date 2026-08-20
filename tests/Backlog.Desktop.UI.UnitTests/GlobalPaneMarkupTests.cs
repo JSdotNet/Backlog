@@ -216,9 +216,46 @@ public sealed class GlobalPaneMarkupTests
         var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
 
         Assert.Contains("public Task SetGlobalPaneCapacityAsync(int capacity)", home, StringComparison.Ordinal);
-        Assert.Contains("backlogPaneOwner.invokeMethodAsync('SetGlobalPaneCapacityAsync', backlogPaneCapacity());", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("owner.invokeMethodAsync('SetGlobalPaneCapacityAsync', capacity);", componentsJs, StringComparison.Ordinal);
         Assert.Contains("const BACKLOG_SINGLE_PANE_MAX_REM = 72;", componentsJs, StringComparison.Ordinal);
         Assert.Contains("const BACKLOG_THREE_PANE_MIN_REM = 96;", componentsJs, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The resizer holds one owner per layout, not one for the document.
+    /// <para>
+    /// A single owner is why a page could only have one draggable pane: the second
+    /// layout to register replaced the first, and every drag reported its width to
+    /// whichever component happened to be in the variable. Home registers for its
+    /// knowledge layout on startup, so a <c>SplitPane</c> inside the shell had to
+    /// opt the pointer gesture out and keep only its keyboard resize — which is
+    /// exactly what the backlog pane's separator did.
+    /// </para>
+    /// <para>
+    /// Asserted on the source because there is no JS engine here. What is pinned is
+    /// the shape that makes it work: a map rather than a variable, a lookup keyed on
+    /// the layout, and no fallback from a keyed layout to somebody else's owner —
+    /// the fallback would be the same cross-talk with an extra step.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_resizer_keeps_one_owner_per_layout_rather_than_one_per_document()
+    {
+        var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
+
+        Assert.Contains("const backlogPaneOwners = new Map();", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("backlogPaneOwners.set(key ?? '', owner);", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("backlogPaneOwners.delete(key ?? '');", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("return backlogPaneOwners.get(backlogOwnerKey(layout)) ?? null;", componentsJs, StringComparison.Ordinal);
+
+        // The drag settles to the layout it was performed on, and does nothing at
+        // all when that layout has nobody listening.
+        Assert.Contains("const owner = backlogPaneOwnerFor(layout);", componentsJs, StringComparison.Ordinal);
+        Assert.Contains("if (!owner) return;", componentsJs, StringComparison.Ordinal);
+
+        // The single owner, and the opt-out it forced, are both gone.
+        Assert.DoesNotContain("let backlogPaneOwner ", componentsJs, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-pane-drag", componentsJs, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -227,7 +264,13 @@ public sealed class GlobalPaneMarkupTests
     /// resized while a full-screen surface was open reported nothing at all, and
     /// the panes came back sized for a window that no longer existed. There is no
     /// JS engine here to prove the behaviour, so the order of the two reports is
-    /// pinned instead: capacity first, then the guard, then the measured width.
+    /// pinned instead: capacity first, then the lookup, then the measured width.
+    /// <para>
+    /// The guard is a conditional now rather than an early return, because the
+    /// reports run per owner: returning would skip every owner after the one whose
+    /// layout happened to be off screen, so the width is written only when there is
+    /// a layout to measure and the loop carries on either way.
+    /// </para>
     /// </summary>
     [Fact]
     public void Pane_capacity_is_reported_even_while_the_layout_is_off_screen()
@@ -235,20 +278,29 @@ public sealed class GlobalPaneMarkupTests
         var componentsJs = NormalizeLineEndings(File.ReadAllText(FindComponentsJs()));
 
         var capacity = componentsJs.IndexOf(
-            "invokeMethodAsync('SetGlobalPaneCapacityAsync'",
+            "owner.invokeMethodAsync('SetGlobalPaneCapacityAsync'",
             StringComparison.Ordinal);
         var lookup = componentsJs.IndexOf(
-            "const layout = backlogPaneLayout();",
+            "const layout = backlogLayoutForKey(key);",
             StringComparison.Ordinal);
-        var guard = componentsJs.IndexOf("if (!layout) return;", StringComparison.Ordinal);
         var width = componentsJs.IndexOf(
-            "invokeMethodAsync('SetSidePaneMaxWidthAsync'",
+            "if (layout) owner.invokeMethodAsync('SetSidePaneMaxWidthAsync'",
             StringComparison.Ordinal);
 
-        Assert.True(capacity >= 0 && lookup >= 0 && guard >= 0 && width >= 0);
+        Assert.True(capacity >= 0 && lookup >= 0 && width >= 0);
         Assert.True(capacity < lookup, "Capacity must be reported before the layout is looked up.");
-        Assert.True(lookup < guard && guard < width, "Only the measured width may be guarded on the layout.");
-        Assert.DoesNotContain("if (!layout || !backlogPaneOwner) return;", componentsJs, StringComparison.Ordinal);
+        Assert.True(lookup < width, "Only the measured width may depend on the layout.");
+
+        // An unmeasurable layout must not cost the owners after it their capacity,
+        // so the reporting function may not return early on one. Scoped to that
+        // function rather than to the file: the drag handler bails out on a
+        // separator with no layout around it, which is a different question with a
+        // different right answer.
+        var reporter = componentsJs.IndexOf("function backlogReportPaneBounds()", StringComparison.Ordinal);
+        Assert.True(reporter >= 0);
+
+        var body = componentsJs[reporter..componentsJs.IndexOf("window.backlogPaneResizer", StringComparison.Ordinal)];
+        Assert.DoesNotContain("return;", body, StringComparison.Ordinal);
     }
 
     [Fact]

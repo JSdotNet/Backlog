@@ -26,14 +26,29 @@ public sealed class SelectorMarkupTests
         Assert.False(Directory.EnumerateFiles(BacklogUi, "*Selector.razor").Any());
     }
 
+    /// <summary>
+    /// The pane reaches the library for the selectors it draws.
+    /// <para>
+    /// <c>PrioritySelector</c> is not among them any more, and that is a move
+    /// rather than a hand-roll: priority became a row in the detail pane's Ranking
+    /// group, where the picker behind it is the same shared <c>SelectField</c> the
+    /// repeat row opens. A ranking read as one more label on a line of labels, and
+    /// the pane's job is to keep "how much this matters" away from "when it is
+    /// due". The component itself is still the library's and still rendered — the
+    /// storybook and the Roadmap editor both use it.
+    /// </para>
+    /// </summary>
     [Fact]
     public void The_backlog_pane_uses_the_shared_selector_components()
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
 
-        Assert.Contains("<PrioritySelector", pane, StringComparison.Ordinal);
         Assert.Contains("<RepositorySelector", pane, StringComparison.Ordinal);
         Assert.Contains("<StatusSelector", pane, StringComparison.Ordinal);
+
+        // The ranking's picker, which is the same shared field every other row in
+        // the pane opens.
+        Assert.Contains("TestId=\"entry-priority-select\"", pane, StringComparison.Ordinal);
     }
 
     /// <summary>
