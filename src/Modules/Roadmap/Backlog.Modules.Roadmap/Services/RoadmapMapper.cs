@@ -28,7 +28,9 @@ internal static class RoadmapMapper
         item.Lane.IsDefault ? null : item.Lane.Name,
         item.BacklogEntryId,
         item.Dependencies.All,
-        item.Notes);
+        item.Notes,
+        item.Tag.Value,
+        item.KnowledgeRefs.Refs);
 
     internal static RoadmapMilestoneDto ToDto(this Milestone milestone) => new(
         milestone.Id,

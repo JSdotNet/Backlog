@@ -342,7 +342,9 @@
                 submission.RepositoryAliases,
                 submission.Lane,
                 submission.BacklogEntryId,
-                submission.Notes)
+                submission.Notes,
+                submission.Tag,
+                submission.KnowledgeRefs)
             : await Planning.UpdateItemAsync(
                 submission.ItemId.Value,
                 submission.Title,
@@ -352,7 +354,9 @@
                 submission.RepositoryAliases,
                 submission.Lane,
                 submission.BacklogEntryId,
-                submission.Notes);
+                submission.Notes,
+                submission.Tag,
+                submission.KnowledgeRefs);
 
         if (saved.IsFailure)
         {

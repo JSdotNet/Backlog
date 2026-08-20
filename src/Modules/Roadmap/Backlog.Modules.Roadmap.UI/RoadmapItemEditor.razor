@@ -24,7 +24,7 @@
         <div class="roadmap-editor__fields">
             <TextField Label="Title"
                        Value="@_title"
-                       ValueChanged="value => _title = value"
+                       ValueChanged="OnTitleChanged"
                        Placeholder="What is being planned"
                        ErrorMessage="@_titleError"
                        TestId="roadmap-editor-title" />
@@ -67,6 +67,26 @@
                             Placeholder="@(RepositoryOptions.Count == 0 ? "No repositories configured" : "Unfiled")"
                             Disabled="@(RepositoryOptions.Count == 0)"
                             TestId="roadmap-editor-repositories" />
+
+            @* The tag pre-fills from the title but is its own field, so a later rename
+               leaves it — and whatever is already pointing at it — alone. *@
+            <TextField Label="Tag"
+                       Value="@_tag"
+                       ValueChanged="OnTagChanged"
+                       Placeholder="@RoadmapTagSlug.From(_title)"
+                       HelpText="How other parts of the product refer to this item. Kebab-case; derived from the title unless you change it."
+                       TestId="roadmap-item-tag-input" />
+
+            @* Free-typed chapter references — a path, or a path and a heading slug.
+               Stored as written and never resolved, so a reference to something not yet
+               written is an ordinary state rather than an error. *@
+            <TagMultiSelect Label="Knowledge"
+                            Options="@KnowledgeOptions"
+                            SelectedValues="@_knowledge"
+                            SelectedValuesChanged="values => _knowledge = values"
+                            AllowCreate="true"
+                            Placeholder="e.g. .domain/backlog/domain.md#aggregate-backlog-entry"
+                            TestId="roadmap-item-knowledge-input" />
 
             @if (!IsNew && DependencyOptions.Count > 0)
             {
@@ -119,8 +139,15 @@
     private string _priority = MediumPriority;
     private string _lane = string.Empty;
     private string _notes = string.Empty;
+    private string _tag = string.Empty;
     private IReadOnlyList<string> _repositories = [];
     private IReadOnlyList<string> _dependsOn = [];
+    private IReadOnlyList<string> _knowledge = [];
+
+    // Whether the person has taken the tag over. Until they do, it follows the title
+    // for a new item; once they have — or once an existing item's stored tag is loaded
+    // — a rename no longer moves it, which is the whole point of a tag being editable.
+    private bool _tagEdited;
 
     private string? _titleError;
     private string? _windowError;
@@ -177,6 +204,10 @@
     private IReadOnlyList<SelectorOption> RepositoryOptions =>
         [.. Repositories.Select(repository => new SelectorOption(repository.Alias, repository.Title))];
 
+    // Knowledge references are free-typed: there is no fixed list to offer, so the
+    // multi-select is a create-only chip editor over whatever the person writes.
+    private static IReadOnlyList<SelectorOption> KnowledgeOptions => [];
+
     public void Dispose() => GC.SuppressFinalize(this);
 
     protected override void OnParametersSet()
@@ -212,8 +243,11 @@
             _priority = MediumPriority;
             _lane = string.Empty;
             _notes = string.Empty;
+            _tag = string.Empty;
+            _tagEdited = false;
             _repositories = [];
             _dependsOn = [];
+            _knowledge = [];
             return;
         }
 
@@ -223,8 +257,27 @@
         _priority = Item.Priority.ToString();
         _lane = Item.Lane ?? string.Empty;
         _notes = Item.Notes ?? string.Empty;
+        // An existing item arrives with its stored tag, and it counts as edited so a
+        // rename here does not move it — the same guarantee the module keeps.
+        _tag = Item.Tag;
+        _tagEdited = true;
         _repositories = [.. Item.RepositoryAliases];
         _dependsOn = [.. Item.DependsOn.Select(id => id.ToString())];
+        _knowledge = [.. Item.Knowledge];
+    }
+
+    /// <summary>The title, and — until the person takes the tag over — the tag with
+    /// it. Once they have edited the tag, the title stops driving it.</summary>
+    private void OnTitleChanged(string value)
+    {
+        _title = value;
+        if (!_tagEdited) _tag = RoadmapTagSlug.From(_title);
+    }
+
+    private void OnTagChanged(string value)
+    {
+        _tag = value;
+        _tagEdited = true;
     }
 
     /// <summary>Shows a refusal the module came back with, and keeps the dialog
@@ -266,7 +319,10 @@
             _repositories,
             string.IsNullOrWhiteSpace(_lane) ? null : _lane.Trim(),
             Item?.BacklogEntryId,
-            string.IsNullOrWhiteSpace(_notes) ? null : _notes));
+            string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+            // A blank tag says "derive it from the title"; the module does that.
+            string.IsNullOrWhiteSpace(_tag) ? null : _tag.Trim(),
+            _knowledge));
     }
 
     private async Task OnDependenciesChangedAsync(IReadOnlyList<string> values)
