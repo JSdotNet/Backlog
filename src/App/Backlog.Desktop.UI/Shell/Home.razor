@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @implements IDisposable
 @inject BacklogDesktopState State
 @inject IJSRuntime JS
@@ -109,6 +109,9 @@
                                       aria-controls="tools-pane"
                                       PressedChanged="ToggleTools">
                             Tools
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(DevPcFeatures.SystemTools)"
+                                                Title="@FeatureStatusTitle(DevPcFeatures.SystemTools)"
+                                                TestId="tools-feature-status" />
                         </ToggleButton>
                     }
 
@@ -122,6 +125,9 @@
                                       aria-controls="dashboard-pane"
                                       PressedChanged="ToggleDashboard">
                             Dashboard
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(DashboardFeatures.Dashboard)"
+                                                Title="@FeatureStatusTitle(DashboardFeatures.Dashboard)"
+                                                TestId="dashboard-feature-status" />
                         </ToggleButton>
                     }
                 </ButtonGroup>
@@ -162,6 +168,9 @@
                                   aria-controls="roadmap-band"
                                   PressedChanged="ToggleRoadmapBand">
                         Roadmap
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
+                                            Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
+                                            TestId="roadmap-feature-status" />
                     </ToggleButton>
                 }
 
@@ -176,6 +185,9 @@
                                   Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
                                   PressedChanged="ToggleInboxPane">
                         Inbox
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
+                                            Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
+                                            TestId="inbox-feature-status" />
                     </ToggleButton>
                 }
 
@@ -201,6 +213,9 @@
                                   Disabled="@PaneToggleDisabled(GlobalPane.Knowledge)"
                                   PressedChanged="ToggleKnowledgePane">
                         Knowledge
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(KnowledgeFeatures.RepositoryKnowledge)"
+                                            Title="@FeatureStatusTitle(KnowledgeFeatures.RepositoryKnowledge)"
+                                            TestId="knowledge-feature-status" />
                     </ToggleButton>
                 }
             </ButtonGroup>
@@ -269,6 +284,9 @@
                            aria-expanded="@(_aiExpanded ? "true" : "false")"
                            OnClick="ToggleAiPanel">
                     Ask AI
+                    <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.AiAssistant)"
+                                        Title="@FeatureStatusTitle(AppFeatures.AiAssistant)"
+                                        TestId="ai-feature-status" />
                 </AppButton>
             }
 
@@ -281,6 +299,9 @@
                            aria-haspopup="dialog"
                            OnClick="OpenFeedbackDialog">
                     Report issue
+                    <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.FeedbackReporting)"
+                                        Title="@FeatureStatusTitle(AppFeatures.FeedbackReporting)"
+                                        TestId="feedback-feature-status" />
                 </AppButton>
             }
 
@@ -825,6 +846,20 @@
     private bool RightSidePaneVisible => KnowledgePaneVisible || (InboxPaneVisible && !BacklogPaneVisible);
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
+
+    /// <summary>The maturity flag an entry point wears — empty unless the feature
+    /// behind it is both switched on and unfinished.
+    ///
+    /// <para>The settings screen shows a status whether or not the switch is on,
+    /// because it is describing the switch. Here the badge is describing
+    /// something you can reach and click, so a feature that is off has nothing to
+    /// flag. Both halves of that live in <see cref="AppFeatureStatusBadge"/>
+    /// rather than being spelled out at each of the entry points below.</para></summary>
+    private string FeatureStatusSlug(string featureKey) =>
+        AppFeatureStatusBadge.SlugFor(AppFeatures.All, Features, featureKey);
+
+    private string? FeatureStatusTitle(string featureKey) =>
+        AppFeatureStatusBadge.TitleFor(AppFeatures.All, Features, featureKey);
     private string FeedbackStatusClass => $"feedback-status {(_feedbackSucceeded ? "feedback-status--ok" : "feedback-status--error")}";
 
     private string FeedbackStatusRole => _feedbackSucceeded ? "status" : "alert";

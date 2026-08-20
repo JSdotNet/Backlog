@@ -1252,6 +1252,26 @@ h1, h2, h3 {
     margin-top: 0;
 }
 
+/* The heading over each half of the flag list. Smaller than .setting__title:
+   that one names the tab, and a section heading that matched it would read as a
+   second page rather than a division of this one. The first heading loses its
+   top margin because the tab's own description is already directly above it. */
+.feature-group__title {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    margin: var(--spacing-lg) 0 0;
+}
+
+.feature-group__title:first-of-type {
+    margin-top: var(--spacing-md);
+}
+
+.feature-group__description {
+    margin: var(--spacing-2xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 .repo-subpages {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));

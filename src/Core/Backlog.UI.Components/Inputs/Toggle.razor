@@ -1,4 +1,4 @@
-@*
+﻿@*
     Two shapes, one control. The default is a switch: a native checkbox would
     announce "checkbox", so this is a button with `role="switch"` and the label
     sits beside it as a real label, not a title.
@@ -61,6 +61,16 @@ else
     [Parameter]
     public RenderFragment? TextContent { get; set; }
 
+    /// <summary>Content on the same line as the label, after it — a badge or a
+    /// flag qualifying the name rather than adding to the description.
+    ///
+    /// <para>It sits outside the labelling span on purpose. The span is what
+    /// <c>aria-labelledby</c> points at, so anything put inside it becomes part
+    /// of the control's accessible name, and "Inbox pane dev" is not what this
+    /// switch is called. A badge carries its own title for the explanation.</para></summary>
+    [Parameter]
+    public RenderFragment? LabelSuffix { get; set; }
+
     [Parameter]
     public bool Disabled { get; set; }
 
@@ -91,6 +101,12 @@ else
     [Parameter]
     public string? DescriptionCssClass { get; set; }
 
+    /// <summary>Replaces <c>toggle__label-row</c> on the line holding the label
+    /// and its suffix. Only rendered when there is a suffix — a toggle without
+    /// one keeps exactly the markup it had.</summary>
+    [Parameter]
+    public string? LabelRowCssClass { get; set; }
+
     /// <summary>Replaces <c>toggle__track</c> on the switch. A native checkbox
     /// carries no class unless one is given.</summary>
     [Parameter]
@@ -117,6 +133,9 @@ else
     private string DescriptionClassValue =>
         string.IsNullOrWhiteSpace(DescriptionCssClass) ? "toggle__description" : DescriptionCssClass;
 
+    private string LabelRowClassValue =>
+        string.IsNullOrWhiteSpace(LabelRowCssClass) ? "toggle__label-row" : LabelRowCssClass;
+
     private string ClassValue
     {
         get
@@ -136,7 +155,22 @@ else
 
     private RenderFragment TextParts =>
         @<text>
-            <span id="@LabelId" class="@LabelClassValue">@Label</span>
+            @if (LabelSuffix is null)
+            {
+                <span id="@LabelId" class="@LabelClassValue">@Label</span>
+            }
+            else
+            {
+                @* The wrapper appears only when there is something to wrap. The
+                   text block is a grid, so an unconditional row element would put
+                   every existing toggle's label inside a box it did not have
+                   before — a layout change to every caller, to buy nothing for the
+                   ones that never pass a suffix. *@
+                <span class="@LabelRowClassValue">
+                    <span id="@LabelId" class="@LabelClassValue">@Label</span>
+                    @LabelSuffix
+                </span>
+            }
             @if (!string.IsNullOrWhiteSpace(Description))
             {
                 <span id="@DescriptionId" class="@DescriptionClassValue">@Description</span>

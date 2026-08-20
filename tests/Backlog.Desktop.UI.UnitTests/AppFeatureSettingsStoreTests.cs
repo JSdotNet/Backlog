@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -50,19 +50,27 @@ public sealed class AppFeatureSettingsStoreTests
         }
     }
 
+    /// <summary>The settings screen draws two headings, so the catalog is ordered
+    /// to match: every product area first, then everything cross-cutting. The
+    /// screen partitions this list rather than holding an order of its own, which
+    /// is what keeps "what you see" and "what the store was handed" the same
+    /// sequence.</summary>
     [Fact]
     public void Features_are_listed_in_settings_order()
     {
         Assert.Equal(
             [
+                // Product areas
                 BacklogFeatures.Backlog,
                 AppFeatures.InboxPane,
                 RoadmapFeatures.Roadmap,
                 KnowledgeFeatures.KnowledgeSections,
                 KnowledgeFeatures.RepositoryKnowledge,
-                BacklogFeatures.AdditionalRepositories,
                 DevPcFeatures.SystemTools,
                 DashboardFeatures.Dashboard,
+
+                // Cross-cutting
+                BacklogFeatures.AdditionalRepositories,
                 BacklogFeatures.GitHubIntegration,
                 AppFeatures.FeedbackReporting,
                 AppFeatureKeys.CopilotCli,
@@ -70,6 +78,20 @@ public sealed class AppFeatureSettingsStoreTests
                 AppFeatures.UsageMetrics
             ],
             AppFeatures.All.Select(feature => feature.Key));
+    }
+
+    /// <summary>The sections are derived from the catalog, and this is the half
+    /// of that worth pinning: a feature cannot be shown under a heading and left
+    /// out of the list, or listed under both.</summary>
+    [Fact]
+    public void Every_feature_appears_under_exactly_one_heading()
+    {
+        var listed = AppFeatures.Sections.SelectMany(section => section.Features).ToList();
+
+        Assert.Equal(AppFeatures.All, listed);
+        Assert.Equal(AppFeatures.All.Count, listed.DistinctBy(feature => feature.Key).Count());
+        Assert.All(AppFeatures.Sections, section => Assert.All(section.Features, feature =>
+            Assert.Equal(section.Group, feature.Group)));
     }
 
     [Fact]
