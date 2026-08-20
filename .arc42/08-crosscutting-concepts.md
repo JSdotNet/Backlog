@@ -42,7 +42,7 @@ related: [".arc42/04-solution-strategy.md", ".domain/second-brain/features.md#fe
 ```
 
 - **Optional capabilities are switchable per installation** — repository knowledge,
-  the non-backlog knowledge areas, additional repositories, system tools, GitHub
+  the individual knowledge areas, additional repositories, system tools, GitHub
   integration, feedback reporting, Copilot CLI, and AI assistance can each be turned
   on. Core backlog editing is always available and is never switchable.
 - **Disabled is the default**; the stored setting records only what has been switched

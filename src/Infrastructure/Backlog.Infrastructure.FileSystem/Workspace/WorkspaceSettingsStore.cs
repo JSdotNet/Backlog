@@ -68,7 +68,8 @@ public sealed class WorkspaceSettingsStore
         var settings = ReadSettings();
         RootDirectory = settings?.RootDirectory ?? DefaultRootDirectory;
         RootRepository = settings?.RootRepository?.ToRepository();
-        KnowledgeFolders = KnowledgeFolderSetting.Normalize(settings?.KnowledgeFolders?.Select(folder => folder.ToSetting()) ?? []);
+        KnowledgeFolders = KnowledgeFolderSetting.Normalize(
+            settings?.KnowledgeFolders?.Select(folder => folder.ToSetting()).OfType<KnowledgeFolderSetting>() ?? []);
 
         // The store owns the location, so it is the store that makes sure the
         // location is usable. This used to happen as a side effect of building a
@@ -298,17 +299,23 @@ public sealed class WorkspaceSettingsStore
 
         public string? Path { get; init; }
 
-        public KnowledgeFolderSetting ToSetting()
+        /// <summary>The stored row as a setting, or null when its key names no
+        /// knowledge folder — a typo, or a section since retired, as
+        /// <c>.backlog</c> now is. Dropping it is what <see cref="KnowledgeFolderSetting.Normalize"/>
+        /// would do anyway; saying so here is what keeps a stale file from
+        /// stopping the app from opening.</summary>
+        public KnowledgeFolderSetting? ToSetting()
         {
             var folder = KnowledgeFolderSetting.Defaults()
-                .FirstOrDefault(defaultFolder => string.Equals(defaultFolder.Key, Key, StringComparison.OrdinalIgnoreCase))
-                ?? KnowledgeFolderSetting.Defaults().First(defaultFolder => defaultFolder.Key == ".backlog");
+                .FirstOrDefault(defaultFolder => string.Equals(defaultFolder.Key, Key, StringComparison.OrdinalIgnoreCase));
 
-            return folder with
-            {
-                Enabled = Enabled,
-                Path = Path
-            };
+            return folder is null
+                ? null
+                : folder with
+                {
+                    Enabled = Enabled,
+                    Path = Path
+                };
         }
 
         public static StoreKnowledgeFolderSettings From(KnowledgeFolderSetting folder) => new()

@@ -142,6 +142,64 @@ states how many exist.
 Per agent rather than overall, so the agent that happens to keep more history cannot
 crowd the other one out of a list whose whole point is showing both.
 
+## Feature: Session activity enrichment
+
+```meta
+status: proposed
+depends-on: [.domain/sessions/features.md#feature-session-inventory]
+related: [.domain/sessions/domain.md#domain-service-session-activity-publishing, .domain/sessions/domain.md#domain-service-session-activity-enrichment]
+```
+
+Layer externally reported session activity onto the same session list, so a reader can
+see what a session has been doing without replacing the locally read record that says
+the session existed.
+
+The extra layer is optional by design. A session with no Collections MCP reporting is
+still read, grouped, and counted exactly as it is today; a session with reporting adds
+timeline and correlation detail to that same row.
+
+### Sub-feature: Optional Collections MCP reporting
+
+```meta
+status: proposed
+related: [.domain/sessions/domain.md#domain-service-session-activity-publishing, .domain/sessions/naming.md#term-collections-mcp]
+```
+
+When a session has the Collections MCP configured, it reports start, meaningful
+activity, and finish updates to that MCP. When it does not, nothing about the session
+surface breaks or changes shape.
+
+Capability detection is ordinary product behavior rather than setup drama: missing
+configuration is simply `disabled`, not an error that needs a banner.
+
+### Sub-feature: Latest meaningful activity
+
+```meta
+status: proposed
+related: [.domain/sessions/domain.md#session-enrichment-summary, .domain/sessions/domain.md#session-activity-entry]
+```
+
+Show the latest human-readable activity summary, when it arrived, and any safe
+correlation facts that help a person place the session — for example the orchestration
+run or issue it was working against.
+
+Meaningful rather than exhaustive. The point is to answer "what is this session doing"
+without turning the session list into a transcript or a tool log.
+
+### Sub-feature: Reporting degrades honestly
+
+```meta
+status: proposed
+related: [.domain/sessions/domain.md#reporting-capability]
+```
+
+When reporting is configured but the Collections MCP cannot be reached, the session
+still appears and the reporting path reads as degraded.
+
+That answer is more honest than either hiding the reporting layer or pretending no
+external activity exists. A broken path is a fact worth surfacing, and it is separate
+from the session's own `Session State`.
+
 ## Feature: Turn the area off
 
 ```meta

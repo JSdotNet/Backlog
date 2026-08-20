@@ -125,6 +125,64 @@ branch are absent rather than empty when the agent did not record them: "not
 recorded" is a fact, and inferring either from the folder would produce a claim
 nothing supports.
 
+## Term: Session Activity Stream
+
+```meta
+status: proposed
+aliases: [SessionActivityStream, activity stream, session updates]
+related: [.domain/sessions/domain.md#session-activity-stream, .domain/sessions/features.md#feature-session-activity-enrichment]
+```
+
+The ordered external activity a configured session reported about itself through the
+Collections MCP.
+
+Stream rather than log because it is read as a sequence attached to one known session,
+not as the complete system log of everything all sessions did. It enriches an
+`Agent Session`; it does not replace one.
+
+## Term: Session Activity Entry
+
+```meta
+status: proposed
+aliases: [SessionActivityEntry, event_id, sequence, activity summary]
+related: [.domain/sessions/domain.md#session-activity-entry]
+```
+
+One milestone in a `Session Activity Stream`: what happened, when, in what order, and
+how to summarize it back to a person.
+
+`event_id` names the entry for de-duplication; `sequence` places it within its own
+session. The two are deliberately not synonyms.
+
+## Term: Session Enrichment Summary
+
+```meta
+status: proposed
+aliases: [SessionEnrichmentSummary, latest activity, enrichment]
+related: [.domain/sessions/domain.md#session-enrichment-summary]
+```
+
+The one-line answer derived from the activity stream: the latest meaningful summary,
+when external activity last arrived, and the safe correlation facts worth showing.
+
+Summary rather than status because it does not say whether the session is running,
+stalled, or finished; `Session State` already does that. This term says what the
+session was doing, not whether it was alive.
+
+## Term: Collections MCP
+
+```meta
+status: proposed
+aliases: [collections mcp, collection store, activity collection]
+related: [.domain/sessions/dependencies.md]
+```
+
+The optional MCP-backed collection a session can report sanitized activity into and the
+Sessions context can read back from.
+
+It is a transport and storage capability, not the owner of session meaning. The
+session model stays in this context even when the activity passes through that store.
+
 ## Term: Session Catalog
 
 ```meta
@@ -156,6 +214,20 @@ agent kept more history, and would quietly empty a list whose purpose is showing
 A limit on how much is described, never a claim about how much exists: the number
 discovered travels back beside the sessions, and a reading that dropped anything says
 so.
+
+## Term: Reporting Capability
+
+```meta
+status: proposed
+aliases: [reporting status, capability, enabled, degraded]
+related: [.domain/sessions/domain.md#reporting-capability]
+```
+
+Whether the optional external reporting path is available for a session: `enabled`,
+`disabled`, or `degraded`.
+
+This is kept separate from `Session State` on purpose. A stalled session can still
+have enabled reporting, and a running session can have degraded reporting.
 
 ## Term: Session Grouping
 

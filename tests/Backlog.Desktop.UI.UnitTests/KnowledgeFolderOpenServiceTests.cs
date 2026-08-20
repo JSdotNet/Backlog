@@ -21,15 +21,15 @@ public sealed class KnowledgeFolderOpenServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Opens_backlog_root_folder()
+    public async Task Opens_area_root_folder()
     {
         var repo = TempDir();
-        var target = Path.Combine(repo, ".backlog");
+        var target = Path.Combine(repo, ".domain");
         Directory.CreateDirectory(target);
         var launcher = new RecordingFolderEditorLauncher();
         var service = new KnowledgeFolderOpenService(new KnowledgeFolderSource(NewSettingsStore(repo)), launcher);
 
-        await service.OpenAsync("backlog", ".backlog");
+        await service.OpenAsync("domain", ".domain");
 
         Assert.Equal(Path.GetFullPath(target), launcher.OpenedFolder);
     }

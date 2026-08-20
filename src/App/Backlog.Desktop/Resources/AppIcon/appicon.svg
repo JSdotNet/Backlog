@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- App icon background layer: the product's base surface, color-background
+     (#121214) from .design/color-scheme.md. Flat, because Backlog is dark-mode
+     only and because Resizetizer rasterises this at a dozen sizes on three
+     platforms; a gradient is the one thing here worth not betting on. -->
 <svg width="456" height="456" viewBox="0 0 456 456" version="1.1" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="0" width="456" height="456" fill="#512BD4" />
+    <rect x="0" y="0" width="456" height="456" fill="#121214" />
 </svg>

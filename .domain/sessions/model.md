@@ -37,6 +37,21 @@ classDiagram
         +DateTimeOffset started_at
         +DateTimeOffset last_activity_at
     }
+    class SessionActivityStream {
+        +SessionIdentity session
+        +SessionActivityEntry[] entries
+    }
+    class SessionActivityEntry {
+        +string event_id
+        +long sequence
+        +string type
+        +DateTimeOffset occurred_at
+        +string summary
+    }
+    class SessionEnrichmentSummary {
+        +DateTimeOffset last_external_activity_at
+        +string latest_summary
+    }
     class SessionCatalog {
         +int discovered
         +string[] unreadable
@@ -52,6 +67,12 @@ classDiagram
         stalled
         finished
     }
+    class ReportingCapability {
+        <<enumeration>>
+        enabled
+        disabled
+        degraded
+    }
     class LivenessAssessment {
         <<service>>
         +SessionState assess(ActivityWindow, now)
@@ -59,6 +80,14 @@ classDiagram
     class SessionGrouping {
         <<service>>
         +SessionGroup[] group(AgentSession[], by)
+    }
+    class SessionActivityPublishing {
+        <<service>>
+        +publish(AgentSession, milestone)
+    }
+    class SessionActivityEnrichment {
+        <<service>>
+        +SessionEnrichmentSummary merge(AgentSession, SessionActivityStream)
     }
     class SessionGroup {
         +string name
@@ -71,11 +100,19 @@ classDiagram
     AgentSession "1" --> "1" WorkingLocation : worked in
     AgentSession "1" --> "1" ActivityWindow : ran during
     AgentSession --> SessionState : reads as
+    AgentSession "0..1" --> "1" SessionActivityStream : enriched by
+    AgentSession "0..1" --> "1" SessionEnrichmentSummary : summarized as
     SessionIdentity --> Agent : issued by
+    SessionActivityStream "1" --> "many" SessionActivityEntry : orders
+    SessionEnrichmentSummary --> ReportingCapability : reports
     LivenessAssessment ..> ActivityWindow : reads
     LivenessAssessment ..> SessionState : yields
     SessionGrouping ..> AgentSession : reads
     SessionGrouping ..> SessionGroup : yields
+    SessionActivityPublishing ..> AgentSession : observes
+    SessionActivityPublishing ..> SessionActivityEntry : emits
+    SessionActivityEnrichment ..> SessionActivityStream : reads
+    SessionActivityEnrichment ..> SessionEnrichmentSummary : yields
     SessionGroup "1" --> "many" AgentSession : contains
 ```
 
@@ -104,16 +141,35 @@ classDiagram
   shape of an *answer*, not a second collection: `discovered` may exceed the number of
   sessions it describes, and that difference is the whole reason it exists.
 
+- **`Session Activity Stream` is optional and subordinate to the local record.** A
+  session without the stream is still a complete session, because local evidence is
+  what proves the session exists. The stream only enriches a known session with
+  externally reported milestones.
+
 - **`Session Identity` is a pair on purpose.** Nothing in the diagram relates an
   `AgentSession` to a bare `session_id`, because a session id is only unique within
   the agent that issued it; the `Agent` enum hangs off the identity rather than off
   the session for the same reason.
+
+- **`Session Activity Entry` separates identity from order.** `event_id` is what
+  collapses duplicates; `sequence` is what lets late arrivals still read in the order
+  the session meant. One without the other would either duplicate or mis-order the
+  same activity.
 
 - **`Working Location`'s repository is a string, not a reference.** Repository
   Management owns repositories; this context holds the `owner/name` an agent happened
   to write down and never resolves it. An association to that context's aggregate
   would make this model depend on a lookup it does not perform — see
   `dependencies.md`.
+
+- **`Session Enrichment Summary` is derived and therefore replaceable.** The model does
+  not keep a durable second timeline row beside each session; it keeps the latest
+  answer a reader needs, derived from the optional stream whenever that stream exists.
+
+- **`Reporting Capability` belongs to the reporting path, not to session liveness.** A
+  session can be `running` and `degraded` at the same time: one term says what the
+  local record proves about the session, the other what the external reporting path is
+  doing.
 
 - **No aggregate here references a Machine.** `Environment` is this context's own
   term. Where an environment and a registered Machine name the same box, that is a

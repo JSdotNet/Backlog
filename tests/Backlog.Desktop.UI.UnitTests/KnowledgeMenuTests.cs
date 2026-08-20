@@ -15,15 +15,15 @@ public sealed class KnowledgeMenuTests : IDisposable
         File.WriteAllText(Path.Combine(repo, ".domain", "intake", "domain.md"), "# Domain: Intake");
         Directory.CreateDirectory(Path.Combine(repo, ".domain", "_meta"));
         File.WriteAllText(Path.Combine(repo, ".domain", "_meta", "index.json"), "{}");
-        Directory.CreateDirectory(Path.Combine(repo, ".backlog"));
-        File.WriteAllText(Path.Combine(repo, ".backlog", "epics.md"), "# Epics");
+        Directory.CreateDirectory(Path.Combine(repo, ".design"));
+        File.WriteAllText(Path.Combine(repo, ".design", "color-scheme.md"), "# Colour scheme");
 
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
-        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["backlog", "domain"]);
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["design", "domain"]);
 
-        Assert.Equal(["Backlog", "Domain"], tree.Roots.Select(node => node.Label));
+        Assert.Equal(["Domain", "Design"], tree.Roots.Select(node => node.Label));
         var domain = tree.Roots.Single(node => node.AreaKey == "domain");
         Assert.True(domain.Available);
         Assert.Equal("context-map.md", domain.Children.First().Path);

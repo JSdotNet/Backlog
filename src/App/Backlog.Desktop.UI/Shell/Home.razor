@@ -616,8 +616,12 @@
     // multiselect group in the markup above: the band has no capacity rule and must
     // not acquire one by joining a selection that has.
     //
-    // Shown by default, so nobody who never touches the toggle sees a change.
-    private bool _roadmapVisible = true;
+    // Hidden by default, and left at the field default to say so. The workspace
+    // opens on the panes, which are what a session is usually about; a planning row
+    // above them every time is a claim that every session starts with planning, and
+    // most do not. The option in the header strip is the way in, and once pressed the
+    // band stays up for the rest of the session.
+    private bool _roadmapVisible;
     private double _maxSidePaneWidthRem = SidePaneWidth.MaxRem;
     private DotNetObjectReference<Home>? _selfReference;
     private ElementReference _surfaceElement;

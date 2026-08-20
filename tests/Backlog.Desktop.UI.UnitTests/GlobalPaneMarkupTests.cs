@@ -154,9 +154,11 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("RoadmapFeatures.Roadmap", home, StringComparison.Ordinal);
         Assert.Contains("private bool RoadmapBandVisible => RoadmapPaneOptionVisible && _roadmapVisible;", home, StringComparison.Ordinal);
 
-        // Shown unless the reader says otherwise, so nobody who never touches it sees
-        // a change.
-        Assert.Contains("private bool _roadmapVisible = true;", home, StringComparison.Ordinal);
+        // Hidden unless the reader asks for it, and stated as the field default
+        // rather than an explicit false, the way the shell's other view-state flags
+        // are.
+        Assert.Contains("private bool _roadmapVisible;", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("private bool _roadmapVisible = ", home, StringComparison.Ordinal);
 
         // Its own shell field, flipped directly rather than through the selection.
         Assert.Contains("private void ToggleRoadmapBand() => _roadmapVisible = !_roadmapVisible;", home, StringComparison.Ordinal);

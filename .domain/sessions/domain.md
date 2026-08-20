@@ -20,6 +20,11 @@ never starts, stops or names a session, which is why nothing here is a command a
 why the aggregate below has no invariant about state transitions — a session's state
 is derived on every reading, not advanced.
 
+An optional Collections MCP can add a second kind of evidence: sanitized activity
+updates that a configured session reports as it moves. Those updates are an
+**enrichment layer**, not a second authority. They say more about what a known
+session was doing; they do not decide that a session existed in the first place.
+
 This subject was first modelled inside
 [Dev PC Management](../dev-pc-management/domain.md#aggregate-machine-registry) as
 Copilot Session Tracking on the Machine, when Copilot was the only agent the
@@ -68,9 +73,12 @@ the identifier that agent gave the session — because a session id is only uniq
 within the agent that issued it.
 
 Holds the environment it ran on, a display title, its `Working Location`, its
-`Activity Window`, and its `Session State`. Its lifecycle is not this context's to
-run: it appears when an agent first leaves a record, and it stops changing when the
-agent stops writing.
+`Activity Window`, and its `Session State`. When external activity evidence exists,
+the same entity also carries a `Session Activity Stream`, a `Session Enrichment
+Summary`, and a `Reporting Capability` reading for that stream.
+
+Its lifecycle is not this context's to run: it appears when an agent first leaves a
+record, and it stops changing when the agent stops writing.
 
 ### Value Objects
 
@@ -95,6 +103,36 @@ When the session was alive: optional `started_at` and a required `last_activity_
 Equality by both. The start is optional because some evidence is only a file with a
 timestamp on it; the last activity is not, because that timestamp always exists and
 is what `Liveness Assessment` reads.
+
+#### Session Activity Stream
+
+Optional externally reported activity about one known session, ordered as that
+session reported it.
+
+The stream is keyed by `Session Identity`, not by a collection row id, because the
+context cares which session the activity belongs to and not how the storage happened
+to key it. It is optional because a session without Collections MCP reporting is
+still a perfectly good session record.
+
+#### Session Activity Entry
+
+One externally reported milestone about a session: what kind of activity it was, when
+it happened, its per-session sequence, and a short summary fit to be shown back to a
+person.
+
+Identity inside the stream is by external `event_id`; order is by the session's own
+sequence and then by occurrence time. Both are needed: duplicates must collapse, and
+late arrivals must still land in the right place.
+
+#### Session Enrichment Summary
+
+The one-line answer derived from a `Session Activity Stream`: the latest meaningful
+activity text, when external activity last arrived, and what correlation facts can be
+shown beside the base session row.
+
+It is a value object because it is a reading over the stream, not a second entity. A
+new activity entry replaces the summary by deriving a later one rather than by
+editing a stored record.
 
 #### Session Catalog
 
@@ -128,6 +166,19 @@ How far along a session is, as far as the evidence goes:
 Three values, and deliberately not five. Starting, waiting and failed are all
 states an agent could be in and none is derivable from what it leaves behind, so
 this context does not claim them.
+
+#### Reporting Capability
+
+Whether a session can report activity to the optional Collections MCP:
+
+- `enabled` — the capability is configured and reachable enough to accept updates.
+- `disabled` — no Collections MCP reporting is configured for this session or environment.
+- `degraded` — reporting is configured, but delivery is currently failing or the MCP
+  cannot be reached.
+
+This is about the reporting path and not about the session's own health. A running
+session can have degraded reporting, and a finished session can still have an enabled
+path that already delivered its last update.
 
 ## Domain Service: Liveness Assessment
 
@@ -173,6 +224,44 @@ which a reader relies on without being told:
 Invocation semantics: query/composition-oriented; invoked per view, never stored.
 Which grouping is in force is the reader's choice and is not part of this context's
 state.
+
+## Domain Service: Session Activity Publishing
+
+```meta
+status: proposed
+related: [.domain/sessions/features.md#feature-session-activity-enrichment, .domain/sessions/flow.md, .domain/sessions/dependencies.md]
+```
+
+Emits sanitized activity updates for a running session to the optional Collections
+MCP when that session has reporting configured and reaches a meaningful milestone.
+
+The service publishes the beginning of a session, meaningful activity deltas while it
+runs, and a final update when it finishes. It never publishes prompts, transcripts,
+tool output bodies, or secrets; it publishes only the coarse facts this context is
+willing to read back later as activity evidence.
+
+Invocation semantics: event-triggered policy/process-manager behavior; invoked from
+session milestones, queued asynchronously, retried without blocking session work, and
+allowed to degrade to local-only behavior when reporting is unavailable.
+
+## Domain Service: Session Activity Enrichment
+
+```meta
+status: proposed
+related: [.domain/sessions/features.md#feature-session-activity-enrichment, .domain/sessions/flow.md, .domain/sessions/dependencies.md]
+```
+
+Layers optional `Session Activity Stream` evidence onto the locally read `Agent
+Session` so the session row can say more than the local record alone can say.
+
+The service de-duplicates entries by external `event_id`, orders them by per-session
+sequence and occurrence time, and derives the `Session Enrichment Summary` and
+`Reporting Capability` that belong on the session. Local evidence stays authoritative
+for whether the session exists, where it worked, and what `Session State` it reads as;
+external activity enriches and never replaces those facts.
+
+Invocation semantics: query/composition-oriented; evaluated per reading when external
+activity evidence exists, and skipped entirely when it does not.
 
 ## Shared Value Objects
 

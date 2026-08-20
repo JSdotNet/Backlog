@@ -2,6 +2,8 @@
 @using Backlog.Mobile.UI.Services
 @inject CloudSyncClient Sync
 @inject ISpeechTranscriber Speech
+@inject ISharedContentReceiver SharedContentReceiver
+@implements IDisposable
 
 <PageTitle>Inbox</PageTitle>
 
@@ -28,8 +30,17 @@
             <path d="M8 12.25v2" />
         </svg>
     </ToggleButton>
-    <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(_draft)" OnClick="CaptureAsync">Capture</AppButton>
+    <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(_draft)"
+               OnClick="CaptureAsync" TestId="capture-submit">Capture</AppButton>
 </div>
+
+@if (_shareStatus is not null)
+{
+    @* A share fills the field and says so, and stops there. Capture is still the
+       one thing that syncs, so nothing reaches the cloud that the person has not
+       read first. *@
+    <Alert Message="@_shareStatus" Role="status" BaseClass="capture__notice" TestId="share-status" />
+}
 
 @if (_speechSupported == false)
 {
@@ -91,7 +102,44 @@ else
     private string? _speechStatus;
     private string? _speechError;
 
-    protected override Task OnInitializedAsync() => RefreshAsync();
+    private string? _shareStatus;
+    private IDisposable? _shareSubscription;
+
+    /// <summary>
+    /// The share source is subscribed to before the first await, because on
+    /// Android the share is what launched the app: the intent was read while this
+    /// component was still being built, and the payload is sitting in the
+    /// receiver's buffer waiting for the first subscriber. Waiting until after the
+    /// inbox has loaded would only delay a draft the person is already looking for.
+    /// </summary>
+    protected override Task OnInitializedAsync()
+    {
+        _shareSubscription = SharedContentReceiver.Subscribe(OnContentShared);
+
+        return RefreshAsync();
+    }
+
+    public void Dispose() => _shareSubscription?.Dispose();
+
+    /// <summary>
+    /// A share is a draft, never a capture. It lands in the field where it can
+    /// still be read and edited, with a line saying where it came from, and
+    /// nothing leaves the device until Capture is pressed.
+    /// </summary>
+    private void OnContentShared(SharedContent content)
+    {
+        var draft = content.Draft;
+        if (draft.Length == 0) return;
+
+        _draft = Append(_draft, draft);
+        _shareStatus = "Shared from another app. Edit it if you like, then press Capture.";
+
+        // Not awaited, and not a plain StateHasChanged: an Android share is
+        // published from the platform's main thread, and a replay arrives while
+        // this component is still initialising. InvokeAsync is the one call that
+        // is right in both cases.
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     /// <summary>
     /// The support question is asked after the first render, not before it: in
@@ -162,14 +210,14 @@ else
     }
 
     /// <summary>
-    /// Dictation extends what is in the field rather than replacing it — a
-    /// second sentence is the ordinary case, and overwriting would lose the
-    /// first one with no way back.
+    /// Dictation and shares extend what is in the field rather than replacing it
+    /// — a second sentence, or a link added to a half-written note, is the
+    /// ordinary case, and overwriting would lose the first one with no way back.
     /// </summary>
-    private static string Append(string draft, string spoken)
+    private static string Append(string draft, string addition)
     {
         var existing = draft.TrimEnd();
-        return existing.Length == 0 ? spoken : $"{existing} {spoken}";
+        return existing.Length == 0 ? addition : $"{existing} {addition}";
     }
 
     private async Task RefreshAsync()
@@ -192,6 +240,7 @@ else
 
         _draft = string.Empty;
         _speechStatus = null;
+        _shareStatus = null;
 
         try
         {
