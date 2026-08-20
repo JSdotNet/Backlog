@@ -28,6 +28,10 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
+        // The shell opens with the band collapsed, so a test about the takeover
+        // removing it has to put it on screen first or it asserts nothing.
+        ShowTheBand(component);
+
         component.Find("[data-testid='tools-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
@@ -47,6 +51,10 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
+        // The shell opens with the band collapsed, so a test about the takeover
+        // removing it has to put it on screen first or it asserts nothing.
+        ShowTheBand(component);
+
         component.Find("[data-testid='dashboard-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
@@ -65,6 +73,10 @@ public sealed class HomeWorkspaceSurfaceTests
     {
         using var harness = CreateHarness();
         var component = Render(harness);
+
+        // The shell opens with the band collapsed, so a test about the takeover
+        // removing it has to put it on screen first or it asserts nothing.
+        ShowTheBand(component);
 
         component.Find("[data-testid='sessions-toggle-button']").Click();
 
@@ -151,10 +163,12 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     [Fact]
-    public void The_roadmap_band_renders_above_the_panes_when_its_feature_is_on()
+    public void The_roadmap_band_renders_above_the_panes_once_it_is_shown()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
+
+        ShowTheBand(component);
 
         component.WaitForAssertion(() =>
         {
@@ -258,13 +272,18 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The band ships shown, and its header option says so. Nothing on the band
+    /// The band ships collapsed, and its header option says so. Nothing on the band
     /// itself controls it: the only affordance is the option in the header strip,
     /// pointed at the band's landmark through <c>aria-controls</c>, so there is one
     /// affordance for one thing rather than a header option and a chevron competing.
+    /// <para>
+    /// The option is what proves the band is collapsed rather than missing. An absent
+    /// band with no option would be the feature being off; an absent band with an
+    /// unpressed option offering it is the default this test pins.
+    /// </para>
     /// </summary>
     [Fact]
-    public void The_roadmap_band_starts_shown_and_its_header_option_is_pressed()
+    public void The_roadmap_band_starts_collapsed_and_its_header_option_is_unpressed()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
@@ -273,7 +292,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             var option = component.Find("[data-testid='roadmap-pane-option']");
 
-            Assert.Equal("true", option.GetAttribute("aria-pressed"));
+            Assert.Equal("false", option.GetAttribute("aria-pressed"));
             Assert.Equal("roadmap-band", option.GetAttribute("aria-controls"));
             // The label, with the maturity flag taken back out: Roadmap is a Dev
             // feature and is on in this harness, so the option now holds a badge
@@ -290,8 +309,20 @@ public sealed class HomeWorkspaceSurfaceTests
 
             Assert.Equal("roadmap-pane-option", options[0].GetAttribute("data-testid"));
 
+            // Nothing of the band on screen, and no empty track where it would go.
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band-content']"));
+            Assert.Contains("workspace--no-roadmap",
+                component.Find("[data-testid='workspace']").GetAttribute("class"));
+        });
+
+        ShowTheBand(component);
+
+        component.WaitForAssertion(() =>
+        {
             var band = component.Find("[data-testid='roadmap-band']");
 
+            Assert.Equal("true", component.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band-content']"));
             Assert.Equal("Planning", band.QuerySelector(".roadmap-band__eyebrow")!.TextContent.Trim());
             Assert.Equal("Roadmap", component.Find("#roadmap-band-title").TextContent.Trim());
@@ -310,7 +341,7 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']")));
+        ShowTheBand(component);
         component.Find("[data-testid='roadmap-pane-option']").Click();
 
         component.WaitForAssertion(() =>
@@ -340,7 +371,7 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-pane-option']")));
+        ShowTheBand(component);
 
         component.Find("[data-testid='roadmap-pane-option']").Click();
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='roadmap-band']")));
@@ -372,7 +403,7 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']")));
+        ShowTheBand(component);
 
         // Shown: down to a single-pane window and back again.
         await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(1));
@@ -436,22 +467,25 @@ public sealed class HomeWorkspaceSurfaceTests
     /// <see cref="Opening_tools_hides_the_roadmap_band_and_every_pane"/> asserts the
     /// band is absent from the DOM, not merely off screen. So <c>RoadmapBand</c> is
     /// disposed on the way in and constructed afresh on the way out, and a private
-    /// <c>bool</c> inside it would come back at its initializer — shown — on every
+    /// <c>bool</c> inside it would come back at its default — collapsed — on every
     /// round trip. Nothing in the markup would look wrong; the reader would just find
-    /// the band back each time they came out of Tools, having hidden it. Holding the
-    /// state on the shell, which outlives the band, is what prevents that, and this
-    /// pins it.
+    /// the band gone each time they came out of Tools, having asked for it. Holding
+    /// the state on the shell, which outlives the band, is what prevents that, and
+    /// this pins it.
+    /// </para>
+    /// <para>
+    /// Shown rather than hidden is the state worth pinning now that the band ships
+    /// collapsed: hidden is the default, so a band holding its own field would come
+    /// back hidden and the assertion would pass for the wrong reason.
     /// </para>
     /// </summary>
     [Fact]
-    public void A_hidden_band_stays_hidden_across_a_takeover_round_trip()
+    public void A_shown_band_stays_shown_across_a_takeover_round_trip()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-pane-option']")));
-        component.Find("[data-testid='roadmap-pane-option']").Click();
-        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='roadmap-band']")));
+        ShowTheBand(component);
 
         // In: the pane layout that would have held the band goes with it.
         component.Find("[data-testid='tools-toggle-button']").Click();
@@ -469,13 +503,13 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             Assert.Empty(component.FindAll("[data-testid='tools-surface']"));
 
-            // The workspace is back and the band is not, drawn from state that was
+            // The workspace is back and the band with it, drawn from state that was
             // never the band's own.
             Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
-            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
-            Assert.Equal("false", component.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Equal("true", component.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
 
-            Assert.Contains("workspace--no-roadmap",
+            Assert.DoesNotContain("workspace--no-roadmap",
                 component.Find("[data-testid='workspace']").GetAttribute("class"));
         });
     }
@@ -485,7 +519,7 @@ public sealed class HomeWorkspaceSurfaceTests
     /// whether there is an option at all; the option decides whether the band is on
     /// screen. So switching the flag off leaves the option's state retained but
     /// unobservable, and switching it back on restores what the reader left rather
-    /// than resetting it to shown.
+    /// than resetting it to the collapsed default.
     /// </summary>
     [Fact]
     public void The_bands_visibility_survives_its_feature_going_off_and_back_on()
@@ -494,9 +528,7 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
         var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-pane-option']")));
-        component.Find("[data-testid='roadmap-pane-option']").Click();
-        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='roadmap-band']")));
+        ShowTheBand(component);
 
         _ = features.SetEnabled(RoadmapFeatures.Roadmap, false);
 
@@ -514,11 +546,11 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() =>
         {
-            // Back to hidden, which is where the reader left it — not to the default.
-            Assert.Equal("false", component.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
-            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+            // Back to shown, which is where the reader left it — not to the default.
+            Assert.Equal("true", component.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
 
-            Assert.Contains("workspace--no-roadmap",
+            Assert.DoesNotContain("workspace--no-roadmap",
                 component.Find("[data-testid='workspace']").GetAttribute("class"));
         });
     }
@@ -583,6 +615,17 @@ public sealed class HomeWorkspaceSurfaceTests
         var flag = option.QuerySelector("[class*='badge--feature']")?.TextContent ?? string.Empty;
 
         return option.TextContent.Replace(flag, string.Empty).Trim();
+    }
+
+    /// <summary>Presses the header option and waits for the band to arrive. The
+    /// shell opens collapsed, so every test about a band on screen starts here —
+    /// through the same affordance the reader has, rather than by reaching into
+    /// shell state.</summary>
+    private static void ShowTheBand(IRenderedComponent<Home> component)
+    {
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-pane-option']")));
+        component.Find("[data-testid='roadmap-pane-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']")));
     }
 
     private static IRenderedComponent<Home> Render(Harness harness)
