@@ -2927,10 +2927,29 @@ button.task-panel__check:focus-visible {
    me" and "Reminder, Monday 09:00" are the same control in two states rather
    than two controls.
 */
+/* One height, set or not, and it is the reason the two columns line up.
+
+   A row that is set carries a second line under its label and a row that is not
+   carries nothing, so left to their contents the rows of one column stand at
+   different heights from the rows of the other and the pane stops being two
+   columns after the first row of it. The value's line is reserved on the row
+   itself: it is part of what a row is, whether or not there is a value on it yet.
+
+   The row is the box that gets taller; what is in it stays at the top of it. A
+   row that centred its contents would set the same word lower on a row with
+   nothing under it than on the row beside it, which is the misalignment this rule
+   exists to remove, one line down.
+
+   Stated as the sum rather than as a number so it follows the type ramp — the day
+   font-size-xs changes, this changes with it. */
 .task-action {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+    align-items: start;
+    min-height: calc(
+        (var(--font-size-sm) + var(--font-size-xs)) * var(--line-height-normal)
+        + var(--spacing-sm) * 2
+    );
     border-radius: var(--border-radius-md);
 }
 
@@ -2953,24 +2972,6 @@ button.task-panel__check:focus-visible {
     font-size: var(--font-size-sm);
     text-align: left;
     cursor: pointer;
-}
-
-/* One height, set or not, and it is the reason the two columns line up.
-
-   A row that is set carries a second line under its label and a row that is not
-   carries nothing, so left to their contents the rows of one column stand at
-   different heights from the rows of the other and the pane stops being two
-   columns after the first row of it. The value's line is reserved here instead:
-   it is part of what a row is, whether or not there is a value on it yet.
-
-   On the label rather than on the row, so the label itself does not move. Given
-   to the row it would be centred in the space, and the same word would sit lower
-   on a row with nothing set than on the row above it.
-
-   Stated as the sum rather than as a number so it follows the type ramp — the day
-   font-size-xs changes, this changes with it. */
-.task-action__label {
-    min-height: calc((var(--font-size-sm) + var(--font-size-xs)) * var(--line-height-normal));
 }
 
 .task-action__main:focus-visible {

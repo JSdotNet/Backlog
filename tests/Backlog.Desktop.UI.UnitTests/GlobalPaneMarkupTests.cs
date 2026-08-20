@@ -589,6 +589,61 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
+    /// The height reaches the panel, box by box, from the workspace down.
+    /// <para>
+    /// The split asks for <c>flex: 1 1 auto</c> and the panel asks the split for
+    /// what it was given, but a flex request is only answered by a flex parent. The
+    /// workspace was a block, so the chain broke at the top of it and every box
+    /// below sized itself to its own contents instead: the panel came out exactly
+    /// as tall as the split, which was exactly as tall as the panel, and in a tall
+    /// window the pair of them left a few hundred pixels of nothing underneath.
+    /// </para>
+    /// <para>
+    /// Each link is pinned rather than the outcome, because the outcome is a
+    /// rendered height and this is a stylesheet. What would break it is any one of
+    /// these going missing, and the one that did was the first.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_open_entrys_panel_is_given_the_full_height_of_the_workspace()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var workspace = RuleFor(css, ".backlog-workspace {");
+        Assert.Contains("display: flex;", workspace, StringComparison.Ordinal);
+        Assert.Contains("flex-direction: column;", workspace, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", workspace, StringComparison.Ordinal);
+
+        // A second scrollbar here is what would let the split stop short again.
+        Assert.DoesNotContain("overflow: auto;", workspace, StringComparison.Ordinal);
+
+        foreach (var block in new[]
+        {
+            ".backlog-split {",
+            ".entry-detail__panel {",
+            ".entry-detail__panel .task-panel__body {",
+            ".entry-detail__body {",
+            ".entry-detail__note {"
+        })
+        {
+            var rules = RuleFor(css, block);
+
+            Assert.Contains("flex: 1 1 auto;", rules, StringComparison.Ordinal);
+            Assert.Contains("min-height: 0;", rules, StringComparison.Ordinal);
+        }
+    }
+
+    private static string RuleFor(string css, string block)
+    {
+        // Anchored to the start of a line, so `.backlog-workspace {` is not found
+        // inside `.knowledge-layout--side-closed .backlog-workspace {`.
+        var start = css.IndexOf($"\n{block}", StringComparison.Ordinal);
+        Assert.True(start >= 0, $"`{block}` is not a rule of its own in the stylesheet.");
+
+        return css[start..css.IndexOf('}', start)];
+    }
+
+    /// <summary>
     /// The entry card, its four grab rails, its drop zones and the sub-item cards
     /// are gone from the stylesheet as well as from the markup.
     /// <para>
