@@ -1,6 +1,19 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <resources>
-    <color name="colorPrimary">#512BD4</color>
-    <color name="colorPrimaryDark">#2B0B98</color>
-    <color name="colorAccent">#2B0B98</color>
+    <!--
+      The Android launch theme's colours, which decide what the system paints
+      around the app before the first frame: the status bar, and the window
+      background behind the splash. Left at the .NET template's purple these
+      flashed #512BD4 on every cold start of a product that has no light theme
+      and no purple in its palette.
+
+      colorPrimary and colorPrimaryDark are surfaces, so they take
+      color-background (#121214) from .design/color-scheme.md - the same value
+      as the icon's background layer, so the launch reads as one continuous
+      dark surface. colorAccent is the one accent Android draws with (ripples,
+      selection handles), so it takes color-primary (#F2C14E).
+    -->
+    <color name="colorPrimary">#121214</color>
+    <color name="colorPrimaryDark">#121214</color>
+    <color name="colorAccent">#F2C14E</color>
 </resources>
