@@ -81,7 +81,15 @@
 
                     <DesignKnowledgeMetadata Meta="file.Meta" />
 
-                    @if (file.TokenTables.Any())
+                    @* The token strip is the folder overview's answer to not
+                       being able to see the file: a designer scanning eight
+                       documents still gets the values out of each one. With the
+                       chapter open the file is right there and its own tables are
+                       in it, so the strip was the summary's mistake in another
+                       shape — and a tall one, because it grows a row per token
+                       and would have taken the height the file view was capped
+                       to. *@
+                    @if (EditableChapter(file) is null && file.TokenTables.Any())
                     {
                         <section class="design-token-strip" aria-label="Design token highlights">
                             @foreach (var table in file.TokenTables.Take(2))

@@ -58,6 +58,11 @@ public sealed class DesignKnowledgeViewTests : IDisposable
         Assert.Empty(component.FindAll(".design-document__file"));
         Assert.Empty(component.FindAll(".design-document__summary"));
         Assert.Empty(component.FindAll(".design-knowledge__source"));
+
+        // The token strip goes with them. Colors carries a token table, so this
+        // is a strip that would have rendered — and its values are in the file
+        // the view below is showing.
+        Assert.Empty(component.FindAll(".design-token-strip"));
     }
 
     [Fact]

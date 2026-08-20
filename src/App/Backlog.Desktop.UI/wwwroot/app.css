@@ -3405,6 +3405,17 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/* The metadata strip above it is as tall as it is, so the file view takes what
+   is left rather than the parent's full height: height:100% is what a fill view
+   asks for when it is the only child, and next to a sibling it is a request for
+   more room than there is — which the column then answers by squeezing the file
+   to nothing. */
+.design-knowledge--chapter .file-view--fill {
+    flex: 1 1 auto;
+    min-height: 12rem;
+    height: auto;
+}
+
 .knowledge-stack__section > .tech-knowledge-pane {
     max-height: 100%;
     min-height: 0;
