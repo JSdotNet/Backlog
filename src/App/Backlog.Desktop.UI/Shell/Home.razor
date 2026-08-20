@@ -507,7 +507,7 @@
               @ref="_surfaceElement"
               @onkeydown="OnSurfaceKeyDown"
               aria-label="Sessions">
-            <SessionsPane OnClose="CloseSurface" />
+            <SessionsPane OnClose="CloseSurface" RepositoryColour="@RepositoryColourFor" />
         </main>
     }
     else
@@ -1084,6 +1084,14 @@
     /// </summary>
     private string? RepositoryMarkClass(string alias) =>
         State.RepositoryColours.TryGetValue(alias, out var colour) ? $"repo-mark repo-mark--{colour}" : null;
+
+    /// <summary>
+    /// The hue for a repository named the way a session names one — <c>owner/name</c>,
+    /// or nothing at all. Null for a session whose repository is not configured here,
+    /// which is the ordinary case for work done in a clone this workspace does not
+    /// know about.
+    /// </summary>
+    private int? RepositoryColourFor(string? repository) => State.RepositoryColourFor(repository);
 
     private void ToggleRepositoryScopeAsync(string repositoryAlias)
     {

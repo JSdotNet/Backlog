@@ -42,9 +42,9 @@ related: [.design/color-scheme.md#band-identity-tokens, .domain/roadmap/features
 Give each registered repository one colour, so a workspace holding several of
 them can be read one project at a time. The colour belongs to the repository
 rather than to any screen showing it: the same project is the same colour on the
-repository filter, on a plan, on an entry filed against it and on the agent
-sessions under that entry, and a screen that decided its own would be a second
-answer to which project is which.
+repository filter, on a plan, on an entry filed against it, on the agent sessions
+under that entry and on the row for a session in the Sessions area, and a screen
+that decided its own would be a second answer to which project is which.
 
 The registry records *which* of the colours the design system sanctions, never a
 colour of its own — inventing one is a design decision and is made where design

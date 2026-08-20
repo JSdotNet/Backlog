@@ -147,6 +147,11 @@ public sealed class BacklogDesktopState : IDisposable
     /// <c>.design/color-scheme.md#band-identity-tokens</c>.</summary>
     public IReadOnlyDictionary<string, int> RepositoryColours => _gitHub.Settings.Current.Colours();
 
+    /// <summary>The hue for a repository named any way the settings store recognises —
+    /// its alias, or the <c>owner/name</c> a session records. Null when nothing
+    /// configured answers to it.</summary>
+    public int? RepositoryColourFor(string? repository) => _gitHub.Settings.Current.ColourFor(repository);
+
     /// <summary>The identity mark for a row, as classes, or null when the row's area
     /// names no configured repository. The classes are the shared
     /// <c>repo-mark</c> utility; nothing here knows what colour that turns out to

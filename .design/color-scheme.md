@@ -293,6 +293,7 @@ restriction is a list rather than a single surface. Exactly these may use one:
 | Repository scope filter chip in the app header | the identity edge below |
 | An entry row whose area resolves to a repository | the identity edge below |
 | An agent session row under such an entry | the identity edge below |
+| The repository cell of a row in the Sessions area | the identity edge below |
 | The colour picker in Settings → Repositories | a solid swatch of the hue itself |
 
 The picker is the one place a hue is painted as a fill rather than an edge, and that
