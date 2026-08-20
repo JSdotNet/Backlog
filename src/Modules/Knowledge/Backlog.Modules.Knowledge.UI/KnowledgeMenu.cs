@@ -171,7 +171,6 @@ public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
 
     internal static string AreaKey(string folderKey) => folderKey.ToLowerInvariant() switch
     {
-        ".backlog" => "backlog",
         ".domain" => "domain",
         ".arc42" => "arc42",
         ".tech" => "tech",

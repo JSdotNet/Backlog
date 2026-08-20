@@ -120,7 +120,6 @@ public static class KnowledgeChapterResolver
     /// an area key to a configured folder key.</summary>
     private static string? AreaFolderName(string areaKey) => areaKey switch
     {
-        "backlog" => "backlog",
         "domain" => "domain",
         "arc42" => "arc42",
         "tech" => "tech",
