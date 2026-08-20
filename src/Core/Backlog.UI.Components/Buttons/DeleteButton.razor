@@ -1,0 +1,138 @@
+@*
+    "Delete this." The one destructive button, so every place that offers the act
+    offers it looking the same.
+
+    It was two before: a danger button with a word on it in the roadmap dialogs,
+    and a bare 🗑 glyph in the entry footer. Two controls for one act is two
+    answers to "what does deleting look like here", and the emoji was the worse
+    of them — it renders differently on every platform and carries no colour of
+    its own, so the one irreversible act on the screen was also the quietest.
+
+    The glyph is drawn rather than fetched, for the same reason CopyButton's is:
+    a button that needed the network to show itself is no use in a WebView with
+    no egress.
+
+    Lead is the placement, not the styling. A footer is a flex row that pushes
+    its children to the end, and delete does not belong beside the button that
+    confirms — a mis-aimed click there is the one click that cannot be taken
+    back. `btn--lead` takes the free space, so delete sits at the far end from
+    save rather than next to it.
+*@
+
+<AppButton Variant="ButtonVariant.Danger"
+           Size="@Size"
+           Disabled="@Disabled"
+           Busy="@Busy"
+           StopPropagation="@StopPropagation"
+           CssClass="@ClassValue"
+           TestId="@TestId"
+           OnClick="OnClick"
+           Icon="@(ShowIcon ? TrashGlyph : null)"
+           @attributes="AttributeValues">
+    <ChildContent>
+        @if (ChildContent is not null)
+        {
+            @ChildContent
+        }
+        else
+        {
+            @Label
+        }
+    </ChildContent>
+</AppButton>
+
+@code {
+    /// <summary>What the button says. A host whose object has a name of its own
+    /// -- "Delete milestone" -- replaces the word rather than the component.</summary>
+    [Parameter]
+    public string Label { get; set; } = "Delete";
+
+    /// <summary>Replaces the label entirely, for a host that needs markup in it.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>What a screen reader calls it, when the visible word is not
+    /// enough on its own -- several deletes on one screen.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>Takes the free space in a flex footer, so the confirming button
+    /// ends up at the other end of the row rather than beside this one.</summary>
+    [Parameter]
+    public bool Lead { get; set; }
+
+    /// <summary>Drops the glyph, for a row too tight to carry one.</summary>
+    [Parameter]
+    public bool ShowIcon { get; set; } = true;
+
+    [Parameter]
+    public ButtonSize Size { get; set; } = ButtonSize.Default;
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Stops the click reaching a clickable region around the button,
+    /// the same way <see cref="AppButton"/> does -- a delete inside a
+    /// click-to-edit row must not also open the row.</summary>
+    [Parameter]
+    public bool StopPropagation { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    /// <summary>Anything the host writes on the element itself -- an <c>id</c> a
+    /// keyboard shortcut aims at, a <c>title</c>. Passed through to the button
+    /// rather than dropped, which is what the emoji icon button it replaces did.</summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary><see cref="AriaLabel"/> is folded in here rather than written on
+    /// the element, because a host splatting its own attributes would otherwise
+    /// have two ways to set the same one.</summary>
+    private IReadOnlyDictionary<string, object>? AttributeValues
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(AriaLabel)) return AdditionalAttributes;
+
+            var merged = AdditionalAttributes is null
+                ? new Dictionary<string, object>()
+                : new Dictionary<string, object>(AdditionalAttributes);
+
+            merged["aria-label"] = AriaLabel;
+
+            return merged;
+        }
+    }
+
+    private string? ClassValue
+    {
+        get
+        {
+            if (!Lead) return CssClass;
+
+            return string.IsNullOrWhiteSpace(CssClass) ? "btn--lead" : $"btn--lead {CssClass}";
+        }
+    }
+
+    /// <summary>A lid, a bin, and the two lines down its face. Drawn rather than
+    /// fetched, for the same reason CopyButton's is.</summary>
+    private static readonly RenderFragment TrashGlyph =
+        @<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M2.75 4.25h10.5" />
+            <path d="M6.25 4.25V3a.75.75 0 0 1 .75-.75h2a.75.75 0 0 1 .75.75v1.25" />
+            <path d="M4.25 4.25 4.9 13a.75.75 0 0 0 .75.7h4.7a.75.75 0 0 0 .75-.7l.65-8.75" />
+            <path d="M6.75 7v4" />
+            <path d="M9.25 7v4" />
+        </svg>;
+}

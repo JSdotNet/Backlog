@@ -758,33 +758,6 @@ h1, h2, h3 {
     justify-content: flex-end;
 }
 
-.entry-doc__delete {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    padding: 0;
-    background: transparent;
-    border: var(--border-width) solid transparent;
-    border-radius: var(--border-radius-sm);
-    color: var(--color-text-disabled);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    line-height: 1;
-    transition: color var(--transition-fast), background var(--transition-fast);
-}
-
-.entry-doc__delete:hover {
-    background: var(--color-error);
-    color: var(--color-text-primary);
-}
-
-.entry-doc__delete:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
 /* --- Scheduling and dependency rows -------------------------------------- */
 
 /* TaskActionPane lays the rows out now — one lead row across the top and the

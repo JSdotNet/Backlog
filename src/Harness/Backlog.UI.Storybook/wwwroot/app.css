@@ -286,6 +286,16 @@ html, body {
     gap: var(--spacing-sm);
 }
 
+/* The delete story shows placement as well as styling, so it needs a footer
+   with real edges: a bare flex row would push its children to the end whether
+   the lead modifier were doing anything or not. */
+.sb-delete-footer {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
 .sb-stack {
     display: flex;
     flex-direction: column;
