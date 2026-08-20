@@ -61,6 +61,32 @@
         </div>
     </Story>
 
+    <Story Name="DeleteButton"
+           Description="The one destructive button. It was two before — a danger button with a word on it in the roadmap dialogs, and a bare 🗑 glyph in the entry footer — and two controls for one act is two answers to &quot;what does deleting look like here&quot;. The emoji was the worse of them: it renders differently on every platform and carries no colour of its own, so the one irreversible act on the screen was also the quietest one on it.
+
+The glyph is drawn rather than fetched, like CopyButton's, because the shipping heads are offline-capable WebViews.
+
+Lead is placement, not styling. A footer is a flex row that pushes its children to the end; a button marked as the lead takes the free space instead, so delete sits at the far end of the row from the button that confirms rather than beside it — a mis-aimed click there is the one click that cannot be taken back."
+           Code="@DeleteButtonCode">
+        <div class="sb-row">
+            <DeleteButton OnClick="Count" TestId="delete-default" />
+            <DeleteButton Label="Delete milestone" OnClick="Count" />
+            <DeleteButton Size="ButtonSize.Small" OnClick="Count" />
+            <DeleteButton ShowIcon="false" OnClick="Count" />
+            <DeleteButton Disabled="true" />
+        </div>
+
+        @* The placement, shown where it matters: the same footer the roadmap
+           dialogs and the entry panel use. *@
+        <footer class="modal__footer sb-delete-footer">
+            <DeleteButton Lead="true" OnClick="Count" TestId="delete-lead" />
+            <AppButton Variant="ButtonVariant.Ghost" OnClick="Count">Cancel</AppButton>
+            <AppButton Variant="ButtonVariant.Primary" OnClick="Count">Save</AppButton>
+        </footer>
+
+        <p class="sb-state">Clicks: @_clicks</p>
+    </Story>
+
     <Story Name="IconButton"
            Description="A button with no label needs an aria-label, so AppButton's icon-only cousin requires one."
            Code="@IconButtonCode">
@@ -293,6 +319,14 @@ The confirmation is a role=&quot;status&quot; line beside the button rather than
 
     private const string IconButtonCode = """
         <IconButton AriaLabel="Delete entry" Title="Delete entry" OnClick="Delete">🗑</IconButton>
+        """;
+
+    private const string DeleteButtonCode = """
+        <footer class="modal__footer">
+            <DeleteButton Lead="true" OnClick="DeleteAsync" TestId="roadmap-editor-delete" />
+            <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync">Cancel</AppButton>
+            <AppButton Variant="ButtonVariant.Primary" OnClick="SaveAsync">Save</AppButton>
+        </footer>
         """;
 
     private const string GroupCode = """

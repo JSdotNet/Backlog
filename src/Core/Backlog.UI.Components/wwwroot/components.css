@@ -3671,6 +3671,14 @@ body.is-resizing-pane {
     margin-right: var(--spacing-xs);
 }
 
+/* A footer is a flex row that pushes its children to the end. A button marked
+   as the lead takes the free space instead, so it sits at the far end of the
+   row from the one that confirms — which is where a destructive act belongs,
+   since a mis-aimed click beside Save is the one click that cannot be undone. */
+.btn--lead {
+    margin-right: auto;
+}
+
 .btn--toggle[aria-pressed="true"] {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 16%, transparent);

@@ -68,11 +68,9 @@
     <Footer>
         @if (!IsNew)
         {
-            <AppButton Variant="ButtonVariant.Danger"
-                       OnClick="DeleteAsync"
-                       TestId="roadmap-milestone-editor-delete">
-                Delete
-            </AppButton>
+            <DeleteButton Lead="true"
+                          OnClick="DeleteAsync"
+                          TestId="roadmap-milestone-editor-delete" />
         }
 
         <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-milestone-editor-cancel">

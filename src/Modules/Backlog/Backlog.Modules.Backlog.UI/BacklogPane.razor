@@ -607,16 +607,20 @@
                     }
 
                     <div class="entry-detail__footer">
+                        @* Delete leads the row and close ends it, which is the same
+                           arrangement the roadmap dialogs use: the destructive act at
+                           the far end from everything else, never beside it. *@
+                        <DeleteButton Lead="true"
+                                      Size="ButtonSize.Small"
+                                      id="@($"delete-entry-{row.Key}")"
+                                      TestId="delete-entry-button"
+                                      AriaLabel="Delete entry"
+                                      OnClick="() => OnDeleteTaskAsync(row)" />
+
                         <IconButton BaseClass="entry-detail__close"
                                     TestId="close-entry-button"
                                     AriaLabel="Close this entry"
                                     OnClick="() => State.SelectAsync(null)">×</IconButton>
-
-                        <IconButton BaseClass="entry-doc__delete"
-                                    id="@($"delete-entry-{row.Key}")"
-                                    TestId="delete-entry-button"
-                                    AriaLabel="Delete entry"
-                                    OnClick="() => OnDeleteTaskAsync(row)">🗑</IconButton>
                     </div>
                 </Footer>
             </TaskPanel>
