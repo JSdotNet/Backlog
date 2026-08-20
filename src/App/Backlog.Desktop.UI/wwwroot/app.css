@@ -3063,6 +3063,21 @@ h1, h2, h3 {
     scrollbar-gutter: stable;
 }
 
+/* The Technology header holds a title and one action and nothing else, so it is
+   a row: the shared grid stacked them, which stretched the button across the
+   pane and read as a banner rather than as something to press. The error line
+   below spans both columns, because it belongs to the button, not beside it. */
+.tech-knowledge-pane .knowledge-pane__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--spacing-sm);
+    margin-bottom: 0;
+}
+
+.tech-knowledge-pane .knowledge-pane__header .knowledge-folder-open-error {
+    grid-column: 1 / -1;
+}
+
 .tech-stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

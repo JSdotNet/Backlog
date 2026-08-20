@@ -1836,8 +1836,7 @@ button.md-check {
 
 .knowledge-menu__item,
 .folder-tree__item {
-    display: grid;
-    grid-template-columns: 1rem minmax(0, 1fr);
+    display: flex;
     align-items: center;
     gap: var(--spacing-2xs);
     width: 100%;
@@ -1883,9 +1882,13 @@ button.md-check {
     opacity: 0.72;
 }
 
+/* A row without children draws no twisty at all, so its label starts at the
+   row's padding edge rather than behind an empty gutter. The width keeps the
+   glyph a fixed column on the rows that do have one. */
 .knowledge-menu__twisty,
 .folder-tree__twisty {
     display: inline-flex;
+    flex: 0 0 1rem;
     justify-content: center;
     color: var(--color-text-secondary);
 }
