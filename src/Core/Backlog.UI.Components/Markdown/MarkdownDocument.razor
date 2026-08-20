@@ -60,6 +60,7 @@
 @code {
     private IReadOnlyList<MdBlock> _blocks = [];
     private string? _parsed;
+    private bool _parsedWithoutFrontmatter;
     private bool _hasParsed;
 
     /// <summary>The markdown, read or written.</summary>
@@ -93,6 +94,23 @@
     /// only allowed to read should not show a way in that refuses them.</summary>
     [Parameter]
     public bool CanEdit { get; set; } = true;
+
+    /// <summary>
+    /// Whether the read view leaves out a leading YAML frontmatter block.
+    /// <para>
+    /// For a host that is already showing it as facts — a file view's frontmatter
+    /// strip above this one — where the reader would otherwise meet the same four
+    /// lines twice, the second time as a divider and a run-together paragraph.
+    /// </para>
+    /// <para>
+    /// Read mode only, and that is the whole of the parameter: the text handed to
+    /// the editor and back out through <see cref="ValueChanged"/> is
+    /// <see cref="Value"/> itself, untouched, because it is what a host writes to
+    /// disk. One text either way, as the note at the top says.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool HideFrontmatter { get; set; }
 
     [Parameter]
     public bool AllowCopy { get; set; } = true;
@@ -147,12 +165,16 @@
     /// body.</summary>
     protected override void OnParametersSet()
     {
-        if (_hasParsed && _parsed == Value) return;
+        if (_hasParsed && _parsed == Value && _parsedWithoutFrontmatter == HideFrontmatter) return;
 
         // ParseDocument, not Parse: a document's `##` is a heading. An entry
         // wants the other reading, and hands its own blocks to MarkdownView.
-        _blocks = MarkdownPreview.ParseDocument(Value);
+        //
+        // The blocks are the only thing the frontmatter is ever taken out of, so
+        // it is taken out here: Value goes to the editor as it is.
+        _blocks = MarkdownPreview.ParseDocument(HideFrontmatter ? MarkdownFrontmatter.Read(Value).Body : Value);
         _parsed = Value;
+        _parsedWithoutFrontmatter = HideFrontmatter;
         _hasParsed = true;
     }
 

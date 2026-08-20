@@ -11,10 +11,10 @@
 *@
 
 <section @key=@("knowledge-pane") class="knowledge-stack" id="repository-knowledge-pane" data-testid="knowledge-stack" aria-label="Repository knowledge base">
-    @if (Scope.Repository(RepositoryAlias) is { } knowledgeRepository)
-    {
-        <p class="knowledge-stack__repository" data-testid="knowledge-repository">@knowledgeRepository.FullName</p>
-    }
+    @* No repository line above the strip. The repository was chosen by the scope
+       strip over the workspace and is named there, and every file this pane opens
+       carries its own path, so a third copy of the name only cost the sections a
+       row of height. *@
 
     @* The section strip is the shared Tabs component wearing this pane's
        classes. It used to be a hand-rolled row of role="tab" buttons: correct

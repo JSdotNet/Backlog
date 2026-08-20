@@ -107,8 +107,18 @@ public static class KnowledgeMeta
     /// Splits the block into keys and their values. Everything is a list here —
     /// a scalar is simply a list of one — so the field mapping above has one
     /// shape to read rather than two.
+    ///
+    /// <para>Internal rather than private because a markdown file's YAML
+    /// frontmatter is written in exactly these shapes — <c>key: value</c>,
+    /// <c>key: [a, b]</c>, and a key with a dash list under it — and
+    /// <see cref="Markdown.MarkdownFrontmatter"/> reads it through here. A second
+    /// reader for the same three shapes would be a second set of quoting and
+    /// empty-value quirks to keep in step with the files.</para>
+    ///
+    /// <para>Keys come back lower-cased, so a caller looks up
+    /// <c>applyto</c> and not <c>applyTo</c>.</para>
     /// </summary>
-    private static Dictionary<string, IReadOnlyList<string>> ReadFields(string body)
+    internal static Dictionary<string, IReadOnlyList<string>> ReadFields(string body)
     {
         var lines = body.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
         var fields = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);

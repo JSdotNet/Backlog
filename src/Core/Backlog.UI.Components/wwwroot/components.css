@@ -623,6 +623,25 @@
     padding-right: var(--spacing-xs);
 }
 
+/* One path glob out of a file's `applyTo`. It earns the monospace for the same
+   reason a file view's path does: it is a machine string, and the reader is
+   checking one segment of it rather than reading it as prose. Outlined so a row
+   of them reads as a set of patterns and not as a sentence. */
+.badge--glob {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: var(--border-width) solid var(--color-border);
+    font-family: var(--font-family-mono);
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+}
+
+/* A tool a file declares. A name rather than a pattern, so it keeps the quiet
+   filled shape every other one-dimensional badge has. */
+.badge--tool {
+    color: var(--color-text-secondary);
+}
+
 .metadata-editor--repo {
     width: 7rem;
     min-width: 5rem;
@@ -4690,6 +4709,63 @@ button.tag-chip__label {
     border-color: var(--color-border-focus);
     background: var(--color-background-alt);
     color: var(--color-text-primary);
+}
+
+/* What the file says it is for, between the header and the body.
+
+   Its own strip rather than a third row inside the header: the header is two
+   columns that already crowd each other in a narrow pane, and this is the file
+   describing itself rather than identifying itself. No surface of its own and no
+   heading — one rule under the header's is enough to say the two are different
+   things, which is as much chrome as
+   .design/design-principles.md#low-chrome-content-first allows for something a
+   reader passes on the way to the body. */
+.file-view__frontmatter {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.file-view__frontmatter-description {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* The same wrapping row the header's actions are: a file naming a dozen globs
+   wraps down the strip instead of pushing a second scrollbar under the pane. */
+.file-view__frontmatter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* What a key the strip has no field of its own for actually said. Text and not a
+   badge: a badge says "one of a set", and a key nothing here recognises is not
+   known to be one of anything. Reads as the description does, because that is
+   what it is — the file saying something about itself in its own words. */
+.file-view__frontmatter-value {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+/* The label names the row and then gets out of the way — it is the quietest
+   thing in the strip, because the badges beside it are what is being read. Quiet
+   is --color-secondary and not --color-text-disabled: the disabled token measured
+   3.99:1 here, under AA at this size, and this label is information rather than an
+   unavailable control. Same finding this stylesheet already records above, in the
+   note on the integration chips. */
+.file-view__frontmatter-label {
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
 }
 
 .file-view__empty {

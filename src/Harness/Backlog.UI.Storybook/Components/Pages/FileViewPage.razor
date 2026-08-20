@@ -209,6 +209,33 @@ Tab through this one and then the story above it. A supplied body gives up the r
             </FileView>
         </div>
     </Story>
+    <Story Name="What the file says it is for"
+           Description="`ShowFrontmatter` reads the YAML block a markdown file may open with and draws it as its own strip under the header: the description as prose, `applyTo` as one badge per glob, `tools` as badges of their own. The body is then given the text *without* the block — left in, those same four lines come back underneath as the divider and run-together paragraph the markdown parser makes of them, which is the noise this replaces.
+
+Every other key the block states is a row too — the key as its label, its words beside it, in the order the file wrote them. That is the rule the strip keeps: it never hides what it does not show, so `mode` on the prompt below is a row rather than a line quietly taken out of the file with the rest of the block.
+
+Its own strip and not another row in the header: the header identifies the file, and this is the file describing itself. A host that renders its own body names `FrontmatterSource` instead, so the strip is drawn from the file's text while the buffer that host writes back stays whole. A file with no frontmatter, or one nobody asked about, renders exactly as it did before any of this — no strip, and no empty row where it would have been."
+           Code="@FrontmatterCode">
+        <div class="sb-stack" data-testid="file-view-frontmatter">
+            <FileView Name="ui-components.instructions.md"
+                      Source="GitHub Copilot"
+                      Kind="Path-specific instructions"
+                      Path=".github\instructions\ui-components.instructions.md"
+                      Body="@InstructionFile"
+                      ShowFrontmatter="true"
+                      MaxHeight="12rem"
+                      TestId="file-view-instructions" />
+
+            <FileView Name="explain-flow.prompt.md"
+                      Source="GitHub Copilot"
+                      Kind="Prompt file"
+                      Path=".github\prompts\explain-flow.prompt.md"
+                      Body="@PromptFile"
+                      ShowFrontmatter="true"
+                      MaxHeight="12rem"
+                      TestId="file-view-prompt" />
+        </div>
+    </Story>
 
 </StoryPage>
 
@@ -647,5 +674,60 @@ Tab through this one and then the story above it. A supplied body gives up the r
                   Path=".arc42\adr\0002-backlog-module-owns-the-entry-text-language.md"
                   Body="@body"
                   MaxHeight="12rem" />
+        """;
+
+    /// <summary>An instruction file as this repository writes one: several globs
+    /// in a single quoted scalar, and a description carrying punctuation of its
+    /// own.</summary>
+    private const string InstructionFile = """
+        ---
+        applyTo: "src/App/**,src/Modules/**,src/Core/Backlog.UI.Components/**"
+        description: An application screen renders the shared component library's components rather than growing its own copies; how to make a component fit, and what to do when it cannot.
+        ---
+
+        # UI components
+
+        `src/Core/Backlog.UI.Components` is the product's own component library. It
+        is a deliberate choice over a third-party suite, and the price of that
+        choice is that accessibility semantics, keyboard support and focus handling
+        are the product's own work.
+
+        ## The rule
+
+        A screen renders the library's component. It does not write its own version
+        of one.
+        """;
+
+    /// <summary>The other shape: a list-valued `tools` key, no globs at all, and a
+    /// `mode` the strip has no field of its own for — which is a row of its own
+    /// rather than a line quietly taken out of the file.</summary>
+    private const string PromptFile = """
+        ---
+        description: Walk one request through the modules it touches and say where the boundaries are.
+        mode: agent
+        tools: ['codebase', 'search/codebase', 'read/readFile']
+        ---
+
+        # Explain a flow
+
+        Name the entry point, then follow it until it leaves the process.
+        """;
+
+    private const string FrontmatterCode = """
+        @* Opt-in, and the body loses the block only where the strip is showing it.
+           A host drawing its own body names the text instead, so the buffer it
+           writes back keeps every line it arrived with. *@
+        <FileView Name="ui-components.instructions.md"
+                  Path=".github\instructions\ui-components.instructions.md"
+                  Body="@markdown"
+                  ShowFrontmatter="true" />
+
+        <FileView Name="ui-components.instructions.md"
+                  ShowFrontmatter="true"
+                  FrontmatterSource="@markdown">
+            <BodyContent>
+                <MarkdownEditor Value="@markdown" ValueChanged="OnChanged" Rows="12" />
+            </BodyContent>
+        </FileView>
         """;
 }
