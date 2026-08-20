@@ -31,12 +31,18 @@ const REFERENCE_FIELDS = {
     implements: "implements",
 };
 
-const ATTRIBUTE_FIELDS = ["kind", "version", "issue", "aliases", "alternatives", "effort", "roadmap"];
+const ATTRIBUTE_FIELDS = ["kind", "version", "issue", "aliases", "alternatives"];
 
 // Non-reference fields whose authored form may be a scalar or a bracket list,
 // and which are always emitted as a list so a consumer reading graph.json never
 // has to branch on shape. `aliases`/`alternatives` above stay verbatim.
-const LIST_ATTRIBUTE_FIELDS = ["feature-flag"];
+const LIST_ATTRIBUTE_FIELDS = ["feature-flag", "roadmap"];
+
+// Fields emitted as JSON numbers rather than as the strings this parser reads
+// every scalar as, so a consumer can total or threshold them without parsing.
+// An unparseable value is left off the node entirely: metadata.mjs already
+// reports it, and a graph carrying a bad number would be the worse failure.
+const NUMERIC_ATTRIBUTE_FIELDS = ["effort"];
 
 /** Recursively collect Markdown files under a folder, as repo-relative posix paths. */
 async function collectMarkdown(repoRoot, relFolder) {
@@ -72,6 +78,10 @@ function applyMeta(node, meta) {
     for (const field of LIST_ATTRIBUTE_FIELDS) {
         const values = asList(meta[field]);
         if (values.length) node[field] = values;
+    }
+    for (const field of NUMERIC_ATTRIBUTE_FIELDS) {
+        const raw = meta[field];
+        if (typeof raw === "string" && /^\d+$/.test(raw)) node[field] = Number(raw);
     }
     for (const field of Object.keys(REFERENCE_FIELDS)) {
         const refs = asList(meta[field]);

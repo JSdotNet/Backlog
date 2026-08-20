@@ -3582,10 +3582,10 @@
           "level": 2,
           "line": 34,
           "status": "draft",
-          "effort": "8",
           "roadmap": [
             "roadmap-planning"
           ],
+          "effort": 8,
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
             ".domain/repository-management/domain.md#aggregate-repository-registry",

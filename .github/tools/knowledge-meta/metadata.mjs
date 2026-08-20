@@ -46,6 +46,7 @@ const TECH_KINDS = [
 // — like `aliases`/`alternatives` — it stays a node attribute and produces no
 // graph edges (see graph.mjs REFERENCE_FIELDS).
 const COMMON_OPTIONAL_FIELDS = ["related", "issue", "effort", "roadmap"];
+const ROADMAP_TAG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const FILE_ONLY_FIELDS = ["order"];
 const FOLDER_EXTRA_FIELDS = {
     domain: ["depends-on", "aliases", "feature-flag"],
@@ -280,7 +281,7 @@ export function validateDocument(relPath, markdown) {
             if (typeof effort !== "string" || !/^\d+$/.test(effort)) {
                 issues.push({
                     severity: "error",
-                    message: `${label} has effort "${effort}", expected a non-negative integer number of story points.`,
+                    message: `${label} has \`effort\` "${effort}" — effort is a story-point estimate and must be a single non-negative integer.`,
                 });
             }
         }
@@ -292,10 +293,10 @@ export function validateDocument(relPath, markdown) {
         // error: it is still a tag, just a malformed one.
         if (chapter.meta.roadmap != null) {
             for (const tag of toList(chapter.meta.roadmap)) {
-                if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(tag)) {
+                if (!ROADMAP_TAG_PATTERN.test(tag)) {
                     issues.push({
                         severity: "warning",
-                        message: `${label} has \`roadmap\` entry "${tag}", expected a lowercase kebab-case slug.`,
+                        message: `${label} has \`roadmap\` entry "${tag}" — roadmap tags are lowercase kebab-case slugs, not chapter references or free text.`,
                     });
                 }
             }
