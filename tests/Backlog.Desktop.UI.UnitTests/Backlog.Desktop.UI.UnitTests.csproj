@@ -41,9 +41,15 @@
     <!-- The Dashboard does have one, so its feature key comes from there and its
          pane from the .UI project beside it. -->
     <Using Include="Backlog.Modules.Dashboard.Abstractions" />
-    <!-- The feature port and the app-wide feature keys, and the file-system
-         adapters that answer the workspace ports these tests drive directly. -->
+    <!-- The app-wide ports and feature keys: the feature port, and the
+         folder-editor port every knowledge screen's "Open in VS Code" goes
+         through. Both are shared kernel because more than one context asks and
+         none of them owns the answer. -->
     <Using Include="Backlog.SharedKernel" />
+    <!-- The file-system adapters that answer those ports and the workspace ones:
+         the settings and feature stores and the knowledge-folder resolver these
+         tests drive directly, plus the unsupported folder-editor launcher a
+         browser-hosted screen gets. -->
     <Using Include="Backlog.Infrastructure.FileSystem" />
     <Using Include="Backlog.Desktop.UI.Inbox" />
     <Using Include="Backlog.Desktop.UI.BacklogManagement" />

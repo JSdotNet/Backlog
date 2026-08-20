@@ -1,6 +1,5 @@
 using Backlog.Modules.Knowledge.Abstractions;
-using System.ComponentModel;
-using System.Diagnostics;
+using Backlog.SharedKernel;
 
 namespace Backlog.Desktop.UI.Knowledge;
 
@@ -22,7 +21,19 @@ public sealed class KnowledgeFolderOpenService(IKnowledgeFolderSource source, IF
             throw new KnowledgeFolderOpenException($"The knowledge folder was not found at {folderPath}.");
         }
 
-        await launcher.OpenFolderAsync(folderPath, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await launcher.OpenFolderAsync(folderPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (FolderEditorLaunchException ex)
+        {
+            // The launcher is domain-neutral and lives in the file-system adapter,
+            // so it fails in its own vocabulary. Everything a knowledge screen can
+            // show the user arrives as one exception type, and the launcher's
+            // message is already the sentence to show — so it is carried across
+            // verbatim rather than restated, with the original kept as the cause.
+            throw new KnowledgeFolderOpenException(ex.Message, ex);
+        }
     }
 
     private static string ResolveFolderPath(string rootPath, string areaKey, string? nodePath)
@@ -107,62 +118,13 @@ public sealed class KnowledgeFolderOpenService(IKnowledgeFolderSource source, IF
     };
 }
 
-public interface IFolderEditorLauncher
-{
-    Task OpenFolderAsync(string folderPath, CancellationToken cancellationToken = default);
-}
-
-public sealed class VsCodeFolderEditorLauncher : IFolderEditorLauncher
-{
-    private const string EnvironmentVariable = "BACKLOG_VSCODE_CLI";
-    private readonly string _executable;
-
-    public VsCodeFolderEditorLauncher()
-        : this(Environment.GetEnvironmentVariable(EnvironmentVariable))
-    {
-    }
-
-    internal VsCodeFolderEditorLauncher(string? executable)
-    {
-        _executable = string.IsNullOrWhiteSpace(executable)
-            ? OperatingSystem.IsWindows() ? "code.cmd" : "code"
-            : executable.Trim();
-    }
-
-    public Task OpenFolderAsync(string folderPath, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!Directory.Exists(folderPath)) throw new KnowledgeFolderOpenException($"The folder does not exist: {folderPath}");
-
-        var startInfo = new ProcessStartInfo(_executable)
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-        startInfo.ArgumentList.Add(folderPath);
-
-        try
-        {
-            if (Process.Start(startInfo) is null)
-            {
-                throw new KnowledgeFolderOpenException("VS Code did not start.");
-            }
-        }
-        catch (Win32Exception ex)
-        {
-            throw new KnowledgeFolderOpenException($"Couldn't open VS Code. Install the 'code' command or set {EnvironmentVariable} to the executable path.", ex);
-        }
-
-        return Task.CompletedTask;
-    }
-}
-
-public sealed class UnsupportedFolderEditorLauncher : IFolderEditorLauncher
-{
-    public Task OpenFolderAsync(string folderPath, CancellationToken cancellationToken = default) =>
-        throw new KnowledgeFolderOpenException("Opening folders in VS Code is only available in the desktop app.");
-}
-
+/// <summary>
+/// The one failure a knowledge screen has to handle: everything
+/// <see cref="KnowledgeFolderOpenService"/> can go wrong on — an unconfigured
+/// area, a folder that is not there, a path outside the knowledge root, and the
+/// editor launch itself — arrives as this, so the panes catch one type and show
+/// its message.
+/// </summary>
 public sealed class KnowledgeFolderOpenException : Exception
 {
     public KnowledgeFolderOpenException(string message) : base(message) { }
