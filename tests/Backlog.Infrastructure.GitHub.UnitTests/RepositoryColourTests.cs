@@ -169,6 +169,166 @@ public class RepositoryColourTests : IDisposable
         Assert.Null(store.Current.ColourFor("nowhere"));
     }
 
+    // --- The visualization gate -----------------------------------------------
+    //
+    // Whether the hues are drawn at all is a separate question from which hue a
+    // repository wears, and it is answered in the same place for the same reason: a
+    // surface that decided for itself would be a second answer. So the store keeps both
+    // the choice and the visibility, and hands out a gated view of the choice.
+
+    [Fact]
+    public void TheVisualizationIsOffUntilSomebodyTurnsItOn()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog"), Repository("docs")]));
+
+        // Off is the first-run answer rather than a migration step: the identity hue is
+        // an opt-in layer over a workspace that reads perfectly well without it.
+        Assert.False(store.Current.ShowRepositoryColours);
+        Assert.Empty(store.Current.VisibleColours());
+        Assert.Null(store.Current.VisibleColourFor("backlog"));
+    }
+
+    [Fact]
+    public void ASettingsFileWrittenBeforeTheToggleExistedReadsAsOff()
+    {
+        var path = Path.Combine(_root, "github.json");
+        Directory.CreateDirectory(_root);
+
+        // Exactly what a build from before this change left on disk: no property at all.
+        File.WriteAllText(
+            path,
+            """
+            {
+              "repositories": [ { "alias": "backlog", "owner": "JSdotNet", "name": "Backlog" } ],
+              "apiEndpoint": "https://api.github.com"
+            }
+            """);
+
+        var store = new GitHubSettingsStore(path);
+
+        Assert.False(store.Current.ShowRepositoryColours);
+
+        // And the colour the repository would wear is still there to be read, because
+        // the visualization being off is not the same as the choice being gone.
+        Assert.Equal(1, store.Current.ColourFor("backlog"));
+    }
+
+    [Fact]
+    public void WithTheVisualizationOnTheSurfacesSeeExactlyTheResolvedColours()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", 4), Repository("docs")]));
+        Assert.Null(store.SetShowRepositoryColours(true));
+
+        // The gate decides whether the answer is handed over, never what the answer is.
+        Assert.Equal(store.Current.Colours(), store.Current.VisibleColours());
+        Assert.Equal(4, store.Current.VisibleColourFor("backlog"));
+        Assert.Equal(store.Current.ColourFor("docs"), store.Current.VisibleColourFor("docs"));
+    }
+
+    [Fact]
+    public void TurningTheVisualizationOnLastsPastARestart()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog")]));
+
+        Assert.Null(store.SetShowRepositoryColours(true));
+
+        // A second store over the same file is what the next launch does, and the house
+        // rule is no save button: it has to be on disk already.
+        Assert.True(Store().Current.ShowRepositoryColours);
+    }
+
+    [Fact]
+    public void TurningTheVisualizationOffAgainLastsToo()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog")]));
+        Assert.Null(store.SetShowRepositoryColours(true));
+
+        Assert.Null(store.SetShowRepositoryColours(false));
+
+        Assert.False(Store().Current.ShowRepositoryColours);
+    }
+
+    [Fact]
+    public void ChangingTheVisualizationAnnouncesItself()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog")]));
+
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.SetShowRepositoryColours(true));
+
+        // Every surface reading the gated answer is already on screen when it flips, and
+        // the ones that read per load rather than per render — the roadmap band — only
+        // redraw because they are told.
+        Assert.Equal(1, announced);
+    }
+
+    [Fact]
+    public void RetypingTheRepositoryListKeepsTheVisualizationOn()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog")]));
+        Assert.Null(store.SetShowRepositoryColours(true));
+
+        var (repositories, errors) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog\ndocs = JSdotNet/Docs");
+        Assert.Empty(errors);
+        Assert.Null(store.SetRepositories(repositories));
+
+        // A save path that wrote the settings without carrying this forward would turn
+        // somebody's visualization off behind their back the next time they edited the
+        // repository list.
+        Assert.True(store.Current.ShowRepositoryColours);
+        Assert.True(Store().Current.ShowRepositoryColours);
+    }
+
+    [Fact]
+    public void ChoosingAColourKeepsTheVisualizationOn()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog")]));
+        Assert.Null(store.SetShowRepositoryColours(true));
+
+        Assert.Null(store.SetRepositoryColour("backlog", 3));
+
+        Assert.True(Store().Current.ShowRepositoryColours);
+    }
+
+    [Fact]
+    public void EveryOtherSavePathKeepsTheVisualizationOn()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog"), Repository("docs")]));
+        Assert.Null(store.SetShowRepositoryColours(true));
+
+        Assert.Null(store.SetRepositoryToken("backlog", "ghp_token"));
+        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+        Assert.Null(store.SetApiEndpoint("https://github.example/api/v3"));
+        Assert.Null(store.RemoveRepository("docs"));
+
+        Assert.True(Store().Current.ShowRepositoryColours);
+    }
+
+    [Fact]
+    public void TheChoiceItselfIsStillReadableWhileTheVisualizationIsOff()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog")]));
+        Assert.Null(store.SetRepositoryColour("backlog", 2));
+
+        // Settings' own swatches are the one control whose subject *is* the colour, so
+        // they read the ungated answer and keep showing the choice with the
+        // visualization off.
+        Assert.Equal(2, store.Current.Find("backlog")!.Colour);
+        Assert.Equal(2, store.Current.ColourFor("backlog"));
+        Assert.Equal(2, store.Current.Colours()["backlog"]);
+    }
+
     public void Dispose()
     {
         GC.SuppressFinalize(this);

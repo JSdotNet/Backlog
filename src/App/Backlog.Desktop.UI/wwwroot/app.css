@@ -172,6 +172,38 @@ h1, h2, h3 {
     flex-wrap: wrap;
     min-width: 0;
 }
+
+/*
+  The shared Toggle standing in the header rather than in a settings row.
+
+  The component is laid out for that row: the track aligns to the top of a text
+  block that may carry a description under the name, and the name is set at the
+  weight a section heading needs. A header has neither a second line to align to
+  nor room for a heading, so the parts are re-centred and the name steps down to
+  the type the chips beside it use. Nothing about the switch itself is touched —
+  the track, the thumb, the on state, focus and the reduced-motion rule are all
+  still the component's own, which is the whole reason for reaching for it.
+
+  It does not shrink. A switch narrowed to nothing is a switch nobody can read
+  the name of, and the header already wraps rather than squeezing its regions.
+*/
+.toggle.header-switch {
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+/* Undoes the nudge the settings row wants, now that the label is centred on the
+   track rather than sitting at the top of a block beside it. */
+.header-switch__track {
+    margin-top: 0;
+}
+
+.header-switch__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
 /* The version control is one of the header utilities now and wears
    `.header-util` for its shape, so only the version number's own type is left
    here. It sits at the right edge with settings after it. */
