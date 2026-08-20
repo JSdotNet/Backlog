@@ -327,7 +327,7 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/typogr
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Entry edit* → **A checkbox writes back to the source** |
 | Scheduling and dependency tokens | Read and written by `EntryTextParser`; `TaskAction` is the shape a control over one takes, over the date, time and repeat fields beside it | Storybook → *Inputs* → **A date, a time and a repeat**, **TaskAction — set it, see it, clear it** |
 | Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as either a `TaskListView` of steps or one `MarkdownEditor`, the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **Split pane**, **Split pane, anchored to the end** |
-| The body's two readings | One region, switched by `view:` and remembered on the entry; the steps reading says so when the body holds prose it is not showing | Backlog pane → the **Steps** / **Markdown** chips |
+| The body's two readings | One region, switched by `view:` and remembered on the entry; the steps reading says so when the body holds prose it is not showing | Backlog pane → the **Steps** / **Markdown** button group |
 | Raw-Markdown escape hatch | The whole entry's canonical text in a mono `TextArea`, with the live "reads as" hint under it | Backlog pane → the **Markdown** toggle, or Ctrl+Shift+M |
 
 What is true today, and where it differs from the model above:
