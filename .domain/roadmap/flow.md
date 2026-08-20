@@ -100,3 +100,35 @@ flowchart LR
   one: one piece of work with one set of dates would appear as several bars, and
   dragging one of them would move work the reader was not looking at — a plan that
   seems to disagree with itself because of how it was drawn.
+
+## Gathering an item's work and totalling its effort
+
+```mermaid
+flowchart TD
+    Item["Roadmap Item<br/>(tag, backlog_entry_id, knowledge_refs)"]
+    Item --> Named["By name:<br/>the linked entry + listed knowledge_refs"]
+    Item --> Tagged["By tag:<br/>entries filed under the tag + chapters whose roadmap list names it"]
+    Backlog["Backlog Management<br/>(supplier)"] -.-> Tagged
+    Backlog -.-> Named
+    Brain["Second Brain<br/>(supplier)"] -.-> Tagged
+    Brain -.-> Named
+    Named --> Dedup["Merge — reached both ways is counted once,<br/>recorded as held by both threads"]
+    Tagged --> Dedup
+    Dedup --> Total["Total registered effort:<br/>sum of registered story points only"]
+    Dedup --> Unestimated["Count of gathered things that registered no estimate"]
+    Total --> Report["Reported together, side by side"]
+    Unestimated --> Report
+```
+
+- Gathering happens on the **read** path only, by
+  [Roadmap Item Gathering](domain.md#domain-service-roadmap-item-gathering).
+  Nothing is written back — not to the plan, not to an entry, not to a chapter — so
+  an unreachable Backlog Management or Second Brain shrinks a total rather than
+  corrupting a plan.
+- The two threads are merged, not concatenated. A thing linked **and** tagged is
+  one gathered thing, but the result records that it was reached both ways, because
+  a reader about to remove a link needs to know the tag would still hold the work.
+- The total sums **only** registered story points. Nothing is inferred for an
+  unestimated thing; instead the count of unestimated things rides alongside the
+  total, so a total that looks small because work was never sized cannot be
+  mistaken for a total that is small because there is little work.

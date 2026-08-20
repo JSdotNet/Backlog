@@ -4,12 +4,21 @@
     Cross-cutting file-system adapter: the settings, feature flags, knowledge
     folders and roadmap plan that genuinely are files on local disk. The tasks
     themselves live in Backlog.Infrastructure.Sqlite. Implements ports declared by
-    the modules; no module may reference this project except through its own port
-    interfaces.
+    the modules and by the shared kernel; no module may reference this project
+    except through its own port interfaces.
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Infrastructure.FileSystem</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The VS Code launcher decides which installed executable to start by
+         reading PATH and probing the disk. That decision is worth asserting
+         against a fixed fake machine rather than only through whatever VS Code
+         the build agent happens to have, so the resolver and the process seam
+         are internal and this project's own tests see them. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.FileSystem.UnitTests" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />

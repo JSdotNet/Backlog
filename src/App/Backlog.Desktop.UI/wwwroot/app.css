@@ -473,18 +473,6 @@ h1, h2, h3 {
     text-align: left;
 }
 
-.entry-detail__step-input {
-    align-self: flex-start;
-    margin-left: var(--spacing-lg);
-    padding: var(--spacing-2xs) var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-raised);
-    color: var(--color-text-primary);
-    font: inherit;
-    font-size: var(--font-size-sm);
-}
-
 .entry-detail__note {
     min-width: 0;
 }
@@ -492,21 +480,18 @@ h1, h2, h3 {
 /* --- The body's two readings -------------------------------------------- */
 /*
   The steps and the markdown block are two views of one text, so they share a
-  region and only one of them is ever in it. The switch above them is the filter
-  bar's chip shape, because it is the same kind of decision: one of a set, and the
-  chosen one has to be legible at a glance.
+  region and only one of them is ever in it. The switch above them is the shared
+  ButtonGroup strip, so nothing about it is here: the library dresses it, and a
+  strip whose segments touch cannot be handed a gap from outside without breaking
+  the single control it is drawing. It was the filter bar's chip shape, laid out by
+  a rule of this pane's own, until a one-of-many choice became one shape across the
+  product rather than one per screen.
 */
 .entry-detail__body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
     min-width: 0;
-}
-
-.entry-detail__views {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-2xs);
 }
 
 /*
@@ -758,33 +743,6 @@ h1, h2, h3 {
     justify-content: flex-end;
 }
 
-.entry-doc__delete {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    padding: 0;
-    background: transparent;
-    border: var(--border-width) solid transparent;
-    border-radius: var(--border-radius-sm);
-    color: var(--color-text-disabled);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    line-height: 1;
-    transition: color var(--transition-fast), background var(--transition-fast);
-}
-
-.entry-doc__delete:hover {
-    background: var(--color-error);
-    color: var(--color-text-primary);
-}
-
-.entry-doc__delete:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
 /* --- Scheduling and dependency rows -------------------------------------- */
 
 /* TaskActionPane lays the rows out now — one lead row across the top and the
@@ -942,12 +900,6 @@ h1, h2, h3 {
 
 .entry-doc__tag-picker .tag-chip {
     font-size: var(--font-size-xs);
-}
-
-.knowledge-stack__repository {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
 }
 
 /* Narrow enough and the split stops being one: the list stacks above the entry
@@ -1459,6 +1411,45 @@ h1, h2, h3 {
     margin: 0;
     font-size: var(--font-size-xs);
     color: var(--color-text-disabled);
+}
+
+/* Only the reason is marked, not the path it follows: the path is the same fact
+   whichever state the row is in, and colouring the lot would make a working
+   section shout as loudly as a broken one. color-error-text is the one semantic
+   foreground the palette sanctions, and this is what needs it - the found state
+   has no sentence of its own any more, only the badge below. */
+.knowledge-folder__status--error { color: var(--color-error-text); }
+
+/* The badge inside the path field. Round, because the row's own control is a
+   square gold checkbox immediately to the left and the two must not be read as
+   the same kind of thing: this one answers a question, it does not take an
+   instruction. Small and unlabelled for the same reason, and the field's suffix
+   box already refuses pointer events, so a click on it opens the field.
+
+   color-success and color-error are surfaces - color-scheme.md files them that
+   way - so they are worn as the fill with a legible glyph over them rather than
+   painted on the glyph. text-primary on color-success measures 11.9:1 and
+   color-error-text on color-error 7.1:1, both well past 4.5:1, and the glyph
+   differs between the two states as well so the answer survives without colour. */
+.knowledge-folder__marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    line-height: 1;
+}
+
+.knowledge-folder__marker--found {
+    background: var(--color-success);
+    color: var(--color-text-primary);
+}
+
+.knowledge-folder__marker--missing {
+    background: var(--color-error);
+    color: var(--color-error-text);
 }
 
 /* --- Instructions ---------------------------------------------------------- */
@@ -2355,6 +2346,83 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+/* What a roadmap item has already gathered — its linked and tagged backlog
+   entries, its knowledge chapters, and the effort registered against them. A
+   read-only block below the editable fields, drawn quietly because it is context
+   for those fields rather than another one of them. */
+.roadmap-gathered {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--color-border);
+    min-width: min(28rem, 80vw);
+}
+
+.roadmap-gathered__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.roadmap-gathered__group {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-gathered__group-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-secondary);
+}
+
+.roadmap-gathered__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-gathered__item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.roadmap-gathered__title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* "not estimated" said in words, so an entry that registered no number reads as a
+   deliberate absence rather than a zero. */
+.roadmap-gathered__unestimated {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-style: italic;
+}
+
+.roadmap-gathered__effort {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-gathered__effort-total {
+    font-weight: var(--font-weight-semibold);
+}
+
+/* The count the total is not allowed to hide, kept beside it rather than under a
+   fold: unestimated work dropped silently would read as less work than there is. */
+.roadmap-gathered__effort-caveat {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* Choosing which colour each band takes.
 
    A row per repository, its name at one end and the five choices at the other. The
@@ -3063,6 +3131,21 @@ h1, h2, h3 {
     scrollbar-gutter: stable;
 }
 
+/* The Technology header holds a title and one action and nothing else, so it is
+   a row: the shared grid stacked them, which stretched the button across the
+   pane and read as a banner rather than as something to press. The error line
+   below spans both columns, because it belongs to the button, not beside it. */
+.tech-knowledge-pane .knowledge-pane__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--spacing-sm);
+    margin-bottom: 0;
+}
+
+.tech-knowledge-pane .knowledge-pane__header .knowledge-folder-open-error {
+    grid-column: 1 / -1;
+}
+
 .tech-stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3297,6 +3380,7 @@ h1, h2, h3 {
 }
 
 .knowledge-stack__section > .knowledge-pane--arc42,
+.knowledge-stack__section > .instructions-knowledge,
 .knowledge-stack__section > .domain-knowledge {
     display: flex;
     flex-direction: column;
@@ -3328,6 +3412,53 @@ h1, h2, h3 {
     min-height: 0;
     overflow: auto;
     scrollbar-gutter: stable;
+}
+
+/* Instructions hands its scrollbar over the same way, except the file view is
+   the document: asked to fill, it takes the panel's height and scrolls its own
+   body. It used to stop at a fraction of the viewport
+   instead, which made the panel taller than the section that was already
+   scrolling it and put two scrollbars on the same edge. */
+.instructions-knowledge__repository {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.instructions-knowledge .instructions-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* The document list is navigation beside the file, so it scrolls itself rather
+   than growing the panel past the file it sits next to. */
+.instructions-knowledge .instructions-list {
+    min-height: 0;
+    overflow: auto;
+}
+
+/* Stacked, the arrangement above has nothing to stand on: the section stops
+   scrolling and every panel grows with its content, so a panel that clips at the
+   section's height would clip against a height nobody set. Instructions withdraws
+   it and takes its own cap back instead — filling a pane that has no height means
+   the body stretches to the whole file, and then the only thing between a reader
+   and the end of it is a shell that does not scroll.
+
+   Later in the stylesheet than the step it answers, and deliberately: a media
+   query adds no specificity, and the rules above are no less specific than these.
+   Same reason the arc42 and domain rules sit where they do. */
+@media (max-width: 72rem) {
+    .knowledge-stack__section > .instructions-knowledge,
+    .instructions-knowledge__repository {
+        max-height: none;
+        overflow: visible;
+    }
+
+    .instructions-knowledge .file-view__body {
+        max-height: min(72vh, 52rem);
+    }
 }
 
 .knowledge-stack__body {
@@ -3848,24 +3979,6 @@ h1, h2, h3 {
 
 .instruction-doc__content > :last-child {
     margin-bottom: 0;
-}
-
-.instructions-knowledge .knowledge-pane__subtitle {
-    margin-bottom: var(--spacing-sm);
-}
-
-.instructions-knowledge .knowledge-pane__source {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs) var(--spacing-md);
-    margin-bottom: var(--spacing-sm);
-    padding: var(--spacing-sm);
-}
-
-.instructions-knowledge .knowledge-pane__source code {
-    min-width: 0;
-    overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {

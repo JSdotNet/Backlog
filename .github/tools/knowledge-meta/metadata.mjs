@@ -39,7 +39,14 @@ const TECH_KINDS = [
 // Fields every folder's chapter/file block may carry, plus folder-specific
 // extras layered in below. `order` is file-level only (see validateDocument):
 // it declares the reading order of a directory's entries.
-const COMMON_OPTIONAL_FIELDS = ["related", "issue"];
+//
+// `effort` (non-negative integer story points) and `roadmap` (a plain-string
+// list of roadmap item tag slugs) are valid in every folder, at file and
+// chapter level. `roadmap` holds tag slugs, not `<path>#<slug>` references, so
+// — like `aliases`/`alternatives` — it stays a node attribute and produces no
+// graph edges (see graph.mjs REFERENCE_FIELDS).
+const COMMON_OPTIONAL_FIELDS = ["related", "issue", "effort", "roadmap"];
+const ROADMAP_TAG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const FILE_ONLY_FIELDS = ["order"];
 const FOLDER_EXTRA_FIELDS = {
     domain: ["depends-on", "aliases", "feature-flag"],
@@ -259,6 +266,37 @@ export function validateDocument(relPath, markdown) {
                     issues.push({
                         severity: "error",
                         message: `${label} has \`feature-flag\` entry "${key}" — feature flag keys are application identifiers, not \`<path>#<slug>\` chapter references.`,
+                    });
+                }
+            }
+        }
+
+        // A story-point estimate: a non-negative integer scalar, no unit. `0` is
+        // a real estimate and `null`/absent both mean "not estimated", so only a
+        // present, non-null value is checked. Scalars parse as strings here, so
+        // the test is that the text is digits only — `large`, `-3` and `2.5` all
+        // fail it.
+        if (chapter.meta.effort != null) {
+            const effort = chapter.meta.effort;
+            if (typeof effort !== "string" || !/^\d+$/.test(effort)) {
+                issues.push({
+                    severity: "error",
+                    message: `${label} has \`effort\` "${effort}" — effort is a story-point estimate and must be a single non-negative integer.`,
+                });
+            }
+        }
+
+        // Roadmap entries are roadmap item tag slugs, not `<path>#<slug>`
+        // references — like `aliases`/`alternatives`, they name something rather
+        // than address it, so they stay node attributes and produce no edges. A
+        // value that is not a lowercase kebab-case slug is a warning, not an
+        // error: it is still a tag, just a malformed one.
+        if (chapter.meta.roadmap != null) {
+            for (const tag of toList(chapter.meta.roadmap)) {
+                if (!ROADMAP_TAG_PATTERN.test(tag)) {
+                    issues.push({
+                        severity: "warning",
+                        message: `${label} has \`roadmap\` entry "${tag}" — roadmap tags are lowercase kebab-case slugs, not chapter references or free text.`,
                     });
                 }
             }

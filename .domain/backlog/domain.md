@@ -107,6 +107,25 @@ the same spirit as `source_inbox_id` and carries no invariant: a spawned entry
 is a separate aggregate with its own lifecycle, and the entry it came from may
 since have been archived or deleted.
 
+The entry also carries an optional `effort`: a size estimate in **story points**,
+held as a non-negative integer. It is deliberately three-valued at the edges.
+Absent or `null` means "not estimated"; `0` is a real estimate that happens to
+contribute nothing; and a negative number is not an estimate at all and is
+rejected by the model. Story points size the work, they do not measure the time
+spent on it — an entry that took an afternoon and one that took a week can carry
+the same estimate if they were the same size of problem, and the number does not
+change because the clock did.
+
+It is explicitly expected that an AI agent will often derive the estimate from the
+entry's own content rather than a person typing one in, but that changes nothing
+about what it is: derived or hand-set, it stays an estimate and is revised as the
+understanding of the work changes. The deriving itself is not built here — this is
+the point at which the value becomes registrable and visible; calculating it comes
+later, and the model is deliberately indifferent to which of the two put the number
+there. The estimate is Backlog Management's to hold: Roadmap Planning reads and
+totals it (see [Roadmap Item Gathering](../roadmap/domain.md#domain-service-roadmap-item-gathering))
+but never registers or owns it.
+
 ### Entities
 
 #### Sub-Item

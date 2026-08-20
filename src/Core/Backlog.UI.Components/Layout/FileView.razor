@@ -156,6 +156,74 @@
         </div>
     </header>
 
+    @if (ShowFrontmatter && !_frontmatter.IsEmpty)
+    {
+        @* The file's own frontmatter, shown as the facts it is.
+
+           Its own strip under the header rather than another row inside it. The
+           header is two columns that already crowd each other when the pane is
+           narrow, and a sentence describing the whole file is not part of the
+           line that identifies it — the name and the path are what a reader
+           checks before trusting the content, and this is the content telling
+           them what it is for.
+
+           Only when asked. A file whose first lines nobody has offered to read
+           renders exactly as it did before this existed, block for block. *@
+        <div class="file-view__frontmatter" data-testid="@Suffix("frontmatter")">
+            @if (!string.IsNullOrWhiteSpace(_frontmatter.Description))
+            {
+                <p class="file-view__frontmatter-description" data-testid="@Suffix("description")">@_frontmatter.Description</p>
+            }
+
+            @if (_frontmatter.ApplyTo.Count > 0)
+            {
+                @* One badge per glob, and a short label in front of them: a row of
+                   paths with nothing naming it reads as a breadcrumb. *@
+                <div class="file-view__frontmatter-row" data-testid="@Suffix("applies-to")">
+                    <span class="file-view__frontmatter-label">Applies to</span>
+                    @foreach (var glob in _frontmatter.ApplyTo)
+                    {
+                        <Badge Kind="glob">@glob</Badge>
+                    }
+                </div>
+            }
+
+            @if (_frontmatter.Tools.Count > 0)
+            {
+                <div class="file-view__frontmatter-row" data-testid="@Suffix("tools")">
+                    <span class="file-view__frontmatter-label">Tools</span>
+                    @foreach (var tool in _frontmatter.Tools)
+                    {
+                        <Badge Kind="tool">@tool</Badge>
+                    }
+                </div>
+            }
+
+            @* Everything else the block states, as its own key and its own words,
+               in the order the file wrote them.
+
+               The alternative is what this used to do: draw the three keys it
+               recognises and take the rest out of the body along with them. A
+               `name` on a skill file and a `mode` on a prompt then left the file
+               without being shown anywhere, and the author of that line had no way
+               to tell whether the file or the viewer had lost it. So the rule is
+               the strip never hides what it does not show — which makes the
+               unrecognised key a row rather than a reason to keep the noise.
+
+               No badge and no second visual language for them: the label is the
+               key as the file spells it and the value is text, in the same row the
+               two lists above use. A badge says "one of a set", and a key nothing
+               here recognises is not known to be one of anything. *@
+            @foreach (var field in _frontmatter.Other)
+            {
+                <div class="file-view__frontmatter-row" data-testid="@Suffix($"field-{field.Key.ToLowerInvariant()}")">
+                    <span class="file-view__frontmatter-label">@field.Label</span>
+                    <span class="file-view__frontmatter-value">@field.Text</span>
+                </div>
+            }
+        </div>
+    }
+
     @* A scroll container is an interactive element even though it is a div:
        without tabindex a keyboard user cannot reach the overflow in Chromium at
        all (.design/accessibility.md, "Non-native controls"). role + name keep it
@@ -215,7 +283,7 @@
                chapter's diagrams used to appear below the file that contained
                them. *@
             <MarkdownView Blocks="_blocks"
-                          Source="@Body"
+                          Source="@_bodyMarkdown"
                           AllowChapterCopy="@AllowChapterCopy"
                           RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
                           RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
@@ -416,6 +484,38 @@
     [Parameter]
     public bool ShowDiagramSource { get; set; } = true;
 
+    /// <summary>
+    /// Whether the file's leading YAML frontmatter is drawn as a strip under the
+    /// header: what the file says it is about, the globs and tools it names, and
+    /// every other key it states as a plain row.
+    /// <para>
+    /// Off by default, like every other reading of the file's own text here. With
+    /// it on, the body is given the text <em>without</em> the block, so a reader
+    /// is not shown the same lines twice — once as facts and once as the divider
+    /// and run-together paragraph markdown makes of them. Every key is drawn,
+    /// which is what makes that removal safe: nothing leaves the body that the
+    /// strip does not show. A block that states nothing is drawn as nothing and
+    /// left in the body exactly as it was. A body the host supplies is never
+    /// touched; see <see cref="FrontmatterSource"/>.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool ShowFrontmatter { get; set; }
+
+    /// <summary>
+    /// Which text the frontmatter is read from. Null — the default — reads
+    /// <see cref="Body"/>, which is the answer whenever this component is
+    /// rendering the body itself.
+    /// <para>
+    /// It exists for the host that supplies <see cref="BodyContent"/>: the body is
+    /// then the host's, <see cref="Body"/> is null, and the file's text is still
+    /// something the host knows. Handing it in here says what the file is about
+    /// without making this component responsible for what the host is drawing.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? FrontmatterSource { get; set; }
+
     /// <summary>Which knowledge folder the file was read from, so a status can be
     /// checked against that folder's vocabulary.</summary>
     [Parameter]
@@ -501,6 +601,21 @@
     private string? _parsedBody;
     private bool _parsed;
 
+    // The text the read view is actually given: the body, or the body without the
+    // frontmatter the strip above it is showing. Held beside the blocks because
+    // it is what they were parsed from — the chapter copies slice this string by
+    // the offsets those blocks carry, so handing the view the other text would
+    // copy the wrong lines.
+    private string? _bodyMarkdown;
+    private bool _parsedFrontmatterShown;
+    private string? _parsedFrontmatterSource;
+
+    // The frontmatter, read when the text it comes from changes. A file's first
+    // four lines do not move because a fold opened somewhere in the pane.
+    private MarkdownFrontmatter _frontmatter = MarkdownFrontmatter.None;
+    private string? _readFrontmatterFrom;
+    private bool _readFrontmatter;
+
     // The comparison, held rather than derived, for the reason the blocks below
     // are: aligning two documents by heading walks both of them, and a pane
     // re-renders every time a fold in it opens.
@@ -511,8 +626,32 @@
 
     protected override void OnParametersSet()
     {
+        ReadFrontmatter();
         ParseBody();
         ParseComparison();
+    }
+
+    /// <summary>
+    /// The file's frontmatter, when a host asked for it. Nothing is read at all
+    /// otherwise: a caller that does not want the strip should not pay for the
+    /// reading of it, and a file that has no frontmatter is most files.
+    /// </summary>
+    private void ReadFrontmatter()
+    {
+        if (!ShowFrontmatter)
+        {
+            _frontmatter = MarkdownFrontmatter.None;
+            _readFrontmatterFrom = null;
+            _readFrontmatter = false;
+            return;
+        }
+
+        var text = FrontmatterSource ?? Body;
+        if (_readFrontmatter && _readFrontmatterFrom == text) return;
+
+        _frontmatter = MarkdownFrontmatter.Read(text);
+        _readFrontmatterFrom = text;
+        _readFrontmatter = true;
     }
 
     private void ParseBody()
@@ -533,18 +672,46 @@
         {
             _blocks = [];
             _parsedBody = null;
+            _bodyMarkdown = null;
+            _parsedFrontmatterSource = null;
             _parsed = false;
             return;
         }
 
-        if (_parsed && _parsedBody == Body) return;
+        if (_parsed
+            && _parsedBody == Body
+            && _parsedFrontmatterShown == ShowFrontmatter
+            && _parsedFrontmatterSource == FrontmatterSource) return;
+
+        // The strip above is showing the frontmatter, so the body is not: read as
+        // markdown those lines are a divider and a run-together paragraph of
+        // `key: value`, and a reader would meet the same facts twice, the second
+        // time as noise. Only the file this component is rendering itself — a
+        // supplied body never reaches here, and a host's buffer is what gets
+        // written back.
+        //
+        // The strip's own reading, not a second one, so the two cannot disagree:
+        // the record hands back the text unchanged whenever it has nothing to
+        // show, which is what makes "nothing is hidden that is not shown" hold
+        // for every block, including one written entirely in keys the strip draws
+        // as plain rows.
+        //
+        // A host that named a different text is the one case where they can come
+        // apart, and there the body keeps everything: the strip is then describing
+        // something other than what is on screen here, and lines taken out on the
+        // strength of that would be hidden by a strip that never showed them.
+        _bodyMarkdown = ShowFrontmatter && (FrontmatterSource is null || FrontmatterSource == Body)
+            ? _frontmatter.Body
+            : Body;
 
         // ParseDocument, not Parse: in a file a `##` is a heading, not a
         // sub-item the host will lay out elsewhere. Parse would fold everything
         // from the first `##` down into an MdSubItem that MarkdownView renders
         // nothing for, which is most of any real file.
-        _blocks = MarkdownPreview.ParseDocument(Body);
+        _blocks = MarkdownPreview.ParseDocument(_bodyMarkdown);
         _parsedBody = Body;
+        _parsedFrontmatterShown = ShowFrontmatter;
+        _parsedFrontmatterSource = FrontmatterSource;
         _parsed = true;
     }
 

@@ -45,6 +45,12 @@ public sealed record RoadmapPlanDto(
 /// one. May dangle: an entry can be deleted while the plan still intends the
 /// work.</param>
 /// <param name="DependsOn">The nodes — items or milestones — this waits for.</param>
+/// <param name="Tag">The slug this item is known by wherever tags are used — the
+/// backlog item tag list, and a <c>roadmap:</c> field in a knowledge chapter's
+/// <c>meta</c> block. Always present: derived from the title when the item was first
+/// given none, and left alone by a rename.</param>
+/// <param name="KnowledgeRefs">The knowledge chapters this item points at, as opaque
+/// references that may dangle. Empty means it points at none.</param>
 public sealed record RoadmapItemDto(
     Guid Id,
     string Title,
@@ -55,10 +61,15 @@ public sealed record RoadmapItemDto(
     string? Lane,
     Guid? BacklogEntryId,
     IReadOnlyList<Guid> DependsOn,
-    string? Notes = null)
+    string? Notes = null,
+    string Tag = "",
+    IReadOnlyList<string>? KnowledgeRefs = null)
 {
     /// <summary>How many days it covers, counting both ends.</summary>
     public int Days => End.DayNumber - Start.DayNumber + 1;
+
+    /// <summary>The knowledge chapters this item points at, never null.</summary>
+    public IReadOnlyList<string> Knowledge => KnowledgeRefs ?? [];
 }
 
 /// <summary>

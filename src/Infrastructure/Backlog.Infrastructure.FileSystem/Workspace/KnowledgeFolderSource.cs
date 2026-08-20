@@ -8,15 +8,16 @@ namespace Backlog.Infrastructure.FileSystem;
 /// knowledge uses the GitHub repository settings; the global view uses the
 /// workspace settings.
 /// <para>
-/// This is the join, and it lives here on purpose. <c>.backlog</c> is one of
-/// these configured folders, so Backlog Management resolves its
-/// repository-authored entries through the same lookup Second Brain uses for
-/// <c>.domain</c> or <c>.arc42</c> — and answering that question needs both the
-/// repository settings and the workspace root. Neither context may see the
-/// other; an adapter may see both, which is what an adapter is for. Both module
-/// ports are served from this one engine so the resolution rules exist once:
-/// Second Brain takes it as <see cref="IKnowledgeFolderSource"/>, Backlog
-/// Management through <see cref="WorkspaceBacklogStore"/>.
+/// This is the join, and it lives here on purpose. Answering "where does this
+/// folder live?" needs both the repository settings and the workspace root, and
+/// neither context may see the other; an adapter may see both, which is what an
+/// adapter is for. Two module ports are served from this one engine so the
+/// resolution rules exist once: Second Brain takes it as
+/// <see cref="IKnowledgeFolderSource"/>, Backlog Management through
+/// <see cref="WorkspaceBacklogStore"/> — which asks only for the storage root,
+/// because <c>.backlog</c> is not a knowledge folder. Backlog Management keeps
+/// its entries in the workspace, not in a configured section of somebody's
+/// repository.
 /// </para>
 /// </summary>
 public sealed class KnowledgeFolderSource : IKnowledgeFolderSource

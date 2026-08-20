@@ -21,7 +21,9 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         PlanningPriority priority = PlanningPriority.Medium,
         string[]? repositories = null,
         string? lane = null,
-        string? notes = null) =>
+        string? notes = null,
+        string? tag = null,
+        string[]? knowledge = null) =>
         new(
             itemId,
             title,
@@ -31,7 +33,9 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
             repositories ?? [],
             lane,
             null,
-            notes);
+            notes,
+            tag,
+            knowledge);
 
     private static RoadmapItemEditor Editor(IRenderedComponent<RoadmapBand> band) =>
         band.FindComponent<RoadmapItemEditor>().Instance;
@@ -79,7 +83,9 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
             priority: PlanningPriority.High,
             repositories: ["backlog"],
             lane: "platform",
-            notes: "A note")));
+            notes: "A note",
+            tag: "sync",
+            knowledge: [".domain/backlog/domain.md#aggregate-backlog-entry"])));
 
         var item = Assert.Single((await Planning.GetPlanAsync()).Items);
 
@@ -90,10 +96,56 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         Assert.Equal(["backlog"], item.RepositoryAliases);
         Assert.Equal("platform", item.Lane);
         Assert.Equal("A note", item.Notes);
+        Assert.Equal("sync", item.Tag);
+        Assert.Equal([".domain/backlog/domain.md#aggregate-backlog-entry"], item.Knowledge);
 
         // Accepted, so the dialog is gone and the new work is on the chart.
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
         Assert.Contains("Typed into the dialog", band.Markup);
+    }
+
+    [Fact]
+    public async Task AddingWithNoTag_DerivesOneFromTheTitle()
+    {
+        using var context = Context();
+        var band = context.Render<RoadmapBand>();
+        Open(band, "roadmap-band-add", "roadmap-editor");
+
+        await band.InvokeAsync(() => Editor(band).OnSave.InvokeAsync(Submission(title: "Extract the sync service")));
+
+        var item = Assert.Single((await Planning.GetPlanAsync()).Items);
+        Assert.Equal("extract-the-sync-service", item.Tag);
+    }
+
+    [Fact]
+    public async Task TheEditorRoundTripsTagAndKnowledgeOnAnExistingItem()
+    {
+        var added = await Planning.AddItemAsync(
+            "Before",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            tag: "original",
+            knowledgeRefs: ["a.md"]);
+
+        using var context = Context();
+        var band = Drawn(context);
+        await Activate(band, added.Value.Id);
+
+        // The editor loaded the stored tag and knowledge, and hands them back on save.
+        Assert.Equal("original", Editor(band).Item?.Tag);
+        Assert.Equal(["a.md"], Editor(band).Item?.Knowledge);
+
+        await band.InvokeAsync(() => Editor(band).OnSave.InvokeAsync(Submission(
+            itemId: added.Value.Id,
+            title: "After",
+            tag: "retagged",
+            knowledge: ["a.md", "b.md#section"])));
+
+        var item = Assert.Single((await Planning.GetPlanAsync()).Items);
+
+        Assert.Equal(added.Value.Id, item.Id);
+        Assert.Equal("retagged", item.Tag);
+        Assert.Equal(["a.md", "b.md#section"], item.Knowledge);
     }
 
     [Fact]

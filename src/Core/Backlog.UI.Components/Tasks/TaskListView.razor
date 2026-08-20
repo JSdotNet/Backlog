@@ -19,6 +19,17 @@
     row having moved, which is no answer at all to somebody who cannot see the
     list, so each move announces the position it landed in.
 
+    A row can also be deleted, and only where a host says so: OnDelete is what puts
+    a bin on the rows, and a list of entries whose delete lives in the pane beside it
+    passes none, so its rows have none to press by accident. The delete
+    itself is the host's — the list reports the id and applies nothing — but the two
+    things that follow from a row disappearing are the list's, because a row cannot
+    see the rows around it and cannot know what will be standing where it was. It
+    says out loud that the row has gone and how much is left, through the same live
+    region a move uses, and it puts the focus on the row that slid up into the gap.
+    Without that second half the focused element simply ceases to exist and the ring
+    lands on the document body.
+
     When rows name the ids they wait on, the list works out what that comes to
     and draws it: which rows are blocked, what each of them is waiting for, which
     ones could be started, and which one of those to pick up next. In a linear
@@ -181,9 +192,36 @@
     /// <summary>What to say about the last keyboard move, if there was one.</summary>
     private string? _announcement;
 
-    /// <summary>The row element to put the focus back on once the host has
-    /// applied a keyboard move, or null when nothing is waiting for it.</summary>
-    private string? _focusAfterMove;
+    /// <summary>The element to put the focus on once the host has applied a change
+    /// that took the focused one away — a keyboard move, or a delete. Null when
+    /// nothing is owed it. Named rather than held, because after the re-render the
+    /// element is a different node.</summary>
+    private string? _focusAfterChange;
+
+    /// <summary>
+    /// Where a row was just deleted from, as a position in the section it was in,
+    /// or null when nothing has been deleted.
+    /// <para>
+    /// A position and not an element id, which is the whole trick: the id of the row
+    /// that will end up there is not knowable before the host has applied the
+    /// delete. Task ids are the host's, and a list whose ids are positions — the
+    /// desktop pane's steps, where a step's id <em>is</em> its index — renumbers
+    /// every row after the one that went. So the position is remembered and turned
+    /// into an id afterwards, against the rows as they then stand.
+    /// </para>
+    /// <para>
+    /// Already adjusted for what is going to happen: the index of the row that
+    /// slides up into the gap, or the row above when nothing was below, or -1 when
+    /// the section is about to be empty.
+    /// </para>
+    /// </summary>
+    private int? _deletedAt;
+
+    /// <summary>Which of the two lists the deleted row was in, because the position
+    /// above is a position in that one. A completed row is deleted from the section
+    /// at the bottom, where the row that slides up is the next finished one rather
+    /// than the next open one.</summary>
+    private bool _deletedFromCompleted;
 
     /// <summary>
     /// Distinguishes this list's row ids from another list's.
@@ -237,9 +275,18 @@
     /// A view of the list, never a change to it. TaskChain reads the rows and
     /// returns statuses; nothing is written back, so the host's list is the same
     /// object it handed over.
+    /// <para>
+    /// It is also where a pending delete's focus is turned into an element, because
+    /// this is the moment the host's answer arrives: parameters are re-supplied when
+    /// the list around it has been re-rendered, which for a delete means the row has
+    /// gone. Doing it after the render instead would be one hook too late — the
+    /// batch is already applied by then and the id has to be known to ask for.
+    /// </para>
     /// </summary>
     protected override void OnParametersSet()
     {
+        ResolveDeleteFocus();
+
         var statuses = new Dictionary<string, TaskChainStatus>(StringComparer.Ordinal);
         _nextId = null;
 
@@ -285,6 +332,7 @@
                    Editing="@(QuickEdit && string.Equals(_editingId, task.Id, StringComparison.Ordinal))"
                    EditingChanged="editing => SetEditing(task.Id, editing)"
                    OnEditMove="MoveEdit"
+                   OnDelete="@DeleteRequest"
                    AllowCopy="@AllowCopy"
                    BodyLabel="@BodyLabel"
                    Status="@StatusOf(task)"
@@ -381,6 +429,27 @@
     /// </summary>
     [Parameter]
     public bool QuickEdit { get; set; }
+
+    /// <summary>
+    /// A row the reader asked to be rid of, by id. What deleting means is the
+    /// host's, on the terms <see cref="OnRename"/> and <see cref="OnReorder"/>
+    /// already set: the list says what happened and applies nothing.
+    /// <para>
+    /// It is also what puts a bin on the rows at all. Unsupplied there is no
+    /// control on any of them, which is the point of asking the host rather than
+    /// the row: one list of these is a document's chapters, where a row is a piece
+    /// of text somebody can cut, and the next is a list of entries whose delete
+    /// belongs to the pane that opens one — and only the host knows which it is
+    /// drawing.
+    /// </para>
+    /// <para>
+    /// What the list keeps for itself is the two things a row cannot know: what to
+    /// say about a row that has vanished, and where the focus goes once it has. See
+    /// <see cref="DeleteAsync"/>.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnDelete { get; set; }
 
     /// <summary>Straight through to every row, exactly like OnRename: whether a
     /// body can be edited is one answer for the whole list, and a list that
@@ -523,6 +592,129 @@
     private TaskChainStatus? StatusOf(TaskRow task) =>
         _statuses.TryGetValue(task.Id, out var status) ? status : null;
 
+    /// <summary>Which rows get a bin: all of them, or none. Shaped like
+    /// <see cref="TabForwardFor"/> — an empty callback rather than a method group —
+    /// so a row asked <c>HasDelegate</c> answers for the host rather than for this
+    /// wrapper, and a list with no <see cref="OnDelete"/> draws no bins at all.</summary>
+    private EventCallback<string> DeleteRequest =>
+        OnDelete.HasDelegate ? EventCallback.Factory.Create<string>(this, DeleteAsync) : default;
+
+    /// <summary>
+    /// A row the reader asked to be rid of. Reported, never applied — the host owns
+    /// the list, exactly as it does for a move.
+    /// <para>
+    /// What is kept here is the two things the row cannot answer. The first is what
+    /// to say: a row that has gone is invisible to a screen reader, whose only clue
+    /// otherwise is that one of the things it had been reading is not there any
+    /// more, so the deletion and how much is left are announced through the same
+    /// live region a keyboard move uses.
+    /// </para>
+    /// <para>
+    /// The second is where the focus goes, and it has to be settled here because the
+    /// element holding it is about to be removed from the document. The rule is: the
+    /// row that slides up into the gap, or the row above when nothing was below it,
+    /// or the add row when the section is about to be empty — see
+    /// <see cref="ResolveDeleteFocus"/> for the last resorts after that. Anything
+    /// else drops the ring on the document body and a reader on the keyboard has to
+    /// tab in from the top of the page.
+    /// </para>
+    /// <para>
+    /// A row this list is not showing is still reported and nothing else is: the
+    /// announcement and the focus are both about a position, and there is no
+    /// position for a row that was not on screen. It should not happen — the bin is
+    /// rendered by the rows — and dropping the delete instead would be the list
+    /// declining to pass on a press the reader definitely made.
+    /// </para>
+    /// </summary>
+    private async Task DeleteAsync(string id)
+    {
+        var rows = Open;
+        var from = IndexOf(rows, id);
+        var completed = false;
+
+        if (from < 0)
+        {
+            rows = Completed;
+            from = IndexOf(rows, id);
+            completed = true;
+        }
+
+        if (from < 0)
+        {
+            await OnDelete.InvokeAsync(id);
+            return;
+        }
+
+        var left = rows.Count - 1;
+
+        _announcement = left == 0
+            ? $"Deleted {rows[from].Title}. The list is empty."
+            : $"Deleted {rows[from].Title}. {left} remaining.";
+
+        // The row that will be standing where this one is, or the one above it, or
+        // nothing at all. Worked out now because this is the last moment the list
+        // still holds the row the reader pressed.
+        _deletedAt = from < rows.Count - 1 ? from : from - 1;
+        _deletedFromCompleted = completed;
+
+        await OnDelete.InvokeAsync(id);
+    }
+
+    /// <summary>
+    /// Turns the position a row was deleted from into the element that now has to
+    /// take the focus.
+    /// <para>
+    /// Resolved once and then forgotten, whatever the host did with the delete. A
+    /// request that waited for the row to actually disappear would outlive a host
+    /// that declined it and fire the ring at some unrelated later render — so one
+    /// parameter set is all it gets, which is exactly one more than the host needs.
+    /// </para>
+    /// <para>
+    /// The last resorts, once the section the row was in has nothing left in it: the
+    /// add row, because it is the one control still on screen the reader can do
+    /// something with — including typing the row back — and failing that the last
+    /// open row, which is the nearest thing above where the deleted one was. A list
+    /// with neither is a list with nothing in it to hold a focus ring.
+    /// </para>
+    /// </summary>
+    private void ResolveDeleteFocus()
+    {
+        if (_deletedAt is not { } index) return;
+
+        _deletedAt = null;
+
+        var rows = _deletedFromCompleted ? Completed : Open;
+
+        if (index >= 0 && rows.Count > 0)
+        {
+            _focusAfterChange = RowElementId(rows[Math.Min(index, rows.Count - 1)]);
+            return;
+        }
+
+        if (CanAdd)
+        {
+            _focusAdd = true;
+            return;
+        }
+
+        var open = Open;
+
+        if (open.Count > 0) _focusAfterChange = RowElementId(open[^1]);
+    }
+
+    /// <summary>Where a task is in a list of them, or -1. One answer in one place:
+    /// the chain, the keyboard move and a delete all need it, and three loops would
+    /// be three chances to compare ids differently.</summary>
+    private static int IndexOf(IReadOnlyList<TaskRow> rows, string id)
+    {
+        for (var index = 0; index < rows.Count; index++)
+        {
+            if (string.Equals(rows[index].Id, id, StringComparison.Ordinal)) return index;
+        }
+
+        return -1;
+    }
+
     /// <summary>
     /// Which row has the editor, as the row itself reports it. Told rather than
     /// decided, because the row is where a rename is opened and closed.
@@ -569,7 +761,7 @@
     private void MoveEdit(TaskEditMove move)
     {
         var rows = Open;
-        var from = rows.ToList().FindIndex(row => string.Equals(row.Id, move.Id, StringComparison.Ordinal));
+        var from = IndexOf(rows, move.Id);
 
         // Not in the chain at all: a finished row, renamed from the section at the
         // bottom, or a row the host has taken away from under the edit.
@@ -619,7 +811,9 @@
     /// and for the same reason: once the host has applied the move the row is a
     /// different element, so the ring has gone and the next press would move
     /// whatever slid into the old slot. An id is the only thing that survives the
-    /// re-render.
+    /// re-render. A delete arrives here through the same field — see
+    /// <see cref="ResolveDeleteFocus"/>, which names the element while the batch that
+    /// removed the old one is being prepared.
     /// </para>
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -638,9 +832,9 @@
             await QuickEditField.FocusAsync(Js, _addFieldId);
         }
 
-        if (_focusAfterMove is not { } target) return;
+        if (_focusAfterChange is not { } target) return;
 
-        _focusAfterMove = null;
+        _focusAfterChange = null;
 
         try
         {
@@ -873,15 +1067,7 @@
     private async Task MoveByKeyboardAsync(TaskRow task, int delta)
     {
         var order = Open;
-
-        var from = -1;
-        for (var index = 0; index < order.Count; index++)
-        {
-            if (!string.Equals(order[index].Id, task.Id, StringComparison.Ordinal)) continue;
-
-            from = index;
-            break;
-        }
+        var from = IndexOf(order, task.Id);
 
         if (from < 0) return;
 
@@ -889,7 +1075,7 @@
         if (to < 0 || to >= order.Count) return;
 
         _announcement = $"Moved {task.Title} to {to + 1} of {order.Count}.";
-        _focusAfterMove = RowElementId(task);
+        _focusAfterChange = RowElementId(task);
 
         await OnReorder.InvokeAsync(new TaskMove(task.Id, order[to].Id));
     }

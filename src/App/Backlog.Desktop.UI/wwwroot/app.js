@@ -158,7 +158,7 @@ function backlogTechnologyExplorerModel(graph) {
                 groups: backlogTechnologyExplorerGroups(backlogTechnologyCloudGroups(nodes))
             }
         ],
-        defaultViewId: 'roadmap',
+        defaultViewId: 'cloud',
         legend: [
             { key: 'candidate', label: 'candidate', color: '#f59e0b' },
             { key: 'trial', label: 'trial', color: '#38bdf8' },

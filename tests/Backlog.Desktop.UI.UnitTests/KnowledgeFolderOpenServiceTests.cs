@@ -21,15 +21,15 @@ public sealed class KnowledgeFolderOpenServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Opens_backlog_root_folder()
+    public async Task Opens_area_root_folder()
     {
         var repo = TempDir();
-        var target = Path.Combine(repo, ".backlog");
+        var target = Path.Combine(repo, ".domain");
         Directory.CreateDirectory(target);
         var launcher = new RecordingFolderEditorLauncher();
         var service = new KnowledgeFolderOpenService(new KnowledgeFolderSource(NewSettingsStore(repo)), launcher);
 
-        await service.OpenAsync("backlog", ".backlog");
+        await service.OpenAsync("domain", ".domain");
 
         Assert.Equal(Path.GetFullPath(target), launcher.OpenedFolder);
     }
@@ -56,6 +56,31 @@ public sealed class KnowledgeFolderOpenServiceTests : IDisposable
         var service = new KnowledgeFolderOpenService(new KnowledgeFolderSource(NewSettingsStore(repo)), new RecordingFolderEditorLauncher());
 
         await Assert.ThrowsAsync<KnowledgeFolderOpenException>(() => service.OpenAsync("domain", "../outside"));
+    }
+
+    /// <summary>
+    /// The launcher lives in the file-system adapter and knows nothing about
+    /// knowledge, so it fails with the neutral <see cref="FolderEditorLaunchException"/>.
+    /// The panes catch one type, so this service is the translation point — and a
+    /// translation that reworded the message would change what the user reads
+    /// about a VS Code that is not installed, which is the whole point of that
+    /// message. So: same text, original kept as the cause.
+    /// </summary>
+    [Fact]
+    public async Task Reports_a_launcher_failure_as_a_knowledge_failure_without_rewording_it()
+    {
+        const string launcherMessage = "Couldn't open VS Code. Install the 'code' command.";
+        var repo = TempDir();
+        Directory.CreateDirectory(Path.Combine(repo, ".domain"));
+        var failure = new FolderEditorLaunchException(launcherMessage);
+        var service = new KnowledgeFolderOpenService(
+            new KnowledgeFolderSource(NewSettingsStore(repo)),
+            new ThrowingFolderEditorLauncher(failure));
+
+        var error = await Assert.ThrowsAsync<KnowledgeFolderOpenException>(() => service.OpenAsync("domain", ".domain"));
+
+        Assert.Equal(launcherMessage, error.Message);
+        Assert.Same(failure, error.InnerException);
     }
 
     public void Dispose()
@@ -93,5 +118,11 @@ public sealed class KnowledgeFolderOpenServiceTests : IDisposable
             OpenedFolder = folderPath;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class ThrowingFolderEditorLauncher(FolderEditorLaunchException failure) : IFolderEditorLauncher
+    {
+        public Task OpenFolderAsync(string folderPath, CancellationToken cancellationToken = default) =>
+            throw failure;
     }
 }

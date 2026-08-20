@@ -3,19 +3,16 @@
 @inject IKnowledgeFolderSource Folders
 
 @*
-    The eyebrow and the title are gone: the tab strip says Instructions and the
-    knowledge menu heads its column with it, so a third copy here named the
-    section to a reader who had just picked it. The name survives as this
-    region's label for a screen reader (.design/accessibility.md, "Names &
-    roles"). The subtitle stays — it says which agents' guidance this collects,
-    which is the one thing nothing else on the screen answers.
+    The eyebrow, the title and the subtitle are all gone. The tab strip says
+    Instructions and the knowledge menu heads its column with it, so a third copy
+    here named the section to a reader who had just picked it — and the sentence
+    under it described the collection rather than anything in it, which is a thing
+    to read once and then re-read on every file you open. The tree beside this
+    panel shows the same three roots the sentence listed. The name survives as this
+    region's label for a screen reader (.design/accessibility.md, "Names & roles").
 *@
 
 <aside class="knowledge-pane instructions-knowledge" data-testid="instructions-knowledge-panel" aria-label="Instructions knowledge">
-    <p class="knowledge-pane__subtitle">
-        Agent guidance from GitHub Copilot, Claude Code, and shared <code>AGENTS.md</code> files in the current repository or storage folder.
-    </p>
-
     @if (!_repositories.Any())
     {
         <EmptyState BaseClass="knowledge-empty"
@@ -33,20 +30,13 @@
     {
         @if (ActiveRepository is { } activeRepository)
         {
-            <section data-testid="instructions-repository" aria-label="@($"{activeRepository.Repository.FullName} instructions")">
-                @* The repository's name is the pane's line above the tabs; this
-                   line is about where its clone sits, which the pane does not say. *@
-                <div class="knowledge-pane__source">
-                    @if (activeRepository.LocalRoot is null)
-                    {
-                        <span>No local clone directory configured.</span>
-                    }
-                    else
-                    {
-                        <code>@activeRepository.LocalRoot</code>
-                    }
-                </div>
-
+            @* No clone-directory line. The file view below says which file is
+               open and where it sits, so a boxed repeat of the directory above it
+               said the same thing again and took a row of the pane's height to do
+               it. Nothing is lost when there is nothing to read either: discovery
+               puts the reason in the record's message, and the empty state below
+               is what shows it. *@
+            <section class="instructions-knowledge__repository" data-testid="instructions-repository" aria-label="@($"{activeRepository.Repository.FullName} instructions")">
                 @if (activeRepository.Message is not null && SelectedDocument is null)
                 {
                     <EmptyState BaseClass="knowledge-empty"
@@ -93,14 +83,31 @@
                                body: the discovery record read every instruction file in
                                the clone. So there is no BodyContent for it, and the file
                                view reads the record's own text the way it reads any file
-                               nobody can write. *@
+                               nobody can write.
+
+                               ShowFrontmatter because this is the area whose files carry
+                               one: an instruction file states what it is about and which
+                               paths it governs in four lines above its first heading, and
+                               those are the two facts a reader opens it for. Read as
+                               markdown they were a divider and a paragraph of
+                               `key: value` above the prose.
+
+                               The source is named rather than left to default, because
+                               half the time there is no Body to default to: a chapter
+                               this may write renders through the editor below, and the
+                               text then lives on the chapter pair. Which is also the
+                               text to read it from — discovery built the list by reading
+                               every instruction file in the clone, and a file that
+                               changed after that would describe itself as it used to. *@
                             <FileView Name="@selectedDocument.Title"
                                       Source="@selectedDocument.Agent"
                                       Kind="@selectedDocument.Scope"
                                       SizeInBytes="@selectedDocument.SizeBytes"
                                       Path="@selectedDocument.RelativePath"
                                       Body="@(_chapter.Chapter is null ? selectedDocument.Content : null)"
-                                      MaxHeight="min(72vh, 52rem)"
+                                      ShowFrontmatter="true"
+                                      FrontmatterSource="@(_chapter.Chapter is null ? selectedDocument.Content : _chapter.Text)"
+                                      Fill="true"
                                       TestId="instructions-document"
                                       BodyContent="@(_chapter.Chapter is null ? null : ChapterEditor())" />
                         }
@@ -213,9 +220,17 @@
     /// gives its path, and repeating the path on the document bar is the thing this
     /// panel was reported for.
     /// </para>
+    /// <para>
+    /// HideFrontmatter for the same reason the buffer keeps it: what is on screen
+    /// is what is on disk, and the frontmatter is on screen — as the strip under
+    /// the header, drawn from this same text. Rendering it again in the read view
+    /// directly below would say it twice, once as facts and once as the divider
+    /// and paragraph markdown makes of it. The buffer is untouched.
+    /// </para>
     /// </summary>
     private RenderFragment ChapterEditor() => @<KnowledgeChapterEditor Chapter="@_chapter.Chapter"
                                                                        InitialText="@_chapter.Text"
+                                                                       HideFrontmatter="true"
                                                                        OnSaved="OnChapterSavedAsync" />;
 
     private GitHubRepositoryRef StorageInstructionRepository() => new("storage", "Storage", "Folder")

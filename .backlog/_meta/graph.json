@@ -99,7 +99,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "aggregate-roadmap-plan",
           "level": 2,
-          "line": 34,
+          "line": 37,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aggregate-backlog-entry",
@@ -146,7 +146,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "feature-roadmap-planning",
           "level": 2,
-          "line": 324,
+          "line": 376,
           "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#feature-refinement-and-prioritization"

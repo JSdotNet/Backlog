@@ -209,3 +209,67 @@ public class ValueObjectTests
         Assert.Equal(new UsageEvent(ts, "copy"), new UsageEvent(ts, "copy"));
     }
 }
+
+/// <summary>
+/// The story-point estimate on an entry. It is optional, non-negative, and keeps
+/// zero apart from "not estimated" — which is the whole reason it is nullable and
+/// not a plain <c>int</c> defaulting to zero.
+/// </summary>
+public class TaskItemEffortTests
+{
+    private static TaskItem NewEntry() =>
+        new("Size the work", "body", EntryType.Task);
+
+    [Fact]
+    public void Effort_DefaultsToNull()
+    {
+        Assert.Null(NewEntry().Effort);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(5)]
+    [InlineData(21)]
+    [InlineData(1000)]
+    public void SetEffort_HoldsAnyNonNegativeValue(int points)
+    {
+        var entry = NewEntry();
+
+        entry.SetEffort(points);
+
+        Assert.Equal(points, entry.Effort);
+    }
+
+    [Fact]
+    public void SetEffort_Zero_IsDistinctFromNull()
+    {
+        var entry = NewEntry();
+
+        entry.SetEffort(0);
+
+        Assert.Equal(0, entry.Effort);
+        Assert.NotNull(entry.Effort);
+    }
+
+    [Fact]
+    public void SetEffort_Null_ClearsAnEstimate()
+    {
+        var entry = NewEntry();
+        entry.SetEffort(8);
+
+        entry.SetEffort(null);
+
+        Assert.Null(entry.Effort);
+    }
+
+    [Fact]
+    public void SetEffort_Negative_IsRefusedAndLeavesTheValueUnchanged()
+    {
+        var entry = NewEntry();
+        entry.SetEffort(3);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => entry.SetEffort(-1));
+        Assert.Equal(3, entry.Effort);
+    }
+}
+

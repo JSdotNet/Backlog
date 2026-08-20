@@ -48,6 +48,13 @@ screen's classes. It almost always can:
 Between them, a component can usually emit the exact markup the screen was
 hand-rolling — same element, same classes, no stylesheet change.
 
+Classes are the usual obstacle, but not the only one: sometimes the screen needs
+to put something *inside* the component and there is nowhere for it to go. That
+is a content slot rather than a class hook — `TextField`'s `Suffix`, which the
+repository settings screen fills with the marker saying whether a knowledge
+folder is really there — and it is added the same way, on the component, so that
+one field can grow a trailing adornment without a second input existing.
+
 **If it genuinely cannot, add the hook to the library.** A new parameter on one
 component is a smaller change than a second implementation, and it is the change
 that leaves the storybook telling the truth. Adding a hook means the storybook

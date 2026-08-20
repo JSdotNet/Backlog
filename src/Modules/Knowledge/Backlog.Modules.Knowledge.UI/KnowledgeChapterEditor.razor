@@ -32,6 +32,7 @@
                       Title="@Title"
                       CanEdit="@(!Bare && Chapter is not null)"
                       AllowCopy="@(!Bare)"
+                      HideFrontmatter="@HideFrontmatter"
                       OnBlur="FlushAsync"
                       TestId="knowledge-chapter" />
 </div>
@@ -121,6 +122,25 @@
     /// </summary>
     [Parameter]
     public bool Bare { get; set; }
+
+    /// <summary>
+    /// Whether the read view leaves out the file's leading YAML frontmatter,
+    /// because the panel above it is already showing it.
+    /// <para>
+    /// For the instructions area, whose files open with one: the file view's
+    /// frontmatter strip draws the description and the globs as facts, and the
+    /// read view directly under it would otherwise draw the same four lines again
+    /// as a divider and a run-together paragraph.
+    /// </para>
+    /// <para>
+    /// It changes what is rendered and nothing else. The buffer is still the whole
+    /// file — frontmatter and all — and so is what a save writes back: this
+    /// surface is written over the source, and a buffer missing the first four
+    /// lines would save the file without them.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool HideFrontmatter { get; set; }
 
     /// <summary>Raised after a write lands, so a panel can re-read whatever it
     /// derived from the chapter — a status badge, a heading list, a diagram.</summary>

@@ -23,7 +23,10 @@ may optionally name the entry that executes it. What Roadmap does not own is
 execution: a Roadmap Item has no status of its own, and progress is read from the
 linked Backlog Entry when there is one. Backlog Management remains the authority
 for entry status and entry priority; Roadmap Planning is the authority for
-planning priority and sequence.
+planning priority and sequence. The same division holds for size: the effort an
+item reports is **totalled** here but **registered** elsewhere — the story points
+live on the Backlog Entries and knowledge chapters the item gathers, and Roadmap
+reads and adds them without owning a single one.
 
 Plans are scoped to repositories. Every Roadmap Item names zero or more
 repositories from the
@@ -73,6 +76,20 @@ Invariants:
   the person wrote because a supplier's registry changed.
 - A Backlog Entry Link is a foreign id and nothing more. The plan never reads
   through it to make a decision about itself.
+- Every Roadmap Item has exactly one Roadmap Tag. It is derived from the title
+  when the item is created and is thereafter independent of it: renaming the title
+  never reslugs the tag, because a tag is a word other contexts have already
+  written down. A title that slugifies to nothing takes the tag `item` rather than
+  an empty one.
+- Roadmap Tags are not unique across items. The plan may deliberately hold several
+  items under one tag, so resolving a tag may return more than one item and
+  uniqueness is neither enforced nor assumed.
+- A Knowledge Ref is a foreign reference the plan holds and never reads through to
+  decide anything about itself — the same rule as the Backlog Entry Link. Both may
+  dangle, and neither is validated or repaired.
+- The total registered effort an item reports is plain arithmetic over story
+  points that were actually registered elsewhere. The plan invents no estimate for
+  anything that registered none, and owns none of the values it adds.
 - All mutations to items, milestones, and dependencies go through the root.
 
 A plan with no items is a valid plan — a first run, or everything delivered.
@@ -82,15 +99,42 @@ A plan with no items is a valid plan — a first run, or everything delivered.
 #### Roadmap Item
 
 A single piece of planned work, identified by `roadmap_item_id`. Holds `title`,
-its `Planned Window`, its `Planning Priority`, its `Repository Scope`, its
-`Planning Lane`, its `Dependency` set, an optional `Backlog Entry Link`, and
-optional `notes`.
+its `Roadmap Tag`, its `Planned Window`, its `Planning Priority`, its
+`Repository Scope`, its `Planning Lane`, its `Dependency` set, an optional
+`Backlog Entry Link`, a set of `Knowledge Ref`s, and optional `notes`.
 
 It has no status and no percentage. Both are questions about execution, and
 execution belongs to Backlog Management: an item that names an entry shows that
 entry's progress, and an item that names none shows that it is planned and
 nothing more. Its identity is meaningful outside the plan only as a dependency
-endpoint, which is why the id is stable across every reschedule.
+endpoint — and, now, as the tag other contexts file work under — which is why the
+id is stable across every reschedule.
+
+An item gathers the work it stands for in **two different ways**, and the
+difference is worth stating because it decides what can safely be unpicked later.
+It gathers by **name**: the one `Backlog Entry Link` it may hold, and the
+`Knowledge Ref`s it lists, are references it wrote down outright. And it gathers
+by **tag**: every Backlog Entry filed under its `Roadmap Tag`, and every knowledge
+chapter whose own `roadmap` list names that tag, is reached without the item
+naming it at all. The two threads overlap on purpose — a person may both link an
+entry and tag it — and something reached **both** ways is counted **once**, but
+recorded as held by both threads rather than one. A reader deciding whether a link
+is safe to remove needs to know a thing is still held by its tag once the named
+reference is gone; collapsing that to a single count would make a two-thread hold
+look like a one-thread hold and invite deleting the reference that was actually
+load-bearing.
+
+Over everything it gathers — named or tagged, each counted once — the item reports
+its **total registered effort**: plain arithmetic over the story points that were
+actually registered, with no inference and no estimate invented for anything that
+registered none. It reports, alongside the total, **how many gathered things
+registered no estimate**, because a total that silently dropped unestimated work
+would read as smaller than the work in front of the person actually is. The item
+owns none of these values — the effort lives on the Backlog Entries and the
+knowledge chapters, registered by Backlog Management and Second Brain — and the
+item only reads and adds. The gathering and the totalling are done by
+[Roadmap Item Gathering](#domain-service-roadmap-item-gathering), because neither
+answer is in the item's own state.
 
 #### Milestone
 
@@ -159,6 +203,49 @@ item. Equality is by value. The link may dangle — an entry can be deleted whil
 the plan still intends the work — and a dangling link reads as unlinked rather
 than as an error.
 
+#### Roadmap Tag
+
+The slug other contexts file work under to say it belongs to this item: a
+lowercase kebab-case string. Equality is by value. Every Roadmap Item has exactly
+one — it is **not optional** — and it is derived from the item's title when the
+item is created, then freely editable in its own right.
+
+Two rules make the tag load-bearing rather than cosmetic. The first is that it
+**does not change when the title is later renamed.** A tag is a word other
+contexts have already written down — a Backlog Entry filed under it, a knowledge
+chapter naming it in its `roadmap` list — and reslugging it on a rename would make
+every one of those references silently stop matching, with nothing to report that
+it had. So the tag drifts away from the title on purpose; staying put while the
+title moves is the whole point of holding it separately rather than deriving it on
+read. The second is that a title that slugifies to nothing — punctuation, an
+emoji, a script the slug rule strips — falls back to the constant `item` rather
+than to an empty tag, so there is always something to file against.
+
+Tags are **not required to be unique** across items. Two items may deliberately
+share a tag because the person means to group them, and the plan can report both
+the tags in use and the items sitting under a given tag. Uniqueness is therefore
+neither enforced nor assumed: a tag names a grouping, not one item, and resolving
+one may return several. This is the vocabulary two other contexts borrow — the
+[Backlog](../backlog/domain.md#aggregate-backlog-entry) tag picker offers every
+roadmap tag, and a knowledge chapter names roadmap tags in its `roadmap` list — so
+its stability across a rename is a contract with them, not an internal detail.
+
+#### Knowledge Ref
+
+A direct reference from the item to a knowledge chapter that informs it:
+`<path>#<slug>`, naming a chapter in one of the knowledge folders. Equality is by
+value; an item may hold several or none.
+
+It is the knowledge counterpart of the `Backlog Entry Link`, and it behaves the
+same way on purpose. The reference may **dangle** — the chapter can be moved,
+renamed, or deleted while the plan still points at where it was — and a dangling
+ref reads as unresolved rather than as an error. The plan never reads through it
+to decide anything about itself; it holds the ref and resolves it only when a
+reader asks. Validation and repair are deliberately not done, exactly as the
+`Backlog Entry Link` is already left to dangle, because a plan that refused to
+hold a reference to something temporarily missing would lose the intent the
+reference recorded.
+
 ### Enums
 
 #### Planning Priority
@@ -219,6 +306,38 @@ depends on the registry being reachable. An unresolved alias is a normal outcome
 with a normal presentation — an unfiled band — not a failure that stops a plan
 from being read. Invocation semantics: query/composition-oriented, on the read
 path.
+
+## Domain Service: Roadmap Item Gathering
+
+```meta
+status: draft
+related: [.domain/roadmap/domain.md#aggregate-roadmap-plan, .domain/backlog/domain.md#aggregate-backlog-entry, .domain/second-brain/domain.md#aggregate-knowledge-note]
+```
+
+Assembles, for one Roadmap Item, everything it reaches across Backlog Management
+and Second Brain — the entry it links and the entries carrying its tag, the
+chapters it references and the chapters naming its tag — deduplicates what the two
+threads both reach, and totals the registered story points over the result.
+
+It is a service because none of this is in the item's own state. The Backlog
+Entries filed under its tag live in Backlog Management; the knowledge chapters
+naming its tag live in Second Brain; and the effort values are registered by those
+contexts, not by the plan. Like
+[Repository Scope Resolution](#domain-service-repository-scope-resolution), it
+reads foreign data on the read path and holds none of it — so an unreachable
+supplier degrades a total, it does not corrupt a plan.
+
+Two things about the arithmetic are deliberate. A thing reached **both** by a
+named reference and by the tag is counted **once**, and carried in the result as
+having been reached both ways, so a reader can tell a two-thread hold from a
+one-thread one before removing a link. And the total is **only** over story points
+that were actually registered: nothing is inferred for an unestimated thing, and
+the count of gathered things that registered no estimate is reported next to the
+total rather than folded into it, because a number that quietly dropped the
+unestimated work would understate it.
+
+Invocation semantics: query/composition-oriented, on the read path. It never
+writes — not to the plan, not to an entry, not to a chapter.
 
 ## Domain Event: RoadmapItemScheduled
 

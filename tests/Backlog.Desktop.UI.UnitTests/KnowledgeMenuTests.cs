@@ -15,15 +15,15 @@ public sealed class KnowledgeMenuTests : IDisposable
         File.WriteAllText(Path.Combine(repo, ".domain", "intake", "domain.md"), "# Domain: Intake");
         Directory.CreateDirectory(Path.Combine(repo, ".domain", "_meta"));
         File.WriteAllText(Path.Combine(repo, ".domain", "_meta", "index.json"), "{}");
-        Directory.CreateDirectory(Path.Combine(repo, ".backlog"));
-        File.WriteAllText(Path.Combine(repo, ".backlog", "epics.md"), "# Epics");
+        Directory.CreateDirectory(Path.Combine(repo, ".design"));
+        File.WriteAllText(Path.Combine(repo, ".design", "color-scheme.md"), "# Colour scheme");
 
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
-        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["backlog", "domain"]);
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["design", "domain"]);
 
-        Assert.Equal(["Backlog", "Domain"], tree.Roots.Select(node => node.Label));
+        Assert.Equal(["Domain", "Design"], tree.Roots.Select(node => node.Label));
         var domain = tree.Roots.Single(node => node.AreaKey == "domain");
         Assert.True(domain.Available);
         Assert.Equal("context-map.md", domain.Children.First().Path);
@@ -107,6 +107,30 @@ public sealed class KnowledgeMenuTests : IDisposable
         Assert.Equal(
             ["09-architecture-decisions.md", "adr", "10-quality-requirements.md", "11-risks-and-technical-debt.md", "tdr", "12-glossary.md"],
             arc42.Children.Select(node => node.Path));
+    }
+
+    [Fact]
+    public async Task Labels_the_arc42_decision_record_folders_as_acronyms()
+    {
+        // "Adr" is a title-cased folder name; ADR is what the folder is called.
+        var repo = TempDir();
+        Directory.CreateDirectory(Path.Combine(repo, ".arc42", "adr"));
+        Directory.CreateDirectory(Path.Combine(repo, ".arc42", "tdr"));
+        File.WriteAllText(Path.Combine(repo, ".arc42", "adr", "0001-desktop-stack.md"), "# ADR 0001");
+        File.WriteAllText(Path.Combine(repo, ".arc42", "01-introduction-and-goals.md"), "# Introduction");
+
+        var settings = NewSettingsStore();
+        ConfigureRepository(settings, repo);
+
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["arc42"]);
+
+        var arc42 = Assert.Single(tree.Roots);
+        Assert.Equal(
+            ["01 Introduction And Goals", "ADR", "TDR"],
+            arc42.Children.Select(node => node.Label));
+
+        var adr = arc42.Children.Single(node => node.Label == "ADR");
+        Assert.Equal(["0001 Desktop Stack"], adr.Children.Select(node => node.Label));
     }
 
     [Fact]

@@ -621,4 +621,85 @@ public sealed class KnowledgeMetaViewTests
         Assert.Empty(view.FindAll("dl.knowledge-fields"));
         Assert.Empty(view.FindAll(".badge--status"));
     }
+
+    [Fact]
+    public void An_effort_draws_a_points_badge_and_says_what_the_number_counts()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<KnowledgeMetaView>(parameters => parameters
+            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+                status: draft
+                effort: 5
+                """)));
+
+        var badge = view.Find("[data-testid=\"knowledge-effort-badge\"]");
+        Assert.Contains("badge", badge.ClassList);
+        Assert.Equal("5 pts", badge.TextContent.Trim());
+
+        // An effort row is labelled like every other secondary field.
+        Assert.Contains("effort", view.FindAll("dt").Select(label => label.TextContent));
+    }
+
+    [Fact]
+    public void An_effort_of_zero_still_draws_its_badge()
+    {
+        // Zero is an estimate, not the absence of one, so it shows.
+        using var context = new BunitContext();
+
+        var view = context.Render<KnowledgeMetaView>(parameters => parameters
+            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+                status: draft
+                effort: 0
+                """)));
+
+        Assert.Equal("0 pts", view.Find("[data-testid=\"knowledge-effort-badge\"]").TextContent.Trim());
+    }
+
+    [Fact]
+    public void No_effort_draws_no_badge()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<KnowledgeMetaView>(parameters => parameters
+            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: draft\nkind: framework")));
+
+        Assert.Empty(view.FindAll("[data-testid=\"knowledge-effort-badge\"]"));
+        Assert.DoesNotContain("effort", view.FindAll("dt").Select(label => label.TextContent));
+    }
+
+    [Fact]
+    public void Roadmap_tags_draw_one_chip_each_inside_the_labelled_container()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<KnowledgeMetaView>(parameters => parameters
+            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+                status: draft
+                roadmap: [sync-service, mobile-mvp]
+                """)));
+
+        var container = view.Find("[data-testid=\"knowledge-roadmap-tags\"]");
+        var chips = container.QuerySelectorAll(".tag-chip");
+        Assert.Equal(
+            ["sync-service", "mobile-mvp"],
+            chips.Select(chip => chip.TextContent.Trim()));
+
+        // A tag names a roadmap item, it does not address a chapter, so it is
+        // never dressed as a link.
+        Assert.Empty(container.QuerySelectorAll("a"));
+        Assert.Contains("roadmap", view.FindAll("dt").Select(label => label.TextContent));
+    }
+
+    [Fact]
+    public void An_empty_roadmap_draws_no_chips_and_no_container()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<KnowledgeMetaView>(parameters => parameters
+            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: draft\nkind: framework")));
+
+        Assert.Empty(view.FindAll("[data-testid=\"knowledge-roadmap-tags\"]"));
+        Assert.DoesNotContain("roadmap", view.FindAll("dt").Select(label => label.TextContent));
+    }
 }

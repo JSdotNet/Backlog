@@ -286,6 +286,16 @@ html, body {
     gap: var(--spacing-sm);
 }
 
+/* The delete story shows placement as well as styling, so it needs a footer
+   with real edges: a bare flex row would push its children to the end whether
+   the lead modifier were doing anything or not. */
+.sb-delete-footer {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
 .sb-stack {
     display: flex;
     flex-direction: column;
@@ -474,6 +484,33 @@ html, body {
     background: var(--color-background);
     border: var(--border-width) solid var(--color-border-strong);
     border-radius: 0;
+}
+
+/* A pretend host marker, for the field-suffix story - the settings screen's own
+   badge, mirrored here the way .sb-host-input mirrors its input. Round and
+   small, because the shape has to read as a state rather than as a control: the
+   suffix box takes no clicks, and a square one gets mistaken for a checkbox.
+   The semantic colours are surfaces, so they are worn as the fill with a glyph
+   over them rather than painted on the glyph itself. */
+.sb-marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    line-height: 1;
+}
+
+.sb-marker--found {
+    background: var(--color-success);
+    color: var(--color-text-primary);
+}
+
+.sb-marker--missing {
+    background: var(--color-error);
+    color: var(--color-error-text);
 }
 
 /* A clickable region, for the StopPropagation story. */

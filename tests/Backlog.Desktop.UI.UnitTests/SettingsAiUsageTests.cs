@@ -142,6 +142,7 @@ public sealed class SettingsAiUsageTests
         testContext.Services.AddSingleton(claude);
         testContext.Services.AddSingleton(github);
         testContext.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        testContext.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(githubSettings, store));
 
         var component = testContext.Render<Settings>();
         return new SettingsRenderContext(root, testContext, component, claude, github);

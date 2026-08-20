@@ -42,6 +42,7 @@
 @inject AzureFoundrySettingsStore AzureFoundry
 @inject ILocalGitRepositoryService LocalGit
 @inject ClaudeSettingsStore Claude
+@inject IKnowledgeFolderSource KnowledgeFolders
 
 @*
     The one screen in this app with a form control, and it earns it: a folder
@@ -738,6 +739,15 @@
                                     {
                                         var knowledgeInputId = $"knowledge-{activeRepo.Alias}-{folder.Key.TrimStart('.')}";
 
+                                        @* Asked of the module port rather than checked here, so the row
+                                           reports what a reader of this folder would actually get - and
+                                           says "add a clone directory" or "not a valid path" where those
+                                           are the real answer, instead of a flat "missing". Nothing to
+                                           resolve for a section that is off or has no folder of its own. *@
+                                        var location = folder.Enabled && folder.SupportsPathOverride
+                                            ? KnowledgeFolders.Resolve(folder.Key, activeRepo.Alias)
+                                            : null;
+
                                         <div class="knowledge-folder" data-testid="knowledge-folder-row">
                                             <Checkbox CssClass="knowledge-folder__toggle"
                                                       Label="@folder.DisplayName"
@@ -760,11 +770,14 @@
                                                            AriaLabel="@($"{activeRepo.FullName} {folder.DisplayName} folder path")"
                                                            Value="@KnowledgePathDraft(activeRepo, folder)"
                                                            ValueChanged="value => _draftKnowledgePaths[KnowledgeDraftKey(activeRepo.Alias, folder.Key)] = value"
+                                                           Suffix="@KnowledgeFolderMarker(location)"
                                                            @onchange="() => ApplyKnowledgeFolderPath(activeRepo, folder)"
                                                            @onkeydown="e => OnKnowledgePathKeyDown(e, activeRepo, folder)" />
                                             }
 
-                                            <p class="knowledge-folder__status">
+                                            <p class="knowledge-folder__status"
+                                               data-testid="knowledge-folder-status"
+                                               data-folder-state="@KnowledgeFolderState(location)">
                                                 @if (!folder.Enabled)
                                                 {
                                                     <span>Off for this repository.</span>
@@ -773,13 +786,33 @@
                                                 {
                                                     <span>Uses standard repository instruction discovery.</span>
                                                 }
-                                                else if (string.IsNullOrWhiteSpace(folder.Path))
-                                                {
-                                                    <span>Uses <code>@folder.DefaultRelativePath</code> at the repository root.</span>
-                                                }
                                                 else
                                                 {
-                                                    <span>Uses <code>@folder.EffectivePath</code>.</span>
+                                                    @if (string.IsNullOrWhiteSpace(folder.Path))
+                                                    {
+                                                        <span>Uses <code>@folder.DefaultRelativePath</code> at the repository root.</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>Uses <code>@folder.EffectivePath</code>.</span>
+                                                    }
+
+                                                    @* Nothing is added when the folder is there: the marker in the
+                                                       field above has already said so, and a sentence repeating it
+                                                       was the redundancy. Only the absent case has something left
+                                                       to say - which path was looked at, or that no clone directory
+                                                       is configured yet - and the reason comes from the port rather
+                                                       than being reworded here, because which of the three ways a
+                                                       folder can be absent it is decides what to do about it. *@
+                                                    @if (!location!.Available)
+                                                    {
+                                                        @* The space is written out because Razor drops whitespace-only
+                                                           text between elements, and these two spans are one sentence
+                                                           apiece: without it the line reads "at the repository
+                                                           root.Architecture knowledge folder was not found at ...". *@
+                                                        @(" ")
+                                                        <span class="knowledge-folder__status--error">@location.Message</span>
+                                                    }
                                                 }
                                             </p>
                                         </div>
@@ -1139,6 +1172,44 @@
 
         return draft;
     }
+
+    /// <summary>
+    /// The badge inside the path field, or nothing at all for a section that was
+    /// never looked up - off, or with no folder of its own. Returning null rather
+    /// than an empty fragment is what keeps the field's suffix box off those rows
+    /// entirely, so their input keeps the width it always had.
+    /// </summary>
+    /// <remarks>
+    /// The sentence under the field no longer says "Folder found.", so this badge
+    /// is where that fact lives: it carries its own accessible name rather than
+    /// leaving the answer to the colour, and the two states differ by glyph as
+    /// well as by fill for a reader who sees neither.
+    /// </remarks>
+    private static RenderFragment? KnowledgeFolderMarker(KnowledgeFolderLocation? location)
+    {
+        if (location is null) return null;
+
+        return location.Available
+            ? @<span class="knowledge-folder__marker knowledge-folder__marker--found"
+                     data-testid="knowledge-folder-marker"
+                     role="img"
+                     aria-label="Folder found.">✓</span>
+            : @<span class="knowledge-folder__marker knowledge-folder__marker--missing"
+                     data-testid="knowledge-folder-marker"
+                     role="img"
+                     aria-label="Folder not found.">✕</span>;
+    }
+
+    /// <summary>Whether the configured folder is there, for anything reading the row
+    /// from outside - a test, or automation. Null for a section that was never looked
+    /// up, so the attribute is left off rather than claiming a state it has not
+    /// got.</summary>
+    private static string? KnowledgeFolderState(KnowledgeFolderLocation? location) => location switch
+    {
+        null => null,
+        { Available: true } => "found",
+        _ => "missing"
+    };
 
     private string KnowledgePathDraft(GitHubRepositoryRef repo, KnowledgeFolderSetting folder)
     {

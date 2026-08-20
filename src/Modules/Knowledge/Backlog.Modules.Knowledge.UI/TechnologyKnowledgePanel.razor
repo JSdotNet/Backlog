@@ -32,16 +32,12 @@
     }
     else
     {
+        @* Title and action on one row. The folder path and the root document's
+           summary used to sit between them: the path named a location the reader
+           cannot act on from here, and the summary explained a section the reader
+           had already chosen. *@
         <header class="knowledge-pane__header">
             <h2>@_view.Title</h2>
-            @* The repository is the pane's line above the tabs. Saying it again
-               beside the path put the same name twice on one screen. *@
-            <p class="knowledge-pane__source">
-                @if (_view.Location.FullPath is { } path)
-                {
-                    <code>@path</code>
-                }
-            </p>
             <AppButton BaseClass="knowledge-folder-open"
                        Variant="ButtonVariant.None"
                        TestId="technology-open-vscode-button"
@@ -55,8 +51,6 @@
                    TestId="technology-open-vscode-error"
                    CssClass="knowledge-folder-open-error" />
         </header>
-
-        <p class="knowledge-pane__subtitle">@_view.Summary</p>
 
         <section class="tech-stats" aria-label="Technology graph summary">
             <div class="tech-stat">
@@ -73,115 +67,135 @@
             </div>
         </section>
 
-        @if (_view.Graph.Nodes.Count > 0)
-        {
-            <TechnologyGraphView Graph="@_view.Graph" />
-        }
-
-        @if (_view.Diagrams.Count > 0)
-        {
-            <DiagramView Title="@_view.Diagrams[0].Title" Language="@_view.Diagrams[0].Language" Source="@_view.Diagrams[0].Source" />
-        }
-
-        @if (string.IsNullOrWhiteSpace(SelectedPath))
-        {
-            <section class="tech-layer-tabs" aria-label="Technology layers">
-                @foreach (var layer in _view.Layers)
+        @* Two tabs rather than one long scroll: the graph is what this pane opens
+           with, and the layer detail below it — diagram, layer picker, node grid,
+           the layer file itself — is a second reading of the same folder rather
+           than a continuation of the first. *@
+        <Tabs AriaLabel="Technology views" TestId="technology-tabs">
+            <TabPanel Id="graph"
+                      Title="Graph"
+                      Element="section"
+                      TestId="technology-graph-panel"
+                      TabTestId="technology-graph-tab"
+                      aria-label="Technology graph">
+                @if (_view.Graph.Nodes.Count > 0)
                 {
-                    <ToggleButton BaseClass="tech-layer-tab"
-                                  PressedCssClass="tech-layer-tab--active"
-                                  Pressed="@(ReferenceEquals(layer, ActiveLayer))"
-                                  PressedChanged="() => SelectLayerAsync(layer)">
-                        <span>@LayerLabel(layer)</span>
-                        <Badge BaseClass="tech-layer-tab__count" Kind="">@layer.Nodes.Count</Badge>
-                    </ToggleButton>
+                    <TechnologyGraphView Graph="@_view.Graph" />
                 }
-            </section>
-        }
+            </TabPanel>
 
-        @if (ActiveLayer is { } activeLayer)
-        {
-            <section class="tech-layer" aria-label="@activeLayer.Title">
-                <header class="tech-layer__header">
-                    <div>
-                        <h3>@activeLayer.Title</h3>
-                        <p>@activeLayer.FileName</p>
-                    </div>
-                    @RenderStatusSelect(LayerPath(activeLayer), activeLayer.Title, activeLayer.Metadata.Status ?? "draft")
-                </header>
+            <TabPanel Id="layers"
+                      Title="Layers"
+                      Element="section"
+                      TestId="technology-layers-panel"
+                      TabTestId="technology-layers-tab"
+                      aria-label="Technology layer detail">
+                @if (_view.Diagrams.Count > 0)
+                {
+                    <DiagramView Title="@_view.Diagrams[0].Title" Language="@_view.Diagrams[0].Language" Source="@_view.Diagrams[0].Source" />
+                }
 
-                <div class="tech-node-grid">
-                    @foreach (var node in activeLayer.Nodes)
-                    {
-                        <article class="tech-node tech-node--@node.Status" data-testid="technology-node">
-                            <header class="tech-node__header">
-                                <div>
-                                    <h4>@node.Label</h4>
-                                    <p>@node.Description</p>
-                                </div>
-                                <span class="tech-node__kind">@node.Kind</span>
-                            </header>
+                @if (string.IsNullOrWhiteSpace(SelectedPath))
+                {
+                    <section class="tech-layer-tabs" aria-label="Technology layers">
+                        @foreach (var layer in _view.Layers)
+                        {
+                            <ToggleButton BaseClass="tech-layer-tab"
+                                          PressedCssClass="tech-layer-tab--active"
+                                          Pressed="@(ReferenceEquals(layer, ActiveLayer))"
+                                          PressedChanged="() => SelectLayerAsync(layer)">
+                                <span>@LayerLabel(layer)</span>
+                                <Badge BaseClass="tech-layer-tab__count" Kind="">@layer.Nodes.Count</Badge>
+                            </ToggleButton>
+                        }
+                    </section>
+                }
 
-                            <div class="tech-node__meta">
-                                @RenderStatusSelect(node.Id, node.Label, node.Status)
-                                @if (!string.IsNullOrWhiteSpace(node.Metadata.Version))
-                                {
-                                    <Badge Kind="">@node.Metadata.Version</Badge>
-                                }
+                @if (ActiveLayer is { } activeLayer)
+                {
+                    <section class="tech-layer" aria-label="@activeLayer.Title">
+                        <header class="tech-layer__header">
+                            <div>
+                                <h3>@activeLayer.Title</h3>
+                                <p>@activeLayer.FileName</p>
                             </div>
+                            @RenderStatusSelect(LayerPath(activeLayer), activeLayer.Title, activeLayer.Metadata.Status ?? "draft")
+                        </header>
 
-                            @if (node.DependsOn.Count > 0)
+                        <div class="tech-node-grid">
+                            @foreach (var node in activeLayer.Nodes)
                             {
-                                <div class="tech-node__relations">
-                                    <span>Depends on</span>
-                                    <div>
-                                        @foreach (var dependency in node.DependsOn)
+                                <article class="tech-node tech-node--@node.Status" data-testid="technology-node">
+                                    <header class="tech-node__header">
+                                        <div>
+                                            <h4>@node.Label</h4>
+                                            <p>@node.Description</p>
+                                        </div>
+                                        <span class="tech-node__kind">@node.Kind</span>
+                                    </header>
+
+                                    <div class="tech-node__meta">
+                                        @RenderStatusSelect(node.Id, node.Label, node.Status)
+                                        @if (!string.IsNullOrWhiteSpace(node.Metadata.Version))
                                         {
-                                            <a href="@ReferenceHref(dependency)" class="relation-chip">@ReferenceLabel(dependency)</a>
+                                            <Badge Kind="">@node.Metadata.Version</Badge>
                                         }
                                     </div>
-                                </div>
-                            }
 
-                            @if (node.Related.Count > 0)
-                            {
-                                <div class="tech-node__relations">
-                                    <span>Related</span>
-                                    <div>
-                                        @foreach (var related in node.Related)
-                                        {
-                                            <a href="@ReferenceHref(related)" class="relation-chip relation-chip--muted">@ReferenceLabel(related)</a>
-                                        }
-                                    </div>
-                                </div>
-                            }
-                        </article>
-                    }
-                </div>
+                                    @if (node.DependsOn.Count > 0)
+                                    {
+                                        <div class="tech-node__relations">
+                                            <span>Depends on</span>
+                                            <div>
+                                                @foreach (var dependency in node.DependsOn)
+                                                {
+                                                    <a href="@ReferenceHref(dependency)" class="relation-chip">@ReferenceLabel(dependency)</a>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
 
-                @* Below the grid rather than in place of it: the grid is what this
-                   panel is for, and the layer file behind it was until now the one
-                   knowledge area with no way to read its prose at all. The layer
-                   tabs above are the selection, and the layer header beside them
-                   already gives the file its name — so no Title goes to the
-                   surface, which would have put the same file name on the document
-                   bar a second time. *@
-                @if (_chapter.Chapter is not null)
-                {
-                    <Alert Message="@_chapterSaveError" TestId="technology-chapter-save-error" Role="status" />
-                    <KnowledgeChapterEditor @ref="_editor"
-                                            Chapter="@_chapter.Chapter"
-                                            InitialText="@_chapter.Text"
-                                            OnSaved="OnChapterSavedAsync"
-                                            OnSaveFailed="OnChapterSaveFailed" />
+                                    @if (node.Related.Count > 0)
+                                    {
+                                        <div class="tech-node__relations">
+                                            <span>Related</span>
+                                            <div>
+                                                @foreach (var related in node.Related)
+                                                {
+                                                    <a href="@ReferenceHref(related)" class="relation-chip relation-chip--muted">@ReferenceLabel(related)</a>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </article>
+                            }
+                        </div>
+
+                        @* Below the grid rather than in place of it: the grid is what this
+                           panel is for, and the layer file behind it was until now the one
+                           knowledge area with no way to read its prose at all. The layer
+                           tabs above are the selection, and the layer header beside them
+                           already gives the file its name — so no Title goes to the
+                           surface, which would have put the same file name on the document
+                           bar a second time. *@
+                        @if (_chapter.Chapter is not null)
+                        {
+                            <Alert Message="@_chapterSaveError" TestId="technology-chapter-save-error" Role="status" />
+                            <KnowledgeChapterEditor @ref="_editor"
+                                                    Chapter="@_chapter.Chapter"
+                                                    InitialText="@_chapter.Text"
+                                                    OnSaved="OnChapterSavedAsync"
+                                                    OnSaveFailed="OnChapterSaveFailed" />
+                        }
+                        @* A layer file that could not be placed or could not be read gets
+                           no surface at all, the way the other areas fall back to what they
+                           already parsed. Here that fallback is the node grid above: it is
+                           this same file, read. An empty editor would offer a way in to a
+                           chapter there is nothing to write. *@
+                    </section>
                 }
-                @* A layer file that could not be placed or could not be read gets
-                   no surface at all, the way the other areas fall back to what they
-                   already parsed. Here that fallback is the node grid above: it is
-                   this same file, read. An empty editor would offer a way in to a
-                   chapter there is nothing to write. *@
-            </section>
-        }
+            </TabPanel>
+        </Tabs>
     }
 </aside>
 

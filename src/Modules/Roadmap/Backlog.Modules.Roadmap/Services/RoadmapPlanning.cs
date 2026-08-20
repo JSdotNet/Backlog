@@ -47,9 +47,11 @@ internal sealed class RoadmapPlanning(
         string? lane = null,
         Guid? backlogEntryId = null,
         string? notes = null,
+        string? tag = null,
+        IReadOnlyList<string>? knowledgeRefs = null,
         CancellationToken cancellationToken = default) =>
         addItem.Handle(
-            new AddItemCommand(title, start, end, priority, repositoryAliases, lane, backlogEntryId, notes),
+            new AddItemCommand(title, start, end, priority, repositoryAliases, lane, backlogEntryId, notes, tag, knowledgeRefs),
             cancellationToken);
 
     public Task<Result<RoadmapItemDto>> UpdateItemAsync(
@@ -62,9 +64,11 @@ internal sealed class RoadmapPlanning(
         string? lane = null,
         Guid? backlogEntryId = null,
         string? notes = null,
+        string? tag = null,
+        IReadOnlyList<string>? knowledgeRefs = null,
         CancellationToken cancellationToken = default) =>
         updateItem.Handle(
-            new UpdateItemCommand(itemId, title, start, end, priority, repositoryAliases, lane, backlogEntryId, notes),
+            new UpdateItemCommand(itemId, title, start, end, priority, repositoryAliases, lane, backlogEntryId, notes, tag, knowledgeRefs),
             cancellationToken);
 
     public Task<Result<RoadmapItemDto>> RescheduleItemAsync(

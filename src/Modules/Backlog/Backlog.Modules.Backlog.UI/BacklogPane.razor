@@ -253,13 +253,6 @@
     /// asked.</summary>
     private SchedulePicker? _openPicker;
 
-    /// <summary>Whether the "next step" row has turned into a field. Same shape as
-    /// a picker, and for the same reason: a step needs a name, and a row that
-    /// added one called nothing would be a row that invented the name.</summary>
-    private bool _addingStep;
-
-    private string _stepDraft = string.Empty;
-
     private enum SchedulePicker
     {
         Due,
@@ -267,6 +260,7 @@
         Repeat,
         DependsOn,
         Priority,
+        Effort,
         Attachment
     }
 
@@ -416,7 +410,6 @@
         if (EntryFor(id) is not { } row) return;
 
         ClosePicker();
-        _addingStep = false;
         await State.SelectAsync(row);
     }
 
@@ -606,16 +599,20 @@
                     }
 
                     <div class="entry-detail__footer">
+                        @* Delete leads the row and close ends it, which is the same
+                           arrangement the roadmap dialogs use: the destructive act at
+                           the far end from everything else, never beside it. *@
+                        <DeleteButton Lead="true"
+                                      Size="ButtonSize.Small"
+                                      id="@($"delete-entry-{row.Key}")"
+                                      TestId="delete-entry-button"
+                                      AriaLabel="Delete entry"
+                                      OnClick="() => OnDeleteTaskAsync(row)" />
+
                         <IconButton BaseClass="entry-detail__close"
                                     TestId="close-entry-button"
                                     AriaLabel="Close this entry"
                                     OnClick="() => State.SelectAsync(null)">×</IconButton>
-
-                        <IconButton BaseClass="entry-doc__delete"
-                                    id="@($"delete-entry-{row.Key}")"
-                                    TestId="delete-entry-button"
-                                    AriaLabel="Delete entry"
-                                    OnClick="() => OnDeleteTaskAsync(row)">🗑</IconButton>
                     </div>
                 </Footer>
             </TaskPanel>
@@ -650,75 +647,91 @@
         @<div class="entry-detail__body">
 
             @* Two named options rather than one button that means "not the other
-               one". Both readings exist and a reader picks between them, which is a
-               radiogroup — the same shape and the same reason as the filter chips
-               above the list. *@
-            <div class="entry-detail__views" role="radiogroup" aria-label="Show the entry's body as">
+               one": both readings exist and a reader picks between them.
+
+               A pressed strip rather than a radiogroup of chips. One of a set is
+               drawn one way in this product — the same ButtonGroup and ToggleButton
+               the dashboard's window filter and the sessions grouping wear — and
+               segments that touch are what say the two of them are one control with
+               one answer between them. The pressed state carries the semantics as
+               well, so the hand-rolled radiogroup went with the chips rather than
+               being re-stated on top of it. *@
+            <ButtonGroup AriaLabel="Show the entry's body as" TestId="entry-view-switch">
                 @foreach (var option in BodyViewOptions)
                 {
-                    <AppButton BaseClass="chip chip--filter"
-                               Variant="ButtonVariant.None"
-                               CssClass="@(row.EffectiveView == option.View ? "chip--active" : null)"
-                               TestId="@option.TestId"
-                               role="radio"
-                               aria-checked="@(row.EffectiveView == option.View ? "true" : "false")"
-                               OnClick="() => State.ChangeViewAsync(row, option.View)">
+                    @* PressedChanged rather than the pressed state itself: the strip
+                       is one-of-many, so this pane owns the selection and the button
+                       only announces the press. *@
+                    <ToggleButton Pressed="@(row.EffectiveView == option.View)"
+                                  PressedChanged="_ => State.ChangeViewAsync(row, option.View)"
+                                  TestId="@option.TestId">
                         @option.Label
-                    </AppButton>
+                    </ToggleButton>
                 }
-            </div>
+            </ButtonGroup>
 
             @if (row.EffectiveView is EntryView.Steps)
             {
-                @if (row.PreviewSubItems.Count > 0)
-                {
-                    @* Steps, as their own list. Reordering, renaming and completing
-                       are the same three callbacks the entry list uses.
+                @* Steps, as their own list. Reordering, renaming and completing
+                   are the same three callbacks the entry list uses.
 
-                       DirectRename, so a step's title is a field without a pencil
-                       first — and that is why the rows are still reorderable by
-                       pointer only through their grip, and by keyboard through
-                       Alt+Arrow inside the field. See TaskItem.
+                   DirectRename, so a step's title is a field without a pencil
+                   first — and that is why the rows are still reorderable by
+                   pointer only through their grip, and by keyboard through
+                   Alt+Arrow inside the field. See TaskItem.
 
-                       GroupCompleted is off: an entry's steps are a sequence
-                       somebody wrote in an order, and moving the finished ones to
-                       the bottom would rewrite that order on screen while the
-                       markdown kept the real one. *@
-                    <TaskListView Tasks="@StepTasks(row)"
-                                  OnToggle="index => OnStepToggledAsync(row, index)"
-                                  OnRename="rename => OnStepRenamedAsync(row, rename)"
-                                  DirectRename="true"
-                                  OnBodyChanged="change => OnStepNoteChanged(row, change)"
-                                  Reorderable="true"
-                                  OnReorder="move => OnStepReorderedAsync(row, move)"
-                                  GroupCompleted="false"
-                                  AllowCopy="false"
-                                  BodyLabel="Notes"
-                                  AriaLabel="Steps"
-                                  TestId="subitem-list" />
-                }
+                   QuickEdit is the other half of that bargain, and it is also what
+                   replaced the "next step" control that used to sit under this list.
+                   Tab settles one step's title and opens the field on the next, and
+                   off the bottom of the rows the list draws an add row of its own —
+                   permanent, in the tab order after the last step, committing on
+                   Enter or on leaving. A press that turned into a field, and a field
+                   that then had to be dismissed, was a composer the reader had to
+                   find twice; the shared one is simply there. AddLabel is what it is
+                   called, to a screen reader and on the face of it.
 
-                <TaskAction Icon="+"
-                            Label="Next step"
-                            OnSet="OnAddStepPressed"
-                            TestId="entry-action-step" />
+                   Drawn whether or not the entry has chapters yet, which is the
+                   point of adopting it: the count guard that used to stand in front
+                   of this list also hid the only control that could create the first
+                   step, so an entry with no steps had nothing here to press.
 
-                @if (_addingStep)
-                {
-                    @* Commits on Enter or on leaving, exactly as the shared row's
-                       rename does — one short string, so a button beside it would be
-                       a second thing to reach for after the one that already finished
-                       the job. *@
-                    <TextField Bare="true"
-                               AriaLabel="Name the step"
-                               Placeholder="Name the step"
-                               InputCssClass="entry-detail__step-input"
-                               data-testid="entry-step-input"
-                               Value="@_stepDraft"
-                               ValueChanged="value => _stepDraft = value"
-                               @onkeydown="e => OnStepKeyDownAsync(row, e)"
-                               @onblur="() => OnAddStepAsync(row)" />
-                }
+                   OnDelete is what puts a bin on the end of each step's row, and it
+                   is the same deal as the rename: the list reports which step, this
+                   pane decides what that means — here, the chapter and its notes cut
+                   out of the entry's text. No confirmation, because the entry-level
+                   bin in this pane's footer asks for none either and a step is the
+                   cheaper of the two to lose. The lists in this pane that pass no
+                   OnDelete — the entry list above, which deletes from the footer of
+                   the open entry instead — grow no bin at all.
+
+                   GroupCompleted is off: an entry's steps are a sequence
+                   somebody wrote in an order, and moving the finished ones to
+                   the bottom would rewrite that order on screen while the
+                   markdown kept the real one.
+
+                   Keyed on the entry, because the add row and an open rename hold
+                   drafts of their own. Without a key this is one component for every
+                   entry the reader opens, and a half-typed step would follow them to
+                   the next one and be committed there — which is what the composer's
+                   reset on selection used to prevent. *@
+                <TaskListView @key="row.Key"
+                              Tasks="@StepTasks(row)"
+                              OnToggle="index => OnStepToggledAsync(row, index)"
+                              OnRename="rename => OnStepRenamedAsync(row, rename)"
+                              DirectRename="true"
+                              QuickEdit="true"
+                              OnAdd="title => OnAddStepAsync(row, title)"
+                              AddLabel="Name the step"
+                              OnBodyChanged="change => OnStepNoteChanged(row, change)"
+                              OnDelete="index => OnDeleteStepAsync(row, index)"
+                              Reorderable="true"
+                              OnReorder="move => OnStepReorderedAsync(row, move)"
+                              GroupCompleted="false"
+                              AllowCopy="false"
+                              BodyLabel="Notes"
+                              AriaLabel="Steps"
+                              EmptyMessage="No steps yet."
+                              TestId="subitem-list" />
 
                 @if (row.StepsViewHidesProse)
                 {
@@ -799,6 +812,14 @@
     private async Task OnStepReorderedAsync(EntryRow row, TaskMove move) =>
         await State.MoveSubItemAsync(row, StepIndex(move.Id), StepIndex(move.TargetId));
 
+    /// <summary>Deletes the step the bin was pressed on: the chapter, its own
+    /// metadata line and its notes, cut out of the entry's text. The id is the
+    /// index, exactly as it is for every other handler here — the step is the
+    /// chapter written in that position, which is why deleting one renumbers the
+    /// ones under it.</summary>
+    private async Task OnDeleteStepAsync(EntryRow row, string id) =>
+        await State.RemoveSubItemAsync(row, StepIndex(id));
+
     // A step used to carry two hand-off buttons of its own here — push this chapter
     // to GitHub as its own issue, and start Copilot CLI. Both are gone, and the
     // reason is in the model rather than in taste: `.domain/backlog/domain.md` gives
@@ -810,29 +831,26 @@
     // it look otherwise. The entry-level pair is now labelled and grouped as acting
     // on the whole task, which is what it always did.
 
-    private void OnAddStepPressed()
+    /// <summary>
+    /// A step, by title, as the steps list's own add row reports it.
+    /// <para>
+    /// The title is the whole of it, which is the deal <c>TaskListView.OnAdd</c>
+    /// offers and the same one its rename already follows: the list says what was
+    /// typed and this pane decides what it means — here, one more <c>##</c> chapter
+    /// at the end of the entry's text. There is nothing to close afterwards, which
+    /// is why this no longer resets anything: the field the title came from is a
+    /// permanent row in the list rather than a state this pane was briefly in.
+    /// </para>
+    /// <para>
+    /// Trimmed and ignored when empty even though the list has already promised
+    /// both. A write to the markdown is not the place to inherit somebody else's
+    /// guarantee, and a chapter called nothing is one the reader cannot see, select
+    /// or remove.
+    /// </para>
+    /// </summary>
+    private async Task OnAddStepAsync(EntryRow row, string title)
     {
-        _addingStep = !_addingStep;
-        _stepDraft = string.Empty;
-    }
-
-    private async Task OnStepKeyDownAsync(EntryRow row, KeyboardEventArgs e)
-    {
-        if (e.Key == "Escape")
-        {
-            _addingStep = false;
-            _stepDraft = string.Empty;
-            return;
-        }
-
-        if (e.Key == "Enter") await OnAddStepAsync(row);
-    }
-
-    private async Task OnAddStepAsync(EntryRow row)
-    {
-        var title = _stepDraft.Trim();
-        _stepDraft = string.Empty;
-        _addingStep = false;
+        title = title.Trim();
 
         if (title.Length == 0) return;
 
@@ -919,6 +937,16 @@
                 @if (!row.IsPersisted)
                 {
                     <Badge Kind="draft" data-testid="draft-hint">Unsaved — give it a title line</Badge>
+                }
+
+                @* The size at a glance, so an estimate is visible on the entry
+                   without opening the Ranking picker to read it. Only when it is
+                   set: an entry nobody has sized wears no badge rather than one
+                   saying "none", the same way an unset scheduling field shows
+                   nothing on the row. *@
+                @if (row.PreviewEffort is { } effort)
+                {
+                    <Badge Kind="effort" data-testid="entry-effort-badge" title="Effort">@FormatEffort(effort)</Badge>
                 }
 
                 @* Grouped and named after the entry, out loud. Both of these act on
@@ -1116,6 +1144,76 @@
                     }
                 </TaskActionGroup>
 
+                @* How much it matters, in a group of its own rather than a row among
+                   the dates. A ranking and a deadline are the two facts most often
+                   mistaken for each other, and the pane's job is to stop saying them
+                   in the same breath: "critical" is how much this matters, "Friday"
+                   is when it stops being possible. It was a badge on the line above
+                   until the storybook's shape was adopted, where it read as one more
+                   label rather than as the decision it is.
+
+                   First of the three groups that follow "Scheduling", and that is a
+                   layout fact rather than a claim about importance: TaskActionPane
+                   flows its groups down one column and then into the next, so the
+                   order they are written in is the order the second column reads.
+                   Priority is one line where "Waiting for" is often two, so leading
+                   with it lands "Attach" level with "Repeat" at the foot of the first
+                   column instead of one row below it — and a pane whose two columns
+                   end level reads as one block rather than as a step. *@
+                <TaskActionGroup Label="Ranking" TestId="entry-schedule-ranking">
+                    @* Always set, and so no ✕. Every other row here can be absent,
+                       but an entry has a priority whether or not anybody typed one
+                       — the field is not nullable and `*medium` is what a silent
+                       entry means. A clear button would offer to unset something
+                       that has no unset state, and would write `*low` while
+                       claiming to have removed a ranking. *@
+                    <TaskAction Icon="⚑"
+                                Label="Priority"
+                                Value="@Humanize(row.PreviewPriority.ToString())"
+                                Set="true"
+                                OnSet="() => TogglePicker(SchedulePicker.Priority)"
+                                TestId="entry-action-priority" />
+
+                    @if (IsPickerOpen(SchedulePicker.Priority))
+                    {
+                        <SelectField CurrentValue="@row.PreviewPriority.ToString()"
+                                     Options="@PrioritySelectorOptions()"
+                                     Label="Priority"
+                                     Id="@($"entry-priority-{row.Key}")"
+                                     TestId="entry-priority-select"
+                                     CssClass="entry-doc__schedule-select"
+                                     OnChanged="value => OnPriorityPickedAsync(row, value)" />
+                    }
+
+                    @* Unlike priority this one can be absent, and so it carries a ✕:
+                       "not estimated" is a real state an entry starts in and comes
+                       back to, where a priority is always something. The presets are
+                       the Fibonacci points estimation conventionally uses; the field
+                       itself holds any non-negative number a person or an agent
+                       writes into the text, so the picker is a convenience over the
+                       token rather than the limit of it. *@
+                    <TaskAction Icon="📐"
+                                Label="Effort"
+                                Value="@FormatEffort(row.PreviewEffort)"
+                                Set="@(row.PreviewEffort is not null)"
+                                OnSet="() => TogglePicker(SchedulePicker.Effort)"
+                                OnClear="() => State.ChangeEffortAsync(row, null)"
+                                TestId="entry-action-effort" />
+
+                    @if (IsPickerOpen(SchedulePicker.Effort))
+                    {
+                        <SelectField CurrentValue="@(row.PreviewEffort is { } effort ? effort.ToString(CultureInfo.InvariantCulture) : string.Empty)"
+                                     Options="@EffortSelectorOptions()"
+                                     IncludeEmptyOption="true"
+                                     EmptyLabel="Not estimated"
+                                     Label="Effort"
+                                     Id="@($"entry-effort-{row.Key}")"
+                                     TestId="entry-effort-select"
+                                     CssClass="entry-doc__schedule-select"
+                                     OnChanged="value => OnEffortPickedAsync(row, value)" />
+                    }
+                </TaskActionGroup>
+
                 @* Its own group rather than a fourth row under "Scheduling". What an
                    entry waits on is not when it happens: a chain is about the other
                    entries, and standing it beside a due date would read as a
@@ -1141,39 +1239,6 @@
                                         Placeholder="Add an entry"
                                         CssClass="entry-doc__schedule-depends"
                                         TestId="entry-depends-select" />
-                    }
-                </TaskActionGroup>
-
-                @* How much it matters, kept well away from when it is due. A
-                   ranking and a deadline are the two facts most often mistaken for
-                   each other, and the pane's job is to stop saying them in the same
-                   breath: "critical" is how much this matters, "Friday" is when it
-                   stops being possible. It was a badge on the line above until the
-                   storybook's shape was adopted, where it read as one more label
-                   rather than as the decision it is. *@
-                <TaskActionGroup Label="Ranking" TestId="entry-schedule-ranking">
-                    @* Always set, and so no ✕. Every other row here can be absent,
-                       but an entry has a priority whether or not anybody typed one
-                       — the field is not nullable and `*medium` is what a silent
-                       entry means. A clear button would offer to unset something
-                       that has no unset state, and would write `*low` while
-                       claiming to have removed a ranking. *@
-                    <TaskAction Icon="⚑"
-                                Label="Priority"
-                                Value="@Humanize(row.PreviewPriority.ToString())"
-                                Set="true"
-                                OnSet="() => TogglePicker(SchedulePicker.Priority)"
-                                TestId="entry-action-priority" />
-
-                    @if (IsPickerOpen(SchedulePicker.Priority))
-                    {
-                        <SelectField CurrentValue="@row.PreviewPriority.ToString()"
-                                     Options="@PrioritySelectorOptions()"
-                                     Label="Priority"
-                                     Id="@($"entry-priority-{row.Key}")"
-                                     TestId="entry-priority-select"
-                                     CssClass="entry-doc__schedule-select"
-                                     OnChanged="value => OnPriorityPickedAsync(row, value)" />
                     }
                 </TaskActionGroup>
 
@@ -1462,6 +1527,27 @@
         }
     }
 
+    /// <summary>Estimates the entry, or clears the estimate when the empty option
+    /// is chosen. A value that is not one of the offered points is nothing being
+    /// asked for and writes nothing — but unlike priority the empty option is a
+    /// real answer here, because "not estimated" is a state the entry can be in and
+    /// the ✕ and this option are the two ways back to it.</summary>
+    private async Task OnEffortPickedAsync(EntryRow row, string? value)
+    {
+        ClosePicker();
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            await State.ChangeEffortAsync(row, null);
+            return;
+        }
+
+        if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var points))
+        {
+            await State.ChangeEffortAsync(row, points);
+        }
+    }
+
     /// <summary>Attaches whatever path was typed, and detaches on an empty one —
     /// clearing the field is the same gesture as the ✕ on the row above it.</summary>
     private async Task OnAttachmentPickedAsync(EntryRow row, ChangeEventArgs e)
@@ -1550,24 +1636,63 @@
     private static IReadOnlyList<SelectorOption> PrioritySelectorOptions() =>
         [.. Enum.GetValues<Priority>().Select(priority => new SelectorOption(priority.ToString(), Humanize(priority.ToString())))];
 
+    /// <summary>The Fibonacci points the picker offers — the scale story-point
+    /// estimation conventionally uses, where the gaps widen as the numbers grow so
+    /// a larger estimate is also a coarser one. The value is the plain number, the
+    /// same token the metadata line holds; the field accepts any non-negative
+    /// number typed into the text, so these are the presets the picker speaks
+    /// rather than the limit of what round-trips.</summary>
+    private static IReadOnlyList<SelectorOption> EffortSelectorOptions() =>
+        [.. new[] { 1, 2, 3, 5, 8, 13, 21 }.Select(points => new SelectorOption(
+            points.ToString(CultureInfo.InvariantCulture),
+            points.ToString(CultureInfo.CurrentCulture)))];
+
+    /// <summary>A size said in words for the row and the badge — "5 points", and
+    /// "1 point" rather than "1 points". Null when nothing is estimated, which is
+    /// what leaves the badge off and the action reading "Effort" rather than a
+    /// number. What the count is called is the host's the same way a date's
+    /// wording is; only the token form stays invariant.</summary>
+    private static string? FormatEffort(int? effort) => effort is { } points
+        ? $"{points.ToString(CultureInfo.CurrentCulture)} {(points == 1 ? "point" : "points")}"
+        : null;
+
     private static IReadOnlyList<EntryStatus> StatusOptions() => Enum.GetValues<EntryStatus>();
 
     private static IReadOnlyList<SelectorOption> StatusSelectorOptions() =>
         [.. StatusOptions().Select(status => new SelectorOption(status.ToString(), Humanize(status.ToString())))];
 
     private IReadOnlyList<string> TagOptions(EntryRow row) =>
-        State.Rows
-            .SelectMany(existing => existing.PreviewMetadataTags)
-            .Concat(row.PreviewMetadataTags)
+        BacklogTags(row)
+            .Concat(State.RoadmapTags)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    /// <summary>Every tag already in use, as the picker wants them. A tag is its
-    /// own label, so the two halves of the option are the same string — which is
-    /// what makes a tag typed here and a tag picked here the same value.</summary>
-    private IReadOnlyList<SelectorOption> TagSelectorOptions(EntryRow row) =>
-        [.. TagOptions(row).Select(tag => new SelectorOption(tag, tag))];
+    /// <summary>The tags the backlog itself is already using — every entry's, and the
+    /// one being edited. The roadmap's are unioned onto these; kept apart so an option
+    /// can be told which side it came from.</summary>
+    private IEnumerable<string> BacklogTags(EntryRow row) =>
+        State.Rows
+            .SelectMany(existing => existing.PreviewMetadataTags)
+            .Concat(row.PreviewMetadataTags);
+
+    /// <summary>Every tag on offer, as the picker wants them. A tag is its own label,
+    /// so the two halves of the option are the same string — which is what makes a tag
+    /// typed here and a tag picked here the same value. A tag the roadmap offers that
+    /// no entry uses yet carries a hint saying where it came from, so an option nothing
+    /// in the list explains does not read as a stray.</summary>
+    private IReadOnlyList<SelectorOption> TagSelectorOptions(EntryRow row)
+    {
+        var used = BacklogTags(row).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return
+        [
+            .. TagOptions(row).Select(tag => new SelectorOption(
+                tag,
+                tag,
+                used.Contains(tag) ? null : "from roadmap"))
+        ];
+    }
 
     private static string Humanize(string enumName)
     {

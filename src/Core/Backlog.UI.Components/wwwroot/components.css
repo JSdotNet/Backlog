@@ -623,6 +623,25 @@
     padding-right: var(--spacing-xs);
 }
 
+/* One path glob out of a file's `applyTo`. It earns the monospace for the same
+   reason a file view's path does: it is a machine string, and the reader is
+   checking one segment of it rather than reading it as prose. Outlined so a row
+   of them reads as a set of patterns and not as a sentence. */
+.badge--glob {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: var(--border-width) solid var(--color-border);
+    font-family: var(--font-family-mono);
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+}
+
+/* A tool a file declares. A name rather than a pattern, so it keeps the quiet
+   filled shape every other one-dimensional badge has. */
+.badge--tool {
+    color: var(--color-text-secondary);
+}
+
 .metadata-editor--repo {
     width: 7rem;
     min-width: 5rem;
@@ -1852,8 +1871,7 @@ button.md-check {
 
 .knowledge-menu__item,
 .folder-tree__item {
-    display: grid;
-    grid-template-columns: 1rem minmax(0, 1fr);
+    display: flex;
     align-items: center;
     gap: var(--spacing-2xs);
     width: 100%;
@@ -1899,9 +1917,13 @@ button.md-check {
     opacity: 0.72;
 }
 
+/* A row without children draws no twisty at all, so its label starts at the
+   row's padding edge rather than behind an empty gutter. The width keeps the
+   glyph a fixed column on the rows that do have one. */
 .knowledge-menu__twisty,
 .folder-tree__twisty {
     display: inline-flex;
+    flex: 0 0 1rem;
     justify-content: center;
     color: var(--color-text-secondary);
 }
@@ -2658,7 +2680,14 @@ button.task-panel__check:focus-visible {
 
 /* The box sits exactly where the title was, so the row does not change height
    when it opens — an edit that moved everything under it would cost the reader
-   their place. */
+   their place.
+
+   The line under it belongs to the field the pencil opened, and to that field
+   alone: there it is the edit arriving, and it is also that field's focus
+   indicator, which is what lets the outline go without breaking
+   `.design/accessibility.md#focus` — outline: none is allowed with a compliant
+   replacement, and --border-width-2 of --color-border-focus is one. The two fields
+   that are open from the start take the outline back instead; see below. */
 .task-item__rename-input {
     width: 100%;
     padding: 0;
@@ -2675,22 +2704,47 @@ button.task-panel__check:focus-visible {
 }
 
 /*
-  A field that is the title rather than an edit of it.
+  The fields that are the title rather than an edit of it: a direct-rename row, and
+  the add row at the bottom of the list.
 
-  The focus rule below the box is what says "this is editable", and on a row whose
-  title is always a field that line would be permanent underlining on every row —
-  chrome shouting at a reader who is only reading. So it is quiet until the caret
-  is actually in it, which is the same bargain the pencil's field makes: the border
-  appears when the edit does.
+  No line under either, in any state. On a field that is open from the start an
+  underline is not the edit arriving — it is permanent chrome on every row, shouting
+  at a reader who is only reading, and down a column of steps it read as an orange
+  rule under every title. Bringing it back on hover and focus was the previous
+  answer and it solved the wrong half: it still put a border under the one row the
+  caret was in, to say "editable" about a field the caret is already sitting in.
+
+  Which leaves the focus ring to be paid for rather than borrowed off the border, so
+  it is paid for the way every other component here pays for it and the way
+  `.design/accessibility.md#focus` asks: --color-border-focus at --border-width-2,
+  offset, and an outline rather than a shadow so it survives Windows High Contrast.
+
+  The add row is named beside the direct one because it is not --direct — its field
+  is a composer and not a title — and without being named it would keep the base
+  rule's permanent underline, inside a box that is already dashed the whole way
+  round.
 */
-.task-item__rename--direct .task-item__rename-input {
-    border-bottom-color: transparent;
-    transition: border-color var(--transition-fast);
+.task-item__rename--direct .task-item__rename-input,
+.task-item--add .task-item__rename-input {
+    border-bottom: none;
+    transition: background-color var(--transition-fast);
 }
 
+.task-item__rename--direct .task-item__rename-input:focus-visible,
+.task-item--add .task-item__rename-input:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* Editable, said quietly. The underline was doing one job worth keeping — telling a
+   reader that a line of text will take a caret — and under the pointer is the one
+   place it can say so without charging a reader who is only reading for it. A tint
+   of the surface a selected row already wears, so no token is invented and none has
+   to be re-measured; a background rather than a border, so it cannot be mistaken
+   for the focus ring above it. */
 .task-item__rename--direct .task-item__rename-input:hover,
-.task-item__rename--direct .task-item__rename-input:focus {
-    border-bottom-color: var(--color-border-focus);
+.task-item--add .task-item__rename-input:hover {
+    background: var(--color-background-raised);
 }
 
 /*
@@ -2731,6 +2785,49 @@ button.task-panel__check:focus-visible {
 .task-item__edit:focus-visible {
     color: var(--color-text-primary);
     outline: none;
+}
+
+/*
+  The bin, at the end of the row.
+
+  The pencil's shape and the pencil's bargain: quiet until the row is under the
+  pointer or the control itself has the focus. A column of bins down a list of
+  steps, all of them lit, would read as a list of things to delete rather than as a
+  list with a way to delete one.
+
+  The focus ring is its own, and that is the one place it parts company with the
+  pencil above. `.design/accessibility.md#focus-visibility` allows outline: none
+  only with a compliant replacement, and the pencil's colour change is not one —
+  which is survivable on a control whose worst outcome is an editor opening, and is
+  not on the control that ends the row. So this one is paid for the way every other
+  component here pays for it: an outline rather than a shadow, so it survives
+  Windows High Contrast.
+*/
+.task-item__delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-disabled);
+    font: inherit;
+    cursor: pointer;
+}
+
+.task-item:hover .task-item__delete,
+.task-item__delete:hover,
+.task-item__delete:focus-visible {
+    color: var(--color-text-primary);
+}
+
+.task-item__delete:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* --- Completed ----------------------------------------------------------- */
@@ -3687,6 +3784,14 @@ body.is-resizing-pane {
     margin-right: var(--spacing-xs);
 }
 
+/* A footer is a flex row that pushes its children to the end. A button marked
+   as the lead takes the free space instead, so it sits at the far end of the
+   row from the one that confirms — which is where a destructive act belongs,
+   since a mis-aimed click beside Save is the one click that cannot be undone. */
+.btn--lead {
+    margin-right: auto;
+}
+
 .btn--toggle[aria-pressed="true"] {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 16%, transparent);
@@ -3936,6 +4041,36 @@ button.tag-chip__label {
     background: transparent;
     resize: none;
     overflow: hidden;
+}
+
+/* Only rendered for a field that was given a suffix, so nothing here reaches a
+   field without one. Block rather than inline-flex because this box replaces the
+   input as the grid or flex item its host placed, and an inline box would stop
+   filling the column the input filled. */
+.field__control {
+    position: relative;
+    display: block;
+    min-width: 0;
+}
+
+/* The element, not .field__input: a host that swapped the input class for one of
+   its own still has to leave room for the suffix it asked for, or a value long
+   enough to scroll runs underneath it. --spacing-xl is the suffix box plus the
+   inset on either side of it. */
+.field__control > input {
+    padding-right: var(--spacing-xl);
+}
+
+/* Never a pointer target. The suffix sits over the input's own hit area, and a
+   click on it has to reach the field rather than stop on the marker. */
+.field__suffix {
+    position: absolute;
+    top: 50%;
+    right: var(--spacing-sm);
+    display: inline-flex;
+    align-items: center;
+    transform: translateY(-50%);
+    pointer-events: none;
 }
 
 .search-box {
@@ -4209,6 +4344,19 @@ button.tag-chip__label {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     cursor: pointer;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+/* An aside on an option — where it comes from — kept quiet enough that it reads
+   as a note rather than a second label. */
+.tag-select__hint {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
 }
 
 /* The focus stays in the input, so the active option is the only thing that
@@ -4706,6 +4854,63 @@ button.tag-chip__label {
     border-color: var(--color-border-focus);
     background: var(--color-background-alt);
     color: var(--color-text-primary);
+}
+
+/* What the file says it is for, between the header and the body.
+
+   Its own strip rather than a third row inside the header: the header is two
+   columns that already crowd each other in a narrow pane, and this is the file
+   describing itself rather than identifying itself. No surface of its own and no
+   heading — one rule under the header's is enough to say the two are different
+   things, which is as much chrome as
+   .design/design-principles.md#low-chrome-content-first allows for something a
+   reader passes on the way to the body. */
+.file-view__frontmatter {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.file-view__frontmatter-description {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* The same wrapping row the header's actions are: a file naming a dozen globs
+   wraps down the strip instead of pushing a second scrollbar under the pane. */
+.file-view__frontmatter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* What a key the strip has no field of its own for actually said. Text and not a
+   badge: a badge says "one of a set", and a key nothing here recognises is not
+   known to be one of anything. Reads as the description does, because that is
+   what it is — the file saying something about itself in its own words. */
+.file-view__frontmatter-value {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+/* The label names the row and then gets out of the way — it is the quietest
+   thing in the strip, because the badges beside it are what is being read. Quiet
+   is --color-secondary and not --color-text-disabled: the disabled token measured
+   3.99:1 here, under AA at this size, and this label is information rather than an
+   unavailable control. Same finding this stylesheet already records above, in the
+   note on the integration chips. */
+.file-view__frontmatter-label {
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
 }
 
 .file-view__empty {

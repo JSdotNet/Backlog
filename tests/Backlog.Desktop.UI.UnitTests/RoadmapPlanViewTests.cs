@@ -25,7 +25,9 @@ public class RoadmapPlanViewTests
         string? lane = null,
         Guid[]? dependsOn = null,
         Guid? id = null,
-        Guid? backlogEntryId = null) =>
+        Guid? backlogEntryId = null,
+        string tag = "",
+        string[]? knowledge = null) =>
         new(
             id ?? Guid.NewGuid(),
             title,
@@ -35,7 +37,10 @@ public class RoadmapPlanViewTests
             repositories ?? [],
             lane,
             backlogEntryId,
-            dependsOn ?? []);
+            dependsOn ?? [],
+            null,
+            tag,
+            knowledge);
 
     private static RoadmapMilestoneDto Milestone(
         string title,
@@ -408,6 +413,28 @@ public class RoadmapPlanViewTests
             Configured);
 
         Assert.Contains("linked to a backlog entry", Assert.Single(view.Bars).Detail);
+    }
+
+    [Fact]
+    public void TheTagIsOfferedAsAFacet_SoTheTimelineCanFilterByIt()
+    {
+        var view = RoadmapPlanView.From(
+            Plan([Item("Work", repositories: ["backlog"], tag: "sync")]),
+            Configured);
+
+        var bar = Assert.Single(view.Bars);
+        Assert.Contains(new RoadmapFacet("Tag", "sync"), bar.FacetList);
+        Assert.Contains("tagged sync", bar.Detail);
+    }
+
+    [Fact]
+    public void TheKnowledgeReferenceCountIsSaidInTheDetail()
+    {
+        var view = RoadmapPlanView.From(
+            Plan([Item("Work", repositories: ["backlog"], tag: "sync", knowledge: ["a.md", "b.md#h"])]),
+            Configured);
+
+        Assert.Contains("references 2 knowledge chapters", Assert.Single(view.Bars).Detail);
     }
 
     [Fact]

@@ -24,7 +24,7 @@
         <div class="roadmap-editor__fields">
             <TextField Label="Title"
                        Value="@_title"
-                       ValueChanged="value => _title = value"
+                       ValueChanged="OnTitleChanged"
                        Placeholder="What is being planned"
                        ErrorMessage="@_titleError"
                        TestId="roadmap-editor-title" />
@@ -68,6 +68,26 @@
                             Disabled="@(RepositoryOptions.Count == 0)"
                             TestId="roadmap-editor-repositories" />
 
+            @* The tag pre-fills from the title but is its own field, so a later rename
+               leaves it — and whatever is already pointing at it — alone. *@
+            <TextField Label="Tag"
+                       Value="@_tag"
+                       ValueChanged="OnTagChanged"
+                       Placeholder="@RoadmapTagSlug.From(_title)"
+                       HelpText="How other parts of the product refer to this item. Kebab-case; derived from the title unless you change it."
+                       TestId="roadmap-item-tag-input" />
+
+            @* Free-typed chapter references — a path, or a path and a heading slug.
+               Stored as written and never resolved, so a reference to something not yet
+               written is an ordinary state rather than an error. *@
+            <TagMultiSelect Label="Knowledge"
+                            Options="@KnowledgeOptions"
+                            SelectedValues="@_knowledge"
+                            SelectedValuesChanged="values => _knowledge = values"
+                            AllowCreate="true"
+                            Placeholder="e.g. .domain/backlog/domain.md#aggregate-backlog-entry"
+                            TestId="roadmap-item-knowledge-input" />
+
             @if (!IsNew && DependencyOptions.Count > 0)
             {
                 <TagMultiSelect Label="Waits for"
@@ -88,15 +108,67 @@
                a cycle is not any one field being wrong. *@
             <Alert Message="@_error" Role="status" TestId="roadmap-editor-error" />
         </div>
+
+        @* What this item has already gathered — read-only, and only for an item that
+           exists, since a plan-work dialog has nothing to roll up yet. The lists and
+           the total are the adapter's arithmetic over registered values; nothing here
+           infers an estimate for work that carries none, which is why the total is
+           shown beside how much of the work was left unestimated rather than on its
+           own. *@
+        @if (!IsNew)
+        {
+            <section class="roadmap-gathered" data-testid="roadmap-item-rollup">
+                <p class="roadmap-gathered__heading">Gathered under this item</p>
+
+                @if (Rollup.IsEmpty)
+                {
+                    <EmptyState TestId="roadmap-item-rollup-empty"
+                                CssClass="roadmap-gathered__empty"
+                                Title="Nothing gathered yet"
+                                Description="No backlog entry is linked or carries this item's tag, and no knowledge chapter names it. Link an entry, or tag work with the item's tag, and it is gathered here." />
+                }
+                else
+                {
+                    @if (Rollup.BacklogEntries.Count > 0)
+                    {
+                        <div class="roadmap-gathered__group">
+                            <p class="roadmap-gathered__group-title">Backlog entries</p>
+                            <ul class="roadmap-gathered__list" data-testid="roadmap-item-linked-backlog">
+                                @foreach (var link in Rollup.BacklogEntries)
+                                {
+                                    @GatheredRow(link)
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @if (Rollup.KnowledgeChapters.Count > 0)
+                    {
+                        <div class="roadmap-gathered__group">
+                            <p class="roadmap-gathered__group-title">Knowledge chapters</p>
+                            <ul class="roadmap-gathered__list" data-testid="roadmap-item-linked-knowledge">
+                                @foreach (var link in Rollup.KnowledgeChapters)
+                                {
+                                    @GatheredRow(link)
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    <div class="roadmap-gathered__effort" data-testid="roadmap-item-effort-total">
+                        <span class="roadmap-gathered__effort-total">@EffortHeadline</span>
+                        <span class="roadmap-gathered__effort-caveat">@EffortCaveat</span>
+                    </div>
+                }
+            </section>
+        }
     </ChildContent>
     <Footer>
         @if (!IsNew)
         {
-            <AppButton Variant="ButtonVariant.Danger"
-                       OnClick="DeleteAsync"
-                       TestId="roadmap-editor-delete">
-                Delete
-            </AppButton>
+            <DeleteButton Lead="true"
+                          OnClick="DeleteAsync"
+                          TestId="roadmap-editor-delete" />
         }
 
         <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-editor-cancel">
@@ -119,8 +191,15 @@
     private string _priority = MediumPriority;
     private string _lane = string.Empty;
     private string _notes = string.Empty;
+    private string _tag = string.Empty;
     private IReadOnlyList<string> _repositories = [];
     private IReadOnlyList<string> _dependsOn = [];
+    private IReadOnlyList<string> _knowledge = [];
+
+    // Whether the person has taken the tag over. Until they do, it follows the title
+    // for a new item; once they have — or once an existing item's stored tag is loaded
+    // — a rename no longer moves it, which is the whole point of a tag being editable.
+    private bool _tagEdited;
 
     private string? _titleError;
     private string? _windowError;
@@ -137,6 +216,17 @@
     /// <summary>The item being edited, or null to plan something new.</summary>
     [Parameter]
     public RoadmapItemDto? Item { get; set; }
+
+    /// <summary>
+    /// What this item has gathered — its linked and tagged backlog entries, its
+    /// referenced and tag-named knowledge chapters, and the effort arithmetic over
+    /// them. Handed in as a parameter rather than fetched here, so the dialog stays a
+    /// thing that shows what it is given: the band gathers through its own module port
+    /// and passes the result down, the same way it passes the repositories and the
+    /// dependency options. Empty for a new item, which has nothing to gather.
+    /// </summary>
+    [Parameter]
+    public RoadmapItemRollupDto Rollup { get; set; } = RoadmapItemRollupDto.Empty;
 
     /// <summary>The repositories the plan may be filed against, in Settings order.</summary>
     [Parameter]
@@ -166,6 +256,56 @@
 
     private bool IsNew => Item is null;
 
+    /// <summary>One gathered thing: what it is, how the item reached it, and — when it
+    /// registered one — its effort. The origin is drawn as a badge rather than left to
+    /// the list's grouping, because the same entry can be gathered two ways at once and
+    /// "linked &amp; tagged" is a different fact from either alone.</summary>
+    private RenderFragment GatheredRow(RoadmapGatheredLink link) =>
+        @<li class="roadmap-gathered__item">
+            <span class="roadmap-gathered__title">@link.Title</span>
+            <Badge Kind="origin" Slug="@OriginSlug(link.Origin)" CssClass="roadmap-gathered__origin">@OriginLabel(link.Origin)</Badge>
+            @if (link.Effort is int points)
+            {
+                <Badge Kind="effort" CssClass="roadmap-gathered__points">@points @Points(points)</Badge>
+            }
+            else
+            {
+                <span class="roadmap-gathered__unestimated">not estimated</span>
+            }
+        </li>;
+
+    private static string OriginSlug(RollupOrigin origin) => origin switch
+    {
+        RollupOrigin.Direct => "direct",
+        RollupOrigin.Tag => "tag",
+        _ => "both"
+    };
+
+    private static string OriginLabel(RollupOrigin origin) => origin switch
+    {
+        RollupOrigin.Direct => "linked",
+        RollupOrigin.Tag => "by tag",
+        _ => "linked & by tag"
+    };
+
+    /// <summary>The registered total, said as story points. It is only the work that
+    /// carried a number; <see cref="EffortCaveat"/> says how much did not.</summary>
+    private string EffortHeadline => $"{Rollup.TotalEffort} story {Points(Rollup.TotalEffort)}";
+
+    /// <summary>How much of the gathered work went into the total and how much could
+    /// not, in words a reader cannot miss. A total that quietly dropped the unestimated
+    /// work would read as smaller than the work is, so the count that was left out is
+    /// stated beside it rather than implied.</summary>
+    private string EffortCaveat => Rollup.UnestimatedCount == 0
+        ? $"Every one of the {Rollup.GatheredCount} gathered {Things(Rollup.GatheredCount)} registered an estimate."
+        : $"{Rollup.UnestimatedCount} of {Rollup.GatheredCount} gathered {Things(Rollup.GatheredCount)} registered no estimate, "
+            + "so this total counts only the work that carries a number — the real effort is larger.";
+
+    private static string Points(int count) => count == 1 ? "point" : "points";
+
+    private static string Things(int count) => count == 1 ? "thing" : "things";
+
+
     private static IReadOnlyList<SelectorOption> PriorityOptions =>
     [
         new(nameof(PlanningPriority.Low), "Low"),
@@ -176,6 +316,10 @@
 
     private IReadOnlyList<SelectorOption> RepositoryOptions =>
         [.. Repositories.Select(repository => new SelectorOption(repository.Alias, repository.Title))];
+
+    // Knowledge references are free-typed: there is no fixed list to offer, so the
+    // multi-select is a create-only chip editor over whatever the person writes.
+    private static IReadOnlyList<SelectorOption> KnowledgeOptions => [];
 
     public void Dispose() => GC.SuppressFinalize(this);
 
@@ -212,8 +356,11 @@
             _priority = MediumPriority;
             _lane = string.Empty;
             _notes = string.Empty;
+            _tag = string.Empty;
+            _tagEdited = false;
             _repositories = [];
             _dependsOn = [];
+            _knowledge = [];
             return;
         }
 
@@ -223,8 +370,27 @@
         _priority = Item.Priority.ToString();
         _lane = Item.Lane ?? string.Empty;
         _notes = Item.Notes ?? string.Empty;
+        // An existing item arrives with its stored tag, and it counts as edited so a
+        // rename here does not move it — the same guarantee the module keeps.
+        _tag = Item.Tag;
+        _tagEdited = true;
         _repositories = [.. Item.RepositoryAliases];
         _dependsOn = [.. Item.DependsOn.Select(id => id.ToString())];
+        _knowledge = [.. Item.Knowledge];
+    }
+
+    /// <summary>The title, and — until the person takes the tag over — the tag with
+    /// it. Once they have edited the tag, the title stops driving it.</summary>
+    private void OnTitleChanged(string value)
+    {
+        _title = value;
+        if (!_tagEdited) _tag = RoadmapTagSlug.From(_title);
+    }
+
+    private void OnTagChanged(string value)
+    {
+        _tag = value;
+        _tagEdited = true;
     }
 
     /// <summary>Shows a refusal the module came back with, and keeps the dialog
@@ -266,7 +432,10 @@
             _repositories,
             string.IsNullOrWhiteSpace(_lane) ? null : _lane.Trim(),
             Item?.BacklogEntryId,
-            string.IsNullOrWhiteSpace(_notes) ? null : _notes));
+            string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+            // A blank tag says "derive it from the title"; the module does that.
+            string.IsNullOrWhiteSpace(_tag) ? null : _tag.Trim(),
+            _knowledge));
     }
 
     private async Task OnDependenciesChangedAsync(IReadOnlyList<string> values)
