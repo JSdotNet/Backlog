@@ -20,6 +20,19 @@ public sealed class MarkdownDocumentTests
         - [ ] Release notes written
         """;
 
+    /// <summary>An instruction file, which is the one kind of file in this
+    /// product that opens with a frontmatter block.</summary>
+    private const string Frontmattered = """
+        ---
+        applyTo: "src/App/**"
+        description: What the screens may do.
+        ---
+
+        # UI components
+
+        A paragraph.
+        """;
+
     [Fact]
     public void Leaving_the_text_asks_the_host_to_save()
     {
@@ -148,6 +161,71 @@ public sealed class MarkdownDocumentTests
             .Add(d => d.Editing, true));
 
         Assert.Equal("Markdown source", view.Find("textarea").GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void A_host_already_showing_the_frontmatter_can_keep_it_out_of_the_read_view()
+    {
+        // The instructions panel: a file view's strip above this one draws the
+        // description and the globs as facts, so drawing the same four lines here
+        // again would say it twice — the second time as a divider and a paragraph
+        // of run-together `key: value`.
+        using var context = new BunitContext();
+
+        var view = RenderInstructionFile(context, parameters => parameters
+            .Add(d => d.HideFrontmatter, true));
+
+        var read = view.Find("[data-testid='doc-read']");
+
+        Assert.DoesNotContain("applyTo:", read.TextContent, StringComparison.Ordinal);
+        Assert.Empty(read.QuerySelectorAll("hr.md-divider"));
+        Assert.Equal("UI components", read.QuerySelector(".md-heading")!.TextContent);
+    }
+
+    [Fact]
+    public void What_the_editor_gets_is_the_whole_file_either_way()
+    {
+        // Read mode only, and this is why it matters: the buffer is written back
+        // over the source, so a textarea four lines short would save the file
+        // without them.
+        using var context = new BunitContext();
+
+        var view = RenderInstructionFile(context, parameters => parameters
+            .Add(d => d.HideFrontmatter, true)
+            .Add(d => d.Editing, true));
+
+        // Against the DOM's own line endings rather than the file's: what is
+        // being pinned is that no line went missing on the way to the textarea.
+        Assert.Equal(Frontmattered.ReplaceLineEndings("\n"), view.Find("textarea").TextContent);
+    }
+
+    [Fact]
+    public void The_read_view_keeps_the_frontmatter_until_a_host_says_otherwise()
+    {
+        using var context = new BunitContext();
+
+        var view = RenderInstructionFile(context, _ => { });
+
+        Assert.Contains("applyTo:", view.Find("[data-testid='doc-read']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>The same document, holding a file that opens with a frontmatter
+    /// block. Its own renderer because the shared one below has already named the
+    /// text it hands over.</summary>
+    private static IRenderedComponent<MarkdownDocument> RenderInstructionFile(
+        BunitContext context,
+        Action<ComponentParameterCollectionBuilder<MarkdownDocument>> extra)
+    {
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        return context.Render<MarkdownDocument>(parameters =>
+        {
+            parameters
+                .Add(d => d.Value, Frontmattered)
+                .Add(d => d.TestId, "doc");
+
+            extra(parameters);
+        });
     }
 
     /// <summary>

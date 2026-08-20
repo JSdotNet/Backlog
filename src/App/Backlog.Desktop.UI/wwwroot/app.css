@@ -917,12 +917,6 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
-.knowledge-stack__repository {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
 /* Narrow enough and the split stops being one: the list stacks above the entry
    rather than each half being too narrow to read. */
 @media (max-width: 60rem) {
@@ -3362,6 +3356,7 @@ h1, h2, h3 {
 }
 
 .knowledge-stack__section > .knowledge-pane--arc42,
+.knowledge-stack__section > .instructions-knowledge,
 .knowledge-stack__section > .domain-knowledge {
     display: flex;
     flex-direction: column;
@@ -3393,6 +3388,53 @@ h1, h2, h3 {
     min-height: 0;
     overflow: auto;
     scrollbar-gutter: stable;
+}
+
+/* Instructions hands its scrollbar over the same way, except the file view is
+   the document: asked to fill, it takes the panel's height and scrolls its own
+   body. It used to stop at a fraction of the viewport
+   instead, which made the panel taller than the section that was already
+   scrolling it and put two scrollbars on the same edge. */
+.instructions-knowledge__repository {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.instructions-knowledge .instructions-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* The document list is navigation beside the file, so it scrolls itself rather
+   than growing the panel past the file it sits next to. */
+.instructions-knowledge .instructions-list {
+    min-height: 0;
+    overflow: auto;
+}
+
+/* Stacked, the arrangement above has nothing to stand on: the section stops
+   scrolling and every panel grows with its content, so a panel that clips at the
+   section's height would clip against a height nobody set. Instructions withdraws
+   it and takes its own cap back instead — filling a pane that has no height means
+   the body stretches to the whole file, and then the only thing between a reader
+   and the end of it is a shell that does not scroll.
+
+   Later in the stylesheet than the step it answers, and deliberately: a media
+   query adds no specificity, and the rules above are no less specific than these.
+   Same reason the arc42 and domain rules sit where they do. */
+@media (max-width: 72rem) {
+    .knowledge-stack__section > .instructions-knowledge,
+    .instructions-knowledge__repository {
+        max-height: none;
+        overflow: visible;
+    }
+
+    .instructions-knowledge .file-view__body {
+        max-height: min(72vh, 52rem);
+    }
 }
 
 .knowledge-stack__body {
@@ -3897,24 +3939,6 @@ h1, h2, h3 {
 
 .instruction-doc__content > :last-child {
     margin-bottom: 0;
-}
-
-.instructions-knowledge .knowledge-pane__subtitle {
-    margin-bottom: var(--spacing-sm);
-}
-
-.instructions-knowledge .knowledge-pane__source {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs) var(--spacing-md);
-    margin-bottom: var(--spacing-sm);
-    padding: var(--spacing-sm);
-}
-
-.instructions-knowledge .knowledge-pane__source code {
-    min-width: 0;
-    overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {
