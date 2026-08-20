@@ -83,7 +83,7 @@
                 <p class="file-view__path">@Path</p>
             }
 
-            @if (AllowCopy || OffersEdit || CanCompare)
+            @if (AllowCopy || OffersEdit || OffersCompare)
             {
                 @* Named as a group, because "Edit" and "Compare" on their own say
                    nothing about which of several files on a page they belong to
@@ -104,21 +104,34 @@
 
                     @if (OffersEdit)
                     {
-                        <AppButton Variant="ButtonVariant.Ghost"
-                                   CssClass="file-view__action"
-                                   OnClick="ToggleEditingAsync"
-                                   TestId="@Suffix(Editing ? "done" : "edit")">@(Editing ? DoneLabel : EditLabel)</AppButton>
+                        @* A mark rather than a word, because the row it is in is
+                           the header of a file and not a toolbar: the file's name
+                           is what a reader is here to read. The word survives
+                           whole on the label and the tooltip, which is where an
+                           icon-only control has to keep it
+                           (.design/accessibility.md). *@
+                        <IconButton CssClass="file-view__action"
+                                    AriaLabel="@EditActionLabel"
+                                    Title="@EditActionLabel"
+                                    OnClick="ToggleEditingAsync"
+                                    TestId="@Suffix(Editing ? "done" : "edit")">@(Editing ? DoneIcon : EditIcon)</IconButton>
                     }
 
-                    @if (CanCompare)
+                    @if (OffersCompare)
                     {
                         @* A toggle and not a button whose word flips: comparing is
                            a state the pane is in, and aria-pressed is how that is
-                           said without renaming the control underneath a reader. *@
+                           said without renaming the control underneath a reader.
+                           Still a toggle now that the word is a glyph — the state
+                           is the reason for the control, and an icon that changed
+                           nothing a screen reader could hear would only be the
+                           picture of one. *@
                         <ToggleButton Pressed="Comparing"
                                       PressedChanged="ToggleComparingAsync"
                                       CssClass="file-view__action"
-                                      TestId="@Suffix("compare")">@CompareLabel</ToggleButton>
+                                      AriaLabel="@CompareLabel"
+                                      Title="@CompareLabel"
+                                      TestId="@Suffix("compare")"><span aria-hidden="true">@CompareIcon</span></ToggleButton>
                     }
                 </div>
             }
@@ -273,6 +286,8 @@
                           Source="@_bodyMarkdown"
                           AllowChapterCopy="@AllowChapterCopy"
                           RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
+                          RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
+                          ShowDiagramSource="@ShowDiagramSource"
                           KnowledgeFolder="@KnowledgeFolder"
                           OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
                           OnKnowledgeNavigate="@OnKnowledgeNavigate"
@@ -396,6 +411,16 @@
     [Parameter]
     public string DoneLabel { get; set; } = "Done";
 
+    /// <summary>The mark the way into editing wears. A pencil, which is what this
+    /// product already draws an edit with everywhere else it draws one — a
+    /// vocabulary is only a vocabulary if it is the same word each time.</summary>
+    [Parameter]
+    public string EditIcon { get; set; } = "✎";
+
+    /// <summary>And the mark for leaving. A tick, for the same reason.</summary>
+    [Parameter]
+    public string DoneIcon { get; set; } = "✓";
+
     /// <summary>
     /// The versions of this file worth comparing it against, in the order a reader
     /// would reach for them. Empty — the default — offers no comparison at all.
@@ -425,6 +450,13 @@
     [Parameter]
     public string CompareLabel { get; set; } = "Compare";
 
+    /// <summary>The mark comparing wears. Two arrows facing each other, which is
+    /// as close as this product's glyph vocabulary gets to a diff — nothing here
+    /// already meant "these two texts, side by side". A parameter so a host with
+    /// a better one is not stuck with this.</summary>
+    [Parameter]
+    public string CompareIcon { get; set; } = "⇄";
+
     /// <summary>What the version on screen is called in the comparison. The file
     /// as it is now, which is the reader's own copy of it.</summary>
     [Parameter]
@@ -435,6 +467,22 @@
     /// the read view.</summary>
     [Parameter]
     public bool RenderKnowledgeMetadata { get; set; }
+
+    /// <summary>Whether a metadata record draws the fields under the status too.
+    /// Passed straight to the read view, which explains what the second tier is
+    /// worth on a surface that is already showing the file.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+
+    /// <summary>Whether a diagram drawn from a fence keeps its own source
+    /// disclosure. Passed straight to the read view and on to
+    /// <c>DiagramView.ShowSource</c>. On by default, so nothing that renders a
+    /// diagram today changes; off for a reading surface where a fold holding the
+    /// text behind every picture is chrome the reader did not ask for. A render
+    /// that failed keeps the source either way — that is DiagramView's own rule,
+    /// and it has to be, because then the text is all there is left to read.</summary>
+    [Parameter]
+    public bool ShowDiagramSource { get; set; } = true;
 
     /// <summary>
     /// Whether the file's leading YAML frontmatter is drawn as a strip under the
@@ -762,6 +810,55 @@
     /// </summary>
     private bool CanCompare =>
         CompareBaselines.Count > 0 && RendersMarkdown && !string.IsNullOrEmpty(Body);
+
+    /// <summary>
+    /// Whether a comparison is worth offering, which is a narrower question than
+    /// whether one can be drawn.
+    /// <para>
+    /// <see cref="CanCompare"/> is the second: it decides whether the body may
+    /// show a comparison, and a host that sets <see cref="Comparing"/> for a file
+    /// whose baselines all match still gets a truthful — if empty — reading of it,
+    /// the same bargain <see cref="CanEdit"/> and <see cref="OffersEdit"/> already
+    /// keep. This one decides whether the control appears at all, and the answer
+    /// is no when pressing it would show the reader the file they are already
+    /// looking at.
+    /// </para>
+    /// </summary>
+    private bool OffersCompare => CanCompare && HasChanges;
+
+    /// <summary>
+    /// Whether any baseline has something to say that the file does not already.
+    /// <para>
+    /// A baseline whose text matches the body is not a change, and one the host
+    /// has answered as unavailable is not a change either — it is the absence of a
+    /// version to compare against, which is a reason to withhold the offer rather
+    /// than to make it.
+    /// </para>
+    /// <para>
+    /// A baseline still being read counts, and has to: its text is null because
+    /// nothing has come back yet, not because there is nothing there. Reading a
+    /// committed version costs a process and the host only pays for it when the
+    /// reader asks — so a control that waited for the answer would be waiting for
+    /// the press that produces it, and would never appear.
+    /// </para>
+    /// </summary>
+    private bool HasChanges => CompareBaselines.Any(baseline =>
+        baseline.Unavailable is null && (baseline.Text is null || !SameText(baseline.Text, Body)));
+
+    /// <summary>Line endings are not a change. A baseline read out of git arrives
+    /// with whatever the blob holds and the body with whatever the working copy
+    /// does, and on this platform those routinely disagree about <c>\r</c> for a
+    /// file nobody has touched.</summary>
+    private static bool SameText(string? left, string? right) =>
+        string.Equals(Normalized(left), Normalized(right), StringComparison.Ordinal);
+
+    private static string Normalized(string? text) =>
+        text is null ? string.Empty : text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+
+    /// <summary>What the one button that changes meaning is called right now. Both
+    /// the accessible name and the tooltip read it, because an icon-only control
+    /// has nowhere else to say which of the two it is.</summary>
+    private string EditActionLabel => Editing ? DoneLabel : EditLabel;
 
     /// <summary>The baseline in play: the one named, or the first offered. A named
     /// baseline that is not on the list is treated as none named rather than as an

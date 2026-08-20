@@ -1668,6 +1668,22 @@ button.md-check {
     margin-inline-start: auto;
 }
 
+/* The one place that auto margin has to stop short of the edge.
+
+   Inside an annotated read view the block's top-right corner belongs to the
+   comment affordance: it is absolutely positioned there, it is in the DOM at all
+   times so touch and the keyboard can find it, and it is the only affordance on
+   the block. A headline that also holds that edge puts the status underneath the
+   button — which is what a DRAFT chip with a speech bubble sitting on it was.
+   Whatever else wants that corner yields it, so the gutter is reserved here
+   rather than the button being moved or either control being hidden: one of them
+   is a thing you press and the other is a thing you read, and losing sight of a
+   chapter's state is the more expensive of the two. Wide enough for the button
+   and a gap after the status, so the two read as separate rather than adjacent. */
+.md-block .knowledge-record__headline {
+    padding-inline-end: calc(2rem + var(--spacing-sm));
+}
+
 /* The heading arrives with the block margins it has as a block of its own.
    Left alone they push the pill off the line and reopen the gap this row exists
    to close. */

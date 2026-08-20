@@ -168,6 +168,31 @@
         </div>
     </Story>
 
+    <Story Name="The same chapter, read rather than worked on"
+           Description="What the knowledge panes ask for. Turning `RenderKnowledgeMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. Turning `ShowDiagramSource` off drops the fold under the picture, because the source is already a copy button and an Edit away. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnKnowledgeNavigate` — press one and this story reports it.
+
+Compare is absent here, and that is the story too: the only baseline says exactly what the file says, so pressing it would show the reader the file they are already looking at."
+           Code="@ReadingCode">
+        <div class="sb-tall" data-testid="file-view-reading">
+            <FileView Name="Domain: Backlog Management"
+                      Kind="Domain model narrative"
+                      Path=".domain/backlog/domain.md"
+                      Body="@ReadingChapter"
+                      Fill="true"
+                      TestId="file-view-reading-example"
+                      AllowCopy="true"
+                      AllowChapterCopy="true"
+                      RenderKnowledgeMetadata="true"
+                      RenderKnowledgeMetadataFields="false"
+                      ShowDiagramSource="false"
+                      KnowledgeFolder="KnowledgeFolder.Domain"
+                      OnKnowledgeNavigate="reference => _followed = reference.Raw"
+                      CompareBaselines="@UnchangedBaseline" />
+
+            <Alert Message="@(_followed is null ? null : $"Asked to open {_followed}.")" Role="status" />
+        </div>
+    </Story>
+
     <Story Name="Compared against two versions of itself"
            Description="`MarkdownCompareView` is handed the result `Bare`, so it gives up its own card, header and scroll region — this pane already has all three.
 
@@ -277,6 +302,16 @@ Its own strip and not another row in the header: the header identifies the file,
         new("opened", "As opened", DomainChapter),
         new("committed", "Last commit", CommittedDomainChapter)
     ];
+
+    /// <summary>What the reading story reports when a reference in its prose is
+    /// followed. A pane would change what is on screen; a storybook has nowhere to
+    /// go, so it says where it was asked to go instead.</summary>
+    private string? _followed;
+
+    /// <summary>One baseline, holding exactly what the file holds. Which is why
+    /// the story has no Compare button: there is nothing on the other side of it.</summary>
+    private IReadOnlyList<FileCompareBaseline> UnchangedBaseline =>
+        [new("opened", "As opened", ReadingChapter)];
 
     private IReadOnlyList<FileCompareBaseline> CompareExamples =>
     [
@@ -567,6 +602,45 @@ Its own strip and not another row in the header: the header identifies the file,
         completion.
         """;
 
+    /// <summary>The same chapter with the references a real one carries: written
+    /// in prose as code spans, and once as a markdown link, which is how the
+    /// checked-in folders actually write them.</summary>
+    private const string ReadingChapter = """
+        # Domain: Backlog Management
+
+        ```meta
+        status: draft
+        order: ["features.md", "model.md", "flow.md"]
+        ```
+
+        Backlog Management converts triaged Inbox Items into actionable, prioritised
+        Backlog Entries. What an Inbox Item is belongs to `.domain/inbox/domain.md`,
+        and the system this sits inside is described in
+        [the context and scope chapter](.arc42/03-context-and-scope.md).
+
+        The word `order` in the block above is a field name, and `dotnet build` is a
+        command. Neither is a place, so neither becomes a link.
+
+        ## Aggregate: Backlog Entry
+
+        ```meta
+        status: proposed
+        related: [.domain/inbox/domain.md#aggregate-inbox-item]
+        ```
+
+        The consistency boundary for an entry's sub-items, projections and usage
+        history.
+
+        ```mermaid
+        stateDiagram-v2
+            [*] --> Draft
+            Draft --> Ready
+            Ready --> InProgress: EntryProjected
+            InProgress --> Done: EntryCompleted
+            Done --> [*]
+        ```
+        """;
+
     /// <summary>The same chapter as a commit has it: one status agreed, one
     /// paragraph shorter, and a lifecycle state nobody had added yet.</summary>
     private const string CommittedDomainChapter = """
@@ -656,6 +730,24 @@ Its own strip and not another row in the header: the header identifies the file,
                 <MarkdownEditor Value="@markdown" ValueChanged="OnChanged" Rows="16" />
             </EditBodyContent>
         </FileView>
+        """;
+
+    private const string ReadingCode = """
+        @* A reading surface: the status is kept and the bookkeeping under it is
+           not, the diagram carries no fold, and a chapter named in the prose goes
+           through the same navigation the metadata references already use. *@
+        <FileView Name="Domain: Backlog Management"
+                  Path=".domain/backlog/domain.md"
+                  Body="@markdown"
+                  Fill="true"
+                  AllowCopy="true"
+                  AllowChapterCopy="true"
+                  RenderKnowledgeMetadata="true"
+                  RenderKnowledgeMetadataFields="false"
+                  ShowDiagramSource="false"
+                  KnowledgeFolder="KnowledgeFolder.Domain"
+                  OnKnowledgeNavigate="Open"
+                  CompareBaselines="@baselines" />
         """;
 
     private const string CompareCode = """

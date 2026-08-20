@@ -32,10 +32,20 @@
     announced the same block twice. The wrapper takes an explicit role because a
     bare <div> with an aria-label is a label nothing is listening for.
 
-    Empty in, nothing out, exactly as the metadata strip behaves.
+    A host may ask for the first tier alone. The status has a visualization a
+    reader gets something from — a word with a state behind it, and a control
+    where the folder allows one — and the second tier does not: `order`,
+    `aliases` and `version` are the file's own bookkeeping printed back as
+    label-and-value rows, which is the raw block again with the fence taken off.
+    ShowFields is how a reading surface says it wants only the tier that reads.
+
+    Empty in, nothing out, exactly as the metadata strip behaves — and that now
+    includes a block with nothing left to draw. Fields suppressed and no status
+    stated leaves a bordered, labelled group holding a heading or nothing at all,
+    which is a frame around an answer the block never gave.
 *@
 
-@if (!Metadata.IsEmpty)
+@if (RendersAnything)
 {
     <div class="@ClassValue" role="group" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
         <div class="knowledge-record__headline">
@@ -53,7 +63,7 @@
             }
         </div>
 
-        @if (HasSecondaryFields)
+        @if (ShowFields && HasSecondaryFields)
         {
             <dl class="knowledge-fields">
                 @RenderReferences("related", Metadata.Related)
@@ -212,6 +222,13 @@
     [Parameter]
     public Func<KnowledgeReference, string?>? HrefFor { get; set; }
 
+    /// <summary>Whether the secondary tier — everything that is not the status —
+    /// is drawn at all. On by default, so a host that says nothing gets the whole
+    /// record it has always got; off for a surface that is showing the file
+    /// itself, where those fields are the fence read back as rows.</summary>
+    [Parameter]
+    public bool ShowFields { get; set; } = true;
+
     [Parameter]
     public string AriaLabel { get; set; } = "Knowledge metadata";
 
@@ -300,6 +317,23 @@
     }
 
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "knowledge-record" : $"knowledge-record {CssClass}";
+
+    /// <summary>
+    /// Whether there is a record here at all.
+    /// <para>
+    /// A block with nothing in it never drew one. What is new is a block that
+    /// states only fields nobody asked to see: the group would be a border and an
+    /// aria-label around an empty line. The heading counts as content in its own
+    /// right, and has to — in a document the headline is where the chapter's
+    /// heading is rendered, so a record that stood down for want of a status would
+    /// take the heading off the page with it.
+    /// </para>
+    /// </summary>
+    private bool RendersAnything =>
+        !Metadata.IsEmpty
+        && (Heading is not null
+            || !string.IsNullOrWhiteSpace(_status)
+            || (ShowFields && HasSecondaryFields));
 
     /// <summary>Whether anything but the status has a value. Status is drawn in
     /// the headline and nowhere else, so a block that states only a status has

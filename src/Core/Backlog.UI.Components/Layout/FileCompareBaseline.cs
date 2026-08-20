@@ -22,10 +22,16 @@ namespace Backlog.UI.Components.Layout;
 /// <param name="Label">What the reader calls this version — "As opened", "Last
 /// commit". It names the left-hand side of the comparison, so it is a version and
 /// not an instruction.</param>
-/// <param name="Text">The file as that version has it. Null means the host has
-/// nothing to show yet, which is what <see cref="Unavailable"/> is for saying.</param>
+/// <param name="Text">The file as that version has it. Null with a reason in
+/// <see cref="Unavailable"/> is a settled "there is no such version"; null with
+/// no reason is the host not having answered yet, which is the ordinary state of
+/// a baseline that costs a git process and is only read once a reader asks for
+/// it. The file view keeps offering the comparison through the second, because
+/// the press is what produces the answer.</param>
 /// <param name="Unavailable">Why there is nothing to compare against, in the
-/// reader's terms. Shown in place of the comparison; null when there is one.</param>
+/// reader's terms. Shown in place of the comparison; null when there is one, and
+/// null too while the answer is still being waited for — see
+/// <paramref name="Text"/>.</param>
 public sealed record FileCompareBaseline(
     string Id,
     string Label,

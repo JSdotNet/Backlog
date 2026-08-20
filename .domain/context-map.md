@@ -42,7 +42,7 @@ flowchart LR
     Brain[Second Brain]
     Productivity[Productivity]
     Environment[Environment]
-    Monitor[Monitoring & Dashboard]
+    Monitor["Monitoring & Dashboard"]
     Tech[Technology Stack]
     Repo[Repository Management]
     DevPC[Dev PC Management]
@@ -81,9 +81,9 @@ flowchart LR
 
     %% Sessions. Dashed edges are named and not built: see the strategic rules
     %% below and .domain/sessions/dependencies.md.
-    DevPC -.->|Customer/Supplier (not built)<br/>Machine identity for an environment| Sessions
-    Sessions -.->|Customer/Supplier (not built)<br/>Agent session facts| Productivity
-    Sessions -.->|Customer/Supplier (not built)<br/>Stalled-session observation| Monitor
+    DevPC -.->|"Customer/Supplier (not built)<br/>Machine identity for an environment"| Sessions
+    Sessions -.->|"Customer/Supplier (not built)<br/>Agent session facts"| Productivity
+    Sessions -.->|"Customer/Supplier (not built)<br/>Stalled-session observation"| Monitor
 
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Backlog
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Roadmap

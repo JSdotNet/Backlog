@@ -138,6 +138,7 @@
             {
                 <KnowledgeMetaView Metadata="@MetadataOf(fence)"
                                    Folder="@KnowledgeFolder"
+                                   ShowFields="@RenderKnowledgeMetadataFields"
                                    OnStatusChanged="status => ReportStatusAsync(index, status)"
                                    OnNavigate="@OnKnowledgeNavigate"
                                    HrefFor="@KnowledgeHrefFor"
@@ -217,6 +218,7 @@
             {
                 <KnowledgeMetaView Metadata="@MetadataOf(codeBlock)"
                                    Folder="@KnowledgeFolder"
+                                   ShowFields="@RenderKnowledgeMetadataFields"
                                    OnNavigate="@OnKnowledgeNavigate"
                                    HrefFor="@KnowledgeHrefFor" />
             }
@@ -664,6 +666,15 @@
     [Parameter]
     public bool RenderKnowledgeMetadata { get; set; }
 
+    /// <summary>Whether a metadata record draws everything under the status as
+    /// well. On by default, so nothing that renders one today changes. A surface
+    /// that is already showing the file itself turns it off: `order`, `aliases`
+    /// and `version` have no visualization a reader gains anything from, so
+    /// printing them as rows is the fence again with the fence taken off.
+    /// Forwarded verbatim to <c>KnowledgeMetaView.ShowFields</c>.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+
     /// <summary>Which knowledge folder the document was read from, so a status
     /// can be checked against that folder's vocabulary.</summary>
     [Parameter]
@@ -826,7 +837,46 @@
 
     private bool CanRewrite => OnRewriteBlock.HasDelegate;
 
-    private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) => MarkdownRender.Inlines(parts);
+    private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) =>
+        MarkdownRender.Inlines(parts, InlineTarget);
+
+    /// <summary>The hook handed to the inline renderer, and null where a host has
+    /// not said this is a knowledge document — which is what keeps a code span in
+    /// an entry's body a code span.</summary>
+    private MarkdownRender.MarkdownInlineTarget? InlineTarget =>
+        RenderKnowledgeMetadata ? new MarkdownRender.MarkdownInlineTarget(KnowledgeTarget) : null;
+
+    /// <summary>
+    /// A code span or a relative link that names a knowledge chapter, drawn as
+    /// the reference it is.
+    ///
+    /// <para>The convention writes references in prose the same way it writes
+    /// them in a <c>meta</c> fence — <c>.domain/sessions/domain.md#invariants</c>
+    /// in a code span — and a reader who can follow the one in the record and not
+    /// the identical one two lines above it is being told the two are different
+    /// things. They are the same thing, so they go through the same plumbing: the
+    /// host's <see cref="KnowledgeHrefFor"/> and
+    /// <see cref="OnKnowledgeNavigate"/>, and the same component the record
+    /// draws.</para>
+    ///
+    /// <para>Only where a host said it is reading a knowledge document, and only
+    /// for text <see cref="KnowledgeReference.ParseKnowledgePath"/> is willing to
+    /// call a reference — a code span in prose is a path far less often than it
+    /// is a command or a word, and everything it refuses stays the
+    /// <c>&lt;code&gt;</c> it has always been. An <c>http</c> link never reaches
+    /// here at all: it names no knowledge folder, so it falls through to the
+    /// anchor <see cref="MarkdownRender"/> already writes.</para>
+    /// </summary>
+    private RenderFragment? KnowledgeTarget(string target, string text) =>
+        KnowledgeReference.ParseKnowledgePath(target) is { } reference
+            ? KnowledgeLink(reference, string.Equals(target, text, StringComparison.Ordinal) ? null : text)
+            : null;
+
+    private RenderFragment KnowledgeLink(KnowledgeReference reference, string? text) =>
+        @<KnowledgeReferenceLink Reference="@reference"
+                                 Text="@text"
+                                 Href="@KnowledgeHrefFor?.Invoke(reference)"
+                                 OnNavigate="@OnKnowledgeNavigate" />;
 
     /// <summary>The alignment class for a column, read defensively: a body row
     /// may have more cells than the delimiter row described, and a column nobody
