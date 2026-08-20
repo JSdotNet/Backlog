@@ -245,4 +245,32 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
         Assert.Null(new WorkspaceSettingsStore(appData, settingsPath).RootRepository);
     }
 
+    /// <summary>
+    /// A settings file written while <c>.backlog</c> was still a knowledge-base
+    /// section must keep opening the app. The row names a section that no longer
+    /// exists, so it is dropped — silently, because there is nothing the reader
+    /// could usefully do about a setting for a section they can no longer see.
+    /// </summary>
+    [Fact]
+    public void A_retired_knowledge_folder_row_is_dropped_rather_than_read()
+    {
+        var appData = TempDir();
+        var settingsPath = Path.Combine(appData, "settings.json");
+        Directory.CreateDirectory(appData);
+        File.WriteAllText(settingsPath, """
+            {
+              "knowledgeFolders": [
+                { "key": ".backlog", "enabled": true, "path": "docs/.backlog" },
+                { "key": ".domain", "enabled": false, "path": "docs/.domain" }
+              ]
+            }
+            """);
+
+        var store = new WorkspaceSettingsStore(appData, settingsPath);
+
+        Assert.DoesNotContain(".backlog", store.KnowledgeFolders.Select(folder => folder.Key));
+        var domain = store.KnowledgeFolders.Single(folder => folder.Key == ".domain");
+        Assert.False(domain.Enabled);
+        Assert.Equal("docs/.domain", domain.EffectivePath);
+    }
 }

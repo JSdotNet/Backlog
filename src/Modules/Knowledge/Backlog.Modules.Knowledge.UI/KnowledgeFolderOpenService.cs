@@ -64,7 +64,6 @@ public sealed class KnowledgeFolderOpenService(IKnowledgeFolderSource source, IF
 
     private static bool IsAreaRoot(string areaKey, string nodePath) => areaKey.ToLowerInvariant() switch
     {
-        "backlog" => string.Equals(nodePath, ".backlog", StringComparison.OrdinalIgnoreCase),
         "domain" => string.Equals(nodePath, ".domain", StringComparison.OrdinalIgnoreCase),
         "arc42" => string.Equals(nodePath, ".arc42", StringComparison.OrdinalIgnoreCase),
         "tech" => string.Equals(nodePath, ".tech", StringComparison.OrdinalIgnoreCase),
@@ -89,7 +88,6 @@ public sealed class KnowledgeFolderOpenService(IKnowledgeFolderSource source, IF
 
     private static string FolderKey(string areaKey) => areaKey.ToLowerInvariant() switch
     {
-        "backlog" => ".backlog",
         "domain" => ".domain",
         "arc42" => ".arc42",
         "tech" => ".tech",
@@ -100,7 +98,6 @@ public sealed class KnowledgeFolderOpenService(IKnowledgeFolderSource source, IF
 
     private static string AreaLabel(string areaKey) => areaKey.ToLowerInvariant() switch
     {
-        "backlog" => "Backlog",
         "domain" => "Domain",
         "arc42" => "Architecture",
         "tech" => "Technology",
