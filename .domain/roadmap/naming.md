@@ -1,6 +1,7 @@
-# Naming: Roadmap Planning
+# Roadmap Planning
 
 ```meta
+type: naming
 status: draft
 ```
 
@@ -9,21 +10,23 @@ status: draft
 > known by are recorded in the `aliases` metadata field so a synonym can always be
 > resolved back to one canonical concept.
 
-## Term: Roadmap Plan
+## Roadmap Plan
 
 ```meta
+type: term
 status: draft
 aliases: [RoadmapPlan, plan, the plan]
-related: [.domain/roadmap/domain.md#aggregate-roadmap-plan]
+related: [.domain/roadmap/domain.md#roadmap-plan]
 ```
 
 The single stored plan for a workspace, and the consistency boundary for
 everything in it. One plan per storage location — "the roadmap" in conversation
 means this.
 
-## Term: Roadmap Item
+## Roadmap Item
 
 ```meta
+type: term
 status: draft
 aliases: [RoadmapItem, roadmap_item_id, planned work, planned item]
 related: [.domain/roadmap/domain.md#roadmap-item]
@@ -36,9 +39,10 @@ carries no status of its own — see `Backlog Entry Link`.
 `roadmap_item_id` is stable across every reschedule, which is what makes it safe
 for another context to keep as a foreign id.
 
-## Term: Milestone
+## Milestone
 
 ```meta
+type: term
 status: draft
 aliases: [Milestone, roadmap_milestone_id, fixed point]
 related: [.domain/roadmap/domain.md#milestone]
@@ -48,9 +52,10 @@ A single day the plan is read against — a release, a freeze, a review, a
 commitment. Not a short Roadmap Item: it has no duration, and it is drawn and
 rescheduled as one date.
 
-## Term: Roadmap Node
+## Roadmap Node
 
 ```meta
+type: term
 status: draft
 aliases: [RoadmapNodeId, node, dependency endpoint]
 related: [.domain/roadmap/domain.md#dependency]
@@ -60,9 +65,10 @@ Either end of a dependency: a Roadmap Item or a Milestone. The term exists becau
 a dependency does not care which of the two it points at, and inventing a shared
 base type would imply a shared lifecycle they do not have.
 
-## Term: Planned Window
+## Planned Window
 
 ```meta
+type: term
 status: draft
 aliases: [PlannedWindow, start, end, span]
 related: [.domain/roadmap/domain.md#planned-window]
@@ -72,9 +78,10 @@ The stretch of time a Roadmap Item is intended to run, as a first and a last day
 **Both days are inclusive** — "through the 31st" means the 31st. Every consumer
 and every drawing of the plan reads it that way.
 
-## Term: Planning Priority
+## Planning Priority
 
 ```meta
+type: term
 status: draft
 aliases: [PlanningPriority, planning priority]
 related: [.domain/roadmap/domain.md#planning-priority, .domain/backlog/domain.md#priority]
@@ -88,12 +95,13 @@ The same four words as Backlog Management's
 value: that one ranks a work item for execution, this one ranks intent across
 projects. When both appear in one sentence, say which.
 
-## Term: Repository Scope
+## Repository Scope
 
 ```meta
+type: term
 status: draft
 aliases: [RepositoryScope, repository_aliases, repos, scope]
-related: [.domain/roadmap/domain.md#repository-scope, .domain/repository-management/naming.md#term-repository]
+related: [.domain/roadmap/domain.md#repository-scope, .domain/repository-management/naming.md#repository]
 ```
 
 The repositories a Roadmap Item or Milestone belongs to, as a set of repository
@@ -101,21 +109,23 @@ aliases held opaquely. Empty means unfiled, not "all". The alias is the same key
 Backlog's `repo_ids` and the knowledge folders already scope by, so a repository
 means the same thing everywhere.
 
-## Term: Dependency
+## Dependency
 
 ```meta
+type: term
 status: draft
 aliases: [Dependency, depends_on, depends_on_id, waits on, blocked by]
-related: [.domain/roadmap/domain.md#dependency, .domain/roadmap/domain.md#domain-service-plan-sequencing]
+related: [.domain/roadmap/domain.md#dependency, .domain/roadmap/domain.md#plan-sequencing]
 ```
 
 The statement that one Roadmap Node must land before another can. Stored on the
 waiting side, which is why the phrase in code and in conversation is "depends on"
 rather than "blocks".
 
-## Term: Planning Lane
+## Planning Lane
 
 ```meta
+type: term
 status: draft
 aliases: [PlanningLane, lane, row]
 related: [.domain/roadmap/domain.md#planning-lane]
@@ -123,26 +133,28 @@ related: [.domain/roadmap/domain.md#planning-lane]
 
 A free-form row label within a repository band, chosen by the person rather than
 by the product — the plan's counterpart to a Backlog Entry's
-[Area](../backlog/naming.md#term-area). Blank means the default lane.
+[Area](../backlog/naming.md#area). Blank means the default lane.
 
-## Term: Backlog Entry Link
+## Backlog Entry Link
 
 ```meta
+type: term
 status: draft
 aliases: [BacklogEntryLink, backlog_entry_id]
-related: [.domain/roadmap/domain.md#backlog-entry-link, .domain/backlog/naming.md#term-backlog-entry]
+related: [.domain/roadmap/domain.md#backlog-entry-link, .domain/backlog/naming.md#backlog-entry]
 ```
 
 The optional foreign id naming the Backlog Entry that executes a Roadmap Item. It
 is how the plan shows real progress without owning any, it may dangle, and a
 dangling link reads as unlinked rather than as an error.
 
-## Term: Roadmap Tag
+## Roadmap Tag
 
 ```meta
+type: term
 status: draft
 aliases: [RoadmapTag, tag, roadmap tag, slug]
-related: [.domain/roadmap/domain.md#roadmap-tag, .domain/backlog/naming.md#term-roadmap-tag]
+related: [.domain/roadmap/domain.md#roadmap-tag, .domain/backlog/naming.md#roadmap-tag]
 ```
 
 The lowercase kebab-case slug a Roadmap Item is filed under, and the vocabulary
@@ -153,12 +165,13 @@ stop matching. Every item has one; a title that slugifies to nothing takes the
 constant `item`. Not unique across items: a shared tag is how a person groups
 planned work on purpose.
 
-## Term: Knowledge Ref
+## Knowledge Ref
 
 ```meta
+type: term
 status: draft
 aliases: [KnowledgeRef, knowledge_refs, knowledge reference]
-related: [.domain/roadmap/domain.md#knowledge-ref, .domain/second-brain/naming.md#term-knowledge-note]
+related: [.domain/roadmap/domain.md#knowledge-ref, .domain/second-brain/naming.md#knowledge-note]
 ```
 
 A direct `<path>#<slug>` reference from a Roadmap Item to a knowledge chapter that
@@ -166,12 +179,13 @@ informs it. The knowledge counterpart of the `Backlog Entry Link`: an id-shaped
 reference the plan holds, never reads through, and never validates. It may dangle
 and a dangling ref reads as unresolved rather than as an error.
 
-## Term: Effort
+## Effort
 
 ```meta
+type: term
 status: draft
 aliases: [effort, story points, story-point estimate, total registered effort]
-related: [.domain/roadmap/domain.md#domain-service-roadmap-item-gathering, .domain/backlog/naming.md#term-effort]
+related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/backlog/naming.md#effort]
 ```
 
 Size measured in story points. Roadmap Planning never registers effort — that is
@@ -182,12 +196,13 @@ count of gathered things that registered none. A total, not a measurement of tim
 and never an inference: unestimated work is counted as unestimated, not as zero
 that hides in the sum.
 
-## Term: Contradiction
+## Contradiction
 
 ```meta
+type: term
 status: draft
 aliases: [contradiction, conflicting dates]
-related: [.domain/roadmap/domain.md#domain-service-plan-sequencing]
+related: [.domain/roadmap/domain.md#plan-sequencing]
 ```
 
 A plan that disagrees with itself about dates — work opening before the thing it

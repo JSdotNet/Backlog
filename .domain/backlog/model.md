@@ -1,6 +1,7 @@
-# Domain Model: Backlog Management
+# Backlog Management
 
 ```meta
+type: model
 status: draft
 ```
 
@@ -150,7 +151,7 @@ classDiagram
 - `Recurrence` is an owned value object rather than a scalar because a repeat has
   internal structure (`interval`, `unit`, and an optional `Weekday` set) and no
   identity of its own. It describes the shape of the repeat only; the date of the
-  next occurrence is calculated by the `Recurrence` policy from `due_on`, and is
+  next occurrence is calculated by the `Occurrence Spawning` policy from `due_on`, and is
   never stored.
 - `depends_on` is the one self-association on the diagram, and it is drawn dashed
   because it is a weak id reference rather than an object graph. Every

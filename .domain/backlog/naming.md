@@ -1,6 +1,7 @@
-# Naming: Backlog Management
+# Backlog Management
 
 ```meta
+type: naming
 status: draft
 ```
 
@@ -9,12 +10,13 @@ status: draft
 > names it is also known by are recorded in the `aliases` metadata field so a
 > synonym can always be resolved back to one canonical concept.
 
-## Term: Backlog Entry
+## Backlog Entry
 
 ```meta
+type: term
 status: draft
 aliases: [Task, TaskItem, BacklogEntry, backlog_entry_id, backlog_item_id]
-related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+related: [.domain/backlog/domain.md#backlog-entry]
 ```
 
 The single work item managed by this context. `backlog_item_id` is the form
@@ -29,9 +31,10 @@ term — and the `Entry`-prefixed vocabulary around it — is a governed change 
 this context's ubiquitous language and belongs to `orch-domain`; it has not been
 done yet, so this chapter still reads "Backlog Entry" throughout.
 
-## Term: Sub-Item
+## Sub-Item
 
 ```meta
+type: term
 status: draft
 aliases: [SubItem]
 related: [.domain/backlog/domain.md#sub-item]
@@ -40,20 +43,22 @@ related: [.domain/backlog/domain.md#sub-item]
 An owned checklist step of a Backlog Entry, with identity only within the
 aggregate.
 
-## Term: Projection
+## Projection
 
 ```meta
+type: term
 status: draft
 aliases: [ProjectionRef]
-related: [.domain/backlog/domain.md#domain-service-projection]
+related: [.domain/backlog/domain.md#projection]
 ```
 
 Turning a targeted `repo_id` into an external artifact when work starts. The
 recorded projection target is the `ProjectionRef` value object.
 
-## Term: Entry Type
+## Entry Type
 
 ```meta
+type: term
 status: draft
 aliases: [EntryType]
 related: [.domain/backlog/domain.md#entry-type]
@@ -61,9 +66,10 @@ related: [.domain/backlog/domain.md#entry-type]
 
 Classification of an entry as prompt, task, idea, or follow-up.
 
-## Term: Entry Status
+## Entry Status
 
 ```meta
+type: term
 status: draft
 aliases: [EntryStatus]
 related: [.domain/backlog/domain.md#entry-status]
@@ -71,12 +77,13 @@ related: [.domain/backlog/domain.md#entry-status]
 
 Lifecycle state of an entry; see `flow.md` for the state transitions.
 
-## Term: Area
+## Area
 
 ```meta
+type: term
 status: draft
 aliases: [area]
-related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+related: [.domain/backlog/domain.md#backlog-entry]
 ```
 
 A self-chosen grouping the person files an entry under — "repos", "projects",
@@ -84,24 +91,26 @@ A self-chosen grouping the person files an entry under — "repos", "projects",
 string rather than an enum: the taxonomy belongs to the person, not the
 product. An entry with no area is unfiled.
 
-## Term: AI Work Log
+## AI Work Log
 
 ```meta
+type: term
 status: draft
 aliases: [AIWorkLog, AIWorkLogged]
-related: [.domain/backlog/domain.md#domain-event-aiworklogged]
+related: [.domain/backlog/domain.md#aiworklogged]
 ```
 
 Evidence that an AI-assisted action contributed to a Backlog Entry. The log is
 owned by Backlog because it is part of the entry audit trail; Productivity
 consumes the published event to calculate insight.
 
-## Term: Due Date
+## Due Date
 
 ```meta
+type: term
 status: proposed
 aliases: [due_on, due, Due]
-related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+related: [.domain/backlog/domain.md#backlog-entry]
 ```
 
 The calendar day an entry is committed to. A date, carrying no time and no
@@ -109,12 +118,13 @@ timezone, so it means the same day wherever the device is. Distinct from a
 `Reminder`, which is a moment, and from `My Day`, which is a choice about today.
 How the date is worded on screen belongs to the channel showing it.
 
-## Term: Reminder
+## Reminder
 
 ```meta
+type: term
 status: proposed
 aliases: [remind_at, remind, Reminder]
-related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+related: [.domain/backlog/domain.md#backlog-entry]
 ```
 
 A local date and time the person asked to be reminded of an entry at, held as
@@ -122,9 +132,10 @@ wall-clock intent: 09:00 means 09:00 wherever they are when it arrives. A
 request recorded on the entry rather than a promise about delivery — a reminder
 whose time has passed reads as overdue until it is cleared.
 
-## Term: Recurrence
+## Recurrence
 
 ```meta
+type: term
 status: proposed
 aliases: [Repeat, repeat, recurrence, RepeatLabel, RecurrenceUnit, DayOfWeek]
 related: [.domain/backlog/domain.md#recurrence]
@@ -133,14 +144,15 @@ related: [.domain/backlog/domain.md#recurrence]
 The shape of a repeat: an interval, a unit, and optionally the weekdays it is
 restricted to. Called "repeat" on screen and in the metadata token, `Recurrence`
 in the model. It describes the shape only — the date of the next occurrence is
-the `Recurrence` policy's calculation, anchored to the due date.
+the `Occurrence Spawning` policy's calculation, anchored to the due date.
 
-## Term: My Day
+## My Day
 
 ```meta
+type: term
 status: proposed
 aliases: [in_my_day_on, myday, InMyDay]
-related: [.domain/backlog/features.md#feature-my-day]
+related: [.domain/backlog/features.md#my-day]
 ```
 
 The set of entries a person picked to work on today. Held as the date it was
@@ -149,12 +161,13 @@ against the reader's current local date and expires without a timer.
 Deliberately not a deadline: `My Day` is this morning's choice, a `Due Date` is
 a commitment.
 
-## Term: Dependency
+## Dependency
 
 ```meta
+type: term
 status: proposed
 aliases: [depends_on, DependsOn, after, predecessor]
-related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+related: [.domain/backlog/domain.md#backlog-entry]
 ```
 
 An entry this entry waits on, named by id. An entry may have several — needing
@@ -162,12 +175,13 @@ two things finished before starting is ordinary. Written `after:<id>` in the
 metadata line. A weak reference across an aggregate boundary: an id resolving to
 nothing is still a dependency, and still blocks.
 
-## Term: Attachment
+## Attachment
 
 ```meta
+type: term
 status: proposed
 aliases: [attachment, files, attached folder, attached material]
-related: [.domain/backlog/domain.md#attachment, .domain/backlog/features.md#sub-feature-attached-material]
+related: [.domain/backlog/domain.md#attachment, .domain/backlog/features.md#attached-material]
 ```
 
 The one place an entry's material is kept: a folder or an archive, named by path
@@ -177,9 +191,10 @@ an attachment or it has none, never several — and a pointer rather than a copy
 "Folder" or "Archive" on screen depending on the path, never "Attachments" in the
 plural about one entry.
 
-## Term: Readiness
+## Readiness
 
 ```meta
+type: term
 status: proposed
 aliases: [TaskReadiness, ready, blocked]
 related: [.domain/backlog/domain.md#readiness]
@@ -189,12 +204,13 @@ Where an entry stands once its dependencies are taken into account: done, ready,
 or blocked. Derived on every read, never stored, and orthogonal to `Entry
 Status` — status is recorded, readiness is concluded, and they share only `done`.
 
-## Term: Occurrence
+## Occurrence
 
 ```meta
+type: term
 status: proposed
 aliases: [recurrence_source_id, OccurrenceSpawned]
-related: [.domain/backlog/domain.md#domain-service-recurrence]
+related: [.domain/backlog/domain.md#occurrence-spawning]
 ```
 
 One instance of a recurring entry. Completing an occurrence leaves it completed
@@ -202,12 +218,13 @@ and spawns the next as a separate entry, linked back by
 `recurrence_source_id`. A series is therefore a chain of entries rather than one
 entry that moves, so the record of each completion survives.
 
-## Term: Effort
+## Effort
 
 ```meta
+type: term
 status: draft
 aliases: [effort, story points, story-point estimate]
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/roadmap/naming.md#term-effort]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/roadmap/naming.md#effort]
 ```
 
 The size of a Backlog Entry in **story points**: a non-negative integer, optional,
@@ -218,12 +235,13 @@ agent from the entry's content, always revisable, and never a measurement.
 Registered here and owned here; Roadmap Planning reads and totals it but never
 sets it.
 
-## Term: Roadmap Tag
+## Roadmap Tag
 
 ```meta
+type: term
 status: draft
 aliases: [roadmap tag, tag]
-related: [.domain/roadmap/naming.md#term-roadmap-tag, .domain/backlog/features.md#sub-feature-filing-an-entry-against-a-roadmap-tag]
+related: [.domain/roadmap/naming.md#roadmap-tag, .domain/backlog/features.md#filing-an-entry-against-a-roadmap-tag]
 ```
 
 A [Roadmap Item](../roadmap/domain.md#roadmap-item)'s tag, borrowed here as
@@ -232,18 +250,19 @@ the entry's tag picker so an entry can be filed against planned work using the
 plan's own slug, and matching exactly is what lets the roadmap gather the entry
 back. An entry's `tags` stay free-form strings; a roadmap tag is simply one a
 person may pick from the shared vocabulary rather than invent. The canonical
-concept lives in [Roadmap Planning](../roadmap/naming.md#term-roadmap-tag).
+concept lives in [Roadmap Planning](../roadmap/naming.md#roadmap-tag).
 
-## Term: Roadmap
+## Roadmap
 
 ```meta
+type: term
 status: deprecated
 aliases: [Roadmap planning, Roadmap view]
-related: [.domain/roadmap/naming.md#term-roadmap-plan, .domain/backlog/features.md#feature-roadmap-planning]
+related: [.domain/roadmap/naming.md#roadmap-plan, .domain/backlog/features.md#roadmap-planning]
 ```
 
 **Not a Backlog Management term any more.** The canonical concept is the
-[Roadmap Plan](../roadmap/naming.md#term-roadmap-plan) in Roadmap Planning, which
+[Roadmap Plan](../roadmap/naming.md#roadmap-plan) in Roadmap Planning, which
 owns a stored plan rather than presenting a view over entries.
 
 What holds inside this context is narrower, and is the half worth keeping: a

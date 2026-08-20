@@ -1,6 +1,7 @@
-# Domain Model: Repository Management
+# Repository Management
 
 ```meta
+type: model
 status: draft
 ```
 

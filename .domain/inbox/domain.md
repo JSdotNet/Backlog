@@ -1,28 +1,32 @@
-# Domain: Inbox
+# Inbox
 
 ```meta
+type: domain
 status: draft
 order: ["features.md", "model.md", "flow.md", "dependencies.md", "naming.md"]
 ```
 
-> One chapter per Aggregate or Domain Service in this bounded context.
-> Aggregate chapters include sub-chapters for their owned Entities, Value
-> Objects, and Enums. Value Objects/Enums shared across multiple aggregates
-> get their own chapter at the end instead of being duplicated.
+> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
+> Objects / Shared Enums grouping in this bounded context; each chapter's
+> `type` records which of those it is. An Aggregate's owned Entities, Value
+> Objects, and Enums are chapters directly beneath it, typed `entity`,
+> `value-object`, and `enum`. Value Objects/Enums shared across multiple
+> aggregates get their own chapter at the end instead of being duplicated.
 
 The Inbox is the processing queue for all captured input. Items arrive from
-[Capture](../capture/domain.md#aggregate-capture) as Inbox Items. The Inbox owns
+[Capture](../capture/domain.md#capture) as Inbox Items. The Inbox owns
 **what happens to items after they arrive** — triage, classification, and
 routing — deciding whether each item becomes a
-[Backlog Entry](../backlog/domain.md#aggregate-backlog-entry), a
-[Knowledge Note](../second-brain/domain.md#aggregate-knowledge-note), is
+[Backlog Entry](../backlog/domain.md#backlog-entry), a
+[Knowledge Note](../second-brain/domain.md#knowledge-note), is
 deferred, or is archived. It owns no capture sources.
 
-## Aggregate: Inbox Item
+## Inbox Item
 
 ```meta
+type: aggregate
 status: draft
-related: [.domain/capture/domain.md#aggregate-capture, .arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.domain/capture/domain.md#capture, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 A single unit of captured, unprocessed information moving through triage. The
@@ -32,28 +36,37 @@ always preserved, that status only advances through the defined lifecycle
 decision records exactly one `Routing Target`. Deferred items carry an optional
 `deferred_until` review date and resurface as `unprocessed` when it is reached.
 
-### Entities
-
 The Inbox Item aggregate has no owned child entities; `Tag` and `Routing Target`
 are value objects owned by the root.
 
-### Value Objects
+### Routing Target
 
-#### Routing Target
+```meta
+type: value-object
+status: draft
+```
 
 The destination chosen during triage: a target `domain` (backlog, second brain,
 archive, deferred), an optional `repo_id`, and the `routed_at` timestamp.
 Immutable once set; equality is by value.
 
-#### Tag
+### Tag
+
+```meta
+type: value-object
+status: draft
+```
 
 A `#keyword` extracted during classification or applied during triage.
 `auto_generated` distinguishes suggested tags from user-applied ones. Equality is
 by canonical `name`.
 
-### Enums
+### Inbox Status
 
-#### Inbox Status
+```meta
+type: enum
+status: draft
+```
 
 Lifecycle state of an Inbox Item:
 
@@ -62,16 +75,22 @@ Lifecycle state of an Inbox Item:
 - `deferred` — postponed with an optional review date.
 - `archived` — dismissed / not actionable.
 
-#### Capture Source
+### Capture Source
+
+```meta
+type: enum
+status: draft
+```
 
 Origin of the item, mirrored from Capture as provenance: `mobile`, `youtube`,
 `website`, `email`, `web_clipper`, `ide`, `manual`.
 
-## Domain Service: Triage
+## Triage
 
 ```meta
+type: domain-service
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/second-brain/domain.md#aggregate-knowledge-note]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/second-brain/domain.md#knowledge-note]
 ```
 
 Coordinates the triage decision for an Inbox Item and the resulting cross-context
@@ -81,9 +100,10 @@ with title, `body_md`, topic, tags), or setting the item to deferred or archived
 It lives as a service because routing crosses bounded-context boundaries rather
 than mutating a single aggregate. Invocation semantics: command-invoked application service triggered by a human or automated triage decision.
 
-## Domain Service: Classification
+## Classification
 
 ```meta
+type: domain-service
 status: draft
 ```
 
@@ -93,11 +113,12 @@ and applies configured routing rules (source/tag patterns → repo mapping). It 
 a service because suggestions draw on rules and analysis external to any single
 item's state. Invocation semantics: invoked during intake/triage or by configured queue-processing rules.
 
-## Domain Event: ItemTriaged
+## ItemTriaged
 
 ```meta
+type: domain-event
 status: draft
-related: [.domain/inbox/domain.md#aggregate-inbox-item, .domain/backlog/domain.md#aggregate-backlog-entry, .domain/second-brain/domain.md#aggregate-knowledge-note]
+related: [.domain/inbox/domain.md#inbox-item, .domain/backlog/domain.md#backlog-entry, .domain/second-brain/domain.md#knowledge-note]
 ```
 
 Published by `Triage` when an Inbox Item is routed out of the inbox. The route
@@ -131,6 +152,7 @@ shape is stable even though the destination-specific fields differ.
 ## Shared Enums
 
 ```meta
+type: shared-enums
 status: draft
 ```
 

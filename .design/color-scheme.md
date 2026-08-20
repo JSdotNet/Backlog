@@ -272,7 +272,7 @@ Rules:
 
 ```meta
 status: active
-related: [".design/design-principles.md#dark-mode-only", ".design/accessibility.md#contrast", ".domain/roadmap/features.md#feature-repository-scoped-planning"]
+related: [".design/design-principles.md#dark-mode-only", ".design/accessibility.md#contrast", ".domain/roadmap/features.md#repository-scoped-planning"]
 ```
 
 A workspace holds several repositories at once, and a reader needs to tell one

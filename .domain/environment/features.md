@@ -1,53 +1,59 @@
-# Features: Environment
+# Environment
 
 ```meta
+type: features
 status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-## Feature: Environment quick access
+## Environment quick access
 
 ```meta
+type: feature
 status: draft
-related: [.domain/environment/domain.md#aggregate-environment-catalog]
+related: [.domain/environment/domain.md#environment-catalog]
 ```
 
 Give the person fast access to the environments they care about without digging
 through repositories, cloud portals, terminal history, or documentation.
 
-### Sub-feature: Pinned environments
+### Pinned environments
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
 Pin important environments so they appear in predictable quick-access locations.
 
-### Sub-feature: Grouped shortcuts
+### Grouped shortcuts
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
 Group shortcuts by project, repository, customer, lifecycle stage, or custom label
 while preserving each shortcut's target identity.
 
-### Sub-feature: Safe access hints
+### Safe access hints
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
 Show non-secret access reminders such as tenant, VPN, profile, or credential-store
 name without storing passwords or tokens.
 
-## Feature: Environment-aware work context
+## Environment-aware work context
 
 ```meta
+type: feature
 status: draft
-related: [.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline]
+related: [.domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline]
 ```
 
 Let backlog and roadmap views surface relevant environment shortcuts next to work

@@ -1,6 +1,7 @@
-# Flow: Technology Stack
+# Technology Stack
 
 ```meta
+type: flow
 status: draft
 ```
 

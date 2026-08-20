@@ -1,23 +1,29 @@
-# Domain: Productivity
+# Productivity
 
 ```meta
+type: domain
 status: draft
 order: ["features.md", "model.md", "flow.md", "dependencies.md", "naming.md"]
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
-> Objects / Shared Enums grouping in this bounded context.
+> Objects / Shared Enums grouping in this bounded context; each chapter's
+> `type` records which of those it is. An Aggregate's owned Entities, Value
+> Objects, and Enums are chapters directly beneath it, typed `entity`,
+> `value-object`, and `enum`. Value Objects/Enums shared across multiple
+> aggregates get their own chapter at the end instead of being duplicated.
 
 Productivity tracks how the person uses AI-assisted work tools and turns those
 activity signals into personal productivity insight. It measures contribution,
 time saved, flow, and outcomes; it does not own backlog work, Copilot sessions,
 repository state, or completion decisions.
 
-## Aggregate: Productivity Ledger
+## Productivity Ledger
 
 ```meta
+type: aggregate
 status: draft
-related: [.domain/backlog/domain.md#domain-event-aiworklogged, .domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/backlog/domain.md#aiworklogged, .domain/monitoring/domain.md#progress-signal]
 ```
 
 The personal record of productivity-relevant activity. The ledger is append-only:
@@ -27,47 +33,67 @@ place. Invariants: each entry has a source, activity kind, time range or
 timestamp, and optional subject reference; AI-assisted entries identify the AI
 tool or session when available; summaries never mutate source entries.
 
-### Entities
+### Productivity Entry
 
-#### Productivity Entry
+```meta
+type: entity
+status: draft
+```
 
 An individual recorded activity, identified within the ledger. It captures when
 the activity happened, which work subject it relates to, which AI tool was used
 if any, and what outcome was produced.
 
-### Value Objects
+### Work Subject Ref
 
-#### Work Subject Ref
+```meta
+type: value-object
+status: draft
+```
 
 An opaque reference to the work being measured, such as a backlog item, pull
 request, commit, issue, note, or Copilot session. Equality is by `subject_type`
 and `subject_id`.
 
-#### Productivity Metric
+### Productivity Metric
+
+```meta
+type: value-object
+status: draft
+```
 
 A derived measurement such as AI-assisted tasks completed, estimated time saved,
 prompt reuse, review cycles avoided, or focus streak. Metrics are recomputed from
 entries and never become the source of truth.
 
-### Enums
+### Activity Kind
 
-#### Activity Kind
+```meta
+type: enum
+status: draft
+```
 
 The type of productivity activity being measured: `planning`, `coding`,
 `review`, `research`, `summarization`, `documentation`, `automation`, or
 `other`.
 
-#### AI Tool
+### AI Tool
+
+```meta
+type: enum
+status: draft
+```
 
 The AI-assisted channel used for the activity, such as Copilot CLI, GitHub
 Copilot App, IDE chat, or another assistant. The concrete values remain
 configurable because tools change faster than the domain concept.
 
-## Domain Service: Productivity Analysis
+## Productivity Analysis
 
 ```meta
+type: domain-service
 status: draft
-related: [.domain/productivity/domain.md#aggregate-productivity-ledger]
+related: [.domain/productivity/domain.md#productivity-ledger]
 ```
 
 Computes productivity summaries from ledger entries: AI-assisted work volume,
@@ -78,11 +104,12 @@ rather than enforcing a single entry invariant. Invocation semantics:
 query/composition-oriented when the person opens a productivity view or requests
 a report.
 
-## Domain Event: ProductivityRecorded
+## ProductivityRecorded
 
 ```meta
+type: domain-event
 status: draft
-related: [.domain/productivity/domain.md#aggregate-productivity-ledger, .domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/productivity/domain.md#productivity-ledger, .domain/monitoring/domain.md#progress-signal]
 ```
 
 Published when a productivity-relevant activity is appended to the Productivity
@@ -112,6 +139,7 @@ Ledger.
 ## Shared Enums
 
 ```meta
+type: shared-enums
 status: draft
 ```
 

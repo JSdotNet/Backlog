@@ -178,12 +178,12 @@ sequenceDiagram
 
 ```meta
 status: active
-related: [".arc42/05-building-block-view.md#ide-extensions", ".domain/capture/domain.md#domain-service-source-adapter", ".domain/capture/features.md#sub-feature-copilot-app-session-capture"]
+related: [".arc42/05-building-block-view.md#ide-extensions", ".domain/capture/domain.md#source-adapter", ".domain/capture/features.md#copilot-app-session-capture"]
 ```
 
 A GitHub Copilot App session can capture a backlog follow-up or knowledge note using
 local session metadata (`session_id`, `worktree_path`, `branch`) via
-`.domain/capture/domain.md#domain-service-source-adapter`, reusing the same local
+`.domain/capture/domain.md#source-adapter`, reusing the same local
 capture pipeline as IDE extensions and desktop workers.
 
 ```mermaid

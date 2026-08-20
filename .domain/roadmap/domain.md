@@ -1,13 +1,16 @@
-# Domain: Roadmap Planning
+# Roadmap Planning
 
 ```meta
+type: domain
 status: draft
 order: ["features.md", "model.md", "flow.md", "dependencies.md", "naming.md"]
 ```
 
-> One chapter per Aggregate, Domain Service, or Domain Event in this bounded
-> context. Aggregate chapters include sub-chapters for their owned Entities,
-> Value Objects, and Enums. Value Objects/Enums shared across multiple
+> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
+> Objects / Shared Enums grouping in this bounded context; each chapter's
+> `type` records which of those it is. An Aggregate's owned Entities, Value
+> Objects, and Enums are chapters directly beneath it, typed `entity`,
+> `value-object`, and `enum`. Value Objects/Enums shared across multiple
 > aggregates get their own chapter at the end instead of being duplicated.
 
 Roadmap Planning owns the forward plan: what is intended to happen, when, in
@@ -16,7 +19,7 @@ decided across projects rather than inside one of them, and it is the only
 context that holds a dependency between two pieces of planned work.
 
 It is deliberately **not** a view over
-[Backlog Entries](../backlog/domain.md#aggregate-backlog-entry). A plan has to be
+[Backlog Entries](../backlog/domain.md#backlog-entry). A plan has to be
 able to contain work that has not been refined into an entry yet — that is most
 of what planning is — so the plan is stored in its own right, and a Roadmap Item
 may optionally name the entry that executes it. What Roadmap does not own is
@@ -30,15 +33,16 @@ reads and adds them without owning a single one.
 
 Plans are scoped to repositories. Every Roadmap Item names zero or more
 repositories from the
-[Repository Registry](../repository-management/domain.md#aggregate-repository-registry)
+[Repository Registry](../repository-management/domain.md#repository-registry)
 by alias, which is what makes a portfolio-wide plan readable as a set of
 per-repository bands rather than one undifferentiated list.
 
-## Aggregate: Roadmap Plan
+## Roadmap Plan
 
 ```meta
+type: aggregate
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/repository-management/domain.md#aggregate-repository-registry, .arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/repository-management/domain.md#repository-registry, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 The single plan for the workspace, and the consistency boundary for every item,
@@ -51,7 +55,7 @@ about to accept closes a loop three items away, so a boundary drawn around a
 single item would push its most important rule outside the model, into whatever
 happened to call it. The plan is also the unit that is read and written as a
 whole, which makes the boundary and the transaction the same shape. This mirrors
-[Repository Registry](../repository-management/domain.md#aggregate-repository-registry),
+[Repository Registry](../repository-management/domain.md#repository-registry),
 the other singleton-registry aggregate in this product.
 
 Invariants:
@@ -94,9 +98,12 @@ Invariants:
 
 A plan with no items is a valid plan — a first run, or everything delivered.
 
-### Entities
+### Roadmap Item
 
-#### Roadmap Item
+```meta
+type: entity
+status: draft
+```
 
 A single piece of planned work, identified by `roadmap_item_id`. Holds `title`,
 its `Roadmap Tag`, its `Planned Window`, its `Planning Priority`, its
@@ -133,10 +140,15 @@ would read as smaller than the work in front of the person actually is. The item
 owns none of these values — the effort lives on the Backlog Entries and the
 knowledge chapters, registered by Backlog Management and Second Brain — and the
 item only reads and adds. The gathering and the totalling are done by
-[Roadmap Item Gathering](#domain-service-roadmap-item-gathering), because neither
+[Roadmap Item Gathering](#roadmap-item-gathering), because neither
 answer is in the item's own state.
 
-#### Milestone
+### Milestone
+
+```meta
+type: entity
+status: draft
+```
 
 A point in time the plan is read against, identified by `roadmap_milestone_id`:
 `title`, the single day it falls `on`, its `Milestone Kind`, and its optional
@@ -150,9 +162,12 @@ dependency endpoint — work waits on a release, and a release waits on work —
 which is also why both entities live in one aggregate: a dependency crossing
 between them must be validated on one side of a boundary, not two.
 
-### Value Objects
+### Planned Window
 
-#### Planned Window
+```meta
+type: value-object
+status: draft
+```
 
 When an item is intended to run: `start` and `end`, both inclusive. Equality is
 by value. Validation: `end >= start`. Derived: `days = end - start + 1`, never
@@ -162,18 +177,28 @@ Inclusive on both ends because that is how a plan is spoken — "through the 31s
 means the 31st — and because an exclusive end makes the shortest possible piece
 of work indistinguishable from no work at all.
 
-#### Repository Scope
+### Repository Scope
+
+```meta
+type: value-object
+status: draft
+```
 
 The repositories an item or milestone belongs to: a set of repository aliases,
 normalized, without duplicates. Equality is by value. An empty scope is valid and
 means unfiled; it is not an error, and not a default repository.
 
 Aliases are the shared key with
-[Repository Management](../repository-management/naming.md#term-repository) and
+[Repository Management](../repository-management/naming.md#repository) and
 are held as opaque strings. Resolution is a separate concern — see
-[Repository Scope Resolution](#domain-service-repository-scope-resolution).
+[Repository Scope Resolution](#repository-scope-resolution).
 
-#### Dependency
+### Dependency
+
+```meta
+type: value-object
+status: draft
+```
 
 An edge from the node that must land first to the node that waits for it:
 `depends_on_id`, referencing a `Roadmap Node` — an item or a milestone — in the
@@ -184,26 +209,41 @@ Held on the waiting node rather than in a separate edge list, because "what am I
 waiting for" is the question a reader asks of an item, and the direction in which
 a plan is edited.
 
-#### Planning Lane
+### Planning Lane
+
+```meta
+type: value-object
+status: draft
+```
 
 A free-form row label within a repository band — "platform", "migration",
 whatever the person actually calls it. Equality is by value; blank is normalized
 to the default lane.
 
 Deliberately a string rather than an enum, for the same reason `area` is on a
-[Backlog Entry](../backlog/domain.md#aggregate-backlog-entry): the taxonomy is
+[Backlog Entry](../backlog/domain.md#backlog-entry): the taxonomy is
 the person's, and an enum here would mean shipping a release every time someone
 invents a workstream.
 
-#### Backlog Entry Link
+### Backlog Entry Link
+
+```meta
+type: value-object
+status: draft
+```
 
 An optional foreign id naming the
-[Backlog Entry](../backlog/domain.md#aggregate-backlog-entry) that executes this
+[Backlog Entry](../backlog/domain.md#backlog-entry) that executes this
 item. Equality is by value. The link may dangle — an entry can be deleted while
 the plan still intends the work — and a dangling link reads as unlinked rather
 than as an error.
 
-#### Roadmap Tag
+### Roadmap Tag
+
+```meta
+type: value-object
+status: draft
+```
 
 The slug other contexts file work under to say it belongs to this item: a
 lowercase kebab-case string. Equality is by value. Every Roadmap Item has exactly
@@ -226,11 +266,16 @@ share a tag because the person means to group them, and the plan can report both
 the tags in use and the items sitting under a given tag. Uniqueness is therefore
 neither enforced nor assumed: a tag names a grouping, not one item, and resolving
 one may return several. This is the vocabulary two other contexts borrow — the
-[Backlog](../backlog/domain.md#aggregate-backlog-entry) tag picker offers every
+[Backlog](../backlog/domain.md#backlog-entry) tag picker offers every
 roadmap tag, and a knowledge chapter names roadmap tags in its `roadmap` list — so
 its stability across a rename is a contract with them, not an internal detail.
 
-#### Knowledge Ref
+### Knowledge Ref
+
+```meta
+type: value-object
+status: draft
+```
 
 A direct reference from the item to a knowledge chapter that informs it:
 `<path>#<slug>`, naming a chapter in one of the knowledge folders. Equality is by
@@ -246,9 +291,12 @@ reader asks. Validation and repair are deliberately not done, exactly as the
 hold a reference to something temporarily missing would lose the intent the
 reference recorded.
 
-### Enums
+### Planning Priority
 
-#### Planning Priority
+```meta
+type: enum
+status: draft
+```
 
 How much the plan wants this item relative to the others: `low`, `medium`,
 `high`, `critical`.
@@ -259,18 +307,24 @@ same idea would make every conversation about priority start with "which kind".
 They remain different values owned by different contexts, and neither overwrites
 the other.
 
-#### Milestone Kind
+### Milestone Kind
+
+```meta
+type: enum
+status: draft
+```
 
 What kind of fixed point it is: `release`, `freeze`, `review`, `commitment`.
 
 Business kinds, not shapes. How each one is drawn is a presentation decision and
 belongs to the view, not here.
 
-## Domain Service: Plan Sequencing
+## Plan Sequencing
 
 ```meta
+type: domain-service
 status: draft
-related: [.domain/roadmap/domain.md#aggregate-roadmap-plan]
+related: [.domain/roadmap/domain.md#roadmap-plan]
 ```
 
 Answers the questions that are about the graph rather than about any one node:
@@ -289,16 +343,17 @@ It is a service because every one of these answers needs the whole graph rather
 than one node's own state. Invocation semantics: query/composition-oriented, and
 command-invoked as the validation step behind adding a dependency.
 
-## Domain Service: Repository Scope Resolution
+## Repository Scope Resolution
 
 ```meta
+type: domain-service
 status: draft
-related: [.domain/repository-management/naming.md#term-repository, .domain/environment/domain.md#domain-service-environment-shortcut-resolution]
+related: [.domain/repository-management/naming.md#repository, .domain/environment/domain.md#environment-shortcut-resolution]
 ```
 
 Turns the opaque aliases in a Repository Scope into the repositories the reader
 recognizes, by asking the
-[Repository Registry](../repository-management/domain.md#aggregate-repository-registry),
+[Repository Registry](../repository-management/domain.md#repository-registry),
 and reports which aliases did not resolve.
 
 It exists so the aggregate never holds a foreign repository model and never
@@ -307,11 +362,12 @@ with a normal presentation — an unfiled band — not a failure that stops a pl
 from being read. Invocation semantics: query/composition-oriented, on the read
 path.
 
-## Domain Service: Roadmap Item Gathering
+## Roadmap Item Gathering
 
 ```meta
+type: domain-service
 status: draft
-related: [.domain/roadmap/domain.md#aggregate-roadmap-plan, .domain/backlog/domain.md#aggregate-backlog-entry, .domain/second-brain/domain.md#aggregate-knowledge-note]
+related: [.domain/roadmap/domain.md#roadmap-plan, .domain/backlog/domain.md#backlog-entry, .domain/second-brain/domain.md#knowledge-note]
 ```
 
 Assembles, for one Roadmap Item, everything it reaches across Backlog Management
@@ -323,7 +379,7 @@ It is a service because none of this is in the item's own state. The Backlog
 Entries filed under its tag live in Backlog Management; the knowledge chapters
 naming its tag live in Second Brain; and the effort values are registered by those
 contexts, not by the plan. Like
-[Repository Scope Resolution](#domain-service-repository-scope-resolution), it
+[Repository Scope Resolution](#repository-scope-resolution), it
 reads foreign data on the read path and holds none of it — so an unreachable
 supplier degrades a total, it does not corrupt a plan.
 
@@ -339,11 +395,12 @@ unestimated work would understate it.
 Invocation semantics: query/composition-oriented, on the read path. It never
 writes — not to the plan, not to an entry, not to a chapter.
 
-## Domain Event: RoadmapItemScheduled
+## RoadmapItemScheduled
 
 ```meta
+type: domain-event
 status: draft
-related: [.domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/monitoring/domain.md#progress-signal]
 ```
 
 Published when a Roadmap Item's Planned Window is set or changed — on creation,
@@ -362,7 +419,7 @@ and on every reschedule that actually moves a date.
 
 ### Consumers
 
-- [Monitoring & Dashboard](../monitoring/domain.md#aggregate-progress-signal) —
+- [Monitoring & Dashboard](../monitoring/domain.md#progress-signal) —
   compares the plan against what actually happened, so drift between intent and
   delivery becomes visible without Monitoring reading the plan's internals.
 

@@ -1,29 +1,32 @@
-# Features: Backlog Management
+# Backlog Management
 
 ```meta
+type: features
 status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-## Feature: Backlog entry creation
+## Backlog entry creation
 
 ```meta
+type: feature
 status: draft
 feature-flag: backlog
-related: [.domain/inbox/features.md#feature-routing]
+related: [.domain/inbox/features.md#routing]
 ```
 
 Create entries manually or from triaged inbox items, capturing title, body, type
 (prompt, task, idea, follow-up), tags, and project/repo link. New entries default
 to `draft`.
 
-## Feature: Refinement and prioritization
+## Refinement and prioritization
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/backlog/features.md#feature-backlog-entry-creation]
+depends-on: [.domain/backlog/features.md#backlog-entry-creation]
 ```
 
 Edit and enrich entries over time: set priority and status, add context links,
@@ -35,11 +38,12 @@ stay on one line when they only need metadata-level refinement.
 
 ![Desktop backlog entry with inline Markdown editing](assets/backlog-entry-inline-markdown-editing.png)
 
-### Sub-feature: Filing an entry against a roadmap tag
+### Filing an entry against a roadmap tag
 
 ```meta
+type: sub-feature
 status: draft
-related: [.domain/roadmap/domain.md#roadmap-tag, .domain/backlog/features.md#feature-search-filter-and-organize]
+related: [.domain/roadmap/domain.md#roadmap-tag, .domain/backlog/features.md#search-filter-and-organize]
 ```
 
 Choose an entry's tags from a picker that offers every
@@ -56,9 +60,10 @@ matching because the roadmap tag does not change when the item's title is rename
 Tags remain free-form strings on the entry — nothing forces a tag to come from the
 roadmap — but the ones that do come from it line up on both sides on purpose.
 
-### Sub-feature: Sub-items and steps
+### Sub-items and steps
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
@@ -73,9 +78,10 @@ status or tags of its own, and none of the entry's scheduling or dependency
 attributes. A breakdown step needing its own priority is an entry rather than a
 step, and a step inherits its parent's deadline by belonging to it.
 
-### Sub-feature: Attached material
+### Attached material
 
 ```meta
+type: sub-feature
 status: draft
 related: [.domain/backlog/domain.md#attachment]
 ```
@@ -103,12 +109,13 @@ How much is in the place is not recorded, only where it is. A count would be tru
 at the moment it was written and wrong after the next file was added, and an
 entry that asserted one would be asserting something it cannot keep.
 
-## Feature: Effort registration
+## Effort registration
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort]
+depends-on: [.domain/backlog/features.md#refinement-and-prioritization]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort]
 ```
 
 Record how big an entry is in **story points**, so the size of the work is a fact
@@ -130,16 +137,17 @@ work is understood better, and a person can always set or correct it by hand. Th
 deriving is not built yet; this feature makes the value **registrable and
 visible**, which is what has to exist before anything can total it. When a roadmap
 item gathers this entry, the points registered here are what it
-[adds up](../roadmap/features.md#feature-gathering-work-under-an-item-and-totalling-its-effort) —
+[adds up](../roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort) —
 and an entry left unestimated is counted as unestimated there, never silently as
 zero.
 
-## Feature: Scheduling and recurrence
+## Scheduling and recurrence
 
 ```meta
+type: feature
 status: proposed
-depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
-related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+depends-on: [.domain/backlog/features.md#refinement-and-prioritization]
+related: [.domain/backlog/domain.md#backlog-entry]
 ```
 
 Say when an entry is due, when to be reminded of it, and whether it comes back.
@@ -158,9 +166,10 @@ than sigil-prefixed because the punctuation namespace is nearly exhausted and
 five one-character marks for five date-shaped concepts would be unreadable in a
 file people hand-edit.
 
-### Sub-feature: Due dates
+### Due dates
 
 ```meta
+type: sub-feature
 status: proposed
 ```
 
@@ -169,9 +178,10 @@ carries no time and no timezone, so "due Friday" stays Friday when the device
 moves. How that date is said on screen — "Today", "Friday, 21 August", or a
 localized format — belongs to the channel showing it, not to the entry.
 
-### Sub-feature: Reminders
+### Reminders
 
 ```meta
+type: sub-feature
 status: proposed
 ```
 
@@ -184,11 +194,12 @@ whose time has passed reads as overdue and keeps reading that way until it is
 cleared or the entry is completed, so a reminder that came due while the app was
 closed surfaces rather than being silently missed.
 
-### Sub-feature: Recurring entries
+### Recurring entries
 
 ```meta
+type: sub-feature
 status: proposed
-related: [.domain/backlog/domain.md#domain-service-recurrence, .domain/backlog/features.md#feature-archive-and-lifecycle]
+related: [.domain/backlog/domain.md#occurrence-spawning, .domain/backlog/features.md#archive-and-lifecycle]
 ```
 
 Repeat an entry on a schedule: every day, every week, every month, every year,
@@ -203,12 +214,13 @@ rather than being rolled forward and overwritten, which means a repeating entry
 accumulates one completed entry per occurrence — archiving is what keeps that
 from crowding the default views.
 
-## Feature: My Day
+## My Day
 
 ```meta
+type: feature
 status: proposed
-depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
-related: [.domain/backlog/features.md#feature-scheduling-and-recurrence]
+depends-on: [.domain/backlog/features.md#refinement-and-prioritization]
+related: [.domain/backlog/features.md#scheduling-and-recurrence]
 ```
 
 Pick the entries to work on today, separately from when they are due. My Day is
@@ -222,12 +234,13 @@ is the reader's current local date — so yesterday's list clears itself with no
 timer, no timezone rule and no overnight sweep, and a device that was switched
 off for a week comes back to an empty My Day rather than a stale one.
 
-## Feature: Entry dependencies
+## Entry dependencies
 
 ```meta
+type: feature
 status: proposed
-depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/backlog/features.md#sub-feature-manual-ordering]
+depends-on: [.domain/backlog/features.md#refinement-and-prioritization]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/backlog/features.md#manual-ordering]
 ```
 
 Record that an entry waits on other entries, so a set of prompts or tasks meant
@@ -240,9 +253,10 @@ This is a different fact from manual ordering. Ordering is the sequence a person
 arranged the backlog in; a dependency is a constraint that holds whatever order
 the list happens to be shown in.
 
-### Sub-feature: Readiness and chain order
+### Readiness and chain order
 
 ```meta
+type: sub-feature
 status: proposed
 ```
 
@@ -264,36 +278,39 @@ it waits on is merely missing from view, which is the one failure that looks
 exactly like success. Dependency loops are named rather than broken: which edge
 in a loop is the wrong one is answerable only by the person who wrote them.
 
-## Feature: Multi-repo targeting
+## Multi-repo targeting
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/backlog/features.md#feature-backlog-entry-creation]
-related: [.domain/backlog/features.md#feature-projection]
+depends-on: [.domain/backlog/features.md#backlog-entry-creation]
+related: [.domain/backlog/features.md#projection]
 ```
 
 Let one logical entry target multiple repositories (`repo_ids[]`) while remaining
 a single source of truth — one item, one priority, one status — with a unified
 view across all contexts.
 
-## Feature: Projection
+## Projection
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/backlog/features.md#feature-multi-repo-targeting]
-related: [.domain/monitoring/features.md#sub-feature-backlog-and-github-progress]
+depends-on: [.domain/backlog/features.md#multi-repo-targeting]
+related: [.domain/monitoring/features.md#backlog-and-github-progress]
 ```
 
 Spawn and close downstream artifacts from an entry: one GitHub issue and/or
 Copilot CLI task per target repo, created when work starts and closed on
 completion, without duplicating the backlog item.
 
-### Sub-feature: Issue projection and state read-back
+### Issue projection and state read-back
 
 ```meta
+type: sub-feature
 status: draft
 feature-flag: github-integration
-related: [.domain/repository-management/features.md#sub-feature-github-access-resolution, .domain/monitoring/features.md#sub-feature-backlog-and-github-progress]
+related: [.domain/repository-management/features.md#github-access-resolution, .domain/monitoring/features.md#backlog-and-github-progress]
 ```
 
 Push an entry to its target repository as an issue carrying the entry's title,
@@ -304,11 +321,12 @@ downstream progress is visible from the backlog. Reading GitHub state is a
 deliberate act rather than a background poll, because the backlog has to open
 instantly and offline.
 
-## Feature: Search, filter and organize
+## Search, filter and organize
 
 ```meta
+type: feature
 status: draft
-related: [.domain/second-brain/features.md#feature-bi-directional-linking]
+related: [.domain/second-brain/features.md#bi-directional-linking]
 ```
 
 Search across title, body, tags, and linked knowledge notes; filter by area
@@ -316,9 +334,10 @@ Search across title, body, tags, and linked knowledge notes; filter by area
 status, priority, and recency; grouped views; and inline embedding of Second
 Brain content.
 
-### Sub-feature: Manual ordering
+### Manual ordering
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
@@ -326,21 +345,23 @@ Hand-sequence entries within the backlog by dragging them into a preferred
 order, independent of recency or priority. An entry that has never been
 manually ranked falls back to recency.
 
-## Feature: Prompt features
+## Prompt features
 
 ```meta
+type: feature
 status: draft
 ```
 
 One-click copy of prompt text to clipboard, usage-history logging on copy/use,
 and reopening historical prompts from the usage log.
 
-### Sub-feature: Hand-off to Copilot CLI
+### Hand-off to Copilot CLI
 
 ```meta
+type: sub-feature
 status: draft
 feature-flag: copilot-cli
-related: [.domain/productivity/features.md#sub-feature-ai-activity-capture]
+related: [.domain/productivity/features.md#ai-activity-capture]
 ```
 
 Hand an entry to GitHub Copilot CLI as a task brief without retyping it: the
@@ -348,12 +369,13 @@ entry's own markdown — title, metadata, body, and sub-items — is the brief, 
 the hand-off is recorded in the entry's usage history so the entry itself shows
 that AI was put to work on it.
 
-## Feature: AI assistance over the visible backlog
+## AI assistance over the visible backlog
 
 ```meta
+type: feature
 status: draft
 feature-flag: ai-assistant
-related: [.domain/second-brain/features.md#feature-repository-knowledge-areas, .domain/productivity/features.md#feature-ai-productivity-tracking]
+related: [.domain/second-brain/features.md#repository-knowledge-areas, .domain/productivity/features.md#ai-productivity-tracking]
 ```
 
 Ask questions about the work currently in view and get an answer grounded in it.
@@ -364,21 +386,23 @@ edited are left out, and the assembled context is capped so a large backlog
 degrades into a partial answer rather than a failure. AI assistance is an opt-in
 capability and the product remains fully usable with it switched off.
 
-## Feature: Archive and lifecycle
+## Archive and lifecycle
 
 ```meta
+type: feature
 status: draft
 ```
 
 Move entries between active and archived states; archived entries are excluded
 from default views but always accessible and restorable.
 
-## Feature: Roadmap planning
+## Roadmap planning
 
 ```meta
+type: feature
 status: deprecated
-depends-on: [.domain/backlog/features.md#feature-refinement-and-prioritization]
-related: [.domain/roadmap/features.md, .domain/roadmap/domain.md#aggregate-roadmap-plan, .domain/backlog/domain.md#aggregate-backlog-entry]
+depends-on: [.domain/backlog/features.md#refinement-and-prioritization]
+related: [.domain/roadmap/features.md, .domain/roadmap/domain.md#roadmap-plan, .domain/backlog/domain.md#backlog-entry]
 ```
 
 **Superseded.** Roadmap planning is a bounded context of its own — see
@@ -399,21 +423,22 @@ status or priority, and the progress it shows for a linked item is read from the
 entry rather than maintained by hand.
 
 What Backlog Management keeps from this feature is the
-[refinement and prioritization](#feature-refinement-and-prioritization) that makes
+[refinement and prioritization](#refinement-and-prioritization) that makes
 an entry ready in the first place, and the
 [Partnership link](../roadmap/dependencies.md) that lets a plan point at it.
 
-### Sub-feature: Roadmap views
+### Roadmap views
 
 ```meta
+type: sub-feature
 status: deprecated
-related: [.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline]
+related: [.domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline]
 ```
 
 **Superseded** by
-[reading and rescheduling on a timeline](../roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline)
+[reading and rescheduling on a timeline](../roadmap/features.md#reading-and-rescheduling-on-a-timeline)
 and
-[reading the plan by repository](../roadmap/features.md#sub-feature-reading-the-plan-by-repository)
+[reading the plan by repository](../roadmap/features.md#reading-the-plan-by-repository)
 in Roadmap Planning. Now/Next/Later is not how the plan is read — a horizon is a
 grouping, and the plan is read against dates, in repository bands with the
 person's own lanes inside them.

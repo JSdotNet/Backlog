@@ -1,6 +1,7 @@
-# Domain Model: Productivity
+# Productivity
 
 ```meta
+type: model
 status: draft
 ```
 

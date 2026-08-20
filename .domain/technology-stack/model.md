@@ -1,6 +1,7 @@
-# Domain Model: Technology Stack
+# Technology Stack
 
 ```meta
+type: model
 status: draft
 ```
 

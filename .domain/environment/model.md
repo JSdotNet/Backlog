@@ -1,6 +1,7 @@
-# Domain Model: Environment
+# Environment
 
 ```meta
+type: model
 status: draft
 ```
 

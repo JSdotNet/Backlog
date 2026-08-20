@@ -1,52 +1,58 @@
-# Features: Inbox
+# Inbox
 
 ```meta
+type: features
 status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-## Feature: Incoming queue
+## Incoming queue
 
 ```meta
+type: feature
 status: draft
-related: [.domain/capture/features.md#feature-normalized-delivery]
+related: [.domain/capture/features.md#normalized-delivery]
 ```
 
 Receive normalized Inbox Items from all Capture sources into a single shared
 queue. New items default to `unprocessed` and are ordered by capture timestamp
 (configurable).
 
-## Feature: Triage workflow
+## Triage workflow
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/inbox/features.md#feature-incoming-queue]
+depends-on: [.domain/inbox/features.md#incoming-queue]
 ```
 
 Review unprocessed items one by one or in batch and take an action per item.
 
-### Sub-feature: Per-item triage actions
+### Per-item triage actions
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
 Route to backlog, store as knowledge, defer, archive, or delete — while tagging
 and annotating, and preserving the original source link and capture timestamp.
 
-### Sub-feature: Quick-triage shortcuts
+### Quick-triage shortcuts
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
 Keyboard/shortcut actions for common routing patterns to speed up triage.
 
-## Feature: Classification and enrichment
+## Classification and enrichment
 
 ```meta
+type: feature
 status: draft
 ```
 
@@ -54,56 +60,62 @@ Auto-suggest tags from content analysis, auto-suggest a routing destination from
 keywords/patterns, apply routing rules (source patterns → repo mapping), and
 enrich items with links to related backlog items or knowledge notes.
 
-## Feature: Routing
+## Routing
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/inbox/features.md#feature-triage-workflow]
-related: [.domain/backlog/features.md#feature-backlog-entry-creation, .domain/second-brain/features.md#feature-knowledge-capture]
+depends-on: [.domain/inbox/features.md#triage-workflow]
+related: [.domain/backlog/features.md#backlog-entry-creation, .domain/second-brain/features.md#knowledge-capture]
 ```
 
 Move a triaged item to its destination.
 
-### Sub-feature: Route to Backlog
+### Route to Backlog
 
 ```meta
+type: sub-feature
 status: draft
-related: [.domain/backlog/features.md#feature-backlog-entry-creation]
+related: [.domain/backlog/features.md#backlog-entry-creation]
 ```
 
 Create a Backlog Entry draft from the item.
 
-### Sub-feature: Route to Second Brain
+### Route to Second Brain
 
 ```meta
+type: sub-feature
 status: draft
-related: [.domain/second-brain/features.md#feature-knowledge-capture]
+related: [.domain/second-brain/features.md#knowledge-capture]
 ```
 
 Create a Knowledge Note from the item.
 
-### Sub-feature: Defer
+### Defer
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
 Postpone the item with an optional remind-at date; it resurfaces as unprocessed
 when the review date is reached.
 
-### Sub-feature: Archive
+### Archive
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
 Dismiss items that are not actionable while keeping them accessible.
 
-## Feature: Queue health
+## Queue health
 
 ```meta
+type: feature
 status: draft
-related: [.domain/monitoring/features.md#sub-feature-inbox-and-queue-health]
+related: [.domain/monitoring/features.md#inbox-and-queue-health]
 ```
 
 Track unprocessed count and oldest item age, surface items unprocessed for too

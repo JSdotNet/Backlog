@@ -1,6 +1,7 @@
-# Naming: Monitoring & Dashboard
+# Monitoring & Dashboard
 
 ```meta
+type: naming
 status: draft
 ```
 
@@ -9,20 +10,22 @@ status: draft
 > names it is also known by are recorded in the `aliases` metadata field so a
 > synonym can always be resolved back to one canonical concept.
 
-## Term: Progress Signal
+## Progress Signal
 
 ```meta
+type: term
 status: draft
 aliases: [ProgressSignal, Signal]
-related: [.domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/monitoring/domain.md#progress-signal]
 ```
 
 An immutable observation emitted by another context and recorded here.
 Corrections are new signals, never mutations.
 
-## Term: Signal Type
+## Signal Type
 
 ```meta
+type: term
 status: draft
 aliases: [SignalType]
 related: [.domain/monitoring/domain.md#signal-type]
@@ -32,9 +35,10 @@ Classification of a signal (status_change, github_sync, app_insights,
 queue_depth, inbox_age, automation_run, copilot_session, machine_status,
 team_aggregate).
 
-## Term: Signal Payload
+## Signal Payload
 
 ```meta
+type: term
 status: draft
 aliases: [SignalPayload]
 related: [.domain/monitoring/domain.md#signal-payload]
@@ -43,12 +47,13 @@ related: [.domain/monitoring/domain.md#signal-payload]
 The owned value object carrying a signal's values; its keys depend on the
 Signal Type.
 
-## Term: Dashboard
+## Dashboard
 
 ```meta
+type: term
 status: draft
 aliases: [Dashboard]
-related: [.domain/monitoring/domain.md#domain-service-dashboard]
+related: [.domain/monitoring/domain.md#dashboard]
 ```
 
 A derived view produced from the signal stream; dashboards and rollups are not

@@ -1,6 +1,7 @@
-# Domain Model: Sessions
+# Sessions
 
 ```meta
+type: model
 status: active
 related: [.domain/sessions/domain.md]
 ```

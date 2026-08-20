@@ -1,6 +1,7 @@
-# Flow: Monitoring & Dashboard
+# Monitoring & Dashboard
 
 ```meta
+type: flow
 status: draft
 ```
 

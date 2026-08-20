@@ -193,7 +193,7 @@ The external system of record for issues, repositories, and automation.
 ```meta
 status: candidate
 kind: service
-related: [".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"]
+related: [".domain/productivity/features.md#ai-vendor-usage-import"]
 alternatives: ["Local accumulation of per-response token counts"]
 ```
 
@@ -214,7 +214,7 @@ Code session activity.
 status: candidate
 kind: service
 depends-on: [".tech/shared.md#github-platform"]
-related: [".domain/productivity/features.md#sub-feature-ai-vendor-usage-import"]
+related: [".domain/productivity/features.md#ai-vendor-usage-import"]
 ```
 
 The organization-level record of Copilot seat activity and usage metrics.

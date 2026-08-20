@@ -1,6 +1,7 @@
-# Flow: Second Brain
+# Second Brain
 
 ```meta
+type: flow
 status: draft
 ```
 

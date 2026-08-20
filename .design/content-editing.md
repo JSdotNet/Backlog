@@ -101,7 +101,7 @@ Anything not in these tables falls under `#unsupported-syntax-preservation`.
 
 ```meta
 status: active
-related: [".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/backlog/naming.md#term-sub-item", ".design/interaction-guidelines.md#nesting--indent-rules-chapters"]
+related: [".domain/backlog/domain.md#backlog-entry", ".domain/backlog/naming.md#sub-item", ".design/interaction-guidelines.md#nesting--indent-rules-chapters"]
 ```
 
 > A Backlog Entry is edited as one Markdown document, with headings carrying
@@ -125,7 +125,7 @@ related: [".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/backlog/
 
 ```meta
 status: active
-related: [".domain/backlog/naming.md#term-entry-status", ".domain/backlog/naming.md#term-area", ".design/typography-and-layout.md#font-families", ".design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".domain/backlog/naming.md#entry-status", ".domain/backlog/naming.md#area", ".design/typography-and-layout.md#font-families", ".design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
 > Backlog entries carry structured metadata (type, priority, status, area,
@@ -153,7 +153,7 @@ related: [".domain/backlog/naming.md#term-entry-status", ".domain/backlog/naming
 
 ```meta
 status: active
-related: [".design/content-editing.md#structured-metadata-sigils", ".domain/backlog/naming.md#term-due-date", ".domain/backlog/naming.md#term-reminder", ".domain/backlog/naming.md#term-recurrence", ".domain/backlog/naming.md#term-my-day", ".domain/backlog/naming.md#term-dependency"]
+related: [".design/content-editing.md#structured-metadata-sigils", ".domain/backlog/naming.md#due-date", ".domain/backlog/naming.md#reminder", ".domain/backlog/naming.md#recurrence", ".domain/backlog/naming.md#my-day", ".domain/backlog/naming.md#dependency"]
 ```
 
 > When an entry is scheduled or waits on other entries, those facts ride on the

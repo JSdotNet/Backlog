@@ -159,8 +159,8 @@
           "status": "active",
           "related": [
             ".domain/context-map.md",
-            ".domain/capture/domain.md#aggregate-capture",
-            ".domain/inbox/domain.md#aggregate-inbox-item"
+            ".domain/capture/domain.md#capture",
+            ".domain/inbox/domain.md#inbox-item"
           ]
         }
       },
@@ -487,8 +487,8 @@
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#ide-extensions",
-            ".domain/capture/domain.md#domain-service-source-adapter",
-            ".domain/capture/features.md#sub-feature-copilot-app-session-capture"
+            ".domain/capture/domain.md#source-adapter",
+            ".domain/capture/features.md#copilot-app-session-capture"
           ]
         }
       },
@@ -646,7 +646,7 @@
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
             ".arc42/06-runtime-view.md#copilot-app-session-capture",
-            ".domain/capture/domain.md#domain-service-source-adapter"
+            ".domain/capture/domain.md#source-adapter"
           ]
         }
       },
@@ -663,8 +663,8 @@
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
-            ".domain/second-brain/features.md#feature-repository-knowledge-areas",
-            ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog"
+            ".domain/second-brain/features.md#repository-knowledge-areas",
+            ".domain/dev-pc-management/features.md#copilot-tool-catalog"
           ]
         }
       },
@@ -680,7 +680,7 @@
           "line": 64,
           "status": "active",
           "related": [
-            ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"
+            ".domain/roadmap/domain.md#roadmap-item-gathering"
           ]
         }
       },
@@ -729,15 +729,15 @@
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
-            ".domain/inbox/domain.md#aggregate-inbox-item",
-            ".domain/backlog/domain.md#aggregate-backlog-entry",
-            ".domain/second-brain/domain.md#aggregate-knowledge-note",
-            ".domain/monitoring/domain.md#aggregate-progress-signal",
-            ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
-            ".domain/sessions/domain.md#aggregate-session-log",
-            ".domain/repository-management/domain.md#aggregate-repository-registry",
-            ".domain/technology-stack/domain.md#aggregate-technology-registry",
-            ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"
+            ".domain/inbox/domain.md#inbox-item",
+            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/second-brain/domain.md#knowledge-note",
+            ".domain/monitoring/domain.md#progress-signal",
+            ".domain/dev-pc-management/domain.md#machine-registry",
+            ".domain/sessions/domain.md#session-log",
+            ".domain/repository-management/domain.md#repository-registry",
+            ".domain/technology-stack/domain.md#technology-registry",
+            ".domain/roadmap/domain.md#roadmap-item-gathering"
           ]
         }
       },
@@ -983,14 +983,14 @@
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",
             ".arc42/07-deployment-view.md",
             ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
-            ".domain/backlog/domain.md#aggregate-backlog-entry"
+            ".domain/backlog/domain.md#backlog-entry"
           ]
         }
       },
       {
         "data": {
           "id": ".domain/context-map.md",
-          "label": "Context Map: Backlog",
+          "label": "Backlog",
           "type": "file",
           "folder": "domain",
           "path": ".domain/context-map.md",
@@ -1000,34 +1000,34 @@
       },
       {
         "data": {
-          "id": ".domain/capture/domain.md#aggregate-capture",
-          "label": "Aggregate: Capture",
+          "id": ".domain/capture/domain.md#capture",
+          "label": "Capture",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/capture/domain.md",
-          "slug": "aggregate-capture",
+          "slug": "capture",
           "level": 2,
-          "line": 20,
+          "line": 23,
           "status": "draft",
           "related": [
-            ".domain/inbox/domain.md#aggregate-inbox-item"
+            ".domain/inbox/domain.md#inbox-item"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/inbox/domain.md#aggregate-inbox-item",
-          "label": "Aggregate: Inbox Item",
+          "id": ".domain/inbox/domain.md#inbox-item",
+          "label": "Inbox Item",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/inbox/domain.md",
-          "slug": "aggregate-inbox-item",
+          "slug": "inbox-item",
           "level": 2,
-          "line": 21,
+          "line": 24,
           "status": "draft",
           "related": [
-            ".domain/capture/domain.md#aggregate-capture",
+            ".domain/capture/domain.md#capture",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
@@ -1035,17 +1035,17 @@
       },
       {
         "data": {
-          "id": ".domain/capture/domain.md#domain-service-source-adapter",
-          "label": "Domain Service: Source Adapter",
+          "id": ".domain/capture/domain.md#source-adapter",
+          "label": "Source Adapter",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/capture/domain.md",
-          "slug": "domain-service-source-adapter",
+          "slug": "source-adapter",
           "level": 2,
-          "line": 71,
+          "line": 84,
           "status": "draft",
           "related": [
-            ".domain/inbox/domain.md#aggregate-inbox-item",
+            ".domain/inbox/domain.md#inbox-item",
             ".arc42/06-runtime-view.md#mobile-capture-and-sync",
             ".arc42/06-runtime-view.md#ide-context-aware-capture"
           ],
@@ -1054,17 +1054,17 @@
       },
       {
         "data": {
-          "id": ".domain/capture/features.md#sub-feature-copilot-app-session-capture",
-          "label": "Sub-feature: Copilot App session capture",
+          "id": ".domain/capture/features.md#copilot-app-session-capture",
+          "label": "Copilot App session capture",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/capture/features.md",
-          "slug": "sub-feature-copilot-app-session-capture",
+          "slug": "copilot-app-session-capture",
           "level": 3,
-          "line": 117,
+          "line": 130,
           "status": "draft",
           "related": [
-            ".domain/capture/domain.md#domain-service-source-adapter"
+            ".domain/capture/domain.md#source-adapter"
           ],
           "outOfScope": true
         }
@@ -1134,74 +1134,74 @@
       },
       {
         "data": {
-          "id": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
-          "label": "Feature: Repository knowledge areas",
+          "id": ".domain/second-brain/features.md#repository-knowledge-areas",
+          "label": "Repository knowledge areas",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/second-brain/features.md",
-          "slug": "feature-repository-knowledge-areas",
+          "slug": "repository-knowledge-areas",
           "level": 2,
-          "line": 70,
+          "line": 76,
           "status": "draft",
           "feature-flag": [
             "repository-knowledge"
           ],
           "related": [
-            ".domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings",
-            ".domain/backlog/features.md#feature-search-filter-and-organize"
+            ".domain/repository-management/features.md#repository-knowledge-folder-settings",
+            ".domain/backlog/features.md#search-filter-and-organize"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
-          "label": "Sub-feature: Copilot tool catalog",
+          "id": ".domain/dev-pc-management/features.md#copilot-tool-catalog",
+          "label": "Copilot tool catalog",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/dev-pc-management/features.md",
-          "slug": "sub-feature-copilot-tool-catalog",
+          "slug": "copilot-tool-catalog",
           "level": 3,
-          "line": 63,
+          "line": 69,
           "status": "draft",
           "related": [
-            ".domain/technology-stack/features.md#feature-technology-baseline-definition"
+            ".domain/technology-stack/features.md#technology-baseline-definition"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
-          "label": "Domain Service: Roadmap Item Gathering",
+          "id": ".domain/roadmap/domain.md#roadmap-item-gathering",
+          "label": "Roadmap Item Gathering",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/roadmap/domain.md",
-          "slug": "domain-service-roadmap-item-gathering",
+          "slug": "roadmap-item-gathering",
           "level": 2,
-          "line": 310,
+          "line": 365,
           "status": "draft",
           "related": [
-            ".domain/roadmap/domain.md#aggregate-roadmap-plan",
-            ".domain/backlog/domain.md#aggregate-backlog-entry",
-            ".domain/second-brain/domain.md#aggregate-knowledge-note"
+            ".domain/roadmap/domain.md#roadmap-plan",
+            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/second-brain/domain.md#knowledge-note"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/domain.md#aggregate-backlog-entry",
-          "label": "Aggregate: Backlog Entry",
+          "id": ".domain/backlog/domain.md#backlog-entry",
+          "label": "Backlog Entry",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/domain.md",
-          "slug": "aggregate-backlog-entry",
+          "slug": "backlog-entry",
           "level": 2,
-          "line": 19,
+          "line": 22,
           "status": "draft",
           "related": [
-            ".domain/inbox/domain.md#aggregate-inbox-item",
+            ".domain/inbox/domain.md#inbox-item",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
@@ -1209,17 +1209,17 @@
       },
       {
         "data": {
-          "id": ".domain/second-brain/domain.md#aggregate-knowledge-note",
-          "label": "Aggregate: Knowledge Note",
+          "id": ".domain/second-brain/domain.md#knowledge-note",
+          "label": "Knowledge Note",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/second-brain/domain.md",
-          "slug": "aggregate-knowledge-note",
+          "slug": "knowledge-note",
           "level": 2,
-          "line": 19,
+          "line": 22,
           "status": "draft",
           "related": [
-            ".domain/backlog/domain.md#aggregate-backlog-entry",
+            ".domain/backlog/domain.md#backlog-entry",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
@@ -1227,18 +1227,18 @@
       },
       {
         "data": {
-          "id": ".domain/monitoring/domain.md#aggregate-progress-signal",
-          "label": "Aggregate: Progress Signal",
+          "id": ".domain/monitoring/domain.md#progress-signal",
+          "label": "Progress Signal",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/monitoring/domain.md",
-          "slug": "aggregate-progress-signal",
+          "slug": "progress-signal",
           "level": 2,
-          "line": 21,
+          "line": 24,
           "status": "draft",
           "related": [
-            ".domain/backlog/domain.md#aggregate-backlog-entry",
-            ".domain/inbox/domain.md#aggregate-inbox-item",
+            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/inbox/domain.md#inbox-item",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
@@ -1246,18 +1246,18 @@
       },
       {
         "data": {
-          "id": ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
-          "label": "Aggregate: Machine Registry",
+          "id": ".domain/dev-pc-management/domain.md#machine-registry",
+          "label": "Machine Registry",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/dev-pc-management/domain.md",
-          "slug": "aggregate-machine-registry",
+          "slug": "machine-registry",
           "level": 2,
-          "line": 27,
+          "line": 30,
           "status": "draft",
           "related": [
-            ".domain/technology-stack/domain.md#aggregate-technology-registry",
-            ".domain/monitoring/domain.md#aggregate-progress-signal",
+            ".domain/technology-stack/domain.md#technology-registry",
+            ".domain/monitoring/domain.md#progress-signal",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
@@ -1265,17 +1265,17 @@
       },
       {
         "data": {
-          "id": ".domain/sessions/domain.md#aggregate-session-log",
-          "label": "Aggregate: Session Log",
+          "id": ".domain/sessions/domain.md#session-log",
+          "label": "Session Log",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/sessions/domain.md",
-          "slug": "aggregate-session-log",
+          "slug": "session-log",
           "level": 2,
-          "line": 36,
+          "line": 41,
           "status": "active",
           "related": [
-            ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+            ".domain/dev-pc-management/domain.md#machine-registry",
             ".domain/sessions/dependencies.md"
           ],
           "outOfScope": true
@@ -1283,18 +1283,18 @@
       },
       {
         "data": {
-          "id": ".domain/repository-management/domain.md#aggregate-repository-registry",
-          "label": "Aggregate: Repository Registry",
+          "id": ".domain/repository-management/domain.md#repository-registry",
+          "label": "Repository Registry",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/repository-management/domain.md",
-          "slug": "aggregate-repository-registry",
+          "slug": "repository-registry",
           "level": 2,
-          "line": 19,
+          "line": 22,
           "status": "draft",
           "related": [
-            ".domain/technology-stack/domain.md#aggregate-technology-registry",
-            ".domain/monitoring/domain.md#aggregate-progress-signal",
+            ".domain/technology-stack/domain.md#technology-registry",
+            ".domain/monitoring/domain.md#progress-signal",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
@@ -1302,18 +1302,18 @@
       },
       {
         "data": {
-          "id": ".domain/technology-stack/domain.md#aggregate-technology-registry",
-          "label": "Aggregate: Technology Registry",
+          "id": ".domain/technology-stack/domain.md#technology-registry",
+          "label": "Technology Registry",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/technology-stack/domain.md",
-          "slug": "aggregate-technology-registry",
+          "slug": "technology-registry",
           "level": 2,
-          "line": 21,
+          "line": 24,
           "status": "draft",
           "related": [
-            ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
-            ".domain/repository-management/domain.md#aggregate-repository-registry",
+            ".domain/dev-pc-management/domain.md#machine-registry",
+            ".domain/repository-management/domain.md#repository-registry",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
@@ -1322,7 +1322,7 @@
       {
         "data": {
           "id": ".domain/backlog/domain.md",
-          "label": "Domain: Backlog Management",
+          "label": "Backlog Management",
           "type": "file",
           "folder": "domain",
           "path": ".domain/backlog/domain.md",
@@ -1742,17 +1742,17 @@
       },
       {
         "data": {
-          "id": "related:.arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox->.domain/capture/domain.md#aggregate-capture",
+          "id": "related:.arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox->.domain/capture/domain.md#capture",
           "source": ".arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox",
-          "target": ".domain/capture/domain.md#aggregate-capture",
+          "target": ".domain/capture/domain.md#capture",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox->.domain/inbox/domain.md#aggregate-inbox-item",
+          "id": "related:.arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox->.domain/inbox/domain.md#inbox-item",
           "source": ".arc42/03-context-and-scope.md#domain-boundary-capture-vs-inbox",
-          "target": ".domain/inbox/domain.md#aggregate-inbox-item",
+          "target": ".domain/inbox/domain.md#inbox-item",
           "type": "related"
         }
       },
@@ -1950,17 +1950,17 @@
       },
       {
         "data": {
-          "id": "related:.arc42/06-runtime-view.md#copilot-app-session-capture->.domain/capture/domain.md#domain-service-source-adapter",
+          "id": "related:.arc42/06-runtime-view.md#copilot-app-session-capture->.domain/capture/domain.md#source-adapter",
           "source": ".arc42/06-runtime-view.md#copilot-app-session-capture",
-          "target": ".domain/capture/domain.md#domain-service-source-adapter",
+          "target": ".domain/capture/domain.md#source-adapter",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/06-runtime-view.md#copilot-app-session-capture->.domain/capture/features.md#sub-feature-copilot-app-session-capture",
+          "id": "related:.arc42/06-runtime-view.md#copilot-app-session-capture->.domain/capture/features.md#copilot-app-session-capture",
           "source": ".arc42/06-runtime-view.md#copilot-app-session-capture",
-          "target": ".domain/capture/features.md#sub-feature-copilot-app-session-capture",
+          "target": ".domain/capture/features.md#copilot-app-session-capture",
           "type": "related"
         }
       },
@@ -2102,9 +2102,9 @@
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.domain/capture/domain.md#domain-service-source-adapter",
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.domain/capture/domain.md#source-adapter",
           "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
-          "target": ".domain/capture/domain.md#domain-service-source-adapter",
+          "target": ".domain/capture/domain.md#source-adapter",
           "type": "related"
         }
       },
@@ -2118,25 +2118,25 @@
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#feature-enablement->.domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "id": "related:.arc42/08-crosscutting-concepts.md#feature-enablement->.domain/second-brain/features.md#repository-knowledge-areas",
           "source": ".arc42/08-crosscutting-concepts.md#feature-enablement",
-          "target": ".domain/second-brain/features.md#feature-repository-knowledge-areas",
+          "target": ".domain/second-brain/features.md#repository-knowledge-areas",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#feature-enablement->.domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
+          "id": "related:.arc42/08-crosscutting-concepts.md#feature-enablement->.domain/dev-pc-management/features.md#copilot-tool-catalog",
           "source": ".arc42/08-crosscutting-concepts.md#feature-enablement",
-          "target": ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog",
+          "target": ".domain/dev-pc-management/features.md#copilot-tool-catalog",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#tagging-and-organization->.domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "id": "related:.arc42/08-crosscutting-concepts.md#tagging-and-organization->.domain/roadmap/domain.md#roadmap-item-gathering",
           "source": ".arc42/08-crosscutting-concepts.md#tagging-and-organization",
-          "target": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "target": ".domain/roadmap/domain.md#roadmap-item-gathering",
           "type": "related"
         }
       },
@@ -2166,73 +2166,73 @@
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/inbox/domain.md#aggregate-inbox-item",
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/inbox/domain.md#inbox-item",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
-          "target": ".domain/inbox/domain.md#aggregate-inbox-item",
+          "target": ".domain/inbox/domain.md#inbox-item",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/backlog/domain.md#backlog-entry",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
-          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "target": ".domain/backlog/domain.md#backlog-entry",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/second-brain/domain.md#aggregate-knowledge-note",
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/second-brain/domain.md#knowledge-note",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
-          "target": ".domain/second-brain/domain.md#aggregate-knowledge-note",
+          "target": ".domain/second-brain/domain.md#knowledge-note",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/monitoring/domain.md#aggregate-progress-signal",
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/monitoring/domain.md#progress-signal",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
-          "target": ".domain/monitoring/domain.md#aggregate-progress-signal",
+          "target": ".domain/monitoring/domain.md#progress-signal",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/dev-pc-management/domain.md#aggregate-machine-registry",
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/dev-pc-management/domain.md#machine-registry",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
-          "target": ".domain/dev-pc-management/domain.md#aggregate-machine-registry",
+          "target": ".domain/dev-pc-management/domain.md#machine-registry",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/sessions/domain.md#aggregate-session-log",
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/sessions/domain.md#session-log",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
-          "target": ".domain/sessions/domain.md#aggregate-session-log",
+          "target": ".domain/sessions/domain.md#session-log",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/repository-management/domain.md#aggregate-repository-registry",
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/repository-management/domain.md#repository-registry",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
-          "target": ".domain/repository-management/domain.md#aggregate-repository-registry",
+          "target": ".domain/repository-management/domain.md#repository-registry",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/technology-stack/domain.md#aggregate-technology-registry",
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/technology-stack/domain.md#technology-registry",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
-          "target": ".domain/technology-stack/domain.md#aggregate-technology-registry",
+          "target": ".domain/technology-stack/domain.md#technology-registry",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/roadmap/domain.md#roadmap-item-gathering",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
-          "target": ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering",
+          "target": ".domain/roadmap/domain.md#roadmap-item-gathering",
           "type": "related"
         }
       },
@@ -2406,9 +2406,9 @@
       },
       {
         "data": {
-          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.domain/backlog/domain.md#backlog-entry",
           "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "target": ".domain/backlog/domain.md#backlog-entry",
           "type": "related"
         }
       }

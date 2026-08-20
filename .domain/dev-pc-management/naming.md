@@ -1,6 +1,7 @@
-# Naming: Dev PC Management
+# Dev PC Management
 
 ```meta
+type: naming
 status: draft
 ```
 
@@ -9,19 +10,21 @@ status: draft
 > names it is also known by are recorded in the `aliases` metadata field so a
 > synonym can always be resolved back to one canonical concept.
 
-## Term: Machine Registry
+## Machine Registry
 
 ```meta
+type: term
 status: draft
 aliases: [MachineRegistry]
-related: [.domain/dev-pc-management/domain.md#aggregate-machine-registry]
+related: [.domain/dev-pc-management/domain.md#machine-registry]
 ```
 
 The single global registry of developer machines in the fleet.
 
-## Term: Machine
+## Machine
 
 ```meta
+type: term
 status: draft
 aliases: [Machine, machine_id]
 related: [.domain/dev-pc-management/domain.md#machine]
@@ -30,20 +33,22 @@ related: [.domain/dev-pc-management/domain.md#machine]
 An individual developer PC. `machine_id` is the form other contexts use to
 reference it (see Monitoring's `machine_status` signals).
 
-## Term: Team Tools Baseline
+## Team Tools Baseline
 
 ```meta
+type: term
 status: draft
 aliases: [TeamToolsBaseline]
-related: [.domain/dev-pc-management/domain.md#team-tools-baseline, .domain/technology-stack/naming.md#term-technology-baseline]
+related: [.domain/dev-pc-management/domain.md#team-tools-baseline, .domain/technology-stack/naming.md#technology-baseline]
 ```
 
 This context's local copy of the Technology Stack `Technology Baseline`, used to
 compute per-machine compliance without holding the foreign aggregate.
 
-## Term: Machine Status
+## Machine Status
 
 ```meta
+type: term
 status: draft
 aliases: [MachineStatus]
 related: [.domain/dev-pc-management/domain.md#machine-status]

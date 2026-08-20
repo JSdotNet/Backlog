@@ -1,26 +1,30 @@
-# Domain: Second Brain
+# Second Brain
 
 ```meta
+type: domain
 status: draft
 order: ["features.md", "model.md", "flow.md", "dependencies.md", "naming.md"]
 ```
 
-> One chapter per Aggregate or Domain Service in this bounded context.
-> Aggregate chapters include sub-chapters for their owned Entities, Value
-> Objects, and Enums. Value Objects/Enums shared across multiple aggregates
-> get their own chapter at the end instead of being duplicated.
+> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
+> Objects / Shared Enums grouping in this bounded context; each chapter's
+> `type` records which of those it is. An Aggregate's owned Entities, Value
+> Objects, and Enums are chapters directly beneath it, typed `entity`,
+> `value-object`, and `enum`. Value Objects/Enums shared across multiple
+> aggregates get their own chapter at the end instead of being duplicated.
 
 Second Brain is a personal project knowledge base — not a task queue. It
 collects, organizes, and retrieves Knowledge Notes structured with the PARA
 framework (Projects, Areas, Resources, Archive), and links bidirectionally with
-[Backlog Entries](../backlog/domain.md#aggregate-backlog-entry) so related
+[Backlog Entries](../backlog/domain.md#backlog-entry) so related
 context is easy to find later.
 
-## Aggregate: Knowledge Note
+## Knowledge Note
 
 ```meta
+type: aggregate
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.domain/backlog/domain.md#backlog-entry, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 An organized unit of project knowledge stored as markdown and the boundary for
@@ -35,7 +39,7 @@ from a repository's knowledge folders — may also carry two pieces of metadata 
 its `meta` block that describe how it relates to planned work. The first is an
 optional `effort`: a size in **story points**, a non-negative integer with exactly
 the meaning it has on a
-[Backlog Entry](../backlog/domain.md#aggregate-backlog-entry) — absent means "not
+[Backlog Entry](../backlog/domain.md#backlog-entry) — absent means "not
 estimated", `0` is a real zero-point estimate, a negative is rejected, and it
 sizes the knowledge work rather than timing it. The second is a `roadmap` list:
 the [Roadmap Item](../roadmap/domain.md#roadmap-item) tags this chapter declares it
@@ -43,25 +47,36 @@ contributes to, held as a `Roadmap Contribution`. Both are read by Roadmap
 Planning when a Roadmap Item gathers and totals the work behind it; Second Brain
 registers them and owns them, and Roadmap only reads.
 
-### Entities
-
 The Knowledge Note aggregate has no independently identified child entities;
 `Project Ref`, `Tag`, `Roadmap Contribution`, and `Backlog Link` are value objects
 owned by the root.
 
-### Value Objects
+### Project Ref
 
-#### Project Ref
+```meta
+type: value-object
+status: draft
+```
 
 A scope link to a project/repo: `repo_id` and `project_name`. Equality is by
 value; a note may hold several.
 
-#### Backlog Link
+### Backlog Link
+
+```meta
+type: value-object
+status: draft
+```
 
 A typed link to a Backlog Entry: `backlog_entry_id`, `link_type`
 (reference or embed), and `linked_at`. Immutable; equality is by value.
 
-#### Tag
+### Tag
+
+```meta
+type: value-object
+status: draft
+```
 
 A `#keyword` for cross-cutting discovery (e.g. `#architecture`, `#performance`).
 Equality is by canonical `name`.
@@ -73,7 +88,12 @@ loosely "tags". A `Tag` is a discovery keyword owned here; a `Roadmap Contributi
 names a slug owned by [Roadmap Planning](../roadmap/domain.md#roadmap-tag). One is
 for finding knowledge, the other for declaring which planned work a chapter feeds.
 
-#### Roadmap Contribution
+### Roadmap Contribution
+
+```meta
+type: value-object
+status: draft
+```
 
 A [Roadmap Item](../roadmap/domain.md#roadmap-item) tag this chapter declares it
 contributes to: a lowercase kebab-case slug, held in the chapter's `roadmap` list.
@@ -91,9 +111,12 @@ graph edge**, exactly like an alias: a chapter contributing to `sync-service` is
 not linked to any document called that. Nothing is validated and a slug matching
 no current roadmap item is a normal, harmless state.
 
-### Enums
+### PARA Category
 
-#### PARA Category
+```meta
+type: enum
+status: draft
+```
 
 Organization bucket for a note:
 
@@ -102,15 +125,21 @@ Organization bucket for a note:
 - `resources` — reference material and collected knowledge.
 - `archive` — inactive items preserved for future search.
 
-#### Note Source
+### Note Source
+
+```meta
+type: enum
+status: draft
+```
 
 Origin of the note: `inbox` (routed from triage), `manual`, or `import`.
 
-## Domain Service: Cross-Linking
+## Cross-Linking
 
 ```meta
+type: domain-service
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+related: [.domain/backlog/domain.md#backlog-entry]
 ```
 
 Maintains bi-directional links between Knowledge Notes and Backlog Entries and
@@ -122,6 +151,7 @@ rather than living inside a single aggregate. Invocation semantics: consistency 
 ## Shared Enums
 
 ```meta
+type: shared-enums
 status: draft
 ```
 

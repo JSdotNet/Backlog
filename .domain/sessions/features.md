@@ -1,17 +1,19 @@
-# Features: Sessions
+# Sessions
 
 ```meta
+type: features
 status: active
 ```
 
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-## Feature: Session inventory
+## Session inventory
 
 ```meta
+type: feature
 status: active
-related: [.domain/sessions/domain.md#aggregate-session-log]
+related: [.domain/sessions/domain.md#session-log]
 ```
 
 Answer "what have my agents been doing here" as one list: every session the
@@ -21,9 +23,10 @@ One list rather than one per agent, because the question is about the work and n
 about the vendor. A person who has both agents installed does not think in two
 inventories.
 
-### Sub-feature: Live and past sessions together
+### Live and past sessions together
 
 ```meta
+type: sub-feature
 status: active
 ```
 
@@ -33,9 +36,10 @@ Separating them would force the reader to know which list to look in before know
 whether the session had ended — which is usually the thing they are trying to find
 out.
 
-### Sub-feature: Only what the agent recorded
+### Only what the agent recorded
 
 ```meta
+type: sub-feature
 status: active
 related: [.domain/sessions/domain.md#working-location]
 ```
@@ -49,9 +53,10 @@ The alternative was inferring the missing facts from the working folder. A wrong
 repository attributed to a session renders exactly as convincingly as a right one,
 which is what makes inference the more expensive option.
 
-### Sub-feature: Re-read on request
+### Re-read on request
 
 ```meta
+type: sub-feature
 status: active
 ```
 
@@ -62,21 +67,23 @@ A surface that refreshed itself would be claiming to be live, and the evidence d
 not support the claim: one of the two agents leaves no liveness marker at all, so a
 self-moving list would move without meaning.
 
-## Feature: Session grouping
+## Session grouping
 
 ```meta
+type: feature
 status: active
-related: [.domain/sessions/domain.md#domain-service-session-grouping]
+related: [.domain/sessions/domain.md#session-grouping]
 ```
 
 Carve the same list up by the two things that separate sessions from each other in
 practice, without removing any of them.
 
-### Sub-feature: Group by environment
+### Group by environment
 
 ```meta
+type: sub-feature
 status: active
-related: [.domain/sessions/naming.md#term-environment]
+related: [.domain/sessions/naming.md#environment]
 ```
 
 A section per environment, named after it, with its own count — so "how many are
@@ -86,18 +93,20 @@ Single-valued for as long as an environment can only read its own records: one
 section, named after the machine the reader is sitting at. It becomes the useful
 grouping the moment a second environment reports.
 
-### Sub-feature: Group by agent
+### Group by agent
 
 ```meta
+type: sub-feature
 status: active
 ```
 
 A section per agent, so Claude's sessions and Copilot's can be read separately
 without the two being separate lists.
 
-### Sub-feature: Grouping never hides a session
+### Grouping never hides a session
 
 ```meta
+type: sub-feature
 status: active
 ```
 
@@ -105,9 +114,10 @@ The total is the same whichever grouping is chosen, and the surface says the tot
 beside the control that carves it up — so a grouping can be trusted not to be a
 filter in disguise.
 
-## Feature: Honest partial answers
+## Honest partial answers
 
 ```meta
+type: feature
 status: active
 related: [.domain/sessions/domain.md#session-catalog]
 ```
@@ -115,9 +125,10 @@ related: [.domain/sessions/domain.md#session-catalog]
 Say what could not be read and what was left out, rather than presenting whatever
 arrived as the whole picture.
 
-### Sub-feature: Name the source that could not be read
+### Name the source that could not be read
 
 ```meta
+type: sub-feature
 status: active
 ```
 
@@ -127,11 +138,12 @@ user — the other agent's sessions are still shown and the unreadable one is na
 "No Copilot sessions" and "Copilot could not be read" are different facts, and only
 one of them is worth investigating.
 
-### Sub-feature: Say how much was left out
+### Say how much was left out
 
 ```meta
+type: sub-feature
 status: active
-related: [.domain/sessions/naming.md#term-session-limit]
+related: [.domain/sessions/naming.md#session-limit]
 ```
 
 An environment can hold hundreds of session records — enough that reading all of
@@ -142,12 +154,13 @@ states how many exist.
 Per agent rather than overall, so the agent that happens to keep more history cannot
 crowd the other one out of a list whose whole point is showing both.
 
-## Feature: Session activity enrichment
+## Session activity enrichment
 
 ```meta
+type: feature
 status: proposed
-depends-on: [.domain/sessions/features.md#feature-session-inventory]
-related: [.domain/sessions/domain.md#domain-service-session-activity-publishing, .domain/sessions/domain.md#domain-service-session-activity-enrichment]
+depends-on: [.domain/sessions/features.md#session-inventory]
+related: [.domain/sessions/domain.md#session-activity-publishing, .domain/sessions/domain.md#session-activity-enrichment]
 ```
 
 Layer externally reported session activity onto the same session list, so a reader can
@@ -158,11 +171,12 @@ The extra layer is optional by design. A session with no Collections MCP reporti
 still read, grouped, and counted exactly as it is today; a session with reporting adds
 timeline and correlation detail to that same row.
 
-### Sub-feature: Optional Collections MCP reporting
+### Optional Collections MCP reporting
 
 ```meta
+type: sub-feature
 status: proposed
-related: [.domain/sessions/domain.md#domain-service-session-activity-publishing, .domain/sessions/naming.md#term-collections-mcp]
+related: [.domain/sessions/domain.md#session-activity-publishing, .domain/sessions/naming.md#collections-mcp]
 ```
 
 When a session has the Collections MCP configured, it reports start, meaningful
@@ -172,9 +186,10 @@ surface breaks or changes shape.
 Capability detection is ordinary product behavior rather than setup drama: missing
 configuration is simply `disabled`, not an error that needs a banner.
 
-### Sub-feature: Latest meaningful activity
+### Latest meaningful activity
 
 ```meta
+type: sub-feature
 status: proposed
 related: [.domain/sessions/domain.md#session-enrichment-summary, .domain/sessions/domain.md#session-activity-entry]
 ```
@@ -186,9 +201,10 @@ run or issue it was working against.
 Meaningful rather than exhaustive. The point is to answer "what is this session doing"
 without turning the session list into a transcript or a tool log.
 
-### Sub-feature: Reporting degrades honestly
+### Reporting degrades honestly
 
 ```meta
+type: sub-feature
 status: proposed
 related: [.domain/sessions/domain.md#reporting-capability]
 ```
@@ -200,9 +216,10 @@ That answer is more honest than either hiding the reporting layer or pretending 
 external activity exists. A broken path is a fact worth surfacing, and it is separate
 from the session's own `Session State`.
 
-## Feature: Turn the area off
+## Turn the area off
 
 ```meta
+type: feature
 status: active
 ```
 

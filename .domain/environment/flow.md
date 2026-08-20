@@ -1,6 +1,7 @@
-# Flow: Environment
+# Environment
 
 ```meta
+type: flow
 status: draft
 ```
 

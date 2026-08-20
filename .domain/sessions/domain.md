@@ -1,12 +1,17 @@
-# Domain: Sessions
+# Sessions
 
 ```meta
+type: domain
 status: active
 order: ["features.md", "model.md", "flow.md", "dependencies.md", "naming.md"]
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
-> Objects / Shared Enums grouping in this bounded context.
+> Objects / Shared Enums grouping in this bounded context; each chapter's
+> `type` records which of those it is. An Aggregate's owned Entities, Value
+> Objects, and Enums are chapters directly beneath it, typed `entity`,
+> `value-object`, and `enum`. Value Objects/Enums shared across multiple
+> aggregates get their own chapter at the end instead of being duplicated.
 
 The Sessions context owns the record of what the AI coding agents have been doing:
 which sessions an environment has run, which agent ran each one, where it worked,
@@ -26,18 +31,19 @@ updates that a configured session reports as it moves. Those updates are an
 session was doing; they do not decide that a session existed in the first place.
 
 This subject was first modelled inside
-[Dev PC Management](../dev-pc-management/domain.md#aggregate-machine-registry) as
+[Dev PC Management](../dev-pc-management/domain.md#machine-registry) as
 Copilot Session Tracking on the Machine, when Copilot was the only agent the
 machines ran. Two agents run on them now, and "which agent, in which repository, for
 how long" is a different question in a different language from "how is this PC
 configured" — so the subject moved out to here and Dev PC Management stopped
 modelling it.
 
-## Aggregate: Session Log
+## Session Log
 
 ```meta
+type: aggregate
 status: active
-related: [.domain/dev-pc-management/domain.md#aggregate-machine-registry, .domain/sessions/dependencies.md]
+related: [.domain/dev-pc-management/domain.md#machine-registry, .domain/sessions/dependencies.md]
 ```
 
 Everything one environment can say about the agent sessions it has a record of.
@@ -64,9 +70,12 @@ Invariants:
   when it does, how many exist is part of the answer rather than a detail the reader
   is left to discover.
 
-### Entities
+### Agent Session
 
-#### Agent Session
+```meta
+type: entity
+status: active
+```
 
 One working session of one agent. Identified by `Session Identity` — the agent plus
 the identifier that agent gave the session — because a session id is only unique
@@ -80,15 +89,23 @@ Summary`, and a `Reporting Capability` reading for that stream.
 Its lifecycle is not this context's to run: it appears when an agent first leaves a
 record, and it stops changing when the agent stops writing.
 
-### Value Objects
+### Session Identity
 
-#### Session Identity
+```meta
+type: value-object
+status: active
+```
 
 What makes a session that session: `agent` plus `session_id`. Equality by both.
 Never by `session_id` alone — two agents may issue the same string, and an
 environment reading both would silently merge two unrelated sessions.
 
-#### Working Location
+### Working Location
+
+```meta
+type: value-object
+status: active
+```
 
 Where the session was working: `working_folder`, optional `repository` in
 `owner/name` form, and optional `branch`. Equality by all three.
@@ -97,14 +114,24 @@ Both optional fields are optional because the agents disagree about what they
 record, not because the value is unimportant: one writes the repository and branch
 outright, the other writes neither. Absent means "the agent did not say".
 
-#### Activity Window
+### Activity Window
+
+```meta
+type: value-object
+status: active
+```
 
 When the session was alive: optional `started_at` and a required `last_activity_at`.
 Equality by both. The start is optional because some evidence is only a file with a
 timestamp on it; the last activity is not, because that timestamp always exists and
 is what `Liveness Assessment` reads.
 
-#### Session Activity Stream
+### Session Activity Stream
+
+```meta
+type: value-object
+status: active
+```
 
 Optional externally reported activity about one known session, ordered as that
 session reported it.
@@ -114,7 +141,12 @@ context cares which session the activity belongs to and not how the storage happ
 to key it. It is optional because a session without Collections MCP reporting is
 still a perfectly good session record.
 
-#### Session Activity Entry
+### Session Activity Entry
+
+```meta
+type: value-object
+status: active
+```
 
 One externally reported milestone about a session: what kind of activity it was, when
 it happened, its per-session sequence, and a short summary fit to be shown back to a
@@ -124,7 +156,12 @@ Identity inside the stream is by external `event_id`; order is by the session's 
 sequence and then by occurrence time. Both are needed: duplicates must collapse, and
 late arrivals must still land in the right place.
 
-#### Session Enrichment Summary
+### Session Enrichment Summary
+
+```meta
+type: value-object
+status: active
+```
 
 The one-line answer derived from a `Session Activity Stream`: the latest meaningful
 activity text, when external activity last arrived, and what correlation facts can be
@@ -134,7 +171,12 @@ It is a value object because it is a reading over the stream, not a second entit
 new activity entry replaces the summary by deriving a later one rather than by
 editing a stored record.
 
-#### Session Catalog
+### Session Catalog
+
+```meta
+type: value-object
+status: active
+```
 
 What a reading of one environment answers with: the `Agent Session` list it will
 describe, the sources it could **not** read, by name, and how many sessions it
@@ -144,9 +186,12 @@ Three parts rather than one list, because "no sessions" and "could not look" are
 different answers and a reader who cannot tell them apart will go looking for a
 fault that is not there. Equality is by all three.
 
-### Enums
+### Agent
 
-#### Agent
+```meta
+type: enum
+status: active
+```
 
 Which assistant ran the session: `claude`, `copilot`.
 
@@ -154,7 +199,12 @@ A type on the session rather than a list per vendor. A list per vendor would mak
 "what has been running here" unanswerable without first knowing how many vendors
 there are.
 
-#### Session State
+### Session State
+
+```meta
+type: enum
+status: active
+```
 
 How far along a session is, as far as the evidence goes:
 
@@ -167,7 +217,12 @@ Three values, and deliberately not five. Starting, waiting and failed are all
 states an agent could be in and none is derivable from what it leaves behind, so
 this context does not claim them.
 
-#### Reporting Capability
+### Reporting Capability
+
+```meta
+type: enum
+status: active
+```
 
 Whether a session can report activity to the optional Collections MCP:
 
@@ -180,9 +235,10 @@ This is about the reporting path and not about the session's own health. A runni
 session can have degraded reporting, and a finished session can still have an enabled
 path that already delivered its last update.
 
-## Domain Service: Liveness Assessment
+## Liveness Assessment
 
 ```meta
+type: domain-service
 status: active
 related: [.domain/sessions/domain.md#session-state, .domain/sessions/flow.md]
 ```
@@ -200,11 +256,12 @@ Invocation semantics: query-oriented; evaluated per reading, never persisted. A
 session is not moved into `stalled` by anything — it simply reads as stalled while
 the silence lasts, and reads as running again the moment the agent writes.
 
-## Domain Service: Session Grouping
+## Session Grouping
 
 ```meta
+type: domain-service
 status: active
-related: [.domain/sessions/domain.md#aggregate-session-log, .domain/sessions/features.md#feature-session-grouping]
+related: [.domain/sessions/domain.md#session-log, .domain/sessions/features.md#session-grouping]
 ```
 
 Carves a set of `Agent Session`s into named groups — one per environment, or one per
@@ -225,11 +282,12 @@ Invocation semantics: query/composition-oriented; invoked per view, never stored
 Which grouping is in force is the reader's choice and is not part of this context's
 state.
 
-## Domain Service: Session Activity Publishing
+## Session Activity Publishing
 
 ```meta
+type: domain-service
 status: proposed
-related: [.domain/sessions/features.md#feature-session-activity-enrichment, .domain/sessions/flow.md, .domain/sessions/dependencies.md]
+related: [.domain/sessions/features.md#session-activity-enrichment, .domain/sessions/flow.md, .domain/sessions/dependencies.md]
 ```
 
 Emits sanitized activity updates for a running session to the optional Collections
@@ -244,11 +302,12 @@ Invocation semantics: event-triggered policy/process-manager behavior; invoked f
 session milestones, queued asynchronously, retried without blocking session work, and
 allowed to degrade to local-only behavior when reporting is unavailable.
 
-## Domain Service: Session Activity Enrichment
+## Session Activity Enrichment
 
 ```meta
+type: domain-service
 status: proposed
-related: [.domain/sessions/features.md#feature-session-activity-enrichment, .domain/sessions/flow.md, .domain/sessions/dependencies.md]
+related: [.domain/sessions/features.md#session-activity-enrichment, .domain/sessions/flow.md, .domain/sessions/dependencies.md]
 ```
 
 Layers optional `Session Activity Stream` evidence onto the locally read `Agent
@@ -266,6 +325,7 @@ activity evidence exists, and skipped entirely when it does not.
 ## Shared Value Objects
 
 ```meta
+type: shared-value-objects
 status: active
 ```
 
@@ -278,6 +338,7 @@ would be the likely first one.
 ## Shared Enums
 
 ```meta
+type: shared-enums
 status: active
 ```
 

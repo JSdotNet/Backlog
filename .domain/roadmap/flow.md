@@ -1,8 +1,9 @@
-# Flow: Roadmap Planning
+# Roadmap Planning
 
 ```meta
+type: flow
 status: draft
-related: [.domain/roadmap/domain.md#aggregate-roadmap-plan, .domain/roadmap/domain.md#domain-service-plan-sequencing]
+related: [.domain/roadmap/domain.md#roadmap-plan, .domain/roadmap/domain.md#plan-sequencing]
 ```
 
 > Lifecycle and process flows for this bounded context: how a plan changes and
@@ -121,7 +122,7 @@ flowchart TD
 ```
 
 - Gathering happens on the **read** path only, by
-  [Roadmap Item Gathering](domain.md#domain-service-roadmap-item-gathering).
+  [Roadmap Item Gathering](domain.md#roadmap-item-gathering).
   Nothing is written back — not to the plan, not to an entry, not to a chapter — so
   an unreachable Backlog Management or Second Brain shrinks a total rather than
   corrupting a plan.

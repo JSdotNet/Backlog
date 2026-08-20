@@ -1,45 +1,50 @@
-# Features: Second Brain
+# Second Brain
 
 ```meta
+type: features
 status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-## Feature: Knowledge capture
+## Knowledge capture
 
 ```meta
+type: feature
 status: draft
-related: [.domain/inbox/features.md#feature-routing]
+related: [.domain/inbox/features.md#routing]
 ```
 
 Store notes, references, ideas, and learnings as markdown from inbox triage,
 manual creation, or import, attaching them to one or more projects, topics, or
 tags.
 
-## Feature: PARA organization
+## PARA organization
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/second-brain/features.md#feature-knowledge-capture]
+depends-on: [.domain/second-brain/features.md#knowledge-capture]
 ```
 
 Organize notes into Projects (active, deadline), Areas (ongoing), Resources
 (reference), and Archive (inactive) buckets.
 
-## Feature: Cross-project linking
+## Cross-project linking
 
 ```meta
+type: feature
 status: draft
 ```
 
 Reference multiple projects and repos from a single note, and discover notes
 across projects by tag.
 
-## Feature: Topic and tag grouping
+## Topic and tag grouping
 
 ```meta
+type: feature
 status: draft
 related: [.domain/second-brain/domain.md#tag, .domain/second-brain/domain.md#roadmap-contribution]
 ```
@@ -56,23 +61,25 @@ loosely "tags". A chapter may also declare an `effort` in story points, sized th
 same way a Backlog Entry is; like the roadmap contribution it is registered here
 and only read by Roadmap Planning.
 
-## Feature: Bi-directional linking
+## Bi-directional linking
 
 ```meta
+type: feature
 status: draft
-related: [.domain/backlog/features.md#feature-search-filter-and-organize]
+related: [.domain/backlog/features.md#search-filter-and-organize]
 ```
 
 Link from backlog entries to notes (reference or embed inline) and from notes
 back to related backlog items or projects, supporting queries that cross both
 domains and embedding knowledge context directly in backlog item details.
 
-## Feature: Repository knowledge areas
+## Repository knowledge areas
 
 ```meta
+type: feature
 status: draft
 feature-flag: repository-knowledge
-related: [.domain/repository-management/features.md#sub-feature-repository-knowledge-folder-settings, .domain/backlog/features.md#feature-search-filter-and-organize]
+related: [.domain/repository-management/features.md#repository-knowledge-folder-settings, .domain/backlog/features.md#search-filter-and-organize]
 ```
 
 Read the knowledge a repository already carries alongside its code, next to the
@@ -85,9 +92,10 @@ a side pane that sits beside the entry list so knowledge and work stay in view
 together, and the pane's width is adjustable because the two compete for the same
 screen.
 
-### Sub-feature: Area selection and scope
+### Area selection and scope
 
 ```meta
+type: sub-feature
 status: draft
 feature-flag: knowledge-sections
 ```
@@ -98,9 +106,10 @@ opt-in, and each can be switched off on its own or pointed at a non-standard
 folder; when none is left on there is nothing to browse and the pane says so
 rather than offering an empty tab strip.
 
-### Sub-feature: Rendered knowledge documents
+### Rendered knowledge documents
 
 ```meta
+type: sub-feature
 status: draft
 ```
 

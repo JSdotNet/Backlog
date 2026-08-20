@@ -1,8 +1,9 @@
-# Flow: Sessions
+# Sessions
 
 ```meta
+type: flow
 status: active
-related: [.domain/sessions/domain.md#domain-service-liveness-assessment, .domain/sessions/domain.md#domain-service-session-activity-publishing, .domain/sessions/domain.md#domain-service-session-activity-enrichment]
+related: [.domain/sessions/domain.md#liveness-assessment, .domain/sessions/domain.md#session-activity-publishing, .domain/sessions/domain.md#session-activity-enrichment]
 ```
 
 > Lifecycle and process flows for this bounded context: how aggregates move through
