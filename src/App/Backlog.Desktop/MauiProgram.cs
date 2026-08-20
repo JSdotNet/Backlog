@@ -73,13 +73,10 @@ public static class MauiProgram
         // The two cross-context joins the plan takes part in, each a port a screen
         // owns and an adapter here answers because only an adapter may see both
         // contexts: the backlog's tag picker offers the plan's tags, and a roadmap
-        // item rolls up the backlog entries and knowledge chapters it gathers.
-        builder.Services.AddSingleton<IRoadmapTagSource>(sp =>
-            new RoadmapPlanTagSource(sp.GetRequiredService<IRoadmapPlanning>()));
-        builder.Services.AddSingleton<IRoadmapItemRollup>(sp =>
-            new RoadmapItemRollupService(
-                sp.GetRequiredService<ITaskItems>(),
-                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        // item rolls up the backlog entries and knowledge chapters it gathers. Both
+        // capture services the modules register as Scoped, so they are Scoped too —
+        // registered in one place both hosts share so the lifetimes cannot drift.
+        builder.Services.AddRoadmapCrossContextAdapters();
         builder.Services.AddSingleton<GitHubSettingsStore>();
         builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
