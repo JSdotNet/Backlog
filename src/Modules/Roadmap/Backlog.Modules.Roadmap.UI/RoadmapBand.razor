@@ -30,6 +30,7 @@
 *@
 @implements IDisposable
 @inject IRoadmapPlanning Planning
+@inject IRoadmapItemRollup Rollups
 @inject GitHubSettingsStore Repositories
 
 <section class="roadmap-band" id="roadmap-band" aria-labelledby="roadmap-band-title" data-testid="roadmap-band">
@@ -91,6 +92,7 @@
                        Open="@_editing"
                        OpenChanged="EditingChanged"
                        Item="@_edited"
+                       Rollup="@_rollup"
                        Repositories="@Configured()"
                        DependencyOptions="@DependencyOptions()"
                        Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
@@ -123,6 +125,7 @@
 
     private RoadmapItemEditor? _editor;
     private RoadmapItemDto? _edited;
+    private RoadmapItemRollupDto _rollup = RoadmapItemRollupDto.Empty;
     private bool _editing;
 
     private RoadmapMilestoneEditor? _dateEditor;
@@ -262,7 +265,7 @@
     /// and stops there rather than showing a dialog with the wrong fields in it.
     /// </para>
     /// </summary>
-    private void Select(string barId)
+    private async Task Select(string barId)
     {
         _selectedId = barId;
 
@@ -272,6 +275,11 @@
         var item = _plan.Items.FirstOrDefault(candidate => candidate.Id == id);
         if (item is not null)
         {
+            // Gathered before the dialog opens, so the item's linked and tagged work is
+            // on screen with it rather than a render behind it. The band asks its own
+            // module port; the adapter behind it is the one thing allowed to read both
+            // the backlog and the knowledge graph.
+            _rollup = await Rollups.GatherAsync(item);
             _edited = item;
             _editing = true;
             return;
@@ -286,6 +294,8 @@
 
     private void PlanSomething()
     {
+        // Nothing to gather for work that does not exist yet.
+        _rollup = RoadmapItemRollupDto.Empty;
         _edited = null;
         _editing = true;
     }

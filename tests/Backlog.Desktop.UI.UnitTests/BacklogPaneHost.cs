@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Backlog.Abstractions.Services;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -48,7 +49,15 @@ internal sealed class BacklogPaneHost : IDisposable
     /// <summary>Composes the pane's world. <paramref name="repositories"/> is the
     /// settings text a person would have typed into Settings, so a test that wants
     /// GitHub configured says so in the same words the app does.</summary>
-    public static async Task<BacklogPaneHost> CreateAsync(params string[] repositories)
+    public static Task<BacklogPaneHost> CreateAsync(params string[] repositories) =>
+        CreateAsync(roadmapTags: null, repositories);
+
+    /// <summary>As <see cref="CreateAsync(string[])"/>, and with the roadmap tag
+    /// source the backlog picker offers planned tags from. A host with a roadmap
+    /// registers one; a test that cares about planned tags hands one in here.</summary>
+    public static async Task<BacklogPaneHost> CreateAsync(
+        IRoadmapTagSource? roadmapTags,
+        string[] repositories)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-pane-host", Guid.NewGuid().ToString("n"));
 
@@ -65,7 +74,7 @@ internal sealed class BacklogPaneHost : IDisposable
         var client = new FakeGitHubClient();
         var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
-        var state = BacklogTestHost.StateFor(store, gitHub, copilot: null);
+        var state = BacklogTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags);
 
         await state.InitializeAsync();
 

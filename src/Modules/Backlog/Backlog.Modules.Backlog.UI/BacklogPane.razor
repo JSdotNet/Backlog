@@ -1636,18 +1636,37 @@
         [.. StatusOptions().Select(status => new SelectorOption(status.ToString(), Humanize(status.ToString())))];
 
     private IReadOnlyList<string> TagOptions(EntryRow row) =>
-        State.Rows
-            .SelectMany(existing => existing.PreviewMetadataTags)
-            .Concat(row.PreviewMetadataTags)
+        BacklogTags(row)
+            .Concat(State.RoadmapTags)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    /// <summary>Every tag already in use, as the picker wants them. A tag is its
-    /// own label, so the two halves of the option are the same string — which is
-    /// what makes a tag typed here and a tag picked here the same value.</summary>
-    private IReadOnlyList<SelectorOption> TagSelectorOptions(EntryRow row) =>
-        [.. TagOptions(row).Select(tag => new SelectorOption(tag, tag))];
+    /// <summary>The tags the backlog itself is already using — every entry's, and the
+    /// one being edited. The roadmap's are unioned onto these; kept apart so an option
+    /// can be told which side it came from.</summary>
+    private IEnumerable<string> BacklogTags(EntryRow row) =>
+        State.Rows
+            .SelectMany(existing => existing.PreviewMetadataTags)
+            .Concat(row.PreviewMetadataTags);
+
+    /// <summary>Every tag on offer, as the picker wants them. A tag is its own label,
+    /// so the two halves of the option are the same string — which is what makes a tag
+    /// typed here and a tag picked here the same value. A tag the roadmap offers that
+    /// no entry uses yet carries a hint saying where it came from, so an option nothing
+    /// in the list explains does not read as a stray.</summary>
+    private IReadOnlyList<SelectorOption> TagSelectorOptions(EntryRow row)
+    {
+        var used = BacklogTags(row).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return
+        [
+            .. TagOptions(row).Select(tag => new SelectorOption(
+                tag,
+                tag,
+                used.Contains(tag) ? null : "from roadmap"))
+        ];
+    }
 
     private static string Humanize(string enumName)
     {

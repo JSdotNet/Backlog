@@ -14,6 +14,7 @@ using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Backlog.Extensions;
 using Backlog.Modules.Roadmap;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
@@ -53,6 +54,16 @@ builder.Services.AddBacklogModule();
 builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
     new RootedJsonRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddRoadmapModule();
+
+// The two cross-context joins the plan takes part in, answered by adapters that may
+// see both contexts: the backlog's tag picker offers the plan's tags, and a roadmap
+// item rolls up the backlog entries and knowledge chapters it gathers.
+builder.Services.AddSingleton<IRoadmapTagSource>(sp =>
+    new RoadmapPlanTagSource(sp.GetRequiredService<IRoadmapPlanning>()));
+builder.Services.AddSingleton<IRoadmapItemRollup>(sp =>
+    new RoadmapItemRollupService(
+        sp.GetRequiredService<ITaskItems>(),
+        () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());

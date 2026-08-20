@@ -108,6 +108,60 @@
                a cycle is not any one field being wrong. *@
             <Alert Message="@_error" Role="status" TestId="roadmap-editor-error" />
         </div>
+
+        @* What this item has already gathered — read-only, and only for an item that
+           exists, since a plan-work dialog has nothing to roll up yet. The lists and
+           the total are the adapter's arithmetic over registered values; nothing here
+           infers an estimate for work that carries none, which is why the total is
+           shown beside how much of the work was left unestimated rather than on its
+           own. *@
+        @if (!IsNew)
+        {
+            <section class="roadmap-gathered" data-testid="roadmap-item-rollup">
+                <p class="roadmap-gathered__heading">Gathered under this item</p>
+
+                @if (Rollup.IsEmpty)
+                {
+                    <EmptyState TestId="roadmap-item-rollup-empty"
+                                CssClass="roadmap-gathered__empty"
+                                Title="Nothing gathered yet"
+                                Description="No backlog entry is linked or carries this item's tag, and no knowledge chapter names it. Link an entry, or tag work with the item's tag, and it is gathered here." />
+                }
+                else
+                {
+                    @if (Rollup.BacklogEntries.Count > 0)
+                    {
+                        <div class="roadmap-gathered__group">
+                            <p class="roadmap-gathered__group-title">Backlog entries</p>
+                            <ul class="roadmap-gathered__list" data-testid="roadmap-item-linked-backlog">
+                                @foreach (var link in Rollup.BacklogEntries)
+                                {
+                                    @GatheredRow(link)
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @if (Rollup.KnowledgeChapters.Count > 0)
+                    {
+                        <div class="roadmap-gathered__group">
+                            <p class="roadmap-gathered__group-title">Knowledge chapters</p>
+                            <ul class="roadmap-gathered__list" data-testid="roadmap-item-linked-knowledge">
+                                @foreach (var link in Rollup.KnowledgeChapters)
+                                {
+                                    @GatheredRow(link)
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    <div class="roadmap-gathered__effort" data-testid="roadmap-item-effort-total">
+                        <span class="roadmap-gathered__effort-total">@EffortHeadline</span>
+                        <span class="roadmap-gathered__effort-caveat">@EffortCaveat</span>
+                    </div>
+                }
+            </section>
+        }
     </ChildContent>
     <Footer>
         @if (!IsNew)
@@ -165,6 +219,17 @@
     [Parameter]
     public RoadmapItemDto? Item { get; set; }
 
+    /// <summary>
+    /// What this item has gathered — its linked and tagged backlog entries, its
+    /// referenced and tag-named knowledge chapters, and the effort arithmetic over
+    /// them. Handed in as a parameter rather than fetched here, so the dialog stays a
+    /// thing that shows what it is given: the band gathers through its own module port
+    /// and passes the result down, the same way it passes the repositories and the
+    /// dependency options. Empty for a new item, which has nothing to gather.
+    /// </summary>
+    [Parameter]
+    public RoadmapItemRollupDto Rollup { get; set; } = RoadmapItemRollupDto.Empty;
+
     /// <summary>The repositories the plan may be filed against, in Settings order.</summary>
     [Parameter]
     public IReadOnlyList<PlannedRepository> Repositories { get; set; } = [];
@@ -192,6 +257,56 @@
     public EventCallback<RoadmapDependencyChange> OnDependencyChanged { get; set; }
 
     private bool IsNew => Item is null;
+
+    /// <summary>One gathered thing: what it is, how the item reached it, and — when it
+    /// registered one — its effort. The origin is drawn as a badge rather than left to
+    /// the list's grouping, because the same entry can be gathered two ways at once and
+    /// "linked &amp; tagged" is a different fact from either alone.</summary>
+    private RenderFragment GatheredRow(RoadmapGatheredLink link) =>
+        @<li class="roadmap-gathered__item">
+            <span class="roadmap-gathered__title">@link.Title</span>
+            <Badge Kind="origin" Slug="@OriginSlug(link.Origin)" CssClass="roadmap-gathered__origin">@OriginLabel(link.Origin)</Badge>
+            @if (link.Effort is int points)
+            {
+                <Badge Kind="effort" CssClass="roadmap-gathered__points">@points @Points(points)</Badge>
+            }
+            else
+            {
+                <span class="roadmap-gathered__unestimated">not estimated</span>
+            }
+        </li>;
+
+    private static string OriginSlug(RollupOrigin origin) => origin switch
+    {
+        RollupOrigin.Direct => "direct",
+        RollupOrigin.Tag => "tag",
+        _ => "both"
+    };
+
+    private static string OriginLabel(RollupOrigin origin) => origin switch
+    {
+        RollupOrigin.Direct => "linked",
+        RollupOrigin.Tag => "by tag",
+        _ => "linked & by tag"
+    };
+
+    /// <summary>The registered total, said as story points. It is only the work that
+    /// carried a number; <see cref="EffortCaveat"/> says how much did not.</summary>
+    private string EffortHeadline => $"{Rollup.TotalEffort} story {Points(Rollup.TotalEffort)}";
+
+    /// <summary>How much of the gathered work went into the total and how much could
+    /// not, in words a reader cannot miss. A total that quietly dropped the unestimated
+    /// work would read as smaller than the work is, so the count that was left out is
+    /// stated beside it rather than implied.</summary>
+    private string EffortCaveat => Rollup.UnestimatedCount == 0
+        ? $"Every one of the {Rollup.GatheredCount} gathered {Things(Rollup.GatheredCount)} registered an estimate."
+        : $"{Rollup.UnestimatedCount} of {Rollup.GatheredCount} gathered {Things(Rollup.GatheredCount)} registered no estimate, "
+            + "so this total counts only the work that carries a number — the real effort is larger.";
+
+    private static string Points(int count) => count == 1 ? "point" : "points";
+
+    private static string Things(int count) => count == 1 ? "thing" : "things";
+
 
     private static IReadOnlyList<SelectorOption> PriorityOptions =>
     [

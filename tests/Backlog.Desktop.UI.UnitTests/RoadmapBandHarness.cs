@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
 
 using Bunit;
@@ -45,6 +46,13 @@ public abstract class RoadmapBandHarness : IDisposable
         context.Services.AddSingleton(Settings);
         context.Services.AddSingleton(RepositorySettings);
         context.Services.AddSingleton(Planning);
+
+        // The band gathers an item's linked and tagged work through this port before it
+        // opens the editor on one, so the real adapter over the same storage root is
+        // registered the way a host registers it. The band tests write no backlog, so
+        // it answers empty — enough for the editor to render.
+        context.Services.AddSingleton<IRoadmapItemRollup>(
+            new RoadmapItemRollupService(BacklogTestHost.EntriesFor(Settings), () => Settings.RootDirectory));
         return context;
     }
 
