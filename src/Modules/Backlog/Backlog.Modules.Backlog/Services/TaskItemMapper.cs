@@ -29,5 +29,6 @@ internal static class TaskItemMapper
         entry.InMyDayOn,
         [.. entry.DependsOn],
         entry.View,
-        entry.Attachment);
+        entry.Attachment,
+        entry.Effort);
 }

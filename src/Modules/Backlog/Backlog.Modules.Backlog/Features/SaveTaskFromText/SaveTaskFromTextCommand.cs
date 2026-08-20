@@ -155,6 +155,14 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries)
         // deleting `files:` is how a reader detaches, which is only true while an
         // absent token means absent.
         entry.SetAttachment(parsed.Attachment);
+
+        // A size is a fact about the work too, and clearable the same way: deleting
+        // the `effort:` token is how an estimate is retracted, so it is written
+        // unconditionally like the fields above rather than merged, which would let
+        // a token that is gone leave a stale estimate behind. The aggregate refuses
+        // a negative, but the parser never hands one up — an unreadable value
+        // arrives here as null.
+        entry.SetEffort(parsed.Effort);
     }
 
     /// <summary>

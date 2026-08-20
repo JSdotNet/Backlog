@@ -5,6 +5,8 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.SharedKernel.Results;
 
+using System.Globalization;
+
 using Backlog.UI.Components.Markdown;
 
 namespace Backlog.Desktop.UI.BacklogManagement;
@@ -607,6 +609,15 @@ public sealed class BacklogDesktopState : IDisposable
 
     public async Task ChangePriorityAsync(EntryRow row, Priority priority) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithPriority(row.RawText, priority));
+
+    /// <summary>Estimates the entry at a number of story points, or clears the
+    /// estimate. Null clears for the same reason the scheduling fields do: absent
+    /// means absent, so an unset effort carries no token rather than an
+    /// <c>effort:</c> with nothing after it. Written through the same rewrite path
+    /// as priority — the number ends up on the canonical metadata line, which is
+    /// the entry.</summary>
+    public async Task ChangeEffortAsync(EntryRow row, int? effort) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithEffort(row.RawText, effort));
 
     public async Task ChangeStatusAsync(EntryRow row, EntryStatus status) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status, cascadeSubItems: true), forceWhenEqual: row.Status != status);
@@ -1509,6 +1520,16 @@ public sealed class EntryRow
         get { Render(); return _parsed!.DependsOn ?? []; }
     }
 
+    /// <summary>The story-point estimate, read from the text and nowhere else.
+    /// Null when the entry carries no <c>effort:</c> token — "not estimated", which
+    /// is a different answer from a zero-point estimate. Like the scheduling fields
+    /// there is no saved value to fall back to: the token is the whole of what the
+    /// entry knows about its size.</summary>
+    public int? PreviewEffort
+    {
+        get { Render(); return _parsed!.Effort; }
+    }
+
     /// <summary>What is attached, as written down. One place or nothing — see
     /// <see cref="Attachment"/> for why it is never a list.</summary>
     public Attachment? PreviewAttachment
@@ -1634,6 +1655,16 @@ public sealed class EntryRow
             foreach (var id in PreviewDependsOn)
             {
                 readings.Add(new MetaReading("after", id, true));
+            }
+
+            // The size, shown the same way and in the same slot the canonical line
+            // writes it: after what the entry waits on and before the two tokens
+            // that are not about the work. Only when it was written down — an entry
+            // nobody has estimated has no reading here, the same as an unset due
+            // date has none.
+            if (PreviewEffort is { } effort)
+            {
+                readings.Add(new MetaReading("effort", effort.ToString(CultureInfo.InvariantCulture), true));
             }
 
             if (PreviewAttachment is { } attachment)
