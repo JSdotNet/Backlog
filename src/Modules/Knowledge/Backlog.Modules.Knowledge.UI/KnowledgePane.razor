@@ -340,7 +340,7 @@
         return section switch
         {
             "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
-            "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
+            "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" />,
             "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,

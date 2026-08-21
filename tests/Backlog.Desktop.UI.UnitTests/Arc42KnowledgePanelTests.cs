@@ -5,15 +5,18 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The architecture panel now shows the selected chapter as the file rather than
-/// as a rendering of it, so what is worth pinning is where the way in appears,
-/// where it does not, and what the state dropdown beside it has to do first.
+/// The architecture panel now shows the selected chapter through the same file
+/// view every other knowledge area uses, rather than drawing its own frame around
+/// a rendering of it. So what is worth pinning is what the move was for: the way in
+/// and out of editing on the file's own header, the status drawn once beside the
+/// heading it belongs to rather than a second time above the file, a copy button
+/// per chapter, and the fact that leaving the editor still re-reads the folder
+/// without closing the surface under the caret.
 /// <para>
-/// The dropdown is the interesting one. It and the body debounce are two
-/// read-modify-writes on one file, and the panel owes the editor a flush before
-/// it writes the state — so the assertion is that the typed body is on disk by
-/// the time the dropdown's handler is done, not merely that it gets there
-/// eventually on the debounce.
+/// The status is the one that used to be drawn twice. It is in the body now, under
+/// the heading it describes, and this panel offers none of its own beside it — the
+/// disagreement between the panel's select and the file's own fence was the reason
+/// the move happened.
 /// </para>
 /// </summary>
 public sealed class Arc42KnowledgePanelTests : IDisposable
@@ -25,17 +28,43 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
     private readonly List<string> _roots = [];
 
     [Fact]
-    public async Task A_selected_chapter_renders_the_editing_surface()
+    public async Task A_selected_chapter_opens_as_the_file_read_and_offers_a_way_in()
     {
         await using var harness = CreateHarness(withArc42Folder: true);
 
         var component = harness.Render(DecisionPath);
 
-        // The catalog is read asynchronously, so the first render is the loading
-        // line and the chapter arrives on a later one.
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-surface']")));
-        Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']"));
+        // Read is the resting state now, the same as every other knowledge area:
+        // the editing surface is not on screen until someone asks for it, and what
+        // is on screen is the chapter and the button that opens it, in the file
+        // view's own header. The catalog is read asynchronously, so the first
+        // render is the loading line and the chapter arrives on a later one.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
+        Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
         Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Edit_puts_the_editing_surface_in_the_file_views_own_body()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true);
+
+        var component = harness.Render(DecisionPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
+
+        component.Find("[data-testid='arc42-chapter-file-edit']").Click();
+
+        // Inside the file view's body rather than merely somewhere on the panel.
+        // The header is what keeps the identity on screen while the chapter
+        // scrolls, and a body that landed beside the file view instead of in it
+        // would take that away while still looking right in a screenshot.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body'] [data-testid='knowledge-chapter-surface']")));
+
+        // The way out is where the way in was, and the Bare editing surface brings
+        // no second one of its own: two Edit buttons, one under the other, is what
+        // Bare exists to prevent.
+        Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-done']"));
+        Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-edit']"));
     }
 
     [Fact]
@@ -45,45 +74,66 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
 
         var component = harness.Render(DecisionPath);
 
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-surface']")));
-
-        // Inside the file view's body rather than merely somewhere on the panel.
-        // The header is what keeps the identity on screen while the chapter
-        // scrolls, and a body that landed beside the file view instead of in it
-        // would take that away while still looking right in a screenshot.
-        Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body'] [data-testid='knowledge-chapter-surface']"));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body']")));
 
         component.AssertTheFileIsNamedOnce("ADR 0001: Test decision", "[data-testid='arc42-document']");
-    }
 
-    [Fact]
-    public async Task The_document_state_survives_the_move_onto_the_file_view()
-    {
-        await using var harness = CreateHarness(withArc42Folder: true);
-
-        var component = harness.Render(DecisionPath);
-
-        // The panel's own header gave up the title and the path to the file view
-        // and kept the state dropdown, which is the one thing on it that a file
-        // view has no business carrying. Losing it here would leave a decision
-        // record with no way to change its state at all.
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-state-select']")));
+        // The kind label sits on the header beside the title and the path: arc42
+        // keeps no per-file label of its own, so the header says the one thing its
+        // folder does distinguish — a decision record from an ordinary chapter.
+        Assert.Contains("Decision record", component.Find(".file-view__meta").TextContent, StringComparison.Ordinal);
         Assert.Empty(component.FindAll(".knowledge-document__path"));
     }
 
     [Fact]
-    public async Task The_chapter_nav_and_the_summary_strip_survive_the_body_swap()
+    public async Task The_status_the_body_shows_is_not_offered_a_second_time_beside_it()
     {
         await using var harness = CreateHarness(withArc42Folder: true);
 
-        // No SelectedPath is the browsing shape: the chapter list on the left and
-        // the summary counts above it are what makes the pane navigable, and they
-        // have nothing to do with which body renders inside it.
+        var component = harness.Render(DecisionPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body']")));
+
+        // The file states a status under its own heading, and the body is drawing
+        // the control for it. Two controls for one field is how the pane used to
+        // disagree with itself — the panel's select and the file's fence — so this
+        // panel now offers none of its own, and its external select is gone.
+        Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body'] .knowledge-record__headline"));
+        Assert.Empty(component.FindAll("[data-testid='knowledge-state-select']"));
+
+        // And no raw fence left over: a status drawn as a code block is what the
+        // reader was seeing under the panel's own select before.
+        Assert.DoesNotContain("status: draft", component.Find("[data-testid='arc42-chapter-file-body']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_chapter_can_be_copied_whole_or_a_chapter_at_a_time()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true);
+
+        var component = harness.Render(DecisionPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body']")));
+
+        // The file's own copy is in the header with the rest of its actions; the
+        // heading in the body carries its chapter's — the same two ways to copy the
+        // Domain page offers, in the same places.
+        Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-copy']"));
+        Assert.Single(component.FindAll(".md-chapter-copy"));
+        Assert.Single(component.FindAll("[data-testid='markdown-chapter-copy-0']"));
+    }
+
+    [Fact]
+    public async Task The_chapter_nav_survives_the_body_swap()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true);
+
+        // No SelectedPath is the browsing shape: the chapter list on the left is
+        // what makes the pane navigable, and it is a list of other files rather
+        // than anything about the one open inside it — so replacing the body with
+        // the file view does not take it away.
         var component = harness.Render(selectedPath: null);
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-option']")));
-        Assert.Contains("ADR/TDR", component.Markup, StringComparison.Ordinal);
-        Assert.Single(component.FindAll("[data-testid='knowledge-chapter-surface']"));
+        Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body']"));
     }
 
     [Fact]
@@ -98,54 +148,33 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
 
         component.WaitForAssertion(() => Assert.Contains("No arc42 folder here yet.", component.Markup, StringComparison.Ordinal));
         Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
-        Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-edit']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-edit']"));
     }
 
     [Fact]
-    public async Task Changing_the_state_writes_the_pending_body_before_the_status()
+    public async Task Changing_the_state_beside_the_heading_writes_it_to_the_file()
     {
         await using var harness = CreateHarness(withArc42Folder: true);
         var chapterPath = Path.Combine(harness.Root, ".arc42", "adr", "0001-decision.md");
         var component = harness.Render(DecisionPath);
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
 
-        component.Find("[data-testid='knowledge-chapter-edit']").Click();
-
-        // Waited for rather than found: the click is dispatched onto a renderer
-        // that may still be finishing the panel's own load, and the render that
-        // puts the textarea there is then not the one the click returned from.
-        //
-        // The typed body moves the status field too, which is what makes the
-        // order decidable from the file alone. The writer's merge lets the text
-        // win a field the text changed, so a body written *after* the dropdown
-        // leaves "candidate" behind; flushed first, the dropdown is the last word
-        // and it reads "accepted".
-        component.WaitForElement("textarea").Input("# ADR 0001: Test decision\n\n```meta\nstatus: candidate\n```\n\nTyped prose.\n");
-
-        // From here on, the first thing to ask the folder source where .arc42 is
-        // will be the status write, so what the chapter says at that moment is
-        // recorded. That is what makes the ordering decidable: the settled file
-        // cannot tell the two orders apart, because the merge repairs both.
-        harness.Folders.ArmStatusWriteSnapshot();
-        component.Find("[data-testid='knowledge-state-select'] select").Change("accepted");
+        // The select lives in the read view, beside the heading it belongs to —
+        // the panel no longer draws one of its own. The heading is the file's top
+        // heading, so the write addresses the file itself and lands on its own
+        // status fence.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body'] .knowledge-record__headline select")));
+        component.Find("[data-testid='arc42-chapter-file-body'] .knowledge-record__headline select").Change("accepted");
 
         component.WaitForAssertion(
-            () =>
-            {
-                var written = File.ReadAllText(chapterPath);
-                Assert.Contains("Typed prose.", written, StringComparison.Ordinal);
-                Assert.Contains("status: accepted", written, StringComparison.Ordinal);
-            },
+            () => Assert.Contains("status: accepted", File.ReadAllText(chapterPath), StringComparison.Ordinal),
             TimeSpan.FromSeconds(5));
 
         var settled = File.ReadAllText(chapterPath);
-        Assert.DoesNotContain("status: candidate", settled, StringComparison.Ordinal);
-        Assert.DoesNotContain("Original prose.", settled, StringComparison.Ordinal);
+        Assert.DoesNotContain("status: draft", settled, StringComparison.Ordinal);
 
-        Assert.Contains(
-            "Typed prose.",
-            harness.Folders.ChapterWhenStatusWasWritten ?? "the status was never written",
-            StringComparison.Ordinal);
+        // The prose is untouched: a status change is a merge into the one fence, not
+        // a rewrite of the chapter around it.
+        Assert.Contains("Original prose.", settled, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -154,9 +183,9 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
         await using var harness = CreateHarness(withArc42Folder: true);
         var chapterPath = Path.Combine(harness.Root, ".arc42", "adr", "0001-decision.md");
         var component = harness.Render(DecisionPath);
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
 
-        component.Find("[data-testid='knowledge-chapter-edit']").Click();
+        component.Find("[data-testid='arc42-chapter-file-edit']").Click();
 
         // Waited for rather than found: the panel is still settling its first load
         // when the way in appears, and the render that puts the textarea there is
@@ -164,18 +193,76 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
         component.WaitForElement("textarea").Input("# ADR 0001: Test decision\n\n```meta\nstatus: draft\n```\n\nTyped and left alone.\n");
 
         // No gesture at all: the debounce saves, and the panel re-reads the catalog
-        // so the counts and the chapter list follow the file. Re-reading is not
-        // closing — the caret is still in a textarea afterwards, and the indicator
-        // that was about to say "Saved" is still the one on screen to say it.
+        // so the chapter list follows the file. Re-reading is not closing — the
+        // caret is still in a textarea afterwards, and the way out is still the
+        // file view's Done. This is the flush the same-file reload guard protects: a
+        // same-path reload must not reset the file view's editing mode under a
+        // reader mid-sentence.
+        //
+        // The save indicator is deliberately not asserted here. The Bare surface
+        // hands editing to the file view, so its own edit flag stays down, and the
+        // panel's re-read then adopts the freshly saved text and returns the
+        // indicator to rest — the same as every other area's Bare surface does. What
+        // must survive the reload is the open editor, not the word that was on the
+        // indicator for the moment before it settled.
         component.WaitForAssertion(
             () => Assert.Contains("Typed and left alone.", File.ReadAllText(chapterPath), StringComparison.Ordinal),
             TimeSpan.FromSeconds(5));
 
         component.WaitForAssertion(
-            () => Assert.Equal("Saved", component.Find("[data-testid='knowledge-chapter-save-state']").TextContent.Trim()),
+            () => Assert.NotEmpty(component.FindAll("textarea")),
             TimeSpan.FromSeconds(5));
-        Assert.NotEmpty(component.FindAll("textarea"));
-        Assert.Single(component.FindAll("[data-testid='knowledge-chapter-done']"));
+        Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-done']"));
+    }
+
+    [Fact]
+    public async Task A_chapter_that_stops_being_readable_under_an_open_editor_falls_back_to_the_read_view()
+    {
+        // The hole this pins: editing mode is the file view's now, and it is held on
+        // _editing alone until the markup ties it to the same readable-chapter test
+        // CanEdit uses. A same-path reload can leave _editing set with the chapter
+        // read come back empty — the file locked, gone, or newly unreadable between
+        // the catalog read and the chapter read — and an edit mode that outlives the
+        // chapter would win over the read-only fallback, blanking the reader's text
+        // into a textarea with no chapter behind it and no way out, because the Done
+        // button goes with CanEdit. The fallback is exactly what that state is for,
+        // so it is what must render.
+        await using var harness = CreateHarness(withArc42Folder: true);
+        var gitHub = harness.Context.Services.GetRequiredService<GitHubSettingsStore>();
+
+        var component = harness.Render(DecisionPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
+
+        // A readable chapter, opened: the editing surface is on screen, which is the
+        // state the reload has to find the editor in for the hole to be reachable.
+        component.Find("[data-testid='arc42-chapter-file-edit']").Click();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body'] [data-testid='knowledge-chapter-surface']")));
+
+        // The file goes unreadable on the chapter read of the very next reload, after
+        // the catalog has already listed it — so the panel keeps a document to render
+        // read-only while the chapter itself comes back None. Re-setting the same
+        // repositories is the folder-changed signal the panel reloads on, the same
+        // path it takes for a folder that moved underneath it.
+        harness.Folders.BreakChapterOnNextReload();
+        await component.InvokeAsync(() => gitHub.SetRepositories(gitHub.Current.Repositories));
+
+        // The read-only fallback is what the catalog parsed, drawn through the shared
+        // markdown view, and not a blank editor: the surface is gone, and the prose
+        // the reader could no longer edit is at least still on the screen.
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-body'] [data-testid='knowledge-chapter-surface']"));
+            Assert.Contains(
+                "Original prose.",
+                component.Find("[data-testid='arc42-chapter-file-body'] .knowledge-p").TextContent,
+                StringComparison.Ordinal);
+        });
+
+        // And no way in offered on an unreadable chapter, which is the CanEdit half
+        // the mode is now tied to: no Done stranded on a surface that is not there,
+        // and no Edit onto a file the first keystroke would fail to save.
+        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-done']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-edit']"));
     }
 
     /// <summary>

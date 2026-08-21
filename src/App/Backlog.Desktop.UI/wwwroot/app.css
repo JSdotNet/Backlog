@@ -3024,7 +3024,6 @@ h1, h2, h3 {
    eyebrow labelled a pane the reader was already standing in. Nothing renders
    the class now. */
 .knowledge-pane__subtitle,
-.knowledge-pane__count,
 .knowledge-pane__source,
 .knowledge-empty,
 .knowledge-concern__header code,
@@ -3043,14 +3042,10 @@ h1, h2, h3 {
     margin: 0;
 }
 
-/* The chapter count used to ride in the arc42 header beside the title. With the
-   title gone it is the line on its own, so it carries the gap the header used to
-   put under it. */
-.knowledge-pane__count {
-    margin: 0 0 var(--spacing-md);
-    font-size: var(--font-size-sm);
-}
-
+/* .knowledge-pane__count was here until the architecture panel gave up its own
+   summary line. The chapters are a list beside it, so a count above that list was
+   the list counting itself; the file view names the open chapter, so nothing is
+   left for a count to add. Nothing renders the class now. */
 .knowledge-pane__source {
     display: grid;
     gap: var(--spacing-xs);
@@ -3687,7 +3682,6 @@ h1, h2, h3 {
 .domain-context__header,
 .domain-document__header,
 .domain-section__header,
-.knowledge-document__header,
 .tech-layer__header,
 .tech-node__header {
     display: flex;
@@ -3696,16 +3690,18 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
-/* Two of these headers gave their title and path to the file view that now
-   shows the chapter, so for a selected chapter they are left holding only their
+/* The domain document header gave its title and path to the file view that now
+   shows the chapter, so for a selected chapter it is left holding only its
    controls — and space-between pins a lone child to the start, which would have
    walked every state control in the knowledge panes from the right edge to the
    left. They stay where the reader has always found them. A header that still
-   names its document has two children and is untouched. The design pane is no
-   longer among them: its header renders only when it names the file, so it never
-   has a lone child. */
-.domain-document__header > :only-child,
-.knowledge-document__header > :only-child {
+   names its document has two children and is untouched.
+
+   Domain is the last one that needs this. The design pane's header renders only
+   when it names the file, so it never has a lone child; and the arc42 pane no
+   longer has a document header at all, having given the state and the relation
+   count to the file view along with everything else it used to draw above it. */
+.domain-document__header > :only-child {
     margin-left: auto;
 }
 
@@ -3713,8 +3709,7 @@ h1, h2, h3 {
 .design-section__header h4,
 .domain-context__header h3,
 .domain-document__header h3,
-.domain-section__header h4,
-.knowledge-document__header h2 {
+.domain-section__header h4 {
     margin: 0;
 }
 .domain-knowledge__actions {
@@ -3829,9 +3824,7 @@ h1, h2, h3 {
    path above the document, and the second reprinted the file's opening sentences
    just above the file. Nothing renders either class now. */
 .domain-knowledge__state,
-.domain-document__summary,
-.knowledge-document__meta,
-.knowledge-pane__summary {
+.domain-document__summary {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
@@ -3890,11 +3883,11 @@ h1, h2, h3 {
     font-family: var(--font-family-mono);
 }
 
-.knowledge-pane__summary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-}
+/* .knowledge-pane__summary was here until the architecture panel gave up the
+   ADR/TDR, diagram and heading counts it drew above the file. Each is a fact the
+   file view now reads from the file itself — the decision records carry their
+   state, the diagrams are drawn where their fences are — so a strip of totals
+   above it was the file summarised a second time. Nothing renders the class now. */
 
 /* The chapter body and the one line that reports what happened to it. A grid so
    the state row sits above the document rather than beside it: the indicator is
@@ -3917,7 +3910,11 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
-.knowledge-outline,
+/* .knowledge-outline was here until the architecture panel gave up the chapter
+   outline strip it drew above the file. The headings it listed are in the body
+   the file view now renders, in the order the author wrote them, so a strip of
+   them above it was the file's headings read a second time. Nothing renders the
+   class now. */
 .knowledge-table-wrap {
     overflow: auto;
 }

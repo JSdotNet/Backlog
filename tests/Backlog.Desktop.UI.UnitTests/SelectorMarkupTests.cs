@@ -55,6 +55,17 @@ public sealed class SelectorMarkupTests
     /// Second Brain shows a status too, with its own vocabulary. It reaches the
     /// same shared selector the backlog does — through the library, not through
     /// the backlog folder.
+    /// <para>
+    /// Two of the three panels draw a selector of their own directly: Technology on
+    /// a node, Domain beside a section while its body is being edited. The third,
+    /// arc42, no longer draws one at all — it hands the whole status to the shared
+    /// <c>FileView</c> through <c>RenderKnowledgeMetadata</c>, which is the same
+    /// shared selector reached one control further in. That is the stronger form of
+    /// the rule this test exists for, not an exception to it: a panel that draws no
+    /// selector of its own cannot draw a hand-rolled one. So arc42 is pinned to the
+    /// shared file view instead, and all three are pinned against reaching into the
+    /// backlog folder for a selector.
+    /// </para>
     /// </summary>
     [Fact]
     public void Knowledge_panels_use_the_same_shared_status_selector()
@@ -64,7 +75,14 @@ public sealed class SelectorMarkupTests
             var markup = NormalizeLineEndings(File.ReadAllText(
                 RepositoryRoot.File("src", "Modules", "Knowledge", "Backlog.Modules.Knowledge.UI", panel)));
 
-            Assert.Contains("<StatusSelector", markup, StringComparison.Ordinal);
+            // The status is a shared control either way: drawn directly by the two
+            // panels that still keep a selector of their own, and reached through
+            // the shared file view's knowledge metadata by arc42, which keeps none.
+            Assert.True(
+                markup.Contains("<StatusSelector", StringComparison.Ordinal)
+                    || markup.Contains("RenderKnowledgeMetadata=\"true\"", StringComparison.Ordinal),
+                $"{panel} draws its status through neither the shared selector nor the shared file view.");
+
             Assert.DoesNotContain("Backlog.Desktop.UI.BacklogManagement", markup, StringComparison.Ordinal);
         }
     }
