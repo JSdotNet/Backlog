@@ -61,6 +61,41 @@
                         </ToggleButton>
                     }
                 </div>
+
+                @* Whether the identity hues are drawn at all — here, beside the chips
+                   that wear the most visible ones, rather than buried in Settings with
+                   the choice of which hue each repository gets. Those are two different
+                   questions asked by two different people at two different moments: one
+                   is "this project is green", set once and left alone, and this one is
+                   "not right now", which is a decision about the screen in front of you
+                   and belongs on it.
+
+                   Outside the scope group on purpose. Inside it this would read as a
+                   sixth repository, and it is not a scope — using it narrows nothing.
+
+                   A switch rather than a chip, and the difference is what it is about.
+                   Every other control in this strip answers "which of these am I looking
+                   at" and holds a selection; this one answers "is this layer on", which
+                   is the one question a switch is for. So the shared Toggle in its
+                   default shape: role="switch" and aria-checked on a real button, with
+                   the name written beside the track instead of on it — which is also why
+                   there is no aria-label here. Toggle labels itself from that text
+                   through aria-labelledby, and a second accessible name would displace
+                   the one the reader can actually see.
+
+                   It renders with the chips or not at all. With nothing configured there
+                   is no repository to be an identity for, and a control governing the
+                   look of an empty set is a control with nothing to do — the same reason
+                   the surface switcher below hides itself when there is only one
+                   surface. *@
+                <Toggle CssClass="header-switch"
+                        LabelCssClass="header-switch__label"
+                        ControlCssClass="toggle__track header-switch__track"
+                        Label="Repository colours"
+                        Id="repository-colours-switch"
+                        TestId="repository-colours-toggle"
+                        Checked="State.RepositoryColoursVisible"
+                        CheckedChanged="ShowRepositoryColours" />
             }
         </div>
 
@@ -1134,6 +1169,19 @@
     /// know about.
     /// </summary>
     private int? RepositoryColourFor(string? repository) => State.RepositoryColourFor(repository);
+
+    /// <summary>
+    /// Shows or hides the repository identity hues across every surface.
+    /// <para>
+    /// The state class writes it, because the settings store is where the hue itself is
+    /// answered and this is the same fact seen from the other side. The store's message
+    /// on a failed write is dropped rather than shown: the choice has taken effect for
+    /// this session either way, and the header has no room for a line of prose that
+    /// would outlive the gesture it belongs to. Settings is where a settings file that
+    /// cannot be written gets reported.
+    /// </para>
+    /// </summary>
+    private void ShowRepositoryColours(bool visible) => _ = State.SetRepositoryColoursVisible(visible);
 
     private void ToggleRepositoryScopeAsync(string repositoryAlias)
     {

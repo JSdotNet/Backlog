@@ -202,11 +202,17 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
     // repository and is chosen once in Settings, so what these assert is that the band
     // reads that one answer — and that a plan written before the move does not lose the
     // choice somebody had already made.
+    //
+    // Whether the hue is drawn is a second question with the same one answer, and the
+    // band asks it in the same place. So a test that wants a coloured band says the
+    // visualization is on, and the two migration tests below deliberately do not — a
+    // choice carried forward from an old plan file has to survive being invisible.
 
     [Fact]
     public async Task ABandTakesTheColourTheRepositoryWasGivenInSettings()
     {
         Configure("JSdotNet/Backlog");
+        Assert.Null(RepositorySettings.SetShowRepositoryColours(true));
         Assert.Null(RepositorySettings.SetRepositoryColour("backlog", 4));
 
         using var context = Context();
@@ -221,6 +227,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
     public async Task ARepositoryNobodyHasColouredStillGetsOne()
     {
         Configure("JSdotNet/Backlog");
+        Assert.Null(RepositorySettings.SetShowRepositoryColours(true));
 
         using var context = Context();
         var band = await PlannedAsync(context);
@@ -231,6 +238,41 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
         Assert.Equal(
             "var(--color-band-1)",
             band.FindComponent<RoadmapTimeline>().Instance.Groups.Single(group => group.Id == "backlog").Color);
+    }
+
+    [Fact]
+    public async Task WithTheVisualizationOffABandTakesNoColourAtAll()
+    {
+        Configure("JSdotNet/Backlog");
+        Assert.Null(RepositorySettings.SetRepositoryColour("backlog", 4));
+
+        using var context = Context();
+        var band = await PlannedAsync(context);
+
+        // Null rather than a neutral of the band's own invention: no colour is already
+        // how this chart draws a group nobody gave a hue to, so the off state is the
+        // presentation the timeline has always had for one.
+        Assert.Null(band.FindComponent<RoadmapTimeline>().Instance.Groups
+            .Single(group => group.Id == "backlog").Color);
+    }
+
+    [Fact]
+    public async Task TheVisualizationCanBeTurnedOnWhileTheBandIsOnScreen()
+    {
+        Configure("JSdotNet/Backlog");
+        Assert.Null(RepositorySettings.SetRepositoryColour("backlog", 4));
+
+        using var context = Context();
+        var band = await PlannedAsync(context);
+
+        Assert.Null(RepositorySettings.SetShowRepositoryColours(true));
+
+        // The band reads its repositories per load rather than per render, so it only
+        // redraws because the store announced the change — which is why the setter
+        // raises Changed like every other one.
+        band.WaitForAssertion(() => Assert.Equal(
+            "var(--color-band-4)",
+            band.FindComponent<RoadmapTimeline>().Instance.Groups.Single(group => group.Id == "backlog").Color));
     }
 
     [Fact]

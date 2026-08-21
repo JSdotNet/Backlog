@@ -10,6 +10,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// says which hue that is. A test reading a hex value here would be a test of
 /// <c>components.css</c> written in the wrong project.
 /// </para>
+/// <para>
+/// The marks are an opt-in layer, off in a fresh workspace, so every test that expects
+/// one turns the visualization on first — through the settings store, because that is
+/// where the whole app asks.
+/// </para>
 /// </summary>
 public class BacklogPaneRepositoryColourTests
 {
@@ -19,6 +24,7 @@ public class BacklogPaneRepositoryColourTests
     public async Task ARowCarriesTheMarkOfTheRepositoryItsAreaNames()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
         var first = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
         var second = await host.WriteEntryAsync("# Write it up\n`task` `@docs`\n");
 
@@ -34,6 +40,7 @@ public class BacklogPaneRepositoryColourTests
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         var row = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
+        Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
         Assert.Null(host.GitHub.Settings.SetRepositoryColour("backlog", 4));
 
         var pane = host.Render();
@@ -47,6 +54,7 @@ public class BacklogPaneRepositoryColourTests
     public async Task ARowFiledUnderNothingConfiguredWearsNoMark()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
         var unfiled = await host.WriteEntryAsync("# Provision the box\n`task`\n");
         var elsewhere = await host.WriteEntryAsync("# Buy milk\n`task` `@errands`\n");
 
@@ -56,6 +64,38 @@ public class BacklogPaneRepositoryColourTests
         // Colouring one would be inventing a project.
         Assert.DoesNotContain("repo-mark", pane.Find($"[data-testid='{RowTestId(unfiled)}']").ClassName);
         Assert.DoesNotContain("repo-mark", pane.Find($"[data-testid='{RowTestId(elsewhere)}']").ClassName);
+    }
+
+    [Fact]
+    public async Task NoRowIsMarkedWhileTheVisualizationIsOff()
+    {
+        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
+        Assert.Null(host.GitHub.Settings.SetRepositoryColour("backlog", 4));
+
+        var pane = host.Render();
+
+        // A chosen colour and a hidden visualization are not in conflict: the choice is
+        // recorded and the list simply does not draw it. What the row falls back to is
+        // the presentation a row filed under a non-repository area already had, which is
+        // why there is no "colours off" class to look for.
+        Assert.DoesNotContain("repo-mark", pane.Find($"[data-testid='{RowTestId(row)}']").ClassName);
+    }
+
+    [Fact]
+    public async Task TurningTheVisualizationOnBringsTheMarkBack()
+    {
+        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
+        Assert.Null(host.GitHub.Settings.SetRepositoryColour("backlog", 4));
+
+        var pane = host.Render();
+        Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
+
+        // Exactly the hue it drew before, not a re-derived one: the gate is over the
+        // answer, not part of working it out.
+        pane.Render();
+        Assert.Contains("repo-mark--4", pane.Find($"[data-testid='{RowTestId(row)}']").ClassName);
     }
 
     [Fact]

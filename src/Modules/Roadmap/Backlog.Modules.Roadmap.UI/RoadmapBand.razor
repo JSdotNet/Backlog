@@ -242,10 +242,18 @@
     /// hue Settings resolved for it. The roadmap is told which hue rather than choosing
     /// one, so the same project is the same colour here, on the repository filter and
     /// on an entry row.
+    /// <para>
+    /// The visible hues rather than the chosen ones, so a workspace with the
+    /// visualization off draws its bands the way this chart has always drawn a group
+    /// nobody gave a hue to: no colour at all. Note that
+    /// <see cref="CarryOverPlanColours"/> above deliberately reads the raw choice — a
+    /// migration that only ran while the hues happened to be on screen would lose
+    /// somebody's old plan colours for good.
+    /// </para>
     /// </summary>
     private List<PlannedRepository> Configured()
     {
-        var colours = Repositories.Current.Colours();
+        var colours = Repositories.Current.VisibleColours();
 
         return
         [

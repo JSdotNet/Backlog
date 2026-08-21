@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 
 using Backlog.Modules.Knowledge.Abstractions;
@@ -28,6 +29,17 @@ public sealed class GitHubSettings
 
     public bool HasRepositoryToken => Repositories.Any(r => !string.IsNullOrWhiteSpace(r.Token));
 
+    /// <summary>
+    /// Whether the repository identity hues are drawn at all.
+    /// <para>
+    /// Off unless somebody turned it on, and off is what an older settings file with no
+    /// such property reads as. The hues are a layer over a workspace that reads
+    /// perfectly well without them — every surface that carries one also carries the
+    /// alias in words — so opting in is the honest default rather than opting out.
+    /// </para>
+    /// </summary>
+    public bool ShowRepositoryColours { get; init; }
+
     public GitHubRepositoryRef? Find(string? alias)
     {
         if (string.IsNullOrWhiteSpace(alias)) return null;
@@ -56,6 +68,32 @@ public sealed class GitHubSettings
         var repository = Find(alias);
         return repository is null ? null : Colours().GetValueOrDefault(repository.Alias);
     }
+
+    /// <summary>
+    /// The hues the surfaces may draw: <see cref="Colours"/> when the visualization is
+    /// on, and nothing at all when it is off.
+    /// <para>
+    /// The gate is here, beside the answer, for the reason the answer is here: a surface
+    /// that decided for itself whether to draw its hue would be deciding for itself what
+    /// the identity of a repository looks like, and five surfaces deciding separately is
+    /// exactly what <c>.design/color-scheme.md#band-identity-tokens</c> forbids. One
+    /// place answers "which hue", so one place answers "and is it shown".
+    /// </para>
+    /// <para>
+    /// Empty rather than a dictionary of nulls, because empty is a shape every caller
+    /// already handles: a repository missing from the map is one that gets no mark, which
+    /// is precisely the presentation the off state wants.
+    /// </para>
+    /// </summary>
+    public IReadOnlyDictionary<string, int> VisibleColours() =>
+        ShowRepositoryColours ? Colours() : ReadOnlyDictionary<string, int>.Empty;
+
+    /// <summary>The hue a surface may draw for one repository, or null when the alias
+    /// names nothing configured <em>or</em> the visualization is off. The two reasons
+    /// deliberately look the same to a caller: "no mark" is one state on screen, and a
+    /// surface that could tell them apart would be a surface that could act on the
+    /// difference.</summary>
+    public int? VisibleColourFor(string? alias) => ShowRepositoryColours ? ColourFor(alias) : null;
 
     public string? TokenForPath(string? path)
     {
@@ -161,7 +199,8 @@ public sealed class GitHubSettingsStore
         Save(new GitHubSettings
         {
             Repositories = NormalizeRepositories([.. repositories.Select(PreserveExistingRepositorySettings)]),
-            ApiEndpoint = Current.ApiEndpoint
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours
         });
 
     public string? SetRepositoryToken(string alias, string? token)
@@ -181,7 +220,8 @@ public sealed class GitHubSettingsStore
                         ? r with { Token = CleanToken(token) }
                         : r)
             ],
-            ApiEndpoint = Current.ApiEndpoint
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours
         });
     }
 
@@ -196,7 +236,8 @@ public sealed class GitHubSettingsStore
         {
             Repositories = [.. Current.Repositories],
             Token = null,
-            ApiEndpoint = CleanEndpoint(apiEndpoint) ?? GitHubSettings.DefaultApiEndpoint
+            ApiEndpoint = CleanEndpoint(apiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours
         });
 
     public string? RemoveRepository(string alias)
@@ -210,7 +251,8 @@ public sealed class GitHubSettingsStore
         return Save(new GitHubSettings
         {
             Repositories = [.. Current.Repositories.Where(r => !string.Equals(r.Alias, normalized, StringComparison.Ordinal))],
-            ApiEndpoint = Current.ApiEndpoint
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours
         });
     }
 
@@ -231,7 +273,8 @@ public sealed class GitHubSettingsStore
                         ? r with { CloneDirectory = CleanPath(cloneDirectory) }
                         : r)
             ],
-            ApiEndpoint = Current.ApiEndpoint
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours
         });
     }
 
@@ -262,9 +305,24 @@ public sealed class GitHubSettingsStore
                         ? r with { Colour = colour }
                         : r)
             ],
-            ApiEndpoint = Current.ApiEndpoint
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours
         });
     }
+
+    /// <summary>
+    /// Shows or hides the repository identity hues across the whole app. Follows the
+    /// house rule of no save button: the choice is persisted as it is made, and the
+    /// in-memory value changes either way so a workspace whose settings file could not
+    /// be written still does what was asked of it for the rest of the session.
+    /// </summary>
+    public string? SetShowRepositoryColours(bool show) =>
+        Save(new GitHubSettings
+        {
+            Repositories = [.. Current.Repositories],
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = show
+        });
 
     public string? SetKnowledgeFolder(string alias, string key, bool enabled, string? path)
     {
@@ -292,7 +350,8 @@ public sealed class GitHubSettingsStore
                         }
                         : r)
             ],
-            ApiEndpoint = Current.ApiEndpoint
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours
         });
     }
 
@@ -302,7 +361,8 @@ public sealed class GitHubSettingsStore
         {
             Repositories = NormalizeRepositories(settings.Repositories),
             Token = null,
-            ApiEndpoint = CleanEndpoint(settings.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint
+            ApiEndpoint = CleanEndpoint(settings.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
+            ShowRepositoryColours = settings.ShowRepositoryColours
         };
         Current = normalized;
 
@@ -330,7 +390,8 @@ public sealed class GitHubSettingsStore
                     ]
                 })],
                 Token = null,
-                ApiEndpoint = normalized.ApiEndpoint
+                ApiEndpoint = normalized.ApiEndpoint,
+                ShowRepositoryColours = normalized.ShowRepositoryColours
             };
 
             File.WriteAllText(_path, JsonSerializer.Serialize(dto, JsonOptions));
@@ -379,7 +440,8 @@ public sealed class GitHubSettingsStore
                         })
                 ]),
                 Token = CleanToken(dto.Token),
-                ApiEndpoint = CleanEndpoint(dto.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint
+                ApiEndpoint = CleanEndpoint(dto.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
+                ShowRepositoryColours = dto.ShowRepositoryColours
             };
         }
         catch (Exception)
@@ -448,6 +510,11 @@ public sealed class GitHubSettingsStore
         public List<RepositoryDto> Repositories { get; set; } = [];
         public string? Token { get; set; }
         public string? ApiEndpoint { get; set; }
+
+        /// <summary>Defaults to false, which is what makes a file written before the
+        /// visualization existed read as off rather than as anything having to be
+        /// migrated.</summary>
+        public bool ShowRepositoryColours { get; set; }
     }
 
     private sealed class RepositoryDto

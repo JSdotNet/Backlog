@@ -159,16 +159,43 @@ public sealed class BacklogDesktopState : IDisposable
 
     public IReadOnlyList<GitHubRepositoryRef> Repositories => _gitHub.Repositories;
 
-    /// <summary>Which identity hue each configured repository wears, keyed by alias.
-    /// Read from the settings store rather than worked out here, so the filter, the
-    /// list and the roadmap are all reading one answer — see
-    /// <c>.design/color-scheme.md#band-identity-tokens</c>.</summary>
-    public IReadOnlyDictionary<string, int> RepositoryColours => _gitHub.Settings.Current.Colours();
+    /// <summary>Which identity hue each configured repository wears, keyed by alias,
+    /// and empty while the visualization is off. Read from the settings store rather
+    /// than worked out here, so the filter, the list and the roadmap are all reading one
+    /// answer — see <c>.design/color-scheme.md#band-identity-tokens</c>. The gated
+    /// answer rather than the raw one, because a surface is exactly what the gate is
+    /// for: this is the hue somebody may be shown, not the hue they chose.</summary>
+    public IReadOnlyDictionary<string, int> RepositoryColours => _gitHub.Settings.Current.VisibleColours();
 
     /// <summary>The hue for a repository named any way the settings store recognises —
     /// its alias, or the <c>owner/name</c> a session records. Null when nothing
-    /// configured answers to it.</summary>
-    public int? RepositoryColourFor(string? repository) => _gitHub.Settings.Current.ColourFor(repository);
+    /// configured answers to it, and null for everything while the visualization is
+    /// off.</summary>
+    public int? RepositoryColourFor(string? repository) => _gitHub.Settings.Current.VisibleColourFor(repository);
+
+    /// <summary>Whether the repository identity hues are being drawn. The shell's header
+    /// carries the control, so the shell has to be able to read the state it is
+    /// showing.</summary>
+    public bool RepositoryColoursVisible => _gitHub.Settings.Current.ShowRepositoryColours;
+
+    /// <summary>
+    /// Shows or hides the repository identity hues everywhere at once. Returns the
+    /// store's message when the choice could not be persisted; it applies to this
+    /// session regardless.
+    /// <para>
+    /// Through here rather than the shell reaching for the settings store itself, for
+    /// the same reason the hues are read through here: the shell knows about this class
+    /// and this class knows where the answer lives.
+    /// </para>
+    /// </summary>
+    public string? SetRepositoryColoursVisible(bool visible)
+    {
+        if (visible == RepositoryColoursVisible) return null;
+
+        var error = _gitHub.Settings.SetShowRepositoryColours(visible);
+        Changed?.Invoke();
+        return error;
+    }
 
     /// <summary>The identity mark for a row, as classes, or null when the row's area
     /// names no configured repository. The classes are the shared

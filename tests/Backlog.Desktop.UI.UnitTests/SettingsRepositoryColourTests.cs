@@ -16,6 +16,12 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// the right swatch and wrote nothing would leave the filter, the list and the roadmap
 /// exactly as they were.
 /// </para>
+/// <para>
+/// Every test in here runs with the identity-hue visualization off, because off is what
+/// a fresh workspace gets and this picker is the one control the gate must never reach:
+/// its subject <em>is</em> the colour, so a picker gated with the rest of them would be
+/// a control that could not show what it was for.
+/// </para>
 /// </summary>
 public sealed class SettingsRepositoryColourTests
 {
@@ -95,6 +101,46 @@ public sealed class SettingsRepositoryColourTests
             Assert.Equal("false", settings.Component.Find("[data-testid='repo-colour-3']").GetAttribute("aria-checked"));
             Assert.Contains("Colour 4", settings.Component.Find("[data-testid='repo-colour-status']").TextContent);
         });
+    }
+
+    [Fact]
+    public void TheSwatchesStillSayWhatWasChosenWithTheVisualizationOff()
+    {
+        using var settings = RenderSettings();
+        OpenRepositoriesTab(settings.Component);
+
+        // Named rather than left implicit, because it is the whole of acceptance
+        // criterion 4: the app-wide visualization is off here and the picker behaves
+        // exactly as it always did.
+        Assert.False(settings.GitHub.Current.ShowRepositoryColours);
+        Assert.Contains("Default", settings.Component.Find("[data-testid='repo-colour-status']").TextContent);
+
+        settings.Component.Find("[data-testid='repo-colour-4']").Click();
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", settings.Component.Find("[data-testid='repo-colour-4']").GetAttribute("aria-checked"));
+            Assert.Contains("Colour 4", settings.Component.Find("[data-testid='repo-colour-status']").TextContent);
+        });
+    }
+
+    [Fact]
+    public void TheSummaryReadsTheRealChoiceWithTheVisualizationOn()
+    {
+        using var settings = RenderSettings();
+        Assert.Null(settings.GitHub.SetShowRepositoryColours(true));
+        OpenRepositoriesTab(settings.Component);
+
+        // The other half of the criterion: turning the visualization on changes what the
+        // rest of the app draws and nothing at all about this screen. The summary reads
+        // the resolved colour either way, so an ungated answer is what it needs — a
+        // gated one would have left it saying "Default — colour 0".
+        Assert.Contains("colour 1", settings.Component.Find("[data-testid='repo-colour-status']").TextContent);
+
+        settings.Component.Find("[data-testid='repo-colour-4']").Click();
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Contains("Colour 4", settings.Component.Find("[data-testid='repo-colour-status']").TextContent));
     }
 
     private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
