@@ -12,7 +12,7 @@ related: [".tech/technology-graph.md", ".arc42/04-solution-strategy.md#technolog
 
 ```meta
 status: candidate
-kind: platform
+type: platform
 related: [".tech/cloud.md#firebase-cloud-messaging", ".tech/shared.md#net-maui"]
 ```
 
@@ -33,7 +33,7 @@ since the desktop channel now uses the same framework
 
 ```meta
 status: candidate
-kind: library
+type: library
 depends-on: [".tech/shared.md#json"]
 related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 alternatives: ["SQLite"]
@@ -49,7 +49,7 @@ JSON-backed on-device storage for captures made while offline.
 
 ```meta
 status: adopted
-kind: tool
+type: tool
 depends-on: [".tech/mobile.md#android"]
 related: [".arc42/07-deployment-view.md#installation-and-updates-mobile"]
 ```

@@ -12,7 +12,7 @@ related: [".tech/technology-graph.md", ".arc42/02-constraints.md#technical-const
 
 ```meta
 status: adopted
-kind: format
+type: format
 related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
@@ -28,7 +28,7 @@ knowledge notes, and prompts.
 
 ```meta
 status: adopted
-kind: format
+type: format
 related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
@@ -43,7 +43,7 @@ The derived-data format sitting beside the canonical Markdown.
 
 ```meta
 status: adopted
-kind: format
+type: format
 ```
 
 The structured-metadata format embedded in Markdown documents.
@@ -56,7 +56,7 @@ The structured-metadata format embedded in Markdown documents.
 
 ```meta
 status: adopted
-kind: format
+type: format
 depends-on: [".tech/shared.md#markdown"]
 ```
 
@@ -71,7 +71,7 @@ Diagram-as-text notation embedded directly in Markdown.
 
 ```meta
 status: candidate
-kind: runtime
+type: runtime
 version: "10.0"
 related: [".arc42/04-solution-strategy.md#technology-choices", ".arc42/09-architecture-decisions.md"]
 alternatives: ["Node.js only", "Rust + Tauri"]
@@ -88,7 +88,7 @@ cloud channels.
 
 ```meta
 status: candidate
-kind: language
+type: language
 depends-on: [".tech/shared.md#net-runtime"]
 related: [".arc42/04-solution-strategy.md#technology-choices"]
 ```
@@ -103,7 +103,7 @@ The main implementation language of the system.
 
 ```meta
 status: candidate
-kind: runtime
+type: runtime
 related: [".tech/ide.md#vs-code-extension-api"]
 ```
 
@@ -119,7 +119,7 @@ tooling.
 
 ```meta
 status: candidate
-kind: language
+type: language
 depends-on: [".tech/shared.md#nodejs"]
 related: [".tech/ide.md#vs-code-extension-api"]
 ```
@@ -134,7 +134,7 @@ The implementation language for the VS Code channel and repository tooling.
 
 ```meta
 status: adopted
-kind: framework
+type: framework
 depends-on: [".tech/desktop.md#winui-3", ".tech/mobile.md#android", ".tech/shared.md#c-language"]
 related: [".arc42/04-solution-strategy.md#technology-choices", ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 alternatives: ["Plain WinUI 3", "Blazor WebAssembly PWA", "Kotlin native"]
@@ -156,7 +156,7 @@ channels: a WinUI 3 head on Windows, native Android views on Android.
 
 ```meta
 status: adopted
-kind: framework
+type: framework
 depends-on: [".tech/shared.md#net-maui"]
 related: [".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 alternatives: ["XAML-only MAUI UI", "Plain WinUI 3", "Blazor WebAssembly PWA"]
@@ -177,7 +177,7 @@ Razor Components rendered inside the MAUI shell's embedded WebView2/WebView.
 
 ```meta
 status: adopted
-kind: service
+type: service
 related: [".arc42/02-constraints.md#organizational--process-constraints"]
 ```
 
@@ -192,7 +192,7 @@ The external system of record for issues, repositories, and automation.
 
 ```meta
 status: candidate
-kind: service
+type: service
 related: [".domain/productivity/features.md#ai-vendor-usage-import"]
 alternatives: ["Local accumulation of per-response token counts"]
 ```
@@ -212,7 +212,7 @@ Code session activity.
 
 ```meta
 status: candidate
-kind: service
+type: service
 depends-on: [".tech/shared.md#github-platform"]
 related: [".domain/productivity/features.md#ai-vendor-usage-import"]
 ```

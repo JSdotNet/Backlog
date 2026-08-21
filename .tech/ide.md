@@ -12,7 +12,7 @@ related: [".tech/technology-graph.md", ".arc42/04-solution-strategy.md#technolog
 
 ```meta
 status: candidate
-kind: framework
+type: framework
 depends-on: [".tech/shared.md#typescript", ".tech/shared.md#nodejs"]
 related: [".arc42/04-solution-strategy.md#technology-choices"]
 ```
@@ -28,7 +28,7 @@ The extensibility model for the VS Code channel.
 
 ```meta
 status: candidate
-kind: framework
+type: framework
 depends-on: [".tech/ide.md#vs-code-extension-api"]
 alternatives: ["Native tree/quick-pick UI only"]
 ```
@@ -43,7 +43,7 @@ The HTML-based panel UI hosted inside the extension.
 
 ```meta
 status: candidate
-kind: framework
+type: framework
 depends-on: [".tech/shared.md#c-language"]
 related: [".arc42/04-solution-strategy.md#technology-choices"]
 ```
@@ -59,7 +59,7 @@ The VSSDK-based extension model for the Visual Studio channel.
 
 ```meta
 status: candidate
-kind: framework
+type: framework
 depends-on: [".tech/ide.md#visual-studio-extensibility", ".tech/shared.md#net-runtime"]
 ```
 

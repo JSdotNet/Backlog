@@ -13,7 +13,7 @@ related: [".tech/technology-graph.md"]
 
 ```meta
 status: adopted
-kind: tool
+type: tool
 ```
 
 Source control for the repository and its worktree-based session model.
@@ -27,7 +27,7 @@ Source control for the repository and its worktree-based session model.
 
 ```meta
 status: candidate
-kind: tool
+type: tool
 depends-on: [".tech/shared.md#net-runtime"]
 ```
 
@@ -41,7 +41,7 @@ The build and test toolchain for every C# component.
 
 ```meta
 status: candidate
-kind: tool
+type: tool
 depends-on: [".tech/tooling.md#net-sdk"]
 ```
 
@@ -55,7 +55,7 @@ The package manager for .NET dependencies.
 
 ```meta
 status: candidate
-kind: tool
+type: tool
 depends-on: [".tech/shared.md#nodejs"]
 ```
 
@@ -69,7 +69,7 @@ The package manager for JavaScript/TypeScript dependencies.
 
 ```meta
 status: adopted
-kind: service
+type: service
 depends-on: [".tech/shared.md#github-platform"]
 ```
 
@@ -83,7 +83,7 @@ The CI/CD automation platform.
 
 ```meta
 status: adopted
-kind: tool
+type: tool
 depends-on: [".tech/tooling.md#github-actions"]
 ```
 
@@ -97,7 +97,7 @@ Static application security testing.
 
 ```meta
 status: adopted
-kind: service
+type: service
 depends-on: [".tech/shared.md#github-platform"]
 ```
 
@@ -111,7 +111,7 @@ Automated dependency and security updates.
 
 ```meta
 status: adopted
-kind: tool
+type: tool
 depends-on: [".tech/shared.md#github-platform"]
 ```
 
@@ -126,7 +126,7 @@ The AI development environment this project is built with.
 
 ```meta
 status: adopted
-kind: protocol
+type: protocol
 depends-on: [".tech/tooling.md#github-copilot-cli"]
 related: [".tech/tooling.md#knowledge-canvas-extension"]
 ```
@@ -141,7 +141,7 @@ The authoritative guidance channel for agents working in this repository.
 
 ```meta
 status: adopted
-kind: tool
+type: tool
 depends-on: [".tech/tooling.md#github-copilot-cli", ".tech/shared.md#nodejs"]
 related: [".tech/tooling.md#knowledge-canvas-extension"]
 ```
@@ -161,7 +161,7 @@ follows.
 
 ```meta
 status: adopted
-kind: tool
+type: tool
 depends-on: [".tech/tooling.md#github-copilot-cli", ".tech/shared.md#nodejs", ".tech/shared.md#mermaid"]
 related: [".tech/tooling.md#knowledge-base-plugin"]
 ```
@@ -179,7 +179,7 @@ The `knowledge-base` plugin's Copilot canvas for viewing knowledge folders.
 
 ```meta
 status: candidate
-kind: tool
+type: tool
 depends-on: [".tech/cloud.md#net-aspire"]
 ```
 

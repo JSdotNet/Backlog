@@ -13,7 +13,7 @@ related: [".tech/technology-graph.md", ".arc42/07-deployment-view.md#cloud-deplo
 
 ```meta
 status: candidate
-kind: framework
+type: framework
 depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
 related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop", ".arc42/09-architecture-decisions.md"]
 alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
@@ -30,7 +30,7 @@ The HTTP surface of the cloud service.
 
 ```meta
 status: candidate
-kind: framework
+type: framework
 depends-on: [".tech/cloud.md#aspnet-core-minimal-apis"]
 alternatives: ["Docker Compose only", "no orchestration"]
 ```
@@ -46,7 +46,7 @@ The app-model and orchestration layer for local run and deployment.
 
 ```meta
 status: candidate
-kind: platform
+type: platform
 depends-on: [".tech/cloud.md#aspnet-core-minimal-apis"]
 related: [".arc42/07-deployment-view.md#cloud-deployment-azure"]
 alternatives: ["Azure App Service"]
@@ -63,7 +63,7 @@ The compute host for the cloud service.
 
 ```meta
 status: candidate
-kind: service
+type: service
 related: [".arc42/07-deployment-view.md#cloud-deployment-azure"]
 alternatives: ["Azure PostgreSQL", "Azure Table Storage"]
 ```
@@ -79,7 +79,7 @@ The cloud data store for cross-device coordination state.
 
 ```meta
 status: candidate
-kind: service
+type: service
 related: [".arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 
@@ -93,7 +93,7 @@ The secret store for the cloud service.
 
 ```meta
 status: candidate
-kind: service
+type: service
 related: [".arc42/07-deployment-view.md#cloud-deployment-azure", ".tech/mobile.md#android"]
 alternatives: ["Azure Notification Hubs"]
 ```

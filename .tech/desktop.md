@@ -12,7 +12,7 @@ related: [".tech/technology-graph.md", ".arc42/07-deployment-view.md#local-deplo
 
 ```meta
 status: candidate
-kind: platform
+type: platform
 related: [".arc42/07-deployment-view.md#local-deployment-desktop"]
 ```
 
@@ -27,7 +27,7 @@ The target operating system for the desktop client.
 
 ```meta
 status: candidate
-kind: framework
+type: framework
 depends-on: [".tech/desktop.md#windows", ".tech/shared.md#net-runtime"]
 ```
 
@@ -40,7 +40,7 @@ The modern Windows application platform underneath the UI framework.
 
 ```meta
 status: adopted
-kind: framework
+type: framework
 depends-on: [".tech/desktop.md#windows-app-sdk", ".tech/shared.md#c-language"]
 related: [".arc42/04-solution-strategy.md#technology-choices", ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
@@ -59,7 +59,7 @@ The native Windows head that `.tech/shared.md#net-maui` uses on this platform.
 
 ```meta
 status: candidate
-kind: library
+type: library
 depends-on: [".tech/shared.md#markdown", ".tech/shared.md#json"]
 related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 alternatives: ["SQLite", "LiteDB"]
@@ -76,7 +76,7 @@ The file-backed persistence layer, implemented in-app rather than bought in.
 
 ```meta
 status: candidate
-kind: library
+type: library
 depends-on: [".tech/shared.md#net-runtime"]
 related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
 ```
@@ -92,7 +92,7 @@ In-process hosted services that poll external sources on the local machine.
 
 ```meta
 status: adopted
-kind: tool
+type: tool
 depends-on: [".tech/shared.md#github-platform"]
 related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
 alternatives: ["Octokit.NET", "raw REST calls"]
@@ -109,7 +109,7 @@ The local integration path to GitHub from the desktop (`gh`).
 
 ```meta
 status: adopted
-kind: tool
+type: tool
 depends-on: [".tech/desktop.md#windows-app-sdk"]
 related: [".arc42/07-deployment-view.md#installation-and-updates"]
 ```
@@ -133,7 +133,7 @@ The packaging and update format for the Windows client.
 
 ```meta
 status: adopted
-kind: format
+type: format
 depends-on: [".tech/desktop.md#msix-packaging"]
 related: [".arc42/07-deployment-view.md#installation-and-updates"]
 ```
