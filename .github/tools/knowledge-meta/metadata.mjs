@@ -13,39 +13,64 @@ const STATUS_BY_FOLDER = {
     design: ["draft", "active", "deprecated"],
 };
 
-// Fields a folder requires on every metadata block, beyond `status`.
-const FOLDER_REQUIRED_FIELDS = {
-    domain: [],
-    arc42: [],
-    backlog: [],
-    tech: ["kind"],
-    design: [],
+// Allowed `type` values per folder, split by block level. `type` records *what
+// kind of thing* a chapter or file is — the classification that used to be
+// written as a heading prefix (`## Aggregate: Order`). Heading text now carries
+// the name alone, so anchors are slugs of the bare name.
+//
+// A folder whose lists are empty defines no kind distinction of its own: in
+// `.arc42`, `.backlog`, and `.design` the only such distinction (chapter vs
+// section, item vs sub-item) is already carried by heading level, so inventing
+// values there would restate the document structure. `type` is omitted in those
+// folders and reported when used.
+const TYPE_BY_FOLDER = {
+    domain: {
+        chapter: [
+            "aggregate",
+            "entity",
+            "value-object",
+            "enum",
+            "shared-value-objects",
+            "shared-enums",
+            "domain-service",
+            "domain-event",
+            "feature",
+            "sub-feature",
+            "term",
+        ],
+        file: ["context-map", "domain", "features", "model", "flow", "dependencies", "naming"],
+    },
+    tech: {
+        chapter: [
+            "language",
+            "runtime",
+            "framework",
+            "library",
+            "package",
+            "tool",
+            "service",
+            "platform",
+            "protocol",
+            "format",
+        ],
+        file: [],
+    },
+    arc42: { chapter: [], file: [] },
+    backlog: { chapter: [], file: [] },
+    design: { chapter: [], file: [] },
 };
 
-// Allowed values for enumerated folder-specific fields.
-const TECH_KINDS = [
-    "language",
-    "runtime",
-    "framework",
-    "library",
-    "package",
-    "tool",
-    "service",
-    "platform",
-    "protocol",
-    "format",
-];
+// `.tech` spelled this concept `kind` before `type` was unified across folders.
+// The old name keeps working so an existing repository is not broken by a
+// generator sync, but it lints as a warning and is not documented any more.
+const LEGACY_TYPE_FIELD_BY_FOLDER = { tech: "kind" };
 
 // Fields every folder's chapter/file block may carry, plus folder-specific
 // extras layered in below. `order` is file-level only (see validateDocument):
 // it declares the reading order of a directory's entries.
-//
-// `effort` (non-negative integer story points) and `roadmap` (a plain-string
-// list of roadmap item tag slugs) are valid in every folder, at file and
-// chapter level. `roadmap` holds tag slugs, not `<path>#<slug>` references, so
-// — like `aliases`/`alternatives` — it stays a node attribute and produces no
-// graph edges (see graph.mjs REFERENCE_FIELDS).
-const COMMON_OPTIONAL_FIELDS = ["related", "issue", "effort", "roadmap"];
+const COMMON_OPTIONAL_FIELDS = ["type", "related", "issue", "effort", "roadmap"];
+
+// `roadmap` entries are lowercase kebab-case tag slugs, not chapter references.
 const ROADMAP_TAG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const FILE_ONLY_FIELDS = ["order"];
 const FOLDER_EXTRA_FIELDS = {
@@ -65,6 +90,27 @@ export function folderKindForPath(relPath) {
     if (normalized.startsWith(".tech/")) return "tech";
     if (normalized.startsWith(".design/")) return "design";
     return null;
+}
+
+/**
+ * The `type` values a folder allows on a block at this level, or `[]` when the
+ * folder defines no kind distinction. `level` is "file" for the level-1 block
+ * and "chapter" for every other heading.
+ */
+export function typeValuesFor(folder, level) {
+    return TYPE_BY_FOLDER[folder]?.[level] ?? [];
+}
+
+/**
+ * The effective `type` of a block, falling back to the folder's legacy field
+ * name where one exists. Returns null when the block declares no type.
+ */
+export function resolveType(folder, meta) {
+    if (!meta) return null;
+    if (meta.type !== undefined && meta.type !== null && meta.type !== "") return meta.type;
+    const legacy = LEGACY_TYPE_FIELD_BY_FOLDER[folder];
+    const value = legacy ? meta[legacy] : null;
+    return value === undefined || value === "" ? null : value;
 }
 
 function parseScalar(raw) {
@@ -167,12 +213,123 @@ export function parseDocument(markdown) {
 // remaining whitespace character with a hyphen — it does *not* collapse runs.
 // "Organizational & Process Constraints" therefore anchors as
 // "organizational--process-constraints" (double hyphen where the & was).
-function slugify(text) {
+export function slugify(text) {
     return text
         .toLowerCase()
         .trim()
         .replace(/[^\w\s-]/g, "")
         .replace(/\s/g, "-");
+}
+
+/**
+ * Validate one block's `type` against its folder's vocabulary.
+ *
+ * Messages are sentence fragments beginning with a verb, so each caller can
+ * prefix its own subject. Shared by the document lint and by graph
+ * construction, so the canvas, the CLI, and CI all report the same thing.
+ */
+export function typeIssues(folder, blockLevel, meta) {
+    const issues = [];
+    if (!meta) return issues;
+
+    const allowed = typeValuesFor(folder, blockLevel);
+    const declared = resolveType(folder, meta);
+    if (allowed.length) {
+        if (declared === null) {
+            issues.push({
+                severity: "error",
+                message: `is missing required \`type\`. Expected one of: ${allowed.join(", ")}.`,
+            });
+        } else if (!allowed.includes(declared)) {
+            issues.push({
+                severity: "error",
+                message: `has type "${declared}", expected one of: ${allowed.join(", ")}.`,
+            });
+        }
+    } else if (declared !== null) {
+        issues.push({
+            severity: "warning",
+            message: `sets \`type\` to "${declared}", but the ${folder} folder defines no \`type\` value set at ${blockLevel} level — heading level already carries that distinction. Omit the field.`,
+        });
+    }
+
+    const legacy = LEGACY_TYPE_FIELD_BY_FOLDER[folder];
+    if (legacy && meta[legacy] != null) {
+        issues.push({
+            severity: "warning",
+            message: `uses \`${legacy}\`, which has been renamed to \`type\`. Rename the field; \`${legacy}\` still works but is no longer documented.`,
+        });
+    }
+
+    return issues;
+}
+
+/**
+ * Flag literal escape sequences sitting in Markdown body text.
+ *
+ * An agent writing a file through a shell can emit the escape itself rather
+ * than the newline it stands for — a PowerShell here-string that was single-
+ * quoted when it needed interpolation, say. The failure is silent and
+ * disproportionate: a `## Heading` glued onto the end of the previous line
+ * stops being a heading, so the chapter disappears from the outline, from the
+ * graph, and from every check that reasons about headings. Nothing else here
+ * can catch it, because by the time those checks run the heading is prose.
+ *
+ * Warning rather than error: a document legitimately discussing escape
+ * sequences would otherwise have no way to say so. Only newline escapes are
+ * matched — `\t` was deliberately left out, because it breaks no structure and
+ * collides with unformatted Windows paths. A bare `C:\temp\new` written
+ * outside backticks is still a known false positive; formatting paths as code
+ * avoids it.
+ */
+export function escapeSequenceIssues(markdown) {
+    const issues = [];
+    let inFence = false;
+    let fenceChar = null;
+
+    markdown.split(/\r?\n/).forEach((line, index) => {
+        const fence = line.match(/^\s*(`{3,}|~{3,})/);
+        if (fence) {
+            if (!inFence) {
+                inFence = true;
+                fenceChar = fence[1][0];
+            } else if (fence[1][0] === fenceChar) {
+                inFence = false;
+                fenceChar = null;
+            }
+            return;
+        }
+        if (inFence) return;
+
+        // The PowerShell escape is checked against the line with double-backtick
+        // code spans removed: that is how Markdown quotes a run containing
+        // backticks, so a doubly-quoted occurrence is a document *describing*
+        // the escape rather than one corrupted by it. Single-backtick spans are
+        // left in place, because those backticks are part of the corrupted
+        // token itself. The C-style escapes drop single-backtick spans too,
+        // since a backticked \n is ordinary documentation.
+        const quoted = line.replace(/``.+?``/g, "");
+        const found = new Set();
+        if (quoted.includes("`r`n")) found.add("`r`n");
+        for (const match of quoted.replace(/`[^`]*`/g, "").matchAll(/\\r\\n|\\n/g)) {
+            found.add(match[0]);
+        }
+        if (!found.size) return;
+
+        const glued = /(?:`r`n|\\r\\n|\\n)\s*#{1,6}\s/.test(quoted);
+        issues.push({
+            severity: "warning",
+            line: index + 1,
+            message:
+                `has a literal ${[...found].map((s) => `"${s}"`).join(" and ")} ` +
+                `escape sequence in body text on line ${index + 1}` +
+                (glued
+                    ? ", with a heading immediately after it — that heading does not start a line, so it is not being parsed as a heading."
+                    : ". If a line break was intended, the escape was not interpreted.")
+        });
+    });
+
+    return issues;
 }
 
 /**
@@ -194,6 +351,9 @@ export function validateDocument(relPath, markdown) {
     }
 
     const { fileTitle, fileMeta, chapters } = parseDocument(markdown);
+    for (const issue of escapeSequenceIssues(markdown)) {
+        issues.push({ severity: issue.severity, message: `${relPath} ${issue.message}` });
+    }
     const allowedStatus = STATUS_BY_FOLDER[kind];
     const optionalFields = new Set([
         ...COMMON_OPTIONAL_FIELDS,
@@ -235,24 +395,12 @@ export function validateDocument(relPath, markdown) {
             });
         }
 
-        // Folder-specific required fields apply to chapter blocks, not to the
-        // file-level block (which describes the document as a whole).
-        if (chapter.level > 1) {
-            for (const required of FOLDER_REQUIRED_FIELDS[kind]) {
-                if (!(required in chapter.meta) || chapter.meta[required] === null) {
-                    issues.push({
-                        severity: "error",
-                        message: `${label} is missing required \`${required}\` for the ${kind} folder.`,
-                    });
-                }
-            }
-        }
-
-        if (kind === "tech" && chapter.meta.kind && !TECH_KINDS.includes(chapter.meta.kind)) {
-            issues.push({
-                severity: "error",
-                message: `${label} has kind "${chapter.meta.kind}", expected one of: ${TECH_KINDS.join(", ")}.`,
-            });
+        // `type` records what kind of thing this chapter or file is, in the
+        // vocabulary its folder defines. Folders that define no vocabulary
+        // (`.arc42`, `.backlog`, `.design`) omit the field entirely.
+        const blockLevel = chapter.level === 1 ? "file" : "chapter";
+        for (const issue of typeIssues(kind, blockLevel, chapter.meta)) {
+            issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
         }
 
         // A feature flag key names an application feature in the consuming
@@ -271,26 +419,23 @@ export function validateDocument(relPath, markdown) {
             }
         }
 
-        // A story-point estimate: a non-negative integer scalar, no unit. `0` is
-        // a real estimate and `null`/absent both mean "not estimated", so only a
-        // present, non-null value is checked. Scalars parse as strings here, so
-        // the test is that the text is digits only — `large`, `-3` and `2.5` all
-        // fail it.
+        // `effort` is a story-point estimate, so it is a single non-negative
+        // integer. A list, a fraction, a negative number, or a word such as
+        // "large" is not an estimate this schema can total or compare.
         if (chapter.meta.effort != null) {
-            const effort = chapter.meta.effort;
-            if (typeof effort !== "string" || !/^\d+$/.test(effort)) {
+            const raw = chapter.meta.effort;
+            const isInteger = typeof raw === "string" && /^\d+$/.test(raw);
+            if (!isInteger) {
                 issues.push({
                     severity: "error",
-                    message: `${label} has \`effort\` "${effort}" — effort is a story-point estimate and must be a single non-negative integer.`,
+                    message: `${label} has \`effort\` "${Array.isArray(raw) ? raw.join(", ") : raw}" — effort is a story-point estimate and must be a single non-negative integer.`,
                 });
             }
         }
 
-        // Roadmap entries are roadmap item tag slugs, not `<path>#<slug>`
-        // references — like `aliases`/`alternatives`, they name something rather
-        // than address it, so they stay node attributes and produce no edges. A
-        // value that is not a lowercase kebab-case slug is a warning, not an
-        // error: it is still a tag, just a malformed one.
+        // Roadmap entries are tag slugs an application groups work by, not
+        // `<path>#<slug>` chapter references, so the tag vocabulary lives in the
+        // consuming repository and only the slug shape is checked here.
         if (chapter.meta.roadmap != null) {
             for (const tag of toList(chapter.meta.roadmap)) {
                 if (!ROADMAP_TAG_PATTERN.test(tag)) {

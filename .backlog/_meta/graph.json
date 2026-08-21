@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedBy": ".github/tools/knowledge-meta/build.mjs",
   "scope": ".backlog",
   "sources": [
@@ -15,6 +15,12 @@
     "nodesByType": {
       "file": 2,
       "chapter": 6
+    },
+    "nodesByKind": {
+      "none": 4,
+      "aggregate": 1,
+      "features": 1,
+      "feature": 2
     },
     "nodesByStatus": {
       "draft": 4,
@@ -101,6 +107,7 @@
           "level": 2,
           "line": 40,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/repository-management/domain.md#repository-registry",
@@ -112,11 +119,12 @@
       {
         "data": {
           "id": ".domain/roadmap/features.md",
-          "label": "Roadmap Planning",
+          "label": "Roadmap Planning (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/roadmap/features.md",
           "status": "draft",
+          "kind": "features",
           "outOfScope": true
         }
       },
@@ -131,6 +139,7 @@
           "level": 2,
           "line": 51,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
           ],
@@ -148,6 +157,7 @@
           "level": 2,
           "line": 399,
           "status": "deprecated",
+          "kind": "feature",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
           ],

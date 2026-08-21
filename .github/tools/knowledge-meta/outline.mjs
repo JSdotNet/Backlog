@@ -16,7 +16,7 @@
 
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { parseDocument, folderKindForPath } from "./metadata.mjs";
+import { parseDocument, folderKindForPath, resolveType } from "./metadata.mjs";
 import { KNOWLEDGE_FOLDERS, SCHEMA_VERSION, REPO_SCOPE, GENERATOR } from "./graph.mjs";
 
 /** Read one directory into ordered `file` and `directory` outline entries. */
@@ -89,11 +89,15 @@ async function readDirectory(repoRoot, relDir, problems) {
     for (const name of sequence) {
         if (parsed.has(name)) {
             const doc = parsed.get(name);
+            // Titles are name-only, so every file in a `.domain` bounded context
+            // shares one title; `kind` is what tells them apart in a viewer.
+            const fileKind = resolveType(folderKindForPath(doc.relPath), doc.meta);
             outline.push({
                 type: "file",
                 name,
                 path: doc.relPath,
                 title: doc.title ?? path.basename(name, ".md"),
+                ...(fileKind ? { kind: fileKind } : {}),
                 status: doc.meta.status ?? null,
                 ...(name === rootName ? { root: true } : {}),
             });

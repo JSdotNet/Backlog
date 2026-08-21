@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedBy": ".github/tools/knowledge-meta/build.mjs",
   "scope": ".domain",
   "sources": [
@@ -12,6 +12,7 @@
       "name": "context-map.md",
       "path": ".domain/context-map.md",
       "title": "Backlog",
+      "kind": "context-map",
       "status": "draft",
       "root": true
     },
@@ -26,6 +27,7 @@
           "name": "domain.md",
           "path": ".domain/inbox/domain.md",
           "title": "Inbox",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -34,6 +36,7 @@
           "name": "features.md",
           "path": ".domain/inbox/features.md",
           "title": "Inbox",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -41,6 +44,7 @@
           "name": "model.md",
           "path": ".domain/inbox/model.md",
           "title": "Inbox",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -48,6 +52,7 @@
           "name": "flow.md",
           "path": ".domain/inbox/flow.md",
           "title": "Inbox",
+          "kind": "flow",
           "status": "draft"
         },
         {
@@ -55,6 +60,7 @@
           "name": "dependencies.md",
           "path": ".domain/inbox/dependencies.md",
           "title": "Inbox",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -62,6 +68,7 @@
           "name": "naming.md",
           "path": ".domain/inbox/naming.md",
           "title": "Inbox",
+          "kind": "naming",
           "status": "draft"
         }
       ]
@@ -77,6 +84,7 @@
           "name": "domain.md",
           "path": ".domain/capture/domain.md",
           "title": "Capture",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -85,6 +93,7 @@
           "name": "features.md",
           "path": ".domain/capture/features.md",
           "title": "Capture",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -92,6 +101,7 @@
           "name": "model.md",
           "path": ".domain/capture/model.md",
           "title": "Capture",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -99,6 +109,7 @@
           "name": "dependencies.md",
           "path": ".domain/capture/dependencies.md",
           "title": "Capture",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -106,6 +117,7 @@
           "name": "naming.md",
           "path": ".domain/capture/naming.md",
           "title": "Capture",
+          "kind": "naming",
           "status": "draft"
         }
       ]
@@ -121,6 +133,7 @@
           "name": "domain.md",
           "path": ".domain/backlog/domain.md",
           "title": "Backlog Management",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -129,6 +142,7 @@
           "name": "features.md",
           "path": ".domain/backlog/features.md",
           "title": "Backlog Management",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -136,6 +150,7 @@
           "name": "model.md",
           "path": ".domain/backlog/model.md",
           "title": "Backlog Management",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -143,6 +158,7 @@
           "name": "flow.md",
           "path": ".domain/backlog/flow.md",
           "title": "Backlog Management",
+          "kind": "flow",
           "status": "draft"
         },
         {
@@ -150,6 +166,7 @@
           "name": "dependencies.md",
           "path": ".domain/backlog/dependencies.md",
           "title": "Backlog Management",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -157,6 +174,7 @@
           "name": "naming.md",
           "path": ".domain/backlog/naming.md",
           "title": "Backlog Management",
+          "kind": "naming",
           "status": "draft"
         },
         {
@@ -179,6 +197,7 @@
           "name": "domain.md",
           "path": ".domain/roadmap/domain.md",
           "title": "Roadmap Planning",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -187,6 +206,7 @@
           "name": "features.md",
           "path": ".domain/roadmap/features.md",
           "title": "Roadmap Planning",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -194,6 +214,7 @@
           "name": "model.md",
           "path": ".domain/roadmap/model.md",
           "title": "Roadmap Planning",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -201,6 +222,7 @@
           "name": "flow.md",
           "path": ".domain/roadmap/flow.md",
           "title": "Roadmap Planning",
+          "kind": "flow",
           "status": "draft"
         },
         {
@@ -208,6 +230,7 @@
           "name": "dependencies.md",
           "path": ".domain/roadmap/dependencies.md",
           "title": "Roadmap Planning",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -215,6 +238,7 @@
           "name": "naming.md",
           "path": ".domain/roadmap/naming.md",
           "title": "Roadmap Planning",
+          "kind": "naming",
           "status": "draft"
         }
       ]
@@ -230,6 +254,7 @@
           "name": "domain.md",
           "path": ".domain/second-brain/domain.md",
           "title": "Second Brain",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -238,6 +263,7 @@
           "name": "features.md",
           "path": ".domain/second-brain/features.md",
           "title": "Second Brain",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -245,6 +271,7 @@
           "name": "model.md",
           "path": ".domain/second-brain/model.md",
           "title": "Second Brain",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -252,6 +279,7 @@
           "name": "flow.md",
           "path": ".domain/second-brain/flow.md",
           "title": "Second Brain",
+          "kind": "flow",
           "status": "draft"
         },
         {
@@ -259,6 +287,7 @@
           "name": "dependencies.md",
           "path": ".domain/second-brain/dependencies.md",
           "title": "Second Brain",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -266,6 +295,7 @@
           "name": "naming.md",
           "path": ".domain/second-brain/naming.md",
           "title": "Second Brain",
+          "kind": "naming",
           "status": "draft"
         }
       ]
@@ -281,6 +311,7 @@
           "name": "domain.md",
           "path": ".domain/productivity/domain.md",
           "title": "Productivity",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -289,6 +320,7 @@
           "name": "features.md",
           "path": ".domain/productivity/features.md",
           "title": "Productivity",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -296,6 +328,7 @@
           "name": "model.md",
           "path": ".domain/productivity/model.md",
           "title": "Productivity",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -303,6 +336,7 @@
           "name": "flow.md",
           "path": ".domain/productivity/flow.md",
           "title": "Productivity",
+          "kind": "flow",
           "status": "draft"
         },
         {
@@ -310,6 +344,7 @@
           "name": "dependencies.md",
           "path": ".domain/productivity/dependencies.md",
           "title": "Productivity",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -317,6 +352,7 @@
           "name": "naming.md",
           "path": ".domain/productivity/naming.md",
           "title": "Productivity",
+          "kind": "naming",
           "status": "draft"
         }
       ]
@@ -332,6 +368,7 @@
           "name": "domain.md",
           "path": ".domain/environment/domain.md",
           "title": "Environment",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -340,6 +377,7 @@
           "name": "features.md",
           "path": ".domain/environment/features.md",
           "title": "Environment",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -347,6 +385,7 @@
           "name": "model.md",
           "path": ".domain/environment/model.md",
           "title": "Environment",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -354,6 +393,7 @@
           "name": "flow.md",
           "path": ".domain/environment/flow.md",
           "title": "Environment",
+          "kind": "flow",
           "status": "draft"
         },
         {
@@ -361,6 +401,7 @@
           "name": "dependencies.md",
           "path": ".domain/environment/dependencies.md",
           "title": "Environment",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -368,6 +409,7 @@
           "name": "naming.md",
           "path": ".domain/environment/naming.md",
           "title": "Environment",
+          "kind": "naming",
           "status": "draft"
         }
       ]
@@ -383,6 +425,7 @@
           "name": "domain.md",
           "path": ".domain/repository-management/domain.md",
           "title": "Repository Management",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -391,6 +434,7 @@
           "name": "features.md",
           "path": ".domain/repository-management/features.md",
           "title": "Repository Management",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -398,6 +442,7 @@
           "name": "model.md",
           "path": ".domain/repository-management/model.md",
           "title": "Repository Management",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -405,6 +450,7 @@
           "name": "flow.md",
           "path": ".domain/repository-management/flow.md",
           "title": "Repository Management",
+          "kind": "flow",
           "status": "draft"
         },
         {
@@ -412,6 +458,7 @@
           "name": "dependencies.md",
           "path": ".domain/repository-management/dependencies.md",
           "title": "Repository Management",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -419,6 +466,7 @@
           "name": "naming.md",
           "path": ".domain/repository-management/naming.md",
           "title": "Repository Management",
+          "kind": "naming",
           "status": "draft"
         }
       ]
@@ -434,6 +482,7 @@
           "name": "domain.md",
           "path": ".domain/dev-pc-management/domain.md",
           "title": "Dev PC Management",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -442,6 +491,7 @@
           "name": "features.md",
           "path": ".domain/dev-pc-management/features.md",
           "title": "Dev PC Management",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -449,6 +499,7 @@
           "name": "model.md",
           "path": ".domain/dev-pc-management/model.md",
           "title": "Dev PC Management",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -456,6 +507,7 @@
           "name": "flow.md",
           "path": ".domain/dev-pc-management/flow.md",
           "title": "Dev PC Management",
+          "kind": "flow",
           "status": "draft"
         },
         {
@@ -463,6 +515,7 @@
           "name": "dependencies.md",
           "path": ".domain/dev-pc-management/dependencies.md",
           "title": "Dev PC Management",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -470,6 +523,7 @@
           "name": "naming.md",
           "path": ".domain/dev-pc-management/naming.md",
           "title": "Dev PC Management",
+          "kind": "naming",
           "status": "draft"
         }
       ]
@@ -485,6 +539,7 @@
           "name": "domain.md",
           "path": ".domain/sessions/domain.md",
           "title": "Sessions",
+          "kind": "domain",
           "status": "active",
           "root": true
         },
@@ -493,6 +548,7 @@
           "name": "features.md",
           "path": ".domain/sessions/features.md",
           "title": "Sessions",
+          "kind": "features",
           "status": "active"
         },
         {
@@ -500,6 +556,7 @@
           "name": "model.md",
           "path": ".domain/sessions/model.md",
           "title": "Sessions",
+          "kind": "model",
           "status": "active"
         },
         {
@@ -507,6 +564,7 @@
           "name": "flow.md",
           "path": ".domain/sessions/flow.md",
           "title": "Sessions",
+          "kind": "flow",
           "status": "active"
         },
         {
@@ -514,6 +572,7 @@
           "name": "dependencies.md",
           "path": ".domain/sessions/dependencies.md",
           "title": "Sessions",
+          "kind": "dependencies",
           "status": "active"
         },
         {
@@ -521,6 +580,7 @@
           "name": "naming.md",
           "path": ".domain/sessions/naming.md",
           "title": "Sessions",
+          "kind": "naming",
           "status": "active"
         }
       ]
@@ -536,6 +596,7 @@
           "name": "domain.md",
           "path": ".domain/monitoring/domain.md",
           "title": "Monitoring & Dashboard",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -544,6 +605,7 @@
           "name": "features.md",
           "path": ".domain/monitoring/features.md",
           "title": "Monitoring & Dashboard",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -551,6 +613,7 @@
           "name": "model.md",
           "path": ".domain/monitoring/model.md",
           "title": "Monitoring & Dashboard",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -558,6 +621,7 @@
           "name": "flow.md",
           "path": ".domain/monitoring/flow.md",
           "title": "Monitoring & Dashboard",
+          "kind": "flow",
           "status": "draft"
         },
         {
@@ -565,6 +629,7 @@
           "name": "dependencies.md",
           "path": ".domain/monitoring/dependencies.md",
           "title": "Monitoring & Dashboard",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -572,6 +637,7 @@
           "name": "naming.md",
           "path": ".domain/monitoring/naming.md",
           "title": "Monitoring & Dashboard",
+          "kind": "naming",
           "status": "draft"
         }
       ]
@@ -587,6 +653,7 @@
           "name": "domain.md",
           "path": ".domain/technology-stack/domain.md",
           "title": "Technology Stack",
+          "kind": "domain",
           "status": "draft",
           "root": true
         },
@@ -595,6 +662,7 @@
           "name": "features.md",
           "path": ".domain/technology-stack/features.md",
           "title": "Technology Stack",
+          "kind": "features",
           "status": "draft"
         },
         {
@@ -602,6 +670,7 @@
           "name": "model.md",
           "path": ".domain/technology-stack/model.md",
           "title": "Technology Stack",
+          "kind": "model",
           "status": "draft"
         },
         {
@@ -609,6 +678,7 @@
           "name": "flow.md",
           "path": ".domain/technology-stack/flow.md",
           "title": "Technology Stack",
+          "kind": "flow",
           "status": "draft"
         },
         {
@@ -616,6 +686,7 @@
           "name": "dependencies.md",
           "path": ".domain/technology-stack/dependencies.md",
           "title": "Technology Stack",
+          "kind": "dependencies",
           "status": "draft"
         },
         {
@@ -623,6 +694,7 @@
           "name": "naming.md",
           "path": ".domain/technology-stack/naming.md",
           "title": "Technology Stack",
+          "kind": "naming",
           "status": "draft"
         }
       ]

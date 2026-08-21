@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedBy": ".github/tools/knowledge-meta/build.mjs",
   "scope": ".design",
   "sources": [
@@ -18,6 +18,12 @@
       "file": 10,
       "chapter": 93,
       "heading": 7
+    },
+    "nodesByKind": {
+      "none": 100,
+      "feature": 1,
+      "aggregate": 1,
+      "term": 8
     },
     "nodesByStatus": {
       "active": 91,
@@ -1544,6 +1550,7 @@
           "level": 2,
           "line": 191,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/roadmap/features.md#owning-a-stored-plan"
           ],
@@ -1597,6 +1604,7 @@
           "level": 2,
           "line": 22,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
@@ -1615,6 +1623,7 @@
           "level": 2,
           "line": 34,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "SubItem"
           ],
@@ -1635,6 +1644,7 @@
           "level": 2,
           "line": 69,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "EntryStatus"
           ],
@@ -1655,6 +1665,7 @@
           "level": 2,
           "line": 80,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "area"
           ],
@@ -1675,6 +1686,7 @@
           "level": 2,
           "line": 107,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "due_on",
             "due",
@@ -1697,6 +1709,7 @@
           "level": 2,
           "line": 121,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "remind_at",
             "remind",
@@ -1719,6 +1732,7 @@
           "level": 2,
           "line": 135,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "Repeat",
             "repeat",
@@ -1744,6 +1758,7 @@
           "level": 2,
           "line": 149,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "in_my_day_on",
             "myday",
@@ -1766,6 +1781,7 @@
           "level": 2,
           "line": 164,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "depends_on",
             "DependsOn",

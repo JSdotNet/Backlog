@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedBy": ".github/tools/knowledge-meta/build.mjs",
   "scope": ".domain",
   "sources": [
@@ -17,6 +17,27 @@
       "file": 73,
       "chapter": 405,
       "heading": 1
+    },
+    "nodesByKind": {
+      "dependencies": 12,
+      "domain": 12,
+      "aggregate": 12,
+      "entity": 14,
+      "value-object": 61,
+      "enum": 26,
+      "domain-service": 24,
+      "domain-event": 13,
+      "shared-enums": 11,
+      "features": 12,
+      "feature": 75,
+      "sub-feature": 69,
+      "flow": 11,
+      "model": 12,
+      "naming": 12,
+      "term": 90,
+      "context-map": 1,
+      "shared-value-objects": 1,
+      "none": 11
     },
     "nodesByStatus": {
       "draft": 392,
@@ -38,21 +59,23 @@
       {
         "data": {
           "id": ".domain/backlog/dependencies.md",
-          "label": "Backlog Management",
+          "label": "Backlog Management (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/backlog/dependencies.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "dependencies"
         }
       },
       {
         "data": {
           "id": ".domain/backlog/domain.md",
-          "label": "Backlog Management",
+          "label": "Backlog Management (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/backlog/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -66,6 +89,7 @@
           "level": 2,
           "line": 22,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
@@ -82,7 +106,8 @@
           "slug": "sub-item",
           "level": 3,
           "line": 133,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -95,7 +120,8 @@
           "slug": "projection-ref",
           "level": 3,
           "line": 156,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -108,7 +134,8 @@
           "slug": "recurrence",
           "level": 3,
           "line": 167,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -121,7 +148,8 @@
           "slug": "attachment",
           "level": 3,
           "line": 184,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -134,7 +162,8 @@
           "slug": "usage-event",
           "level": 3,
           "line": 207,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -147,7 +176,8 @@
           "slug": "ai-work-log",
           "level": 3,
           "line": 217,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -160,7 +190,8 @@
           "slug": "entry-type",
           "level": 3,
           "line": 228,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -173,7 +204,8 @@
           "slug": "entry-status",
           "level": 3,
           "line": 237,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -186,7 +218,8 @@
           "slug": "priority",
           "level": 3,
           "line": 246,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -199,7 +232,8 @@
           "slug": "sub-item-status",
           "level": 3,
           "line": 255,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -212,7 +246,8 @@
           "slug": "recurrence-unit",
           "level": 3,
           "line": 264,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -225,7 +260,8 @@
           "slug": "weekday",
           "level": 3,
           "line": 273,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -238,7 +274,8 @@
           "slug": "readiness",
           "level": 3,
           "line": 283,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -252,6 +289,7 @@
           "level": 2,
           "line": 302,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/monitoring/domain.md#progress-signal",
             ".arc42/06-runtime-view.md#backlog-entry-to-github-issue"
@@ -269,6 +307,7 @@
           "level": 2,
           "line": 316,
           "status": "proposed",
+          "kind": "domain-service",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/backlog/domain.md#entrycompleted",
@@ -287,6 +326,7 @@
           "level": 2,
           "line": 358,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/monitoring/domain.md#progress-signal"
@@ -304,6 +344,7 @@
           "level": 2,
           "line": 385,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/backlog/domain.md#projection",
@@ -322,6 +363,7 @@
           "level": 2,
           "line": 413,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/backlog/domain.md#projection",
@@ -340,6 +382,7 @@
           "level": 2,
           "line": 439,
           "status": "proposed",
+          "kind": "domain-event",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/backlog/domain.md#occurrence-spawning",
@@ -358,6 +401,7 @@
           "level": 2,
           "line": 468,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/productivity/domain.md#productivity-ledger"
@@ -374,17 +418,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 503,
-          "status": "draft"
+          "status": "draft",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/backlog/features.md",
-          "label": "Backlog Management",
+          "label": "Backlog Management (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/backlog/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -398,6 +444,7 @@
           "level": 2,
           "line": 11,
           "status": "draft",
+          "kind": "feature",
           "feature-flag": [
             "backlog"
           ],
@@ -417,6 +464,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/backlog/features.md#backlog-entry-creation"
           ]
@@ -433,6 +481,7 @@
           "level": 3,
           "line": 41,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/roadmap/domain.md#roadmap-tag",
             ".domain/backlog/features.md#search-filter-and-organize"
@@ -449,7 +498,8 @@
           "slug": "sub-items-and-steps",
           "level": 3,
           "line": 63,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -463,6 +513,7 @@
           "level": 3,
           "line": 81,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/backlog/domain.md#attachment"
           ]
@@ -479,6 +530,7 @@
           "level": 2,
           "line": 112,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
           ],
@@ -499,6 +551,7 @@
           "level": 2,
           "line": 144,
           "status": "proposed",
+          "kind": "feature",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
           ],
@@ -517,7 +570,8 @@
           "slug": "due-dates",
           "level": 3,
           "line": 169,
-          "status": "proposed"
+          "status": "proposed",
+          "kind": "sub-feature"
         }
       },
       {
@@ -530,7 +584,8 @@
           "slug": "reminders",
           "level": 3,
           "line": 181,
-          "status": "proposed"
+          "status": "proposed",
+          "kind": "sub-feature"
         }
       },
       {
@@ -544,6 +599,7 @@
           "level": 3,
           "line": 197,
           "status": "proposed",
+          "kind": "sub-feature",
           "related": [
             ".domain/backlog/domain.md#occurrence-spawning",
             ".domain/backlog/features.md#archive-and-lifecycle"
@@ -561,6 +617,7 @@
           "level": 2,
           "line": 217,
           "status": "proposed",
+          "kind": "feature",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
           ],
@@ -580,6 +637,7 @@
           "level": 2,
           "line": 237,
           "status": "proposed",
+          "kind": "feature",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
           ],
@@ -599,7 +657,8 @@
           "slug": "readiness-and-chain-order",
           "level": 3,
           "line": 256,
-          "status": "proposed"
+          "status": "proposed",
+          "kind": "sub-feature"
         }
       },
       {
@@ -613,6 +672,7 @@
           "level": 2,
           "line": 281,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/backlog/features.md#backlog-entry-creation"
           ],
@@ -632,6 +692,7 @@
           "level": 2,
           "line": 294,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/backlog/features.md#multi-repo-targeting"
           ],
@@ -651,6 +712,7 @@
           "level": 3,
           "line": 307,
           "status": "draft",
+          "kind": "sub-feature",
           "feature-flag": [
             "github-integration"
           ],
@@ -671,6 +733,7 @@
           "level": 2,
           "line": 324,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/second-brain/features.md#bi-directional-linking"
           ]
@@ -686,7 +749,8 @@
           "slug": "manual-ordering",
           "level": 3,
           "line": 337,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -699,7 +763,8 @@
           "slug": "prompt-features",
           "level": 2,
           "line": 348,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -713,6 +778,7 @@
           "level": 3,
           "line": 358,
           "status": "draft",
+          "kind": "sub-feature",
           "feature-flag": [
             "copilot-cli"
           ],
@@ -732,6 +798,7 @@
           "level": 2,
           "line": 372,
           "status": "draft",
+          "kind": "feature",
           "feature-flag": [
             "ai-assistant"
           ],
@@ -751,7 +818,8 @@
           "slug": "archive-and-lifecycle",
           "level": 2,
           "line": 389,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -765,6 +833,7 @@
           "level": 2,
           "line": 399,
           "status": "deprecated",
+          "kind": "feature",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
           ],
@@ -786,6 +855,7 @@
           "level": 3,
           "line": 430,
           "status": "deprecated",
+          "kind": "sub-feature",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
           ]
@@ -794,31 +864,34 @@
       {
         "data": {
           "id": ".domain/backlog/flow.md",
-          "label": "Backlog Management",
+          "label": "Backlog Management (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/backlog/flow.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "flow"
         }
       },
       {
         "data": {
           "id": ".domain/backlog/model.md",
-          "label": "Backlog Management",
+          "label": "Backlog Management (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/backlog/model.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "model"
         }
       },
       {
         "data": {
           "id": ".domain/backlog/naming.md",
-          "label": "Backlog Management",
+          "label": "Backlog Management (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/backlog/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -832,6 +905,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Task",
             "TaskItem",
@@ -855,6 +929,7 @@
           "level": 2,
           "line": 34,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "SubItem"
           ],
@@ -874,6 +949,7 @@
           "level": 2,
           "line": 46,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "ProjectionRef"
           ],
@@ -893,6 +969,7 @@
           "level": 2,
           "line": 58,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "EntryType"
           ],
@@ -912,6 +989,7 @@
           "level": 2,
           "line": 69,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "EntryStatus"
           ],
@@ -931,6 +1009,7 @@
           "level": 2,
           "line": 80,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "area"
           ],
@@ -950,6 +1029,7 @@
           "level": 2,
           "line": 94,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "AIWorkLog",
             "AIWorkLogged"
@@ -970,6 +1050,7 @@
           "level": 2,
           "line": 107,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "due_on",
             "due",
@@ -991,6 +1072,7 @@
           "level": 2,
           "line": 121,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "remind_at",
             "remind",
@@ -1012,6 +1094,7 @@
           "level": 2,
           "line": 135,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "Repeat",
             "repeat",
@@ -1036,6 +1119,7 @@
           "level": 2,
           "line": 149,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "in_my_day_on",
             "myday",
@@ -1057,6 +1141,7 @@
           "level": 2,
           "line": 164,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "depends_on",
             "DependsOn",
@@ -1079,6 +1164,7 @@
           "level": 2,
           "line": 178,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "attachment",
             "files",
@@ -1102,6 +1188,7 @@
           "level": 2,
           "line": 194,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "TaskReadiness",
             "ready",
@@ -1123,6 +1210,7 @@
           "level": 2,
           "line": 207,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "recurrence_source_id",
             "OccurrenceSpawned"
@@ -1143,6 +1231,7 @@
           "level": 2,
           "line": 221,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "effort",
             "story points",
@@ -1165,6 +1254,7 @@
           "level": 2,
           "line": 238,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "roadmap tag",
             "tag"
@@ -1186,6 +1276,7 @@
           "level": 2,
           "line": 255,
           "status": "deprecated",
+          "kind": "term",
           "aliases": [
             "Roadmap planning",
             "Roadmap view"
@@ -1199,21 +1290,23 @@
       {
         "data": {
           "id": ".domain/capture/dependencies.md",
-          "label": "Capture",
+          "label": "Capture (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/capture/dependencies.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "dependencies"
         }
       },
       {
         "data": {
           "id": ".domain/capture/domain.md",
-          "label": "Capture",
+          "label": "Capture (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/capture/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -1227,6 +1320,7 @@
           "level": 2,
           "line": 23,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/inbox/domain.md#inbox-item"
           ]
@@ -1242,7 +1336,8 @@
           "slug": "source-metadata",
           "level": 3,
           "line": 41,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1255,7 +1350,8 @@
           "slug": "tag",
           "level": 3,
           "line": 55,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1268,7 +1364,8 @@
           "slug": "capture-source",
           "level": 3,
           "line": 65,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -1282,6 +1379,7 @@
           "level": 2,
           "line": 84,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
             ".arc42/06-runtime-view.md#mobile-capture-and-sync",
@@ -1300,6 +1398,7 @@
           "level": 2,
           "line": 105,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/inbox/domain.md#inbox-item"
           ]
@@ -1316,6 +1415,7 @@
           "level": 2,
           "line": 118,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/capture/domain.md#capture",
             ".domain/inbox/domain.md#inbox-item"
@@ -1332,17 +1432,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 150,
-          "status": "draft"
+          "status": "draft",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/capture/features.md",
-          "label": "Capture",
+          "label": "Capture (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/capture/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -1355,7 +1457,8 @@
           "slug": "mobile-capture",
           "level": 2,
           "line": 11,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -1368,7 +1471,8 @@
           "slug": "one-tap-entry",
           "level": 3,
           "line": 21,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -1381,7 +1485,8 @@
           "slug": "speech-to-text-capture",
           "level": 3,
           "line": 30,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -1394,7 +1499,8 @@
           "slug": "offline-first-sync",
           "level": 3,
           "line": 40,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -1407,7 +1513,8 @@
           "slug": "share-sheet-and-shortcuts",
           "level": 3,
           "line": 50,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -1420,7 +1527,8 @@
           "slug": "automation-capture",
           "level": 2,
           "line": 59,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -1433,7 +1541,8 @@
           "slug": "youtube-monitor",
           "level": 3,
           "line": 69,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -1446,7 +1555,8 @@
           "slug": "website-monitor",
           "level": 3,
           "line": 79,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -1459,7 +1569,8 @@
           "slug": "news-email-ingestion",
           "level": 3,
           "line": 89,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -1472,7 +1583,8 @@
           "slug": "scheduled-scans",
           "level": 3,
           "line": 98,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -1485,7 +1597,8 @@
           "slug": "web-clipper-capture",
           "level": 2,
           "line": 107,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -1498,7 +1611,8 @@
           "slug": "ide-capture",
           "level": 2,
           "line": 118,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -1512,6 +1626,7 @@
           "level": 3,
           "line": 130,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/capture/domain.md#source-adapter"
           ]
@@ -1527,7 +1642,8 @@
           "slug": "manual-import",
           "level": 2,
           "line": 145,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -1541,6 +1657,7 @@
           "level": 2,
           "line": 155,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/inbox/features.md#incoming-queue"
           ]
@@ -1557,6 +1674,7 @@
           "level": 2,
           "line": 167,
           "status": "draft",
+          "kind": "feature",
           "feature-flag": [
             "feedback-reporting"
           ],
@@ -1568,21 +1686,23 @@
       {
         "data": {
           "id": ".domain/capture/model.md",
-          "label": "Capture",
+          "label": "Capture (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/capture/model.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "model"
         }
       },
       {
         "data": {
           "id": ".domain/capture/naming.md",
-          "label": "Capture",
+          "label": "Capture (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/capture/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -1596,6 +1716,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Capture",
             "ItemCaptured"
@@ -1616,6 +1737,7 @@
           "level": 2,
           "line": 26,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "CaptureSource",
             "source"
@@ -1636,6 +1758,7 @@
           "level": 2,
           "line": 42,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Source Adapter"
           ],
@@ -1655,6 +1778,7 @@
           "level": 2,
           "line": 54,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "SourceMetadata"
           ],
@@ -1666,31 +1790,34 @@
       {
         "data": {
           "id": ".domain/context-map.md",
-          "label": "Backlog",
+          "label": "Backlog (context-map)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/context-map.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "context-map"
         }
       },
       {
         "data": {
           "id": ".domain/dev-pc-management/dependencies.md",
-          "label": "Dev PC Management",
+          "label": "Dev PC Management (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/dev-pc-management/dependencies.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "dependencies"
         }
       },
       {
         "data": {
           "id": ".domain/dev-pc-management/domain.md",
-          "label": "Dev PC Management",
+          "label": "Dev PC Management (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/dev-pc-management/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -1704,6 +1831,7 @@
           "level": 2,
           "line": 30,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry",
             ".domain/monitoring/domain.md#progress-signal",
@@ -1721,7 +1849,8 @@
           "slug": "machine",
           "level": 3,
           "line": 45,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -1734,7 +1863,8 @@
           "slug": "tool-version",
           "level": 3,
           "line": 65,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1747,7 +1877,8 @@
           "slug": "pending-update",
           "level": 3,
           "line": 75,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1760,7 +1891,8 @@
           "slug": "uptime-metric",
           "level": 3,
           "line": 86,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1773,7 +1905,8 @@
           "slug": "compliance-snapshot",
           "level": 3,
           "line": 95,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1786,7 +1919,8 @@
           "slug": "update-record",
           "level": 3,
           "line": 106,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1799,7 +1933,8 @@
           "slug": "tool-baseline",
           "level": 3,
           "line": 116,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1812,7 +1947,8 @@
           "slug": "team-tools-baseline",
           "level": 3,
           "line": 126,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1825,7 +1961,8 @@
           "slug": "fleet-health-snapshot",
           "level": 3,
           "line": 137,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1838,7 +1975,8 @@
           "slug": "trend-metrics",
           "level": 3,
           "line": 147,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1851,7 +1989,8 @@
           "slug": "fleet-analytics",
           "level": 3,
           "line": 156,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -1864,7 +2003,8 @@
           "slug": "machine-status",
           "level": 3,
           "line": 166,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -1878,6 +2018,7 @@
           "level": 2,
           "line": 175,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".arc42/06-runtime-view.md#remote-pc-wake-and-status-update",
             ".arc42/07-deployment-view.md#cloud-deployment-azure"
@@ -1895,6 +2036,7 @@
           "level": 2,
           "line": 189,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry"
           ]
@@ -1911,6 +2053,7 @@
           "level": 2,
           "line": 203,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
             ".domain/monitoring/domain.md#progress-signal"
@@ -1928,6 +2071,7 @@
           "level": 2,
           "line": 230,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
             ".domain/monitoring/domain.md#progress-signal",
@@ -1945,17 +2089,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 259,
-          "status": "draft"
+          "status": "draft",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/dev-pc-management/features.md",
-          "label": "Dev PC Management",
+          "label": "Dev PC Management (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/dev-pc-management/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -1968,7 +2114,8 @@
           "slug": "pc-registration",
           "level": 2,
           "line": 11,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -1982,6 +2129,7 @@
           "level": 2,
           "line": 22,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/dev-pc-management/features.md#pc-registration"
           ]
@@ -1998,6 +2146,7 @@
           "level": 2,
           "line": 34,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/dev-pc-management/features.md#pc-registration"
           ]
@@ -2014,6 +2163,7 @@
           "level": 2,
           "line": 46,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/monitoring/features.md#multi-layer-dashboards"
           ]
@@ -2030,6 +2180,7 @@
           "level": 2,
           "line": 57,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/technology-stack/features.md#technology-baseline-definition"
           ]
@@ -2046,6 +2197,7 @@
           "level": 3,
           "line": 69,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/technology-stack/features.md#technology-baseline-definition"
           ]
@@ -2062,6 +2214,7 @@
           "level": 2,
           "line": 85,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/dev-pc-management/features.md#configuration-and-tool-version-tracking"
           ]
@@ -2078,6 +2231,7 @@
           "level": 3,
           "line": 97,
           "status": "draft",
+          "kind": "sub-feature",
           "feature-flag": [
             "system-tools"
           ],
@@ -2096,37 +2250,41 @@
           "slug": "security",
           "level": 2,
           "line": 113,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
         "data": {
           "id": ".domain/dev-pc-management/flow.md",
-          "label": "Dev PC Management",
+          "label": "Dev PC Management (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/dev-pc-management/flow.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "flow"
         }
       },
       {
         "data": {
           "id": ".domain/dev-pc-management/model.md",
-          "label": "Dev PC Management",
+          "label": "Dev PC Management (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/dev-pc-management/model.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "model"
         }
       },
       {
         "data": {
           "id": ".domain/dev-pc-management/naming.md",
-          "label": "Dev PC Management",
+          "label": "Dev PC Management (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/dev-pc-management/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -2140,6 +2298,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "MachineRegistry"
           ],
@@ -2159,6 +2318,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Machine",
             "machine_id"
@@ -2179,6 +2339,7 @@
           "level": 2,
           "line": 36,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "TeamToolsBaseline"
           ],
@@ -2199,6 +2360,7 @@
           "level": 2,
           "line": 48,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "MachineStatus"
           ],
@@ -2210,21 +2372,23 @@
       {
         "data": {
           "id": ".domain/environment/dependencies.md",
-          "label": "Environment",
+          "label": "Environment (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/environment/dependencies.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "dependencies"
         }
       },
       {
         "data": {
           "id": ".domain/environment/domain.md",
-          "label": "Environment",
+          "label": "Environment (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/environment/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -2238,6 +2402,7 @@
           "level": 2,
           "line": 21,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/repository-management/domain.md#repository-registry",
             ".domain/monitoring/domain.md#progress-signal"
@@ -2254,7 +2419,8 @@
           "slug": "environment",
           "level": 3,
           "line": 34,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -2267,7 +2433,8 @@
           "slug": "environment-shortcut",
           "level": 3,
           "line": 45,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -2280,7 +2447,8 @@
           "slug": "launch-target",
           "level": 3,
           "line": 55,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -2293,7 +2461,8 @@
           "slug": "access-hint",
           "level": 3,
           "line": 66,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -2306,7 +2475,8 @@
           "slug": "environment-type",
           "level": 3,
           "line": 77,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -2320,6 +2490,7 @@
           "level": 2,
           "line": 87,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/environment/domain.md#environment-catalog",
             ".domain/repository-management/domain.md#repository-registry",
@@ -2338,6 +2509,7 @@
           "level": 2,
           "line": 102,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/environment/domain.md#environment-catalog",
             ".domain/productivity/domain.md#productivity-ledger"
@@ -2354,17 +2526,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 129,
-          "status": "draft"
+          "status": "draft",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/environment/features.md",
-          "label": "Environment",
+          "label": "Environment (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/environment/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -2378,6 +2552,7 @@
           "level": 2,
           "line": 11,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/environment/domain.md#environment-catalog"
           ]
@@ -2393,7 +2568,8 @@
           "slug": "pinned-environments",
           "level": 3,
           "line": 22,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -2406,7 +2582,8 @@
           "slug": "grouped-shortcuts",
           "level": 3,
           "line": 31,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -2419,7 +2596,8 @@
           "slug": "safe-access-hints",
           "level": 3,
           "line": 41,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -2433,6 +2611,7 @@
           "level": 2,
           "line": 51,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
           ]
@@ -2441,31 +2620,34 @@
       {
         "data": {
           "id": ".domain/environment/flow.md",
-          "label": "Environment",
+          "label": "Environment (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/environment/flow.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "flow"
         }
       },
       {
         "data": {
           "id": ".domain/environment/model.md",
-          "label": "Environment",
+          "label": "Environment (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/environment/model.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "model"
         }
       },
       {
         "data": {
           "id": ".domain/environment/naming.md",
-          "label": "Environment",
+          "label": "Environment (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/environment/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -2479,6 +2661,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "EnvironmentCatalog"
           ],
@@ -2498,6 +2681,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Environment",
             "environment_id"
@@ -2518,6 +2702,7 @@
           "level": 2,
           "line": 35,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "EnvironmentShortcut",
             "shortcut_id"
@@ -2538,6 +2723,7 @@
           "level": 2,
           "line": 46,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "LaunchTarget",
             "target_ref"
@@ -2558,6 +2744,7 @@
           "level": 2,
           "line": 58,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "AccessHint"
           ],
@@ -2569,21 +2756,23 @@
       {
         "data": {
           "id": ".domain/inbox/dependencies.md",
-          "label": "Inbox",
+          "label": "Inbox (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/inbox/dependencies.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "dependencies"
         }
       },
       {
         "data": {
           "id": ".domain/inbox/domain.md",
-          "label": "Inbox",
+          "label": "Inbox (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/inbox/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -2597,6 +2786,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/capture/domain.md#capture",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
@@ -2613,7 +2803,8 @@
           "slug": "routing-target",
           "level": 3,
           "line": 42,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -2626,7 +2817,8 @@
           "slug": "tag",
           "level": 3,
           "line": 53,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -2639,7 +2831,8 @@
           "slug": "inbox-status",
           "level": 3,
           "line": 64,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -2652,7 +2845,8 @@
           "slug": "capture-source",
           "level": 3,
           "line": 78,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -2666,6 +2860,7 @@
           "level": 2,
           "line": 88,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/second-brain/domain.md#knowledge-note"
@@ -2682,7 +2877,8 @@
           "slug": "classification",
           "level": 2,
           "line": 103,
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain-service"
         }
       },
       {
@@ -2696,6 +2892,7 @@
           "level": 2,
           "line": 116,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
             ".domain/backlog/domain.md#backlog-entry",
@@ -2713,17 +2910,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 152,
-          "status": "draft"
+          "status": "draft",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/inbox/features.md",
-          "label": "Inbox",
+          "label": "Inbox (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/inbox/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -2737,6 +2936,7 @@
           "level": 2,
           "line": 11,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/capture/features.md#normalized-delivery"
           ]
@@ -2753,6 +2953,7 @@
           "level": 2,
           "line": 23,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/inbox/features.md#incoming-queue"
           ]
@@ -2768,7 +2969,8 @@
           "slug": "per-item-triage-actions",
           "level": 3,
           "line": 33,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -2781,7 +2983,8 @@
           "slug": "quick-triage-shortcuts",
           "level": 3,
           "line": 43,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -2794,7 +2997,8 @@
           "slug": "classification-and-enrichment",
           "level": 2,
           "line": 52,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -2808,6 +3012,7 @@
           "level": 2,
           "line": 63,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/inbox/features.md#triage-workflow"
           ],
@@ -2828,6 +3033,7 @@
           "level": 3,
           "line": 74,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/backlog/features.md#backlog-entry-creation"
           ]
@@ -2844,6 +3050,7 @@
           "level": 3,
           "line": 84,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/second-brain/features.md#knowledge-capture"
           ]
@@ -2859,7 +3066,8 @@
           "slug": "defer",
           "level": 3,
           "line": 94,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -2872,7 +3080,8 @@
           "slug": "archive",
           "level": 3,
           "line": 104,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -2886,6 +3095,7 @@
           "level": 2,
           "line": 113,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/monitoring/features.md#inbox-and-queue-health"
           ]
@@ -2894,31 +3104,34 @@
       {
         "data": {
           "id": ".domain/inbox/flow.md",
-          "label": "Inbox",
+          "label": "Inbox (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/inbox/flow.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "flow"
         }
       },
       {
         "data": {
           "id": ".domain/inbox/model.md",
-          "label": "Inbox",
+          "label": "Inbox (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/inbox/model.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "model"
         }
       },
       {
         "data": {
           "id": ".domain/inbox/naming.md",
-          "label": "Inbox",
+          "label": "Inbox (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/inbox/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -2932,6 +3145,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "InboxItem"
           ],
@@ -2951,6 +3165,7 @@
           "level": 2,
           "line": 26,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "CaptureSource",
             "source"
@@ -2971,6 +3186,7 @@
           "level": 2,
           "line": 39,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Triage"
           ],
@@ -2990,6 +3206,7 @@
           "level": 2,
           "line": 52,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "RoutingTarget"
           ],
@@ -3009,6 +3226,7 @@
           "level": 2,
           "line": 64,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "InboxStatus"
           ],
@@ -3020,21 +3238,23 @@
       {
         "data": {
           "id": ".domain/monitoring/dependencies.md",
-          "label": "Monitoring & Dashboard",
+          "label": "Monitoring & Dashboard (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/monitoring/dependencies.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "dependencies"
         }
       },
       {
         "data": {
           "id": ".domain/monitoring/domain.md",
-          "label": "Monitoring & Dashboard",
+          "label": "Monitoring & Dashboard (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/monitoring/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -3048,6 +3268,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/inbox/domain.md#inbox-item",
@@ -3065,7 +3286,8 @@
           "slug": "signal-payload",
           "level": 3,
           "line": 41,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3078,7 +3300,8 @@
           "slug": "signal-type",
           "level": 3,
           "line": 53,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -3091,7 +3314,8 @@
           "slug": "signal-aggregation",
           "level": 2,
           "line": 72,
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain-service"
         }
       },
       {
@@ -3105,6 +3329,7 @@
           "level": 2,
           "line": 85,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".arc42/08-crosscutting-concepts.md#observability"
           ]
@@ -3121,6 +3346,7 @@
           "level": 2,
           "line": 100,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/monitoring/domain.md#dashboard",
             ".domain/inbox/domain.md#inbox-item"
@@ -3137,17 +3363,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 129,
-          "status": "draft"
+          "status": "draft",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/monitoring/features.md",
-          "label": "Monitoring & Dashboard",
+          "label": "Monitoring & Dashboard (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/monitoring/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -3161,6 +3389,7 @@
           "level": 2,
           "line": 11,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/backlog/features.md#projection"
           ]
@@ -3177,6 +3406,7 @@
           "level": 2,
           "line": 23,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/monitoring/features.md#progress-tracking"
           ]
@@ -3192,7 +3422,8 @@
           "slug": "multi-layer-dashboards",
           "level": 2,
           "line": 35,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -3205,7 +3436,8 @@
           "slug": "project-dashboard-application-insights",
           "level": 3,
           "line": 45,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -3219,6 +3451,7 @@
           "level": 3,
           "line": 55,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/backlog/features.md#projection"
           ]
@@ -3235,6 +3468,7 @@
           "level": 3,
           "line": 66,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/inbox/features.md#queue-health"
           ]
@@ -3251,6 +3485,7 @@
           "level": 3,
           "line": 77,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/sessions/features.md#session-inventory"
           ]
@@ -3267,6 +3502,7 @@
           "level": 2,
           "line": 88,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/repository-management/features.md#repository-health-scoring"
           ]
@@ -3283,6 +3519,7 @@
           "level": 2,
           "line": 99,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/capture/features.md#automation-capture"
           ]
@@ -3298,37 +3535,41 @@
           "slug": "team-monitoring",
           "level": 2,
           "line": 110,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
         "data": {
           "id": ".domain/monitoring/flow.md",
-          "label": "Monitoring & Dashboard",
+          "label": "Monitoring & Dashboard (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/monitoring/flow.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "flow"
         }
       },
       {
         "data": {
           "id": ".domain/monitoring/model.md",
-          "label": "Monitoring & Dashboard",
+          "label": "Monitoring & Dashboard (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/monitoring/model.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "model"
         }
       },
       {
         "data": {
           "id": ".domain/monitoring/naming.md",
-          "label": "Monitoring & Dashboard",
+          "label": "Monitoring & Dashboard (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/monitoring/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -3342,6 +3583,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "ProgressSignal",
             "Signal"
@@ -3362,6 +3604,7 @@
           "level": 2,
           "line": 25,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "SignalType"
           ],
@@ -3381,6 +3624,7 @@
           "level": 2,
           "line": 38,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "SignalPayload"
           ],
@@ -3400,6 +3644,7 @@
           "level": 2,
           "line": 50,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Dashboard"
           ],
@@ -3411,21 +3656,23 @@
       {
         "data": {
           "id": ".domain/productivity/dependencies.md",
-          "label": "Productivity",
+          "label": "Productivity (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/productivity/dependencies.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "dependencies"
         }
       },
       {
         "data": {
           "id": ".domain/productivity/domain.md",
-          "label": "Productivity",
+          "label": "Productivity (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/productivity/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -3439,6 +3686,7 @@
           "level": 2,
           "line": 21,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/backlog/domain.md#aiworklogged",
             ".domain/monitoring/domain.md#progress-signal"
@@ -3455,7 +3703,8 @@
           "slug": "productivity-entry",
           "level": 3,
           "line": 36,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -3468,7 +3717,8 @@
           "slug": "work-subject-ref",
           "level": 3,
           "line": 47,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3481,7 +3731,8 @@
           "slug": "productivity-metric",
           "level": 3,
           "line": 58,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3494,7 +3745,8 @@
           "slug": "activity-kind",
           "level": 3,
           "line": 69,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -3507,7 +3759,8 @@
           "slug": "ai-tool",
           "level": 3,
           "line": 80,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -3521,6 +3774,7 @@
           "level": 2,
           "line": 91,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/productivity/domain.md#productivity-ledger"
           ]
@@ -3537,6 +3791,7 @@
           "level": 2,
           "line": 107,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/productivity/domain.md#productivity-ledger",
             ".domain/monitoring/domain.md#progress-signal"
@@ -3553,17 +3808,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 139,
-          "status": "draft"
+          "status": "draft",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/productivity/features.md",
-          "label": "Productivity",
+          "label": "Productivity (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/productivity/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -3577,6 +3834,7 @@
           "level": 2,
           "line": 11,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/productivity/domain.md#productivity-ledger",
             ".domain/backlog/domain.md#aiworklogged"
@@ -3593,7 +3851,8 @@
           "slug": "ai-activity-capture",
           "level": 3,
           "line": 23,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -3606,7 +3865,8 @@
           "slug": "productivity-summaries",
           "level": 3,
           "line": 34,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -3619,7 +3879,8 @@
           "slug": "time-saved-estimates",
           "level": 3,
           "line": 44,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -3633,6 +3894,7 @@
           "level": 3,
           "line": 54,
           "status": "draft",
+          "kind": "sub-feature",
           "feature-flag": [
             "usage-metrics"
           ],
@@ -3652,6 +3914,7 @@
           "level": 3,
           "line": 70,
           "status": "idea",
+          "kind": "sub-feature",
           "related": [
             ".domain/productivity/features.md#ai-vendor-usage-import"
           ]
@@ -3668,6 +3931,7 @@
           "level": 2,
           "line": 95,
           "status": "draft",
+          "kind": "feature",
           "feature-flag": [
             "dashboard"
           ],
@@ -3679,31 +3943,34 @@
       {
         "data": {
           "id": ".domain/productivity/flow.md",
-          "label": "Productivity",
+          "label": "Productivity (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/productivity/flow.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "flow"
         }
       },
       {
         "data": {
           "id": ".domain/productivity/model.md",
-          "label": "Productivity",
+          "label": "Productivity (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/productivity/model.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "model"
         }
       },
       {
         "data": {
           "id": ".domain/productivity/naming.md",
-          "label": "Productivity",
+          "label": "Productivity (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/productivity/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -3717,6 +3984,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "ProductivityLedger"
           ],
@@ -3736,6 +4004,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "ProductivityEntry",
             "productivity_entry_id"
@@ -3756,6 +4025,7 @@
           "level": 2,
           "line": 35,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "AI productivity",
             "AI-assisted productivity"
@@ -3776,6 +4046,7 @@
           "level": 2,
           "line": 47,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "ActivityKind"
           ],
@@ -3795,6 +4066,7 @@
           "level": 2,
           "line": 58,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "WorkSubjectRef",
             "subject_ref"
@@ -3807,21 +4079,23 @@
       {
         "data": {
           "id": ".domain/repository-management/dependencies.md",
-          "label": "Repository Management",
+          "label": "Repository Management (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/repository-management/dependencies.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "dependencies"
         }
       },
       {
         "data": {
           "id": ".domain/repository-management/domain.md",
-          "label": "Repository Management",
+          "label": "Repository Management (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/repository-management/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -3835,6 +4109,7 @@
           "level": 2,
           "line": 22,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry",
             ".domain/monitoring/domain.md#progress-signal",
@@ -3852,7 +4127,8 @@
           "slug": "repository",
           "level": 3,
           "line": 38,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -3865,7 +4141,8 @@
           "slug": "package-manifest",
           "level": 3,
           "line": 53,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -3878,7 +4155,8 @@
           "slug": "package",
           "level": 3,
           "line": 64,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3891,7 +4169,8 @@
           "slug": "technology-stack-entry",
           "level": 3,
           "line": 74,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3904,7 +4183,8 @@
           "slug": "github-metadata",
           "level": 3,
           "line": 84,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3917,7 +4197,8 @@
           "slug": "health-details",
           "level": 3,
           "line": 94,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3930,7 +4211,8 @@
           "slug": "security-alert",
           "level": 3,
           "line": 105,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3943,7 +4225,8 @@
           "slug": "package-freshness-metric",
           "level": 3,
           "line": 116,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3956,7 +4239,8 @@
           "slug": "health-score-snapshot",
           "level": 3,
           "line": 126,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3969,7 +4253,8 @@
           "slug": "github-health-metric",
           "level": 3,
           "line": 136,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3982,7 +4267,8 @@
           "slug": "technology-snapshot",
           "level": 3,
           "line": 146,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -3995,7 +4281,8 @@
           "slug": "tech-baselines",
           "level": 3,
           "line": 155,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -4008,7 +4295,8 @@
           "slug": "portfolio-analytics",
           "level": 3,
           "line": 166,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -4021,7 +4309,8 @@
           "slug": "repository-type",
           "level": 3,
           "line": 176,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -4034,7 +4323,8 @@
           "slug": "severity",
           "level": 3,
           "line": 185,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -4048,6 +4338,7 @@
           "level": 2,
           "line": 194,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry",
             ".arc42/06-runtime-view.md#repository-baseline-scan-and-health-signal"
@@ -4065,6 +4356,7 @@
           "level": 2,
           "line": 208,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/backlog/domain.md#backlog-entry"
           ]
@@ -4080,17 +4372,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 221,
-          "status": "draft"
+          "status": "draft",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/repository-management/features.md",
-          "label": "Repository Management",
+          "label": "Repository Management (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/repository-management/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -4103,7 +4397,8 @@
           "slug": "repository-registration",
           "level": 2,
           "line": 11,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -4117,6 +4412,7 @@
           "level": 3,
           "line": 22,
           "status": "draft",
+          "kind": "sub-feature",
           "feature-flag": [
             "additional-repositories"
           ],
@@ -4137,6 +4433,7 @@
           "level": 3,
           "line": 39,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".design/color-scheme.md#band-identity-tokens",
             ".domain/roadmap/features.md#telling-one-project-from-another-at-a-glance"
@@ -4154,6 +4451,7 @@
           "level": 3,
           "line": 66,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/second-brain/features.md#repository-knowledge-areas"
           ]
@@ -4170,6 +4468,7 @@
           "level": 2,
           "line": 81,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/repository-management/features.md#repository-registration"
           ]
@@ -4186,6 +4485,7 @@
           "level": 2,
           "line": 93,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/repository-management/features.md#repository-registration"
           ],
@@ -4204,7 +4504,8 @@
           "slug": "github-integration",
           "level": 2,
           "line": 105,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -4218,6 +4519,7 @@
           "level": 3,
           "line": 116,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/backlog/features.md#projection"
           ]
@@ -4234,6 +4536,7 @@
           "level": 2,
           "line": 131,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/repository-management/features.md#package-and-dependency-tracking",
             ".domain/repository-management/features.md#github-integration"
@@ -4254,6 +4557,7 @@
           "level": 2,
           "line": 144,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/technology-stack/features.md#portfolio-wide-adoption-tracking"
           ]
@@ -4270,6 +4574,7 @@
           "level": 2,
           "line": 156,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/repository-management/features.md#repository-health-scoring"
           ],
@@ -4281,31 +4586,34 @@
       {
         "data": {
           "id": ".domain/repository-management/flow.md",
-          "label": "Repository Management",
+          "label": "Repository Management (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/repository-management/flow.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "flow"
         }
       },
       {
         "data": {
           "id": ".domain/repository-management/model.md",
-          "label": "Repository Management",
+          "label": "Repository Management (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/repository-management/model.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "model"
         }
       },
       {
         "data": {
           "id": ".domain/repository-management/naming.md",
-          "label": "Repository Management",
+          "label": "Repository Management (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/repository-management/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -4319,6 +4627,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "RepositoryRegistry"
           ],
@@ -4338,6 +4647,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Repository",
             "repo_id",
@@ -4359,6 +4669,7 @@
           "level": 2,
           "line": 37,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "TechBaselines"
           ],
@@ -4379,6 +4690,7 @@
           "level": 2,
           "line": 49,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "health_score",
             "HealthDetails",
@@ -4400,6 +4712,7 @@
           "level": 2,
           "line": 61,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "PackageManifest"
           ],
@@ -4411,11 +4724,12 @@
       {
         "data": {
           "id": ".domain/roadmap/dependencies.md",
-          "label": "Roadmap Planning",
+          "label": "Roadmap Planning (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/roadmap/dependencies.md",
           "status": "draft",
+          "kind": "dependencies",
           "related": [
             ".domain/context-map.md"
           ]
@@ -4424,11 +4738,12 @@
       {
         "data": {
           "id": ".domain/roadmap/domain.md",
-          "label": "Roadmap Planning",
+          "label": "Roadmap Planning (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/roadmap/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -4442,6 +4757,7 @@
           "level": 2,
           "line": 40,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/repository-management/domain.md#repository-registry",
@@ -4459,7 +4775,8 @@
           "slug": "roadmap-item",
           "level": 3,
           "line": 101,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -4472,7 +4789,8 @@
           "slug": "milestone",
           "level": 3,
           "line": 146,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -4485,7 +4803,8 @@
           "slug": "planned-window",
           "level": 3,
           "line": 165,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -4498,7 +4817,8 @@
           "slug": "repository-scope",
           "level": 3,
           "line": 180,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -4511,7 +4831,8 @@
           "slug": "dependency",
           "level": 3,
           "line": 196,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -4524,7 +4845,8 @@
           "slug": "planning-lane",
           "level": 3,
           "line": 212,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -4537,7 +4859,8 @@
           "slug": "backlog-entry-link",
           "level": 3,
           "line": 228,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -4550,7 +4873,8 @@
           "slug": "roadmap-tag",
           "level": 3,
           "line": 241,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -4563,7 +4887,8 @@
           "slug": "knowledge-ref",
           "level": 3,
           "line": 273,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -4576,7 +4901,8 @@
           "slug": "planning-priority",
           "level": 3,
           "line": 294,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -4589,7 +4915,8 @@
           "slug": "milestone-kind",
           "level": 3,
           "line": 310,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -4603,6 +4930,7 @@
           "level": 2,
           "line": 322,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/roadmap/domain.md#roadmap-plan"
           ]
@@ -4619,6 +4947,7 @@
           "level": 2,
           "line": 346,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/repository-management/naming.md#repository",
             ".domain/environment/domain.md#environment-shortcut-resolution"
@@ -4636,6 +4965,7 @@
           "level": 2,
           "line": 365,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/roadmap/domain.md#roadmap-plan",
             ".domain/backlog/domain.md#backlog-entry",
@@ -4654,6 +4984,7 @@
           "level": 2,
           "line": 398,
           "status": "draft",
+          "kind": "domain-event",
           "related": [
             ".domain/monitoring/domain.md#progress-signal"
           ]
@@ -4662,11 +4993,12 @@
       {
         "data": {
           "id": ".domain/roadmap/features.md",
-          "label": "Roadmap Planning",
+          "label": "Roadmap Planning (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/roadmap/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -4680,6 +5012,7 @@
           "level": 2,
           "line": 11,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/roadmap/domain.md#roadmap-plan"
           ]
@@ -4695,7 +5028,8 @@
           "slug": "planning-work-that-has-no-backlog-entry-yet",
           "level": 3,
           "line": 25,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -4709,6 +5043,7 @@
           "level": 3,
           "line": 36,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/backlog/domain.md#backlog-entry"
           ]
@@ -4725,6 +5060,7 @@
           "level": 3,
           "line": 49,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/roadmap/domain.md#milestone"
           ]
@@ -4741,6 +5077,7 @@
           "level": 3,
           "line": 64,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/roadmap/domain.md#milestone"
           ]
@@ -4757,6 +5094,7 @@
           "level": 2,
           "line": 80,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/roadmap/features.md#owning-a-stored-plan"
           ],
@@ -4776,6 +5114,7 @@
           "level": 2,
           "line": 107,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/roadmap/features.md#tagging-planned-work"
           ],
@@ -4797,6 +5136,7 @@
           "level": 2,
           "line": 137,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/roadmap/features.md#owning-a-stored-plan"
           ],
@@ -4816,6 +5156,7 @@
           "level": 2,
           "line": 152,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/roadmap/features.md#owning-a-stored-plan"
           ],
@@ -4835,7 +5176,8 @@
           "slug": "refusing-a-circular-plan",
           "level": 3,
           "line": 166,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -4849,6 +5191,7 @@
           "level": 3,
           "line": 177,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/roadmap/domain.md#plan-sequencing"
           ]
@@ -4865,6 +5208,7 @@
           "level": 2,
           "line": 191,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/roadmap/features.md#owning-a-stored-plan"
           ],
@@ -4884,7 +5228,8 @@
           "slug": "reading-the-plan-by-repository",
           "level": 3,
           "line": 204,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -4898,6 +5243,7 @@
           "level": 3,
           "line": 216,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/roadmap/domain.md#repository-scope-resolution"
           ]
@@ -4914,6 +5260,7 @@
           "level": 2,
           "line": 228,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/roadmap/features.md#dependency-planning",
             ".domain/roadmap/features.md#repository-scoped-planning"
@@ -4934,7 +5281,8 @@
           "slug": "rescheduling-without-a-mouse",
           "level": 3,
           "line": 242,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -4948,6 +5296,7 @@
           "level": 3,
           "line": 253,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".design/color-scheme.md#band-identity-tokens",
             ".domain/repository-management/features.md#repository-identity-colour"
@@ -4965,6 +5314,7 @@
           "level": 2,
           "line": 283,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/roadmap/features.md#owning-a-stored-plan"
           ],
@@ -4985,6 +5335,7 @@
           "level": 3,
           "line": 301,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/roadmap/features.md#refusing-a-circular-plan"
           ]
@@ -5000,7 +5351,8 @@
           "slug": "refusing-an-edit-rather-than-half-applying-it",
           "level": 3,
           "line": 315,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
@@ -5014,6 +5366,7 @@
           "level": 2,
           "line": 326,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/roadmap/features.md#owning-a-stored-plan"
           ],
@@ -5026,11 +5379,12 @@
       {
         "data": {
           "id": ".domain/roadmap/flow.md",
-          "label": "Roadmap Planning",
+          "label": "Roadmap Planning (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/roadmap/flow.md",
           "status": "draft",
+          "kind": "flow",
           "related": [
             ".domain/roadmap/domain.md#roadmap-plan",
             ".domain/roadmap/domain.md#plan-sequencing"
@@ -5040,11 +5394,12 @@
       {
         "data": {
           "id": ".domain/roadmap/model.md",
-          "label": "Roadmap Planning",
+          "label": "Roadmap Planning (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/roadmap/model.md",
           "status": "draft",
+          "kind": "model",
           "related": [
             ".domain/roadmap/domain.md#roadmap-plan"
           ]
@@ -5053,11 +5408,12 @@
       {
         "data": {
           "id": ".domain/roadmap/naming.md",
-          "label": "Roadmap Planning",
+          "label": "Roadmap Planning (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/roadmap/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -5071,6 +5427,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "RoadmapPlan",
             "plan",
@@ -5092,6 +5449,7 @@
           "level": 2,
           "line": 26,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "RoadmapItem",
             "roadmap_item_id",
@@ -5114,6 +5472,7 @@
           "level": 2,
           "line": 42,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Milestone",
             "roadmap_milestone_id",
@@ -5135,6 +5494,7 @@
           "level": 2,
           "line": 55,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "RoadmapNodeId",
             "node",
@@ -5156,6 +5516,7 @@
           "level": 2,
           "line": 68,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "PlannedWindow",
             "start",
@@ -5178,6 +5539,7 @@
           "level": 2,
           "line": 81,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "PlanningPriority",
             "planning priority"
@@ -5199,6 +5561,7 @@
           "level": 2,
           "line": 98,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "RepositoryScope",
             "repository_aliases",
@@ -5222,6 +5585,7 @@
           "level": 2,
           "line": 112,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Dependency",
             "depends_on",
@@ -5246,6 +5610,7 @@
           "level": 2,
           "line": 125,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "PlanningLane",
             "lane",
@@ -5267,6 +5632,7 @@
           "level": 2,
           "line": 138,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "BacklogEntryLink",
             "backlog_entry_id"
@@ -5288,6 +5654,7 @@
           "level": 2,
           "line": 151,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "RoadmapTag",
             "tag",
@@ -5311,6 +5678,7 @@
           "level": 2,
           "line": 168,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "KnowledgeRef",
             "knowledge_refs",
@@ -5333,6 +5701,7 @@
           "level": 2,
           "line": 182,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "effort",
             "story points",
@@ -5356,6 +5725,7 @@
           "level": 2,
           "line": 199,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "contradiction",
             "conflicting dates"
@@ -5368,21 +5738,23 @@
       {
         "data": {
           "id": ".domain/second-brain/dependencies.md",
-          "label": "Second Brain",
+          "label": "Second Brain (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/second-brain/dependencies.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "dependencies"
         }
       },
       {
         "data": {
           "id": ".domain/second-brain/domain.md",
-          "label": "Second Brain",
+          "label": "Second Brain (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/second-brain/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -5396,6 +5768,7 @@
           "level": 2,
           "line": 22,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
@@ -5412,7 +5785,8 @@
           "slug": "project-ref",
           "level": 3,
           "line": 54,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -5425,7 +5799,8 @@
           "slug": "backlog-link",
           "level": 3,
           "line": 64,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -5438,7 +5813,8 @@
           "slug": "tag",
           "level": 3,
           "line": 74,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -5451,7 +5827,8 @@
           "slug": "roadmap-contribution",
           "level": 3,
           "line": 91,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -5464,7 +5841,8 @@
           "slug": "para-category",
           "level": 3,
           "line": 114,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -5477,7 +5855,8 @@
           "slug": "note-source",
           "level": 3,
           "line": 128,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -5491,6 +5870,7 @@
           "level": 2,
           "line": 137,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/backlog/domain.md#backlog-entry"
           ]
@@ -5506,17 +5886,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 151,
-          "status": "draft"
+          "status": "draft",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/second-brain/features.md",
-          "label": "Second Brain",
+          "label": "Second Brain (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/second-brain/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -5530,6 +5912,7 @@
           "level": 2,
           "line": 11,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/inbox/features.md#routing"
           ]
@@ -5546,6 +5929,7 @@
           "level": 2,
           "line": 23,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/second-brain/features.md#knowledge-capture"
           ]
@@ -5561,7 +5945,8 @@
           "slug": "cross-project-linking",
           "level": 2,
           "line": 34,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -5575,6 +5960,7 @@
           "level": 2,
           "line": 44,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/second-brain/domain.md#tag",
             ".domain/second-brain/domain.md#roadmap-contribution"
@@ -5592,6 +5978,7 @@
           "level": 2,
           "line": 64,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/backlog/features.md#search-filter-and-organize"
           ]
@@ -5608,6 +5995,7 @@
           "level": 2,
           "line": 76,
           "status": "draft",
+          "kind": "feature",
           "feature-flag": [
             "repository-knowledge"
           ],
@@ -5628,6 +6016,7 @@
           "level": 3,
           "line": 95,
           "status": "draft",
+          "kind": "sub-feature",
           "feature-flag": [
             "knowledge-sections"
           ]
@@ -5643,37 +6032,41 @@
           "slug": "rendered-knowledge-documents",
           "level": 3,
           "line": 109,
-          "status": "draft"
+          "status": "draft",
+          "kind": "sub-feature"
         }
       },
       {
         "data": {
           "id": ".domain/second-brain/flow.md",
-          "label": "Second Brain",
+          "label": "Second Brain (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/second-brain/flow.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "flow"
         }
       },
       {
         "data": {
           "id": ".domain/second-brain/model.md",
-          "label": "Second Brain",
+          "label": "Second Brain (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/second-brain/model.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "model"
         }
       },
       {
         "data": {
           "id": ".domain/second-brain/naming.md",
-          "label": "Second Brain",
+          "label": "Second Brain (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/second-brain/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -5687,6 +6080,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "KnowledgeNote",
             "Note"
@@ -5707,6 +6101,7 @@
           "level": 2,
           "line": 25,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "PARACategory"
           ],
@@ -5726,6 +6121,7 @@
           "level": 2,
           "line": 37,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "BacklogLink",
             "backlog_entry_id"
@@ -5747,6 +6143,7 @@
           "level": 2,
           "line": 49,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "ProjectRef",
             "repo_id"
@@ -5767,6 +6164,7 @@
           "level": 2,
           "line": 61,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "effort",
             "story points",
@@ -5789,6 +6187,7 @@
           "level": 2,
           "line": 77,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "roadmap",
             "roadmap contribution",
@@ -5803,11 +6202,12 @@
       {
         "data": {
           "id": ".domain/sessions/dependencies.md",
-          "label": "Sessions",
+          "label": "Sessions (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/sessions/dependencies.md",
           "status": "active",
+          "kind": "dependencies",
           "related": [
             ".domain/context-map.md",
             ".domain/dev-pc-management/domain.md#machine-registry"
@@ -5817,11 +6217,12 @@
       {
         "data": {
           "id": ".domain/sessions/domain.md",
-          "label": "Sessions",
+          "label": "Sessions (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/sessions/domain.md",
-          "status": "active"
+          "status": "active",
+          "kind": "domain"
         }
       },
       {
@@ -5835,6 +6236,7 @@
           "level": 2,
           "line": 41,
           "status": "active",
+          "kind": "aggregate",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
             ".domain/sessions/dependencies.md"
@@ -5851,7 +6253,8 @@
           "slug": "agent-session",
           "level": 3,
           "line": 73,
-          "status": "active"
+          "status": "active",
+          "kind": "entity"
         }
       },
       {
@@ -5864,7 +6267,8 @@
           "slug": "session-identity",
           "level": 3,
           "line": 92,
-          "status": "active"
+          "status": "active",
+          "kind": "value-object"
         }
       },
       {
@@ -5877,7 +6281,8 @@
           "slug": "working-location",
           "level": 3,
           "line": 103,
-          "status": "active"
+          "status": "active",
+          "kind": "value-object"
         }
       },
       {
@@ -5890,7 +6295,8 @@
           "slug": "activity-window",
           "level": 3,
           "line": 117,
-          "status": "active"
+          "status": "active",
+          "kind": "value-object"
         }
       },
       {
@@ -5903,7 +6309,8 @@
           "slug": "session-activity-stream",
           "level": 3,
           "line": 129,
-          "status": "active"
+          "status": "active",
+          "kind": "value-object"
         }
       },
       {
@@ -5916,7 +6323,8 @@
           "slug": "session-activity-entry",
           "level": 3,
           "line": 144,
-          "status": "active"
+          "status": "active",
+          "kind": "value-object"
         }
       },
       {
@@ -5929,7 +6337,8 @@
           "slug": "session-enrichment-summary",
           "level": 3,
           "line": 159,
-          "status": "active"
+          "status": "active",
+          "kind": "value-object"
         }
       },
       {
@@ -5942,7 +6351,8 @@
           "slug": "session-catalog",
           "level": 3,
           "line": 174,
-          "status": "active"
+          "status": "active",
+          "kind": "value-object"
         }
       },
       {
@@ -5955,7 +6365,8 @@
           "slug": "agent",
           "level": 3,
           "line": 189,
-          "status": "active"
+          "status": "active",
+          "kind": "enum"
         }
       },
       {
@@ -5968,7 +6379,8 @@
           "slug": "session-state",
           "level": 3,
           "line": 202,
-          "status": "active"
+          "status": "active",
+          "kind": "enum"
         }
       },
       {
@@ -5981,7 +6393,8 @@
           "slug": "reporting-capability",
           "level": 3,
           "line": 220,
-          "status": "active"
+          "status": "active",
+          "kind": "enum"
         }
       },
       {
@@ -5995,6 +6408,7 @@
           "level": 2,
           "line": 238,
           "status": "active",
+          "kind": "domain-service",
           "related": [
             ".domain/sessions/domain.md#session-state",
             ".domain/sessions/flow.md"
@@ -6012,6 +6426,7 @@
           "level": 2,
           "line": 259,
           "status": "active",
+          "kind": "domain-service",
           "related": [
             ".domain/sessions/domain.md#session-log",
             ".domain/sessions/features.md#session-grouping"
@@ -6029,6 +6444,7 @@
           "level": 2,
           "line": 285,
           "status": "proposed",
+          "kind": "domain-service",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
             ".domain/sessions/flow.md",
@@ -6047,6 +6463,7 @@
           "level": 2,
           "line": 305,
           "status": "proposed",
+          "kind": "domain-service",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
             ".domain/sessions/flow.md",
@@ -6064,7 +6481,8 @@
           "slug": "shared-value-objects",
           "level": 2,
           "line": 325,
-          "status": "active"
+          "status": "active",
+          "kind": "shared-value-objects"
         }
       },
       {
@@ -6077,17 +6495,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 338,
-          "status": "active"
+          "status": "active",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/sessions/features.md",
-          "label": "Sessions",
+          "label": "Sessions (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/sessions/features.md",
-          "status": "active"
+          "status": "active",
+          "kind": "features"
         }
       },
       {
@@ -6101,6 +6521,7 @@
           "level": 2,
           "line": 11,
           "status": "active",
+          "kind": "feature",
           "related": [
             ".domain/sessions/domain.md#session-log"
           ]
@@ -6116,7 +6537,8 @@
           "slug": "live-and-past-sessions-together",
           "level": 3,
           "line": 26,
-          "status": "active"
+          "status": "active",
+          "kind": "sub-feature"
         }
       },
       {
@@ -6130,6 +6552,7 @@
           "level": 3,
           "line": 39,
           "status": "active",
+          "kind": "sub-feature",
           "related": [
             ".domain/sessions/domain.md#working-location"
           ]
@@ -6145,7 +6568,8 @@
           "slug": "re-read-on-request",
           "level": 3,
           "line": 56,
-          "status": "active"
+          "status": "active",
+          "kind": "sub-feature"
         }
       },
       {
@@ -6159,6 +6583,7 @@
           "level": 2,
           "line": 70,
           "status": "active",
+          "kind": "feature",
           "related": [
             ".domain/sessions/domain.md#session-grouping"
           ]
@@ -6175,6 +6600,7 @@
           "level": 3,
           "line": 81,
           "status": "active",
+          "kind": "sub-feature",
           "related": [
             ".domain/sessions/naming.md#environment"
           ]
@@ -6190,7 +6616,8 @@
           "slug": "group-by-agent",
           "level": 3,
           "line": 96,
-          "status": "active"
+          "status": "active",
+          "kind": "sub-feature"
         }
       },
       {
@@ -6203,7 +6630,8 @@
           "slug": "grouping-never-hides-a-session",
           "level": 3,
           "line": 106,
-          "status": "active"
+          "status": "active",
+          "kind": "sub-feature"
         }
       },
       {
@@ -6217,6 +6645,7 @@
           "level": 2,
           "line": 117,
           "status": "active",
+          "kind": "feature",
           "related": [
             ".domain/sessions/domain.md#session-catalog"
           ]
@@ -6232,7 +6661,8 @@
           "slug": "name-the-source-that-could-not-be-read",
           "level": 3,
           "line": 128,
-          "status": "active"
+          "status": "active",
+          "kind": "sub-feature"
         }
       },
       {
@@ -6246,6 +6676,7 @@
           "level": 3,
           "line": 141,
           "status": "active",
+          "kind": "sub-feature",
           "related": [
             ".domain/sessions/naming.md#session-limit"
           ]
@@ -6262,6 +6693,7 @@
           "level": 2,
           "line": 157,
           "status": "proposed",
+          "kind": "feature",
           "depends-on": [
             ".domain/sessions/features.md#session-inventory"
           ],
@@ -6282,6 +6714,7 @@
           "level": 3,
           "line": 174,
           "status": "proposed",
+          "kind": "sub-feature",
           "related": [
             ".domain/sessions/domain.md#session-activity-publishing",
             ".domain/sessions/naming.md#collections-mcp"
@@ -6299,6 +6732,7 @@
           "level": 3,
           "line": 189,
           "status": "proposed",
+          "kind": "sub-feature",
           "related": [
             ".domain/sessions/domain.md#session-enrichment-summary",
             ".domain/sessions/domain.md#session-activity-entry"
@@ -6316,6 +6750,7 @@
           "level": 3,
           "line": 204,
           "status": "proposed",
+          "kind": "sub-feature",
           "related": [
             ".domain/sessions/domain.md#reporting-capability"
           ]
@@ -6331,17 +6766,19 @@
           "slug": "turn-the-area-off",
           "level": 2,
           "line": 219,
-          "status": "active"
+          "status": "active",
+          "kind": "feature"
         }
       },
       {
         "data": {
           "id": ".domain/sessions/flow.md",
-          "label": "Sessions",
+          "label": "Sessions (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/sessions/flow.md",
           "status": "active",
+          "kind": "flow",
           "related": [
             ".domain/sessions/domain.md#liveness-assessment",
             ".domain/sessions/domain.md#session-activity-publishing",
@@ -6352,11 +6789,12 @@
       {
         "data": {
           "id": ".domain/sessions/model.md",
-          "label": "Sessions",
+          "label": "Sessions (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/sessions/model.md",
           "status": "active",
+          "kind": "model",
           "related": [
             ".domain/sessions/domain.md"
           ]
@@ -6365,11 +6803,12 @@
       {
         "data": {
           "id": ".domain/sessions/naming.md",
-          "label": "Sessions",
+          "label": "Sessions (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/sessions/naming.md",
-          "status": "active"
+          "status": "active",
+          "kind": "naming"
         }
       },
       {
@@ -6383,6 +6822,7 @@
           "level": 2,
           "line": 13,
           "status": "active",
+          "kind": "term",
           "aliases": [
             "AgentSession",
             "session",
@@ -6404,6 +6844,7 @@
           "level": 2,
           "line": 33,
           "status": "active",
+          "kind": "term",
           "aliases": [
             "AgentSessionKind",
             "agent",
@@ -6425,6 +6866,7 @@
           "level": 2,
           "line": 48,
           "status": "active",
+          "kind": "term",
           "aliases": [
             "SessionIdentity"
           ],
@@ -6444,6 +6886,7 @@
           "level": 2,
           "line": 63,
           "status": "active",
+          "kind": "term",
           "aliases": [
             "environment",
             "machine_name"
@@ -6465,6 +6908,7 @@
           "level": 2,
           "line": 87,
           "status": "active",
+          "kind": "term",
           "aliases": [
             "AgentSessionState",
             "state"
@@ -6485,6 +6929,7 @@
           "level": 2,
           "line": 102,
           "status": "active",
+          "kind": "term",
           "aliases": [
             "StaleAfter"
           ],
@@ -6504,6 +6949,7 @@
           "level": 2,
           "line": 119,
           "status": "active",
+          "kind": "term",
           "aliases": [
             "WorkingLocation",
             "cwd",
@@ -6525,6 +6971,7 @@
           "level": 2,
           "line": 136,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "SessionActivityStream",
             "activity stream",
@@ -6547,6 +6994,7 @@
           "level": 2,
           "line": 152,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "SessionActivityEntry",
             "event_id",
@@ -6569,6 +7017,7 @@
           "level": 2,
           "line": 167,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "SessionEnrichmentSummary",
             "latest activity",
@@ -6590,6 +7039,7 @@
           "level": 2,
           "line": 183,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "collections mcp",
             "collection store",
@@ -6611,6 +7061,7 @@
           "level": 2,
           "line": 198,
           "status": "active",
+          "kind": "term",
           "aliases": [
             "AgentSessionCatalog"
           ],
@@ -6630,6 +7081,7 @@
           "level": 2,
           "line": 213,
           "status": "active",
+          "kind": "term",
           "aliases": [
             "AgentSessionLimits",
             "PerAgent"
@@ -6650,6 +7102,7 @@
           "level": 2,
           "line": 232,
           "status": "proposed",
+          "kind": "term",
           "aliases": [
             "reporting status",
             "capability",
@@ -6672,6 +7125,7 @@
           "level": 2,
           "line": 247,
           "status": "active",
+          "kind": "term",
           "aliases": [
             "AgentSessionGrouping"
           ],
@@ -6683,21 +7137,23 @@
       {
         "data": {
           "id": ".domain/technology-stack/dependencies.md",
-          "label": "Technology Stack",
+          "label": "Technology Stack (dependencies)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/technology-stack/dependencies.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "dependencies"
         }
       },
       {
         "data": {
           "id": ".domain/technology-stack/domain.md",
-          "label": "Technology Stack",
+          "label": "Technology Stack (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/technology-stack/domain.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain"
         }
       },
       {
@@ -6711,6 +7167,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
             ".domain/repository-management/domain.md#repository-registry",
@@ -6728,7 +7185,8 @@
           "slug": "technology",
           "level": 3,
           "line": 39,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -6741,7 +7199,8 @@
           "slug": "breaking-change",
           "level": 3,
           "line": 54,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -6754,7 +7213,8 @@
           "slug": "deprecated-tech-in-use",
           "level": 3,
           "line": 65,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -6767,7 +7227,8 @@
           "slug": "migration-approval",
           "level": 3,
           "line": 76,
-          "status": "draft"
+          "status": "draft",
+          "kind": "entity"
         }
       },
       {
@@ -6780,7 +7241,8 @@
           "slug": "technology-baseline",
           "level": 3,
           "line": 87,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -6793,7 +7255,8 @@
           "slug": "version-constraint",
           "level": 3,
           "line": 99,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -6806,7 +7269,8 @@
           "slug": "deprecation-notice",
           "level": 3,
           "line": 109,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -6819,7 +7283,8 @@
           "slug": "adoption-snapshot",
           "level": 3,
           "line": 120,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -6832,7 +7297,8 @@
           "slug": "version-usage-metric",
           "level": 3,
           "line": 131,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -6845,7 +7311,8 @@
           "slug": "adoption-trend",
           "level": 3,
           "line": 141,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -6858,7 +7325,8 @@
           "slug": "compatibility-matrix",
           "level": 3,
           "line": 151,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -6871,7 +7339,8 @@
           "slug": "adoption-analytics",
           "level": 3,
           "line": 161,
-          "status": "draft"
+          "status": "draft",
+          "kind": "value-object"
         }
       },
       {
@@ -6884,7 +7353,8 @@
           "slug": "tech-status",
           "level": 3,
           "line": 171,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -6897,7 +7367,8 @@
           "slug": "tech-category",
           "level": 3,
           "line": 180,
-          "status": "draft"
+          "status": "draft",
+          "kind": "enum"
         }
       },
       {
@@ -6911,6 +7382,7 @@
           "level": 2,
           "line": 189,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/monitoring/domain.md#progress-signal"
           ]
@@ -6926,7 +7398,8 @@
           "slug": "deprecation-management",
           "level": 2,
           "line": 203,
-          "status": "draft"
+          "status": "draft",
+          "kind": "domain-service"
         }
       },
       {
@@ -6939,17 +7412,19 @@
           "slug": "shared-enums",
           "level": 2,
           "line": 216,
-          "status": "draft"
+          "status": "draft",
+          "kind": "shared-enums"
         }
       },
       {
         "data": {
           "id": ".domain/technology-stack/features.md",
-          "label": "Technology Stack",
+          "label": "Technology Stack (features)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/technology-stack/features.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "features"
         }
       },
       {
@@ -6962,7 +7437,8 @@
           "slug": "technology-baseline-definition",
           "level": 2,
           "line": 11,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -6976,6 +7452,7 @@
           "level": 2,
           "line": 22,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/technology-stack/features.md#technology-baseline-definition"
           ]
@@ -6992,6 +7469,7 @@
           "level": 2,
           "line": 34,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/dev-pc-management/features.md#configuration-and-tool-version-tracking",
             ".domain/repository-management/features.md#technology-stack-inventory"
@@ -7009,6 +7487,7 @@
           "level": 2,
           "line": 45,
           "status": "draft",
+          "kind": "feature",
           "depends-on": [
             ".domain/technology-stack/features.md#portfolio-wide-adoption-tracking"
           ],
@@ -7027,7 +7506,8 @@
           "slug": "technology-versioning-standards",
           "level": 2,
           "line": 58,
-          "status": "draft"
+          "status": "draft",
+          "kind": "feature"
         }
       },
       {
@@ -7041,6 +7521,7 @@
           "level": 2,
           "line": 69,
           "status": "draft",
+          "kind": "feature",
           "related": [
             ".domain/monitoring/features.md#multi-repo-scanning"
           ]
@@ -7049,31 +7530,34 @@
       {
         "data": {
           "id": ".domain/technology-stack/flow.md",
-          "label": "Technology Stack",
+          "label": "Technology Stack (flow)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/technology-stack/flow.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "flow"
         }
       },
       {
         "data": {
           "id": ".domain/technology-stack/model.md",
-          "label": "Technology Stack",
+          "label": "Technology Stack (model)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/technology-stack/model.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "model"
         }
       },
       {
         "data": {
           "id": ".domain/technology-stack/naming.md",
-          "label": "Technology Stack",
+          "label": "Technology Stack (naming)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/technology-stack/naming.md",
-          "status": "draft"
+          "status": "draft",
+          "kind": "naming"
         }
       },
       {
@@ -7087,6 +7571,7 @@
           "level": 2,
           "line": 13,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "TechnologyRegistry"
           ],
@@ -7106,6 +7591,7 @@
           "level": 2,
           "line": 25,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "Technology",
             "technology_id"
@@ -7126,6 +7612,7 @@
           "level": 2,
           "line": 36,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "TechnologyBaseline",
             "TeamToolsBaseline",
@@ -7147,6 +7634,7 @@
           "level": 2,
           "line": 52,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "TechStatus"
           ],
@@ -7166,6 +7654,7 @@
           "level": 2,
           "line": 64,
           "status": "draft",
+          "kind": "term",
           "aliases": [
             "DeprecationNotice"
           ],

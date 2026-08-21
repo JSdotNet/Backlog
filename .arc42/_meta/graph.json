@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedBy": ".github/tools/knowledge-meta/build.mjs",
   "scope": ".arc42",
   "sources": [
@@ -16,6 +16,17 @@
     "nodesByType": {
       "file": 17,
       "chapter": 65
+    },
+    "nodesByKind": {
+      "none": 63,
+      "context-map": 1,
+      "aggregate": 9,
+      "domain-service": 2,
+      "sub-feature": 2,
+      "tool": 2,
+      "format": 1,
+      "feature": 1,
+      "domain": 1
     },
     "nodesByStatus": {
       "active": 53,
@@ -990,11 +1001,12 @@
       {
         "data": {
           "id": ".domain/context-map.md",
-          "label": "Backlog",
+          "label": "Backlog (context-map)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/context-map.md",
           "status": "draft",
+          "kind": "context-map",
           "outOfScope": true
         }
       },
@@ -1009,6 +1021,7 @@
           "level": 2,
           "line": 23,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/inbox/domain.md#inbox-item"
           ],
@@ -1026,6 +1039,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/capture/domain.md#capture",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
@@ -1044,6 +1058,7 @@
           "level": 2,
           "line": 84,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
             ".arc42/06-runtime-view.md#mobile-capture-and-sync",
@@ -1063,6 +1078,7 @@
           "level": 3,
           "line": 130,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/capture/domain.md#source-adapter"
           ],
@@ -1143,6 +1159,7 @@
           "level": 2,
           "line": 76,
           "status": "draft",
+          "kind": "feature",
           "feature-flag": [
             "repository-knowledge"
           ],
@@ -1164,6 +1181,7 @@
           "level": 3,
           "line": 69,
           "status": "draft",
+          "kind": "sub-feature",
           "related": [
             ".domain/technology-stack/features.md#technology-baseline-definition"
           ],
@@ -1181,6 +1199,7 @@
           "level": 2,
           "line": 365,
           "status": "draft",
+          "kind": "domain-service",
           "related": [
             ".domain/roadmap/domain.md#roadmap-plan",
             ".domain/backlog/domain.md#backlog-entry",
@@ -1200,6 +1219,7 @@
           "level": 2,
           "line": 22,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
@@ -1218,6 +1238,7 @@
           "level": 2,
           "line": 22,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
@@ -1236,6 +1257,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/inbox/domain.md#inbox-item",
@@ -1255,6 +1277,7 @@
           "level": 2,
           "line": 30,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry",
             ".domain/monitoring/domain.md#progress-signal",
@@ -1274,6 +1297,7 @@
           "level": 2,
           "line": 41,
           "status": "active",
+          "kind": "aggregate",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
             ".domain/sessions/dependencies.md"
@@ -1292,6 +1316,7 @@
           "level": 2,
           "line": 22,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry",
             ".domain/monitoring/domain.md#progress-signal",
@@ -1311,6 +1336,7 @@
           "level": 2,
           "line": 24,
           "status": "draft",
+          "kind": "aggregate",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
             ".domain/repository-management/domain.md#repository-registry",
@@ -1322,11 +1348,12 @@
       {
         "data": {
           "id": ".domain/backlog/domain.md",
-          "label": "Backlog Management",
+          "label": "Backlog Management (domain)",
           "type": "file",
           "folder": "domain",
           "path": ".domain/backlog/domain.md",
           "status": "draft",
+          "kind": "domain",
           "outOfScope": true
         }
       }

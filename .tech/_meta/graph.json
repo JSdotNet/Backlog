@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedBy": ".github/tools/knowledge-meta/build.mjs",
   "scope": ".tech",
   "sources": [
@@ -17,6 +17,19 @@
       "file": 10,
       "chapter": 56
     },
+    "nodesByKind": {
+      "none": 19,
+      "framework": 10,
+      "platform": 3,
+      "service": 8,
+      "library": 3,
+      "tool": 12,
+      "format": 5,
+      "runtime": 2,
+      "language": 2,
+      "protocol": 1,
+      "sub-feature": 1
+    },
     "nodesByStatus": {
       "candidate": 32,
       "adopted": 21,
@@ -30,7 +43,238 @@
       "depends-on": 44
     }
   },
-  "problems": [],
+  "problems": [
+    {
+      "severity": "warning",
+      "path": ".tech/cloud.md",
+      "message": ".tech/cloud.md#aspnet-core-minimal-apis uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/cloud.md",
+      "message": ".tech/cloud.md#net-aspire uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/cloud.md",
+      "message": ".tech/cloud.md#azure-container-apps uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/cloud.md",
+      "message": ".tech/cloud.md#azure-cosmos-db uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/cloud.md",
+      "message": ".tech/cloud.md#azure-key-vault uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/cloud.md",
+      "message": ".tech/cloud.md#firebase-cloud-messaging uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/desktop.md",
+      "message": ".tech/desktop.md#windows uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/desktop.md",
+      "message": ".tech/desktop.md#windows-app-sdk uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/desktop.md",
+      "message": ".tech/desktop.md#winui-3 uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/desktop.md",
+      "message": ".tech/desktop.md#local-markdown-and-json-store uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/desktop.md",
+      "message": ".tech/desktop.md#background-workers uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/desktop.md",
+      "message": ".tech/desktop.md#github-cli uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/desktop.md",
+      "message": ".tech/desktop.md#msix-packaging uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/desktop.md",
+      "message": ".tech/desktop.md#app-installer-appinstaller uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/ide.md",
+      "message": ".tech/ide.md#vs-code-extension-api uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/ide.md",
+      "message": ".tech/ide.md#vs-code-webview-ui uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/ide.md",
+      "message": ".tech/ide.md#visual-studio-extensibility uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/ide.md",
+      "message": ".tech/ide.md#wpf uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/mobile.md",
+      "message": ".tech/mobile.md#android uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/mobile.md",
+      "message": ".tech/mobile.md#local-offline-store uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/mobile.md",
+      "message": ".tech/mobile.md#apk-packaging uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#markdown uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#json uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#yaml uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#mermaid uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#net-runtime uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#c-language uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#nodejs uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#typescript uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#net-maui uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#blazor-hybrid uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#github-platform uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#anthropic-claude-platform uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/shared.md",
+      "message": ".tech/shared.md#github-copilot-usage-apis uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#git uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#net-sdk uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#nuget uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#npm uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#github-actions uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#codeql uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#dependabot uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#github-copilot-cli uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#model-context-protocol-servers uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#knowledge-base-plugin uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#knowledge-canvas-extension uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    },
+    {
+      "severity": "warning",
+      "path": ".tech/tooling.md",
+      "message": ".tech/tooling.md#aspire-cli uses `kind`, which has been renamed to `type`. Rename the field; `kind` still works but is no longer documented."
+    }
+  ],
   "elements": {
     "nodes": [
       {
@@ -1230,6 +1474,7 @@
           "level": 3,
           "line": 54,
           "status": "draft",
+          "kind": "sub-feature",
           "feature-flag": [
             "usage-metrics"
           ],
