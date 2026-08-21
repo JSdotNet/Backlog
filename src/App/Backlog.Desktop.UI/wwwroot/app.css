@@ -467,10 +467,18 @@ h1, h2, h3 {
 
 /* And the body is what gets the leftover. TaskPanel is a column of regions; every
    one of them is as tall as its contents except this, which is why it is the one
-   that grows. */
+   that grows.
+
+   Grow but never shrink, here and all the way down to the editor. Inside a box
+   that scrolls, an item that may shrink below its contents is an item that will:
+   the panel hands out less height than the regions need in a short window, each
+   of these collapses towards zero, and the editor's own six rows end up outside
+   every ancestor that could have reported them — so the panel had nothing to
+   scroll and the writing was simply gone below about 800px of window. The floor is
+   what the content asks for; the ceiling is what is left over; the panel above
+   scrolls when those two disagree. */
 .entry-detail__panel .task-panel__body {
-    flex: 1 1 auto;
-    min-height: 0;
+    flex: 1 0 auto;
 }
 
 /*
@@ -523,12 +531,12 @@ h1, h2, h3 {
     flex-direction: column;
     gap: var(--spacing-sm);
     min-width: 0;
-    min-height: 0;
 
     /* The body is the part of the panel with room to grow, so it takes the room:
        the view switch stays where it is and whichever reading is under it fills
-       the rest of the column. */
-    flex: 1 1 auto;
+       the rest of the column. Never less than the reading needs — see the note on
+       task-panel__body above. */
+    flex: 1 0 auto;
 }
 
 /* The strip keeps its own height; the reading under it takes the rest. */
@@ -541,9 +549,8 @@ h1, h2, h3 {
 .entry-detail__view:not([hidden]) {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
+    flex: 1 0 auto;
     min-width: 0;
-    min-height: 0;
     gap: var(--spacing-sm);
 }
 
@@ -560,20 +567,17 @@ h1, h2, h3 {
    scrolls when the two disagree. */
 .entry-detail__note {
     min-width: 0;
-    flex: 1 1 auto;
-    min-height: 0;
+    flex: 1 0 auto;
 }
 
 .entry-detail__note .markdown-editor__surface {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 0;
+    flex: 1 0 auto;
 }
 
 .entry-detail__note .markdown-editor__grow {
-    flex: 1 1 auto;
-    min-height: 0;
+    flex: 1 0 auto;
 }
 
 /* The editor is as tall as the panel gives it, so a drag handle offering to make

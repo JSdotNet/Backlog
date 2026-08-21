@@ -599,6 +599,14 @@ public sealed class GlobalPaneMarkupTests
     /// window the pair of them left a few hundred pixels of nothing underneath.
     /// </para>
     /// <para>
+    /// Two halves to the chain, and they want opposite things. Above the scroller
+    /// every box must be allowed to be shorter than its contents, or there is
+    /// nothing for the panel to scroll. Inside it every box must not, or a short
+    /// window collapses the regions towards zero and the editor's own rows end up
+    /// outside every ancestor that could have reported them — which leaves the
+    /// panel with nothing to scroll and the writing off the bottom of it.
+    /// </para>
+    /// <para>
     /// Each link is pinned rather than the outcome, because the outcome is a
     /// rendered height and this is a stylesheet. What would break it is any one of
     /// these going missing, and the one that did was the first.
@@ -626,20 +634,32 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("min-height: 0;", half, StringComparison.Ordinal);
         Assert.DoesNotContain("overflow: auto;", half, StringComparison.Ordinal);
 
-        foreach (var block in new[]
-        {
-            ".backlog-split {",
-            ".entry-detail {",
-            ".entry-detail__panel {",
-            ".entry-detail__panel .task-panel__body {",
-            ".entry-detail__body {",
-            ".entry-detail__note {"
-        })
+        // Down to the scroller: shorter than its contents is allowed, and required.
+        foreach (var block in new[] { ".backlog-split {", ".entry-detail {", ".entry-detail__panel {" })
         {
             var rules = RuleFor(css, block);
 
             Assert.Contains("flex: 1 1 auto;", rules, StringComparison.Ordinal);
             Assert.Contains("min-height: 0;", rules, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("overflow-y: auto;", RuleFor(css, ".entry-detail__panel {"), StringComparison.Ordinal);
+
+        // And below it: take the leftover, but never give up what the reading needs.
+        foreach (var block in new[]
+        {
+            ".entry-detail__panel .task-panel__body {",
+            ".entry-detail__body {",
+            ".entry-detail__view:not([hidden]) {",
+            ".entry-detail__note {",
+            ".entry-detail__note .markdown-editor__surface {",
+            ".entry-detail__note .markdown-editor__grow {"
+        })
+        {
+            var rules = RuleFor(css, block);
+
+            Assert.Contains("flex: 1 0 auto;", rules, StringComparison.Ordinal);
+            Assert.DoesNotContain("min-height: 0;", rules, StringComparison.Ordinal);
         }
     }
 
