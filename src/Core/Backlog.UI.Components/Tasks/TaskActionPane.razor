@@ -28,9 +28,24 @@
     decision rather than a fact — "put this in today" — and it is one row because
     two things at the top of a pane is a pane with nothing at the top of it.
 
+    Below them there is room for the other kind of row the columns are wrong for:
+    the one whose value is not a word. A column is about sixteen rem wide, which is
+    enough for "Friday" and "medium" and not enough for a list of other tasks — a
+    dependency picker in a column wraps its chips one per line and turns a row into
+    a paragraph. Full width is what that row actually needs, and putting it under
+    the columns rather than in them also keeps it out of the balancing, so the two
+    columns still end level.
+
     Nothing here says which groups a pane has, or what goes in the lead. What a
     task can be set to is the host's answer, the same way it is for every other
     component in this folder.
+
+    The rows line up across the gap, which is a rule about height rather than about
+    layout: every row reserves the line its value would take whether or not it has
+    one, and the groups sit on one rhythm rather than being spaced apart from each
+    other. Without both, "Priority" in the second column lands between "Remind me"
+    and "Add due date" in the first, and a pane whose rows are at eleven different
+    heights reads as a pile rather than as two columns.
 *@
 
 <div class="@ClassValue" data-testid="@TestId">
@@ -45,6 +60,11 @@
        row must not be in them: a row that flowed with the groups would be balanced
        along with them and end up as the top of one column rather than across both. *@
     <div class="task-action-pane__columns">@Groups</div>
+
+    @if (Trailing is not null)
+    {
+        <div class="task-action-pane__trailing">@Trailing</div>
+    }
 </div>
 
 @code {
@@ -64,6 +84,17 @@
     /// </para></summary>
     [Parameter]
     public RenderFragment? Groups { get; set; }
+
+    /// <summary>The groups that go under the columns, across the full width, when
+    /// there are any. Left out entirely when there are not.
+    /// <para>
+    /// For the group whose rows need the width rather than the column — a
+    /// dependency picker, a list of other tasks — not for whatever did not fit.
+    /// A row put here that would have been happy in a column is a row the reader
+    /// has to look for in a third place.
+    /// </para></summary>
+    [Parameter]
+    public RenderFragment? Trailing { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }

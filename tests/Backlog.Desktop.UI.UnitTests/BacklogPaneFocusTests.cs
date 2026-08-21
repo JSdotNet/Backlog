@@ -247,7 +247,8 @@ public sealed class BacklogPaneFocusTests
         var row = await host.WriteEntryAsync(Entry);
 
         var pane = host.Render();
-        await pane.Find("[data-testid='entry-raw-toggle']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-detail']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "M", CtrlKey = true, ShiftKey = true });
         Assert.True(host.State.RawHatchOpen);
 
         await pane.Find("[data-testid='entry-detail']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });

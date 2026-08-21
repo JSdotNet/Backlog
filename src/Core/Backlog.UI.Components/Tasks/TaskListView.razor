@@ -88,7 +88,11 @@
 *@
 
 <ul class="@ClassValue" data-testid="@TestId" aria-label="@AriaLabel">
-    @if (Tasks.Count == 0)
+    @* Nothing to list, and nothing said about it when the host has nothing to say.
+       A list that draws its own add row already shows an empty list as an empty
+       field, and a line above it repeating the fact is the second answer to a
+       question the reader has not asked. *@
+    @if (Tasks.Count == 0 && !string.IsNullOrWhiteSpace(EmptyMessage))
     {
         <li class="task-list__empty">@EmptyMessage</li>
     }
@@ -513,6 +517,8 @@
     [Parameter]
     public string AriaLabel { get; set; } = "Tasks";
 
+    /// <summary>What an empty list says instead of rows. Blank draws nothing at
+    /// all, for a list whose add row already reads as the empty state.</summary>
     [Parameter]
     public string EmptyMessage { get; set; } = "Nothing here yet.";
 

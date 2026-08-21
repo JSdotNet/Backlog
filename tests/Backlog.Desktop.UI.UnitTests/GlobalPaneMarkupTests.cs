@@ -516,9 +516,11 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("entry-read-view", pane, StringComparison.Ordinal);
         Assert.DoesNotContain("State.BeginEdit", pane, StringComparison.Ordinal);
 
-        // The source is reached deliberately instead — a toggle, and the shortcut
-        // .design/content-editing.md#raw-markdown-escape-hatch asks for.
-        Assert.Contains("TestId=\"entry-raw-toggle\"", pane, StringComparison.Ordinal);
+        // The source is reached deliberately instead — the shortcut
+        // .design/content-editing.md#raw-markdown-escape-hatch asks for. There is no
+        // control for it: the row that used to open it said "Markdown" under a body
+        // switch that already said "Markdown".
+        Assert.DoesNotContain("entry-raw-toggle", pane, StringComparison.Ordinal);
         Assert.Contains("Ctrl+Shift+M", pane, StringComparison.Ordinal);
     }
 
@@ -562,6 +564,11 @@ public sealed class GlobalPaneMarkupTests
     /// somebody simplified it — one scrollbar for both halves, which would mean
     /// scrolling the list to reach the bottom of the entry next to it.
     /// </para>
+    /// <para>
+    /// The pane half scrolls one box deeper than the list's does: the panel fills the
+    /// height it is given so the body inside it can, and a box that both stretched
+    /// its child and scrolled it is a box that could do neither.
+    /// </para>
     /// </summary>
     [Fact]
     public void Each_half_of_the_backlog_split_scrolls_on_its_own()
@@ -571,7 +578,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains(".backlog-list {", css, StringComparison.Ordinal);
         Assert.Contains(".entry-detail {", css, StringComparison.Ordinal);
 
-        foreach (var block in new[] { ".backlog-list {", ".entry-detail {" })
+        foreach (var block in new[] { ".backlog-list {", ".entry-detail__panel {" })
         {
             var start = css.IndexOf(block, StringComparison.Ordinal);
             var rules = css[start..css.IndexOf('}', start)];
@@ -579,6 +586,91 @@ public sealed class GlobalPaneMarkupTests
             Assert.Contains("overflow-y: auto;", rules, StringComparison.Ordinal);
             Assert.Contains("min-height: 0;", rules, StringComparison.Ordinal);
         }
+    }
+
+    /// <summary>
+    /// The height reaches the panel, box by box, from the workspace down.
+    /// <para>
+    /// The split asks for <c>flex: 1 1 auto</c> and the panel asks the split for
+    /// what it was given, but a flex request is only answered by a flex parent. The
+    /// workspace was a block, so the chain broke at the top of it and every box
+    /// below sized itself to its own contents instead: the panel came out exactly
+    /// as tall as the split, which was exactly as tall as the panel, and in a tall
+    /// window the pair of them left a few hundred pixels of nothing underneath.
+    /// </para>
+    /// <para>
+    /// Two halves to the chain, and they want opposite things. Above the scroller
+    /// every box must be allowed to be shorter than its contents, or there is
+    /// nothing for the panel to scroll. Inside it every box must not, or a short
+    /// window collapses the regions towards zero and the editor's own rows end up
+    /// outside every ancestor that could have reported them — which leaves the
+    /// panel with nothing to scroll and the writing off the bottom of it.
+    /// </para>
+    /// <para>
+    /// Each link is pinned rather than the outcome, because the outcome is a
+    /// rendered height and this is a stylesheet. What would break it is any one of
+    /// these going missing, and the one that did was the first.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_open_entrys_panel_is_given_the_full_height_of_the_workspace()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var workspace = RuleFor(css, ".backlog-workspace {");
+        Assert.Contains("display: flex;", workspace, StringComparison.Ordinal);
+        Assert.Contains("flex-direction: column;", workspace, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", workspace, StringComparison.Ordinal);
+
+        // A second scrollbar here is what would let the split stop short again.
+        Assert.DoesNotContain("overflow: auto;", workspace, StringComparison.Ordinal);
+
+        // And the same for the half the pane sits in: the shared split leaves it a
+        // scrolling block, which is a block formatting context, which is a floor the
+        // height does not get through.
+        var half = RuleFor(css, ".backlog-split > .split-pane__end {");
+        Assert.Contains("display: flex;", half, StringComparison.Ordinal);
+        Assert.Contains("flex-direction: column;", half, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", half, StringComparison.Ordinal);
+        Assert.DoesNotContain("overflow: auto;", half, StringComparison.Ordinal);
+
+        // Down to the scroller: shorter than its contents is allowed, and required.
+        foreach (var block in new[] { ".backlog-split {", ".entry-detail {", ".entry-detail__panel {" })
+        {
+            var rules = RuleFor(css, block);
+
+            Assert.Contains("flex: 1 1 auto;", rules, StringComparison.Ordinal);
+            Assert.Contains("min-height: 0;", rules, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("overflow-y: auto;", RuleFor(css, ".entry-detail__panel {"), StringComparison.Ordinal);
+
+        // And below it: take the leftover, but never give up what the reading needs.
+        foreach (var block in new[]
+        {
+            ".entry-detail__panel .task-panel__body {",
+            ".entry-detail__body {",
+            ".entry-detail__view:not([hidden]) {",
+            ".entry-detail__note {",
+            ".entry-detail__note .markdown-editor__surface {",
+            ".entry-detail__note .markdown-editor__grow {"
+        })
+        {
+            var rules = RuleFor(css, block);
+
+            Assert.Contains("flex: 1 0 auto;", rules, StringComparison.Ordinal);
+            Assert.DoesNotContain("min-height: 0;", rules, StringComparison.Ordinal);
+        }
+    }
+
+    private static string RuleFor(string css, string block)
+    {
+        // Anchored to the start of a line, so `.backlog-workspace {` is not found
+        // inside `.knowledge-layout--side-closed .backlog-workspace {`.
+        var start = css.IndexOf($"\n{block}", StringComparison.Ordinal);
+        Assert.True(start >= 0, $"`{block}` is not a rule of its own in the stylesheet.");
+
+        return css[start..css.IndexOf('}', start)];
     }
 
     /// <summary>

@@ -183,6 +183,15 @@ public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
     {
         if (string.Equals(root, directory, StringComparison.OrdinalIgnoreCase))
         {
+            // A folder's README is its opening chapter, not the entry between
+            // "interaction-guidelines" and "typography" that its name sorts it
+            // to. Only at the root, because a README further down describes the
+            // folder it sits in rather than the area.
+            if (string.Equals(node.Path, "README.md", StringComparison.OrdinalIgnoreCase))
+            {
+                return "00-README.md";
+            }
+
             if (string.Equals(areaKey, "domain", StringComparison.OrdinalIgnoreCase)
                 && string.Equals(node.Path, "context-map.md", StringComparison.OrdinalIgnoreCase))
             {

@@ -31,6 +31,8 @@
 
 @code {
     private readonly List<TabPanel> _panels = [];
+    private ElementReference[] _elements = [];
+    private int _focusTarget = -1;
 
     [Parameter]
     public string? ActiveId { get; set; }
@@ -122,11 +124,14 @@
 
     private RenderFragment RenderTabs() =>
         @<text>
-            @foreach (var panel in _panels)
+            @for (var index = 0; index < _panels.Count; index++)
             {
+                var panel = _panels[index];
                 var id = panel.Id;
+                var slot = index;
                 <button type="button"
                         id="@TabId(id)"
+                        @ref="_elements[slot]"
                         class="@TabClass(id)"
                         data-testid="@panel.TabTestId"
                         role="tab"
@@ -146,6 +151,7 @@
         if (_panels.Contains(panel)) return;
 
         _panels.Add(panel);
+        Resize();
         StateHasChanged();
     }
 
@@ -153,7 +159,41 @@
     {
         if (!_panels.Remove(panel)) return;
 
+        Resize();
         StateHasChanged();
+    }
+
+    private void Resize()
+    {
+        if (_elements.Length != _panels.Count) _elements = new ElementReference[_panels.Count];
+    }
+
+    /// <summary>
+    /// Moving the roving tabindex is not moving focus. Without this the ring stays
+    /// on the tab the reader arrived at while the selection walks away from it —
+    /// and because that tab is now the one at <c>tabindex="-1"</c>, the next arrow
+    /// is computed from the stale tab rather than the visible one. ArrowRight then
+    /// ArrowLeft would leave the reader on the second tab with no way back.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusTarget < 0) return;
+
+        var target = _focusTarget;
+        _focusTarget = -1;
+
+        if (target >= _elements.Length) return;
+
+        try
+        {
+            await _elements[target].FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     private Task ActivateAsync(string id)
@@ -182,6 +222,12 @@
             _ => -1
         };
 
-        return target < 0 ? Task.CompletedTask : ActivateAsync(enabled[target]);
+        if (target < 0) return Task.CompletedTask;
+
+        // The index into the strip, not into the enabled subset: a disabled tab is
+        // skipped over by the keyboard but still rendered, so it still has a slot.
+        _focusTarget = _panels.FindIndex(panel => panel.Id == enabled[target]);
+
+        return ActivateAsync(enabled[target]);
     }
 }

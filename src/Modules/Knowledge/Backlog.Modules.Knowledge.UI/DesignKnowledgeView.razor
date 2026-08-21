@@ -10,7 +10,15 @@
     took over saying a chapter's name.
 *@
 
-<section class="design-knowledge" aria-label="Design knowledge" data-testid="design-knowledge-view">
+@*
+    The modifier is what tells the stylesheet a chapter is on screen, and it is
+    on the root because that is where the height has to be capped: the pane fills
+    the section instead of growing past it, so the scrollbar belongs to the file
+    view's body rather than to the section around it. In the folder overview
+    there is no file view to hand it to, so the pane keeps growing and the
+    section keeps scrolling it.
+*@
+<section class="@RootClass" aria-label="Design knowledge" data-testid="design-knowledge-view">
     @if (_model is null)
     {
         <Alert Message="Loading design knowledge..." BaseClass="design-knowledge__message" Role="status" />
@@ -24,12 +32,10 @@
     }
     else
     {
-        @* Where the folder is, and nothing else. The repository it belongs to is
-           the pane's line above the tabs, so naming it again here put the same
-           name twice on one screen. *@
-        <p class="design-knowledge__source">
-            <code>@_model.FolderPath</code>
-        </p>
+        @* The folder path was here until the pane stopped introducing itself.
+           Where the folder is is a repository setting, and it was printing an
+           absolute machine path above a document that already says which file it
+           is — one line of chrome before every reader reached the first word. *@
 
         @if (string.IsNullOrWhiteSpace(SelectedPath))
         {
@@ -48,33 +54,42 @@
             @foreach (var file in VisibleFiles())
             {
                 <article class="design-document" id="@FileAnchor(file)">
-                    <header class="design-document__header">
-                        @* The file name and the title move into the file view's
-                           header for the one document that has one, because that
-                           header says both and a name announced twice is what made
-                           this pane look like two documents. Every other file in
-                           the folder overview still names itself here. The status
-                           badge stays either way: it is the file's state, not its
-                           identity, and there is nowhere else in the overview to
-                           read it. *@
-                        @if (EditableChapter(file) is null)
-                        {
+                    @* Only the folder overview has a header now, and only because
+                       that is the one view where a document has to name itself:
+                       several of them are stacked and nothing else says which is
+                       which. A selected chapter is named by the file view below,
+                       so the header there had been reduced to a lone status
+                       badge — a word like "unknown" floating above the file,
+                       answering a question nobody had asked yet. The file's
+                       status is still on its nav link in the overview and on
+                       every section that carries one. *@
+                    @if (EditableChapter(file) is null)
+                    {
+                        <header class="design-document__header">
                             <div>
                                 <p class="design-document__file">@file.FileName</p>
                                 <h3>@file.Title</h3>
                             </div>
-                        }
-                        <StatusBadge BaseClass="knowledge-status" Kind="" Status="@file.Meta.Status" />
-                    </header>
-
-                    @if (!string.IsNullOrWhiteSpace(file.Summary))
-                    {
-                        <p class="design-document__summary">@file.Summary</p>
+                            <StatusBadge BaseClass="knowledge-status" Kind="" Status="@file.Meta.Status" />
+                        </header>
                     }
+
+                    @* The summary paragraph went with the header. It was the
+                       file's own opening sentences lifted out of the file and
+                       printed above it, so a reader met the same prose twice
+                       before reaching anything else. *@
 
                     <DesignKnowledgeMetadata Meta="file.Meta" />
 
-                    @if (file.TokenTables.Any())
+                    @* The token strip is the folder overview's answer to not
+                       being able to see the file: a designer scanning eight
+                       documents still gets the values out of each one. With the
+                       chapter open the file is right there and its own tables are
+                       in it, so the strip was the summary's mistake in another
+                       shape — and a tall one, because it grows a row per token
+                       and would have taken the height the file view was capped
+                       to. *@
+                    @if (EditableChapter(file) is null && file.TokenTables.Any())
                     {
                         <section class="design-token-strip" aria-label="Design token highlights">
                             @foreach (var table in file.TokenTables.Take(2))
@@ -98,12 +113,18 @@
                            would not be the file it came from. Shown through the
                            same file view the rest of the product shows a file
                            through, which is where the name and the path now live —
-                           the summary, the metadata and the token strip stay above
-                           it, because they are what a designer opens this section
-                           for and none of them is the file's text. *@
+                           the metadata and the token strip stay above it, because
+                           they are what a designer opens this section for and
+                           neither of them is the file's text.
+
+                           Asked to fill rather than given a height: the chapter is
+                           as long as it is, and a body that sized to its content
+                           pushed the pane past the section already scrolling it,
+                           which is how one file ended up with a scrollbar outside
+                           it instead of in it. *@
                         <FileView Name="@file.Title"
                                   Path="@file.FileName"
-                                  MaxHeight="@(null)"
+                                  Fill="true"
                                   TestId="design-chapter-file"
                                   BodyContent="@ChapterEditor(chapter)" />
                     }
@@ -183,6 +204,16 @@
     }
 
     private Task OnChapterSavedAsync() => ReloadAsync();
+
+    /// <summary>The root's classes, carrying the chapter modifier when a file
+    /// view is on screen to take the pane's scrollbar. Derived from what actually
+    /// renders rather than from <see cref="SelectedPath"/>, because a selection
+    /// whose chapter could not be read falls back to the sections and leaves
+    /// nothing to hand the scroll to.</summary>
+    private string RootClass =>
+        _model is { IsAvailable: true } && VisibleFiles().Any(file => EditableChapter(file) is not null)
+            ? "design-knowledge design-knowledge--chapter"
+            : "design-knowledge";
 
     /// <summary>The chapter as a buffer, for the file view's body. No Title is
     /// handed over: the file view's header above it already names the file, and the

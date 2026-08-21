@@ -68,9 +68,9 @@
         </section>
 
         @* Two tabs rather than one long scroll: the graph is what this pane opens
-           with, and the layer detail below it — diagram, layer picker, node grid,
-           the layer file itself — is a second reading of the same folder rather
-           than a continuation of the first. *@
+           with, and the layer detail below it — diagram, layer picker, node grid
+           — is a second reading of the same folder rather than a continuation of
+           the first. *@
         <Tabs AriaLabel="Technology views" TestId="technology-tabs">
             <TabPanel Id="graph"
                       Title="Graph"
@@ -103,7 +103,7 @@
                             <ToggleButton BaseClass="tech-layer-tab"
                                           PressedCssClass="tech-layer-tab--active"
                                           Pressed="@(ReferenceEquals(layer, ActiveLayer))"
-                                          PressedChanged="() => SelectLayerAsync(layer)">
+                                          PressedChanged="() => SelectLayer(layer)">
                                 <span>@LayerLabel(layer)</span>
                                 <Badge BaseClass="tech-layer-tab__count" Kind="">@layer.Nodes.Count</Badge>
                             </ToggleButton>
@@ -171,27 +171,11 @@
                             }
                         </div>
 
-                        @* Below the grid rather than in place of it: the grid is what this
-                           panel is for, and the layer file behind it was until now the one
-                           knowledge area with no way to read its prose at all. The layer
-                           tabs above are the selection, and the layer header beside them
-                           already gives the file its name — so no Title goes to the
-                           surface, which would have put the same file name on the document
-                           bar a second time. *@
-                        @if (_chapter.Chapter is not null)
-                        {
-                            <Alert Message="@_chapterSaveError" TestId="technology-chapter-save-error" Role="status" />
-                            <KnowledgeChapterEditor @ref="_editor"
-                                                    Chapter="@_chapter.Chapter"
-                                                    InitialText="@_chapter.Text"
-                                                    OnSaved="OnChapterSavedAsync"
-                                                    OnSaveFailed="OnChapterSaveFailed" />
-                        }
-                        @* A layer file that could not be placed or could not be read gets
-                           no surface at all, the way the other areas fall back to what they
-                           already parsed. Here that fallback is the node grid above: it is
-                           this same file, read. An empty editor would offer a way in to a
-                           chapter there is nothing to write. *@
+                        @* The layer file itself is not rendered below the grid. The grid is
+                           already that file, read — repeating it as prose put the same
+                           content on screen twice, once as nodes and once as the document
+                           they were parsed from. Editing the file stays available through
+                           "Open in VS Code" in the header. *@
                     </section>
                 }
             </TabPanel>
@@ -204,9 +188,6 @@
 
     private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
     private TechnologyKnowledgeView? _view;
-    private KnowledgeChapterContent _chapter = KnowledgeChapterContent.None;
-    private KnowledgeChapterEditor? _editor;
-    private string? _chapterSaveError;
     private string? _activeLayerFile;
     private string? _loadedRepositoryAlias;
     private bool _openingTechnologyFolder;
@@ -247,57 +228,9 @@
         {
             _activeLayerFile = _view.Layers.FirstOrDefault()?.FileName;
         }
-
-        await TakeActiveChapterAsync();
     }
 
-    /// <summary>Switching layer switches chapter. The pending debounce belongs to
-    /// the layer being left, and the editor flushes it itself when the ref it was
-    /// handed stops naming the same file — so this only has to hand over the new
-    /// one.</summary>
-    private async Task SelectLayerAsync(TechnologyLayer layer)
-    {
-        _activeLayerFile = layer.FileName;
-        await TakeActiveChapterAsync();
-    }
-
-    /// <summary>Puts the active layer's chapter on screen. Blazor assigns a
-    /// component reference but never clears it, so an editor that has stopped
-    /// rendering would still be reachable — the reference is dropped with the
-    /// chapter it belonged to, which is the condition the markup renders it
-    /// on.</summary>
-    private async Task TakeActiveChapterAsync()
-    {
-        _chapterSaveError = null;
-        _chapter = await LoadChapterAsync();
-        if (_chapter.Chapter is null) _editor = null;
-    }
-
-    /// <summary>The active layer's file as it is on disk. <c>Location</c> is a
-    /// resolved knowledge folder rather than a bare path here, which is why this
-    /// is the one area that can hand the resolver the location straight — an
-    /// unavailable folder then resolves to no chapter instead of to a path that
-    /// happens to combine.</summary>
-    private Task<KnowledgeChapterContent> LoadChapterAsync() =>
-        _view is { Available: true } view && ActiveLayer is { } layer
-            ? KnowledgeChapterContent.LoadAsync("tech", view.Location, layer.FileName)
-            : Task.FromResult(KnowledgeChapterContent.None);
-
-    /// <summary>Reads the folder again, so the graph, the stats and the node grid
-    /// follow the layer file that was just written — every one of them is parsed
-    /// out of it.</summary>
-    private Task OnChapterSavedAsync() => LoadAsync();
-
-    /// <summary>A save that failed after the editor stopped being able to say so.
-    /// It is shown here because this panel is still on screen when that
-    /// happens.</summary>
-    private void OnChapterSaveFailed(string message) => _chapterSaveError = message;
-
-    /// <summary>Flushes the editing surface if there is one. Guarded on the same
-    /// condition the markup renders it on, because a captured reference outlives
-    /// the component it points at.</summary>
-    private Task FlushEditorAsync() =>
-        _editor is not null && _chapter.Chapter is not null ? _editor.FlushAsync() : Task.CompletedTask;
+    private void SelectLayer(TechnologyLayer layer) => _activeLayerFile = layer.FileName;
 
     private async void OnKnowledgeChanged()
     {
@@ -358,9 +291,6 @@
         _statusErrors.Remove(itemPath);
         try
         {
-            // The body goes first; KnowledgeChapterEditor.FlushAsync says why.
-            await FlushEditorAsync();
-
             await TechnologyKnowledge.UpdateStatusAsync(RepositoryAlias, itemPath, status);
             await LoadAsync();
         }

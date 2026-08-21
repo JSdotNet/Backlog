@@ -74,6 +74,51 @@ public sealed class BacklogDetailPaneTests
         Assert.Empty(pane.FindAll("[data-testid='entry-detail']"));
     }
 
+    /// <summary>Selection follows the list. A filter that empties the list used to
+    /// leave the pane beside it open on an entry that was no longer in it — a panel
+    /// for "tes" standing next to "Nothing here yet." Filtered out is the same fact
+    /// as deleted as far as this half of the split is concerned.</summary>
+    [Fact]
+    public async Task Filtering_the_open_entry_out_of_the_list_closes_the_pane()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `!draft`\n");
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+        Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
+
+        host.State.SetStatusFilter("done");
+        pane.Render();
+
+        Assert.Empty(host.State.FilteredRows);
+        Assert.Null(host.State.SelectedRow);
+        Assert.Empty(pane.FindAll("[data-testid='entry-detail']"));
+
+        // And the split collapses to the one column it now has something in.
+        Assert.Contains("backlog-split--solo", pane.Find("[data-testid='backlog-split']").ClassList);
+    }
+
+    /// <summary>The entry that is still in view stays open, which is the other half
+    /// of the same rule: closing the pane on every filter change would shut it on a
+    /// reader who narrowed the list around the entry they were reading.</summary>
+    [Fact]
+    public async Task Filtering_leaves_an_entry_that_is_still_in_view_open()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Provision the box\n`task` `!draft`\n");
+        var kept = await host.WriteEntryAsync("# Ship the spike\n`task` `!ready`\n");
+        await host.OpenAsync(kept);
+
+        var pane = host.Render();
+
+        host.State.SetStatusFilter("ready");
+        pane.Render();
+
+        Assert.Same(kept, host.State.SelectedRow);
+        Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
+    }
+
     /// <summary>Deleting the open entry closes the pane. A detail pane pointed at a
     /// deleted entry is a pane about nothing, and leaving the view to notice would be
     /// two answers to "what is selected".</summary>
@@ -428,7 +473,7 @@ public sealed class BacklogDetailPaneTests
         var pane = host.Render();
 
         // An entry with no chapters opens on the markdown block, so the steps are one
-        // press away — the same switch the block's own test uses, now a pressed strip.
+        // press away — the same switch the block's own test uses, now a tab.
         await pane.Find("[data-testid='entry-view-steps']").ClickAsync(new());
 
         var field = pane.Find("[data-testid='subitem-list-add-input']");
@@ -437,6 +482,105 @@ public sealed class BacklogDetailPaneTests
 
         Assert.Single(row.PreviewSubItems);
         Assert.Equal("Wire up the store", EntryTextParser.GetSubItemTitle(row.RawText, 0));
+    }
+
+    /// <summary>An entry with no steps draws the add row and nothing above it. The
+    /// field is the empty state — a line saying "No steps yet." over the top of it
+    /// is the same fact twice, and the one that cannot be typed into.</summary>
+    [Fact]
+    public async Task An_entry_with_no_steps_says_so_with_the_add_row_and_nothing_else()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Ship the sync spike\n`task`\n\nNotes on the parent.\n");
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-view-steps']").ClickAsync(new());
+
+        Assert.Empty(pane.FindAll("[data-testid='subitem-list'] .task-list__empty"));
+        Assert.DoesNotContain("No steps yet.", pane.Markup, StringComparison.Ordinal);
+    }
+
+    /// <summary>The field asks for the next step, in the one word that is true of
+    /// every press of it. "Name the step" describes what typing does; "Next" is what
+    /// the reader is writing down.</summary>
+    [Fact]
+    public async Task The_step_field_asks_for_the_next_one()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Ship the sync spike\n`task`\n\nNotes on the parent.\n");
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-view-steps']").ClickAsync(new());
+
+        var field = pane.Find("[data-testid='subitem-list-add-input']");
+
+        Assert.Equal("Next", field.GetAttribute("placeholder"));
+        Assert.Equal("Next", field.GetAttribute("aria-label"));
+    }
+
+    /// <summary>
+    /// The two readings are tabs, and the strip is wired as one.
+    /// <para>
+    /// It was a pressed ButtonGroup, and before that a row of chips: the same
+    /// one-of-two choice drawn three ways, the last of which mimed a tab strip
+    /// without any of what makes one. What a reader gets from the real thing is the
+    /// part that was missing — the strip announces itself, the reading below is a
+    /// panel named by the tab above it, and the pair is one stop in the tab order
+    /// with the arrow keys moving between them rather than two stops that each
+    /// toggle.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_bodys_two_readings_are_tabs()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync(WithSteps);
+
+        var pane = host.Render();
+
+        var strip = pane.Find("[data-testid='entry-view-switch']");
+        Assert.Equal("tablist", strip.GetAttribute("role"));
+
+        var steps = pane.Find("[data-testid='entry-view-steps']");
+        var notes = pane.Find("[data-testid='entry-view-notes']");
+        Assert.Equal("tab", steps.GetAttribute("role"));
+        Assert.Equal("tab", notes.GetAttribute("role"));
+
+        // This entry has chapters, so it opens on the steps.
+        Assert.Equal("true", steps.GetAttribute("aria-selected"));
+        Assert.Equal("false", notes.GetAttribute("aria-selected"));
+
+        // One stop for the pair, not one each.
+        Assert.Equal("0", steps.GetAttribute("tabindex"));
+        Assert.Equal("-1", notes.GetAttribute("tabindex"));
+
+        // And the reading below is the panel that tab names.
+        var panel = pane.Find("[data-testid='entry-view-steps-panel']");
+        Assert.Equal("tabpanel", panel.GetAttribute("role"));
+        Assert.Equal(steps.Id, panel.GetAttribute("aria-labelledby"));
+        Assert.Equal(panel.Id, steps.GetAttribute("aria-controls"));
+
+        // The other reading is not on screen, and its panel is not drawn into.
+        Assert.NotNull(pane.Find("[data-testid='entry-view-notes-panel']").GetAttribute("hidden"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-body-editor']"));
+    }
+
+    /// <summary>The arrow keys move between the tabs, which is the half of a tab
+    /// strip a row of buttons cannot have: two toggles are two stops, and a reader
+    /// tabbing through the pane should pass the choice once.</summary>
+    [Fact]
+    public async Task An_arrow_key_moves_between_the_bodys_readings()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync(WithSteps);
+
+        var pane = host.Render();
+
+        await pane.Find("[data-testid='entry-view-steps']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "ArrowRight" });
+
+        Assert.Equal("true", pane.Find("[data-testid='entry-view-notes']").GetAttribute("aria-selected"));
+        Assert.Single(pane.FindAll("[data-testid='entry-body-editor']"));
     }
 
     // --- The body, as the markdown block -----------------------------------
@@ -744,7 +888,7 @@ public sealed class BacklogDetailPaneTests
 
         var pane = host.Render();
 
-        foreach (var testId in new[] { "entry-schedule-scheduling", "entry-schedule-ranking", "entry-schedule-attachments" })
+        foreach (var testId in new[] { "entry-schedule-scheduling", "entry-schedule-ranking", "entry-schedule-attachments", "entry-schedule-dependencies" })
         {
             var group = pane.Find($"[data-testid='{testId}']");
             var caption = group.QuerySelector(".task-action-group__caption");
@@ -754,5 +898,35 @@ public sealed class BacklogDetailPaneTests
             Assert.Equal(caption.Id, group.GetAttribute("aria-labelledby"));
             Assert.False(string.IsNullOrWhiteSpace(caption.TextContent));
         }
+    }
+
+    /// <summary>What the entry waits on is under the columns rather than in one of
+    /// them. Its value is a list of other entries where every other row's is a word,
+    /// and a column is about sixteen rem wide: in one the picker's chips wrapped one
+    /// per line and the row read as a paragraph. Out of the columns it is also out of
+    /// their balancing, which is what leaves them three rows each and level.</summary>
+    [Fact]
+    public async Task Waiting_for_sits_below_the_columns_across_the_whole_pane()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Ship it\n`task`\n");
+
+        var pane = host.Render();
+        var schedule = pane.Find("[data-testid='entry-schedule']");
+
+        Assert.Equal(
+            ["task-action-pane__lead", "task-action-pane__columns", "task-action-pane__trailing"],
+            schedule.Children.Select(child => child.ClassName));
+
+        // The three that balance into two columns, and nothing else.
+        Assert.Equal(
+            ["entry-schedule-scheduling", "entry-schedule-ranking", "entry-schedule-attachments"],
+            schedule.QuerySelector(".task-action-pane__columns")!
+                .Children.Select(child => child.GetAttribute("data-testid")));
+
+        Assert.Equal(
+            "entry-schedule-dependencies",
+            schedule.QuerySelector(".task-action-pane__trailing")!
+                .Children.Single().GetAttribute("data-testid"));
     }
 }

@@ -10,12 +10,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// Technology is the area with no chapter selection to inherit: it is not in the
 /// knowledge menu, so nothing hands it a path. Its own layer tabs are the
 /// selection instead, and these tests are about that substitution holding — the
-/// surface follows the active tab, and switching tab switches the file being
-/// written.
+/// node grid follows the active tab.
 /// <para>
-/// The status selector beside the layer heading is the other reason this panel
-/// needed care. It and the body debounce are two read-modify-writes on one file,
-/// so a status change has to get the pending body to disk on its way out.
+/// The layer file is read into that grid and is not rendered a second time as a
+/// document below it, so the panel offers no editing surface of its own; the
+/// status selector beside the layer heading is the only thing it writes.
 /// </para>
 /// </summary>
 public sealed class TechnologyKnowledgePanelTests : IDisposable
@@ -23,14 +22,15 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     private readonly List<string> _roots = [];
 
     [Fact]
-    public async Task The_active_layer_renders_the_editing_surface()
+    public async Task The_active_layer_renders_the_node_grid_and_no_document_surface()
     {
         await using var harness = CreateHarness();
 
         var component = harness.RenderLayers();
 
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-surface']")));
-        Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']"));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-node']")));
+        Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
+        Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-edit']"));
     }
 
     [Fact]
@@ -59,48 +59,20 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public async Task The_editing_surface_sits_below_the_node_grid_rather_than_replacing_it()
-    {
-        await using var harness = CreateHarness();
-
-        var component = harness.RenderLayers();
-
-        // The grid is what the panel was for before it could be written to, so
-        // both are asserted together: the surface is an addition, and an addition
-        // that took the grid's place would pass either check on its own.
-        //
-        // Both inside the wait, because they do not arrive together. The grid is
-        // parsed out of the folder and the surface waits on the layer file being
-        // read after it, so "grid, no surface" is a state this panel passes
-        // through — asserted outside the wait it is a green run on an idle machine
-        // and a red one on a busy machine.
-        component.WaitForAssertion(() =>
-        {
-            Assert.NotEmpty(component.FindAll("[data-testid='technology-node']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
-        });
-
-        Assert.True(
-            component.Markup.IndexOf("technology-node", StringComparison.Ordinal)
-            < component.Markup.IndexOf("knowledge-chapter-surface", StringComparison.Ordinal),
-            "The editing surface belongs below the node grid.");
-    }
-
-    [Fact]
-    public async Task The_surface_shows_the_layer_whose_tab_is_pressed()
+    public async Task The_node_grid_shows_the_layer_whose_tab_is_pressed()
     {
         await using var harness = CreateHarness();
 
         var component = harness.RenderLayers();
 
         component.WaitForAssertion(() => Assert.Contains(
-            "Shared platform choices.",
-            component.Find("[data-testid='knowledge-chapter-surface']").TextContent,
+            ".NET",
+            component.Find(".tech-node-grid").TextContent,
             StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task Switching_layer_switches_the_chapter_being_edited()
+    public async Task Switching_layer_switches_the_nodes_on_screen()
     {
         await using var harness = CreateHarness();
         var component = harness.RenderLayers();
@@ -109,71 +81,26 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         component.FindAll(".tech-layer-tab")[1].Click();
 
         component.WaitForAssertion(() => Assert.Contains(
-            "Desktop UI choices.",
-            component.Find("[data-testid='knowledge-chapter-surface']").TextContent,
+            "Blazor",
+            component.Find(".tech-node-grid").TextContent,
             StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task A_typed_layer_chapter_reaches_the_file()
+    public async Task A_status_change_reaches_the_layer_file()
     {
         await using var harness = CreateHarness();
         var component = harness.RenderLayers();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".tech-layer__header [data-testid='knowledge-state-select'] select")));
 
-        component.Find("[data-testid='knowledge-chapter-edit']").Click();
-
-        // Waited for rather than found: the click is dispatched onto a renderer
-        // that may still be finishing the panel's own load, and the render that
-        // puts the textarea there is then not the one the click returned from.
-        // Kept afterwards, because the blur belongs to the element the text was
-        // typed into.
-        var editor = component.WaitForElement("textarea");
-        editor.Input("# Shared Technologies\n\nTyped into the shared layer.\n");
-        editor.Blur();
-
-        component.WaitForAssertion(
-            () => Assert.Contains(
-                "Typed into the shared layer.",
-                File.ReadAllText(Path.Combine(harness.TechFolder, "shared.md")),
-                StringComparison.Ordinal),
-            TimeSpan.FromSeconds(5));
-    }
-
-    [Fact]
-    public async Task A_status_change_does_not_cost_the_pending_body_edit()
-    {
-        await using var harness = CreateHarness();
-        var component = harness.RenderLayers();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-edit']")));
-
-        component.Find("[data-testid='knowledge-chapter-edit']").Click();
-        component.WaitForElement("textarea").Input("# Shared Technologies\n\n```meta\nstatus: accepted\nkind: layer\n```\n\nTyped, then the status changed.\n");
-
-        // No blur, no Done: the body is pending when the selector fires, which is
-        // the race. The handler flushes it before writing the status, so the file
-        // ends up carrying both rather than whichever wrote last.
-        //
-        // From here on, the first thing to ask the folder source where .tech is
-        // will be the status write, so what the layer file says at that moment is
-        // recorded. That is what makes the ordering decidable: the settled file
-        // cannot tell the two orders apart, because the merge repairs both.
-        harness.Folders.ArmStatusWriteSnapshot();
         component.Find(".tech-layer__header [data-testid='knowledge-state-select'] select").Change("adopted");
 
         component.WaitForAssertion(
-            () =>
-            {
-                var markdown = File.ReadAllText(Path.Combine(harness.TechFolder, "shared.md"));
-                Assert.Contains("Typed, then the status changed.", markdown, StringComparison.Ordinal);
-                Assert.Contains("status: adopted", markdown, StringComparison.Ordinal);
-            },
+            () => Assert.Contains(
+                "status: adopted",
+                File.ReadAllText(Path.Combine(harness.TechFolder, "shared.md")),
+                StringComparison.Ordinal),
             TimeSpan.FromSeconds(5));
-
-        Assert.Contains(
-            "Typed, then the status changed.",
-            harness.Folders.ChapterWhenStatusWasWritten ?? "the status was never written",
-            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -184,14 +111,14 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         var component = harness.Render();
 
         // The panel's own element is on screen from the first render, loading or
-        // not, so waiting for it was waiting for nothing: the two absences below
-        // were read off a panel that had not finished looking for the folder yet,
-        // and would have held for one that went on to offer an editor. The
+        // not, so waiting for it was waiting for nothing: the absences below were
+        // read off a panel that had not finished looking for the folder yet, and
+        // would have held for one that went on to offer the layer detail. The
         // settings link belongs to the answer "there is no folder here", which is
         // the state they are about.
         component.WaitForAssertion(() => Assert.Contains("Open repository settings", component.Markup, StringComparison.Ordinal));
-        Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
-        Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-edit']"));
+        Assert.Empty(component.FindAll("[data-testid='technology-layers-tab']"));
+        Assert.Empty(component.FindAll("[data-testid='technology-node']"));
     }
 
     /// <summary>
@@ -233,8 +160,8 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
 
         var context = new BunitContext();
 
-        // The graph, the diagram and the markdown editor all reach for interop.
-        // None of that is what these tests are about.
+        // The graph and the diagram both reach for interop. Neither is what these
+        // tests are about.
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         var folders = new RecordingKnowledgeFolderSource(
             new KnowledgeFolderSource(gitHubSettings),
@@ -244,7 +171,6 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         context.Services.AddSingleton<TechnologyKnowledgeService>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
-        context.Services.AddSingleton<KnowledgeChapterWriter>();
 
         return new Harness(context, tech, folders);
     }
@@ -303,8 +229,8 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
 
         /// <summary>Renders the panel and opens its Layers tab. The graph is the
         /// tab the panel opens with, and the layer detail these tests are about
-        /// — node grid, layer picker, editing surface — is behind the second
-        /// one; an inactive tab panel renders none of it.</summary>
+        /// — node grid, layer picker — is behind the second one; an inactive tab
+        /// panel renders none of it.</summary>
         public IRenderedComponent<TechnologyKnowledgePanel> RenderLayers()
         {
             var component = Render();
@@ -314,9 +240,9 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         }
 
         /// <summary>
-        /// Awaited disposal, because the editing surface this harness renders
-        /// writes its last pending save on the way out. A synchronous
-        /// <c>Dispose</c> hands that save to the renderer's dispatcher and returns
+        /// Awaited disposal, because a status change this harness triggers is
+        /// still being written when the test returns. A synchronous
+        /// <c>Dispose</c> hands that write to the renderer's dispatcher and returns
         /// before it lands, so the folder delete that follows could arrive while
         /// the file was still being replaced — a locked temp file on a slow
         /// machine and a green suite on a fast one.

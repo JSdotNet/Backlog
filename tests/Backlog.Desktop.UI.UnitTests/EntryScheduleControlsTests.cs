@@ -374,22 +374,23 @@ public sealed class EntryScheduleControlsTests
 
         var pane = host.Render();
 
-        // Fields first, source behind a toggle — not the other way round. The body
-        // block here is the entry's markdown edited in place, which is a different
-        // surface from the raw hatch: it has no metadata line in it, no frontmatter,
-        // and no "reads as" line under it.
+        // Fields first, source behind the shortcut — not the other way round. The
+        // body block here is the entry's markdown edited in place, which is a
+        // different surface from the raw hatch: it has no metadata line in it, no
+        // frontmatter, and no "reads as" line under it.
         Assert.Single(pane.FindAll("[data-testid='entry-body-editor']"));
         Assert.Empty(pane.FindAll("[data-testid='entry-raw-input']"));
 
-        var toggle = pane.Find("[data-testid='entry-raw-toggle']");
-        Assert.Equal("false", toggle.GetAttribute("aria-pressed"));
+        // And no control of its own. The row that used to open it read "Markdown"
+        // under a body switch that already said "Markdown".
+        Assert.Empty(pane.FindAll("[data-testid='entry-raw-toggle']"));
 
-        await toggle.ClickAsync(new());
+        await pane.Find("[data-testid='entry-detail']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "M", CtrlKey = true, ShiftKey = true });
 
         Assert.True(host.State.RawHatchOpen);
         Assert.Single(pane.FindAll("[data-testid='entry-raw-input']"));
         Assert.Single(pane.FindAll("[data-testid='entry-meta-reading']"));
-        Assert.Equal("true", pane.Find("[data-testid='entry-raw-toggle']").GetAttribute("aria-pressed"));
     }
 
     /// <summary>The hatch shows the entry entire — steps included — because what it
@@ -405,7 +406,8 @@ public sealed class EntryScheduleControlsTests
             "# Ship the sync spike\n`task`\n\nNotes on the parent.\n\n## Wire up the store\nHow it gets wired.\n");
 
         var pane = host.Render();
-        await pane.Find("[data-testid='entry-raw-toggle']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-detail']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "M", CtrlKey = true, ShiftKey = true });
 
         var source = pane.Find("[data-testid='entry-raw-input']").TextContent;
 
@@ -447,7 +449,8 @@ public sealed class EntryScheduleControlsTests
         var row = await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();
-        await pane.Find("[data-testid='entry-raw-toggle']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-detail']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "M", CtrlKey = true, ShiftKey = true });
 
         // Per keystroke, which is what the editing surface reports: the hatch is
         // debounced text, not a field that commits on change.

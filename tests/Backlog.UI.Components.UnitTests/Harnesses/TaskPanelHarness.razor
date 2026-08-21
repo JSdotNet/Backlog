@@ -57,6 +57,16 @@
                                 TestId="files" />
                 </TaskActionGroup>
             </Groups>
+            <Trailing>
+                @* The group whose value is a list rather than a word, so it takes the
+                   width instead of a column. *@
+                <TaskActionGroup Label="Dependencies" TestId="dependencies">
+                    <TaskAction Icon="⏳"
+                                Label="Waiting for"
+                                OnSet="() => { }"
+                                TestId="depends" />
+                </TaskActionGroup>
+            </Trailing>
         </TaskActionPane>
     </Details>
     <Body>
