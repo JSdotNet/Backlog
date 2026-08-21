@@ -1,6 +1,7 @@
-# Domain Model: Capture
+# Capture
 
 ```meta
+type: model
 status: draft
 ```
 

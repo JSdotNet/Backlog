@@ -1,6 +1,7 @@
-# Flow: Inbox
+# Inbox
 
 ```meta
+type: flow
 status: draft
 ```
 

@@ -1,6 +1,7 @@
-# Flow: Dev PC Management
+# Dev PC Management
 
 ```meta
+type: flow
 status: draft
 ```
 

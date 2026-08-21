@@ -1,26 +1,29 @@
-# Features: Productivity
+# Productivity
 
 ```meta
+type: features
 status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-## Feature: AI productivity tracking
+## AI productivity tracking
 
 ```meta
+type: feature
 status: draft
-related: [.domain/productivity/domain.md#aggregate-productivity-ledger, .domain/backlog/domain.md#domain-event-aiworklogged]
+related: [.domain/productivity/domain.md#productivity-ledger, .domain/backlog/domain.md#aiworklogged]
 ```
 
 Track when AI contributes to personal work and show what changed because of that
 assistance: tasks moved, artifacts created, prompts reused, reviews shortened, or
 research summarized.
 
-### Sub-feature: AI activity capture
+### AI activity capture
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
@@ -28,27 +31,30 @@ Record AI-assisted activity from backlog work, Copilot sessions, IDE chats, and
 automation runs with enough context to understand the work without copying tool
 internals.
 
-### Sub-feature: Productivity summaries
+### Productivity summaries
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
 Summarize AI-assisted work by day, week, repository, activity kind, and tool so
 the person can see how AI affects throughput and focus.
 
-### Sub-feature: Time-saved estimates
+### Time-saved estimates
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
 Capture optional estimates or calibrated defaults for time saved, keeping the
 estimate visibly separate from measured activity.
 
-### Sub-feature: AI vendor usage import
+### AI vendor usage import
 
 ```meta
+type: sub-feature
 status: draft
 feature-flag: usage-metrics
 related: [.domain/productivity/dependencies.md#outbound-dependencies]
@@ -61,11 +67,12 @@ usage and cost reports to an organization holding an Admin API key, and GitHub
 reports Copilot usage per organization to an organization owner. The import is
 evidence for the ledger; it never becomes the ledger.
 
-### Sub-feature: Local usage accumulation
+### Local usage accumulation
 
 ```meta
+type: sub-feature
 status: idea
-related: [.domain/productivity/features.md#sub-feature-ai-vendor-usage-import]
+related: [.domain/productivity/features.md#ai-vendor-usage-import]
 ```
 
 Accumulate usage locally, call by call, for the person who has no organization
@@ -85,12 +92,13 @@ an idea rather than a plan because it only measures work that flows through
 Backlog itself, which is a narrower claim than the vendor reports make, and that
 narrowing has to stay visible to the person reading the numbers.
 
-## Feature: Personal productivity dashboard
+## Personal productivity dashboard
 
 ```meta
+type: feature
 status: draft
 feature-flag: dashboard
-related: [.domain/monitoring/features.md#feature-multi-layer-dashboards]
+related: [.domain/monitoring/features.md#multi-layer-dashboards]
 ```
 
 Expose productivity trends as personal insight rather than team performance

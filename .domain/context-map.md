@@ -1,6 +1,7 @@
-# Context Map: Backlog
+# Backlog
 
 ```meta
+type: context-map
 status: draft
 order: ["inbox", "capture", "backlog", "roadmap", "second-brain", "productivity", "environment", "repository-management", "dev-pc-management", "sessions", "monitoring", "technology-stack"]
 ```
@@ -93,18 +94,18 @@ flowchart LR
 
 | Contract owner | Published language / contract | Used by |
 |---|---|---|
-| Capture | `.domain/capture/domain.md#domain-event-itemcaptured` | Inbox |
-| Inbox | `.domain/inbox/domain.md#domain-event-itemtriaged` | Backlog, Second Brain |
-| Backlog Management | `.domain/backlog/domain.md#domain-event-statuschanged`, `.domain/backlog/domain.md#domain-event-entryprojected`, `.domain/backlog/domain.md#domain-event-entrycompleted` | Monitoring & Dashboard |
-| Backlog Management | `.domain/backlog/domain.md#domain-event-aiworklogged` | Productivity |
-| Roadmap Planning | `.domain/roadmap/domain.md#domain-event-roadmapitemscheduled` | Monitoring & Dashboard |
-| Roadmap Planning | `.domain/roadmap/naming.md#term-roadmap-item` | Backlog Management |
-| Roadmap Planning | `.domain/roadmap/naming.md#term-roadmap-tag` | Backlog Management, Second Brain |
-| Monitoring & Dashboard | `.domain/monitoring/domain.md#domain-event-followupcaptured` | Inbox |
-| Dev PC Management | `.domain/dev-pc-management/domain.md#domain-event-machinestatuschanged`, `.domain/dev-pc-management/domain.md#domain-event-complianceupdated` | Monitoring & Dashboard |
-| Productivity | `.domain/productivity/domain.md#domain-event-productivityrecorded` | Monitoring & Dashboard |
-| Environment | `.domain/environment/domain.md#domain-service-environment-shortcut-resolution` | Backlog Management, Dev PC Management |
-| Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.domain/technology-stack/domain.md#domain-service-deprecation-management` | Dev PC Management, Repository Management |
+| Capture | `.domain/capture/domain.md#itemcaptured` | Inbox |
+| Inbox | `.domain/inbox/domain.md#itemtriaged` | Backlog, Second Brain |
+| Backlog Management | `.domain/backlog/domain.md#statuschanged`, `.domain/backlog/domain.md#entryprojected`, `.domain/backlog/domain.md#entrycompleted` | Monitoring & Dashboard |
+| Backlog Management | `.domain/backlog/domain.md#aiworklogged` | Productivity |
+| Roadmap Planning | `.domain/roadmap/domain.md#roadmapitemscheduled` | Monitoring & Dashboard |
+| Roadmap Planning | `.domain/roadmap/naming.md#roadmap-item` | Backlog Management |
+| Roadmap Planning | `.domain/roadmap/naming.md#roadmap-tag` | Backlog Management, Second Brain |
+| Monitoring & Dashboard | `.domain/monitoring/domain.md#followupcaptured` | Inbox |
+| Dev PC Management | `.domain/dev-pc-management/domain.md#machinestatuschanged`, `.domain/dev-pc-management/domain.md#complianceupdated` | Monitoring & Dashboard |
+| Productivity | `.domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
+| Environment | `.domain/environment/domain.md#environment-shortcut-resolution` | Backlog Management, Dev PC Management |
+| Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
 
 ## Strategic rules
 

@@ -52,12 +52,12 @@
           "line": 7,
           "status": "done",
           "related": [
-            ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+            ".domain/roadmap/domain.md#roadmap-plan",
             ".domain/roadmap/features.md",
-            ".domain/environment/features.md#feature-environment-aware-work-context"
+            ".domain/environment/features.md#environment-aware-work-context"
           ],
           "implements": [
-            ".domain/backlog/features.md#feature-roadmap-planning"
+            ".domain/backlog/features.md#roadmap-planning"
           ]
         }
       },
@@ -73,7 +73,7 @@
           "line": 34,
           "status": "done",
           "implements": [
-            ".domain/backlog/features.md#feature-roadmap-planning"
+            ".domain/backlog/features.md#roadmap-planning"
           ]
         }
       },
@@ -92,18 +92,18 @@
       },
       {
         "data": {
-          "id": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
-          "label": "Aggregate: Roadmap Plan",
+          "id": ".domain/roadmap/domain.md#roadmap-plan",
+          "label": "Roadmap Plan",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/roadmap/domain.md",
-          "slug": "aggregate-roadmap-plan",
+          "slug": "roadmap-plan",
           "level": 2,
-          "line": 37,
+          "line": 40,
           "status": "draft",
           "related": [
-            ".domain/backlog/domain.md#aggregate-backlog-entry",
-            ".domain/repository-management/domain.md#aggregate-repository-registry",
+            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/repository-management/domain.md#repository-registry",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
@@ -112,7 +112,7 @@
       {
         "data": {
           "id": ".domain/roadmap/features.md",
-          "label": "Features: Roadmap Planning",
+          "label": "Roadmap Planning",
           "type": "file",
           "folder": "domain",
           "path": ".domain/roadmap/features.md",
@@ -122,39 +122,39 @@
       },
       {
         "data": {
-          "id": ".domain/environment/features.md#feature-environment-aware-work-context",
-          "label": "Feature: Environment-aware work context",
+          "id": ".domain/environment/features.md#environment-aware-work-context",
+          "label": "Environment-aware work context",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/environment/features.md",
-          "slug": "feature-environment-aware-work-context",
+          "slug": "environment-aware-work-context",
           "level": 2,
-          "line": 46,
+          "line": 51,
           "status": "draft",
           "related": [
-            ".domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline"
+            ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/features.md#feature-roadmap-planning",
-          "label": "Feature: Roadmap planning",
+          "id": ".domain/backlog/features.md#roadmap-planning",
+          "label": "Roadmap planning",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/features.md",
-          "slug": "feature-roadmap-planning",
+          "slug": "roadmap-planning",
           "level": 2,
-          "line": 376,
+          "line": 399,
           "status": "deprecated",
           "depends-on": [
-            ".domain/backlog/features.md#feature-refinement-and-prioritization"
+            ".domain/backlog/features.md#refinement-and-prioritization"
           ],
           "related": [
             ".domain/roadmap/features.md",
-            ".domain/roadmap/domain.md#aggregate-roadmap-plan",
-            ".domain/backlog/domain.md#aggregate-backlog-entry"
+            ".domain/roadmap/domain.md#roadmap-plan",
+            ".domain/backlog/domain.md#backlog-entry"
           ],
           "outOfScope": true
         }
@@ -187,9 +187,9 @@
       },
       {
         "data": {
-          "id": "related:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "id": "related:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.domain/roadmap/domain.md#roadmap-plan",
           "source": ".backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
-          "target": ".domain/roadmap/domain.md#aggregate-roadmap-plan",
+          "target": ".domain/roadmap/domain.md#roadmap-plan",
           "type": "related"
         }
       },
@@ -203,25 +203,25 @@
       },
       {
         "data": {
-          "id": "related:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.domain/environment/features.md#feature-environment-aware-work-context",
+          "id": "related:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.domain/environment/features.md#environment-aware-work-context",
           "source": ".backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
-          "target": ".domain/environment/features.md#feature-environment-aware-work-context",
+          "target": ".domain/environment/features.md#environment-aware-work-context",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "implements:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.domain/backlog/features.md#feature-roadmap-planning",
+          "id": "implements:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.domain/backlog/features.md#roadmap-planning",
           "source": ".backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
-          "target": ".domain/backlog/features.md#feature-roadmap-planning",
+          "target": ".domain/backlog/features.md#roadmap-planning",
           "type": "implements"
         }
       },
       {
         "data": {
-          "id": "implements:.backlog/domain-backlog.md#acceptance-criteria->.domain/backlog/features.md#feature-roadmap-planning",
+          "id": "implements:.backlog/domain-backlog.md#acceptance-criteria->.domain/backlog/features.md#roadmap-planning",
           "source": ".backlog/domain-backlog.md#acceptance-criteria",
-          "target": ".domain/backlog/features.md#feature-roadmap-planning",
+          "target": ".domain/backlog/features.md#roadmap-planning",
           "type": "implements"
         }
       }

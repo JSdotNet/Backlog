@@ -1,6 +1,7 @@
-# Domain Model: Monitoring & Dashboard
+# Monitoring & Dashboard
 
 ```meta
+type: model
 status: draft
 ```
 

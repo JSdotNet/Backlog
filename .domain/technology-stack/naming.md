@@ -1,6 +1,7 @@
-# Naming: Technology Stack
+# Technology Stack
 
 ```meta
+type: naming
 status: draft
 ```
 
@@ -9,20 +10,22 @@ status: draft
 > names it is also known by are recorded in the `aliases` metadata field so a
 > synonym can always be resolved back to one canonical concept.
 
-## Term: Technology Registry
+## Technology Registry
 
 ```meta
+type: term
 status: draft
 aliases: [TechnologyRegistry]
-related: [.domain/technology-stack/domain.md#aggregate-technology-registry]
+related: [.domain/technology-stack/domain.md#technology-registry]
 ```
 
 The single global registry that owns the approved technologies, baselines, and
 deprecations for the portfolio.
 
-## Term: Technology
+## Technology
 
 ```meta
+type: term
 status: draft
 aliases: [Technology, technology_id]
 related: [.domain/technology-stack/domain.md#technology]
@@ -30,9 +33,10 @@ related: [.domain/technology-stack/domain.md#technology]
 
 An individual language, runtime, framework, or tool tracked in the registry.
 
-## Term: Technology Baseline
+## Technology Baseline
 
 ```meta
+type: term
 status: draft
 aliases: [TechnologyBaseline, TeamToolsBaseline, TechBaselines]
 related: [.domain/technology-stack/domain.md#technology-baseline]
@@ -40,14 +44,15 @@ related: [.domain/technology-stack/domain.md#technology-baseline]
 
 The canonical set of approved versions. Consumers hold a local copy under a
 context-specific name: Dev PC Management calls it `TeamToolsBaseline`
-(see `.domain/dev-pc-management/naming.md#term-team-tools-baseline`) and
+(see `.domain/dev-pc-management/naming.md#team-tools-baseline`) and
 Repository Management calls it `TechBaselines`
-(see `.domain/repository-management/naming.md#term-tech-baselines`). This context
+(see `.domain/repository-management/naming.md#tech-baselines`). This context
 is the source of truth.
 
-## Term: Tech Status
+## Tech Status
 
 ```meta
+type: term
 status: draft
 aliases: [TechStatus]
 related: [.domain/technology-stack/domain.md#tech-status]
@@ -56,9 +61,10 @@ related: [.domain/technology-stack/domain.md#tech-status]
 Adoption state of a technology (stable, beta, deprecated, unsupported); see
 `flow.md` for the transitions.
 
-## Term: Deprecation Notice
+## Deprecation Notice
 
 ```meta
+type: term
 status: draft
 aliases: [DeprecationNotice]
 related: [.domain/technology-stack/domain.md#deprecation-notice]

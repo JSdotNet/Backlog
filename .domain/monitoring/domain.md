@@ -1,28 +1,32 @@
-# Domain: Monitoring & Dashboard
+# Monitoring & Dashboard
 
 ```meta
+type: domain
 status: draft
 order: ["features.md", "model.md", "flow.md", "dependencies.md", "naming.md"]
 ```
 
-> One chapter per Aggregate or Domain Service in this bounded context.
-> Aggregate chapters include sub-chapters for their owned Entities, Value
-> Objects, and Enums. Value Objects/Enums shared across multiple aggregates
-> get their own chapter at the end instead of being duplicated.
+> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
+> Objects / Shared Enums grouping in this bounded context; each chapter's
+> `type` records which of those it is. An Aggregate's owned Entities, Value
+> Objects, and Enums are chapters directly beneath it, typed `entity`,
+> `value-object`, and `enum`. Value Objects/Enums shared across multiple
+> aggregates get their own chapter at the end instead of being duplicated.
 
 Monitoring tracks progress across projects and repos, surfaces items that need
 attention, and provides multi-layered dashboards. It aggregates Progress Signals
-from [Backlog](../backlog/domain.md#aggregate-backlog-entry),
-[Inbox](../inbox/domain.md#aggregate-inbox-item), GitHub, Application Insights,
-[Dev PC Management](../dev-pc-management/domain.md#aggregate-machine-registry),
-and [Repository Management](../repository-management/domain.md#aggregate-repository-registry),
+from [Backlog](../backlog/domain.md#backlog-entry),
+[Inbox](../inbox/domain.md#inbox-item), GitHub, Application Insights,
+[Dev PC Management](../dev-pc-management/domain.md#machine-registry),
+and [Repository Management](../repository-management/domain.md#repository-registry),
 and can run as a standalone team service.
 
-## Aggregate: Progress Signal
+## Progress Signal
 
 ```meta
+type: aggregate
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/inbox/domain.md#aggregate-inbox-item, .arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/inbox/domain.md#inbox-item, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 An immutable, timestamped event indicating a change somewhere in the system,
@@ -31,23 +35,27 @@ records its `Signal Type`, source, subject reference, and payload at detection
 time, and is never mutated after capture — corrections arrive as new signals.
 Signals are the raw material dashboards and attention rules read from.
 
-### Entities
-
 The Progress Signal aggregate is a single immutable record with no owned child
 entities; its variable payload is held in the `Signal Payload` value object.
 
-### Value Objects
+### Signal Payload
 
-#### Signal Payload
+```meta
+type: value-object
+status: draft
+```
 
 The type-specific body of a signal (e.g. `{item_id, new_status, changed_at}` for
 a status change, `{queue_name, depth, age_max, processing_rate}` for queue depth,
 `{machine_id, status, last_heartbeat}` for machine status). Immutable; equality
 by value.
 
-### Enums
+### Signal Type
 
-#### Signal Type
+```meta
+type: enum
+status: draft
+```
 
 Kind of change a signal represents:
 
@@ -61,9 +69,10 @@ Kind of change a signal represents:
 - `machine_status` — a dev PC heartbeat/state change.
 - `team_aggregate` — a team-level rollup signal.
 
-## Domain Service: Signal Aggregation
+## Signal Aggregation
 
 ```meta
+type: domain-service
 status: draft
 ```
 
@@ -73,9 +82,10 @@ thresholds, and computes rollups including team-level aggregates. It is a servic
 because it spans many signal sources and produces cross-cutting views rather than
 mutating one aggregate. Invocation semantics: event-triggered read-side service consuming published signals from other contexts.
 
-## Domain Service: Dashboard
+## Dashboard
 
 ```meta
+type: domain-service
 status: draft
 related: [.arc42/08-crosscutting-concepts.md#observability]
 ```
@@ -87,11 +97,12 @@ repo health) — with role-based visibility for personal vs. team views. It emit
 new item. It is a service because it reads across aggregates and contexts to
 present, rather than own, state. Invocation semantics: query/composition service invoked when a dashboard view or follow-up decision is requested.
 
-## Domain Event: FollowUpCaptured
+## FollowUpCaptured
 
 ```meta
+type: domain-event
 status: draft
-related: [.domain/monitoring/domain.md#domain-service-dashboard, .domain/inbox/domain.md#aggregate-inbox-item]
+related: [.domain/monitoring/domain.md#dashboard, .domain/inbox/domain.md#inbox-item]
 ```
 
 Published by `Dashboard` when an observed condition should become a new Inbox item.
@@ -118,6 +129,7 @@ It is the only write-back contract from Monitoring into the core workflow.
 ## Shared Enums
 
 ```meta
+type: shared-enums
 status: draft
 ```
 

@@ -1,17 +1,19 @@
-# Features: Roadmap Planning
+# Roadmap Planning
 
 ```meta
+type: features
 status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-## Feature: Owning a stored plan
+## Owning a stored plan
 
 ```meta
+type: feature
 status: draft
-related: [.domain/roadmap/domain.md#aggregate-roadmap-plan]
+related: [.domain/roadmap/domain.md#roadmap-plan]
 ```
 
 Keep a plan that exists in its own right, so intent survives a restart and can be
@@ -20,9 +22,10 @@ the person's own storage location: point the workspace at a different folder and
 the plan moves with it, because a plan kept somewhere other than where its owner
 keeps everything else is a plan they will lose.
 
-### Sub-feature: Planning work that has no backlog entry yet
+### Planning work that has no backlog entry yet
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
@@ -30,21 +33,23 @@ Add an item to the plan with a title and dates alone. Most planning happens befo
 refinement, and a planning tool that first demands a refined work item is a tool
 that gets used after the decisions have already been made somewhere else.
 
-### Sub-feature: Linking an item to the entry that executes it
+### Linking an item to the entry that executes it
 
 ```meta
+type: sub-feature
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry]
+related: [.domain/backlog/domain.md#backlog-entry]
 ```
 
-Name the [Backlog Entry](../backlog/domain.md#aggregate-backlog-entry) that
+Name the [Backlog Entry](../backlog/domain.md#backlog-entry) that
 carries out a planned item, so the plan can show real progress instead of a
 guess — while status and priority of the work itself stay where they belong. The
 link is optional in both directions and may dangle without breaking the plan.
 
-### Sub-feature: Milestones
+### Milestones
 
 ```meta
+type: sub-feature
 status: draft
 related: [.domain/roadmap/domain.md#milestone]
 ```
@@ -56,9 +61,10 @@ and it can be depended on exactly as an item can.
 Dates share one place at the top of the plan rather than a line inside each
 repository's band: a release is a fact about the plan, not about one project.
 
-### Sub-feature: A date the whole plan is read against
+### A date the whole plan is read against
 
 ```meta
+type: sub-feature
 status: draft
 related: [.domain/roadmap/domain.md#milestone]
 ```
@@ -71,11 +77,12 @@ Whether a date is that kind of date is a planning judgement, so it is recorded o
 the milestone rather than decided by whatever is drawing it. A plan where every date
 claimed it would be a plan of lines.
 
-## Feature: Tagging planned work
+## Tagging planned work
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/roadmap/features.md#feature-owning-a-stored-plan]
+depends-on: [.domain/roadmap/features.md#owning-a-stored-plan]
 related: [.domain/roadmap/domain.md#roadmap-tag]
 ```
 
@@ -97,12 +104,13 @@ purpose, and the plan can list the tags in use and show the items sitting under
 any one of them, so grouping planned work under a shared tag is a first-class
 thing to do rather than an accident to be prevented.
 
-## Feature: Gathering work under an item and totalling its effort
+## Gathering work under an item and totalling its effort
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/roadmap/features.md#feature-tagging-planned-work]
-related: [.domain/roadmap/domain.md#domain-service-roadmap-item-gathering, .domain/backlog/features.md#feature-effort-registration, .domain/second-brain/features.md#feature-topic-and-tag-grouping]
+depends-on: [.domain/roadmap/features.md#tagging-planned-work]
+related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/backlog/features.md#effort-registration, .domain/second-brain/features.md#topic-and-tag-grouping]
 ```
 
 Read, for one planned item, everything that belongs to it and what it all adds up
@@ -126,11 +134,12 @@ cannot be mistaken for a small pile of work. The plan owns none of these numbers
 they are registered on the entries and the chapters, in Backlog Management and
 Second Brain — and it only reads and adds them.
 
-## Feature: Priority planning
+## Priority planning
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/roadmap/features.md#feature-owning-a-stored-plan]
+depends-on: [.domain/roadmap/features.md#owning-a-stored-plan]
 related: [.domain/roadmap/domain.md#planning-priority]
 ```
 
@@ -140,12 +149,13 @@ never overwritten by the priority of a linked backlog entry, and setting it neve
 reaches into that entry — so reprioritising a quarter does not mean editing a
 dozen issues.
 
-## Feature: Dependency planning
+## Dependency planning
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/roadmap/features.md#feature-owning-a-stored-plan]
-related: [.domain/roadmap/domain.md#dependency, .domain/roadmap/domain.md#domain-service-plan-sequencing]
+depends-on: [.domain/roadmap/features.md#owning-a-stored-plan]
+related: [.domain/roadmap/domain.md#dependency, .domain/roadmap/domain.md#plan-sequencing]
 ```
 
 Record what has to land before what, between any two things in the plan — item to
@@ -153,9 +163,10 @@ item, item to milestone, milestone to item. This is the capability that makes a
 roadmap more than a list of dates: the order is stated once, and everything read
 off the plan respects it.
 
-### Sub-feature: Refusing a circular plan
+### Refusing a circular plan
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
@@ -163,11 +174,12 @@ Reject a dependency that would make something wait, however indirectly, on
 itself. The plan is left untouched and the reason is reported. A circular plan is
 not a plan with a mistake in it; there is no order it could be executed in.
 
-### Sub-feature: Surfacing contradictions instead of fixing them
+### Surfacing contradictions instead of fixing them
 
 ```meta
+type: sub-feature
 status: draft
-related: [.domain/roadmap/domain.md#domain-service-plan-sequencing]
+related: [.domain/roadmap/domain.md#plan-sequencing]
 ```
 
 Show where the plan disagrees with itself — work starting before the thing it
@@ -176,21 +188,23 @@ These are reported, not silently corrected: discovering that a date does not fit
 is the point of drawing the plan, and quietly moving the dependent work would
 hide it.
 
-## Feature: Repository-scoped planning
+## Repository-scoped planning
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/roadmap/features.md#feature-owning-a-stored-plan]
-related: [.domain/roadmap/domain.md#repository-scope, .domain/repository-management/features.md#feature-repository-registration]
+depends-on: [.domain/roadmap/features.md#owning-a-stored-plan]
+related: [.domain/roadmap/domain.md#repository-scope, .domain/repository-management/features.md#repository-registration]
 ```
 
 Relate planned work to the repositories it happens in, using the same repository
 identity the rest of the product already uses, so one plan can span a portfolio
 and still be read one project at a time.
 
-### Sub-feature: Reading the plan by repository
+### Reading the plan by repository
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
@@ -199,22 +213,24 @@ Work that names several repositories is shown once, under the first of them, and
 stays findable under any of them; work that names none reads as unfiled rather than
 being hidden.
 
-### Sub-feature: Surviving a repository that is no longer configured
+### Surviving a repository that is no longer configured
 
 ```meta
+type: sub-feature
 status: draft
-related: [.domain/roadmap/domain.md#domain-service-repository-scope-resolution]
+related: [.domain/roadmap/domain.md#repository-scope-resolution]
 ```
 
 Keep planned work readable when the repository it named is no longer configured.
 The alias is kept as written and reads as unresolved; nothing the person typed is
 deleted because a registry changed underneath it.
 
-## Feature: Reading and rescheduling on a timeline
+## Reading and rescheduling on a timeline
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/roadmap/features.md#feature-dependency-planning, .domain/roadmap/features.md#feature-repository-scoped-planning]
+depends-on: [.domain/roadmap/features.md#dependency-planning, .domain/roadmap/features.md#repository-scoped-planning]
 related: [.domain/roadmap/flow.md, .design/interaction-guidelines.md]
 ```
 
@@ -223,9 +239,10 @@ between them — and change when something happens by moving it. A reschedule is
 change to the plan and is stored as one; the view proposes a new placement and
 the plan decides whether it stands.
 
-### Sub-feature: Rescheduling without a mouse
+### Rescheduling without a mouse
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
@@ -233,11 +250,12 @@ Move and resize planned work from the keyboard, with every step announced. A pla
 that could only be dragged would be a plan some people can read and nobody can
 edit.
 
-### Sub-feature: Telling one project from another at a glance
+### Telling one project from another at a glance
 
 ```meta
+type: sub-feature
 status: draft
-related: [.design/color-scheme.md#band-identity-tokens, .domain/repository-management/features.md#sub-feature-repository-identity-colour]
+related: [.design/color-scheme.md#band-identity-tokens, .domain/repository-management/features.md#repository-identity-colour]
 ```
 
 Draw each repository's band in that repository's own colour, so a plan spanning a
@@ -262,12 +280,13 @@ The band for work naming no repository, and the band carrying the plan's dates,
 take no colour at all. A colour here means "which repository", and neither of those
 is one.
 
-## Feature: Editing the plan in place
+## Editing the plan in place
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/roadmap/features.md#feature-owning-a-stored-plan]
-related: [.domain/roadmap/domain.md#aggregate-roadmap-plan, .domain/roadmap/features.md#feature-dependency-planning]
+depends-on: [.domain/roadmap/features.md#owning-a-stored-plan]
+related: [.domain/roadmap/domain.md#roadmap-plan, .domain/roadmap/features.md#dependency-planning]
 ```
 
 Add planned work, change it, and take it off the plan, from the same place the plan
@@ -279,11 +298,12 @@ rather than the fields that changed, because "leave this alone" and "clear this"
 different intentions and a partial edit cannot tell them apart. The item's identity
 survives every edit, so anything waiting on it still is.
 
-### Sub-feature: Editing what something waits for
+### Editing what something waits for
 
 ```meta
+type: sub-feature
 status: draft
-related: [.domain/roadmap/features.md#sub-feature-refusing-a-circular-plan]
+related: [.domain/roadmap/features.md#refusing-a-circular-plan]
 ```
 
 Add and remove dependencies while looking at the item that has them. A dependency is
@@ -292,9 +312,10 @@ the one change that can be refused for a reason none of the fields explain — i
 would make the plan circular — and that has to be said while the change is still the
 thing being looked at.
 
-### Sub-feature: Refusing an edit rather than half-applying it
+### Refusing an edit rather than half-applying it
 
 ```meta
+type: sub-feature
 status: draft
 ```
 
@@ -302,15 +323,16 @@ An edit that cannot stand — no title, or dates that do not make a window — c
 nothing at all, and says why without closing what is being edited. A form that
 closed on a refusal would look exactly like one that saved.
 
-## Feature: Publishing planned intent for observation
+## Publishing planned intent for observation
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/roadmap/features.md#feature-owning-a-stored-plan]
-related: [.domain/roadmap/domain.md#domain-event-roadmapitemscheduled, .domain/monitoring/features.md]
+depends-on: [.domain/roadmap/features.md#owning-a-stored-plan]
+related: [.domain/roadmap/domain.md#roadmapitemscheduled, .domain/monitoring/features.md]
 ```
 
 Announce when planned work is scheduled or moved, so
-[Monitoring & Dashboard](../monitoring/domain.md#aggregate-progress-signal) can
+[Monitoring & Dashboard](../monitoring/domain.md#progress-signal) can
 compare intent against delivery. Roadmap publishes and does not subscribe: nothing
 observed downstream reaches back in and edits the plan.

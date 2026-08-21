@@ -11,7 +11,7 @@
       "type": "file",
       "name": "context-map.md",
       "path": ".domain/context-map.md",
-      "title": "Context Map: Backlog",
+      "title": "Backlog",
       "status": "draft",
       "root": true
     },
@@ -19,13 +19,13 @@
       "type": "directory",
       "name": "inbox",
       "path": ".domain/inbox",
-      "title": "Domain: Inbox",
+      "title": "Inbox",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/inbox/domain.md",
-          "title": "Domain: Inbox",
+          "title": "Inbox",
           "status": "draft",
           "root": true
         },
@@ -33,35 +33,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/inbox/features.md",
-          "title": "Features: Inbox",
+          "title": "Inbox",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/inbox/model.md",
-          "title": "Domain Model: Inbox",
+          "title": "Inbox",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/inbox/flow.md",
-          "title": "Flow: Inbox",
+          "title": "Inbox",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/inbox/dependencies.md",
-          "title": "Dependencies: Inbox",
+          "title": "Inbox",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/inbox/naming.md",
-          "title": "Naming: Inbox",
+          "title": "Inbox",
           "status": "draft"
         }
       ]
@@ -70,13 +70,13 @@
       "type": "directory",
       "name": "capture",
       "path": ".domain/capture",
-      "title": "Domain: Capture",
+      "title": "Capture",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/capture/domain.md",
-          "title": "Domain: Capture",
+          "title": "Capture",
           "status": "draft",
           "root": true
         },
@@ -84,28 +84,28 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/capture/features.md",
-          "title": "Features: Capture",
+          "title": "Capture",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/capture/model.md",
-          "title": "Domain Model: Capture",
+          "title": "Capture",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/capture/dependencies.md",
-          "title": "Dependencies: Capture",
+          "title": "Capture",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/capture/naming.md",
-          "title": "Naming: Capture",
+          "title": "Capture",
           "status": "draft"
         }
       ]
@@ -114,13 +114,13 @@
       "type": "directory",
       "name": "backlog",
       "path": ".domain/backlog",
-      "title": "Domain: Backlog Management",
+      "title": "Backlog Management",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/backlog/domain.md",
-          "title": "Domain: Backlog Management",
+          "title": "Backlog Management",
           "status": "draft",
           "root": true
         },
@@ -128,35 +128,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/backlog/features.md",
-          "title": "Features: Backlog Management",
+          "title": "Backlog Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/backlog/model.md",
-          "title": "Domain Model: Backlog Management",
+          "title": "Backlog Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/backlog/flow.md",
-          "title": "Flow: Backlog Management",
+          "title": "Backlog Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/backlog/dependencies.md",
-          "title": "Dependencies: Backlog Management",
+          "title": "Backlog Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/backlog/naming.md",
-          "title": "Naming: Backlog Management",
+          "title": "Backlog Management",
           "status": "draft"
         },
         {
@@ -172,13 +172,13 @@
       "type": "directory",
       "name": "roadmap",
       "path": ".domain/roadmap",
-      "title": "Domain: Roadmap Planning",
+      "title": "Roadmap Planning",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/roadmap/domain.md",
-          "title": "Domain: Roadmap Planning",
+          "title": "Roadmap Planning",
           "status": "draft",
           "root": true
         },
@@ -186,35 +186,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/roadmap/features.md",
-          "title": "Features: Roadmap Planning",
+          "title": "Roadmap Planning",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/roadmap/model.md",
-          "title": "Domain Model: Roadmap Planning",
+          "title": "Roadmap Planning",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/roadmap/flow.md",
-          "title": "Flow: Roadmap Planning",
+          "title": "Roadmap Planning",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/roadmap/dependencies.md",
-          "title": "Dependencies: Roadmap Planning",
+          "title": "Roadmap Planning",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/roadmap/naming.md",
-          "title": "Naming: Roadmap Planning",
+          "title": "Roadmap Planning",
           "status": "draft"
         }
       ]
@@ -223,13 +223,13 @@
       "type": "directory",
       "name": "second-brain",
       "path": ".domain/second-brain",
-      "title": "Domain: Second Brain",
+      "title": "Second Brain",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/second-brain/domain.md",
-          "title": "Domain: Second Brain",
+          "title": "Second Brain",
           "status": "draft",
           "root": true
         },
@@ -237,35 +237,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/second-brain/features.md",
-          "title": "Features: Second Brain",
+          "title": "Second Brain",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/second-brain/model.md",
-          "title": "Domain Model: Second Brain",
+          "title": "Second Brain",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/second-brain/flow.md",
-          "title": "Flow: Second Brain",
+          "title": "Second Brain",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/second-brain/dependencies.md",
-          "title": "Dependencies: Second Brain",
+          "title": "Second Brain",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/second-brain/naming.md",
-          "title": "Naming: Second Brain",
+          "title": "Second Brain",
           "status": "draft"
         }
       ]
@@ -274,13 +274,13 @@
       "type": "directory",
       "name": "productivity",
       "path": ".domain/productivity",
-      "title": "Domain: Productivity",
+      "title": "Productivity",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/productivity/domain.md",
-          "title": "Domain: Productivity",
+          "title": "Productivity",
           "status": "draft",
           "root": true
         },
@@ -288,35 +288,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/productivity/features.md",
-          "title": "Features: Productivity",
+          "title": "Productivity",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/productivity/model.md",
-          "title": "Domain Model: Productivity",
+          "title": "Productivity",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/productivity/flow.md",
-          "title": "Flow: Productivity",
+          "title": "Productivity",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/productivity/dependencies.md",
-          "title": "Dependencies: Productivity",
+          "title": "Productivity",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/productivity/naming.md",
-          "title": "Naming: Productivity",
+          "title": "Productivity",
           "status": "draft"
         }
       ]
@@ -325,13 +325,13 @@
       "type": "directory",
       "name": "environment",
       "path": ".domain/environment",
-      "title": "Domain: Environment",
+      "title": "Environment",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/environment/domain.md",
-          "title": "Domain: Environment",
+          "title": "Environment",
           "status": "draft",
           "root": true
         },
@@ -339,35 +339,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/environment/features.md",
-          "title": "Features: Environment",
+          "title": "Environment",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/environment/model.md",
-          "title": "Domain Model: Environment",
+          "title": "Environment",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/environment/flow.md",
-          "title": "Flow: Environment",
+          "title": "Environment",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/environment/dependencies.md",
-          "title": "Dependencies: Environment",
+          "title": "Environment",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/environment/naming.md",
-          "title": "Naming: Environment",
+          "title": "Environment",
           "status": "draft"
         }
       ]
@@ -376,13 +376,13 @@
       "type": "directory",
       "name": "repository-management",
       "path": ".domain/repository-management",
-      "title": "Domain: Repository Management",
+      "title": "Repository Management",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/repository-management/domain.md",
-          "title": "Domain: Repository Management",
+          "title": "Repository Management",
           "status": "draft",
           "root": true
         },
@@ -390,35 +390,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/repository-management/features.md",
-          "title": "Features: Repository Management",
+          "title": "Repository Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/repository-management/model.md",
-          "title": "Domain Model: Repository Management",
+          "title": "Repository Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/repository-management/flow.md",
-          "title": "Flow: Repository Management",
+          "title": "Repository Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/repository-management/dependencies.md",
-          "title": "Dependencies: Repository Management",
+          "title": "Repository Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/repository-management/naming.md",
-          "title": "Naming: Repository Management",
+          "title": "Repository Management",
           "status": "draft"
         }
       ]
@@ -427,13 +427,13 @@
       "type": "directory",
       "name": "dev-pc-management",
       "path": ".domain/dev-pc-management",
-      "title": "Domain: Dev PC Management",
+      "title": "Dev PC Management",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/dev-pc-management/domain.md",
-          "title": "Domain: Dev PC Management",
+          "title": "Dev PC Management",
           "status": "draft",
           "root": true
         },
@@ -441,35 +441,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/dev-pc-management/features.md",
-          "title": "Features: Dev PC Management",
+          "title": "Dev PC Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/dev-pc-management/model.md",
-          "title": "Domain Model: Dev PC Management",
+          "title": "Dev PC Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/dev-pc-management/flow.md",
-          "title": "Flow: Dev PC Management",
+          "title": "Dev PC Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/dev-pc-management/dependencies.md",
-          "title": "Dependencies: Dev PC Management",
+          "title": "Dev PC Management",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/dev-pc-management/naming.md",
-          "title": "Naming: Dev PC Management",
+          "title": "Dev PC Management",
           "status": "draft"
         }
       ]
@@ -478,13 +478,13 @@
       "type": "directory",
       "name": "sessions",
       "path": ".domain/sessions",
-      "title": "Domain: Sessions",
+      "title": "Sessions",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/sessions/domain.md",
-          "title": "Domain: Sessions",
+          "title": "Sessions",
           "status": "active",
           "root": true
         },
@@ -492,35 +492,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/sessions/features.md",
-          "title": "Features: Sessions",
+          "title": "Sessions",
           "status": "active"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/sessions/model.md",
-          "title": "Domain Model: Sessions",
+          "title": "Sessions",
           "status": "active"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/sessions/flow.md",
-          "title": "Flow: Sessions",
+          "title": "Sessions",
           "status": "active"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/sessions/dependencies.md",
-          "title": "Dependencies: Sessions",
+          "title": "Sessions",
           "status": "active"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/sessions/naming.md",
-          "title": "Naming: Sessions",
+          "title": "Sessions",
           "status": "active"
         }
       ]
@@ -529,13 +529,13 @@
       "type": "directory",
       "name": "monitoring",
       "path": ".domain/monitoring",
-      "title": "Domain: Monitoring & Dashboard",
+      "title": "Monitoring & Dashboard",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/monitoring/domain.md",
-          "title": "Domain: Monitoring & Dashboard",
+          "title": "Monitoring & Dashboard",
           "status": "draft",
           "root": true
         },
@@ -543,35 +543,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/monitoring/features.md",
-          "title": "Features: Monitoring & Dashboard",
+          "title": "Monitoring & Dashboard",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/monitoring/model.md",
-          "title": "Domain Model: Monitoring & Dashboard",
+          "title": "Monitoring & Dashboard",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/monitoring/flow.md",
-          "title": "Flow: Monitoring & Dashboard",
+          "title": "Monitoring & Dashboard",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/monitoring/dependencies.md",
-          "title": "Dependencies: Monitoring & Dashboard",
+          "title": "Monitoring & Dashboard",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/monitoring/naming.md",
-          "title": "Naming: Monitoring & Dashboard",
+          "title": "Monitoring & Dashboard",
           "status": "draft"
         }
       ]
@@ -580,13 +580,13 @@
       "type": "directory",
       "name": "technology-stack",
       "path": ".domain/technology-stack",
-      "title": "Domain: Technology Stack",
+      "title": "Technology Stack",
       "children": [
         {
           "type": "file",
           "name": "domain.md",
           "path": ".domain/technology-stack/domain.md",
-          "title": "Domain: Technology Stack",
+          "title": "Technology Stack",
           "status": "draft",
           "root": true
         },
@@ -594,35 +594,35 @@
           "type": "file",
           "name": "features.md",
           "path": ".domain/technology-stack/features.md",
-          "title": "Features: Technology Stack",
+          "title": "Technology Stack",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "model.md",
           "path": ".domain/technology-stack/model.md",
-          "title": "Domain Model: Technology Stack",
+          "title": "Technology Stack",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
           "path": ".domain/technology-stack/flow.md",
-          "title": "Flow: Technology Stack",
+          "title": "Technology Stack",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "dependencies.md",
           "path": ".domain/technology-stack/dependencies.md",
-          "title": "Dependencies: Technology Stack",
+          "title": "Technology Stack",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
           "path": ".domain/technology-stack/naming.md",
-          "title": "Naming: Technology Stack",
+          "title": "Technology Stack",
           "status": "draft"
         }
       ]

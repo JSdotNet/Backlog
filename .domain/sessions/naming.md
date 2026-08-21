@@ -1,6 +1,7 @@
-# Naming: Sessions
+# Sessions
 
 ```meta
+type: naming
 status: active
 ```
 
@@ -9,9 +10,10 @@ status: active
 > are recorded in the aliases metadata field so any synonym resolves back to one
 > canonical concept.
 
-## Term: Agent Session
+## Agent Session
 
 ```meta
+type: term
 status: active
 aliases: [AgentSession, session, session_id]
 related: [.domain/sessions/domain.md#agent-session]
@@ -26,11 +28,12 @@ bare word does not distinguish an agent working in a repository from a person
 connecting to a PC.
 
 `session_id` is the agent's own identifier for it and is only half of the identity;
-see [Session Identity](#term-session-identity).
+see [Session Identity](#session-identity).
 
-## Term: Agent
+## Agent
 
 ```meta
+type: term
 status: active
 aliases: [AgentSessionKind, agent, agent_kind]
 related: [.domain/sessions/domain.md#agent]
@@ -42,9 +45,10 @@ Deliberately **not** "Copilot", which is what this subject was called while Copi
 was the only one. A vendor name used as the category name is what made the earlier
 model unable to describe the second vendor without a parallel list.
 
-## Term: Session Identity
+## Session Identity
 
 ```meta
+type: term
 status: active
 aliases: [SessionIdentity]
 related: [.domain/sessions/domain.md#session-identity]
@@ -56,12 +60,13 @@ Both halves, always. A session id is unique only within its own agent, so an
 environment that keyed on the id alone could merge two unrelated sessions and would
 show one row where there were two.
 
-## Term: Environment
+## Environment
 
 ```meta
+type: term
 status: active
 aliases: [environment, machine_name]
-related: [.domain/sessions/domain.md#aggregate-session-log, .domain/environment/naming.md#term-environment]
+related: [.domain/sessions/domain.md#session-log, .domain/environment/naming.md#environment]
 ```
 
 Where an agent ran. Today that is a development PC, named as that machine names
@@ -79,9 +84,10 @@ wherever an agent can run, and nothing in this model stops that being a containe
 a hosted runner later. Where the two name the same box, that is a lookup — see
 `dependencies.md`.
 
-## Term: Session State
+## Session State
 
 ```meta
+type: term
 status: active
 aliases: [AgentSessionState, state]
 related: [.domain/sessions/domain.md#session-state]
@@ -93,12 +99,13 @@ How far along a session is, as far as the evidence goes: `running`, `stalled`, o
 Read on every reading rather than stored. "Stalled" in particular is not a thing that
 happens to a session — it is what a running session reads as while its silence lasts.
 
-## Term: Stale Threshold
+## Stale Threshold
 
 ```meta
+type: term
 status: active
 aliases: [StaleAfter]
-related: [.domain/sessions/domain.md#domain-service-liveness-assessment]
+related: [.domain/sessions/domain.md#liveness-assessment]
 ```
 
 How long a session with liveness evidence may be silent before it reads as `stalled`
@@ -109,9 +116,10 @@ library that draws a stalled chip refuses to own it for exactly that reason: dec
 "how long is too long" needs a clock and a product opinion, and neither belongs in a
 component.
 
-## Term: Working Location
+## Working Location
 
 ```meta
+type: term
 status: active
 aliases: [WorkingLocation, cwd, working_folder]
 related: [.domain/sessions/domain.md#working-location]
@@ -125,12 +133,13 @@ branch are absent rather than empty when the agent did not record them: "not
 recorded" is a fact, and inferring either from the folder would produce a claim
 nothing supports.
 
-## Term: Session Activity Stream
+## Session Activity Stream
 
 ```meta
+type: term
 status: proposed
 aliases: [SessionActivityStream, activity stream, session updates]
-related: [.domain/sessions/domain.md#session-activity-stream, .domain/sessions/features.md#feature-session-activity-enrichment]
+related: [.domain/sessions/domain.md#session-activity-stream, .domain/sessions/features.md#session-activity-enrichment]
 ```
 
 The ordered external activity a configured session reported about itself through the
@@ -140,9 +149,10 @@ Stream rather than log because it is read as a sequence attached to one known se
 not as the complete system log of everything all sessions did. It enriches an
 `Agent Session`; it does not replace one.
 
-## Term: Session Activity Entry
+## Session Activity Entry
 
 ```meta
+type: term
 status: proposed
 aliases: [SessionActivityEntry, event_id, sequence, activity summary]
 related: [.domain/sessions/domain.md#session-activity-entry]
@@ -154,9 +164,10 @@ how to summarize it back to a person.
 `event_id` names the entry for de-duplication; `sequence` places it within its own
 session. The two are deliberately not synonyms.
 
-## Term: Session Enrichment Summary
+## Session Enrichment Summary
 
 ```meta
+type: term
 status: proposed
 aliases: [SessionEnrichmentSummary, latest activity, enrichment]
 related: [.domain/sessions/domain.md#session-enrichment-summary]
@@ -169,9 +180,10 @@ Summary rather than status because it does not say whether the session is runnin
 stalled, or finished; `Session State` already does that. This term says what the
 session was doing, not whether it was alive.
 
-## Term: Collections MCP
+## Collections MCP
 
 ```meta
+type: term
 status: proposed
 aliases: [collections mcp, collection store, activity collection]
 related: [.domain/sessions/dependencies.md]
@@ -183,9 +195,10 @@ Sessions context can read back from.
 It is a transport and storage capability, not the owner of session meaning. The
 session model stays in this context even when the activity passes through that store.
 
-## Term: Session Catalog
+## Session Catalog
 
 ```meta
+type: term
 status: active
 aliases: [AgentSessionCatalog]
 related: [.domain/sessions/domain.md#session-catalog]
@@ -197,12 +210,13 @@ sources it could not read, and how many sessions it discovered.
 Three parts because "none found" and "could not look" are different answers, and
 because a reading that stops at the most recent sessions has to say so.
 
-## Term: Session Limit
+## Session Limit
 
 ```meta
+type: term
 status: active
 aliases: [AgentSessionLimits, PerAgent]
-related: [.domain/sessions/features.md#sub-feature-say-how-much-was-left-out]
+related: [.domain/sessions/features.md#say-how-much-was-left-out]
 ```
 
 How many sessions per agent a reading will describe.
@@ -215,9 +229,10 @@ A limit on how much is described, never a claim about how much exists: the numbe
 discovered travels back beside the sessions, and a reading that dropped anything says
 so.
 
-## Term: Reporting Capability
+## Reporting Capability
 
 ```meta
+type: term
 status: proposed
 aliases: [reporting status, capability, enabled, degraded]
 related: [.domain/sessions/domain.md#reporting-capability]
@@ -229,12 +244,13 @@ Whether the optional external reporting path is available for a session: `enable
 This is kept separate from `Session State` on purpose. A stalled session can still
 have enabled reporting, and a running session can have degraded reporting.
 
-## Term: Session Grouping
+## Session Grouping
 
 ```meta
+type: term
 status: active
 aliases: [AgentSessionGrouping]
-related: [.domain/sessions/domain.md#domain-service-session-grouping]
+related: [.domain/sessions/domain.md#session-grouping]
 ```
 
 How a reader has asked for the list to be carved up: not at all, by environment, or

@@ -1,6 +1,7 @@
-# Domain Model: Second Brain
+# Second Brain
 
 ```meta
+type: model
 status: draft
 ```
 

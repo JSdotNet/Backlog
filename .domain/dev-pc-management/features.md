@@ -1,15 +1,17 @@
-# Features: Dev PC Management
+# Dev PC Management
 
 ```meta
+type: features
 status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-## Feature: PC registration
+## PC registration
 
 ```meta
+type: feature
 status: draft
 ```
 
@@ -17,54 +19,59 @@ The desktop component registers itself with the cloud on startup, reporting name
 OS, IP (local + public), MAC, and status, with a heartbeat that tracks
 online/sleeping/offline state and auto-deregisters after inactivity.
 
-## Feature: Wake-on-LAN
+## Wake-on-LAN
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/dev-pc-management/features.md#feature-pc-registration]
+depends-on: [.domain/dev-pc-management/features.md#pc-registration]
 ```
 
 Send a magic packet to wake a registered sleeping/powered-off PC over the local
 network or a cloud relay, verifying the wake by resumed heartbeat and queuing
 requests when relay is needed.
 
-## Feature: Remote desktop session
+## Remote desktop session
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/dev-pc-management/features.md#feature-pc-registration]
+depends-on: [.domain/dev-pc-management/features.md#pc-registration]
 ```
 
 Initiate a remote desktop session (RDP, VNC fallback) to any online PC via
 cloud-brokered connection details, optionally tunneled through a relay for
 machines behind NAT/firewall.
 
-## Feature: Machine status dashboard
+## Machine status dashboard
 
 ```meta
+type: feature
 status: draft
-related: [.domain/monitoring/features.md#feature-multi-layer-dashboards]
+related: [.domain/monitoring/features.md#multi-layer-dashboards]
 ```
 
 List all registered PCs with current state, last-seen and uptime, running
 desktop-component version, and quick actions (wake, connect, optional shutdown).
 
-## Feature: Configuration and tool version tracking
+## Configuration and tool version tracking
 
 ```meta
+type: feature
 status: draft
-related: [.domain/technology-stack/features.md#feature-technology-baseline-definition]
+related: [.domain/technology-stack/features.md#technology-baseline-definition]
 ```
 
 Report installed tool versions on startup and on demand, store version snapshots,
 compare against the team baseline, and alert when a tool is outdated or
 incompatible.
 
-### Sub-feature: Copilot tool catalog
+### Copilot tool catalog
 
 ```meta
+type: sub-feature
 status: draft
-related: [.domain/technology-stack/features.md#feature-technology-baseline-definition]
+related: [.domain/technology-stack/features.md#technology-baseline-definition]
 ```
 
 Track the AI tooling a development machine is expected to run — Copilot plugins
@@ -75,23 +82,25 @@ installed. Each tool reports its installed version against the available one, so
 "behind", "up to date", and "not installed" are distinguishable rather than
 lumped together.
 
-## Feature: Remote tool updates
+## Remote tool updates
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/dev-pc-management/features.md#feature-configuration-and-tool-version-tracking]
+depends-on: [.domain/dev-pc-management/features.md#configuration-and-tool-version-tracking]
 ```
 
 Trigger single, targeted, or bulk tool updates from the dashboard or CLI, queue
 them for offline PCs, report progress with rollback on failure, and optionally
 require explicit confirmation.
 
-### Sub-feature: Local tool enablement and updates
+### Local tool enablement and updates
 
 ```meta
+type: sub-feature
 status: draft
 feature-flag: system-tools
-depends-on: [.domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog]
+depends-on: [.domain/dev-pc-management/features.md#copilot-tool-catalog]
 ```
 
 Act on the machine the person is sitting at: re-check the catalog for newer
@@ -101,9 +110,10 @@ declares for everyone else. Each action reports back whether it succeeded, and
 tool management is a capability that can be switched off wholesale on machines
 where it does not apply.
 
-## Feature: Security
+## Security
 
 ```meta
+type: feature
 status: draft
 ```
 

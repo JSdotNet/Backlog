@@ -1,8 +1,9 @@
-# Domain Model: Roadmap Planning
+# Roadmap Planning
 
 ```meta
+type: model
 status: draft
-related: [.domain/roadmap/domain.md#aggregate-roadmap-plan]
+related: [.domain/roadmap/domain.md#roadmap-plan]
 ```
 
 > Structural view of the domain model for this bounded context: aggregates,

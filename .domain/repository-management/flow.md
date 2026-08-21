@@ -1,6 +1,7 @@
-# Flow: Repository Management
+# Repository Management
 
 ```meta
+type: flow
 status: draft
 ```
 

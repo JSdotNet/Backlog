@@ -1,6 +1,7 @@
-# Dependencies: Inbox
+# Inbox
 
 ```meta
+type: dependencies
 status: draft
 ```
 
@@ -12,16 +13,16 @@ status: draft
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Backlog](../backlog/domain.md#aggregate-backlog-entry) | OHS + Published Language (Inbox = supplier) | Async `ItemTriaged` event | `.domain/inbox/domain.md#domain-event-itemtriaged` | Routing an actionable item creates a Backlog Entry draft without exposing Inbox internals. |
-| [Second Brain](../second-brain/domain.md#aggregate-knowledge-note) | OHS + Published Language (Inbox = supplier) | Async `ItemTriaged` event | `.domain/inbox/domain.md#domain-event-itemtriaged` | Routing a knowledge item creates a Knowledge Note through the same published language with a different route shape. |
+| [Backlog](../backlog/domain.md#backlog-entry) | OHS + Published Language (Inbox = supplier) | Async `ItemTriaged` event | `.domain/inbox/domain.md#itemtriaged` | Routing an actionable item creates a Backlog Entry draft without exposing Inbox internals. |
+| [Second Brain](../second-brain/domain.md#knowledge-note) | OHS + Published Language (Inbox = supplier) | Async `ItemTriaged` event | `.domain/inbox/domain.md#itemtriaged` | Routing a knowledge item creates a Knowledge Note through the same published language with a different route shape. |
 
 ## Inbound dependents (known)
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Capture](../capture/domain.md#aggregate-capture) | OHS + Published Language (Capture = supplier) | Publishes `ItemCaptured` to the Inbox | `.domain/capture/domain.md#domain-event-itemcaptured` | Relies on the Inbox accepting normalized items into the incoming queue. |
-| [Monitoring](../monitoring/domain.md#aggregate-progress-signal) | Customer/Supplier (Monitoring = customer) | Read-side queue-health feed | `.domain/inbox/features.md#feature-queue-health` | Relies on Inbox queue-health metrics (unprocessed count, oldest age, automation run status). |
-| [Monitoring](../monitoring/domain.md#aggregate-progress-signal) | OHS + Published Language (Monitoring = supplier) | Emits `FollowUpCaptured` back into the Inbox | `.domain/monitoring/domain.md#domain-event-followupcaptured` | Dashboard follow-ups create new Inbox Items through a stable feedback contract. |
+| [Capture](../capture/domain.md#capture) | OHS + Published Language (Capture = supplier) | Publishes `ItemCaptured` to the Inbox | `.domain/capture/domain.md#itemcaptured` | Relies on the Inbox accepting normalized items into the incoming queue. |
+| [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Monitoring = customer) | Read-side queue-health feed | `.domain/inbox/features.md#queue-health` | Relies on Inbox queue-health metrics (unprocessed count, oldest age, automation run status). |
+| [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Monitoring = supplier) | Emits `FollowUpCaptured` back into the Inbox | `.domain/monitoring/domain.md#followupcaptured` | Dashboard follow-ups create new Inbox Items through a stable feedback contract. |
 
 ## Notes
 

@@ -1,26 +1,30 @@
-# Domain: Backlog Management
+# Backlog Management
 
 ```meta
+type: domain
 status: draft
 order: ["features.md", "model.md", "flow.md", "dependencies.md", "naming.md", "assets"]
 ```
 
-> One chapter per Aggregate or Domain Service in this bounded context.
-> Aggregate chapters include sub-chapters for their owned Entities, Value
-> Objects, and Enums. Value Objects/Enums shared across multiple aggregates
-> get their own chapter at the end instead of being duplicated.
+> One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
+> Objects / Shared Enums grouping in this bounded context; each chapter's
+> `type` records which of those it is. An Aggregate's owned Entities, Value
+> Objects, and Enums are chapters directly beneath it, typed `entity`,
+> `value-object`, and `enum`. Value Objects/Enums shared across multiple
+> aggregates get their own chapter at the end instead of being duplicated.
 
 Backlog Management maintains a personal backlog of prompts, tasks, ideas, and
 follow-ups across multiple projects and repos. It converts triaged
-[Inbox Items](../inbox/domain.md#aggregate-inbox-item) into actionable,
+[Inbox Items](../inbox/domain.md#inbox-item) into actionable,
 prioritized Backlog Entries and projects them to external systems such as GitHub
 and the Copilot CLI.
 
-## Aggregate: Backlog Entry
+## Backlog Entry
 
 ```meta
+type: aggregate
 status: draft
-related: [.domain/inbox/domain.md#aggregate-inbox-item, .arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.domain/inbox/domain.md#inbox-item, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 A refined, actionable item in the personal backlog and the consistency boundary
@@ -123,12 +127,15 @@ understanding of the work changes. The deriving itself is not built here — thi
 the point at which the value becomes registrable and visible; calculating it comes
 later, and the model is deliberately indifferent to which of the two put the number
 there. The estimate is Backlog Management's to hold: Roadmap Planning reads and
-totals it (see [Roadmap Item Gathering](../roadmap/domain.md#domain-service-roadmap-item-gathering))
+totals it (see [Roadmap Item Gathering](../roadmap/domain.md#roadmap-item-gathering))
 but never registers or owns it.
 
-### Entities
+### Sub-Item
 
-#### Sub-Item
+```meta
+type: entity
+status: draft
+```
 
 An ordered breakdown step owned by the entry, with its own `title`,
 `Sub-Item Status`, optional `notes`, and `order`. It has identity within the
@@ -146,15 +153,23 @@ scheduling or dependency attributes. A step inherits its parent's deadline by
 belonging to it, and a breakdown step that needed its own priority would be an
 entry rather than a step.
 
-### Value Objects
+### Projection Ref
 
-#### Projection Ref
+```meta
+type: value-object
+status: draft
+```
 
 An immutable link to a downstream external artifact created from the entry:
 `repo_id`, `external_id`, and `target_type` (e.g. github-issue, cli-task).
 Equality is by value.
 
-#### Recurrence
+### Recurrence
+
+```meta
+type: value-object
+status: draft
+```
 
 How often an entry repeats: an `interval`, a `Recurrence Unit`, and an optional
 set of `Weekday`s the repeat is restricted to. "Every weekday" is interval 1,
@@ -162,11 +177,16 @@ unit week, weekdays Monday through Friday; "every other week" is interval 2,
 unit week, with no weekday restriction. Equality is by value.
 
 The value object describes the shape of the repeat only. It does not say when
-the next occurrence falls - that is the `Recurrence` policy's calculation - and
+the next occurrence falls - that is the `Occurrence Spawning` policy's calculation - and
 the repeat is anchored to `due_on` rather than to the completion date, so a
 weekly entry finished three days late still falls due on its original weekday.
 
-#### Attachment
+### Attachment
+
+```meta
+type: value-object
+status: draft
+```
 
 Where an entry's material is kept: a `path` naming a folder or an archive.
 Equality is by value.
@@ -184,45 +204,88 @@ question for whoever can see the file system at the moment it is asked, and an
 entry that stored one would be an entry asserting something that stopped being
 true the moment somebody added a file.
 
-#### Usage Event
+### Usage Event
+
+```meta
+type: value-object
+status: draft
+```
 
 An immutable audit record of a prompt copy/use: `timestamp` and `action`.
 Equality is by value.
 
-#### AI Work Log
+### AI Work Log
+
+```meta
+type: value-object
+status: draft
+```
 
 An immutable record that an AI-assisted action contributed to the entry:
 `timestamp`, `ai_tool`, `activity_kind`, optional `session_id`, and optional
 `outcome_ref`. Equality is by value.
 
-### Enums
+### Entry Type
 
-#### Entry Type
+```meta
+type: enum
+status: draft
+```
 
 Classification of the entry: `prompt`, `task`, `idea`, `follow_up`.
 
-#### Entry Status
+### Entry Status
+
+```meta
+type: enum
+status: draft
+```
 
 Lifecycle state: `draft`, `ready`, `in_progress`, `done`, `archived`.
 
-#### Priority
+### Priority
+
+```meta
+type: enum
+status: draft
+```
 
 Ranking of the entry: `low`, `medium`, `high`, `critical`.
 
-#### Sub-Item Status
+### Sub-Item Status
+
+```meta
+type: enum
+status: draft
+```
 
 Completion state of a sub-item: `pending`, `done`.
 
-#### Recurrence Unit
+### Recurrence Unit
+
+```meta
+type: enum
+status: draft
+```
 
 The period a repeat is counted in: `day`, `week`, `month`, `year`.
 
-#### Weekday
+### Weekday
+
+```meta
+type: enum
+status: draft
+```
 
 A day of the week, `monday` through `sunday`. Used only to restrict a weekly
 `Recurrence`.
 
-#### Readiness
+### Readiness
+
+```meta
+type: enum
+status: draft
+```
 
 Where an entry stands once the entries it waits on are taken into account:
 `done`, `ready`, `blocked`. Derived on every read from `depends_on` and never
@@ -236,11 +299,12 @@ an entry somebody marked done is done even if something it named is still
 outstanding, because done is a recorded fact where blocked is only a
 conclusion.
 
-## Domain Service: Projection
+## Projection
 
 ```meta
+type: domain-service
 status: draft
-related: [.domain/monitoring/domain.md#aggregate-progress-signal, .arc42/06-runtime-view.md#backlog-entry-to-github-issue]
+related: [.domain/monitoring/domain.md#progress-signal, .arc42/06-runtime-view.md#backlog-entry-to-github-issue]
 ```
 
 Creates and closes downstream artifacts for a multi-repo entry: on `EntryProjected`
@@ -249,11 +313,12 @@ it creates one GitHub issue and/or CLI task per `repo_id`, recording each as a
 because it coordinates the entry with external systems (GitHub, Copilot CLI) and
 spans multiple downstream artifacts rather than a single aggregate mutation. Invocation semantics: event-triggered policy / process manager. It reacts to `EntryProjected` and `EntryCompleted`; it is not invoked as part of a synchronous aggregate command.
 
-## Domain Service: Recurrence
+## Occurrence Spawning
 
 ```meta
+type: domain-service
 status: proposed
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/backlog/domain.md#domain-event-entrycompleted, .domain/backlog/domain.md#domain-event-occurrencespawned]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/backlog/domain.md#entrycompleted, .domain/backlog/domain.md#occurrencespawned]
 ```
 
 Creates the next occurrence of a repeating entry. When a save completes an entry
@@ -290,11 +355,12 @@ forward, and it is bounded by `Archive and lifecycle` rather than by this policy
 - completed occurrences archive out of default views like any other finished
 entry.
 
-## Domain Event: StatusChanged
+## StatusChanged
 
 ```meta
+type: domain-event
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/monitoring/domain.md#progress-signal]
 ```
 
 Published when a `Backlog Entry` changes `Entry Status`.
@@ -316,11 +382,12 @@ Published when a `Backlog Entry` changes `Entry Status`.
 - The event reflects the durable work-state transition; consumers do not infer
   additional semantics from projection side effects.
 
-## Domain Event: EntryProjected
+## EntryProjected
 
 ```meta
+type: domain-event
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/backlog/domain.md#domain-service-projection, .domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/backlog/domain.md#projection, .domain/monitoring/domain.md#progress-signal]
 ```
 
 Published when a `Backlog Entry` begins external execution and the Projection
@@ -343,11 +410,12 @@ policy creates one downstream artifact per targeted repository.
 - One event instance is emitted per projection target so consumers can reason
   about multi-repo fan-out without inspecting `Projection Ref` internals.
 
-## Domain Event: EntryCompleted
+## EntryCompleted
 
 ```meta
+type: domain-event
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/backlog/domain.md#domain-service-projection, .domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/backlog/domain.md#projection, .domain/monitoring/domain.md#progress-signal]
 ```
 
 Published when a completed `Backlog Entry` closes its downstream projections.
@@ -368,11 +436,12 @@ Published when a completed `Backlog Entry` closes its downstream projections.
 - Completion is owned by Backlog Management; external systems consume the closing
   signal but do not redefine what completion means.
 
-## Domain Event: OccurrenceSpawned
+## OccurrenceSpawned
 
 ```meta
+type: domain-event
 status: proposed
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/backlog/domain.md#domain-service-recurrence, .domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/backlog/domain.md#occurrence-spawning, .domain/monitoring/domain.md#progress-signal]
 ```
 
 Published when a completed repeating `Backlog Entry` produces its successor.
@@ -396,11 +465,12 @@ Published when a completed repeating `Backlog Entry` produces its successor.
   item.
 - One event instance is emitted per spawned occurrence.
 
-## Domain Event: AIWorkLogged
+## AIWorkLogged
 
 ```meta
+type: domain-event
 status: draft
-related: [.domain/backlog/domain.md#aggregate-backlog-entry, .domain/productivity/domain.md#aggregate-productivity-ledger]
+related: [.domain/backlog/domain.md#backlog-entry, .domain/productivity/domain.md#productivity-ledger]
 ```
 
 Published when a Backlog Entry records that an AI-assisted action contributed to
@@ -428,9 +498,12 @@ the work item.
 - The event records contribution evidence only; it does not claim productivity
   value by itself.
 - Consumers conform to the published fields and do not inspect Backlog Entry
-  internals to infer additional activity.`r`n`r`n## Shared Enums
+  internals to infer additional activity.
+
+## Shared Enums
 
 ```meta
+type: shared-enums
 status: draft
 ```
 

@@ -11,7 +11,7 @@ uniformly. Shared data types define the vocabulary exchanged between them.
 
 ```meta
 status: active
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".arc42/06-runtime-view.md#copilot-app-session-capture", ".domain/capture/domain.md#domain-service-source-adapter"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".arc42/06-runtime-view.md#copilot-app-session-capture", ".domain/capture/domain.md#source-adapter"]
 ```
 
 - **Local-first, one canonical local store** — the desktop's own store is the single
@@ -38,7 +38,7 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 
 ```meta
 status: proposed
-related: [".arc42/04-solution-strategy.md", ".domain/second-brain/features.md#feature-repository-knowledge-areas", ".domain/dev-pc-management/features.md#sub-feature-copilot-tool-catalog"]
+related: [".arc42/04-solution-strategy.md", ".domain/second-brain/features.md#repository-knowledge-areas", ".domain/dev-pc-management/features.md#copilot-tool-catalog"]
 ```
 
 - **Optional capabilities are switchable per installation** — repository knowledge,
@@ -65,7 +65,7 @@ related: [".arc42/04-solution-strategy.md", ".domain/second-brain/features.md#fe
 
 ```meta
 status: active
-related: [".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"]
+related: [".domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
 - `#tags` embedded inside markdown, multiple per item.
@@ -112,7 +112,7 @@ follows the organization's OpenTelemetry guidance.
 
 ```meta
 status: active
-related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#aggregate-inbox-item", ".domain/backlog/domain.md#aggregate-backlog-entry", ".domain/second-brain/domain.md#aggregate-knowledge-note", ".domain/monitoring/domain.md#aggregate-progress-signal", ".domain/dev-pc-management/domain.md#aggregate-machine-registry", ".domain/sessions/domain.md#aggregate-session-log", ".domain/repository-management/domain.md#aggregate-repository-registry", ".domain/technology-stack/domain.md#aggregate-technology-registry", ".domain/roadmap/domain.md#domain-service-roadmap-item-gathering"]
+related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#inbox-item", ".domain/backlog/domain.md#backlog-entry", ".domain/second-brain/domain.md#knowledge-note", ".domain/monitoring/domain.md#progress-signal", ".domain/dev-pc-management/domain.md#machine-registry", ".domain/sessions/domain.md#session-log", ".domain/repository-management/domain.md#repository-registry", ".domain/technology-stack/domain.md#technology-registry", ".domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
 The vocabulary exchanged across all applications and domains is owned per
@@ -122,15 +122,15 @@ architectural concern:
 
 | Type | Owning aggregate |
 |---|---|
-| **InboxItem** | `.domain/inbox/domain.md#aggregate-inbox-item` |
-| **TaskItem** (ubiquitous term: Task) | `.domain/backlog/domain.md#aggregate-backlog-entry` |
-| **KnowledgeNote** | `.domain/second-brain/domain.md#aggregate-knowledge-note` |
-| **ProgressSignal** | `.domain/monitoring/domain.md#aggregate-progress-signal` |
+| **InboxItem** | `.domain/inbox/domain.md#inbox-item` |
+| **TaskItem** (ubiquitous term: Task) | `.domain/backlog/domain.md#backlog-entry` |
+| **KnowledgeNote** | `.domain/second-brain/domain.md#knowledge-note` |
+| **ProgressSignal** | `.domain/monitoring/domain.md#progress-signal` |
 | **RoutingRule** | Not yet modeled in `.domain` — tracked in `.arc42/11-risks-and-technical-debt.md` |
-| **MachineRegistration** | `.domain/dev-pc-management/domain.md#aggregate-machine-registry` |
-| **SessionLog** | `.domain/sessions/domain.md#aggregate-session-log` |
-| **RepositoryRegistration** | `.domain/repository-management/domain.md#aggregate-repository-registry` |
-| **TechBaseline** | `.domain/technology-stack/domain.md#aggregate-technology-registry` |
+| **MachineRegistration** | `.domain/dev-pc-management/domain.md#machine-registry` |
+| **SessionLog** | `.domain/sessions/domain.md#session-log` |
+| **RepositoryRegistration** | `.domain/repository-management/domain.md#repository-registry` |
+| **TechBaseline** | `.domain/technology-stack/domain.md#technology-registry` |
 
 **Effort** is the one shared *scalar* rather than a shared type: an optional
 non-negative story-point estimate that appears on backlog entries, on knowledge

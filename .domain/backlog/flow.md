@@ -1,6 +1,7 @@
-# Flow: Backlog Management
+# Backlog Management
 
 ```meta
+type: flow
 status: draft
 ```
 
@@ -37,7 +38,7 @@ flowchart TD
     N["Occurrence N — due 21 Aug"] -->|"completed by a save"| E["Save use case"]
     E --> Q{"carries a Recurrence?"}
     Q -->|no| S["Stays Done — end of the line"]
-    Q -->|yes| P["Recurrence policy"]
+    Q -->|yes| P["Occurrence Spawning policy"]
     P --> K["Occurrence N stays Done — the record of what was done"]
     P --> C["Occurrence N+1 created: ready, due 28 Aug, sub-items pending, recurrence_source_id points at N"]
     C -.->|"OccurrenceSpawned — documented, not yet emitted"| M["Monitoring would read the series"]

@@ -1,6 +1,7 @@
-# Flow: Productivity
+# Productivity
 
 ```meta
+type: flow
 status: draft
 ```
 

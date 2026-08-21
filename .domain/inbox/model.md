@@ -1,6 +1,7 @@
-# Domain Model: Inbox
+# Inbox
 
 ```meta
+type: model
 status: draft
 ```
 

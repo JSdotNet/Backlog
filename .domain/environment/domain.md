@@ -1,23 +1,29 @@
-# Domain: Environment
+# Environment
 
 ```meta
+type: domain
 status: draft
 order: ["features.md", "model.md", "flow.md", "dependencies.md", "naming.md"]
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
-> Objects / Shared Enums grouping in this bounded context.
+> Objects / Shared Enums grouping in this bounded context; each chapter's
+> `type` records which of those it is. An Aggregate's owned Entities, Value
+> Objects, and Enums are chapters directly beneath it, typed `entity`,
+> `value-object`, and `enum`. Value Objects/Enums shared across multiple
+> aggregates get their own chapter at the end instead of being duplicated.
 
 Environment owns the user's quick access to named environments: local harnesses,
 development, staging, production, cloud dashboards, repository-hosted apps, or
 other frequently used destinations. It stores launch preferences and shortcuts;
 repository ownership and health remain with their supplier contexts.
 
-## Aggregate: Environment Catalog
+## Environment Catalog
 
 ```meta
+type: aggregate
 status: draft
-related: [.domain/repository-management/domain.md#aggregate-repository-registry, .domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/repository-management/domain.md#repository-registry, .domain/monitoring/domain.md#progress-signal]
 ```
 
 The personal catalog of launchable environments. Invariants: each Environment has
@@ -25,45 +31,65 @@ a stable name, type, target reference, and launch method; shortcuts can be pinne
 grouped, hidden, or reordered without changing the target environment; secrets are
 never stored in the catalog, only pointers to the owning secret store or platform.
 
-### Entities
+### Environment
 
-#### Environment
+```meta
+type: entity
+status: draft
+```
 
 A named destination the person wants quick access to, such as a local Aspire
 dashboard, a staging web app, an Azure resource group, a repository preview, or a
 production admin surface.
 
-#### Environment Shortcut
+### Environment Shortcut
+
+```meta
+type: entity
+status: draft
+```
 
 An owned quick-access entry for an Environment. It carries display name, group,
 order, pinned/hidden state, and optional deep-link details.
 
-### Value Objects
+### Launch Target
 
-#### Launch Target
+```meta
+type: value-object
+status: draft
+```
 
 The value needed to open an environment: URL, command, workspace path, dashboard
 resource id, cloud resource id, or repository/environment id. Equality is by
 target type and target value.
 
-#### Access Hint
+### Access Hint
+
+```meta
+type: value-object
+status: draft
+```
 
 A non-secret pointer that helps the person reach the environment, such as the
 credential source name, tenant label, VPN requirement, or required local profile.
 It never contains the credential itself.
 
-### Enums
+### Environment Type
 
-#### Environment Type
+```meta
+type: enum
+status: draft
+```
 
 Classifies the destination: `local`, `development`, `test`, `staging`,
 `production`, `cloud`, `repository`, or `tooling`.
 
-## Domain Service: Environment Shortcut Resolution
+## Environment Shortcut Resolution
 
 ```meta
+type: domain-service
 status: draft
-related: [.domain/environment/domain.md#aggregate-environment-catalog, .domain/repository-management/domain.md#aggregate-repository-registry, .domain/monitoring/domain.md#aggregate-progress-signal]
+related: [.domain/environment/domain.md#environment-catalog, .domain/repository-management/domain.md#repository-registry, .domain/monitoring/domain.md#progress-signal]
 ```
 
 Resolves an Environment Shortcut into the launch action the UI can present: open
@@ -73,11 +99,12 @@ repository path or environment health rather than belonging to one shortcut's
 stored state. Invocation semantics: query/composition-oriented when a quick-access
 view is shown or a shortcut is activated.
 
-## Domain Event: EnvironmentShortcutUsed
+## EnvironmentShortcutUsed
 
 ```meta
+type: domain-event
 status: draft
-related: [.domain/environment/domain.md#aggregate-environment-catalog, .domain/productivity/domain.md#aggregate-productivity-ledger]
+related: [.domain/environment/domain.md#environment-catalog, .domain/productivity/domain.md#productivity-ledger]
 ```
 
 Published when the person activates an Environment Shortcut.
@@ -102,6 +129,7 @@ Published when the person activates an Environment Shortcut.
 ## Shared Enums
 
 ```meta
+type: shared-enums
 status: draft
 ```
 

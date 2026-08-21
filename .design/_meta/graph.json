@@ -427,7 +427,7 @@
           "related": [
             ".design/design-principles.md#dark-mode-only",
             ".design/accessibility.md#contrast",
-            ".domain/roadmap/features.md#feature-repository-scoped-planning"
+            ".domain/roadmap/features.md#repository-scoped-planning"
           ]
         }
       },
@@ -750,8 +750,8 @@
           "line": 100,
           "status": "active",
           "related": [
-            ".domain/backlog/domain.md#aggregate-backlog-entry",
-            ".domain/backlog/naming.md#term-sub-item",
+            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/backlog/naming.md#sub-item",
             ".design/interaction-guidelines.md#nesting--indent-rules-chapters"
           ]
         }
@@ -768,8 +768,8 @@
           "line": 124,
           "status": "active",
           "related": [
-            ".domain/backlog/naming.md#term-entry-status",
-            ".domain/backlog/naming.md#term-area",
+            ".domain/backlog/naming.md#entry-status",
+            ".domain/backlog/naming.md#area",
             ".design/typography-and-layout.md#font-families",
             ".design/content-editing.md#scheduling-and-dependency-tokens"
           ]
@@ -788,11 +788,11 @@
           "status": "active",
           "related": [
             ".design/content-editing.md#structured-metadata-sigils",
-            ".domain/backlog/naming.md#term-due-date",
-            ".domain/backlog/naming.md#term-reminder",
-            ".domain/backlog/naming.md#term-recurrence",
-            ".domain/backlog/naming.md#term-my-day",
-            ".domain/backlog/naming.md#term-dependency"
+            ".domain/backlog/naming.md#due-date",
+            ".domain/backlog/naming.md#reminder",
+            ".domain/backlog/naming.md#recurrence",
+            ".domain/backlog/naming.md#my-day",
+            ".domain/backlog/naming.md#dependency"
           ]
         }
       },
@@ -1528,28 +1528,28 @@
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
             ".arc42/06-runtime-view.md#copilot-app-session-capture",
-            ".domain/capture/domain.md#domain-service-source-adapter"
+            ".domain/capture/domain.md#source-adapter"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/roadmap/features.md#feature-repository-scoped-planning",
-          "label": "Feature: Repository-scoped planning",
+          "id": ".domain/roadmap/features.md#repository-scoped-planning",
+          "label": "Repository-scoped planning",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/roadmap/features.md",
-          "slug": "feature-repository-scoped-planning",
+          "slug": "repository-scoped-planning",
           "level": 2,
-          "line": 179,
+          "line": 191,
           "status": "draft",
           "depends-on": [
-            ".domain/roadmap/features.md#feature-owning-a-stored-plan"
+            ".domain/roadmap/features.md#owning-a-stored-plan"
           ],
           "related": [
             ".domain/roadmap/domain.md#repository-scope",
-            ".domain/repository-management/features.md#feature-repository-registration"
+            ".domain/repository-management/features.md#repository-registration"
           ],
           "outOfScope": true
         }
@@ -1588,17 +1588,17 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/domain.md#aggregate-backlog-entry",
-          "label": "Aggregate: Backlog Entry",
+          "id": ".domain/backlog/domain.md#backlog-entry",
+          "label": "Backlog Entry",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/domain.md",
-          "slug": "aggregate-backlog-entry",
+          "slug": "backlog-entry",
           "level": 2,
-          "line": 19,
+          "line": 22,
           "status": "draft",
           "related": [
-            ".domain/inbox/domain.md#aggregate-inbox-item",
+            ".domain/inbox/domain.md#inbox-item",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
@@ -1606,14 +1606,14 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#term-sub-item",
-          "label": "Term: Sub-Item",
+          "id": ".domain/backlog/naming.md#sub-item",
+          "label": "Sub-Item",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/naming.md",
-          "slug": "term-sub-item",
+          "slug": "sub-item",
           "level": 2,
-          "line": 32,
+          "line": 34,
           "status": "draft",
           "aliases": [
             "SubItem"
@@ -1626,14 +1626,14 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#term-entry-status",
-          "label": "Term: Entry Status",
+          "id": ".domain/backlog/naming.md#entry-status",
+          "label": "Entry Status",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/naming.md",
-          "slug": "term-entry-status",
+          "slug": "entry-status",
           "level": 2,
-          "line": 64,
+          "line": 69,
           "status": "draft",
           "aliases": [
             "EntryStatus"
@@ -1646,34 +1646,34 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#term-area",
-          "label": "Term: Area",
+          "id": ".domain/backlog/naming.md#area",
+          "label": "Area",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/naming.md",
-          "slug": "term-area",
+          "slug": "area",
           "level": 2,
-          "line": 74,
+          "line": 80,
           "status": "draft",
           "aliases": [
             "area"
           ],
           "related": [
-            ".domain/backlog/domain.md#aggregate-backlog-entry"
+            ".domain/backlog/domain.md#backlog-entry"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#term-due-date",
-          "label": "Term: Due Date",
+          "id": ".domain/backlog/naming.md#due-date",
+          "label": "Due Date",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/naming.md",
-          "slug": "term-due-date",
+          "slug": "due-date",
           "level": 2,
-          "line": 99,
+          "line": 107,
           "status": "proposed",
           "aliases": [
             "due_on",
@@ -1681,21 +1681,21 @@
             "Due"
           ],
           "related": [
-            ".domain/backlog/domain.md#aggregate-backlog-entry"
+            ".domain/backlog/domain.md#backlog-entry"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#term-reminder",
-          "label": "Term: Reminder",
+          "id": ".domain/backlog/naming.md#reminder",
+          "label": "Reminder",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/naming.md",
-          "slug": "term-reminder",
+          "slug": "reminder",
           "level": 2,
-          "line": 112,
+          "line": 121,
           "status": "proposed",
           "aliases": [
             "remind_at",
@@ -1703,21 +1703,21 @@
             "Reminder"
           ],
           "related": [
-            ".domain/backlog/domain.md#aggregate-backlog-entry"
+            ".domain/backlog/domain.md#backlog-entry"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#term-recurrence",
-          "label": "Term: Recurrence",
+          "id": ".domain/backlog/naming.md#recurrence",
+          "label": "Recurrence",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/naming.md",
-          "slug": "term-recurrence",
+          "slug": "recurrence",
           "level": 2,
-          "line": 125,
+          "line": 135,
           "status": "proposed",
           "aliases": [
             "Repeat",
@@ -1735,14 +1735,14 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#term-my-day",
-          "label": "Term: My Day",
+          "id": ".domain/backlog/naming.md#my-day",
+          "label": "My Day",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/naming.md",
-          "slug": "term-my-day",
+          "slug": "my-day",
           "level": 2,
-          "line": 138,
+          "line": 149,
           "status": "proposed",
           "aliases": [
             "in_my_day_on",
@@ -1750,21 +1750,21 @@
             "InMyDay"
           ],
           "related": [
-            ".domain/backlog/features.md#feature-my-day"
+            ".domain/backlog/features.md#my-day"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#term-dependency",
-          "label": "Term: Dependency",
+          "id": ".domain/backlog/naming.md#dependency",
+          "label": "Dependency",
           "type": "chapter",
           "folder": "domain",
           "path": ".domain/backlog/naming.md",
-          "slug": "term-dependency",
+          "slug": "dependency",
           "level": 2,
-          "line": 152,
+          "line": 164,
           "status": "proposed",
           "aliases": [
             "depends_on",
@@ -1773,7 +1773,7 @@
             "predecessor"
           ],
           "related": [
-            ".domain/backlog/domain.md#aggregate-backlog-entry"
+            ".domain/backlog/domain.md#backlog-entry"
           ],
           "outOfScope": true
         }
@@ -2703,9 +2703,9 @@
       },
       {
         "data": {
-          "id": "related:.design/color-scheme.md#band-identity-tokens->.domain/roadmap/features.md#feature-repository-scoped-planning",
+          "id": "related:.design/color-scheme.md#band-identity-tokens->.domain/roadmap/features.md#repository-scoped-planning",
           "source": ".design/color-scheme.md#band-identity-tokens",
-          "target": ".domain/roadmap/features.md#feature-repository-scoped-planning",
+          "target": ".domain/roadmap/features.md#repository-scoped-planning",
           "type": "related"
         }
       },
@@ -2911,17 +2911,17 @@
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#backlog-entry-structure->.domain/backlog/domain.md#aggregate-backlog-entry",
+          "id": "related:.design/content-editing.md#backlog-entry-structure->.domain/backlog/domain.md#backlog-entry",
           "source": ".design/content-editing.md#backlog-entry-structure",
-          "target": ".domain/backlog/domain.md#aggregate-backlog-entry",
+          "target": ".domain/backlog/domain.md#backlog-entry",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#backlog-entry-structure->.domain/backlog/naming.md#term-sub-item",
+          "id": "related:.design/content-editing.md#backlog-entry-structure->.domain/backlog/naming.md#sub-item",
           "source": ".design/content-editing.md#backlog-entry-structure",
-          "target": ".domain/backlog/naming.md#term-sub-item",
+          "target": ".domain/backlog/naming.md#sub-item",
           "type": "related"
         }
       },
@@ -2943,17 +2943,17 @@
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#structured-metadata-sigils->.domain/backlog/naming.md#term-entry-status",
+          "id": "related:.design/content-editing.md#structured-metadata-sigils->.domain/backlog/naming.md#entry-status",
           "source": ".design/content-editing.md#structured-metadata-sigils",
-          "target": ".domain/backlog/naming.md#term-entry-status",
+          "target": ".domain/backlog/naming.md#entry-status",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#structured-metadata-sigils->.domain/backlog/naming.md#term-area",
+          "id": "related:.design/content-editing.md#structured-metadata-sigils->.domain/backlog/naming.md#area",
           "source": ".design/content-editing.md#structured-metadata-sigils",
-          "target": ".domain/backlog/naming.md#term-area",
+          "target": ".domain/backlog/naming.md#area",
           "type": "related"
         }
       },
@@ -2983,41 +2983,41 @@
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#term-due-date",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#due-date",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/naming.md#term-due-date",
+          "target": ".domain/backlog/naming.md#due-date",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#term-reminder",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#reminder",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/naming.md#term-reminder",
+          "target": ".domain/backlog/naming.md#reminder",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#term-recurrence",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#recurrence",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/naming.md#term-recurrence",
+          "target": ".domain/backlog/naming.md#recurrence",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#term-my-day",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#my-day",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/naming.md#term-my-day",
+          "target": ".domain/backlog/naming.md#my-day",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#term-dependency",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#dependency",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/naming.md#term-dependency",
+          "target": ".domain/backlog/naming.md#dependency",
           "type": "related"
         }
       },

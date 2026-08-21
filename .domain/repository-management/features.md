@@ -1,15 +1,17 @@
-# Features: Repository Management
+# Repository Management
 
 ```meta
+type: features
 status: draft
 ```
 
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-## Feature: Repository registration
+## Repository registration
 
 ```meta
+type: feature
 status: draft
 ```
 
@@ -17,12 +19,13 @@ Register repositories with metadata (name, clone path, language, team, GitHub
 URL, type), support local and remote-only registrations, auto-discover repos from
 configured folders, and track when each was last scanned.
 
-### Sub-feature: Repository registry configuration
+### Repository registry configuration
 
 ```meta
+type: sub-feature
 status: draft
 feature-flag: additional-repositories
-related: [.domain/backlog/features.md#feature-multi-repo-targeting, .domain/second-brain/features.md#feature-repository-knowledge-areas]
+related: [.domain/backlog/features.md#multi-repo-targeting, .domain/second-brain/features.md#repository-knowledge-areas]
 ```
 
 Maintain the working set of repositories the app acts on. Each registered
@@ -33,11 +36,12 @@ by naming that alias, and an entry without one falls back to the primary
 repository. Registering more than one repository is itself an opt-in capability,
 so a single-repository setup stays uncluttered.
 
-### Sub-feature: Repository identity colour
+### Repository identity colour
 
 ```meta
+type: sub-feature
 status: draft
-related: [.design/color-scheme.md#band-identity-tokens, .domain/roadmap/features.md#sub-feature-telling-one-project-from-another-at-a-glance]
+related: [.design/color-scheme.md#band-identity-tokens, .domain/roadmap/features.md#telling-one-project-from-another-at-a-glance]
 ```
 
 Give each registered repository one colour, so a workspace holding several of
@@ -59,11 +63,12 @@ written wherever the colour is shown.
 The choice can be given back, which returns the repository to its automatic
 placement rather than leaving it colourless.
 
-### Sub-feature: Repository knowledge folder settings
+### Repository knowledge folder settings
 
 ```meta
+type: sub-feature
 status: draft
-related: [.domain/second-brain/features.md#feature-repository-knowledge-areas]
+related: [.domain/second-brain/features.md#repository-knowledge-areas]
 ```
 
 Decide, per repository, which knowledge folders the product may read and where
@@ -73,31 +78,34 @@ when the repository has a local clone directory, the folder is switched on, and
 the resolved location actually exists; otherwise the product explains which of
 those conditions is missing rather than silently showing nothing.
 
-## Feature: Package and dependency tracking
+## Package and dependency tracking
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/repository-management/features.md#feature-repository-registration]
+depends-on: [.domain/repository-management/features.md#repository-registration]
 ```
 
 Scan dependency files, parse package versions and constraints, track transitive
 dependencies, detect outdated packages against registries, alert on critical or
 security patches, and support custom feeds.
 
-## Feature: Technology stack inventory
+## Technology stack inventory
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/repository-management/features.md#feature-repository-registration]
-related: [.domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking]
+depends-on: [.domain/repository-management/features.md#repository-registration]
+related: [.domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
 ```
 
 Detect primary languages, framework versions, build tools, runtimes, and
 Docker/Kubernetes/cloud usage, with custom technology tagging.
 
-## Feature: GitHub integration
+## GitHub integration
 
 ```meta
+type: feature
 status: draft
 ```
 
@@ -105,11 +113,12 @@ Fetch GitHub metadata (stars, forks, last commit, branch protection), track open
 issues and PRs and their age, detect unmaintained repos, and track GitHub Actions
 CI/CD status.
 
-### Sub-feature: GitHub access resolution
+### GitHub access resolution
 
 ```meta
+type: sub-feature
 status: draft
-related: [.domain/backlog/features.md#feature-projection]
+related: [.domain/backlog/features.md#projection]
 ```
 
 Reach GitHub through whichever credential the machine already has. An existing
@@ -119,35 +128,38 @@ without it. Access can be checked on demand and reports back in plain language
 which route is in use and whether it currently works, and tokens are kept
 outside the backlog folder so the backlog itself stays safe to sync or commit.
 
-## Feature: Repository health scoring
+## Repository health scoring
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/repository-management/features.md#feature-package-and-dependency-tracking, .domain/repository-management/features.md#feature-github-integration]
-related: [.domain/monitoring/features.md#feature-multi-repo-scanning]
+depends-on: [.domain/repository-management/features.md#package-and-dependency-tracking, .domain/repository-management/features.md#github-integration]
+related: [.domain/monitoring/features.md#multi-repo-scanning]
 ```
 
 Compute a health score from package freshness, GitHub issue/PR backlog, test
 coverage, and security alerts, surface low-health repos, and provide actionable
 per-repo recommendations.
 
-## Feature: Technology trend analysis
+## Technology trend analysis
 
 ```meta
+type: feature
 status: draft
-related: [.domain/technology-stack/features.md#feature-portfolio-wide-adoption-tracking]
+related: [.domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
 ```
 
 Aggregate package versions across repos to identify platform-wide adoption,
 surface deprecated tech still in use, recommend upgrades, and track adoption of
 new libraries/frameworks.
 
-## Feature: Bulk operations
+## Bulk operations
 
 ```meta
+type: feature
 status: draft
-depends-on: [.domain/repository-management/features.md#feature-repository-health-scoring]
-related: [.domain/backlog/features.md#feature-backlog-entry-creation]
+depends-on: [.domain/repository-management/features.md#repository-health-scoring]
+related: [.domain/backlog/features.md#backlog-entry-creation]
 ```
 
 Queue package updates across multiple repos, coordinate synchronized upgrades,

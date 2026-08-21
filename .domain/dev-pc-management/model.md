@@ -1,6 +1,7 @@
-# Domain Model: Dev PC Management
+# Dev PC Management
 
 ```meta
+type: model
 status: draft
 ```
 

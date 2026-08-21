@@ -42,7 +42,7 @@ C4Context
 
 ```meta
 status: active
-related: [".domain/context-map.md", ".domain/capture/domain.md#aggregate-capture", ".domain/inbox/domain.md#aggregate-inbox-item"]
+related: [".domain/context-map.md", ".domain/capture/domain.md#capture", ".domain/inbox/domain.md#inbox-item"]
 ```
 
 The most important internal boundary distinguishes *how items enter* from *what
@@ -57,7 +57,7 @@ architectural consequence:
 | What happens to items after arrival (triage, classify, route) | **Inbox** |
 
 Capture delivers normalized `InboxItem`s to the Inbox incoming queue via the
-`ItemCaptured` contract (see `.domain/capture/domain.md#domain-event-itemcaptured`).
+`ItemCaptured` contract (see `.domain/capture/domain.md#itemcaptured`).
 The current recommendation keeps capture tightly coupled to Inbox as one
 deployable pipeline (raw input → triage → route), with an optional future split
 if capture tooling becomes independently owned (tracked in
