@@ -498,9 +498,12 @@ the work item.
 - The event records contribution evidence only; it does not claim productivity
   value by itself.
 - Consumers conform to the published fields and do not inspect Backlog Entry
-  internals to infer additional activity.`r`n`r`n## Shared Enums
+  internals to infer additional activity.
+
+## Shared Enums
 
 ```meta
+type: shared-enums
 status: draft
 ```
 

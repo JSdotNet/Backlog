@@ -10,24 +10,24 @@
     ".design"
   ],
   "stats": {
-    "nodes": 682,
-    "edges": 1249,
+    "nodes": 683,
+    "edges": 1250,
     "nodesByFolder": {
       "arc42": 63,
-      "domain": 468,
+      "domain": 469,
       "backlog": 4,
       "tech": 53,
       "design": 94
     },
     "nodesByType": {
       "file": 103,
-      "chapter": 571,
+      "chapter": 572,
       "heading": 8
     },
     "nodesByStatus": {
       "active": 183,
       "proposed": 29,
-      "draft": 399,
+      "draft": 400,
       "accepted": 3,
       "deprecated": 3,
       "idea": 1,
@@ -37,7 +37,7 @@
       "none": 8
     },
     "edgesByType": {
-      "contains": 579,
+      "contains": 580,
       "related": 591,
       "depends-on": 77,
       "implements": 2
@@ -1328,6 +1328,19 @@
             ".domain/backlog/domain.md#backlog-entry",
             ".domain/productivity/domain.md#productivity-ledger"
           ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/domain.md#shared-enums",
+          "label": "Shared Enums",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/domain.md",
+          "slug": "shared-enums",
+          "level": 2,
+          "line": 503,
+          "status": "draft"
         }
       },
       {
@@ -11196,6 +11209,14 @@
           "id": "contains:.domain/backlog/domain.md->.domain/backlog/domain.md#aiworklogged",
           "source": ".domain/backlog/domain.md",
           "target": ".domain/backlog/domain.md#aiworklogged",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/domain.md->.domain/backlog/domain.md#shared-enums",
+          "source": ".domain/backlog/domain.md",
+          "target": ".domain/backlog/domain.md#shared-enums",
           "type": "contains"
         }
       },
