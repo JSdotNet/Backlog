@@ -1321,6 +1321,18 @@ public sealed class BacklogDesktopState : IDisposable
         // typed no longer matches the filter — having an entry disappear
         // mid-sentence is never what someone meant.
         FilteredRows = [.. rows.Union(Rows.Where(r => ReferenceEquals(r, EditingRow))).OrderBy(Rows.IndexOf)];
+
+        // Selection follows the list, which is the only way the pane beside it can
+        // be about something. Deleting an entry already closed the pane; changing
+        // the repository, the area, the status or My Day did not, so a reader who
+        // narrowed the list to nothing was left reading a panel for an entry the
+        // list no longer contained — a detail pane open beside "Nothing here yet."
+        // Filtered out is the same fact as gone as far as this half of the split is
+        // concerned, so it is answered in the same place.
+        if (SelectedRow is { } selected && !FilteredRows.Any(row => ReferenceEquals(row, selected)))
+        {
+            SelectedRow = null;
+        }
     }
 
     private bool RowBelongsToSelectedRepository(EntryRow row) =>

@@ -379,6 +379,24 @@ h1, h2, h3 {
     flex: 1 1 auto;
 }
 
+/* And the half itself passes the height on rather than stopping it. The shared
+   split gives each half `overflow: auto` and leaves it a block, which is right for
+   a half whose content is simply longer than the space — but it makes the half a
+   block formatting context, so the pane inside it resolves `height: auto` against
+   its own contents and the panel's `flex: 1 1 auto` has nothing to fill.
+
+   That is the same break as the workspace's, one level down: the split stretched,
+   the half stretched with it, and the pane inside stayed exactly as tall as the
+   entry. The scrolling goes with the change, because the panel below is the box
+   that should scroll — a scrollbar here would be the reason the pane is allowed to
+   be shorter than the half. */
+.backlog-split > .split-pane__end {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
 /* Nothing open, so there is nothing to divide: the list takes the whole width and
    the separator has no second pane to drag against. A modifier rather than a
    different element — the split stays mounted so the list keeps its scroll
@@ -426,17 +444,41 @@ h1, h2, h3 {
 .entry-detail {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* The panel takes the height it is given rather than the height it needs, and
+   scrolls inside it. It used to do the opposite, and what that cost was the
+   writing: a short entry drew a panel a few rows tall with the rest of the column
+   empty under it, so the one part of the pane with anything to grow into — the
+   body — was the one part boxed in at six rows. Full height is what lets the
+   editor below have the room, and the panel rather than this box is the scroller
+   because a panel that scrolled its own contents is the only way the body can
+   both fill the space and overflow it. */
+.entry-detail__panel {
+    flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
 }
 
-/* Only ever one panel in the scroller, and it takes the height it needs rather
-   than the height it is given: a short entry should not stretch its own box down
-   an empty column. */
-.entry-detail__panel {
-    flex: 0 0 auto;
-    min-width: 0;
+/* And the body is what gets the leftover. TaskPanel is a column of regions; every
+   one of them is as tall as its contents except this, which is why it is the one
+   that grows.
+
+   Grow but never shrink, here and all the way down to the editor. Inside a box
+   that scrolls, an item that may shrink below its contents is an item that will:
+   the panel hands out less height than the regions need in a short window, each
+   of these collapses towards zero, and the editor's own six rows end up outside
+   every ancestor that could have reported them — so the panel had nothing to
+   scroll and the writing was simply gone below about 800px of window. The floor is
+   what the content asks for; the ceiling is what is left over; the panel above
+   scrolls when those two disagree. */
+.entry-detail__panel .task-panel__body {
+    flex: 1 0 auto;
 }
 
 /*
@@ -473,25 +515,75 @@ h1, h2, h3 {
     text-align: left;
 }
 
-.entry-detail__note {
-    min-width: 0;
-}
-
 /* --- The body's two readings -------------------------------------------- */
 /*
   The steps and the markdown block are two views of one text, so they share a
   region and only one of them is ever in it. The switch above them is the shared
-  ButtonGroup strip, so nothing about it is here: the library dresses it, and a
-  strip whose segments touch cannot be handed a gap from outside without breaking
-  the single control it is drawing. It was the filter bar's chip shape, laid out by
-  a rule of this pane's own, until a one-of-many choice became one shape across the
-  product rather than one per screen.
+  Tabs strip, which is what a choice between two named views of one region is:
+  the strip announces itself as a tablist, each reading is a panel labelled by
+  its own tab, the arrow keys move between them, and the pair is one stop in the
+  tab order. It was a pressed ButtonGroup, and before that this pane's own row of
+  chips — the same control drawn three ways, the last of which was miming a tab
+  strip without the wiring.
 */
 .entry-detail__body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
     min-width: 0;
+
+    /* The body is the part of the panel with room to grow, so it takes the room:
+       the view switch stays where it is and whichever reading is under it fills
+       the rest of the column. Never less than the reading needs — see the note on
+       task-panel__body above. */
+    flex: 1 0 auto;
+}
+
+/* The strip keeps its own height; the reading under it takes the rest. */
+.entry-detail__views {
+    flex: 0 0 auto;
+}
+
+/* Only the panel that is showing. TabPanel marks the other one `hidden`, and a
+   display of any kind here would overrule that and draw both. */
+.entry-detail__view:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto;
+    min-width: 0;
+    gap: var(--spacing-sm);
+}
+
+/* The panel is a tab stop, so it takes focus when the reader arrives from the
+   strip — but it is a region rather than a control, and a ring around the whole
+   reading would read as though the text itself were selected. */
+.entry-detail__view:focus-visible {
+    outline: none;
+}
+
+/* The markdown reading, filling what the body was given. Auto-grow is still what
+   sizes it past that — the editor grows with the text once the text is longer
+   than the space — so this is a floor rather than a height, and the panel above
+   scrolls when the two disagree. */
+.entry-detail__note {
+    min-width: 0;
+    flex: 1 0 auto;
+}
+
+.entry-detail__note .markdown-editor__surface {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto;
+}
+
+.entry-detail__note .markdown-editor__grow {
+    flex: 1 0 auto;
+}
+
+/* The editor is as tall as the panel gives it, so a drag handle offering to make
+   it taller would be offering to fight the layout. */
+.entry-detail__note .markdown-editor__input {
+    resize: none;
 }
 
 /*
@@ -531,40 +623,11 @@ h1, h2, h3 {
 /* --- The raw-markdown escape hatch --------------------------------------- */
 /*
   Always available and never the default, per
-  .design/content-editing.md#raw-markdown-escape-hatch. The toggle reads as
-  chrome rather than as content: it is the one control here that changes what
-  kind of surface you are looking at.
+  .design/content-editing.md#raw-markdown-escape-hatch. Reached by Ctrl+Shift+M
+  rather than by a control of its own — the toggle that used to open it sat under
+  the body saying "Markdown" beside a view switch that already said "Markdown",
+  and the switch is the one a reader means.
 */
-
-.entry-detail__raw-toggle {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-2xs) var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-xs);
-}
-
-.entry-detail__raw-toggle:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
-
-.entry-detail__raw-toggle:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 1px;
-}
-
-.entry-detail__raw-toggle--on {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
 
 .entry-detail__raw {
     display: flex;
@@ -2918,12 +2981,25 @@ h1, h2, h3 {
     overflow: auto;
 }
 
+/* A column, so the split inside it inherits the height instead of measuring its
+   own contents. The split asks for `flex: 1 1 auto` and this box is where that
+   request is answered — while it was a block, the flex line was inert and the
+   split resolved to whatever the taller of its two halves happened to need. The
+   panel then matched the split exactly and still left dead space under itself in
+   a tall window, because "as tall as the split" and "as tall as its contents"
+   were the same sentence.
+
+   The scrolling moves down with it. Each half of the split already scrolls on its
+   own, so a scrollbar here would be a second one for the same content — and it is
+   the thing that would have to stay for the panel to be allowed to overflow
+   rather than fill. */
 .backlog-workspace {
+    display: flex;
+    flex-direction: column;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
     padding-right: var(--spacing-sm);
     padding-bottom: var(--spacing-sm);
-    scrollbar-gutter: stable;
 }
 
 

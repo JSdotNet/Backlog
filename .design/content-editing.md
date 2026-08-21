@@ -328,15 +328,15 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/typogr
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Entry edit* → **A checkbox writes back to the source** |
 | Scheduling and dependency tokens | Read and written by `EntryTextParser`; `TaskAction` is the shape a control over one takes, over the date, time and repeat fields beside it | Storybook → *Inputs* → **A date, a time and a repeat**, **TaskAction — set it, see it, clear it** |
 | Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as either a `TaskListView` of steps or one `MarkdownEditor`, the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **Split pane**, **Split pane, anchored to the end** |
-| The body's two readings | One region, switched by `view:` and remembered on the entry; the steps reading says so when the body holds prose it is not showing | Backlog pane → the **Steps** / **Markdown** button group |
-| Raw-Markdown escape hatch | The whole entry's canonical text in a mono `TextArea`, with the live "reads as" hint under it | Backlog pane → the **Markdown** toggle, or Ctrl+Shift+M |
+| The body's two readings | One region, switched by `view:` and remembered on the entry; the steps reading says so when the body holds prose it is not showing | Backlog pane → the **Steps** / **Markdown** tabs |
+| Raw-Markdown escape hatch | The whole entry's canonical text in a mono `TextArea`, with the live "reads as" hint under it | Backlog pane → Ctrl+Shift+M |
 
 What is true today, and where it differs from the model above:
 
 - **The editing model is no longer inverted, and is not yet WYSIWYG either.** The
   backlog's detail pane edits an entry a field at a time — a title, a note, a
-  step, a date, a dependency — and the canonical Markdown is a toggle and a
-  keyboard shortcut away, which is the escape hatch
+  step, a date, a dependency — and the canonical Markdown is a keyboard
+  shortcut away, which is the escape hatch
   `#raw-markdown-escape-hatch` asks for rather than the primary surface
   `#editing-model` rules out. What is still missing from `#editing-model` is the
   rich-text part: the note is a Markdown editor with a formatting toolbar, not a
@@ -345,6 +345,13 @@ What is true today, and where it differs from the model above:
   satisfied, and `#round-trip-fidelity` is only under pressure where a field
   rewrite touches text it was not asked about — which is why each of those
   rewrites is scoped to one chapter and leaves the rest byte-for-byte.
+- **The escape hatch has a shortcut but not yet a command.**
+  `#raw-markdown-escape-hatch` asks for the raw view to be reachable "via a
+  command and keyboard shortcut". Ctrl+Shift+M opens and Escape closes it, but
+  the pane no longer carries a control that reveals it and there is no command
+  palette to list it in, so the hatch is currently discoverable only to a reader
+  who already knows the shortcut. The half of the rule that is unmet is the
+  command, and it stays unmet until there is a palette to put it in.
 - **The metadata line now carries two syntaxes.** Sigil tokens for type, priority,
   status, area and tags, and named `name:value` tokens for the scheduling and
   dependency fields — see `#scheduling-and-dependency-tokens` for why the second

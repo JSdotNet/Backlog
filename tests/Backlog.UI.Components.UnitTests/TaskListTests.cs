@@ -1194,6 +1194,21 @@ public sealed class TaskListTests
         Assert.Equal("Nothing due today.", view.Find(".task-list__empty").TextContent);
     }
 
+    /// <summary>And says nothing when the caller has nothing to say. A list that
+    /// draws its own add row already shows empty as an empty field, and the line
+    /// above it would be the second answer to a question nobody asked.</summary>
+    [Fact]
+    public void An_empty_list_says_nothing_when_the_caller_left_the_words_out()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Array.Empty<TaskRow>())
+            .Add(l => l.EmptyMessage, string.Empty));
+
+        Assert.Empty(view.FindAll(".task-list__empty"));
+    }
+
     [Fact]
     public void An_action_that_is_set_says_what_to_and_offers_to_clear_it()
     {

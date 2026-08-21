@@ -61,6 +61,56 @@ public sealed class TabsTests
         Assert.Contains("Third body", tabs.Markup, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The ring goes with the selection.
+    /// <para>
+    /// Roving tabindex means the tab that was active is the one at
+    /// <c>tabindex="-1"</c> the moment the reader arrows off it. Leave focus there
+    /// and the browser computes the next arrow from a tab that is no longer the
+    /// visible one — ArrowRight then ArrowLeft lands back on the second tab, and
+    /// there is no key that returns to the first. The strip becomes one-way.
+    /// </para>
+    /// <para>
+    /// What is pinned here is that each move asks for focus, and asks for it
+    /// somewhere new. Which element the reference points at is not something a
+    /// render test can see — bUnit has no focus — so the identity is the browser's
+    /// to check; the call being made at all, once per move, is this one's.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void An_arrow_key_takes_focus_with_it()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.SetupVoid("Blazor._internal.domWrapper.focus", _ => true);
+
+        var tabs = context.Render<TabsHarness>();
+
+        tabs.FindAll("[role='tab']")[0].KeyDown(new KeyboardEventArgs { Key = "ArrowRight" });
+        tabs.FindAll("[role='tab']")[1].KeyDown(new KeyboardEventArgs { Key = "ArrowRight" });
+
+        var focused = context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"];
+
+        Assert.Equal(2, focused.Count);
+        Assert.NotEqual(
+            ((ElementReference)focused[0].Arguments[0]!).Id,
+            ((ElementReference)focused[1].Arguments[0]!).Id);
+    }
+
+    /// <summary>Pressing the tab that is already active moves nothing, so it takes
+    /// no focus with it either: the reader is already there.</summary>
+    [Fact]
+    public void Clicking_a_tab_leaves_the_focus_where_the_reader_put_it()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.SetupVoid("Blazor._internal.domWrapper.focus", _ => true);
+
+        var tabs = context.Render<TabsHarness>();
+
+        tabs.FindAll("[role='tab']")[1].Click();
+
+        Assert.Empty(context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
+    }
+
     [Fact]
     public void Home_and_End_jump_to_the_ends_of_the_strip()
     {
