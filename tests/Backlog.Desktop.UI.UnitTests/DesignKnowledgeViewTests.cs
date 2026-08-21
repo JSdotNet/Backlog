@@ -50,11 +50,36 @@ public sealed class DesignKnowledgeViewTests : IDisposable
 
         component.AssertTheFileIsNamedOnce("Colors", ".design-document");
 
-        // The file's own status badge is not identity, and the folder overview is
-        // the only place in the product to read it, so it stays on the document
-        // header the name just left.
-        Assert.NotEmpty(component.FindAll(".design-document__header .knowledge-status"));
+        // Nothing above the file view introduces it any more: no header holding a
+        // lone status badge, no folder path, no summary reprinting the file's
+        // first paragraph. The file view's own header is the only thing that says
+        // which file this is.
+        Assert.Empty(component.FindAll(".design-document__header"));
         Assert.Empty(component.FindAll(".design-document__file"));
+        Assert.Empty(component.FindAll(".design-document__summary"));
+        Assert.Empty(component.FindAll(".design-knowledge__source"));
+
+        // The token strip goes with them. Colors carries a token table, so this
+        // is a strip that would have rendered — and its values are in the file
+        // the view below is showing.
+        Assert.Empty(component.FindAll(".design-token-strip"));
+    }
+
+    [Fact]
+    public async Task A_selected_chapter_hands_its_scrollbar_to_the_file_view()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render("colors.md");
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
+
+        // The modifier is what caps the pane at the section's height, and Fill is
+        // what makes the file view take that height and scroll its own body. A
+        // body with a max-height instead would grow the pane past the section
+        // already scrolling it, which is the second scrollbar this removed.
+        Assert.Single(component.FindAll(".design-knowledge--chapter"));
+        Assert.Contains("file-view--fill", component.Find("[data-testid='design-chapter-file']").ClassName, StringComparison.Ordinal);
     }
 
     [Fact]
