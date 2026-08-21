@@ -105,7 +105,23 @@
                    as the body instead, through BodyContent below. Copy is off for
                    that fallback for the reason the file view names — there is no text
                    to copy — and the view names the chapter either way, which is why
-                   the read-only fallback lives inside it and not beside it. *@
+                   the read-only fallback lives inside it and not beside it.
+
+                   Editing is held to the same condition CanEdit is, and not to
+                   _editing alone. The file view draws its edit body whenever it is
+                   editing and one was handed in, so an edit mode that outlived the
+                   chapter it can no longer read would win over the fallback here — the
+                   editor would blank its buffer against a chapter that is now None
+                   while the way out of edit mode is gone with CanEdit, and the parsed
+                   fallback this very state exists to show would never get its turn. A
+                   same-path reload can land there: the debounce after a keystroke-save
+                   and a background folder change both re-read the open chapter, and a
+                   read that comes back empty — locked, gone, or newly unreadable
+                   between the catalog read and this one — leaves _editing set with no
+                   chapter behind it. Gating the mode on the readable chapter is what
+                   makes that transient a read-only render and not a wedged, exit-less
+                   blank editor; when the read succeeds again the reader is back where
+                   they were writing. *@
                 <FileView Name="@_selected.Title"
                           Kind="@ChapterKind(_selected)"
                           Path="@_selected.Path"
@@ -125,7 +141,7 @@
                           OnResolveComment="ResolveChapterComment"
                           OnEditComment="EditChapterComment"
                           CanEdit="@(_chapter.Chapter is not null)"
-                          Editing="@_editing"
+                          Editing="@(_editing && _chapter.Chapter is not null)"
                           EditingChanged="OnEditingChangedAsync"
                           EditBodyContent="@ChapterEditor()"
                           BodyContent="@(_chapter.Chapter is null ? ParsedChapter(_selected) : null)" />

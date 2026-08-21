@@ -21,12 +21,28 @@ namespace Backlog.Desktop.UI.UnitTests;
 internal sealed class RecordingKnowledgeFolderSource(IKnowledgeFolderSource inner, string chapterPath) : IKnowledgeFolderSource
 {
     private bool _armed;
+    private int _breakChapterCountdown = -1;
 
     /// <summary>The chapter as it was when the first resolve after arming happened,
     /// or null when nothing resolved at all.</summary>
     internal string? ChapterWhenStatusWasWritten { get; private set; }
 
     internal void ArmStatusWriteSnapshot() => _armed = true;
+
+    /// <summary>
+    /// Arms the momentary-unreadable window the read-only fallback exists for: a
+    /// same-path reload whose catalog read still lists the open chapter, but whose
+    /// chapter read a moment later does not.
+    /// <para>
+    /// Every reload builds the catalog before it reads the one open chapter, and
+    /// both reads reach for the folder through this source — the catalog's resolve
+    /// first, the chapter's second. Removing the file on that second resolve, after
+    /// the catalog has already read it and before the chapter read reaches for it,
+    /// is a file locked, deleted or made unreadable between the two reads with none
+    /// of the race that would make it flaky.
+    /// </para>
+    /// </summary>
+    internal void BreakChapterOnNextReload() => _breakChapterCountdown = 1;
 
     public event Action? Changed
     {
@@ -43,6 +59,16 @@ internal sealed class RecordingKnowledgeFolderSource(IKnowledgeFolderSource inne
         if (_armed && ChapterWhenStatusWasWritten is null && File.Exists(chapterPath))
         {
             ChapterWhenStatusWasWritten = File.ReadAllText(chapterPath);
+        }
+
+        if (_breakChapterCountdown >= 0)
+        {
+            // The catalog's resolve is the first one after arming and is let by; the
+            // chapter's is the second, and by then the catalog has already read the
+            // file, so removing it here strands the chapter read on the empty result
+            // KnowledgeChapterContent.None answers with.
+            if (_breakChapterCountdown == 0 && File.Exists(chapterPath)) File.Delete(chapterPath);
+            _breakChapterCountdown--;
         }
 
         return inner.Resolve(key, repositoryAlias);

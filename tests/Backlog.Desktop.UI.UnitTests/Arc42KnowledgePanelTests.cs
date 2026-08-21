@@ -215,6 +215,56 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
         Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-done']"));
     }
 
+    [Fact]
+    public async Task A_chapter_that_stops_being_readable_under_an_open_editor_falls_back_to_the_read_view()
+    {
+        // The hole this pins: editing mode is the file view's now, and it is held on
+        // _editing alone until the markup ties it to the same readable-chapter test
+        // CanEdit uses. A same-path reload can leave _editing set with the chapter
+        // read come back empty — the file locked, gone, or newly unreadable between
+        // the catalog read and the chapter read — and an edit mode that outlives the
+        // chapter would win over the read-only fallback, blanking the reader's text
+        // into a textarea with no chapter behind it and no way out, because the Done
+        // button goes with CanEdit. The fallback is exactly what that state is for,
+        // so it is what must render.
+        await using var harness = CreateHarness(withArc42Folder: true);
+        var gitHub = harness.Context.Services.GetRequiredService<GitHubSettingsStore>();
+
+        var component = harness.Render(DecisionPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
+
+        // A readable chapter, opened: the editing surface is on screen, which is the
+        // state the reload has to find the editor in for the hole to be reachable.
+        component.Find("[data-testid='arc42-chapter-file-edit']").Click();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body'] [data-testid='knowledge-chapter-surface']")));
+
+        // The file goes unreadable on the chapter read of the very next reload, after
+        // the catalog has already listed it — so the panel keeps a document to render
+        // read-only while the chapter itself comes back None. Re-setting the same
+        // repositories is the folder-changed signal the panel reloads on, the same
+        // path it takes for a folder that moved underneath it.
+        harness.Folders.BreakChapterOnNextReload();
+        await component.InvokeAsync(() => gitHub.SetRepositories(gitHub.Current.Repositories));
+
+        // The read-only fallback is what the catalog parsed, drawn through the shared
+        // markdown view, and not a blank editor: the surface is gone, and the prose
+        // the reader could no longer edit is at least still on the screen.
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-body'] [data-testid='knowledge-chapter-surface']"));
+            Assert.Contains(
+                "Original prose.",
+                component.Find("[data-testid='arc42-chapter-file-body'] .knowledge-p").TextContent,
+                StringComparison.Ordinal);
+        });
+
+        // And no way in offered on an unreadable chapter, which is the CanEdit half
+        // the mode is now tied to: no Done stranded on a surface that is not there,
+        // and no Edit onto a file the first keystroke would fail to save.
+        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-done']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-edit']"));
+    }
+
     /// <summary>
     /// Deletes the temp folders once every test has awaited its harness away, so
     /// nothing this class rendered can still be writing into one of them. The
