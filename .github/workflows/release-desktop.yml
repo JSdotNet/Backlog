@@ -62,31 +62,26 @@ jobs:
             return
           }
 
-          # A git pathspec matches a directory and everything under it, but only
-          # on a path-segment boundary: 'src/Modules/Backlog/Backlog.Modules.Backlog'
-          # does not match the sibling '...Backlog.Modules.Backlog.UI'. Every
-          # project the desktop head composes therefore has to be listed by name.
-          $releasePaths = @(
-            'Backlog.sln',
-            'src/App/Backlog.Desktop',
-            'src/App/Backlog.Desktop.UI',
-            'src/Aspire/Backlog.Aspire.ServiceDefaults',
-            'src/Infrastructure/Backlog.Infrastructure.Copilot',
-            'src/Infrastructure/Backlog.Infrastructure.FileSystem',
-            'src/Infrastructure/Backlog.Infrastructure.GitHub',
-            'src/Modules/Backlog/Backlog.Modules.Backlog',
-            'src/Modules/Backlog/Backlog.Modules.Backlog.UI',
-            'src/Modules/Backlog/Backlog.Modules.Backlog.Abstractions',
-            'src/Modules/DevPc/Backlog.Modules.DevPc.Abstractions',
-            'src/Modules/DevPc/Backlog.Modules.DevPc.UI',
-            'src/Modules/Inbox/Backlog.Modules.Inbox.UI',
-            'src/Modules/Knowledge/Backlog.Modules.Knowledge.UI',
-            'src/Modules/Knowledge/Backlog.Modules.Knowledge.Abstractions',
-            'src/Core/Backlog.SharedKernel',
-            'build/Backlog.Desktop.appinstaller.template',
-            'build/New-AppInstaller.ps1',
-            '.github/workflows/release-desktop.yml'
-          )
+          # A git pathspec matches a directory and everything under it, but only on a
+          # path-segment boundary: 'src/Modules/Backlog/Backlog.Modules.Backlog' does not
+          # match the sibling '...Backlog.Modules.Backlog.UI'. So every project the desktop
+          # head composes has to be named. That list was hand-maintained and went stale --
+          # it never grew the Dashboard, Roadmap or Sessions modules -- so it is derived
+          # from the head's ProjectReference graph now. Only what is not a referenced
+          # project is still written out here.
+          $releasePaths = & ./build/Get-ReleasePaths.ps1 `
+            -HeadProject 'src/App/Backlog.Desktop/Backlog.Desktop.csproj' `
+            -Extra @(
+              'Backlog.sln',
+              'build/Backlog.Desktop.appinstaller.template',
+              'build/New-AppInstaller.ps1',
+              'build/Get-ReleasePaths.ps1',
+              '.github/workflows/release-desktop.yml'
+            )
+          Write-Output "Desktop release gate watches $($releasePaths.Count) paths."
+          if (-not $releasePaths) {
+            throw "The release path list came back empty. Refusing to continue: 'git diff -- ' with no pathspec matches every file, so the gate would report changes unconditionally."
+          }
           $changedFiles = git diff --name-only "$latestTag..HEAD" -- $releasePaths
           if ($LASTEXITCODE -ne 0) { throw "Could not compare HEAD with latest release $latestTag." }
 
