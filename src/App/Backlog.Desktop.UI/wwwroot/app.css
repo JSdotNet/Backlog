@@ -2153,6 +2153,25 @@ h1, h2, h3 {
     line-height: 1.4;
 }
 
+/* The add and import dialogs. Narrow on purpose: both are three or four fields
+   and a paste box, and a dialog as wide as the pane behind it reads as another
+   pane rather than as a question. */
+.tools-dialog {
+    width: min(34rem, 92vw);
+}
+
+.tools-form {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.tools-form__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* The workspace: the roadmap band above the pane row.
 
    `fit-content(30%)` is what makes 30% a ceiling rather than a share. The band

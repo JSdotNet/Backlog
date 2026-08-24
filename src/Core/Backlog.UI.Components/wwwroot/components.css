@@ -4100,6 +4100,47 @@ button.tag-chip__label {
     pointer-events: none;
 }
 
+/* The file picker wears the same box as a text input so a form mixing the two
+   reads as one form. Its inner button is the platform's, and only the parts the
+   browser lets a stylesheet reach are set: the rest is left alone rather than
+   half-restyled into something that matches nothing. */
+.field__file {
+    width: 100%;
+    min-width: 0;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+}
+
+.field__file::file-selector-button {
+    margin-right: var(--spacing-sm);
+    padding: 0.25rem var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.field__file:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.field__file:disabled {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
+.field--invalid .field__file {
+    border-color: var(--color-border-strong);
+    border-width: var(--border-width-2);
+}
+
 .search-box {
     display: flex;
     align-items: center;
