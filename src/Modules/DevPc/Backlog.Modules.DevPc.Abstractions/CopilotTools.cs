@@ -85,6 +85,19 @@ public sealed record CopilotToolDraft(
     string? DisplayName = null,
     string? PluginKind = null);
 
+/// <summary>
+/// One command a host ran while answering, with everything it printed.
+///
+/// <para>Checking tools means running about a dozen processes — a CLI probe, two
+/// inventory listings, and a version lookup per configured tool — and until this
+/// existed the only trace of any of them was the single sentence in
+/// <see cref="CopilotToolCatalog.Message"/>. A failing <c>dotnet tool search</c>
+/// or a <c>plugin install</c> that refused had already been captured and was then
+/// dropped on the floor, which left the operator with a summary and nothing to
+/// read behind it.</para>
+/// </summary>
+public sealed record CopilotToolCommand(string CommandLine, int ExitCode, string Output);
+
 /// <summary>What the tools surface has to draw.
 /// <para>
 /// <paramref name="CatalogExists"/> is what separates "there is no catalog file"
@@ -107,13 +120,27 @@ public sealed record CopilotToolCatalog(
     string Message,
     bool CatalogExists = false,
     string CatalogPath = "",
-    bool CanEditCatalog = false);
+    bool CanEditCatalog = false)
+{
+    /// <summary>What was run to produce this catalog, in the order it ran.
+    ///
+    /// <para>An init-only property rather than a positional parameter: a host
+    /// that has no processes behind it — the browser harness, the unsupported
+    /// service — still constructs this without it, and diagnostics arriving is
+    /// not a reason for those to stop compiling.</para></summary>
+    public IReadOnlyList<CopilotToolCommand> Commands { get; init; } = [];
+}
 
 public sealed record CopilotToolActionResult(bool Succeeded, string Message)
 {
-    public static CopilotToolActionResult Ok(string message) => new(true, message);
+    /// <inheritdoc cref="CopilotToolCatalog.Commands" />
+    public IReadOnlyList<CopilotToolCommand> Commands { get; init; } = [];
 
-    public static CopilotToolActionResult Failed(string message) => new(false, message);
+    public static CopilotToolActionResult Ok(string message, IReadOnlyList<CopilotToolCommand>? commands = null) =>
+        new(true, message) { Commands = commands ?? [] };
+
+    public static CopilotToolActionResult Failed(string message, IReadOnlyList<CopilotToolCommand>? commands = null) =>
+        new(false, message) { Commands = commands ?? [] };
 }
 
 public sealed record CopilotToolConfigurationPaths(string CatalogPath, string PcConfigPath)

@@ -594,15 +594,16 @@
         return headings;
     }
 
-    /// <summary>Whether the open file view is already showing this heading's status
-    /// where the heading is. False in every mode but reading, because that is the
-    /// only mode the record is drawn in — and a status must stay reachable while a
-    /// reader is editing or comparing.</summary>
-    private bool ShowsStatusInBody(DomainKnowledgeDocument document, string heading) =>
-        IsEditedChapter(document)
-        && !_editing
-        && !_comparing
-        && _statusHeadings.Contains(heading);
+    /// <summary>Whether the open file view is already showing this heading's
+    /// status.
+    ///
+    /// <para>In every mode, now that the file's own record is drawn in the file
+    /// view's header rather than at the top of its body: the header is the part
+    /// that stays put, so the status is reachable while a reader is editing or
+    /// comparing without this panel offering a second control for it. It used to
+    /// have to, and the mode test is gone with the reason for it.</para></summary>
+    private bool ShowsStatusInFileView(DomainKnowledgeDocument document, string heading) =>
+        IsEditedChapter(document) && _statusHeadings.Contains(heading);
 
     /// <summary>A save that failed after the editor stopped being able to say so.
     /// It is shown here because this panel is still on screen when that
@@ -697,7 +698,7 @@
             }
             @RenderKnowledgeActions(
                 new KnowledgeActionItem(document.Title, document.KindLabel, document.Path, document.Metadata, document.Summary),
-                showStatus: !ShowsStatusInBody(document, document.Title))
+                showStatus: !ShowsStatusInFileView(document, document.Title))
         </header>
 
         @if (IsEditedChapter(document))
@@ -808,11 +809,11 @@
     </article>;
 
     @* showStatus is false for a heading whose status the open file view is already
-       drawing beside it. Two selects for one field is how the pane used to
-       disagree with itself: the reader changed one and the other went on showing
-       the old word until something reloaded. Conditional on the file rather than
-       on the mode, because a chapter that states no status has no record in the
-       body either, and the only way to give it one is still this select. *@
+       drawing. Two selects for one field is how the pane used to disagree with
+       itself: the reader changed one and the other went on showing the old word
+       until something reloaded. Conditional on the file and not on the mode — a
+       chapter that states no status has no record for the file view to draw, and
+       the only way to give it one is still this select. *@
     private RenderFragment RenderKnowledgeActions(KnowledgeActionItem item, bool showStatus = true) => @<div class="domain-knowledge__actions" aria-label="Knowledge item actions">
         @if (showStatus)
         {

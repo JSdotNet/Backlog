@@ -1,4 +1,4 @@
-/*
+﻿/*
     Styles owned by the shared component library, served from
     _content/Backlog.UI.Components/components.css. A host links this file before
     its own stylesheet, so everything here is the base an app may then extend.
@@ -1668,21 +1668,13 @@ button.md-check {
     margin-inline-start: auto;
 }
 
-/* The one place that auto margin has to stop short of the edge.
-
-   Inside an annotated read view the block's top-right corner belongs to the
-   comment affordance: it is absolutely positioned there, it is in the DOM at all
-   times so touch and the keyboard can find it, and it is the only affordance on
-   the block. A headline that also holds that edge puts the status underneath the
-   button — which is what a DRAFT chip with a speech bubble sitting on it was.
-   Whatever else wants that corner yields it, so the gutter is reserved here
-   rather than the button being moved or either control being hidden: one of them
-   is a thing you press and the other is a thing you read, and losing sight of a
-   chapter's state is the more expensive of the two. Wide enough for the button
-   and a gap after the status, so the two read as separate rather than adjacent. */
-.md-block .knowledge-record__headline {
-    padding-inline-end: calc(2rem + var(--spacing-sm));
-}
+/* The auto margin stops at whatever edge the row is given, and inside an
+   annotated read view that edge is short of the block's own: `.md-block--affordance`
+   reserves the corner for the controls that hang there, so the status pill is
+   already clear of the speech bubble it used to sit under. This row once carried
+   that reservation itself, which was the same rule written for one element —
+   every paragraph beside it still ran under the button. The gutter belongs to
+   the block, and the status now ends where the prose ends. */
 
 /* The heading arrives with the block margins it has as a block of its own.
    Left alone they push the pill off the line and reopen the gap this row exists
@@ -2020,13 +2012,90 @@ button.md-check {
     position: relative;
 }
 
+/*
+   The gutter the corner controls live in, and the reason the text stops short of
+   the block's own right edge.
+
+   The controls are absolutely positioned, so they are out of flow and the prose
+   beside them keeps the whole column: a paragraph long enough to reach the edge
+   ran underneath the button, and a chapter's status pill did the same until the
+   headline was given a padding of its own. Reserving the strip on the block
+   fixes both at once — the status and the prose then end on the same line down
+   the right side, which is what makes the column read as a column.
+
+   Padding rather than a narrower box, because the controls are positioned
+   against the *padding* box: `right: 0` still means the block's outer edge, so
+   the strip is emptied of text without moving anything into it.
+
+   Only when something is actually there. `.md-block` is emitted whenever a view
+   is annotated, which includes a read-only one showing comments nobody can add
+   to — a gutter reserved on that block would be a margin holding nothing. The
+   modifier is what the affordances put there, so the two cannot drift apart.
+*/
+.md-block--affordance {
+    --md-affordance-slots: 1;
+
+    padding-inline-end: calc(var(--md-status-column, 0rem) + var(--md-affordance-slots) * 2.5rem + var(--spacing-sm));
+}
+
+/* Two controls, two slots. A block that offers a rewrite as well as a comment
+   needs twice the strip, and a gutter that assumed one would put the pair back
+   over the words it was widened to clear. */
+.md-block--affordance-pair {
+    --md-affordance-slots: 2;
+}
+
+/*
+   The status column, on a document that draws chapter status.
+
+   `.badge--status` is 7.5rem wherever it appears — "a 7.5rem column in a table
+   of them", as the badge rules put it — so the strip a status occupies is a
+   known width and the text can be told to stop at its left edge. Clearing the
+   comment button alone was not enough: the button is 2rem in the corner and the
+   status is a 7.5rem control beside it, so a line that cleared the first still
+   ran the length of the second.
+
+   Declared on the view rather than per block, because it is a fact about the
+   document — every line in it stops at the same rule, which is the only way a
+   column reads as one. Views that draw no status never set the variable and the
+   `0rem` fallback leaves them exactly as they were.
+*/
+.md-view--status-column {
+    --md-status-column: 7.5rem;
+}
+
+/* Unannotated, the blocks are the view's own children and hold the column open
+   themselves. Annotated, `.md-block--affordance` already does it — the rows are
+   skipped here so the reservation is not paid twice. */
+.md-view--status-column > :not(.md-block-row) {
+    padding-inline-end: var(--md-status-column);
+}
+
+/* And the status reaches back into the column it is the reason for. Without
+   this the pill would be pushed in by the strip reserved *for* it, ending a
+   column's width short of the edge with nothing but air beside it. Both shapes
+   take the same rule: what differs is which element paid the padding. */
+.md-view--status-column .knowledge-record__headline {
+    margin-inline-end: calc(-1 * var(--md-status-column));
+}
+
+/* One row, anchored to the corner, rather than each control anchoring itself
+   there. Both used to be `right: 0` and landed on top of each other the moment a
+   host offered both — the comment button under the rewrite button, which is one
+   affordance you can see and one you can only find by keyboard. */
+.md-block__affordances {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
 /* The affordance is in the margin, out of the text's way, and only opaque once
    the block is reached. It is always in the DOM: one that appeared on hover
    could not be found by touch or by keyboard. */
 .md-block__comment {
-    position: absolute;
-    top: 0;
-    right: 0;
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-2xs);
@@ -4776,6 +4845,49 @@ button.tag-chip__label {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+}
+
+/*
+   The file's own metadata record, in the header that names the file.
+
+   A knowledge file states its status in a fence under its title. Read in the
+   body that is the top of a document — the one place a reader has already
+   scrolled past by the time they think to ask whether any of it is still
+   current — so the record is drawn around the name instead, on the part of the
+   pane that stays put. The record itself is the same `knowledge-record` the
+   chapters wear; these rules only say how it sits in a header that already has
+   a right-hand column.
+
+   The identity column grows for it, and only for it. Unfilled, the column is as
+   wide as its content and the status would sit against the name's last word;
+   the right edge is the whole point of that alignment (see
+   .knowledge-record__headline), and the aside keeps its own content width, so
+   growing here takes the header's free space and nothing the path or the
+   actions were using. Without a record there is nothing to push over, and the
+   column stays sized as it always was.
+
+   The name and the details line go into that row as one item — .file-view__
+   headline — rather than two: loose, they would sit side by side with the status
+   after both. Wrapped, the row has two items to align, and baseline alignment
+   takes the wrapper's first baseline, which is the name's. It needs no rule of
+   its own: the headline already gives every child but the status min-width: 0,
+   which is what lets the name wrap instead of pushing the status out of the row.
+*/
+.file-view__identity--record {
+    flex: 1 1 auto;
+}
+
+/* The fields tier keeps the record's own treatment — the extra-small type, the
+   dim label column, the tight rows — because a status in the header and a status
+   in the body have to read as one thing. The one thing the header changes is
+   that the label column may shrink: `auto` refuses to go below the longest key,
+   which in a body is nothing and in a header is a column that will not narrow
+   when the pane does, holding the whole row wider than the space it has. Here it
+   gives, and the values wrap, so the strip stays a strip rather than growing the
+   header at the body's expense
+   (.design/design-principles.md#low-chrome-content-first). */
+.file-view__record .knowledge-fields {
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
 }
 
 /* The path earns the monospace: it is a machine string, and the reader is

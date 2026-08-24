@@ -10,22 +10,22 @@
     ".design"
   ],
   "stats": {
-    "nodes": 684,
-    "edges": 1252,
+    "nodes": 685,
+    "edges": 1257,
     "nodesByFolder": {
       "arc42": 63,
       "domain": 470,
       "backlog": 4,
       "tech": 53,
-      "design": 94
+      "design": 95
     },
     "nodesByType": {
       "file": 103,
-      "chapter": 573,
+      "chapter": 574,
       "heading": 8
     },
     "nodesByStatus": {
-      "active": 183,
+      "active": 184,
       "proposed": 29,
       "draft": 401,
       "accepted": 3,
@@ -37,8 +37,8 @@
       "none": 8
     },
     "edgesByType": {
-      "contains": 581,
-      "related": 591,
+      "contains": 582,
+      "related": 595,
       "depends-on": 78,
       "implements": 2
     }
@@ -10081,6 +10081,25 @@
       },
       {
         "data": {
+          "id": ".design/content-editing.md#knowledge-metadata-blocks",
+          "label": "Knowledge Metadata Blocks",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "knowledge-metadata-blocks",
+          "level": 2,
+          "line": 311,
+          "status": "active",
+          "related": [
+            ".design/README.md#status-vocabulary",
+            ".design/typography-and-layout.md#metadata-lines",
+            ".design/design-principles.md#low-chrome-content-first",
+            ".design/content-editing.md#materialization"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/content-editing.md#materialization",
           "label": "Materialization",
           "type": "chapter",
@@ -10088,7 +10107,7 @@
           "path": ".design/content-editing.md",
           "slug": "materialization",
           "level": 2,
-          "line": 311,
+          "line": 338,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -15028,6 +15047,14 @@
           "id": "contains:.design/content-editing.md->.design/content-editing.md#ai-proposals-in-a-document",
           "source": ".design/content-editing.md",
           "target": ".design/content-editing.md#ai-proposals-in-a-document",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#knowledge-metadata-blocks",
+          "source": ".design/content-editing.md",
+          "target": ".design/content-editing.md#knowledge-metadata-blocks",
           "type": "contains"
         }
       },
@@ -20292,6 +20319,38 @@
           "id": "related:.design/content-editing.md#ai-proposals-in-a-document->.design/accessibility.md#screen-reader--announcements",
           "source": ".design/content-editing.md#ai-proposals-in-a-document",
           "target": ".design/accessibility.md#screen-reader--announcements",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#knowledge-metadata-blocks->.design/README.md#status-vocabulary",
+          "source": ".design/content-editing.md#knowledge-metadata-blocks",
+          "target": ".design/README.md#status-vocabulary",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#knowledge-metadata-blocks->.design/typography-and-layout.md#metadata-lines",
+          "source": ".design/content-editing.md#knowledge-metadata-blocks",
+          "target": ".design/typography-and-layout.md#metadata-lines",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#knowledge-metadata-blocks->.design/design-principles.md#low-chrome-content-first",
+          "source": ".design/content-editing.md#knowledge-metadata-blocks",
+          "target": ".design/design-principles.md#low-chrome-content-first",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#knowledge-metadata-blocks->.design/content-editing.md#materialization",
+          "source": ".design/content-editing.md#knowledge-metadata-blocks",
+          "target": ".design/content-editing.md#materialization",
           "type": "related"
         }
       },

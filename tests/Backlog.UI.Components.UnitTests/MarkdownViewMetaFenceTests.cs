@@ -309,6 +309,34 @@ public sealed class MarkdownViewMetaFenceTests
         Assert.Empty(view.FindAll(".diagram-view__details"));
     }
 
+    [Fact]
+    public void A_document_that_draws_status_reserves_the_column_it_is_read_in()
+    {
+        // Every line stops at the same rule, which is the only way the pills down
+        // the right of a file read as a column rather than as text with a chip in
+        // it. The prose used to run the length of the status beside it.
+        using var context = new BunitContext();
+
+        var view = Render(context, Document, p => p.Add(v => v.RenderKnowledgeMetadata, true));
+
+        Assert.Contains("md-view--status-column", view.Find(".md-view").ClassList);
+    }
+
+    [Fact]
+    public void A_document_with_no_status_in_it_reserves_nothing()
+    {
+        // Knowledgeable and still statusless: a chapter with no meta fence draws
+        // no pill, and a column held open for one would be a margin of nothing.
+        using var context = new BunitContext();
+
+        var view = Render(
+            context,
+            "# A heading\n\nProse with no record in it.",
+            p => p.Add(v => v.RenderKnowledgeMetadata, true));
+
+        Assert.DoesNotContain("md-view--status-column", view.Find(".md-view").ClassList);
+    }
+
     private static IRenderedComponent<MarkdownView> Render(
         BunitContext context,
         string source,

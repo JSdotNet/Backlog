@@ -374,6 +374,44 @@ public class CopilotToolTests
     }
 }
 
+/// <summary>
+/// The command log a host may attach to what it answers with. It is additive on
+/// purpose — a host that runs no processes still constructs these results the
+/// way it always did — so what is asserted here is that "no commands" is an
+/// empty list rather than a null nobody remembered to guard.
+/// </summary>
+public class CopilotToolCommandTests
+{
+    [Fact]
+    public void A_catalog_built_without_commands_has_an_empty_log()
+    {
+        var catalog = new CopilotToolCatalog([], "Nothing was checked.");
+
+        Assert.Empty(catalog.Commands);
+    }
+
+    [Fact]
+    public void A_result_built_without_commands_has_an_empty_log()
+    {
+        Assert.Empty(CopilotToolActionResult.Ok("Done.").Commands);
+        Assert.Empty(CopilotToolActionResult.Failed("Not done.").Commands);
+        Assert.Empty(new CopilotToolActionResult(true, "Done.").Commands);
+    }
+
+    [Fact]
+    public void A_result_carries_the_commands_it_is_handed()
+    {
+        CopilotToolCommand[] commands =
+        [
+            new("dotnet tool list --global", 0, "Package Id      Version"),
+            new("dotnet tool search missing --exact-match", 1, "No packages found.")
+        ];
+
+        Assert.Equal(commands, CopilotToolActionResult.Ok("Done.", commands).Commands);
+        Assert.Equal(commands, CopilotToolActionResult.Failed("Not done.", commands).Commands);
+    }
+}
+
 public class UnsupportedCopilotToolServiceTests
 {
     [Fact]

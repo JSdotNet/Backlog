@@ -10,7 +10,9 @@
     <Story Name="A chapter is a heading, a record, and prose"
            Description="The convention, on a sample that is not invented: it is the top of this repository's own `.tech/shared.md`, pasted. A `#` heading opens the file and carries the file-level block; every `##` under it is an addressable chapter and carries its own. The fence language is `meta`, the block sits directly under its heading before any prose, and only `status` is required — every other field is written when it has a value, so an absent field reads as “not stated” and never as “stated as empty”.
 
-Because the block sits under its heading, that is where it is drawn: the pair folds into one record and the status takes the right edge of the heading's line.
+Because a block sits under its heading, that is where it is drawn: the pair folds into one record and the status takes the right edge of the heading's line. That is the whole story for a `##` chapter, and every chapter that carries a block shows one.
+
+The file-level block is the exception, and it is showing here only because this is `MarkdownView` on its own — the view has no header to put it in, so it draws it against the title. A reading surface that does have one takes it up there instead: see *File view* → **The file's own block, in the header**.
 
 The status is a control here because this sample is read as `.tech`, and a folder names the values its status may take. Nothing on this page persists anything; a real host adds `OnStatusChanged`."
            Code="@ConventionCode"
@@ -194,6 +196,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
 @code {
     private static readonly DesignGuideline[] Rules =
     [
+        new("content-editing.md#knowledge-metadata-blocks", "Which block is drawn where — the file's in a header, a chapter's beside its heading."),
         new("README.md#status-vocabulary", "The status words a knowledge chapter may carry."),
         new("color-scheme.md#badge-and-chip-tones", "The tone each status and reference kind is drawn in."),
         new("content-editing.md#structured-metadata-sigils", "The fenced metadata grammar this block reads."),

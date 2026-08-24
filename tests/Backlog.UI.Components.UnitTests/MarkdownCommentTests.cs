@@ -143,4 +143,37 @@ public sealed class MarkdownCommentTests
         Assert.Single(view.FindAll(".md-comment"));
         Assert.Empty(view.FindAll(".md-block__comment"));
     }
+
+    [Fact]
+    public void A_block_offering_a_comment_reserves_the_corner_it_hangs_in()
+    {
+        // The control is out of flow, so without the reservation a paragraph long
+        // enough to reach the edge is read through the button sitting on it.
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.OnAddComment, _ => { }));
+
+        var block = view.Find(".md-block-row[data-block='1'] .md-block");
+
+        Assert.Contains("md-block--affordance", block.ClassList);
+        Assert.DoesNotContain("md-block--affordance-pair", block.ClassList);
+        Assert.Single(view.FindAll(".md-block-row[data-block='1'] .md-block__affordances .md-block__comment"));
+    }
+
+    [Fact]
+    public void A_block_with_nothing_in_the_corner_reserves_nothing()
+    {
+        // Annotated, because there are comments to show; no affordance, because
+        // nobody is listening for a new one. A gutter here would hold nothing.
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 0, "A remark") }));
+
+        Assert.Empty(view.FindAll(".md-block--affordance"));
+        Assert.Empty(view.FindAll(".md-block__affordances"));
+    }
 }

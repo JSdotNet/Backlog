@@ -131,6 +131,47 @@
         </div>
     </Story>
 
+    <Story Name="The file's own block, in the header"
+           Description="Two `meta` blocks in one file, and they are not the same fact. The one under the `#` title describes the file, so it is drawn in the header beside the name — where it stays while the body scrolls. The one under each `##` describes that chapter, so it stays with the chapter, folded into its heading.
+
+The file's block is drawn once: it is not left in the body as a second record, and it does not fall back to the raw fence either. The title under it is a title again.
+
+No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the chapters are read with, and `RenderKnowledgeMetadataFields` governs the header's second tier exactly as it governs a chapter's — the pair of panes below is that one flag, set both ways over the same file. Scroll either of them: the chapters' records leave with their chapters, and the file's does not."
+           Code="@FileMetadataCode"
+           Source="@TwoLevelFile">
+        <div class="sb-stack" data-testid="file-view-file-metadata">
+            <div class="sb-columns">
+                <div class="sb-stack">
+                    <p class="sb-label">The record whole — the file's fields under its name</p>
+                    <FileView Name="shared.md"
+                              Kind="Technology stack"
+                              Path=".tech/shared.md"
+                              Body="@TwoLevelFile"
+                              MaxHeight="22rem"
+                              TestId="file-view-two-level"
+                              AllowCopy="true"
+                              RenderKnowledgeMetadata="true"
+                              KnowledgeFolder="KnowledgeFolder.Tech"
+                              OnKnowledgeStatusChanged="HearFileStatus" />
+                </div>
+                <div class="sb-stack">
+                    <p class="sb-label">Reading it — the status alone, at both levels</p>
+                    <FileView Name="shared.md"
+                              Kind="Technology stack"
+                              Path=".tech/shared.md"
+                              Body="@TwoLevelFile"
+                              MaxHeight="22rem"
+                              TestId="file-view-two-level-reading"
+                              RenderKnowledgeMetadata="true"
+                              RenderKnowledgeMetadataFields="false"
+                              KnowledgeFolder="KnowledgeFolder.Tech" />
+                </div>
+            </div>
+
+            <Alert Message="@(_fileStatus is null ? null : $"Asked to write status: {_fileStatus} to the file's own block.")" Role="status" />
+        </div>
+    </Story>
+
     <Story Name="A knowledge chapter, whole"
            Description="Every capability at once, on the file that prompted them: a `.domain` chapter. `RenderKnowledgeMetadata` and `KnowledgeFolder` draw each chapter's `meta` fence as the record it is; `AllowChapterCopy` puts a copy button on every heading; the mermaid fence renders where it was written; `Comments` sit in the margin and fall back to inline when the pane narrows.
 
@@ -267,11 +308,73 @@ Its own strip and not another row in the header: the header identifies the file,
 @code {
     private static readonly DesignGuideline[] Rules =
     [
+        new("content-editing.md#knowledge-metadata-blocks", "Which of a file's metadata blocks is drawn where."),
         new("content-editing.md#raw-markdown-escape-hatch", "When a file is shown as source rather than as a rendering."),
         new("color-scheme.md#syntax-highlighting-tokens", "The colours a file read as code is drawn with."),
         new("design-principles.md#low-chrome-content-first", "How much of a file view may be header and actions."),
         new("typography-and-layout.md#layout-grid-and-breakpoints", "The measure a file's contents are read at.")
     ];
+
+    // What the header's record reported. The file below is a constant, so nothing
+    // is written back into it: which file, which fence and what happens when the
+    // file has moved on is the host's, and this host is a page showing you that
+    // the callback fired.
+    private string? _fileStatus;
+
+    private void HearFileStatus(KnowledgeStatusChange change) => _fileStatus = change.Status;
+
+    /// <summary>The top of this repository's own <c>.tech/shared.md</c>, cut after
+    /// the second chapter. Not invented: the point of the story is which of two
+    /// real blocks lands where, and a made-up file would only prove that a made-up
+    /// file does it.</summary>
+    private const string TwoLevelFile = """
+        # Shared Technologies
+
+        ```meta
+        status: candidate
+        related: [".tech/technology-graph.md", ".arc42/02-constraints.md#technical-constraints"]
+        ```
+
+        Technologies used by more than one channel. Every layer file points at these
+        chapters with `depends-on` instead of redefining them locally.
+
+        ## Markdown
+
+        ```meta
+        status: adopted
+        kind: format
+        related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
+        ```
+
+        The canonical storage format for all user content: inbox items, backlog
+        items, knowledge notes, and prompts.
+
+        ## .NET Runtime
+
+        ```meta
+        status: candidate
+        kind: runtime
+        version: "10.0"
+        alternatives: ["Node.js only", "Rust + Tauri"]
+        ```
+
+        The primary managed runtime for the desktop, mobile, IDE and cloud channels.
+        """;
+
+    private const string FileMetadataCode = """
+        @* One opt-in, two placements: the pane reads the file once and knows which
+           block describes the file and which describes a chapter. The header keeps
+           the first; the body keeps the rest, where the chapters are. *@
+        <FileView Name="shared.md"
+                  Kind="Technology stack"
+                  Path=".tech/shared.md"
+                  Body="@markdown"
+                  MaxHeight="22rem"
+                  AllowCopy="true"
+                  RenderKnowledgeMetadata="true"
+                  KnowledgeFolder="KnowledgeFolder.Tech"
+                  OnKnowledgeStatusChanged="HearStatus" />
+        """;
 
     // The one piece of state on this page: the hosted-body story is only worth
     // looking at if it can actually be typed in.

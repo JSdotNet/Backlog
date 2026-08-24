@@ -2172,6 +2172,28 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
+/* The transcript of what the pane ran. It is FoldControl wearing this class on
+   top of its own, so the disclosure keeps the library's shape and only the
+   quieter, set-apart-from-the-table part is written here. The trigger reads at
+   the same weight as the table's meta text: it is the least important thing in
+   the pane right up until it is the only thing that matters. */
+.tools-panel__log {
+    border-top: var(--border-width) solid rgba(242, 193, 78, 0.22);
+    padding-top: var(--spacing-sm);
+}
+
+.tools-panel__log .fold__trigger {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The library caps a code block at 32rem, which is written for a full-width
+   reading surface. This is a side pane sharing its height with a table, so the
+   transcript scrolls sooner rather than pushing the tools off the top. */
+.tools-panel__log .code-view__body {
+    max-height: 22rem;
+}
+
 /* The workspace: the roadmap band above the pane row.
 
    `fit-content(30%)` is what makes 30% a ceiling rather than a share. The band

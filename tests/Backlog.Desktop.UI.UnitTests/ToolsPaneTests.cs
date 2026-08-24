@@ -12,6 +12,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <para>The pane is rendered directly rather than through Home: what it draws is
 /// decided entirely by the <see cref="CopilotToolCatalog"/> it is handed, and going
 /// through the shell would mean standing up a workspace to change a boolean.</para>
+///
+/// <para>The command log is tested here for the same reason: it is the pane's
+/// answer to the host no longer flashing a console window per child process, and
+/// suppressing those windows without putting the output somewhere would have
+/// deleted the only place a refused install could be read.</para>
 /// </summary>
 public sealed class ToolsPaneTests
 {
@@ -200,6 +205,52 @@ public sealed class ToolsPaneTests
         Assert.Empty(pane.FindAll("[data-testid='tools-remove-dialog']"));
     }
 
+    [Fact]
+    public void The_commands_the_host_ran_are_on_screen_behind_a_fold()
+    {
+        var service = FakeCopilotToolService.With() with
+        {
+            Commands =
+            [
+                new("copilot --version", 0, "GitHub Copilot CLI 1.2.3"),
+                new("dotnet tool search JSdotNet.MCP.Guidelines --exact-match", 1, "No packages found.")
+            ]
+        };
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+
+        // The trigger says how much there is to read, so a reader can tell an
+        // empty check from a busy one without opening it.
+        Assert.Contains("Command output (2)", pane.Find("[data-testid='tools-command-log']").TextContent, StringComparison.Ordinal);
+
+        var transcript = pane.Find("[data-testid='tools-command-log-output']").TextContent;
+
+        Assert.Contains("$ copilot --version", transcript, StringComparison.Ordinal);
+        Assert.Contains("GitHub Copilot CLI 1.2.3", transcript, StringComparison.Ordinal);
+        Assert.Contains("$ dotnet tool search JSdotNet.MCP.Guidelines --exact-match", transcript, StringComparison.Ordinal);
+        Assert.Contains("No packages found.", transcript, StringComparison.Ordinal);
+
+        // The failure carries its exit code and the success does not: a column of
+        // zeroes would bury the one line worth finding.
+        Assert.Contains("exit code 1", transcript, StringComparison.Ordinal);
+        Assert.DoesNotContain("exit code 0", transcript, StringComparison.Ordinal);
+    }
+
+    /// <summary>A host that starts no processes — the browser's unsupported
+    /// service, or a check that failed before it ran anything — has nothing to
+    /// show, and an empty disclosure is worse than none.</summary>
+    [Fact]
+    public void A_host_that_ran_nothing_shows_no_fold()
+    {
+        using var context = Context(FakeCopilotToolService.With());
+
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-command-log']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-command-log-output']"));
+    }
+
     private static BunitContext Context(ICopilotToolService service)
     {
         var context = new BunitContext();
@@ -237,6 +288,11 @@ public sealed class ToolsPaneTests
 
         public bool Succeeds { get; init; } = true;
 
+        /// <summary>What the host would have run. Init-only like the flags beside
+        /// it, so a test that does not care about the transcript never mentions
+        /// one and the fold stays off its screen.</summary>
+        public IReadOnlyList<CopilotToolCommand> Commands { get; init; } = [];
+
         public int Reads { get; private set; }
 
         public int Creates { get; private set; }
@@ -265,7 +321,10 @@ public sealed class ToolsPaneTests
                 CatalogExists ? "Showing tools." : $"Tool catalog was not found at {CatalogPath}.",
                 CatalogExists,
                 CatalogPath,
-                CanEdit));
+                CanEdit)
+            {
+                Commands = Commands
+            });
         }
 
         public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => Answer();
