@@ -1,4 +1,4 @@
-using Backlog.Infrastructure.Copilot;
+﻿using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -218,10 +218,12 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-body']")));
 
-        // The file states a status under its own heading, and the body is drawing
-        // the control for it. Two controls for one field is how the pane used to
-        // disagree with itself, so this panel offers none of its own.
-        Assert.Single(component.FindAll("[data-testid='domain-chapter-file-body'] .knowledge-record__headline"));
+        // The file states a status under its own title, and the file view is
+        // drawing the control for it — in its header, beside the name that status
+        // describes. Two controls for one field is how the pane used to disagree
+        // with itself, so this panel offers none of its own.
+        Assert.Single(component.FindAll(".file-view__header .knowledge-record__headline"));
+        Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-body'] .knowledge-record"));
         Assert.Empty(component.FindAll("[data-testid='knowledge-state-select']"));
 
         // And no raw fence left over: a status drawn as a code block is what the
@@ -245,7 +247,7 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public async Task While_editing_the_status_is_reachable_where_it_always_was()
+    public async Task While_editing_the_status_is_still_the_one_the_files_header_holds()
     {
         await using var harness = CreateHarness();
 
@@ -254,10 +256,14 @@ public sealed class DomainKnowledgePanelTests : IDisposable
 
         component.Find("[data-testid='domain-chapter-file-edit']").Click();
 
-        // The record lives in the read view, and the read view is not what is on
-        // screen — so the panel's own control comes back rather than leaving the
-        // document's state unreachable while its text is being written.
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-state-select']")));
+        // The record is in the file view's header, and the header is what stays on
+        // screen while the body is being typed into — so the document's state is
+        // still reachable and this panel still offers no second control for it.
+        // It used to have to: the record was at the top of the read view, and the
+        // read view is not what is on screen while writing.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-surface']")));
+        Assert.Single(component.FindAll(".file-view__header .knowledge-record__headline select"));
+        Assert.Empty(component.FindAll("[data-testid='knowledge-state-select']"));
     }
 
     [Fact]
@@ -407,16 +413,17 @@ public sealed class DomainKnowledgePanelTests : IDisposable
     /// debounce: the state dropdown writes the file and the panel re-reads it, so
     /// the body on screen stops being the body that was opened.
     /// <para>
-    /// The dropdown is the panel's own, which is only on screen while the reader is
-    /// writing — in the read view the record beside the heading is showing the state
-    /// instead.
+    /// The dropdown is the file's own record, in the file view's header. It is the
+    /// only one on the panel — the header stays on screen in every mode, so this
+    /// panel offers no second control beside it — and the caller is left in the
+    /// editing mode it entered.
     /// </para>
     /// </summary>
     private static void ChangeTheChapterState(IRenderedComponent<DomainKnowledgePanel> component)
     {
         component.Find("[data-testid='domain-chapter-file-edit']").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-state-select'] select")));
-        component.Find("[data-testid='knowledge-state-select'] select").Change("accepted");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .knowledge-record__headline select")));
+        component.Find(".file-view__header .knowledge-record__headline select").Change("accepted");
     }
 
     [Fact]
@@ -541,9 +548,10 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         // cannot tell the two orders apart, because the merge repairs both.
         harness.Folders.ArmStatusWriteSnapshot();
 
-        // The document's own dropdown, which while editing is the only one on the
-        // panel: the record that draws the other lives in the read view.
-        component.FindAll("[data-testid='knowledge-state-select'] select")[0].Change("accepted");
+        // The document's own dropdown, which is the only one on the panel: it is in
+        // the file view's header, and the header is what stays on screen while the
+        // body is being typed into.
+        component.Find(".file-view__header .knowledge-record__headline select").Change("accepted");
 
         component.WaitForAssertion(
             () =>

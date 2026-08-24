@@ -308,6 +308,33 @@ The product may offer to rewrite a passage or to answer a remark. What it may
 
 Review surface: storybook → *Integrations* → **AI in the document**.
 
+## Knowledge Metadata Blocks
+
+```meta
+status: active
+related: [".design/README.md#status-vocabulary", ".design/typography-and-layout.md#metadata-lines", ".design/design-principles.md#low-chrome-content-first", ".design/content-editing.md#materialization"]
+```
+
+> The repository's own documentation — `.arc42`, `.domain`, `.backlog`, `.tech`,
+> `.design` — writes a fenced `meta` block under every addressable heading. Two
+> levels carry one, and they are not the same fact: the block under a file's `#`
+> title describes **the file**, the block under a `##` heading describes **that
+> chapter**. Where each is drawn follows from that.
+
+| Rule | Requirement |
+|---|---|
+| Drawn against its subject | A block is drawn against the thing it describes and not as the fence it was written in. The subject is what decides the place, so the two levels land in two different ones. |
+| Chapter level | A chapter's block MUST be drawn folded into that chapter's heading, in the body, with the status held at the right edge of the heading's line. Every chapter that carries one shows one, so a reader scrolling a long file meets each chapter's currency where that chapter starts. |
+| File level | A file's block MUST be drawn in the **header** of the surface reading the file, beside the name. The header is the part that stays on the screen while the body scrolls, and whether *the file* is current is not a question about the part of it currently in view. |
+| Once, never twice | A block drawn in the header MUST NOT also be drawn in the body — neither as a second record nor as the raw fence it would otherwise fall back to. Two answers to one question read as two facts. |
+| Status first, fields under | Both levels keep the record's two tiers: the status shares the line with the name or the heading it qualifies, everything else sits underneath, quieter and tighter. A surface reading rather than working on a file MAY show the status alone; it MUST NOT show the fields without it. |
+| Never invented | A block that states nothing draws nothing, at either level: no empty row where a record would have been, and no status defaulted to the first word the folder allows. Absent means absent (`README.md#status-vocabulary`). |
+| Opt-in | Reading a `meta` fence as a record is something a surface asks for. Everywhere else — an entry body somebody typed, a snippet quoted in a chat — a fence that happens to say `meta` stays the fenced block it has always been. |
+| Bounded chrome | A header identifies; it is not a second document. What the file-level record may add to one is bounded by `design-principles.md#low-chrome-content-first` — where the fields would crowd the name, a surface shows the status and leaves the rest to the body. |
+
+Review surface: storybook → *File view* → **The file's own block, in the header**,
+and → *Metadata* → **A chapter is a heading, a record, and prose**.
+
 ## Materialization
 
 ```meta
@@ -319,7 +346,7 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/typogr
 |---|---|---|
 | Parser | `MarkdownPreview` (`src/Core/Backlog.UI.Components/Markdown`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
 | Read view | `MarkdownView` | Storybook → *Markdown* for every block and inline; *Markdown document* for a section with copy, remarks and a way into the editor |
-| Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header. The header also carries what a reader does to the file (copy, edit, compare), and a Markdown body is read whole: each chapter's `meta` status beside its heading, each diagram where its fence is, a copy button per chapter, and remarks in the margin | Storybook → *File view* → **A knowledge chapter, whole** |
+| Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header. The header also carries what a reader does to the file (copy, edit, compare) and the file's own `meta` record — the status beside the name, where it stays while the body moves (`#knowledge-metadata-blocks`). A Markdown body is read whole: each chapter's `meta` status beside its heading, each diagram where its fence is, a copy button per chapter, and remarks in the margin | Storybook → *File view* → **A knowledge chapter, whole** |
 | What a file says it is for | A file opening with YAML frontmatter can state it above the body instead of through it: the description as prose, `applyTo` and `tools` as badges, and every other key the file wrote as a label and a value in that order. Asked for, never assumed, and the block leaves the read view when it is shown — `---` parses as a divider, so frontmatter otherwise reads as two rules around a run-together paragraph. Keys it does not draw are still drawn, because a view must not hide what it does not show; a buffer being edited keeps the block verbatim, since a save without those lines would drop them | Storybook → *File view* → **What the file says it is for** |
 | Comparison surface | `MarkdownCompare` (a pure function over two texts) and `MarkdownCompareView`, aligned by heading and never by line. `Bare` gives up its frame so `FileView` can show it without a second header or a second scroll region | Storybook → *Section comparison*, and *File view* → **Compared against two versions of itself** |
 | Chapter remarks | `MarkdownView` comments, anchored to a block index rather than a character range, drawn inline or in a margin column | Storybook → *Markdown document* → **The same comments, in the margin** |

@@ -67,11 +67,39 @@
 
 <article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
     <header class="file-view__header">
-        <div class="file-view__identity">
-            <h3 class="file-view__name">@Name</h3>
-            @if (Details.Count > 0)
+        <div class="@IdentityClass">
+            @if (_fileRecord is { } record)
             {
-                <p class="file-view__meta">@string.Join(" · ", Details)</p>
+                @* The file's own status, beside the file's own name.
+
+                   A knowledge file states it in a fence under its title, and read
+                   in the body that fence is at the top of a document — the one
+                   place a reader has already scrolled past by the time they think
+                   to ask whether any of it is still current. The header is the
+                   part of this pane that stays put, and it is where the name it
+                   describes already is, so the record is drawn around the name
+                   rather than beside it: one line, the name and the state of it.
+
+                   The chapters keep theirs. A `##` fence describes the chapter
+                   under it, that heading is in the body, and it stays there. *@
+                <KnowledgeMetaView Metadata="@record.Metadata"
+                                   Folder="@KnowledgeFolder"
+                                   ShowFields="@RenderKnowledgeMetadataFields"
+                                   OnStatusChanged="ReportFileStatusAsync"
+                                   OnNavigate="@OnKnowledgeNavigate"
+                                   HrefFor="@KnowledgeHrefFor"
+                                   AriaLabel="@($"{Name} metadata")"
+                                   CssClass="file-view__record"
+                                   TestId="@Suffix("file-metadata")"
+                                   Heading="@RecordHeading" />
+            }
+            else
+            {
+                @* Exactly the markup this column has always had. A record with
+                   nothing in it draws nothing at all — see KnowledgeMetaView —
+                   and the file's name is not something this pane can afford to
+                   lose to a wrapper that stood down. *@
+                @IdentityLines
             }
         </div>
 
@@ -286,6 +314,7 @@
                           Source="@_bodyMarkdown"
                           AllowChapterCopy="@AllowChapterCopy"
                           RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
+                          RenderFileKnowledgeMetadata="false"
                           RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
                           ShowDiagramSource="@ShowDiagramSource"
                           KnowledgeFolder="@KnowledgeFolder"
@@ -313,6 +342,32 @@
 </article>
 
 @code {
+    /// <summary>The header's left-hand column, as it reads: the file's name and,
+    /// under it, everything else known about the file that is not its path.
+    ///
+    /// <para>One fragment, drawn whether or not there is a record to put it in, so
+    /// the two cannot say the file's name differently.</para></summary>
+    private RenderFragment IdentityLines => __builder =>
+    {
+        <h3 class="file-view__name">@Name</h3>
+        @if (Details.Count > 0)
+        {
+            <p class="file-view__meta">@string.Join(" · ", Details)</p>
+        }
+    };
+
+    /// <summary>The same two lines, as one item of the record's headline.
+    ///
+    /// <para>Wrapped rather than handed over loose, because the headline is a row:
+    /// two items would put the details beside the name and the status after both.
+    /// Wrapped, the row has the name and the status to align, and baseline
+    /// alignment takes this element's first baseline — the name's — so the status
+    /// holds the name's line however far the details run underneath it.</para></summary>
+    private RenderFragment RecordHeading => __builder =>
+    {
+        <div class="file-view__headline">@IdentityLines</div>
+    };
+
     /// <summary>The file's name — the title, and the name of the scroll region.</summary>
     [Parameter, EditorRequired]
     public string Name { get; set; } = string.Empty;
@@ -464,7 +519,14 @@
 
     /// <summary>Whether a fenced <c>meta</c> block is read as the knowledge
     /// record it is, putting each chapter's status beside its heading. Passed to
-    /// the read view.</summary>
+    /// the read view.
+    ///
+    /// <para>The file's own block — the fence under the title that opens it — is
+    /// drawn here instead, in the header beside the name it describes, and the
+    /// read view is told to leave it out of the body. It shows in all three modes,
+    /// reading, editing and comparing, because the header is the part that stays
+    /// put: a reader changing the file is the last one who should have to go
+    /// looking for what state it is in.</para></summary>
     [Parameter]
     public bool RenderKnowledgeMetadata { get; set; }
 
@@ -616,6 +678,14 @@
     private string? _readFrontmatterFrom;
     private bool _readFrontmatter;
 
+    // The file's own metadata block, read when the text it comes from changes —
+    // the same bargain the frontmatter takes, and for a sharper reason: a file
+    // open in an editor re-renders on every keystroke, and the header must not
+    // read the top of it again for each one.
+    private MarkdownFileMetadata.FileRecord? _fileRecord;
+    private string? _readRecordFrom;
+    private bool _readRecord;
+
     // The comparison, held rather than derived, for the reason the blocks below
     // are: aligning two documents by heading walks both of them, and a pane
     // re-renders every time a fold in it opens.
@@ -627,6 +697,7 @@
     protected override void OnParametersSet()
     {
         ReadFrontmatter();
+        ReadFileRecord();
         ParseBody();
         ParseComparison();
     }
@@ -653,6 +724,67 @@
         _readFrontmatterFrom = text;
         _readFrontmatter = true;
     }
+
+    /// <summary>
+    /// The file's own metadata block — the fence under the title that opens it —
+    /// when a host asked for records at all. Nothing is read otherwise, for the
+    /// reason the frontmatter is not.
+    /// <para>
+    /// Read from the text and not from <see cref="_blocks"/>, because there are
+    /// none whenever the host is drawing the body itself: the moment a reader
+    /// presses Edit the parse is skipped, and the header is exactly the part that
+    /// must not lose the file's status then. <see cref="MarkdownFileMetadata"/>
+    /// answers the same question either way, so the read view can stop drawing
+    /// this fence on the strength of a reading made here.
+    /// </para>
+    /// <para>
+    /// Only where the body is markdown. A <c>#</c> at the top of a <c>.cs</c> file
+    /// is a comment, and this pane never reads a code file as markdown.
+    /// </para>
+    /// </summary>
+    private void ReadFileRecord()
+    {
+        if (!RenderKnowledgeMetadata || !RendersMarkdown)
+        {
+            _fileRecord = null;
+            _readRecordFrom = null;
+            _readRecord = false;
+            return;
+        }
+
+        var text = BodyMarkdown;
+        if (_readRecord && _readRecordFrom == text) return;
+
+        // A block that states nothing is not a record. It matters here more than
+        // anywhere else this is asked: the identity column is drawn *inside* the
+        // record, an empty one renders nothing at all — see
+        // KnowledgeMetaView.RendersAnything — and the header would lose the file's
+        // name to a wrapper that stood down.
+        _fileRecord = MarkdownFileMetadata.Read(text) is { Metadata.IsEmpty: false } read ? read : null;
+        _readRecordFrom = text;
+        _readRecord = true;
+    }
+
+    /// <summary>
+    /// The file's own status, reported the way a chapter's is.
+    /// <para>
+    /// Block zero, because the title is the document's first block and that is
+    /// what the rest of this view anchors by — the record being drawn in the
+    /// header does not move the fence it was read from. The heading's text,
+    /// because that is what a host knows the chapter as. Nothing here writes it:
+    /// see <see cref="KnowledgeStatusChange"/>.
+    /// </para>
+    /// </summary>
+    private Task ReportFileStatusAsync(string status) =>
+        OnKnowledgeStatusChanged.InvokeAsync(new KnowledgeStatusChange(0, _fileRecord?.Title, status));
+
+    /// <summary>The identity column, and whether it is holding a record. The
+    /// modifier is what lets the column take the header's free space, so the
+    /// status can hold the right edge of the name's line; without a record there
+    /// is nothing to push over and the column is sized by its content as
+    /// before.</summary>
+    private string IdentityClass =>
+        _fileRecord is null ? "file-view__identity" : "file-view__identity file-view__identity--record";
 
     private void ParseBody()
     {
@@ -683,26 +815,10 @@
             && _parsedFrontmatterShown == ShowFrontmatter
             && _parsedFrontmatterSource == FrontmatterSource) return;
 
-        // The strip above is showing the frontmatter, so the body is not: read as
-        // markdown those lines are a divider and a run-together paragraph of
-        // `key: value`, and a reader would meet the same facts twice, the second
-        // time as noise. Only the file this component is rendering itself — a
-        // supplied body never reaches here, and a host's buffer is what gets
-        // written back.
-        //
-        // The strip's own reading, not a second one, so the two cannot disagree:
-        // the record hands back the text unchanged whenever it has nothing to
-        // show, which is what makes "nothing is hidden that is not shown" hold
-        // for every block, including one written entirely in keys the strip draws
-        // as plain rows.
-        //
-        // A host that named a different text is the one case where they can come
-        // apart, and there the body keeps everything: the strip is then describing
-        // something other than what is on screen here, and lines taken out on the
-        // strength of that would be hidden by a strip that never showed them.
-        _bodyMarkdown = ShowFrontmatter && (FrontmatterSource is null || FrontmatterSource == Body)
-            ? _frontmatter.Body
-            : Body;
+        // Held beside the blocks because it is what they were parsed from — the
+        // chapter copies slice this string by the offsets those blocks carry. See
+        // BodyMarkdown for which text it is and why.
+        _bodyMarkdown = BodyMarkdown;
 
         // ParseDocument, not Parse: in a file a `##` is a heading, not a
         // sub-item the host will lay out elsewhere. Parse would fold everything
@@ -714,6 +830,35 @@
         _parsedFrontmatterSource = FrontmatterSource;
         _parsed = true;
     }
+
+    /// <summary>
+    /// The file's text as this pane reads it: the body, or the body without the
+    /// frontmatter the strip above it is showing.
+    /// <para>
+    /// The strip is showing those lines, so the body is not: read as markdown they
+    /// are a divider and a run-together paragraph of <c>key: value</c>, and a
+    /// reader would meet the same facts twice, the second time as noise. The
+    /// strip's own reading, not a second one, so the two cannot disagree — the
+    /// record hands back the text unchanged whenever it has nothing to show, which
+    /// is what makes "nothing is hidden that is not shown" hold for every block.
+    /// </para>
+    /// <para>
+    /// A host that named a different text is the one case where they can come
+    /// apart, and there the body keeps everything: the strip is then describing
+    /// something other than what is on screen here, and lines taken out on the
+    /// strength of that would be hidden by a strip that never showed them.
+    /// </para>
+    /// <para>
+    /// One expression, because two readings depend on it. The blocks are parsed
+    /// from this text and the file's own metadata record is read from it, and a
+    /// header describing text the body is not showing would be worse than no
+    /// header at all.
+    /// </para>
+    /// </summary>
+    private string? BodyMarkdown =>
+        ShowFrontmatter && (FrontmatterSource is null || FrontmatterSource == Body)
+            ? _frontmatter.Body
+            : Body;
 
     /// <summary>The language in play: what the caller named, or failing that
     /// what the file is called.</summary>
