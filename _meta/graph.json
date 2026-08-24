@@ -10,24 +10,24 @@
     ".design"
   ],
   "stats": {
-    "nodes": 683,
-    "edges": 1250,
+    "nodes": 684,
+    "edges": 1252,
     "nodesByFolder": {
       "arc42": 63,
-      "domain": 469,
+      "domain": 470,
       "backlog": 4,
       "tech": 53,
       "design": 94
     },
     "nodesByType": {
       "file": 103,
-      "chapter": 572,
+      "chapter": 573,
       "heading": 8
     },
     "nodesByStatus": {
       "active": 183,
       "proposed": 29,
-      "draft": 400,
+      "draft": 401,
       "accepted": 3,
       "deprecated": 3,
       "idea": 1,
@@ -37,9 +37,9 @@
       "none": 8
     },
     "edgesByType": {
-      "contains": 580,
+      "contains": 581,
       "related": 591,
-      "depends-on": 77,
+      "depends-on": 78,
       "implements": 2
     }
   },
@@ -3019,6 +3019,25 @@
       },
       {
         "data": {
+          "id": ".domain/dev-pc-management/features.md#catalog-authoring",
+          "label": "Catalog authoring",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/dev-pc-management/features.md",
+          "slug": "catalog-authoring",
+          "level": 3,
+          "line": 85,
+          "status": "draft",
+          "feature-flag": [
+            "system-tools"
+          ],
+          "depends-on": [
+            ".domain/dev-pc-management/features.md#copilot-tool-catalog"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/dev-pc-management/features.md#remote-tool-updates",
           "label": "Remote tool updates",
           "type": "chapter",
@@ -3026,7 +3045,7 @@
           "path": ".domain/dev-pc-management/features.md",
           "slug": "remote-tool-updates",
           "level": 2,
-          "line": 85,
+          "line": 102,
           "status": "draft",
           "depends-on": [
             ".domain/dev-pc-management/features.md#configuration-and-tool-version-tracking"
@@ -3042,7 +3061,7 @@
           "path": ".domain/dev-pc-management/features.md",
           "slug": "local-tool-enablement-and-updates",
           "level": 3,
-          "line": 97,
+          "line": 114,
           "status": "draft",
           "feature-flag": [
             "system-tools"
@@ -3061,7 +3080,7 @@
           "path": ".domain/dev-pc-management/features.md",
           "slug": "security",
           "level": 2,
-          "line": 113,
+          "line": 130,
           "status": "draft"
         }
       },
@@ -11974,6 +11993,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/dev-pc-management/features.md#configuration-and-tool-version-tracking->.domain/dev-pc-management/features.md#catalog-authoring",
+          "source": ".domain/dev-pc-management/features.md#configuration-and-tool-version-tracking",
+          "target": ".domain/dev-pc-management/features.md#catalog-authoring",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/dev-pc-management/features.md->.domain/dev-pc-management/features.md#remote-tool-updates",
           "source": ".domain/dev-pc-management/features.md",
           "target": ".domain/dev-pc-management/features.md#remote-tool-updates",
@@ -16762,6 +16789,14 @@
           "source": ".domain/dev-pc-management/features.md#copilot-tool-catalog",
           "target": ".domain/technology-stack/features.md#technology-baseline-definition",
           "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/dev-pc-management/features.md#catalog-authoring->.domain/dev-pc-management/features.md#copilot-tool-catalog",
+          "source": ".domain/dev-pc-management/features.md#catalog-authoring",
+          "target": ".domain/dev-pc-management/features.md#copilot-tool-catalog",
+          "type": "depends-on"
         }
       },
       {
