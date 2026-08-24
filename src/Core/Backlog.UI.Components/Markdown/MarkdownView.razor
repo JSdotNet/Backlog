@@ -41,37 +41,49 @@
            every block changes what a stylesheet sees, and a read view nobody
            annotates should render exactly what it rendered before. *@
         <div class="md-block-row" data-block="@index">
-            <div class="md-block @(NotesOn(index).Count > 0 ? "md-block--commented" : string.Empty)">
+            <div class="md-block @(NotesOn(index).Count > 0 ? "md-block--commented" : string.Empty) @AffordanceClass">
                 @RenderContent(block, index)
-                @if (CanComment)
+                @if (CanComment || CanRewrite)
                 {
-                    <button type="button"
-                            class="md-block__comment"
-                            aria-label="@($"Comment on block {index + 1}")"
-                            data-testid="@($"markdown-comment-{index}")"
-                            @onclick="() => OnAddComment.InvokeAsync(index)">
-                        <span aria-hidden="true">💬</span>
-                        @if (NotesOn(index).Count > 0)
+                    @* The corner, as one row. Each control used to anchor itself
+                       to it, which was fine while there was only one and put the
+                       rewrite button on top of the comment button the moment a
+                       host offered both. The row also says how wide the block's
+                       gutter has to be: what is in here is what the text is
+                       stopping short of. *@
+                    <div class="md-block__affordances">
+                        @if (CanComment)
                         {
-                            <span class="md-block__count">@NotesOn(index).Count</span>
+                            <button type="button"
+                                    class="md-block__comment"
+                                    aria-label="@($"Comment on block {index + 1}")"
+                                    data-testid="@($"markdown-comment-{index}")"
+                                    @onclick="() => OnAddComment.InvokeAsync(index)">
+                                <span aria-hidden="true">💬</span>
+                                @if (NotesOn(index).Count > 0)
+                                {
+                                    <span class="md-block__count">@NotesOn(index).Count</span>
+                                }
+                            </button>
                         }
-                    </button>
-                }
-                @if (CanRewrite)
-                {
-                    @* A second per-block affordance in the same position as the
-                       first, rather than a parallel row of AI controls. A rewrite
-                       is anchored to a block for exactly the reason a comment is —
-                       see MarkdownComment — so it belongs where comments already
-                       hang off, and the two look like two things you can do to a
-                       paragraph rather than two features that happen to overlap. *@
-                    <button type="button"
-                            class="md-block__comment md-block__rewrite"
-                            aria-label="@($"Rewrite block {index + 1} with AI")"
-                            data-testid="@($"markdown-rewrite-{index}")"
-                            @onclick="() => OnRewriteBlock.InvokeAsync(index)">
-                        <span aria-hidden="true">✦</span>
-                    </button>
+                        @if (CanRewrite)
+                        {
+                            @* A second per-block affordance beside the first,
+                               rather than a parallel row of AI controls. A rewrite
+                               is anchored to a block for exactly the reason a
+                               comment is — see MarkdownComment — so it belongs
+                               where comments already hang off, and the two look
+                               like two things you can do to a paragraph rather
+                               than two features that happen to overlap. *@
+                            <button type="button"
+                                    class="md-block__comment md-block__rewrite"
+                                    aria-label="@($"Rewrite block {index + 1} with AI")"
+                                    data-testid="@($"markdown-rewrite-{index}")"
+                                    @onclick="() => OnRewriteBlock.InvokeAsync(index)">
+                                <span aria-hidden="true">✦</span>
+                            </button>
+                        }
+                    </div>
                 }
             </div>
             @* In margin mode this cell is the second column, level with its
@@ -307,9 +319,36 @@
     /// screenshot test both see the wrapper.</para></summary>
     private bool Annotated => CanComment || CanRewrite || Comments.Count > 0 || Proposals.Count > 0;
 
-    private string ViewClass => Layout is MarkdownCommentLayout.Margin && Annotated
-        ? "md-view md-view--margin"
-        : "md-view";
+    private string ViewClass =>
+        $"md-view{(Layout is MarkdownCommentLayout.Margin && Annotated ? " md-view--margin" : string.Empty)}{(DrawsKnowledgeStatus ? " md-view--status-column" : string.Empty)}";
+
+    /// <summary>Whether this document draws chapter status, and so owes the
+    /// column down its right that the status is read in.
+    /// <para>A fact about the document rather than about a block: the point of
+    /// the column is that every line in the file stops at the same rule, and one
+    /// measured per block would be a ragged edge with a pill somewhere in it.
+    /// Asked of the blocks rather than of the folder, because a chapter with no
+    /// `meta` fence renders no status however knowledgeable the view is
+    /// configured to be — and a column reserved for a status nobody drew is a
+    /// margin of nothing.</para></summary>
+    private bool DrawsKnowledgeStatus =>
+        RenderKnowledgeMetadata
+        && Blocks.Any(block => block is MdCode fence && KnowledgeMeta.IsMetaBlock(fence.Language));
+
+    /// <summary>What the block reserves on its right, said as a class so the
+    /// stylesheet does not have to guess.
+    /// <para>The controls in the corner are out of flow, so without this the
+    /// prose beside them keeps the whole column and runs underneath them. The
+    /// gutter is only paid where a control is actually rendered: a view that
+    /// shows comments nobody can add to is annotated and has no corner, and a
+    /// margin reserved there would hold nothing. Two controls take two slots,
+    /// because a strip sized for one puts the pair back over the words.</para></summary>
+    private string AffordanceClass => (CanComment, CanRewrite) switch
+    {
+        (true, true) => "md-block--affordance md-block--affordance-pair",
+        (false, false) => string.Empty,
+        _ => "md-block--affordance"
+    };
 
     /// <summary>The draft is held here and the comment is only told about it
     /// when it is saved. An edit that reported every keystroke would make Cancel

@@ -295,4 +295,27 @@ public sealed class MarkdownViewAiTests
 
         Assert.Equal(3, view.FindAll(".md-block-row").Count);
     }
+
+    [Fact]
+    public void Both_affordances_share_one_row_and_a_gutter_wide_enough_for_two()
+    {
+        // They were both anchored to the corner themselves, so a host offering
+        // both put the rewrite button on top of the comment button — one control
+        // you can see and one only a keyboard could find.
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.OnAddComment, _ => { })
+            .Add(v => v.OnRewriteBlock, _ => { }));
+
+        var block = view.Find(".md-block-row[data-block='1'] .md-block");
+
+        Assert.Contains("md-block--affordance", block.ClassList);
+        Assert.Contains("md-block--affordance-pair", block.ClassList);
+
+        var corner = view.FindAll(".md-block-row[data-block='1'] .md-block__affordances > .md-block__comment");
+
+        Assert.Equal(2, corner.Count);
+    }
 }
