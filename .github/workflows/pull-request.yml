@@ -55,15 +55,17 @@ jobs:
           -p:AppxPackageSigningEnabled=false
           -p:GenerateAppxPackageOnBuild=false
 
+      # xunit v3 runs on Microsoft.Testing.Platform, which global.json opts
+      # `dotnet test` into. That mode names the solution with --solution rather
+      # than taking it positionally, and it has no --settings, so the serial
+      # execution _ci.runsettings used to configure is not expressed here yet.
+      # TODO: restore the TRX artifact and the serial run under MTP.
       - name: Run tests
         run: >
-          dotnet test Backlog.sln
+          dotnet test
+          --solution Backlog.sln
           --no-build
           --configuration Release
-          --settings .github\_ci.runsettings
-          --logger trx
-          --results-directory ./TestResults
-          -m:1
           -p:RuntimeIdentifierOverride=win-x64
           -p:WindowsPackageType=None
           -p:AppxPackageSigningEnabled=false

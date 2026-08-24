@@ -7,7 +7,11 @@
     "outDir": "out",
     "rootDir": "src",
     "sourceMap": true,
-    "strict": true
+    "strict": true,
+    // TypeScript 7 no longer pulls every @types/* package into the global scope
+    // automatically, so the two this extension actually depends on are named.
+    // Without "node" the global fetch() the inbox client calls is undeclared.
+    "types": ["node", "vscode"]
   },
   "include": ["src/**/*.ts"]
 }
