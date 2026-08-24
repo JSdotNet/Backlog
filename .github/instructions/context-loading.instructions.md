@@ -95,8 +95,9 @@ repository ships no repo-native `orch-*` skills. See `.github/copilot-orch-conte
 
 ## Runtime and QA context
 
-Startup and QA expectations live in `.github/copilot-orch-context.md`; per-category model
-overrides live in `.github/copilot-model-selection.md`.
+Startup and QA expectations live in `.github/copilot-orch-context.md`. Model choice is not
+configured in this repository; orchestration runs use the plugin defaults unless overridden
+per run.
 For code-modifying runs, keep `phase-build-test` before `phase-qa-validation` and pass the
 repo context into QA so it uses the Aspire AppHost, dynamic harness URLs, and configured QA
 depth. The current repo default is Playwright QA for UI behavior, with the documented

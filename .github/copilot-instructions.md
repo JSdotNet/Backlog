@@ -43,7 +43,6 @@ without explicit user approval.
 
 ## Orchestration configuration
 
-- `.github/copilot-model-selection.md` — per-category model overrides for orchestration runs.
 - `.github/copilot-orch-context.md` — repo startup and QA context: how to run the Aspire AppHost, which harness resources to target for UI validation, and the default QA depth.
 
 ## Knowledge folders
