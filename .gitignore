@@ -71,7 +71,7 @@ nunit-*.xml
 .playwright-mcp/
 
 # Claude Code worktree sessions. The rest of .claude/ (orch-context.md,
-# model-selection.md) is tracked team configuration.
+# settings.json, hooks/) is tracked team configuration.
 .claude/worktrees/
 
 # Local Android developer signing material created by build/Install-AndroidApp.ps1.
