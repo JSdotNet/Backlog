@@ -66,15 +66,24 @@ jobs:
             return
           }
 
-          $releasePaths = @(
-            'Backlog.sln',
-            'src/App/Backlog.Mobile',
-            'src/App/Backlog.Mobile.UI',
-            'src/UI/Backlog.UI.Components',
-            'src/Aspire/Backlog.Aspire.ServiceDefaults',
-            'src/Shared/Backlog.SharedKernel',
-            '.github/workflows/release-mobile.yml'
-          )
+          # Derived from the head's ProjectReference graph rather than hand-maintained.
+          # The hand-written list had both of its shared entries wrong: after the move to
+          # src/Core, 'src/UI/Backlog.UI.Components' named nothing, and
+          # 'src/Shared/Backlog.SharedKernel' named nothing *and* named a project the mobile
+          # head does not reference in the first place. A pathspec matching nothing is not an
+          # error -- it just reports no changed files -- so this gate skipped every scheduled
+          # release whose only changes were in the shared component library.
+          $releasePaths = & ./build/Get-ReleasePaths.ps1 `
+            -HeadProject 'src/App/Backlog.Mobile/Backlog.Mobile.csproj' `
+            -Extra @(
+              'Backlog.sln',
+              'build/Get-ReleasePaths.ps1',
+              '.github/workflows/release-mobile.yml'
+            )
+          Write-Output "Mobile release gate watches $($releasePaths.Count) paths."
+          if (-not $releasePaths) {
+            throw "The release path list came back empty. Refusing to continue: 'git diff -- ' with no pathspec matches every file, so the gate would report changes unconditionally."
+          }
           $changedFiles = git diff --name-only "$latestTag..HEAD" -- $releasePaths
           if ($LASTEXITCODE -ne 0) { throw "Could not compare HEAD with latest release $latestTag." }
 
