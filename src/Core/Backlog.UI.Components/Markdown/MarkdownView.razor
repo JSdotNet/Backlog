@@ -31,8 +31,9 @@
     @* A `meta` fence describes the heading it sits under, so where it can be it
        is drawn as part of that heading rather than as the block after it: the
        heading becomes the record's headline and the fence's own turn here is
-       skipped. *@
-    @if (OwnedByHeadingBefore(index))
+       skipped. The document's own fence is skipped for the other reason — a host
+       that is drawing it somewhere better has taken it off this view's hands. *@
+    @if (DrawnElsewhere(index))
     {
     }
     else if (Annotated)
@@ -666,6 +667,25 @@
     [Parameter]
     public bool RenderKnowledgeMetadata { get; set; }
 
+    /// <summary>Whether the document's own metadata block — the fence under the
+    /// title that opens it — is drawn here at all. On by default, so a host that
+    /// says nothing gets the record folded into its title exactly as it always
+    /// has.
+    ///
+    /// <para>Off for a host that has somewhere better to put it. A surface framing
+    /// the whole file already says which file this is, and it says it in a header
+    /// that stays put while the body scrolls — which is where the answer to "is
+    /// this still current?" belongs, rather than at the top of a document the
+    /// reader has scrolled past. The fence is then not drawn here in any form:
+    /// leaving it behind as a code block would be the same record twice, the
+    /// second time with the reading taken off.</para>
+    ///
+    /// <para>Only the document's own block. A <c>##</c> chapter's record describes
+    /// the chapter under it, that heading is in the body, and this says nothing
+    /// about it.</para></summary>
+    [Parameter]
+    public bool RenderFileKnowledgeMetadata { get; set; } = true;
+
     /// <summary>Whether a metadata record draws everything under the status as
     /// well. On by default, so nothing that renders one today changes. A surface
     /// that is already showing the file itself turns it off: `order`, `aliases`
@@ -787,6 +807,10 @@
     /// <summary>The <c>meta</c> fence a heading at this index owns, if it wrote
     /// one directly underneath — which is where the convention puts it.
     ///
+    /// <para>Never the document's own fence when a host is drawing that itself:
+    /// the title is then a plain heading again, and pairing it here would put the
+    /// record back in the body the host just took it out of.</para>
+    ///
     /// <para>In annotated mode too. It used to be skipped there, on the grounds
     /// that folding two blocks into one row would leave the fence's comments
     /// pointing at a row that no longer exists — true, and answered by the row
@@ -796,6 +820,7 @@
     /// status as a raw code fence.</para></summary>
     private MdCode? PairedMetaFence(int index) =>
         RenderKnowledgeMetadata
+        && !(index == 0 && HoistsFileMetadata)
         && index + 1 < Blocks.Count
         && Blocks[index] is MdHeading
         && Blocks[index + 1] is MdCode fence
@@ -803,11 +828,30 @@
             ? fence
             : null;
 
-    /// <summary>Whether the block at this index has already been drawn as the
-    /// heading above it — in which case its own turn in the loop is a no-op
-    /// rather than a second rendering.</summary>
-    private bool OwnedByHeadingBefore(int index) =>
-        index > 0 && PairedMetaFence(index - 1) is not null;
+    /// <summary>Whether the document's own block — the fence under the title that
+    /// opens it — is somebody else's to draw. Both halves of the question, because
+    /// a view that was never told to read <c>meta</c> fences at all has no records
+    /// to hoist and its fence is still a code block.</summary>
+    private bool HoistsFileMetadata =>
+        RenderKnowledgeMetadata
+        && !RenderFileKnowledgeMetadata
+        && MarkdownFileMetadata.OpensWithFileBlock(Blocks);
+
+    /// <summary>Whether the block at this index is drawn somewhere other than its
+    /// own turn in the loop — as the heading above it, or in the host's own
+    /// chrome — in which case that turn is a no-op rather than a second
+    /// rendering. A hoisted fence must not fall back to a code block either: the
+    /// raw fence under a title whose record is already on screen is the same
+    /// duplication read twice over.</summary>
+    private bool DrawnElsewhere(int index) =>
+        (index > 0 && PairedMetaFence(index - 1) is not null)
+        || (index == 1 && HoistsFileMetadata);
+
+    /// <summary>Whether this block's row also stands in for the one after it. Both
+    /// ways a <c>meta</c> fence loses its own row come to the same thing for the
+    /// heading above it, so both are asked here rather than at each use.</summary>
+    private bool AbsorbsNextBlock(int index) =>
+        PairedMetaFence(index) is not null || (index == 0 && HoistsFileMetadata);
 
     /// <summary>
     /// The comments a row shows: its own, and the fence's when it drew one.
@@ -818,18 +862,23 @@
     /// folded into, which is the row that is level with it on the screen. The
     /// alternative was an empty row carrying notes for a block the reader can no
     /// longer see.</para>
+    ///
+    /// <para>A hoisted fence takes the same answer, and has to: it has no row of
+    /// its own either way, and the row level with the title is still the title's.
+    /// That the record itself is now in a host's header does not make a remark
+    /// left on the file's own fence an orphan.</para>
     /// </summary>
     private IReadOnlyList<MarkdownComment> NotesOn(int index) =>
-        PairedMetaFence(index) is null
-            ? CommentsOn(index)
-            : [.. CommentsOn(index), .. CommentsOn(index + 1)];
+        AbsorbsNextBlock(index)
+            ? [.. CommentsOn(index), .. CommentsOn(index + 1)]
+            : CommentsOn(index);
 
     /// <summary>The proposals a row shows, merged for the same reason its
     /// comments are.</summary>
     private IReadOnlyList<AiProposal> SuggestionsOn(int index) =>
-        PairedMetaFence(index) is null
-            ? ProposalsOn(index)
-            : [.. ProposalsOn(index), .. ProposalsOn(index + 1)];
+        AbsorbsNextBlock(index)
+            ? [.. ProposalsOn(index), .. ProposalsOn(index + 1)]
+            : ProposalsOn(index);
 
     private bool CanToggle => OnTaskItemToggled.HasDelegate;
 

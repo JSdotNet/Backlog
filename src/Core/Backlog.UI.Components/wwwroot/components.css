@@ -1,4 +1,4 @@
-/*
+﻿/*
     Styles owned by the shared component library, served from
     _content/Backlog.UI.Components/components.css. A host links this file before
     its own stylesheet, so everything here is the base an app may then extend.
@@ -4735,6 +4735,49 @@ button.tag-chip__label {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+}
+
+/*
+   The file's own metadata record, in the header that names the file.
+
+   A knowledge file states its status in a fence under its title. Read in the
+   body that is the top of a document — the one place a reader has already
+   scrolled past by the time they think to ask whether any of it is still
+   current — so the record is drawn around the name instead, on the part of the
+   pane that stays put. The record itself is the same `knowledge-record` the
+   chapters wear; these rules only say how it sits in a header that already has
+   a right-hand column.
+
+   The identity column grows for it, and only for it. Unfilled, the column is as
+   wide as its content and the status would sit against the name's last word;
+   the right edge is the whole point of that alignment (see
+   .knowledge-record__headline), and the aside keeps its own content width, so
+   growing here takes the header's free space and nothing the path or the
+   actions were using. Without a record there is nothing to push over, and the
+   column stays sized as it always was.
+
+   The name and the details line go into that row as one item — .file-view__
+   headline — rather than two: loose, they would sit side by side with the status
+   after both. Wrapped, the row has two items to align, and baseline alignment
+   takes the wrapper's first baseline, which is the name's. It needs no rule of
+   its own: the headline already gives every child but the status min-width: 0,
+   which is what lets the name wrap instead of pushing the status out of the row.
+*/
+.file-view__identity--record {
+    flex: 1 1 auto;
+}
+
+/* The fields tier keeps the record's own treatment — the extra-small type, the
+   dim label column, the tight rows — because a status in the header and a status
+   in the body have to read as one thing. The one thing the header changes is
+   that the label column may shrink: `auto` refuses to go below the longest key,
+   which in a body is nothing and in a header is a column that will not narrow
+   when the pane does, holding the whole row wider than the space it has. Here it
+   gives, and the values wrap, so the strip stays a strip rather than growing the
+   header at the body's expense
+   (.design/design-principles.md#low-chrome-content-first). */
+.file-view__record .knowledge-fields {
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
 }
 
 /* The path earns the monospace: it is a machine string, and the reader is

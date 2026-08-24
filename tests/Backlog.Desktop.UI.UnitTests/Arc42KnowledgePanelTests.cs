@@ -1,4 +1,4 @@
-using Backlog.Infrastructure.GitHub;
+﻿using Backlog.Infrastructure.GitHub;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,10 +13,10 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// per chapter, and the fact that leaving the editor still re-reads the folder
 /// without closing the surface under the caret.
 /// <para>
-/// The status is the one that used to be drawn twice. It is in the body now, under
-/// the heading it describes, and this panel offers none of its own beside it — the
-/// disagreement between the panel's select and the file's own fence was the reason
-/// the move happened.
+/// The status is the one that used to be drawn twice. The file's own status is in
+/// the file view's header now, beside the name it describes, and this panel offers
+/// none of its own beside it — the disagreement between the panel's select and the
+/// file's own fence was the reason the move happened.
 /// </para>
 /// </summary>
 public sealed class Arc42KnowledgePanelTests : IDisposable
@@ -93,11 +93,14 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
         var component = harness.Render(DecisionPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body']")));
 
-        // The file states a status under its own heading, and the body is drawing
-        // the control for it. Two controls for one field is how the pane used to
-        // disagree with itself — the panel's select and the file's fence — so this
-        // panel now offers none of its own, and its external select is gone.
-        Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body'] .knowledge-record__headline"));
+        // The file states a status under its own title, and the file view is
+        // drawing the control for it — in its header, beside the name that status
+        // describes, on the part of the pane that stays put while the chapter
+        // scrolls. Two controls for one field is how the pane used to disagree
+        // with itself — the panel's select and the file's fence — so this panel
+        // offers none of its own, and its external select is gone.
+        Assert.Single(component.FindAll(".file-view__header .knowledge-record__headline"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-body'] .knowledge-record"));
         Assert.Empty(component.FindAll("[data-testid='knowledge-state-select']"));
 
         // And no raw fence left over: a status drawn as a code block is what the
@@ -158,12 +161,12 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
         var chapterPath = Path.Combine(harness.Root, ".arc42", "adr", "0001-decision.md");
         var component = harness.Render(DecisionPath);
 
-        // The select lives in the read view, beside the heading it belongs to —
-        // the panel no longer draws one of its own. The heading is the file's top
-        // heading, so the write addresses the file itself and lands on its own
-        // status fence.
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body'] .knowledge-record__headline select")));
-        component.Find("[data-testid='arc42-chapter-file-body'] .knowledge-record__headline select").Change("accepted");
+        // The select lives in the file view's header, beside the name it belongs
+        // to — the panel no longer draws one of its own. What it reports is the
+        // file's top heading, so the write addresses the file itself and lands on
+        // its own status fence.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .knowledge-record__headline select")));
+        component.Find(".file-view__header .knowledge-record__headline select").Change("accepted");
 
         component.WaitForAssertion(
             () => Assert.Contains("status: accepted", File.ReadAllText(chapterPath), StringComparison.Ordinal),
