@@ -8,6 +8,20 @@ namespace Backlog.Desktop.WebHarness;
 
 internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
 {
+    /// <summary>
+    /// Stand-ins for the dozen processes the desktop head runs to answer a
+    /// check. This fake starts none, so nothing real could be reported here —
+    /// but the pane's command log is a browser-testable surface and this harness
+    /// is the only place a browser can reach it, so it gets two entries that say
+    /// out loud what they are. One of them failed, because the failing one is
+    /// the entire reason the log exists.
+    /// </summary>
+    private static readonly CopilotToolCommand[] SampleCommands =
+    [
+        new("copilot --version", 0, "Sample output: this harness reads the catalog and starts no processes."),
+        new("dotnet tool search JSdotNet.MCP.Guidelines --exact-match", 1, "Sample failure: nothing was searched.")
+    ];
+
     private readonly IBacklogStore _store;
 
     public LocalDevelopmentCopilotToolService(IBacklogStore store)
@@ -77,7 +91,7 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
         var message = config.PcConfigExists
             ? $"Showing tools from {config.CatalogPath} with PC config {config.PcConfigPath}."
             : $"Showing tools from {config.CatalogPath}. PC config will be created at {config.PcConfigPath}.";
-        return new CopilotToolCatalog(tools, message);
+        return new CopilotToolCatalog(tools, message) { Commands = SampleCommands };
     }
 
     public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>

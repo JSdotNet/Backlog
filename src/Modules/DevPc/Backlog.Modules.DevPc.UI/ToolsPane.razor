@@ -94,6 +94,25 @@
                 }
             </div>
         }
+
+        @if (_commands.Count > 0)
+        {
+            @* Checking tools runs about a dozen processes, and until this was
+               here the only trace of any of them was the sentence in the status
+               line above. The output was already captured and then dropped, so a
+               refused install or a search that could not reach nuget.org had
+               nowhere left to be read.
+
+               Folded, because it is diagnostics and not the pane's subject: it
+               matters exactly when the one-line summary is not enough. *@
+            <FoldControl CssClass="tools-panel__log"
+                         Expanded="_commandsShown"
+                         ExpandedChanged="shown => _commandsShown = shown"
+                         Label="@($"Command output ({_commands.Count})")"
+                         TestId="tools-command-log">
+                <CodeView Source="@CommandLog" Language="console" TestId="tools-command-log-output" />
+            </FoldControl>
+        }
     </div>
 </section>
 
@@ -101,7 +120,9 @@
     private bool _toolsLoading;
     private string? _toolMessage;
     private string? _toolActionKey;
+    private bool _commandsShown;
     private IReadOnlyList<CopilotToolInfo> _tools = [];
+    private IReadOnlyList<CopilotToolCommand> _commands = [];
 
     /// <summary>Raised when somebody dismisses the pane. Whether that hides it,
     /// collapses a stack or does nothing is the shell's decision — the pane only
@@ -121,6 +142,31 @@
 
     private bool CanUpdateAnyTool => _tools.Any(tool => tool.CanUpdate);
 
+    /// <summary>Every command as one block, in the order it ran: the line you
+    /// could have typed, whatever it printed, and the exit code only when it is
+    /// not zero — a command that succeeded has already said so by printing
+    /// nothing alarming, and a column of "exit code 0" would bury the one line
+    /// that is worth finding.</summary>
+    private string CommandLog =>
+        string.Join(Environment.NewLine + Environment.NewLine, _commands.Select(Transcribe));
+
+    private static string Transcribe(CopilotToolCommand command)
+    {
+        var lines = new List<string> { $"$ {command.CommandLine}" };
+
+        if (command.Output.Length > 0)
+        {
+            lines.Add(command.Output);
+        }
+
+        if (command.ExitCode != 0)
+        {
+            lines.Add($"exit code {command.ExitCode}");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
     private async Task RefreshToolsAsync()
     {
         _toolsLoading = true;
@@ -130,6 +176,7 @@
             var catalog = await CopilotTools.ListAsync();
             _tools = catalog.Tools;
             _toolMessage = catalog.Message;
+            _commands = catalog.Commands;
         }
         catch (Exception ex)
         {
@@ -152,6 +199,11 @@
             {
                 await RefreshToolsAsync();
             }
+
+            // After the refresh rather than before it. The refresh runs a dozen
+            // commands of its own, and letting those land last would replace the
+            // update the reader just asked about with the check that followed it.
+            _commands = result.Commands;
         }
         finally
         {
@@ -177,6 +229,10 @@
             {
                 await RefreshToolsAsync();
             }
+
+            // See UpdateAllToolsAsync: the action's commands win over the
+            // refresh's, because the action is what the reader pressed.
+            _commands = result.Commands;
         }
         finally
         {
