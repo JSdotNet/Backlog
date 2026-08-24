@@ -467,6 +467,65 @@ h1, h2, h3 {
 }
 
 /*
+  The two pickers a backlog row carries, in the row's action slot.
+
+  Sized here rather than in the library, because what is being corrected is not
+  how a repository picker or a status picker looks — it is how much of a *list
+  column* two of them are allowed to take. The panel's copies of the same two
+  controls sit on a 36rem strip with nothing competing for it and want every
+  millimetre of their default widths; the row's copies sit at the end of a column
+  the separator can drag down to 20rem, behind a title that is the only thing on
+  the row allowed to shrink. Left at their own widths the pair would take 14.5rem
+  of that column, which is most of a title.
+
+  The pair is a fixed track like the slot that holds it, and nothing in it shrinks
+  below the word it has to show. What is given up is the padding and the reserved
+  column width — never the type: a status the reader has to guess at is worse than
+  a shorter title, and it is the fact they are scanning for.
+*/
+.entry-row__pickers {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
+}
+
+/* The badge's 7.5rem is a *column* width — it exists so a table of statuses
+   stacked under one another lines up. There is no column here; there is one badge
+   per row, at the end of it, so what the width has to hold is the longest word
+   and not the widest table cell. "IN PROGRESS" is that word, and it needs about
+   5.5rem set at 12px semibold with the badge's letter-spacing on it — so the pill
+   is 7rem with the select's own padding tightened to the gap, which leaves the
+   text 6.5rem to sit in and the same room to spare the 7.5rem had. */
+.entry-row__pickers .badge--status {
+    width: 7rem;
+    min-width: 0;
+    /* The gap above already separates the pair; the badge's own left margin would
+       add a second one, and only between these two rather than before the first. */
+    margin-left: 0;
+}
+
+.entry-row__pickers .status-editor__select,
+.entry-row__pickers .metadata-editor__select {
+    padding-inline: var(--spacing-xs);
+}
+
+/* An alias is a handle somebody chose to type in front of every entry they file,
+   so it is short by the same self-interest that makes a tag short. Narrower than
+   the status because it has no fixed vocabulary to reserve for: the widest one
+   this can show is a judgement, and the entry's own panel shows the rest. */
+.entry-row__pickers .metadata-editor--repo {
+    width: 5.5rem;
+    min-width: 0;
+    max-width: 5.5rem;
+}
+
+/* What the pair does when the column runs out of room is further down, inside the
+   container step the filter bar already declares for that width. One step per
+   decision: "the list column is nearly as narrow as it goes" is one fact, and two
+   blocks stating it at one breakpoint would be two places to keep in agreement. */
+
+/*
   The scroller, and only the scroller. The box the reader sees — the border, the
   radius, the padding, the raised background — belongs to TaskPanel now, which is
   what adopting it means: two boxes, one inside the other, would be a panel drawn
@@ -1058,6 +1117,30 @@ h1, h2, h3 {
     /* Nothing left to push away from: the groups are one chip each. */
     .filter-group--status {
         margin-left: 0;
+    }
+
+    /* The rows tighten with the bar above them, and for the same reason: the title
+       is the only thing on a row allowed to shrink and by this width it has
+       nothing left to give. What goes is the last of the slack around the two
+       pills — the gap between them and the room either had to spare — and not the
+       type inside them, which is the same rule as above one step further along.
+
+       Both pickers stay. Hiding the repository one would leave the identity stripe
+       as the only thing on the row saying which project it is, which is exactly
+       what .design/color-scheme.md#band-identity-tokens forbids — and it would
+       take a control out of the keyboard's reach at a width the reader dragged to
+       rather than one they asked to lose anything at. */
+    .entry-row__pickers {
+        gap: 0;
+    }
+
+    .entry-row__pickers .badge--status {
+        width: 6.5rem;
+    }
+
+    .entry-row__pickers .metadata-editor--repo {
+        width: 4.5rem;
+        max-width: 4.5rem;
     }
 }
 

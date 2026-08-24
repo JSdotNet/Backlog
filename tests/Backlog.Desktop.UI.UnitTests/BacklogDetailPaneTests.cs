@@ -842,14 +842,22 @@ public sealed class BacklogDetailPaneTests
     // --- Where the status is -----------------------------------------------
 
     /// <summary>
-    /// The status is on the panel's heading line and on the row in the list, and
-    /// it is the same fact in the same shape in both places.
+    /// The status is on the panel's heading line and on the row in the list, and it
+    /// is the same fact and the same control in both places.
     /// <para>
     /// It used to be a badge in the classification strip below the heading, which
     /// made a reader who opened a row look for it in a second place — and it is the
     /// one thing in that strip that is a state rather than something the entry is
     /// filed under. The row had no status at all, so the column could not be
     /// scanned for what was in progress without opening entries one at a time.
+    /// </para>
+    /// <para>
+    /// The row's copy is a picker now rather than the read-only badge it started as,
+    /// which is what makes this a pair of controls over one fact instead of a
+    /// control and a rumour of it. It reads from the same entry either way, so a
+    /// write on the heading line has to land on it — that is the assertion at the
+    /// end, and it is the one that would catch the row being drawn from a snapshot
+    /// of its own.
     /// </para>
     /// </summary>
     [Fact]
@@ -865,16 +873,23 @@ public sealed class BacklogDetailPaneTests
         Assert.NotNull(header.QuerySelector("[data-testid='status-badge']"));
         Assert.Null(pane.Find(".task-panel__filing").QuerySelector("[data-testid='status-badge']"));
 
-        // And on the row, as the badge the shared list draws.
-        var badge = pane.Find($"[data-testid='{RowTestId(row)}-status']");
-        Assert.Contains("task-item__status", badge.ClassList);
-        Assert.Equal("in progress", badge.TextContent);
+        // And on the row, as the picker at the end of it. Not the badge that used to
+        // be beside the title: BacklogRowPickersTests pins its absence, because a
+        // word the reader cannot act on beside a control that says the same word is
+        // the row telling them twice.
+        var picker = pane.Find($"[data-testid='{RowTestId(row)}']").QuerySelector("[data-testid='row-status-badge'] select");
+        Assert.NotNull(picker);
+        Assert.Equal(nameof(EntryStatus.InProgress), picker.GetAttribute("value"));
 
         // Still editable from the heading line, and the write still goes to the text.
         await pane.Find("[data-testid='status-badge'] select").ChangeAsync(new() { Value = nameof(EntryStatus.Ready) });
 
         Assert.Contains("`!ready`", row.RawText, StringComparison.Ordinal);
-        Assert.Equal("ready", pane.Find($"[data-testid='{RowTestId(row)}-status']").TextContent);
+        Assert.Equal(
+            nameof(EntryStatus.Ready),
+            pane.Find($"[data-testid='{RowTestId(row)}']")
+                .QuerySelector("[data-testid='row-status-badge'] select")!
+                .GetAttribute("value"));
     }
 
     /// <summary>The detail pane's groups carry no visible caption — the layout does
