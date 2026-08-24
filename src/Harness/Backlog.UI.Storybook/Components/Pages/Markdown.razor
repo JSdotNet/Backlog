@@ -76,6 +76,8 @@ The set is closed and small on purpose. It covers the markdown people actually w
     <Story Name="Lists, including nested ones"
            Description="Bulleted, ordered, and checklists — all three are one MdList, and what separates them is the item. A checklist item carries `Done`; a plain bullet's is null, which is what lets the two sit in the same list and keep their own markers. A checklist item that is not being listened to renders its state as an `img` with a label rather than as a control, so Tab walks past it instead of stopping on a checkbox that would do nothing.
 
+Indentation also continues: a line with no marker of its own, written further in than the item above it, is that item wrapped rather than a new block, and the two lines are read as one so markup may open on the first and close on the second. A line that starts where the marker starts still ends the list.
+
 Indentation nests. An indented run belongs to the item above it, as deep as it is written, and a nested list may be a different kind from its parent — numbers under a bullet are normal. A tab counts as four columns. Nesting does not disturb the checklist indices: the parser numbers task lines in the order they were written, which is the order the rewriter walks them in, so a nested checkbox still writes back to its own line."
            Code="@ListCode"
            Source="@ListSample">
@@ -208,6 +210,8 @@ Each mark is a real anchor into the note, and each note carries a link back."
         - A plain bullet in the same list
         - [ ] An unfinished task
           - [ ] Nested, and still numbered by its line
+        - A bullet whose sentence runs on past one line,
+            wrapped in under itself rather than starting a second bullet
 
         1. First
         2. Second
