@@ -80,9 +80,23 @@
                                     Update
                                 </AppButton>
                             }
+                            else if (tool.CanInstall)
+                            {
+                                @* The same action as an update. The port has one
+                                   verb for "make this machine match the config",
+                                   and behind it the host already runs
+                                   "plugin install" or "tool install" for a tool
+                                   that is enabled and absent — what changes here
+                                   is only that the row now offers it. *@
+                                <AppButton Variant="ButtonVariant.Secondary"
+                                           Disabled="@(_toolsLoading || ToolActionBusy)"
+                                           OnClick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
+                                    Install
+                                </AppButton>
+                            }
                             else
                             {
-                                <span class="tools-table__action-note">@(tool.ConfiguredEnabled ? "Up to date" : "Disabled")</span>
+                                <span class="tools-table__action-note">@ActionNote(tool)</span>
                             }
                             <AppButton Variant="ButtonVariant.Ghost"
                                        Disabled="@(_toolsLoading || ToolActionBusy)"
@@ -141,6 +155,20 @@
     private string ToolMessage => _toolMessage ?? "Checking configured tools...";
 
     private bool CanUpdateAnyTool => _tools.Any(tool => tool.CanUpdate);
+
+    /// <summary>What a row says when there is nothing to press.
+    ///
+    /// <para>Three answers rather than the two it had. "Up to date" used to cover
+    /// every row without an update button, which put it beside "not installed" on
+    /// enabled tools the machine did not have, and beside "unknown" on tools whose
+    /// version lookup had failed. Neither of those is a tool that is up to
+    /// date.</para></summary>
+    private static string ActionNote(CopilotToolInfo tool) => tool switch
+    {
+        { ConfiguredEnabled: false } => "Disabled",
+        { AvailableVersionKnown: false } => "Version unknown",
+        _ => "Up to date"
+    };
 
     /// <summary>Every command as one block, in the order it ran: the line you
     /// could have typed, whatever it printed, and the exit code only when it is

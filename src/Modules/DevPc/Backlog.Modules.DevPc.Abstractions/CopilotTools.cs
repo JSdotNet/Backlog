@@ -35,6 +35,24 @@ public sealed record CopilotToolInfo(
 
     public bool CanUpdate => ConfiguredEnabled && Installed && UpdateAvailable;
 
+    /// <summary>A tool this machine is configured to have and does not.
+    ///
+    /// <para>Separate from <see cref="CanUpdate" /> because the two are not the
+    /// same offer and the screen had only the one: an enabled tool that is absent
+    /// cannot be updated, so it fell through to whatever the "nothing to do"
+    /// branch said and was announced as up to date beside its own "not installed"
+    /// version.</para></summary>
+    public bool CanInstall => ConfiguredEnabled && !Installed;
+
+    /// <summary>Whether a lookup actually answered with a version.
+    ///
+    /// <para>"Up to date" is a claim about something somebody found. When the
+    /// lookup failed there is no version to have matched, and saying so is the
+    /// difference between a checked tool and an unchecked one.</para></summary>
+    public bool AvailableVersionKnown =>
+        !string.IsNullOrWhiteSpace(AvailableVersion)
+        && !AvailableVersion.Trim().Equals(CopilotToolOutput.Unknown, StringComparison.OrdinalIgnoreCase);
+
     public static bool VersionDiffers(string installedVersion, string availableVersion)
     {
         var installed = NormalizeVersion(installedVersion);
@@ -53,8 +71,8 @@ public sealed record CopilotToolInfo(
         }
 
         var trimmed = version.Trim();
-        if (trimmed.Equals("unknown", StringComparison.OrdinalIgnoreCase)
-            || trimmed.Equals("not installed", StringComparison.OrdinalIgnoreCase)
+        if (trimmed.Equals(CopilotToolOutput.Unknown, StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals(CopilotToolOutput.NotInstalled, StringComparison.OrdinalIgnoreCase)
             || trimmed.Equals("source", StringComparison.OrdinalIgnoreCase))
         {
             return null;

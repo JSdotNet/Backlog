@@ -40,7 +40,50 @@ public class CopilotToolTests
 
         Assert.True(tool.UpdateAvailable);
         Assert.False(tool.CanUpdate);
-    }    [Fact]
+    }
+
+    /// <summary>An enabled tool that is not on the machine is the one case the
+    /// pane had no word for: it cannot be updated, so it was labelled "up to
+    /// date" while the row beside it said "not installed".</summary>
+    [Theory]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    public void Only_an_enabled_tool_that_is_absent_can_be_installed(bool enabled, bool installed, bool expected)
+    {
+        var tool = Tool(enabled, installed, "1.0.0", "1.0.0");
+
+        Assert.Equal(expected, tool.CanInstall);
+    }
+
+    /// <summary>"Up to date" is a claim about a version somebody looked up. When
+    /// the lookup failed there is no version to have been up to date with.</summary>
+    [Theory]
+    [InlineData("1.0.0", true)]
+    [InlineData("unknown", false)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    public void An_available_version_is_known_only_when_a_lookup_answered(string available, bool expected)
+    {
+        var tool = Tool(enabled: true, installed: true, "1.0.0", available);
+
+        Assert.Equal(expected, tool.AvailableVersionKnown);
+    }
+
+    private static CopilotToolInfo Tool(bool enabled, bool installed, string installedVersion, string availableVersion) =>
+        new(
+            "plugin:test",
+            CopilotToolKind.Plugin,
+            "test",
+            "https://github.com/example/test",
+            enabled,
+            installed,
+            installedVersion,
+            availableVersion,
+            "Enabled plugin");
+
+    [Fact]
     public async Task Pc_config_overrides_matching_catalog_tools_only()
     {
         var root = CreateTempToolConfigRoot();

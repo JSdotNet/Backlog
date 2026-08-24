@@ -19,7 +19,7 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
     private static readonly CopilotToolCommand[] SampleCommands =
     [
         new("copilot --version", 0, "Sample output: this harness reads the catalog and starts no processes."),
-        new("dotnet tool search JSdotNet.MCP.Guidelines --exact-match", 1, "Sample failure: nothing was searched.")
+        new("dotnet tool search JSdotNet.MCP.Guidelines", 1, "Sample failure: nothing was searched.")
     ];
 
     private readonly IBacklogStore _store;

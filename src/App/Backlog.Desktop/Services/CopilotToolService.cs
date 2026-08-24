@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Modules.DevPc.Abstractions;
@@ -11,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Backlog.Desktop.Services;
 
-public sealed partial class CopilotToolService : ICopilotToolService
+public sealed class CopilotToolService : ICopilotToolService
 {
     private readonly IBacklogStore? _store;
     private readonly string? _configPath;
@@ -80,8 +79,8 @@ public sealed partial class CopilotToolService : ICopilotToolService
 
             var kind = GetString(plugin, "kind");
             var enabled = GetBool(plugin, "enabled");
-            var installedVersion = GetPluginInstalledVersion(plugin, installedPlugins, log);
-            var installed = !installedVersion.Equals("not installed", StringComparison.OrdinalIgnoreCase);
+            var installedVersion = await GetPluginInstalledVersionAsync(plugin, installedPlugins, log, ct).ConfigureAwait(false);
+            var installed = !installedVersion.Equals(CopilotToolOutput.NotInstalled, StringComparison.OrdinalIgnoreCase);
             var availableVersion = await GetPluginAvailableVersionAsync(plugin, log, ct).ConfigureAwait(false);
 
             tools.Add(new CopilotToolInfo(
@@ -107,7 +106,7 @@ public sealed partial class CopilotToolService : ICopilotToolService
             var name = GetString(server, "name");
             var displayName = string.IsNullOrWhiteSpace(name) ? packageId : $"{name} ({packageId})";
             var enabled = GetBool(server, "enabled");
-            var installedVersion = installedTools.TryGetValue(packageId, out var version) ? version : "not installed";
+            var installedVersion = installedTools.TryGetValue(packageId, out var version) ? version : CopilotToolOutput.NotInstalled;
             var availableVersion = await GetDotNetToolAvailableVersionAsync(packageId, log, ct).ConfigureAwait(false);
 
             tools.Add(new CopilotToolInfo(
@@ -242,7 +241,7 @@ public sealed partial class CopilotToolService : ICopilotToolService
             return CopilotToolActionResult.Ok($"{name}: {status}.");
         }
 
-        var cli = ResolveCopilotCli(log);
+        var cli = await ResolveCopilotCliAsync(log, ct).ConfigureAwait(false);
         var installed = await GetInstalledPluginsAsync(log, ct).ConfigureAwait(false);
         var isInstalled = installed.ContainsKey(name);
 
@@ -302,32 +301,14 @@ public sealed partial class CopilotToolService : ICopilotToolService
 
     private async Task<Dictionary<string, string>> GetInstalledPluginsAsync(CommandLog log, CancellationToken ct)
     {
-        var cli = ResolveCopilotCli(log);
+        var cli = await ResolveCopilotCliAsync(log, ct).ConfigureAwait(false);
         var result = await RunAsync(cli.Command, [.. cli.Prefix, "plugin", "list"], log, ct).ConfigureAwait(false);
         if (result.ExitCode != 0)
         {
             throw new InvalidOperationException(CommandFailure("Copilot plugin list", result));
         }
 
-        var plugins = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var line in SplitLines(result.Output))
-        {
-            var trimmed = line.Trim();
-            if (trimmed.Length == 0 || trimmed.StartsWith("Name", StringComparison.OrdinalIgnoreCase) || trimmed.StartsWith("-"))
-            {
-                continue;
-            }
-
-            var match = PluginListLineRegex().Match(trimmed);
-            if (match.Success)
-            {
-                plugins[match.Groups["name"].Value] = string.IsNullOrWhiteSpace(match.Groups["version"].Value)
-                    ? "installed"
-                    : match.Groups["version"].Value;
-            }
-        }
-
-        return plugins;
+        return new Dictionary<string, string>(CopilotToolOutput.ParsePluginList(result.Output), StringComparer.OrdinalIgnoreCase);
     }
 
     private static async Task<Dictionary<string, string>> GetInstalledDotNetToolsAsync(CommandLog log, CancellationToken ct)
@@ -338,84 +319,70 @@ public sealed partial class CopilotToolService : ICopilotToolService
             throw new InvalidOperationException(CommandFailure("dotnet tool list", result));
         }
 
-        var tools = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var line in SplitLines(result.Output))
-        {
-            var trimmed = line.Trim();
-            if (trimmed.Length == 0 || trimmed.StartsWith("Package Id", StringComparison.OrdinalIgnoreCase) || trimmed.StartsWith("-"))
-            {
-                continue;
-            }
-
-            var parts = WhitespaceRegex().Split(trimmed);
-            if (parts.Length >= 2)
-            {
-                tools[parts[0]] = parts[1];
-            }
-        }
-
-        return tools;
+        return new Dictionary<string, string>(CopilotToolOutput.ParseDotNetToolList(result.Output), StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>What nuget.org publishes for one MCP server package.
+    ///
+    /// <para>Searched without <c>--exact-match</c>, because the installed SDK has
+    /// no such flag: every lookup exited non-zero on an unrecognised argument and
+    /// every available version came back unknown. The exactness the flag was
+    /// there for now happens in the parser, over the whole result.</para></summary>
     private static async Task<string> GetDotNetToolAvailableVersionAsync(string packageId, CommandLog log, CancellationToken ct)
     {
-        var result = await RunAsync("dotnet", ["tool", "search", packageId, "--exact-match"], log, ct).ConfigureAwait(false);
-        if (result.ExitCode != 0)
-        {
-            return "unknown";
-        }
+        var result = await RunAsync("dotnet", ["tool", "search", packageId], log, ct).ConfigureAwait(false);
 
-        foreach (var line in SplitLines(result.Output))
-        {
-            var trimmed = line.Trim();
-            if (!trimmed.StartsWith(packageId, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            var parts = WhitespaceRegex().Split(trimmed);
-            return parts.Length >= 2 ? parts[1] : "unknown";
-        }
-
-        return "unknown";
+        return result.ExitCode == 0
+            ? CopilotToolOutput.ParseDotNetToolSearchVersion(result.Output, packageId)
+            : CopilotToolOutput.Unknown;
     }
 
+    /// <summary>What the plugin's source publishes today.
+    ///
+    /// <para>A repository-backed tool is asked what its remote's HEAD is, not what
+    /// its clone's is: the clone is the installed side, and asking git the same
+    /// question twice made every such tool equal to itself and hid real pending
+    /// updates.</para>
+    ///
+    /// <para>Everything else reads the plugin's manifest through the GitHub API.
+    /// The repository these plugins ship from cuts no releases, so the release
+    /// lookup this replaces answered "release not found" for all of them.</para></summary>
     private static async Task<string> GetPluginAvailableVersionAsync(JsonNode plugin, CommandLog log, CancellationToken ct)
     {
-        var source = GetString(plugin, "source");
-        if (string.IsNullOrWhiteSpace(source))
+        // A repository-backed tool is versioned by commit and never falls back to
+        // the manifest: the two are not the same unit, and a sha compared against
+        // a semver would report an update on every check forever.
+        if (IsRepositoryBacked(plugin))
         {
-            return "unknown";
-        }
-
-        if (Uri.TryCreate(source, UriKind.Absolute, out var uri)
-            && uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
-        {
-            var parts = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length >= 2)
+            if (ExistingRepositoryPath(plugin) is not { } repoPath)
             {
-                var result = await RunAsync("gh", ["release", "view", "--repo", $"{parts[0]}/{parts[1]}", "--json", "tagName", "--jq", ".tagName"], log, ct).ConfigureAwait(false);
-                if (result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.Output.Trim()))
-                {
-                    return result.Output.Trim();
-                }
+                return CopilotToolOutput.Unknown;
             }
+
+            var head = await RunAsync("git", ["-C", repoPath, "ls-remote", "origin", "HEAD"], log, ct).ConfigureAwait(false);
+
+            return head.ExitCode == 0 && FirstField(head.Output) is { Length: > 0 } sha
+                ? CopilotToolOutput.ShortCommit(sha)
+                : CopilotToolOutput.Unknown;
         }
 
-        var repoPath = GetString(plugin, "repoPath");
-        if (!string.IsNullOrWhiteSpace(repoPath) && Directory.Exists(repoPath))
+        if (CopilotToolOutput.ParsePluginSource(GetString(plugin, "source")) is not { } source)
         {
-            var result = await RunAsync("git", ["-C", repoPath, "rev-parse", "--short", "HEAD"], log, ct).ConfigureAwait(false);
-            if (result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.Output.Trim()))
-            {
-                return result.Output.Trim();
-            }
+            return CopilotToolOutput.Unknown;
         }
 
-        return "unknown";
+        var manifest = await RunAsync(
+            "gh",
+            ["api", $"repos/{source.Owner}/{source.Repository}/contents/{source.ManifestPath}", "-H", "Accept: application/vnd.github.raw"],
+            log,
+            ct).ConfigureAwait(false);
+
+        return manifest.ExitCode == 0
+            ? CopilotToolOutput.ParsePluginManifestVersion(manifest.Output) ?? CopilotToolOutput.Unknown
+            : CopilotToolOutput.Unknown;
     }
 
-    private static string GetPluginInstalledVersion(JsonNode plugin, IReadOnlyDictionary<string, string> installedPlugins, CommandLog log)
+    private static async Task<string> GetPluginInstalledVersionAsync(JsonNode plugin, IReadOnlyDictionary<string, string> installedPlugins, CommandLog log, CancellationToken ct)
     {
         var name = GetRequiredString(plugin, "name");
         if (installedPlugins.TryGetValue(name, out var version))
@@ -423,22 +390,47 @@ public sealed partial class CopilotToolService : ICopilotToolService
             return version;
         }
 
-        var kind = GetString(plugin, "kind");
-        if (!kind.Equals("repository-skills", StringComparison.OrdinalIgnoreCase)
-            && !kind.Equals("repository-canvases", StringComparison.OrdinalIgnoreCase))
+        if (!IsRepositoryBacked(plugin) || ExistingRepositoryPath(plugin) is not { } repoPath)
         {
-            return "not installed";
+            return CopilotToolOutput.NotInstalled;
         }
 
-        var repoPath = GetString(plugin, "repoPath");
-        if (string.IsNullOrWhiteSpace(repoPath) || !Directory.Exists(repoPath))
-        {
-            return "not installed";
-        }
+        // The full sha, cut to the same width as the remote one it will be
+        // compared against. Asking git for the short form here and taking the
+        // remote's full one would make the two differ on length alone.
+        var result = await RunAsync("git", ["-C", repoPath, "rev-parse", "HEAD"], log, ct).ConfigureAwait(false);
 
-        var result = RunAsync("git", ["-C", repoPath, "rev-parse", "--short", "HEAD"], log, CancellationToken.None).GetAwaiter().GetResult();
-        return result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.Output.Trim()) ? result.Output.Trim() : "source";
+        return result.ExitCode == 0 && FirstField(result.Output) is { Length: > 0 } sha
+            ? CopilotToolOutput.ShortCommit(sha)
+            : "source";
     }
+
+    private static bool IsRepositoryBacked(JsonNode plugin)
+    {
+        var kind = GetString(plugin, "kind");
+
+        return kind.Equals("repository-skills", StringComparison.OrdinalIgnoreCase)
+            || kind.Equals("repository-canvases", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? ExistingRepositoryPath(JsonNode plugin)
+    {
+        var repoPath = GetString(plugin, "repoPath");
+        if (string.IsNullOrWhiteSpace(repoPath))
+        {
+            return null;
+        }
+
+        var expanded = ResolveConfiguredPath(repoPath);
+
+        return Directory.Exists(expanded) ? expanded : null;
+    }
+
+    /// <summary>The first whitespace-separated field of a command's output.
+    /// <c>ls-remote</c> answers "&lt;sha&gt;\tHEAD" and <c>rev-parse</c> answers a
+    /// bare sha, so one reader covers both.</summary>
+    private static string FirstField(string output) =>
+        output.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries) is [var first, ..] ? first : string.Empty;
 
     private static async Task<string> RefreshRepositorySourceAsync(JsonNode plugin, CommandLog log, CancellationToken ct)
     {
@@ -505,9 +497,10 @@ public sealed partial class CopilotToolService : ICopilotToolService
         return updateAvailable ? "Update available" : $"Enabled {kind}";
     }
 
-    private static (string Command, string[] Prefix) ResolveCopilotCli(CommandLog log)
+    private static async Task<(string Command, string[] Prefix)> ResolveCopilotCliAsync(CommandLog log, CancellationToken ct)
     {
-        var copilot = RunAsync("copilot", ["--version"], log, CancellationToken.None).GetAwaiter().GetResult();
+        var copilot = await RunAsync("copilot", ["--version"], log, ct).ConfigureAwait(false);
+
         return copilot.ExitCode == 0 ? ("copilot", []) : ("gh", ["copilot"]);
     }
 
@@ -552,8 +545,6 @@ public sealed partial class CopilotToolService : ICopilotToolService
     }
 
     private static string ResolveConfiguredPath(string path) => Environment.ExpandEnvironmentVariables(path);
-
-    private static IEnumerable<string> SplitLines(string value) => value.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
 
     private sealed record CommandResult(int ExitCode, string Output, string Error);
 
@@ -607,10 +598,4 @@ public sealed partial class CopilotToolService : ICopilotToolService
                 : combined[..OutputLimit] + $"{Environment.NewLine}... output truncated at {OutputLimit} characters.";
         }
     }
-
-    [GeneratedRegex("\\s{2,}")]
-    private static partial Regex WhitespaceRegex();
-
-    [GeneratedRegex("^(?<name>\\S+)(?:\\s+(?<version>\\S+))?")]
-    private static partial Regex PluginListLineRegex();
 }
