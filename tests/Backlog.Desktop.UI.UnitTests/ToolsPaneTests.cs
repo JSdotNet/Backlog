@@ -6,8 +6,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The tools surface, against a fake port. Three states with three different
-/// things to do in them, and the rule that an edit only re-reads the catalog when
-/// the port said it worked.
+/// things to do in them, the rule that an edit only re-reads the catalog when
+/// the port said it worked, and what a row offers for the tool it is showing.
 ///
 /// <para>The pane is rendered directly rather than through Home: what it draws is
 /// decided entirely by the <see cref="CopilotToolCatalog"/> it is handed, and going
@@ -17,6 +17,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// answer to the host no longer flashing a console window per child process, and
 /// suppressing those windows without putting the output somewhere would have
 /// deleted the only place a refused install could be read.</para>
+///
+/// <para>The action tests are about a different silence: the cell had one button
+/// and one note, so every row it could not offer an update for was announced as
+/// up to date — including the ones the machine did not have and the ones nothing
+/// had managed to look up.</para>
 /// </summary>
 public sealed class ToolsPaneTests
 {
@@ -251,6 +256,48 @@ public sealed class ToolsPaneTests
         Assert.Empty(pane.FindAll("[data-testid='tools-command-log-output']"));
     }
 
+    /// <summary>The contradiction this pane was reported for: a plugin that is
+    /// enabled in the catalog and absent from the machine was labelled "up to
+    /// date" beside its own "not installed" version, because the only action the
+    /// cell knew how to offer was an update.</summary>
+    [Fact]
+    public void An_enabled_tool_that_is_absent_offers_to_install_it()
+    {
+        var actions = ActionsFor(Tool(enabled: true, installed: false, "not installed", "0.4.0"));
+
+        Assert.Contains("Install", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Up to date", actions, StringComparison.Ordinal);
+    }
+
+    /// <summary>A failed version lookup is not agreement. The cell says which of
+    /// the two it is rather than reporting the tool as current.</summary>
+    [Fact]
+    public void A_tool_whose_available_version_is_unknown_says_so()
+    {
+        var actions = ActionsFor(Tool(enabled: true, installed: true, "0.4.0", "unknown"));
+
+        Assert.Contains("Version unknown", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Up to date", actions, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_tool_the_machine_already_has_at_the_published_version_is_up_to_date()
+    {
+        var actions = ActionsFor(Tool(enabled: true, installed: true, "0.4.0", "0.4.0"));
+
+        Assert.Contains("Up to date", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Install", actions, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_tool_switched_off_in_the_config_still_reads_as_disabled()
+    {
+        var actions = ActionsFor(Tool(enabled: false, installed: false, "not installed", "0.4.0"));
+
+        Assert.Contains("Disabled", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Install", actions, StringComparison.Ordinal);
+    }
+
     private static BunitContext Context(ICopilotToolService service)
     {
         var context = new BunitContext();
@@ -271,6 +318,27 @@ public sealed class ToolsPaneTests
         "1.0.0",
         "1.0.0",
         "Enabled plugin");
+
+    /// <summary>The one row's action cell, as text. The pane is rendered with a
+    /// single tool so the cell is unambiguous without reaching for an index.</summary>
+    private static string ActionsFor(CopilotToolInfo tool)
+    {
+        using var context = Context(FakeCopilotToolService.With(tool));
+
+        return context.Render<ToolsPane>().Find(".tools-table__actions").TextContent;
+    }
+
+    private static CopilotToolInfo Tool(bool enabled, bool installed, string installedVersion, string availableVersion) =>
+        new(
+            "plugin:architecture",
+            CopilotToolKind.Plugin,
+            "architecture",
+            "JSdotNet/Copilot:plugins/architecture",
+            enabled,
+            installed,
+            installedVersion,
+            availableVersion,
+            "Configured plugin");
 
     /// <summary>A port that records what it was asked and answers from a fixed
     /// catalog. A record so a test can vary one field of it without a builder.</summary>
