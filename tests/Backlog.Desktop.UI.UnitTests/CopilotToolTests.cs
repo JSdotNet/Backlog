@@ -139,6 +139,233 @@ public class CopilotToolTests
         Assert.Equal(Path.Combine(storageRoot, ".tools", "dev-pc", "copilot-tools.json"), paths.PcConfigPath);
     }
 
+    [Fact]
+    public async Task Creating_a_catalog_makes_the_folder_and_both_arrays()
+    {
+        // Deliberately not CreateTempToolConfigRoot: a machine that has never had
+        // a catalog has no .tools folder either, and creating one has to make it.
+        var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+
+        Assert.False(CopilotToolConfiguration.CatalogExists(paths));
+
+        await CopilotToolConfiguration.CreateCatalogAsync(paths);
+
+        Assert.True(CopilotToolConfiguration.CatalogExists(paths));
+
+        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        Assert.Empty(config.Root["plugins"]!.AsArray());
+        Assert.Empty(config.Root["mcpServers"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task Creating_a_catalog_over_one_that_exists_is_refused_and_changes_nothing()
+    {
+        var root = CreateTempToolConfigRoot();
+        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        await File.WriteAllTextAsync(paths.CatalogPath, """
+            { "plugins": [ { "name": "architecture", "source": "JSdotNet/Copilot:plugins/architecture", "enabled": true } ], "mcpServers": [] }
+            """);
+        var before = await File.ReadAllBytesAsync(paths.CatalogPath);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CopilotToolConfiguration.CreateCatalogAsync(paths));
+
+        Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath));
+    }
+
+    [Fact]
+    public async Task Adding_a_tool_lands_in_the_catalog_and_never_in_the_pc_config()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+
+        await CopilotToolConfiguration.AddToCatalogAsync(
+            paths,
+            new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "JSdotNet/Copilot:plugins/architecture", PluginKind: "repository-skills"));
+        await CopilotToolConfiguration.AddToCatalogAsync(
+            paths,
+            new CopilotToolDraft(CopilotToolKind.McpServer, "JSdotNet.MCP.Guidelines", DisplayName: "guidelines"));
+
+        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var plugin = Assert.Single(config.Root["plugins"]!.AsArray())!;
+        Assert.Equal("architecture", plugin["name"]!.GetValue<string>());
+        Assert.Equal("JSdotNet/Copilot:plugins/architecture", plugin["source"]!.GetValue<string>());
+        Assert.Equal("repository-skills", plugin["kind"]!.GetValue<string>());
+
+        // New entries arrive enabled: adding a tool is the act of asking for it.
+        Assert.True(plugin["enabled"]!.GetValue<bool>());
+
+        var server = Assert.Single(config.Root["mcpServers"]!.AsArray())!;
+        Assert.Equal("JSdotNet.MCP.Guidelines", server["packageId"]!.GetValue<string>());
+        Assert.Equal("guidelines", server["name"]!.GetValue<string>());
+
+        // The merge drops a PC entry with no catalog match, so a tool written
+        // there would be a tool that never appears.
+        Assert.False(File.Exists(paths.PcConfigPath));
+    }
+
+    [Fact]
+    public async Task Adding_an_id_that_is_already_in_the_catalog_is_refused()
+    {
+        var paths = await CreateCatalogWithAsync("""
+            { "plugins": [ { "name": "architecture", "source": "a", "enabled": true } ], "mcpServers": [] }
+            """);
+
+        // Case-insensitively, matching every lookup in the catalog: two entries
+        // differing only in case would be one tool with two rows.
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CopilotToolConfiguration.AddToCatalogAsync(paths, new CopilotToolDraft(CopilotToolKind.Plugin, "Architecture", "b")));
+
+        Assert.Contains("already", refused.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Single((await CopilotToolConfiguration.ReadAsync(paths)).Root["plugins"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task A_plugin_without_a_source_is_refused()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CopilotToolConfiguration.AddToCatalogAsync(paths, new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "   ")));
+
+        Assert.Contains("source", refused.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty((await CopilotToolConfiguration.ReadAsync(paths)).Root["plugins"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task Adding_before_there_is_a_catalog_says_to_create_one()
+    {
+        var root = CreateTempToolConfigRoot();
+        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CopilotToolConfiguration.AddToCatalogAsync(paths, new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "a")));
+
+        Assert.Contains("Create it first", refused.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(paths.CatalogPath));
+    }
+
+    [Fact]
+    public async Task Removing_a_tool_drops_its_catalog_entry_and_its_pc_override()
+    {
+        var paths = await CreateCatalogWithAsync("""
+            {
+              "plugins": [
+                { "name": "architecture", "source": "a", "enabled": true },
+                { "name": "qa", "source": "b", "enabled": true }
+              ],
+              "mcpServers": []
+            }
+            """);
+        await CopilotToolConfiguration.WriteEnabledOverrideAsync(paths, "plugin:architecture", false);
+
+        await CopilotToolConfiguration.RemoveFromCatalogAsync(paths, "plugin:architecture");
+        await CopilotToolConfiguration.RemoveEnabledOverrideAsync(paths, "plugin:architecture");
+
+        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var remaining = Assert.Single(config.Root["plugins"]!.AsArray())!;
+        Assert.Equal("qa", remaining["name"]!.GetValue<string>());
+
+        // The point of pruning the override: add it back and it comes back
+        // enabled rather than carrying a disable nobody remembers making.
+        await CopilotToolConfiguration.AddToCatalogAsync(paths, new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "a"));
+        var reread = await CopilotToolConfiguration.ReadAsync(paths);
+        var readded = reread.Root["plugins"]!.AsArray()
+            .Single(node => node!["name"]!.GetValue<string>() == "architecture")!;
+        Assert.True(readded["enabled"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task Removing_a_pc_override_when_there_is_no_pc_config_does_nothing()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+
+        await CopilotToolConfiguration.RemoveEnabledOverrideAsync(paths, "plugin:architecture");
+
+        Assert.False(File.Exists(paths.PcConfigPath));
+    }
+
+    [Fact]
+    public async Task Removing_a_tool_that_is_not_there_fails_without_touching_the_catalog()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+        var before = await File.ReadAllBytesAsync(paths.CatalogPath);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CopilotToolConfiguration.RemoveFromCatalogAsync(paths, "plugin:architecture"));
+
+        Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath));
+    }
+
+    [Fact]
+    public async Task Importing_replaces_the_catalog_and_keeps_the_previous_one_beside_it()
+    {
+        var paths = await CreateCatalogWithAsync("""
+            { "plugins": [ { "name": "architecture", "source": "a", "enabled": true } ], "mcpServers": [] }
+            """);
+        var before = await File.ReadAllTextAsync(paths.CatalogPath);
+
+        await CopilotToolConfiguration.ImportCatalogAsync(paths, """
+            { "plugins": [ { "name": "qa", "source": "b", "enabled": false } ], "mcpServers": [] }
+            """);
+
+        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var plugin = Assert.Single(config.Root["plugins"]!.AsArray())!;
+
+        // A replace and not a merge: the entry the imported file does not carry
+        // is gone rather than kept.
+        Assert.Equal("qa", plugin["name"]!.GetValue<string>());
+        Assert.Equal(before, await File.ReadAllTextAsync(paths.CatalogPath + ".bak"));
+    }
+
+    [Fact]
+    public async Task Importing_invalid_json_leaves_the_previous_catalog_byte_identical()
+    {
+        var paths = await CreateCatalogWithAsync("""
+            { "plugins": [ { "name": "architecture", "source": "a", "enabled": true } ], "mcpServers": [] }
+            """);
+        var before = await File.ReadAllBytesAsync(paths.CatalogPath);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CopilotToolConfiguration.ImportCatalogAsync(paths, "{ not json at all"));
+
+        Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath));
+
+        // Nothing was replaced, so nothing was backed up either.
+        Assert.False(File.Exists(paths.CatalogPath + ".bak"));
+    }
+
+    [Theory]
+    [InlineData("""{ "tools": [] }""", "mcpServers")]
+    [InlineData("""[ { "name": "architecture" } ]""", "object")]
+    [InlineData("""{ "plugins": [ { "source": "a" } ] }""", "name")]
+    [InlineData("""{ "mcpServers": [ { "name": "guidelines" } ] }""", "packageId")]
+    public void A_document_that_is_not_a_catalog_is_refused_with_a_reason(string json, string expected)
+    {
+        Assert.False(CopilotToolConfiguration.TryReadCatalog(json, out _, out var error));
+        Assert.Contains(expected, error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void A_catalog_with_only_one_of_the_two_arrays_is_accepted()
+    {
+        // The bar is deliberately low. A hand-edited catalog that has only
+        // grown plugins so far is a real file, not a malformed one.
+        Assert.True(CopilotToolConfiguration.TryReadCatalog(
+            """{ "plugins": [ { "name": "architecture", "source": "a" } ] }""",
+            out var root,
+            out _));
+
+        Assert.Single(root["plugins"]!.AsArray());
+    }
+
+    private static async Task<CopilotToolConfigurationPaths> CreateCatalogWithAsync(string json)
+    {
+        var root = CreateTempToolConfigRoot();
+        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        await File.WriteAllTextAsync(paths.CatalogPath, json);
+        return paths;
+    }
+
     private static string CreateTempToolConfigRoot()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
@@ -196,6 +423,48 @@ public class UnsupportedCopilotToolServiceTests
 
         Assert.Empty(catalog.Tools);
         Assert.Contains("desktop app", catalog.Message, StringComparison.OrdinalIgnoreCase);
+
+        // The pane draws every editing affordance behind this flag, so a host that
+        // cannot write the catalog draws none of them rather than four that refuse.
+        Assert.False(catalog.CanEditCatalog);
+        Assert.False(catalog.CatalogExists);
+    }
+
+    [Fact]
+    public async Task Creating_a_catalog_is_refused()
+    {
+        var result = await new UnsupportedCopilotToolService().CreateCatalogAsync();
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Adding_a_tool_is_refused()
+    {
+        var result = await new UnsupportedCopilotToolService()
+            .AddAsync(new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "a"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Removing_a_tool_is_refused()
+    {
+        var result = await new UnsupportedCopilotToolService().RemoveAsync("plugin:architecture");
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Importing_a_catalog_is_refused()
+    {
+        var result = await new UnsupportedCopilotToolService().ImportAsync("""{ "plugins": [] }""");
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]

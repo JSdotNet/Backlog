@@ -37,9 +37,17 @@ public sealed partial class CopilotToolService : ICopilotToolService
     public async Task<CopilotToolCatalog> ListAsync(CancellationToken ct = default)
     {
         var configPaths = ConfigurationPaths;
-        if (!File.Exists(configPaths.CatalogPath))
+        if (!CopilotToolConfiguration.CatalogExists(configPaths))
         {
-            return new CopilotToolCatalog([], $"Tool catalog was not found at {configPaths.CatalogPath}.");
+            // The path travels with the "not found" answer: it is what the pane
+            // names in its empty state, and what the create button is offering to
+            // write. An empty list on its own cannot say either.
+            return new CopilotToolCatalog(
+                [],
+                $"Tool catalog was not found at {configPaths.CatalogPath}.",
+                CatalogExists: false,
+                CatalogPath: configPaths.CatalogPath,
+                CanEditCatalog: true);
         }
 
         var config = await CopilotToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
@@ -126,7 +134,10 @@ public sealed partial class CopilotToolService : ICopilotToolService
             ? $"Showing tools from {config.CatalogPath} with PC config {config.PcConfigPath}."
             : $"Showing tools from {config.CatalogPath}. PC config will be created at {config.PcConfigPath}.";
         var message = messages.Count == 0 ? sourceMessage : $"{sourceMessage} {string.Join(" ", messages)}";
-        return new CopilotToolCatalog(tools, message) { Commands = log.Commands };
+        return new CopilotToolCatalog(tools, message, CatalogExists: true, CatalogPath: config.CatalogPath, CanEditCatalog: true)
+        {
+            Commands = log.Commands
+        };
     }
 
     public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => ApplyAsync(key, null, ct);
@@ -174,6 +185,62 @@ public sealed partial class CopilotToolService : ICopilotToolService
 
     public Task<CopilotToolActionResult> DisableAsync(string key, CancellationToken ct = default) => ApplyAsync(key, false, ct);
 
+    public Task<CopilotToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
+        EditCatalogAsync(
+            paths => CopilotToolConfiguration.CreateCatalogAsync(paths, ct),
+            paths => $"Created a tool catalog at {paths.CatalogPath}.");
+
+    public Task<CopilotToolActionResult> AddAsync(CopilotToolDraft draft, CancellationToken ct = default) =>
+        EditCatalogAsync(
+            paths => CopilotToolConfiguration.AddToCatalogAsync(paths, draft, ct),
+            _ => $"{draft.Id} was added to the catalog.");
+
+    public Task<CopilotToolActionResult> RemoveAsync(string key, CancellationToken ct = default) =>
+        EditCatalogAsync(
+            async paths =>
+            {
+                await CopilotToolConfiguration.RemoveFromCatalogAsync(paths, key, ct).ConfigureAwait(false);
+
+                // The per-PC override outlives the catalog entry unless it goes
+                // with it, and the same tool added again would then arrive
+                // already disabled by a decision nobody remembers making.
+                await CopilotToolConfiguration.RemoveEnabledOverrideAsync(paths, key, ct).ConfigureAwait(false);
+            },
+            _ => $"{CopilotToolConfiguration.ParseKey(key).IdValue} was removed from the catalog.");
+
+    public Task<CopilotToolActionResult> ImportAsync(string json, CancellationToken ct = default) =>
+        EditCatalogAsync(
+            paths => CopilotToolConfiguration.ImportCatalogAsync(paths, json, ct),
+            paths => $"The catalog at {paths.CatalogPath} was replaced. The previous one is beside it as .bak.");
+
+    /// <summary>
+    /// The four catalog edits share one shape: delegate to the shared writer, and
+    /// turn everything it can refuse into a message the pane can put on its status
+    /// line.
+    ///
+    /// <para>Nothing here is allowed to throw at the pane. <c>.tools</c> is a
+    /// folder on somebody's disk — read-only, OneDrive-synced, open in an editor —
+    /// so a failed write is an ordinary outcome, and a pane that fell over on one
+    /// would take the tools surface down with it.</para>
+    /// </summary>
+    private async Task<CopilotToolActionResult> EditCatalogAsync(
+        Func<CopilotToolConfigurationPaths, Task> edit,
+        Func<CopilotToolConfigurationPaths, string> describe)
+    {
+        var paths = ConfigurationPaths;
+
+        try
+        {
+            await edit(paths).ConfigureAwait(false);
+            return CopilotToolActionResult.Ok(describe(paths));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException or JsonException)
+        {
+            _logger?.LogWarning(ex, "Copilot tool catalog edit failed.");
+            return CopilotToolActionResult.Failed(ex.Message);
+        }
+    }
+
     /// <summary>One action, and every command it ran. The log is attached here
     /// rather than at each return inside <see cref="ApplyCoreAsync" />, because
     /// the exits that most need it are the ones that leave early: a refusal
@@ -190,7 +257,7 @@ public sealed partial class CopilotToolService : ICopilotToolService
     private async Task<CopilotToolActionResult> ApplyCoreAsync(string key, bool? enabled, CommandLog log, CancellationToken ct)
     {
         var configPaths = ConfigurationPaths;
-        if (!File.Exists(configPaths.CatalogPath))
+        if (!CopilotToolConfiguration.CatalogExists(configPaths))
         {
             return CopilotToolActionResult.Failed($"Tool catalog was not found at {configPaths.CatalogPath}.");
         }

@@ -1,0 +1,119 @@
+@page "/file-field"
+
+<PageTitle>File field — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="File field"
+           Summary="The one control that takes something off the disk. It is its own page rather than a sixth story on Inputs because what it hands back is not a value the user typed: it is the contents of a file, already read, already size-checked, and already a string by the time a host sees it."
+           Guidelines="@Rules">
+
+    <Story Name="FileField"
+           Description="Pick a file and the text arrives on OnTextRead. Accept filters what the dialog offers; the size ceiling is enforced here rather than trusted from the dialog, and a file over it comes back on OnRejected with nothing read."
+           Code="@FileFieldCode">
+        <div class="sb-columns">
+            <div>
+                <FileField Label="Tool catalog"
+                           Accept=".json"
+                           HelpText="A copilot-tools.json. Up to 1 MB."
+                           OnTextRead="OnCatalogRead"
+                           OnRejected="OnCatalogRejected"
+                           ErrorMessage="@_error"
+                           TestId="file-field-catalog" />
+            </div>
+            <div>
+                <p class="sb-label">What the host received</p>
+                <p class="sb-state" data-testid="file-field-state">@State</p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="A ceiling small enough to hit"
+           Description="The same control with MaxBytes set to 64 bytes, so almost any real file is refused. Nothing is read and OnTextRead never fires — the rejection is the whole outcome, which is what a host has to be able to show."
+           Code="@MaxBytesCode">
+        <div class="sb-columns">
+            <div>
+                <FileField Label="Anything at all"
+                           MaxBytes="64"
+                           HelpText="Refused above 64 bytes."
+                           OnTextRead="OnTinyRead"
+                           OnRejected="OnTinyRejected"
+                           TestId="file-field-tiny" />
+            </div>
+            <div>
+                <p class="sb-label">Outcome</p>
+                <p class="sb-state" data-testid="file-field-tiny-state">@(_tinyResult ?? "(nothing picked yet)")</p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Disabled, and refused"
+           Description="The two states the box itself draws: nothing to pick from, and a picked file the host would not take. The error replaces the help line and is announced with the field, the same way TextField's is."
+           Code="@StatesCode">
+        <div class="sb-columns">
+            <div>
+                <FileField Label="Locked" Disabled="true" HelpText="Nothing can be picked while a run is in flight." />
+            </div>
+            <div>
+                <FileField Label="Rejected"
+                           Accept=".json"
+                           ErrorMessage="That is not a tool catalog." />
+            </div>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private string? _text;
+    private string? _error;
+    private string? _tinyResult;
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#keyboard-navigation", "What every control has to be reachable and operable with — including the one that opens the platform's file dialog."),
+        new("typography-and-layout.md#density", "Control heights, label pairing and how tight a form is allowed to be.")
+    ];
+
+    private string State => _text is null
+        ? "(nothing read yet)"
+        : $"{_text.Length} characters, starting \"{Preview(_text)}\"";
+
+    private void OnCatalogRead(string text)
+    {
+        _text = text;
+        _error = null;
+    }
+
+    private void OnCatalogRejected(string message)
+    {
+        _text = null;
+        _error = message;
+    }
+
+    private void OnTinyRead(string text) => _tinyResult = $"read {text.Length} characters";
+
+    private void OnTinyRejected(string message) => _tinyResult = message;
+
+    private static string Preview(string text) =>
+        text.Length <= 40 ? text : text[..40].ReplaceLineEndings(" ") + "…";
+
+    private const string FileFieldCode = """
+        <FileField Label="Tool catalog"
+                   Accept=".json"
+                   HelpText="A copilot-tools.json. Up to 1 MB."
+                   OnTextRead="json => _json = json"
+                   OnRejected="message => _error = message"
+                   ErrorMessage="@_error" />
+        """;
+
+    private const string MaxBytesCode = """
+        <FileField Label="Anything at all" MaxBytes="64"
+                   OnTextRead="OnRead"
+                   OnRejected="message => _result = message" />
+        """;
+
+    private const string StatesCode = """
+        <FileField Label="Locked" Disabled="true" HelpText="Nothing can be picked while a run is in flight." />
+
+        <FileField Label="Rejected" Accept=".json" ErrorMessage="That is not a tool catalog." />
+        """;
+}

@@ -82,6 +82,23 @@ installed. Each tool reports its installed version against the available one, so
 "behind", "up to date", and "not installed" are distinguishable rather than
 lumped together.
 
+### Catalog authoring
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: system-tools
+depends-on: [.domain/dev-pc-management/features.md#copilot-tool-catalog]
+```
+
+Author the catalog itself from the machine, rather than treating it as something only a
+person editing a file can maintain: create it where none exists, naming the resolved path
+before writing it, add or remove a Copilot plugin or MCP server entry, and import a JSON
+file or pasted text to replace the whole catalog in one step, keeping the prior catalog as
+a backup and rejecting invalid input without touching what is already declared. Removing
+an entry also clears any per-machine override recorded against it, so what the catalog
+declares and what a machine has enabled cannot drift into a stale combination.
+
 ## Remote tool updates
 
 ```meta

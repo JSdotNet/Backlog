@@ -2153,6 +2153,25 @@ h1, h2, h3 {
     line-height: 1.4;
 }
 
+/* The add and import dialogs. Narrow on purpose: both are three or four fields
+   and a paste box, and a dialog as wide as the pane behind it reads as another
+   pane rather than as a question. */
+.tools-dialog {
+    width: min(34rem, 92vw);
+}
+
+.tools-form {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.tools-form__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* The transcript of what the pane ran. It is FoldControl wearing this class on
    top of its own, so the disclosure keeps the library's shape and only the
    quieter, set-apart-from-the-table part is written here. The trigger reads at

@@ -12,6 +12,16 @@
     context it only makes room for. The shell decides *whether* there is a tools
     pane — the feature flag and the header toggle stay there — and this decides
     what is in one.
+
+    Three states, not two. "There is no catalog file" and "the catalog is empty"
+    used to render the same sentence and the same nothing-to-do, which made a
+    fresh machine a dead end: the one act that would have helped — write the
+    catalog — was not on the screen. CatalogExists is what tells them apart, and
+    each gets the affordance that actually moves it on.
+
+    Every editing affordance is behind CanEditCatalog. A host that answers this
+    port read-only says so once, and the create, add, import and remove controls
+    are simply not drawn rather than drawn and refused.
 *@
 
 <section @key=@("tools-pane") class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
@@ -23,7 +33,7 @@
         </div>
         <div class="tools-panel__header-actions">
             @* The library's badge wearing this pane's count class. *@
-            <Badge BaseClass="tools-panel__count" Kind="">@(_tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools")</Badge>
+            <Badge BaseClass="tools-panel__count" Kind="">@CountLabel</Badge>
             <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </div>
     </header>
@@ -35,12 +45,26 @@
                hidden shape: a toolbar that loses its status line collapses. *@
             <Alert Message="@ToolMessage" BaseClass="tools-panel__message" Role="status" />
             <div class="tools-panel__toolbar-actions">
-                <AppButton Variant="ButtonVariant.Secondary" Disabled="@(_toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync">
+                @* Checking and updating both read the catalog, so neither is offered
+                   while there is no catalog to read. *@
+                <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync">
                     @(_toolsLoading ? "Checking..." : "Check for updates")
                 </AppButton>
-                <AppButton Variant="ButtonVariant.Primary" Disabled="@(_toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
-                    @(_toolActionKey == "__all__" ? "Updating..." : "Update all")
+                <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
+                    @(_toolActionKey == UpdateAllKey ? "Updating..." : "Update all")
                 </AppButton>
+                @if (CanEdit && _catalogExists && _tools.Count > 0)
+                {
+                    @* Only alongside a populated table. The two empty states carry
+                       their own copies of these, where they are the point of the
+                       screen rather than one more button on a toolbar. *@
+                    <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
+                        Add tool
+                    </AppButton>
+                    <AppButton Variant="ButtonVariant.Ghost" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                        Import
+                    </AppButton>
+                }
             </div>
         </div>
 
@@ -48,9 +72,19 @@
         {
             <p class="tools-panel__empty">Loading installed tool versions.</p>
         }
+        else if (!_catalogExists)
+        {
+            <EmptyState Title="No tool catalog yet"
+                        Description="@NoCatalogDescription"
+                        Action="@NoCatalogActions"
+                        TestId="tools-empty-no-catalog" />
+        }
         else if (_tools.Count == 0)
         {
-            <p class="tools-panel__empty">No configured tools were found.</p>
+            <EmptyState Title="No tools in the catalog yet"
+                        Description="@EmptyCatalogDescription"
+                        Action="@EmptyCatalogActions"
+                        TestId="tools-empty-no-entries" />
         }
         else
         {
@@ -64,7 +98,7 @@
 
                 @foreach (var tool in _tools)
                 {
-                    <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" @key="tool.Key">
+                    <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" data-tool-key="@tool.Key" @key="tool.Key">
                         <div role="cell" class="tools-table__tool">
                             <strong>@tool.Name</strong>
                             <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
@@ -89,6 +123,20 @@
                                        OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
                                 @(tool.ConfiguredEnabled ? "Disable" : "Enable")
                             </AppButton>
+                            @if (CanEdit)
+                            {
+                                @* The row's test id is shared by every row, so a driver
+                                   scopes it through the row's data-tool-key. One id per
+                                   row would be an id nobody could write a selector for
+                                   without knowing the catalog first. *@
+                                <DeleteButton Label="Remove"
+                                              AriaLabel="@($"Remove {tool.Name} from the catalog")"
+                                              Size="ButtonSize.Small"
+                                              ShowIcon="false"
+                                              Disabled="@(_toolsLoading || ToolActionBusy)"
+                                              TestId="tools-row-remove"
+                                              OnClick="() => AskToRemove(tool)" />
+                            }
                         </div>
                     </div>
                 }
@@ -116,13 +164,155 @@
     </div>
 </section>
 
+<Modal Open="@_addOpen"
+       OpenChanged="OnAddOpenChanged"
+       Title="Add a tool"
+       CssClass="tools-dialog"
+       TestId="tools-add-dialog">
+    <ChildContent>
+        <div class="tools-form">
+            @* SelectField rather than EnumSelect: the enum member is McpServer and
+               the humanised form of that reads "Mcp Server", which is not what the
+               product calls it anywhere else. *@
+            <SelectField Label="Kind"
+                         CurrentValue="@_draftKind.ToString()"
+                         Options="@KindOptions"
+                         TestId="tools-add-kind"
+                         OnChanged="OnDraftKindChanged" />
+
+            @if (_draftKind is CopilotToolKind.Plugin)
+            {
+                <TextField Label="Name"
+                           Value="@_draftPluginName"
+                           ValueChanged="value => _draftPluginName = value"
+                           HelpText="The plugin's name, exactly as the Copilot CLI lists it."
+                           ErrorMessage="@_draftIdError"
+                           TestId="tools-add-name" />
+                <TextField Label="Source"
+                           Value="@_draftSource"
+                           ValueChanged="value => _draftSource = value"
+                           HelpText="Where it is installed from: an owner/repo:path, or a URL."
+                           ErrorMessage="@_draftSourceError"
+                           TestId="tools-add-source" />
+                <SelectField Label="Kind of plugin"
+                             CurrentValue="@_draftPluginKind"
+                             Options="@PluginKindOptions"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="Plugin (default)"
+                             TestId="tools-add-plugin-kind"
+                             OnChanged="value => _draftPluginKind = value ?? string.Empty" />
+            }
+            else
+            {
+                <TextField Label="Package ID"
+                           Value="@_draftPackageId"
+                           ValueChanged="value => _draftPackageId = value"
+                           HelpText="The .NET tool package the server ships as."
+                           ErrorMessage="@_draftIdError"
+                           TestId="tools-add-package-id" />
+                <TextField Label="Name"
+                           Value="@_draftDisplayName"
+                           ValueChanged="value => _draftDisplayName = value"
+                           HelpText="Optional. What the row reads as beside the package id."
+                           TestId="tools-add-name" />
+            }
+        </div>
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost" OnClick="CloseAddDialog" TestId="tools-add-cancel">Cancel</AppButton>
+        <AppButton Variant="ButtonVariant.Primary" Disabled="@ToolActionBusy" OnClick="SubmitAddAsync" TestId="tools-add-submit">
+            @(_toolActionKey == AddKey ? "Adding..." : "Add tool")
+        </AppButton>
+    </Footer>
+</Modal>
+
+<Modal Open="@_importOpen"
+       OpenChanged="OnImportOpenChanged"
+       Title="Import a tool catalog"
+       CssClass="tools-dialog"
+       TestId="tools-import-dialog">
+    <ChildContent>
+        <div class="tools-form">
+            <p class="tools-form__note">
+                The catalog is replaced, not merged. The one that is there now is kept beside it as a .bak file.
+            </p>
+            <FileField Label="Catalog file"
+                       Accept=".json"
+                       HelpText="A copilot-tools.json with a plugins or mcpServers array."
+                       ErrorMessage="@_importError"
+                       OnTextRead="OnImportFileRead"
+                       OnRejected="OnImportFileRejected"
+                       TestId="tools-import-file" />
+            @* The paste box is not a fallback for a broken picker: a catalog
+               arrives as often in a message or a review as it does as a file on
+               this machine, and both end at the same ImportAsync(string). *@
+            <TextArea Label="Or paste the JSON"
+                      Value="@_importJson"
+                      ValueChanged="value => _importJson = value"
+                      AutoGrow="false"
+                      Rows="8"
+                      Placeholder="@ImportPlaceholder"
+                      TestId="tools-import-json" />
+        </div>
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost" OnClick="CloseImportDialog">Cancel</AppButton>
+        <AppButton Variant="ButtonVariant.Primary" Disabled="@ToolActionBusy" OnClick="SubmitImportAsync" TestId="tools-import-submit">
+            @(_toolActionKey == ImportKey ? "Importing..." : "Replace catalog")
+        </AppButton>
+    </Footer>
+</Modal>
+
+@* No OpenChanged binding, deliberately. ConfirmDialog raises it before OnConfirm,
+   so a handler that cleared the subject there would clear it a moment before the
+   confirm needed it. Cancel, Escape and the backdrop all arrive on OnCancel, which
+   is the one path that has to forget what was being removed. *@
+<ConfirmDialog Open="@(_removing is not null)"
+               Title="Remove this tool?"
+               Message="@RemoveMessage"
+               ConfirmText="Remove"
+               Destructive="true"
+               TestId="tools-remove-dialog"
+               ConfirmTestId="tools-remove-confirm"
+               CancelTestId="tools-remove-cancel"
+               OnConfirm="ConfirmRemoveAsync"
+               OnCancel="CancelRemove" />
+
 @code {
+    /// <summary>The keys the busy state is held under for acts that are not one
+    /// tool's. A tool's own key is its catalog key, and none of those can collide
+    /// with these: a key is <c>plugin:</c> or <c>mcp:</c> prefixed.</summary>
+    private const string UpdateAllKey = "__all__";
+    private const string CreateKey = "__create__";
+    private const string AddKey = "__add__";
+    private const string ImportKey = "__import__";
+
     private bool _toolsLoading;
     private string? _toolMessage;
     private string? _toolActionKey;
     private bool _commandsShown;
     private IReadOnlyList<CopilotToolInfo> _tools = [];
     private IReadOnlyList<CopilotToolCommand> _commands = [];
+
+    private bool _catalogExists;
+    private bool _canEditCatalog;
+    private string _catalogPath = string.Empty;
+
+    private bool _addOpen;
+    private CopilotToolKind _draftKind = CopilotToolKind.Plugin;
+    private string _draftPluginName = string.Empty;
+    private string _draftSource = string.Empty;
+    private string _draftPluginKind = string.Empty;
+    private string _draftPackageId = string.Empty;
+    private string _draftDisplayName = string.Empty;
+    private string? _draftIdError;
+    private string? _draftSourceError;
+
+    private bool _importOpen;
+    private string _importJson = string.Empty;
+    private string? _importError;
+
+    private CopilotToolInfo? _removing;
 
     /// <summary>Raised when somebody dismisses the pane. Whether that hides it,
     /// collapses a stack or does nothing is the shell's decision — the pane only
@@ -134,14 +324,75 @@
 
     private bool ToolActionBusy => _toolActionKey is not null;
 
+    private bool CanEdit => _canEditCatalog;
+
     /// <summary>Never empty, so the toolbar always has a status line. The
     /// shared alert renders nothing for a blank message, and "no message yet"
     /// here means the check is still running - which is the one thing the line
     /// most needs to say.</summary>
     private string ToolMessage => _toolMessage ?? "Checking configured tools...";
 
+    /// <summary>"No catalog" is a different fact from "no tools", and the badge is
+    /// where it is said in one glance.</summary>
+    private string CountLabel => !_catalogExists
+        ? "No catalog"
+        : _tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools";
+
+    private string NoCatalogDescription => _catalogPath.Length == 0
+        ? "This machine has no tool catalog. Create one, or import a catalog you already have."
+        : $"Nothing has been configured on this machine yet. The catalog will be written to {_catalogPath}.";
+
+    private string EmptyCatalogDescription => _catalogPath.Length == 0
+        ? "The catalog is there but has no plugins or MCP servers in it yet."
+        : $"{_catalogPath} has no plugins or MCP servers in it yet.";
+
+    private string RemoveMessage => _removing is null
+        ? string.Empty
+        : $"{_removing.Name} is dropped from the catalog, along with anything this PC had overridden about it. The tool itself is not uninstalled.";
+
     private bool CanUpdateAnyTool => _tools.Any(tool => tool.CanUpdate);
 
+    private const string ImportPlaceholder = """{ "plugins": [], "mcpServers": [] }""";
+
+    /// <summary>The two acts that move a machine with no catalog on. Null when the
+    /// host cannot write one, which drops the action row entirely rather than
+    /// drawing an empty one under the description.</summary>
+    private RenderFragment? NoCatalogActions => !CanEdit ? null :
+        @<text>
+            <AppButton Variant="ButtonVariant.Primary" Disabled="@ToolActionBusy" OnClick="CreateCatalogAsync" TestId="tools-create-catalog">
+                @(_toolActionKey == CreateKey ? "Creating..." : "Create catalog")
+            </AppButton>
+            <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                Import JSON…
+            </AppButton>
+        </text>;
+
+    /// <inheritdoc cref="NoCatalogActions" />
+    private RenderFragment? EmptyCatalogActions => !CanEdit ? null :
+        @<text>
+            <AppButton Variant="ButtonVariant.Primary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
+                Add tool
+            </AppButton>
+            <AppButton Variant="ButtonVariant.Ghost" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                Import JSON…
+            </AppButton>
+        </text>;
+
+    private static readonly IReadOnlyList<SelectorOption> KindOptions =
+    [
+        new(nameof(CopilotToolKind.Plugin), "Plugin"),
+        new(nameof(CopilotToolKind.McpServer), "MCP server")
+    ];
+
+    /// <summary>The plugin kinds the desktop host actually branches on, plus the
+    /// empty option for the ordinary case. Not read from the port: the host reads
+    /// this string as free text, so a catalog can carry one nothing here has met
+    /// and a hand edit stays the way to write it.</summary>
+    private static readonly IReadOnlyList<SelectorOption> PluginKindOptions =
+    [
+        new("repository-skills", "Repository skills"),
+        new("repository-canvases", "Repository canvases")
+    ];
     /// <summary>Every command as one block, in the order it ran: the line you
     /// could have typed, whatever it printed, and the exit code only when it is
     /// not zero — a command that succeeded has already said so by printing
@@ -176,6 +427,9 @@
             var catalog = await CopilotTools.ListAsync();
             _tools = catalog.Tools;
             _toolMessage = catalog.Message;
+            _catalogExists = catalog.CatalogExists;
+            _catalogPath = catalog.CatalogPath;
+            _canEditCatalog = catalog.CanEditCatalog;
             _commands = catalog.Commands;
         }
         catch (Exception ex)
@@ -190,7 +444,7 @@
 
     private async Task UpdateAllToolsAsync()
     {
-        _toolActionKey = "__all__";
+        _toolActionKey = UpdateAllKey;
         try
         {
             var result = await CopilotTools.UpdateAllAsync();
@@ -239,6 +493,173 @@
             _toolActionKey = null;
         }
     }
+
+    private Task CreateCatalogAsync() => RunCatalogEditAsync(CreateKey, () => CopilotTools.CreateCatalogAsync());
+
+    private void OpenAddDialog()
+    {
+        ResetDraft();
+        _addOpen = true;
+    }
+
+    private void CloseAddDialog() => _addOpen = false;
+
+    private void OnAddOpenChanged(bool open) => _addOpen = open;
+
+    private void OnDraftKindChanged(string? value)
+    {
+        _draftKind = value == nameof(CopilotToolKind.McpServer) ? CopilotToolKind.McpServer : CopilotToolKind.Plugin;
+
+        // The fields the other kind filled in are not this kind's fields, and a
+        // stale error under a field that is no longer on screen would reappear
+        // over whichever field takes its place.
+        _draftIdError = null;
+        _draftSourceError = null;
+    }
+
+    /// <summary>
+    /// What the form can decide on its own, decided on its own. The port validates
+    /// the same things and would answer with the same words, but its answer lands
+    /// on the pane's status line — and "a plugin needs a source" belongs under the
+    /// source field, not at the top of the dialog.
+    /// </summary>
+    private async Task SubmitAddAsync()
+    {
+        _draftIdError = null;
+        _draftSourceError = null;
+
+        var plugin = _draftKind is CopilotToolKind.Plugin;
+        var id = (plugin ? _draftPluginName : _draftPackageId).Trim();
+
+        if (id.Length == 0)
+        {
+            _draftIdError = plugin ? "A plugin needs a name." : "An MCP server needs a package id.";
+        }
+
+        if (plugin && string.IsNullOrWhiteSpace(_draftSource))
+        {
+            _draftSourceError = "A plugin needs a source.";
+        }
+
+        if (_draftIdError is not null || _draftSourceError is not null)
+        {
+            return;
+        }
+
+        var draft = new CopilotToolDraft(
+            _draftKind,
+            id,
+            plugin ? _draftSource.Trim() : null,
+            plugin ? null : NullIfBlank(_draftDisplayName),
+            plugin ? NullIfBlank(_draftPluginKind) : null);
+
+        if (await RunCatalogEditAsync(AddKey, () => CopilotTools.AddAsync(draft)))
+        {
+            _addOpen = false;
+            ResetDraft();
+        }
+    }
+
+    private void OpenImportDialog()
+    {
+        _importJson = string.Empty;
+        _importError = null;
+        _importOpen = true;
+    }
+
+    private void CloseImportDialog() => _importOpen = false;
+
+    private void OnImportOpenChanged(bool open) => _importOpen = open;
+
+    /// <summary>The file and the paste box are one value. Picking a file fills the
+    /// box, so what is about to be imported is on screen either way and there is
+    /// never a question of which of the two won.</summary>
+    private void OnImportFileRead(string text)
+    {
+        _importJson = text;
+        _importError = null;
+    }
+
+    private void OnImportFileRejected(string message) => _importError = message;
+
+    private async Task SubmitImportAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_importJson))
+        {
+            _importError = "Choose a file or paste the catalog JSON.";
+            return;
+        }
+
+        _importError = null;
+
+        if (await RunCatalogEditAsync(ImportKey, () => CopilotTools.ImportAsync(_importJson)))
+        {
+            _importOpen = false;
+            _importJson = string.Empty;
+        }
+    }
+
+    /// <summary>Arms the confirm dialog. Nothing is removed here — the first click
+    /// asks, and only the confirm calls the port.</summary>
+    private void AskToRemove(CopilotToolInfo tool) => _removing = tool;
+
+    private void CancelRemove() => _removing = null;
+
+    private async Task ConfirmRemoveAsync()
+    {
+        if (_removing is not { } tool)
+        {
+            return;
+        }
+
+        _removing = null;
+        await RunCatalogEditAsync(tool.Key, () => CopilotTools.RemoveAsync(tool.Key));
+    }
+
+    /// <summary>
+    /// The four catalog edits run the same way: hold the busy key, call the port,
+    /// put whatever it says on the status line, and re-read only when it worked.
+    ///
+    /// <para>Only on success, deliberately. A refresh after a failed edit would
+    /// replace the reason it failed with the ordinary "showing tools from ..."
+    /// line, which is the one moment that line is worth less than what it
+    /// overwrites.</para>
+    /// </summary>
+    private async Task<bool> RunCatalogEditAsync(string busyKey, Func<Task<CopilotToolActionResult>> edit)
+    {
+        _toolActionKey = busyKey;
+        try
+        {
+            var result = await edit();
+            _toolMessage = result.Message;
+
+            if (!result.Succeeded)
+            {
+                return false;
+            }
+
+            await RefreshToolsAsync();
+            return true;
+        }
+        finally
+        {
+            _toolActionKey = null;
+        }
+    }
+
+    private void ResetDraft()
+    {
+        _draftKind = CopilotToolKind.Plugin;
+        _draftPluginName = string.Empty;
+        _draftSource = string.Empty;
+        _draftPluginKind = string.Empty;
+        _draftPackageId = string.Empty;
+        _draftDisplayName = string.Empty;
+        _draftIdError = null;
+        _draftSourceError = null;
+    }
+
+    private static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string Humanize(string enumName)
     {
