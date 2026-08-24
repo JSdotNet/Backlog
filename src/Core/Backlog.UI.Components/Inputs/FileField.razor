@@ -1,0 +1,177 @@
+@*
+    A labelled file picker that hands the host the file's *text*.
+
+    Same shape as TextField: label above, help and error underneath, both wired
+    into `aria-describedby` so the reason a file was refused reaches a screen
+    reader with the control rather than beside it.
+
+    What differs is what leaves the component. The host never sees an
+    `IBrowserFile`. Reading the stream, enforcing the size ceiling and saying so
+    when the file is over it all happen here, so a screen offering an upload
+    ends up with a string — and the port it hands that string to can live in a
+    project that has never heard of Blazor's forms.
+
+    `InputFile` renders a real `<input type="file">` and nothing here hides it.
+    A styled button over a hidden input is a control the keyboard cannot reach
+    and a browser driver cannot fill; the file dialog is the platform's, and the
+    element that opens it has to be the one on the page.
+*@
+
+<div class="@ClassValue">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <label class="@LabelCssClass" for="@FieldId">@Label</label>
+    }
+    <InputFile id="@FieldId"
+               class="@InputCssClass"
+               data-testid="@TestId"
+               accept="@Accept"
+               disabled="@Disabled"
+               aria-invalid="@(HasError ? "true" : null)"
+               aria-describedby="@DescribedBy"
+               aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
+               OnChange="OnChangeAsync" />
+    @if (!string.IsNullOrWhiteSpace(HelpText))
+    {
+        <p id="@HelpId" class="field__help">@HelpText</p>
+    }
+    @if (HasError)
+    {
+        <Alert Message="@ErrorMessage" CssClass="field__error" Id="@ErrorId" />
+    }
+</div>
+
+@code {
+    private readonly string _id = "field-" + Guid.NewGuid().ToString("N");
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>What the file dialog offers, in the <c>accept</c> attribute's own
+    /// grammar — <c>.json</c>, <c>image/*</c>. A filter and not a guarantee: the
+    /// dialog can still be told to show everything, so whatever reads the text
+    /// still has to decide whether it is the text it wanted.</summary>
+    [Parameter]
+    public string? Accept { get; set; }
+
+    [Parameter]
+    public string? HelpText { get; set; }
+
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>The ceiling on what will be read, in bytes. It is both the guard
+    /// and the limit handed to the read: a browser file's reported size is the
+    /// browser's claim, and the stream is what actually arrives.
+    /// <para>
+    /// One megabyte by default, which is the size of a configuration file rather
+    /// than of a document. A host taking something larger says so; nothing here
+    /// buffers a file in the background, so the default is what stops an
+    /// accidental video from being pulled into a string.
+    /// </para></summary>
+    [Parameter]
+    public long MaxBytes { get; set; } = 1024 * 1024;
+
+    /// <summary>The file's contents, once read. The only thing a host gets.</summary>
+    [Parameter]
+    public EventCallback<string> OnTextRead { get; set; }
+
+    /// <summary>Why nothing was read: too large, or unreadable. Separate from
+    /// <see cref="ErrorMessage"/> because the host decides where a rejection is
+    /// shown — this field, a dialog's status line, a toast.</summary>
+    [Parameter]
+    public EventCallback<string> OnRejected { get; set; }
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>field</c> on the wrapper, and the stem its invalid
+    /// modifier is built on.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "field";
+
+    /// <summary>Replaces <c>field__label</c> on the label.</summary>
+    [Parameter]
+    public string LabelCssClass { get; set; } = "field__label";
+
+    /// <summary>Replaces <c>field__file</c> on the input.</summary>
+    [Parameter]
+    public string InputCssClass { get; set; } = "field__file";
+
+    /// <summary>Lands on the input itself, not on the wrapper — the opposite of
+    /// TextField, and deliberately. Uploading a file means aiming at the
+    /// <c>&lt;input type="file"&gt;</c>: a driver hands the file to that element,
+    /// and a test id on a div around it is one it cannot use.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string FieldId => string.IsNullOrWhiteSpace(Id) ? _id : Id;
+
+    private string HelpId => FieldId + "-help";
+
+    private string ErrorId => FieldId + "-error";
+
+    private bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+
+    private string? DescribedBy
+    {
+        get
+        {
+            var parts = new List<string>(2);
+            if (!string.IsNullOrWhiteSpace(HelpText)) parts.Add(HelpId);
+            if (HasError) parts.Add(ErrorId);
+
+            return parts.Count == 0 ? null : string.Join(' ', parts);
+        }
+    }
+
+    private string ClassValue
+    {
+        get
+        {
+            var error = HasError ? $" {BaseClass}--invalid" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"{BaseClass} {BaseClass}--file{error}{extra}";
+        }
+    }
+
+    private async Task OnChangeAsync(InputFileChangeEventArgs e)
+    {
+        if (e.FileCount == 0) return;
+
+        var file = e.File;
+
+        // Checked before opening the stream as well as through OpenReadStream's
+        // own limit, so an oversized file is refused by name rather than by the
+        // exception the read would have thrown halfway through it.
+        if (file.Size > MaxBytes)
+        {
+            await OnRejected.InvokeAsync($"{file.Name} is larger than {MaxBytes / 1024} KB.");
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxBytes);
+            using var reader = new StreamReader(stream);
+
+            await OnTextRead.InvokeAsync(await reader.ReadToEndAsync());
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
+        {
+            // A file picked and then moved, or a stream that ran past the limit
+            // after all. Neither is the host's problem to catch: it asked for
+            // text, and this is the component saying there is none.
+            await OnRejected.InvokeAsync($"{file.Name} could not be read: {ex.Message}");
+        }
+    }
+}

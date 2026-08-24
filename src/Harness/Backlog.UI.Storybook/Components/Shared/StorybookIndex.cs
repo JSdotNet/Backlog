@@ -72,6 +72,13 @@ internal static class StorybookIndex
         [
             new("buttons", "Buttons", "AppButton, IconButton, ButtonGroup, ToggleButton, CopyButton."),
             new("inputs", "Inputs", "TextField, TextArea, SearchBox, Toggle, Checkbox — plus the dates, times and repeats a scheduled thing is set with, and TaskAction over them."),
+
+            // Directly after Inputs and not folded into it. Every control on that
+            // page hands back what the user typed; this one hands back the contents
+            // of a file it read and size-checked itself, which is a different
+            // bargain with the host and the only reason the component exists.
+            new("file-field", "File field", "FileField: a picked file, read here and handed to the host as text."),
+
             new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect and the three ready-made selectors."),
             new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge: a value, and the class that says what kind of value it is.")
         ]),
