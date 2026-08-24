@@ -36,6 +36,35 @@ const TECH_KINDS = [
     "format",
 ];
 
+// `.domain` chapter headings carry only the name of a thing; what kind of thing
+// it is lives in `type`. The vocabulary splits by level and the two halves do
+// not overlap: a file-level block says which of a bounded context's six
+// documents this is, and a chapter-level block says which modelling element the
+// heading names.
+const DOMAIN_FILE_TYPES = [
+    "domain",
+    "features",
+    "model",
+    "flow",
+    "dependencies",
+    "naming",
+    "context-map",
+];
+
+const DOMAIN_CHAPTER_TYPES = [
+    "aggregate",
+    "entity",
+    "value-object",
+    "enum",
+    "domain-service",
+    "domain-event",
+    "feature",
+    "sub-feature",
+    "term",
+    "shared-value-objects",
+    "shared-enums",
+];
+
 // Fields every folder's chapter/file block may carry, plus folder-specific
 // extras layered in below. `order` is file-level only (see validateDocument):
 // it declares the reading order of a directory's entries.
@@ -49,7 +78,7 @@ const COMMON_OPTIONAL_FIELDS = ["related", "issue", "effort", "roadmap"];
 const ROADMAP_TAG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const FILE_ONLY_FIELDS = ["order"];
 const FOLDER_EXTRA_FIELDS = {
-    domain: ["depends-on", "aliases", "feature-flag"],
+    domain: ["type", "depends-on", "aliases", "feature-flag"],
     arc42: [],
     backlog: ["depends-on", "implements"],
     tech: ["kind", "version", "depends-on", "alternatives"],
@@ -253,6 +282,25 @@ export function validateDocument(relPath, markdown) {
                 severity: "error",
                 message: `${label} has kind "${chapter.meta.kind}", expected one of: ${TECH_KINDS.join(", ")}.`,
             });
+        }
+
+        // `.domain` blocks state their kind in `type` rather than in the heading
+        // text, so every block has one — at both levels, unlike the folder-specific
+        // required fields above, which describe chapters only. The vocabulary is the
+        // level's: a file-level `type` names one of the bounded context's documents
+        // and a chapter-level one names a modelling element, and using the other
+        // level's word is the mistake worth catching.
+        if (kind === "domain") {
+            const allowedTypes = chapter.level === 1 ? DOMAIN_FILE_TYPES : DOMAIN_CHAPTER_TYPES;
+            const level = chapter.level === 1 ? "file-level" : "chapter-level";
+            if (!("type" in chapter.meta) || chapter.meta.type === null) {
+                issues.push({ severity: "error", message: `${label} is missing required \`type\` for the domain folder.` });
+            } else if (!allowedTypes.includes(chapter.meta.type)) {
+                issues.push({
+                    severity: "error",
+                    message: `${label} has type "${chapter.meta.type}", expected one of the ${level} types: ${allowedTypes.join(", ")}.`,
+                });
+            }
         }
 
         // A feature flag key names an application feature in the consuming
