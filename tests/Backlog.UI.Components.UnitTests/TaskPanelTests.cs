@@ -723,6 +723,74 @@ public sealed class TaskPanelTests
         Assert.Equal(1, left);
     }
 
+    // --- Straight into the title -------------------------------------------
+    //
+    // The one case where the front of the panel is the wrong place to arrive: a
+    // task that was created a moment ago has no title yet, and the front of the
+    // panel is the circle that marks it done.
+
+    [Fact]
+    public async Task A_host_can_open_the_title_field_and_take_the_caret()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Untitled")
+            .Add(t => t.OnToggle, () => { })
+            .Add(t => t.OnRename, (string _) => { })
+            .Add(t => t.TestId, "panel"));
+
+        await view.Instance.EditTitleAsync();
+
+        // The field, not the circle FocusFirstAsync would have aimed at. The panel
+        // renders it itself — the host asked for the title and never named an
+        // element.
+        var field = view.Find("[data-testid='panel-rename']");
+
+        Assert.Equal(field.Id, context.JSInterop.Invocations["backlogFocus"].Last().Arguments[0]);
+        Assert.Empty(view.FindAll("[data-testid='panel-title']"));
+    }
+
+    [Fact]
+    public async Task Opening_the_title_field_settles_like_any_other_rename()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var renamed = new List<string>();
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Untitled")
+            .Add(t => t.OnRename, (string title) => renamed.Add(title))
+            .Add(t => t.TestId, "panel"));
+
+        await view.Instance.EditTitleAsync();
+
+        var field = view.Find("[data-testid='panel-rename']");
+        field.Input("Provision the box");
+        field.KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.Equal(["Provision the box"], renamed);
+    }
+
+    [Fact]
+    public async Task A_title_nobody_is_listening_to_has_no_field_to_open()
+    {
+        // Same rule the heading follows: with no OnRename the title is text, and a
+        // caret in a control whose result goes nowhere is worse than no caret.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Just a heading")
+            .Add(t => t.TestId, "panel"));
+
+        await view.Instance.EditTitleAsync();
+
+        Assert.Empty(context.JSInterop.Invocations);
+        Assert.Empty(view.FindAll("[data-testid='panel-rename']"));
+    }
+
     [Fact]
     public void With_no_circle_the_title_is_what_reports_the_way_out()
     {

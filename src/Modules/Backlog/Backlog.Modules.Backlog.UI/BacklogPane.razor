@@ -277,21 +277,48 @@
     private const string RawEditorId = "entry-raw-editor";
 
     /// <summary>
-    /// Puts the caret in the escape hatch the render after it opens.
+    /// Puts the caret wherever the last state change said it was owed, the render
+    /// after the control that takes it exists.
     /// <para>
-    /// Otherwise Ctrl+Shift+M reveals a textarea and leaves the focus on the pane, so
-    /// the shortcut's whole point — reaching the source without hunting for a control
-    /// — costs a click anyway. By id because the element does not exist until this
-    /// render, so there is nothing to hold an ElementReference to when the toggle is
-    /// pressed.
+    /// Two destinations, and they arrive as two values rather than one flag with a
+    /// condition on it. The hatch wants it because otherwise Ctrl+Shift+M reveals a
+    /// textarea and leaves the focus on the pane, so the shortcut's whole point —
+    /// reaching the source without hunting for a control — costs a click anyway. A
+    /// brand-new entry wants it in its title, which is the field it cannot be saved
+    /// without and the one the panel would never land on by itself: the panel's
+    /// first control is its done circle.
+    /// </para>
+    /// <para>
+    /// The hatch is named by id, because the element does not exist until this
+    /// render and there is nothing to hold an ElementReference to when the toggle is
+    /// pressed. The title is not named at all — the panel is asked to open its own
+    /// field, so which element that is stays the panel's answer, exactly as it is
+    /// for the Tab hand-off above.
+    /// </para>
+    /// <para>
+    /// The intent is only cleared once it has been acted on. An intent whose
+    /// element is not on screen yet is still owed, and consuming it here would drop
+    /// the caret on the floor.
     /// </para>
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!State.FocusPending || !State.RawHatchOpen) return;
+        switch (State.PendingCaret)
+        {
+            case PendingCaret.RawMarkdown when State.RawHatchOpen:
+                State.PendingCaret = PendingCaret.None;
+                await FocusRawEditorAsync();
+                return;
 
-        State.FocusPending = false;
+            case PendingCaret.EntryTitle when _panel is not null:
+                State.PendingCaret = PendingCaret.None;
+                await _panel.EditTitleAsync();
+                return;
+        }
+    }
 
+    private async Task FocusRawEditorAsync()
+    {
         try
         {
             await JS.InvokeVoidAsync("backlogFocus", RawEditorId);
@@ -556,7 +583,13 @@
 
                        In the footer because it acts on the whole entry rather than
                        on one field of it, which is the same sentence that puts close
-                       and delete beside it. *@
+                       and delete beside it.
+
+                       A brand-new entry does not get it either, and that is the one
+                       fact this condition already carries: RawHatchOpen is the
+                       selected row being the row with an editor open, and creating
+                       an entry no longer opens one. A second condition here saying
+                       "unless it is new" would be the same fact arriving twice. *@
                     @if (State.RawHatchOpen)
                     {
                         <div class="entry-detail__raw">
