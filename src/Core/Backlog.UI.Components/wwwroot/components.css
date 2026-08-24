@@ -3492,6 +3492,42 @@ button.task-panel__check:focus-visible {
     overflow-wrap: inherit;
 }
 
+/*
+   Auto-grow, put back the way this editor needs it. `TextArea` adds the shared
+   `grow-wrap` class alongside this editor's own whenever a host asks for it, and
+   `.grow-wrap > textarea` carries a class and an element against the single
+   class the shared metrics above are stated with — so it won, and the textarea
+   lost the padding the highlight layer behind it kept. The two layers then
+   differed by exactly var(--spacing-sm) in both axes, and every coloured
+   character sat down and to the right of the caret that typed it.
+
+   The replica needs the same padding rather than merely no padding, because it
+   is the box that sizes the grid track: it has to wrap the text where the
+   textarea wraps it. Measured across the full width it fits more per line, hands
+   back a track a line short, and the textarea — which does have the padding, and
+   a scrollbar the moment it overflows — scrolls inside a box that stops before
+   its last line. The tab size and the word breaking are restated for it for the
+   same reason; they decide where a line ends as surely as the padding does, and
+   the replica inherits neither from the rule that states them for the textarea.
+
+   Both selectors have to stay below `.grow-wrap`'s own: the one on the replica
+   only ties it on weight, so its position in this file is the whole of the
+   argument. And both are scoped to a wrapper carrying both class names, so the
+   editor that does not grow — the one whose textarea is the only thing that can
+   reach the rest of its text — keeps scrolling and resizing itself.
+*/
+.markdown-editor__grow.grow-wrap > .markdown-editor__input {
+    padding: var(--spacing-sm);
+    overflow: hidden;
+    resize: none;
+}
+
+.markdown-editor__grow.grow-wrap::after {
+    padding: var(--spacing-sm);
+    tab-size: 4;
+    word-break: normal;
+}
+
 /* --- Markdown syntax colours --------------------------------------------- */
 /*
    The editor is a source view, so it takes the --code-* theme rather than the
