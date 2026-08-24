@@ -137,6 +137,11 @@ edge. `effort` (every folder) is a non-negative integer story-point scalar and
 is surfaced as a node attribute too. `feature-flag` accepts a scalar or a list
 but is always emitted as a list, so a consumer never has to branch on shape.
 
+`type` (`.domain`) is validated but deliberately *not* emitted: a node's `data.type`
+already means the node kind — `file`, `chapter`, `heading`, `external` — and copying
+the metadata field onto the same key would overwrite it. A consumer that wants the
+modelling kind reads the `meta` block.
+
 ## Output shape: `index.json`
 
 The same envelope, followed by `entries` — a nested, **ordered** tree of the
