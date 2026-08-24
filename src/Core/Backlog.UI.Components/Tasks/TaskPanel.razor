@@ -131,7 +131,7 @@
                         id="@_titleButtonId"
                         data-testid="@Suffix("title")"
                         @onkeydown="e => OnLeadingKeyAsync(e, leading: !CanToggle)"
-                        @onclick="StartRenameAsync">@Title</button>
+                        @onclick="StartRename">@Title</button>
             }
             else
             {
@@ -401,9 +401,45 @@
             ? EventCallback.Factory.Create<MouseEventArgs>(this, () => OnTagSelected.InvokeAsync(tag))
             : default;
 
-    private Task StartRenameAsync()
+    /// <summary>
+    /// Opens the title field and takes the caret, the way clicking the heading
+    /// does.
+    /// <para>
+    /// The counterpart to <see cref="FocusFirstAsync"/> for the one case where the
+    /// front of the panel is the wrong place to arrive: a task that has just been
+    /// created has no title yet, and <see cref="FirstControlId"/> is the circle
+    /// whenever there is one — so a host that opened a panel on a new task and
+    /// asked it to focus itself would put the caret on "mark this done".
+    /// </para>
+    /// <para>
+    /// A method here rather than a title input in the host, for the reason the
+    /// whole of this library exists: a second field over the same heading would be
+    /// a second thing to keep accessible, and this one already knows that Enter
+    /// settles it, Escape abandons it, leaving commits, and an unchanged title
+    /// raises nothing.
+    /// </para>
+    /// <para>
+    /// Does nothing when nobody is listening for <see cref="OnRename"/>. A title
+    /// that cannot be renamed has no field to open, and opening one anyway would be
+    /// a caret in a control whose result goes nowhere.
+    /// </para>
+    /// </summary>
+    public Task EditTitleAsync()
     {
-        if (!CanRename) return Task.CompletedTask;
+        if (!CanRename || _editing) return Task.CompletedTask;
+
+        StartRename();
+
+        // Asked for from outside an event handler — a host calls this from its own
+        // OnAfterRender, once the panel is on screen — so nothing else is going to
+        // schedule the render that creates the field, and without one the flag
+        // above would sit unread until something unrelated changed.
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private void StartRename()
+    {
+        if (!CanRename) return;
 
         _draft = Title;
         _editing = true;
@@ -411,8 +447,6 @@
         // Asked for here, done after the render: the field this describes is a node
         // some later batch creates, so there is nothing to focus at this point.
         _focusRename = true;
-
-        return Task.CompletedTask;
     }
 
     /// <summary>The caret in the field, or the ring back on the title, once each

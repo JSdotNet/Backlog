@@ -231,14 +231,33 @@ public sealed class BacklogDesktopState : IDisposable
     /// live caret pointed at an entry that is no longer on screen, and the
     /// debounce would then save it 750ms after the reader moved on.
     /// </para>
+    /// <para>
+    /// And drops the outgoing row when it was a draft nobody wrote in. That
+    /// sentence used to belong to <see cref="EndEditAsync"/> alone, because a
+    /// brand-new entry always had an editor open on it; it no longer does — see
+    /// <see cref="NewRow"/> — so leaving the pane is now the moment that says
+    /// somebody opened an entry and wrote nothing in it.
+    /// </para>
     /// </summary>
     public async Task SelectAsync(EntryRow? row)
     {
         if (ReferenceEquals(SelectedRow, row)) return;
 
+        var leaving = SelectedRow;
+
+        // Whatever caret was owed was owed to the row being left. An intent that
+        // outlives the surface that asked for it lands in whichever one renders
+        // next, which is a caret jumping into an entry nobody opened.
+        PendingCaret = PendingCaret.None;
+
+        // Moved before the flush, so EndEditAsync sees a row the pane is no longer
+        // open on and can drop it itself rather than saving an empty draft first.
+        SelectedRow = row;
+
         if (EditingRow is { } editing && !ReferenceEquals(editing, row)) await EndEditAsync(editing);
 
-        SelectedRow = row;
+        if (leaving is { IsPersisted: false, IsUntouched: true } draft && Rows.Remove(draft)) ApplyFilter();
+
         Changed?.Invoke();
     }
 
@@ -289,13 +308,23 @@ public sealed class BacklogDesktopState : IDisposable
         // are no chapters to hold back. See ChildStartLine — a count of zero is
         // what says "the boundary is the end of the document".
         _editingSubItemCount = 0;
-        FocusPending = true;
+        PendingCaret = PendingCaret.RawMarkdown;
         Changed?.Invoke();
     }
 
-    /// <summary>Set when a newly opened editor still needs the caret placed in
-    /// it; the component consumes this after its next render.</summary>
-    public bool FocusPending { get; set; }
+    /// <summary>
+    /// Which control is owed the caret once the render that creates it has
+    /// happened, and <see cref="PendingCaret.None"/> when nothing is.
+    /// <para>
+    /// Set here because only this knows what just changed; cleared by the component
+    /// because only it knows whether the element the intent names is on screen yet.
+    /// One value rather than a flag per destination: the caret goes to exactly one
+    /// place, and two booleans could both be true — a hatch that has just opened
+    /// <em>and</em> a title field waiting — leaving the render to pick between two
+    /// facts that contradict each other.
+    /// </para>
+    /// </summary>
+    public PendingCaret PendingCaret { get; set; }
 
     public string SaveStateLabel => SaveState switch
     {
@@ -305,8 +334,10 @@ public sealed class BacklogDesktopState : IDisposable
     };
 
     /// <summary>Placeholder text shown (via the native textarea placeholder,
-    /// never as literal boilerplate to delete) teaching the plain-text format
-    /// for a brand-new, empty entry.</summary>
+    /// never as literal boilerplate to delete) teaching the plain-text format in
+    /// the raw hatch while there is nothing in it. Which is no longer what a new
+    /// entry opens on — see <see cref="NewRow"/> — but is still exactly the entry
+    /// somebody asking for the source most needs the format spelled out for.</summary>
     public const string NewEntryPlaceholder =
         "Title\n`task` `*medium` `!draft`\n\nWrite the details here… use #tags,\n- [ ] a checklist,\n\n## or a heading for a sub-item.";
 
@@ -398,9 +429,9 @@ public sealed class BacklogDesktopState : IDisposable
         ApplyFilter();
     }
 
-    /// <summary>Appends a new, unsaved draft row at the end of the list and
-    /// opens it for editing. It is only persisted once a title line is typed
-    /// (the domain requires a title), so free typing before that is held
+    /// <summary>Appends a new, unsaved draft row at the end of the list and opens
+    /// it in the detail pane, on its title. It is only persisted once a title line
+    /// exists (the domain requires a title), so what is typed before that is held
     /// locally. When an area is being filtered, the new entry starts already
     /// filed there — otherwise it would vanish the moment it saved.</summary>
     public void NewRow()
@@ -415,12 +446,18 @@ public sealed class BacklogDesktopState : IDisposable
 
         Rows.Add(row);
 
-        // Selected as well as opened. A brand-new entry has nothing but source —
-        // no title to rename, no steps, no metadata line worth a control — so the
-        // detail pane opens straight on the escape hatch, and the fields appear as
-        // soon as there is something for them to be about.
+        // Selected, and no editor opened on it. The canonical markdown stays behind
+        // Ctrl+Shift+M, because that is what makes it the escape hatch
+        // `.design/content-editing.md#raw-markdown-escape-hatch` describes rather
+        // than "the primary surface #editing-model rules out" — and opening it here
+        // put two writing surfaces on one entry: a mono textarea holding the
+        // placeholder template, under the entry's own empty body editor.
+        //
+        // The caret goes in the title instead. It is the one thing a new entry
+        // cannot do without — nothing saves until there is a title line — so it is
+        // also the field a reader was going to type in next either way.
         SelectedRow = row;
-        BeginEdit(row);
+        PendingCaret = PendingCaret.EntryTitle;
         ApplyFilter();
     }
 
@@ -441,7 +478,7 @@ public sealed class BacklogDesktopState : IDisposable
         // typed counts as one, and the chapter below it is handed back a second
         // time — once per keystroke.
         _editingSubItemCount = EntryTextParser.CountSubItems(row.RawText);
-        FocusPending = true;
+        PendingCaret = PendingCaret.RawMarkdown;
     }
 
     public string EntryEditText(EntryRow row) =>
@@ -465,6 +502,12 @@ public sealed class BacklogDesktopState : IDisposable
     {
         CancelDebounce(row);
 
+        // The editor is closing, and with it any caret it had not been given yet —
+        // for the reason SelectAsync gives. A flush is also what turns a brand-new
+        // draft into an entry with text in it, so the caret its creation asked for
+        // is no longer owed either.
+        PendingCaret = PendingCaret.None;
+
         if (ReferenceEquals(EditingRow, row))
         {
             EditingRow = null;
@@ -473,7 +516,13 @@ public sealed class BacklogDesktopState : IDisposable
 
         // An entry someone opened and left untouched was never an entry. Drop
         // it rather than leaving an "Untitled" husk in the list.
-        if (!row.IsPersisted && row.IsUntouched)
+        //
+        // Once they have actually left it, though: with the detail pane still open
+        // on this row, closing the raw hatch is a move between two surfaces on the
+        // same entry, and deleting the entry out from under it would answer a
+        // keystroke about one control by discarding the document. SelectAsync says
+        // the same sentence for the row the pane moves off.
+        if (!row.IsPersisted && row.IsUntouched && !ReferenceEquals(SelectedRow, row))
         {
             Rows.Remove(row);
             ApplyFilter();
@@ -1347,7 +1396,22 @@ public sealed class BacklogDesktopState : IDisposable
         // A row being written right now always stays put, even if what was just
         // typed no longer matches the filter — having an entry disappear
         // mid-sentence is never what someone meant.
-        FilteredRows = [.. rows.Union(Rows.Where(r => ReferenceEquals(r, EditingRow))).OrderBy(Rows.IndexOf)];
+        //
+        // And so does an unsaved draft the pane is open on, which used to be the
+        // same row: creating an entry opened an editor on it, and that is what kept
+        // it here. It no longer does (see NewRow), and this one cannot be left to
+        // the filter either — it is not in the store, so a filter that dropped it
+        // would not be hiding an entry, it would be losing one. Only while it is
+        // unsaved: once it exists, it is an entry like any other and the rule below
+        // applies to it.
+        FilteredRows =
+        [
+            .. rows
+                .Union(Rows.Where(r =>
+                    ReferenceEquals(r, EditingRow)
+                    || (ReferenceEquals(r, SelectedRow) && !r.IsPersisted)))
+                .OrderBy(Rows.IndexOf)
+        ];
 
         // Selection follows the list, which is the only way the pane beside it can
         // be about something. Deleting an entry already closed the pane; changing
@@ -1415,6 +1479,32 @@ public sealed class BacklogDesktopState : IDisposable
         EntryStatus.Archived => "archived",
         _ => status.ToString().ToLowerInvariant()
     };
+}
+
+/// <summary>
+/// Where the caret is owed, for a control that does not exist until the next
+/// render draws it.
+/// <para>
+/// Two intents rather than one flag, because they are two facts: a hatch that has
+/// just been asked for wants the caret in its textarea, and a brand-new entry
+/// wants it in its title. A single "focus pending" would leave whichever surface
+/// consumed it guessing which of those it was, and the guess would be wrong in
+/// exactly the case the surfaces overlap.
+/// </para>
+/// </summary>
+public enum PendingCaret
+{
+    /// <summary>Nothing is owed the caret; leave it where the reader put it.</summary>
+    None,
+
+    /// <summary>The raw-markdown hatch has just opened and wants the caret in its
+    /// textarea — otherwise Ctrl+Shift+M reveals the source and leaves the focus on
+    /// the pane, so reaching it costs a click anyway.</summary>
+    RawMarkdown,
+
+    /// <summary>A brand-new entry has just been added and wants the caret in its
+    /// title field, which is the one thing it cannot be saved without.</summary>
+    EntryTitle
 }
 
 public sealed record StatusFilterOption(string Label, string Wire);

@@ -198,13 +198,21 @@ Which control either of those is, is the panel's business and never the host's â
 
 OnTabBackward comes off the first control only. Raising it from the title as well would put the circle behind a Shift+Tab that no longer goes there, and a circle no keyboard can reach is a worse trade than one extra stop on the way out. And nothing is prevented: Blazor resolves preventDefault when the component renders rather than when the key arrives, so suppressing Shift+Tab here would take Tab and Enter with it. The browser still does its own move; the focus the host sets afterwards is the one that lasts.
 
-Press the button to do what a list does on Tab, then Shift+Tab out of the circle."
+EditTitleAsync is the third of the set, for the one case where the front of the panel is the wrong place to arrive: a task created a moment ago has no title yet, and the front of the panel is the circle that marks it done. It opens the title field and takes the caret â€” the same field clicking the heading opens, settling on Enter and abandoning on Escape exactly as that one does. A host that hand-rolled a title input for its new tasks would be a host with two fields over one heading, only one of which anybody had made accessible.
+
+Press the buttons to do what a list does on Tab and what a host does on a brand-new task, then Shift+Tab out of the circle."
            Code="@FocusCode">
         <div class="sb-side-panel">
             <AppButton Variant="ButtonVariant.Secondary"
                        TestId="panel-focus-enter"
                        OnClick="FocusPanelAsync">
                 Tab into the panel
+            </AppButton>
+
+            <AppButton Variant="ButtonVariant.Secondary"
+                       TestId="panel-focus-title"
+                       OnClick="EditPanelTitleAsync">
+                Open the title field
             </AppButton>
 
             <TaskPanel @ref="_focusPanel"
@@ -424,6 +432,14 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
         if (_focusPanel is not null) await _focusPanel.FocusFirstAsync();
     }
 
+    /// <summary>What a host does with a task that was created a moment ago: not the
+    /// front of the panel, which is the circle, but the field the task cannot do
+    /// without.</summary>
+    private async Task EditPanelTitleAsync()
+    {
+        if (_focusPanel is not null) await _focusPanel.EditTitleAsync();
+    }
+
     private string _notes = """
         ## Why the body is last
 
@@ -576,6 +592,11 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
             private Task MoveFocusToPanelAsync() => _panel?.FocusFirstAsync() ?? Task.CompletedTask;
 
             private Task MoveFocusToListAsync() => _list?.FocusSelectedAsync() ?? Task.CompletedTask;
+
+            // A task created a moment ago has no title, and the front of the panel
+            // is the circle that finishes it. This is the way to the one field it
+            // cannot be saved without.
+            private Task OpenNewTaskAsync() => _panel?.EditTitleAsync() ?? Task.CompletedTask;
         }
         """;
 

@@ -237,6 +237,24 @@ public sealed class BacklogPaneFocusTests
         Assert.Contains(Focused(host), id => id is not null && id.EndsWith(TaskId(row), StringComparison.Ordinal));
     }
 
+    /// <summary>Opening the source takes the caret with it. Otherwise Ctrl+Shift+M
+    /// reveals a textarea and leaves the focus on the pane, so the shortcut's whole
+    /// point — reaching the source without hunting for a control — costs a click
+    /// anyway. The other half of the same intent is a brand-new entry, which asks
+    /// for its title instead; see <see cref="NewEntryOpensOnItsTitleTests"/>.</summary>
+    [Fact]
+    public async Task Ctrl_shift_m_puts_the_caret_in_the_source()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync(Entry);
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-detail']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "M", CtrlKey = true, ShiftKey = true });
+
+        Assert.Contains(pane.Find("[data-testid='entry-raw-input']").Id, Focused(host));
+    }
+
     /// <summary>With the source open, Escape is about the source. Closing the whole
     /// pane from under a reader who asked to leave one control would be two
     /// decisions taken out of one keystroke.</summary>
