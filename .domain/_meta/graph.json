@@ -6,30 +6,30 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 481,
-    "edges": 757,
+    "nodes": 484,
+    "edges": 770,
     "nodesByFolder": {
-      "domain": 471,
+      "domain": 474,
       "arc42": 8,
       "design": 2
     },
     "nodesByType": {
       "file": 73,
-      "chapter": 407,
+      "chapter": 410,
       "heading": 1
     },
     "nodesByStatus": {
       "draft": 393,
-      "proposed": 29,
+      "proposed": 32,
       "deprecated": 3,
       "idea": 1,
       "active": 54,
       "none": 1
     },
     "edgesByType": {
-      "contains": 399,
-      "related": 324,
-      "depends-on": 34
+      "contains": 402,
+      "related": 332,
+      "depends-on": 36
     }
   },
   "problems": [],
@@ -5061,6 +5061,63 @@
       },
       {
         "data": {
+          "id": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "label": "Sequencing work into tracks",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sequencing-work-into-tracks",
+          "level": 2,
+          "line": 340,
+          "status": "proposed",
+          "depends-on": [
+            ".domain/roadmap/features.md#tagging-planned-work",
+            ".domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort"
+          ],
+          "related": [
+            ".domain/roadmap/features.md#dependency-planning",
+            ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline",
+            ".domain/roadmap/domain.md#planning-lane",
+            ".domain/backlog/features.md#effort-registration",
+            ".domain/second-brain/features.md#topic-and-tag-grouping"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#sizing-a-track-by-the-effort-it-gathers",
+          "label": "Sizing a track by the effort it gathers",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "sizing-a-track-by-the-effort-it-gathers",
+          "level": 3,
+          "line": 409,
+          "status": "proposed",
+          "related": [
+            ".domain/roadmap/domain.md#roadmap-item-gathering",
+            ".domain/backlog/features.md#effort-registration"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/roadmap/features.md#picking-work-that-cannot-collide",
+          "label": "Picking work that cannot collide",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/roadmap/features.md",
+          "slug": "picking-work-that-cannot-collide",
+          "level": 3,
+          "line": 431,
+          "status": "proposed",
+          "related": [
+            ".domain/roadmap/domain.md#plan-sequencing"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/roadmap/flow.md",
           "label": "Roadmap Planning",
           "type": "file",
@@ -9673,6 +9730,30 @@
       },
       {
         "data": {
+          "id": "contains:.domain/roadmap/features.md->.domain/roadmap/features.md#sequencing-work-into-tracks",
+          "source": ".domain/roadmap/features.md",
+          "target": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#sequencing-work-into-tracks->.domain/roadmap/features.md#sizing-a-track-by-the-effort-it-gathers",
+          "source": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "target": ".domain/roadmap/features.md#sizing-a-track-by-the-effort-it-gathers",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/roadmap/features.md#sequencing-work-into-tracks->.domain/roadmap/features.md#picking-work-that-cannot-collide",
+          "source": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "target": ".domain/roadmap/features.md#picking-work-that-cannot-collide",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/roadmap/naming.md->.domain/roadmap/naming.md#roadmap-plan",
           "source": ".domain/roadmap/naming.md",
           "target": ".domain/roadmap/naming.md#roadmap-plan",
@@ -12604,6 +12685,86 @@
           "id": "related:.domain/roadmap/features.md#publishing-planned-intent-for-observation->.domain/monitoring/features.md",
           "source": ".domain/roadmap/features.md#publishing-planned-intent-for-observation",
           "target": ".domain/monitoring/features.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#sequencing-work-into-tracks->.domain/roadmap/features.md#tagging-planned-work",
+          "source": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "target": ".domain/roadmap/features.md#tagging-planned-work",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/roadmap/features.md#sequencing-work-into-tracks->.domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort",
+          "source": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "target": ".domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sequencing-work-into-tracks->.domain/roadmap/features.md#dependency-planning",
+          "source": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "target": ".domain/roadmap/features.md#dependency-planning",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sequencing-work-into-tracks->.domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline",
+          "source": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "target": ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sequencing-work-into-tracks->.domain/roadmap/domain.md#planning-lane",
+          "source": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "target": ".domain/roadmap/domain.md#planning-lane",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sequencing-work-into-tracks->.domain/backlog/features.md#effort-registration",
+          "source": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "target": ".domain/backlog/features.md#effort-registration",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sequencing-work-into-tracks->.domain/second-brain/features.md#topic-and-tag-grouping",
+          "source": ".domain/roadmap/features.md#sequencing-work-into-tracks",
+          "target": ".domain/second-brain/features.md#topic-and-tag-grouping",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sizing-a-track-by-the-effort-it-gathers->.domain/roadmap/domain.md#roadmap-item-gathering",
+          "source": ".domain/roadmap/features.md#sizing-a-track-by-the-effort-it-gathers",
+          "target": ".domain/roadmap/domain.md#roadmap-item-gathering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#sizing-a-track-by-the-effort-it-gathers->.domain/backlog/features.md#effort-registration",
+          "source": ".domain/roadmap/features.md#sizing-a-track-by-the-effort-it-gathers",
+          "target": ".domain/backlog/features.md#effort-registration",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/roadmap/features.md#picking-work-that-cannot-collide->.domain/roadmap/domain.md#plan-sequencing",
+          "source": ".domain/roadmap/features.md#picking-work-that-cannot-collide",
+          "target": ".domain/roadmap/domain.md#plan-sequencing",
           "type": "related"
         }
       },
