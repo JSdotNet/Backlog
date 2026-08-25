@@ -167,7 +167,6 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
 
 ```meta
 status: draft
-order: ["inbox"]
 related:
   - .domain/inbox/domain.md
   - .domain/inbox/features.md

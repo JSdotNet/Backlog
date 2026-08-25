@@ -50,7 +50,7 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
                 $"No Markdown design knowledge files were found at {folderPath}."));
         }
 
-        files = OrderFiles(files);
+        files = OrderFiles(files, folderPath);
         return Task.FromResult(DesignKnowledgeModel.Available(location.ScopeLabel ?? "storage", folderPath, files));
     }
 
@@ -79,7 +79,17 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
         return Task.CompletedTask;
     }
 
-    private static List<DesignKnowledgeFile> OrderFiles(List<DesignKnowledgeFile> files)
+    /// <summary>
+    /// The folder in reading order: the README first, then the siblings in the
+    /// order the folder's committed <c>_meta/index.json</c> records, then anything
+    /// the index does not mention, alphabetically.
+    ///
+    /// <para>The order used to be read off the README's own <c>meta</c> fence. It
+    /// is not metadata about a chapter — it is a directory listing — so it now
+    /// lives in the index that describes the directory, which is also the one
+    /// place the generator and the pane can agree on it.</para>
+    /// </summary>
+    private static List<DesignKnowledgeFile> OrderFiles(List<DesignKnowledgeFile> files, string folderPath)
     {
         var byName = files.ToDictionary(f => f.FileName, StringComparer.OrdinalIgnoreCase);
         var ordered = new List<DesignKnowledgeFile>();
@@ -87,7 +97,7 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
         if (byName.TryGetValue("README.md", out var readme))
         {
             ordered.Add(readme);
-            foreach (var fileName in readme.Meta.Order)
+            foreach (var fileName in KnowledgeReadingOrder.ForFolder(folderPath))
             {
                 if (byName.TryGetValue(fileName, out var file) && !ordered.Contains(file))
                 {

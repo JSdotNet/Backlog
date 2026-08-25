@@ -2,7 +2,6 @@
 
 ```meta
 status: candidate
-order: ["shared.md", "desktop.md", "ide.md", "mobile.md", "cloud.md", "tooling.md"]
 related: [".arc42/04-solution-strategy.md#technology-choices", ".arc42/07-deployment-view.md", ".arc42/09-architecture-decisions.md"]
 ```
 

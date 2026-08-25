@@ -54,11 +54,11 @@ public sealed class TechnologyKnowledgeReaderTests
         using var workspace = TestWorkspace.Create();
         var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
         Directory.CreateDirectory(Path.Combine(techPath, "_meta"));
+        WriteTechIndex(techPath, "shared.md", "desktop.md");
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), """
             # Technology graph
             ```meta
             status: draft
-            order: ["shared.md", "desktop.md"]
             ```
 
             Repository technology overview.
@@ -143,11 +143,11 @@ public sealed class TechnologyKnowledgeReaderTests
         using var workspace = TestWorkspace.Create();
         var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
         Directory.CreateDirectory(techPath);
+        WriteTechIndex(techPath, "shared.md");
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), """
             # Technology graph
             ```meta
             status: draft
-            order: ["shared.md"]
             ```
             """);
         File.WriteAllText(Path.Combine(techPath, "shared.md"), """
@@ -196,6 +196,27 @@ public sealed class TechnologyKnowledgeReaderTests
         Assert.True(DiagramView.IsDiagram(language));
         Assert.False(DiagramView.CanRender(language));
     }
+
+    /// <summary>
+    /// The committed reading order for a <c>.tech</c> fixture. The layer sequence
+    /// lives here now rather than in the root document's fence, so a fixture that
+    /// cares about order writes the index the reader actually consults.
+    /// </summary>
+    private static void WriteTechIndex(string techPath, params string[] layers)
+    {
+        Directory.CreateDirectory(Path.Combine(techPath, "_meta"));
+
+        var entries = new List<string>
+        {
+            "{ \"type\": \"file\", \"name\": \"technology-graph.md\", \"path\": \".tech/technology-graph.md\", \"title\": \"Technology graph\", \"status\": \"draft\", \"root\": true }"
+        };
+        entries.AddRange(layers.Select(layer =>
+            $"{{ \"type\": \"file\", \"name\": \"{layer}\", \"path\": \".tech/{layer}\", \"title\": \"{layer}\", \"status\": null }}"));
+
+        File.WriteAllText(
+            Path.Combine(techPath, "_meta", "index.json"),
+            "{ \"schemaVersion\": 1, \"scope\": \".tech\", \"problems\": [], \"entries\": [" + string.Join(", ", entries) + "] }");
+    }
 }
 
 file sealed class TestWorkspace : IDisposable
@@ -230,5 +251,6 @@ file sealed class TestWorkspace : IDisposable
     {
         try { Directory.Delete(Root, recursive: true); } catch (IOException) { }
     }
+
 }
 
