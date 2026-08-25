@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.UnitTests;
+﻿namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The side panel, and the detail pane inside it.
@@ -809,5 +809,72 @@ public sealed class TaskPanelTests
         view.Find("[data-testid='panel-title']").KeyDown(new KeyboardEventArgs { Key = "Tab", ShiftKey = true });
 
         Assert.Equal(1, left);
+    }
+
+    /// <summary>The panel copies the task, and the control sits behind the state —
+    /// the same order the row reads in, so a reader who opened a row finds the
+    /// button where they left it.</summary>
+    [Fact]
+    public void The_panel_offers_a_copy_behind_the_state()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Ship the sync spike")
+            .Add(t => t.Status, "ready")
+            .Add(t => t.CopyValue, "Ship the sync spike\n\nThe whole brief.")
+            .Add(t => t.TestId, "panel"));
+
+        var header = view.Find(".task-panel__header");
+        var order = header.Children.Select(c => c.ClassName ?? string.Empty).ToList();
+
+        int IndexOf(string cssClass) => order.FindIndex(c => c.Split(' ').Contains(cssClass));
+
+        var state = IndexOf("task-panel__status");
+        var copy = IndexOf("task-panel__copy");
+
+        var drawn = string.Join(", ", order);
+        Assert.True(state >= 0 && copy >= 0, $"Missing a control: {drawn}");
+        Assert.True(state < copy, $"Copy must follow the state on the heading line, but the order was: {drawn}");
+
+        view.Find("[data-testid='panel-copy']").Click();
+
+        Assert.Equal(
+            "Ship the sync spike\n\nThe whole brief.",
+            Assert.Single(context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
+    }
+
+    /// <summary>No text, no button. The panel's body is a slot, so unlike a row it
+    /// cannot read its own contents back — and a copy button over a task it could
+    /// not produce would promise something it has no way to keep.</summary>
+    [Fact]
+    public void A_panel_nobody_told_what_to_copy_offers_no_copy()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Ship the sync spike")
+            .Add(t => t.TestId, "panel"));
+
+        Assert.Empty(view.FindAll("[data-testid='panel-copy']"));
+    }
+
+    /// <summary>A host that has the text and does not want the button.</summary>
+    [Fact]
+    public void A_panel_can_be_told_not_to_offer_a_copy_at_all()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Ship the sync spike")
+            .Add(t => t.CopyValue, "Ship the sync spike")
+            .Add(t => t.AllowCopy, false)
+            .Add(t => t.TestId, "panel"));
+
+        Assert.Empty(view.FindAll("[data-testid='panel-copy']"));
     }
 }

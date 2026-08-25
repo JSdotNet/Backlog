@@ -30,6 +30,16 @@ public static partial class CopilotToolOutput
     /// <inheritdoc cref="NotInstalled" />
     public const string Installed = "installed";
 
+    /// <summary>What a version column reads when the thing in that row has no
+    /// version at all.
+    ///
+    /// <para>A Claude marketplace is the case: it is added or it is not, and there
+    /// is nothing published to compare it against. It has to be a value the version
+    /// comparison refuses rather than an empty cell — an empty cell reads as a
+    /// lookup that failed, and a dash compared against "configured" would report an
+    /// update on every check forever.</para></summary>
+    public const string NoVersion = "—";
+
     /// <summary>A plugin's published version lives in its manifest, at this path
     /// relative to the plugin's own folder in the source repository.</summary>
     private const string ManifestFileName = ".claude-plugin/plugin.json";
@@ -173,6 +183,157 @@ public static partial class CopilotToolOutput
         }
     }
 
+    /// <summary>
+    /// What <c>claude plugin list --json</c> says is installed, keyed by the
+    /// <c>&lt;name&gt;@&lt;marketplace&gt;</c> id Claude addresses a plugin by.
+    ///
+    /// <para>Tolerant of three shapes the CLI has actually produced: a bare array,
+    /// an object with the array under some property, and an empty body when
+    /// nothing is installed. A version is optional — a plugin installed from a
+    /// marketplace need not declare one — so an entry without one reads as
+    /// <see cref="Installed"/> rather than as absent, which is the difference
+    /// between "here but unversioned" and "not here".</para>
+    ///
+    /// <para>Never throws. This runs inside the pane's own listing, and a CLI that
+    /// printed a warning ahead of its JSON is a row that should say so rather than
+    /// a tools tab that fell over.</para>
+    /// </summary>
+    public static IReadOnlyDictionary<string, ClaudePluginState> ParseClaudePluginList(string json)
+    {
+        var plugins = new Dictionary<string, ClaudePluginState>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in EnumerateJsonArray(json))
+        {
+            if (entry.ValueKind is not JsonValueKind.Object
+                || ReadString(entry, "id") is not { Length: > 0 } id)
+            {
+                continue;
+            }
+
+            // Claude reports a disabled plugin in the same list as an enabled one.
+            // Whether it is disabled decides whether an update has to be followed
+            // by an enable, so it travels with the version rather than being
+            // filtered out here.
+            var enabled = !entry.TryGetProperty("enabled", out var enabledValue) || enabledValue.ValueKind is not JsonValueKind.False;
+            var version = ReadString(entry, "version");
+
+            plugins[id] = new ClaudePluginState(enabled, string.IsNullOrWhiteSpace(version) ? Installed : version);
+        }
+
+        return plugins;
+    }
+
+    /// <summary>The marketplace names <c>claude plugin marketplace list --json</c>
+    /// reports, read with the same tolerance and for the same reason as
+    /// <see cref="ParseClaudePluginList" />.</summary>
+    public static IReadOnlySet<string> ParseClaudeMarketplaceList(string json)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in EnumerateJsonArray(json))
+        {
+            if (entry.ValueKind is JsonValueKind.String && entry.GetString() is { Length: > 0 } bare)
+            {
+                names.Add(bare);
+                continue;
+            }
+
+            if (entry.ValueKind is JsonValueKind.Object && ReadString(entry, "name") is { Length: > 0 } name)
+            {
+                names.Add(name);
+            }
+        }
+
+        return names;
+    }
+
+    /// <summary>
+    /// What <c>claude mcp get &lt;name&gt;</c> reports about one registration, or
+    /// <see langword="null" /> when there is no such registration.
+    ///
+    /// <para>Absence is a normal answer, not a failure: the CLI says
+    /// "No MCP server named ..." and exits non-zero, and reading that exit code as
+    /// an error would turn "this needs registering" — the case the whole feature
+    /// exists for — into a broken row.</para>
+    ///
+    /// <para>Only the scope and the command are read back. The scope decides
+    /// whether the registration is ours to touch at all, and the command decides
+    /// whether it still points where the catalog says it should.</para>
+    /// </summary>
+    public static ClaudeMcpServerDetails? ParseClaudeMcpServer(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output) || NoSuchMcpServerRegex().IsMatch(output))
+        {
+            return null;
+        }
+
+        var scope = McpServerScopeRegex().Match(output);
+        var command = McpServerCommandRegex().Match(output);
+
+        return new ClaudeMcpServerDetails(
+            scope.Success ? scope.Groups["value"].Value.Trim() : string.Empty,
+            command.Success ? command.Groups["value"].Value.Trim() : string.Empty);
+    }
+
+    /// <summary>
+    /// The id Claude addresses a catalog plugin by, or <see langword="null" /> when
+    /// no marketplace can be resolved for it.
+    ///
+    /// <para>Null rather than a throw. A catalog with no marketplaces at all is a
+    /// real state — it is what every catalog looked like before this — and the row
+    /// for such a plugin has to be able to say so beside the plugins that resolved
+    /// fine, instead of taking the listing down with it.</para>
+    /// </summary>
+    public static string? ClaudePluginId(string name, string? claudeName, string? claudeMarketplace, string? defaultMarketplace)
+    {
+        var pluginName = FirstNonBlank(claudeName, name);
+        var marketplace = FirstNonBlank(claudeMarketplace, defaultMarketplace);
+
+        return pluginName is null || marketplace is null ? null : $"{pluginName}@{marketplace}";
+    }
+
+    /// <summary>
+    /// Which hosts a <c>hosts</c> array names.
+    ///
+    /// <para>Nothing, an empty array, and an array of blanks all mean both hosts —
+    /// see <see cref="CopilotToolConfiguration.ParseHosts" /> for why silence has
+    /// to mean both. A name this version has not met is ignored rather than
+    /// rejected, so a catalog written for a third host still installs its Copilot
+    /// and Claude entries here.</para>
+    /// </summary>
+    public static CopilotToolHosts ParseHosts(IEnumerable<string?>? values)
+    {
+        if (values is null)
+        {
+            return CopilotToolHosts.Both;
+        }
+
+        var hosts = CopilotToolHosts.None;
+        var named = false;
+
+        foreach (var value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            named = true;
+            var text = value.Trim();
+
+            if (text.Equals("copilot", StringComparison.OrdinalIgnoreCase))
+            {
+                hosts |= CopilotToolHosts.Copilot;
+            }
+            else if (text.Equals("claude", StringComparison.OrdinalIgnoreCase))
+            {
+                hosts |= CopilotToolHosts.Claude;
+            }
+        }
+
+        return named ? hosts : CopilotToolHosts.Both;
+    }
+
     /// <summary>A commit sha cut to the width everything else uses.
     ///
     /// <para>Both sides of a repository-backed comparison go through this. A
@@ -224,11 +385,100 @@ public static partial class CopilotToolOutput
     private static string TrimGitSuffix(string repository) =>
         repository.EndsWith(".git", StringComparison.OrdinalIgnoreCase) ? repository[..^4] : repository;
 
+    private static string? FirstNonBlank(params string?[] candidates) =>
+        candidates.FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate))?.Trim();
+
+    /// <summary>
+    /// The entries of whatever array a JSON body carries, however it is wrapped.
+    ///
+    /// <para>The Claude CLI's <c>--json</c> output has arrived both bare and inside
+    /// an object, and both are read rather than one being declared correct: this
+    /// runs against a CLI that ships on its own cadence, and a shape change should
+    /// cost a row's version rather than every Claude row on the pane.</para>
+    ///
+    /// <para>A body that is not JSON at all yields nothing. The CLI prints
+    /// warnings and login prompts to the same stream, and those are not a reason
+    /// to throw out of a listing.</para>
+    /// </summary>
+    private static IEnumerable<JsonElement> EnumerateJsonArray(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(json);
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+
+        using (document)
+        {
+            if (document.RootElement.ValueKind is JsonValueKind.Array)
+            {
+                return document.RootElement.EnumerateArray().Select(element => element.Clone()).ToArray();
+            }
+
+            if (document.RootElement.ValueKind is JsonValueKind.Object)
+            {
+                foreach (var property in document.RootElement.EnumerateObject())
+                {
+                    if (property.Value.ValueKind is JsonValueKind.Array)
+                    {
+                        return property.Value.EnumerateArray().Select(element => element.Clone()).ToArray();
+                    }
+                }
+            }
+
+            return [];
+        }
+    }
+
+    private static string ReadString(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String
+            ? value.GetString()?.Trim() ?? string.Empty
+            : string.Empty;
+
     private static IEnumerable<string> SplitLines(string value) =>
         string.IsNullOrEmpty(value) ? [] : value.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
 
     [GeneratedRegex(@"\s{2,}")]
     private static partial Regex ColumnGapRegex();
+
+    /// <summary>How the Claude CLI says a registration is not there. Matched
+    /// loosely on whitespace because the sentence continues with the name and a
+    /// list of the servers that <em>are</em> configured.</summary>
+    [GeneratedRegex(@"No\s+MCP\s+server\s+named", RegexOptions.IgnoreCase)]
+    private static partial Regex NoSuchMcpServerRegex();
+
+    [GeneratedRegex(@"^\s*Scope:\s*(?<value>.+)$", RegexOptions.Multiline)]
+    private static partial Regex McpServerScopeRegex();
+
+    [GeneratedRegex(@"^\s*Command:\s*(?<value>.+)$", RegexOptions.Multiline)]
+    private static partial Regex McpServerCommandRegex();
+
+    /// <summary>One installed Claude plugin, as far as this needs to know it.
+    ///
+    /// <para><see cref="Enabled" /> is Claude's own switch and not the catalog's:
+    /// a plugin can be installed and switched off in Claude while the catalog says
+    /// this machine wants it, and an update then has to be followed by an enable or
+    /// it stays as invisible as it was.</para></summary>
+    public sealed record ClaudePluginState(bool Enabled, string Version);
+
+    /// <summary>One Claude MCP registration, as far as this needs to know it.
+    ///
+    /// <para>A registration whose <see cref="Scope" /> is not <c>user</c> belongs
+    /// to a project or to a local override somebody made deliberately, and the
+    /// right move on it is to report it and change nothing.</para></summary>
+    public sealed record ClaudeMcpServerDetails(string Scope, string Command)
+    {
+        public bool IsUserScope => Scope.Contains("user", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>One entry of <c>copilot plugin list</c>: an indented bullet, the
     /// plugin name, the marketplace it came from, its version and its enabled

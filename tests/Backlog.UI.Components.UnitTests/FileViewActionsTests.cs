@@ -483,6 +483,53 @@ public sealed class FileViewActionsTests
     }
 
     [Fact]
+    public void Pressing_Edit_gives_the_pane_the_height_and_Done_gives_it_back()
+    {
+        // Read mode sizes itself from the file, and editing cannot: a textarea
+        // has a row count and nothing else to go on, so the pane has to say how
+        // tall it is. The modifiers are how it says so, and they last exactly as
+        // long as the editor is the thing on screen.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CanEdit, true)
+            .Add(v => v.EditBodyContent, Editor()));
+
+        Assert.DoesNotContain("file-view--editing", view.Find(".file-view").ClassList);
+        Assert.DoesNotContain("file-view__body--edit", view.Find(".file-view__body").ClassList);
+
+        view.Find("[data-testid='file-edit']").Click();
+
+        Assert.Contains("file-view--editing", view.Find(".file-view").ClassList);
+        Assert.Contains("file-view__body--edit", view.Find(".file-view__body").ClassList);
+
+        view.Find("[data-testid='file-done']").Click();
+
+        Assert.DoesNotContain("file-view--editing", view.Find(".file-view").ClassList);
+        Assert.DoesNotContain("file-view__body--edit", view.Find(".file-view__body").ClassList);
+    }
+
+    [Fact]
+    public void Comparing_takes_the_editing_modifiers_back_along_with_the_body()
+    {
+        // Comparing wins over editing — SuppliedBody says so — and the modifiers
+        // have to follow the same precedence, or a comparison would be laid out
+        // as though a textarea were stretching inside it.
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.CanEdit, true)
+            .Add(v => v.EditBodyContent, Editor())
+            .Add(v => v.CompareBaselines, Opened)
+            .Add(v => v.Editing, true)
+            .Add(v => v.Comparing, true));
+
+        Assert.NotNull(view.Find("[data-testid='file-compare-view']"));
+        Assert.DoesNotContain("file-view--editing", view.Find(".file-view").ClassList);
+        Assert.DoesNotContain("file-view__body--edit", view.Find(".file-view__body").ClassList);
+    }
+
+    [Fact]
     public void Editing_gives_up_the_tab_stop_the_way_any_supplied_body_does()
     {
         using var context = new BunitContext();

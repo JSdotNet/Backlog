@@ -266,8 +266,19 @@
        where it announces the pane and then does nothing on the way to typing. A
        host that supplies a body with nothing focusable in it and lets it
        overflow owns making that reachable — the same bargain FolderView takes.
-       The role and the name are not conditional either way. *@
-    <div class="file-view__body"
+       The role and the name are not conditional either way.
+
+       The class is computed for a second reason, and only while the host's
+       editor is what is on screen: a rendered file is as tall as the file, and a
+       textarea is as tall as its row count. Reading, the body's own content
+       fills the pane; editing, it stops at row fourteen and leaves the rest of
+       the pane empty underneath. So the body says it is holding an editor —
+       see ShowsEditBody — and the stylesheet lets whatever is inside it stretch
+       to the room the pane gave, and gives up the padding and the scrollbar
+       gutter it holds prose off its edges with. An editor pads its own text and
+       scrolls inside its own box; the same inset around it reads as a control
+       floating in the pane rather than the pane being the control. *@
+    <div class="@BodyClass"
          role="region"
          tabindex="@BodyTabIndex"
          aria-label="@BodyLabel"
@@ -894,15 +905,32 @@
         || BodyLanguage.Equals("md", StringComparison.OrdinalIgnoreCase)
         || BodyLanguage.Equals("markdown", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The article's classes, and the two heights it can be asked to take.
+    /// <para>
+    /// <see cref="Fill"/> is the host saying so outright. The editing modifier is
+    /// the same request made on the reader's behalf for as long as they are
+    /// typing, because that is the one mode whose content cannot size the pane
+    /// for itself — see <see cref="ShowsEditBody"/>. Both together is not a
+    /// conflict: they ask for the same height, and the stylesheet says it once.
+    /// </para>
+    /// </summary>
     private string ClassValue
     {
         get
         {
             var fill = Fill ? " file-view--fill" : string.Empty;
+            var editing = ShowsEditBody ? " file-view--editing" : string.Empty;
             var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
-            return $"file-view{fill}{extra}";
+            return $"file-view{fill}{editing}{extra}";
         }
     }
+
+    /// <summary>The scroll region's classes. The block first and always — the
+    /// padding, the overflow and the scrollbars hang off it, and a modifier that
+    /// replaced it would take all three with it.</summary>
+    private string BodyClass =>
+        ShowsEditBody ? "file-view__body file-view__body--edit" : "file-view__body";
 
     private string? BodyTestId => TestId is null ? null : $"{TestId}-body";
 
@@ -930,6 +958,27 @@
         : BodyContent;
 
     private bool ShowsSuppliedBody => SuppliedBody is not null;
+
+    /// <summary>
+    /// Whether the thing on screen is specifically the host's <em>editing</em>
+    /// body — the one a reader got to by pressing Edit.
+    /// <para>
+    /// Derived from <see cref="SuppliedBody"/> rather than restated, because that
+    /// property already encodes the precedence: comparing beats editing, and
+    /// editing beats the body a host supplies for both modes. Asking whether the
+    /// fragment that won is the editing one answers all three questions at once,
+    /// and cannot drift from the fragment actually rendered the way a second copy
+    /// of the rules would.
+    /// </para>
+    /// <para>
+    /// <see cref="BodyContent"/> is deliberately not this, even while
+    /// <see cref="Editing"/>. A host supplies that in every mode and this
+    /// component has no idea whether it is an editor, a picture or a table —
+    /// stretching it on the strength of a flag that says nothing about what is
+    /// inside it would be sizing somebody else's content by guesswork.
+    /// </para>
+    /// </summary>
+    private bool ShowsEditBody => EditBodyContent is { } editor && ReferenceEquals(SuppliedBody, editor);
 
     /// <summary>
     /// Whether a way into editing is actually offered.

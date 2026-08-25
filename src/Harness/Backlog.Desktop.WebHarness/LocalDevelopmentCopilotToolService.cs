@@ -49,6 +49,32 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
         var config = await CopilotToolConfiguration.ReadAsync(paths, ct).ConfigureAwait(false);
         var tools = new List<CopilotToolInfo>();
 
+        // The marketplaces lead, the way they do in the desktop head, because the
+        // pane's marketplace row is one of the surfaces this harness exists to make
+        // reachable from a browser at all.
+        foreach (var marketplace in CopilotToolConfiguration.MarketplaceEntries(config.Root))
+        {
+            var name = GetString(marketplace, "name");
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            tools.Add(new CopilotToolInfo(
+                CopilotToolConfiguration.KeyFor(CopilotToolKind.Marketplace, name),
+                CopilotToolKind.Marketplace,
+                name,
+                GetString(marketplace, "source"),
+                ConfiguredEnabled: true,
+                Installed: true,
+                "configured",
+                CopilotToolOutput.NoVersion,
+                "Configured from local JSON")
+            {
+                Hosts = CopilotToolHosts.Claude
+            });
+        }
+
         foreach (var plugin in GetArray(config.Root, "plugins"))
         {
             var name = GetString(plugin, "name");
@@ -58,10 +84,11 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
             }
 
             var enabled = GetBool(plugin, "enabled");
+            var hosts = CopilotToolConfiguration.ParseHosts(plugin);
             var installedVersion = VersionOr(plugin, "installedVersion", enabled ? "configured" : "disabled");
             var availableVersion = VersionOr(plugin, "availableVersion", "catalog");
             tools.Add(new CopilotToolInfo(
-                $"plugin:{name}",
+                CopilotToolConfiguration.KeyFor(CopilotToolKind.Plugin, name),
                 CopilotToolKind.Plugin,
                 name,
                 GetString(plugin, "source"),
@@ -69,7 +96,11 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
                 enabled,
                 installedVersion,
                 availableVersion,
-                enabled ? "Configured from local JSON" : "Disabled in config"));
+                enabled ? "Configured from local JSON" : "Disabled in config")
+            {
+                Hosts = hosts,
+                HostStates = HostStates(hosts, enabled, installedVersion, availableVersion)
+            });
         }
 
         foreach (var server in GetArray(config.Root, "mcpServers"))
@@ -82,11 +113,32 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
 
             var name = GetString(server, "name");
             var enabled = GetBool(server, "enabled");
+            var hosts = CopilotToolConfiguration.ParseHosts(server);
             var displayName = string.IsNullOrWhiteSpace(name) ? packageId : $"{name} ({packageId})";
             var installedVersion = VersionOr(server, "installedVersion", enabled ? "configured" : "disabled");
             var availableVersion = VersionOr(server, "availableVersion", "catalog");
+            var states = new List<CopilotToolHostState>
+            {
+                new(hosts, enabled, installedVersion, availableVersion, "The .NET tool, shared by both hosts")
+            };
+
+            // The registration Claude needs on top of the shared tool. Read out of
+            // the catalog rather than probed, because nothing here starts a
+            // process — but drawn, because the pane's per-host detail is one of the
+            // shapes a browser session is here to look at.
+            if (hosts.HasFlag(CopilotToolHosts.Claude) && server["claude"] is { } claude)
+            {
+                var claudeName = GetString(claude, "name") is { Length: > 0 } registered ? registered : name;
+                states.Add(new CopilotToolHostState(
+                    CopilotToolHosts.Claude,
+                    enabled,
+                    GetString(claude, "command"),
+                    GetString(claude, "command"),
+                    $"Registered with Claude as '{claudeName}'"));
+            }
+
             tools.Add(new CopilotToolInfo(
-                $"mcp:{packageId}",
+                CopilotToolConfiguration.KeyFor(CopilotToolKind.McpServer, packageId),
                 CopilotToolKind.McpServer,
                 displayName,
                 packageId,
@@ -94,7 +146,11 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
                 enabled,
                 installedVersion,
                 availableVersion,
-                enabled ? "Configured from local JSON" : "Disabled in config"));
+                enabled ? "Configured from local JSON" : "Disabled in config")
+            {
+                Hosts = hosts,
+                HostStates = states
+            });
         }
 
         var message = config.PcConfigExists
@@ -194,6 +250,28 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
     private static string GetString(JsonNode node, string name) => node[name]?.GetValue<string>() ?? string.Empty;
 
     private static bool GetBool(JsonNode node, string name) => node[name]?.GetValue<bool>() ?? false;
+
+    /// <summary>One state per host the entry targets, all saying the same thing.
+    /// Nothing was probed here, so the hosts cannot honestly disagree — what this
+    /// gives the browser is the <em>shape</em>: a row with two host states, so the
+    /// pane's per-host rendering is reachable without a machine that has both CLIs
+    /// on it.</summary>
+    private static IReadOnlyList<CopilotToolHostState> HostStates(CopilotToolHosts hosts, bool enabled, string installedVersion, string availableVersion)
+    {
+        var states = new List<CopilotToolHostState>();
+
+        if (hosts.HasFlag(CopilotToolHosts.Copilot))
+        {
+            states.Add(new CopilotToolHostState(CopilotToolHosts.Copilot, enabled, installedVersion, availableVersion, "Configured from local JSON"));
+        }
+
+        if (hosts.HasFlag(CopilotToolHosts.Claude))
+        {
+            states.Add(new CopilotToolHostState(CopilotToolHosts.Claude, enabled, installedVersion, availableVersion, "Configured from local JSON"));
+        }
+
+        return states;
+    }
 
     private static string VersionOr(JsonNode node, string name, string fallback) =>
         GetString(node, name) is { Length: > 0 } value ? value : fallback;

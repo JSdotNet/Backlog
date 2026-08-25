@@ -12,6 +12,15 @@
 *@
 
 <div class="@ClassValue" data-testid="@TestId">
+    @* Only when the bar has something to put in it.
+
+       A host whose own header carries the title, the copy and the way into
+       editing hands this none of the three — see KnowledgeChapterEditor.Bare —
+       and the row was drawn all the same: an empty strip two rems tall between
+       that header and the first line of the file. Room taken from the body by
+       controls that are not there. *@
+    @if (ShowsBar)
+    {
     <div class="markdown-document__bar">
         <span class="markdown-document__title">@Title</span>
 
@@ -36,6 +45,7 @@
             }
         </span>
     </div>
+    }
 
     @if (Editing)
     {
@@ -44,6 +54,8 @@
                         OnBlur="OnBlur"
                         AriaLabel="@EditorAriaLabel"
                         Rows="@Rows"
+                        Fill="@Fill"
+                        Bare="@BareEditor"
                         TestId="@Suffix("editor")" />
     }
     else
@@ -129,6 +141,35 @@
     [Parameter]
     public int Rows { get; set; } = 14;
 
+    /// <summary>
+    /// Whether the editor takes the height the host gives it instead of the one
+    /// <see cref="Rows"/> asks for. Handed straight to
+    /// <see cref="MarkdownEditor.Fill"/>, which explains what the two heights
+    /// cost and when each is right.
+    /// <para>
+    /// Nothing but a pass-through, and deliberately: this component holds no
+    /// height of its own — it is a bar over one of two bodies — so the only
+    /// useful thing it can do with the answer is give it to the surface that has
+    /// to stretch. The read view is untouched either way, because a rendered
+    /// body is already as tall as the body.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Fill { get; set; }
+
+    /// <summary>
+    /// Whether the editor gives up its own frame, because the host already drew
+    /// one around it. Handed straight to <see cref="MarkdownEditor.Bare"/>, which
+    /// explains what a second edge a pixel inside the first costs a reader.
+    /// <para>
+    /// A pass-through for the same reason <see cref="Fill"/> is: the frame in
+    /// question is the editor's, and this component draws none of its own. The
+    /// read view keeps whatever it had — it has no border to give up.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool BareEditor { get; set; }
+
     /// <summary>Comments against the read view's blocks. Not shown while
     /// editing: the blocks they are anchored to do not exist in that mode, and a
     /// comment beside a textarea would be pointing at nothing.</summary>
@@ -168,8 +209,17 @@
     {
         "markdown-document",
         Editing ? "markdown-document--editing" : null,
+        Fill ? "markdown-document--fill" : null,
         CssClass
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>
+    /// Whether the bar has anything to say. A title, a copy button, a way into
+    /// editing — any one of them is a bar; none of them is a strip of empty
+    /// space above the body, which is what a host that carries all three in its
+    /// own header used to get.
+    /// </summary>
+    private bool ShowsBar => !string.IsNullOrWhiteSpace(Title) || (!Editing && AllowCopy) || CanEdit;
 
     private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
 

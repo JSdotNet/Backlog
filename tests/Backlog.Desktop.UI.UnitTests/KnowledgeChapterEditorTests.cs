@@ -267,6 +267,51 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
         Assert.Contains("notes.md", message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task A_surface_asked_to_fill_stops_being_sized_by_its_own_content()
+    {
+        // The wrapper is a grid, and a grid is as tall as its rows unless it is
+        // told otherwise. Inside a pane whose header already offered the Edit
+        // that put this on screen, that leaves the editor a short box with the
+        // rest of the pane empty under it — which is what the modifier and the
+        // Fill it hands on to the document are for.
+        await using var context = NewContext();
+        var (_, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
+
+        var component = context.Render<KnowledgeChapterEditor>(parameters => parameters
+            .Add(editor => editor.Chapter, chapter)
+            .Add(editor => editor.InitialText, "# Notes\n\nProse.\n")
+            .Add(editor => editor.Bare, true)
+            .Add(editor => editor.Fill, true));
+
+        var surface = component.Find("[data-testid='knowledge-chapter-surface']");
+
+        Assert.Contains("knowledge-chapter-editor--fill", surface.ClassList);
+
+        // All the way down: the wrapper giving up its content height buys
+        // nothing if the textarea inside it is still fourteen rows tall.
+        Assert.Contains("markdown-editor--fill", component.Find(".markdown-editor").ClassList);
+    }
+
+    [Fact]
+    public async Task A_surface_nobody_sized_renders_exactly_as_it_did()
+    {
+        // Off by default, because the areas that render this under something
+        // other than a file view header still want the grid they have.
+        await using var context = NewContext();
+        var (_, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
+
+        var component = context.Render<KnowledgeChapterEditor>(parameters => parameters
+            .Add(editor => editor.Chapter, chapter)
+            .Add(editor => editor.InitialText, "# Notes\n\nProse.\n")
+            .Add(editor => editor.Bare, true));
+
+        Assert.DoesNotContain(
+            "knowledge-chapter-editor--fill",
+            component.Find("[data-testid='knowledge-chapter-surface']").ClassList);
+        Assert.DoesNotContain("markdown-editor--fill", component.Find(".markdown-editor").ClassList);
+    }
+
     /// <summary>
     /// Deletes the temp folders once every test has awaited its context away, so
     /// the editor's disposal save has landed before the folder it was aimed at

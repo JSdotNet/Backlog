@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="A task, as a row"
-           Description="`Task` is the record, `OnToggle` completes it, and `AllowCopy` is on by default. The circle is a real checkbox to anything listening; the copy button acts on the task's text and stops the click before the row sees it.
+           Description="`Task` is the record, `OnToggle` completes it, and `AllowCopy` is on by default. The circle is a real checkbox to anything listening; the copy button acts on the task's text and stops the click before the row sees it. It reads behind the state — after the metadata, after the pencil and after whatever the host puts in `RowActions` — because everything ahead of it says what the task is, and copying is the one act that takes the task away with you. The bin stays last.
 
 Everything the row knows about itself rides on one metadata line, and absent facts are left out rather than filled in. What that line puts first is the rule linked above."
            Code="@RowCode">
@@ -194,6 +194,21 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
                           RowActions="@(task => HostActions(task))" />
         </div>
         <p class="sb-state" data-testid="task-list-row-action-state">@(_lastAction ?? "Nothing pressed yet.")</p>
+    </Story>
+
+    <Story Name="What a row copies, decided by the host"
+           Description="`RowCopyValue` is asked per row, and answering `null` leaves that row copying what it always copied — its title, and its body under it when it has one.
+
+It exists for the row that was projected from a document the task itself does not carry. A backlog entry is the case: its row deliberately has no `Body`, because a body would give every row in the column a disclosure, so a copy left to the default would hand over a bare title instead of the brief somebody came to paste. The pane holding the markdown is the only thing that can answer, which is the same bargain `RowCssClass` makes."
+           Code="@RowCopyValueCode">
+        <div class="sb-menu-wide" data-testid="task-list-row-copy-value">
+            <TaskListView Tasks="@Sample"
+                          OnToggle="_ => { }"
+                          RowCopyValue="@SampleCopyText"
+                          AriaLabel="Tasks with host-supplied copy text"
+                          TestId="row-copy-value" />
+        </div>
+        <p class="sb-state" data-testid="task-list-row-copy-value-note">The last row answers null, so it copies its own title.</p>
     </Story>
 
     <Story Name="Nothing to toggle, nothing to copy"
@@ -600,6 +615,17 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
                         OnClick='() => Record("Handed over", task)'>gh</IconButton>
         </text>;
     private void Record(string what, TaskRow task) => _lastAction = $"{what}: {task.Title}.";
+
+    /// <summary>This story's host answer: every row but the last hands over a
+    /// written-up version of itself, and the last answers null, so one story shows
+    /// both halves of the hook.</summary>
+    private string? SampleCopyText(TaskRow task) =>
+        ReferenceEquals(task, Sample[^1]) ? null : $"{task.Title}\n\nWritten up in full, the way the host holds it.";
+
+    private const string RowCopyValueCode = """
+        <TaskListView Tasks="@tasks"
+                      RowCopyValue="@(task => Markdown(task.Id))" />
+        """;
 
     private const string RowActionCode = """
         <TaskListView Tasks="@tasks" RowActions="@(task => Actions(task))" />

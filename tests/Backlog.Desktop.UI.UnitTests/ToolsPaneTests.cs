@@ -298,6 +298,209 @@ public sealed class ToolsPaneTests
         Assert.DoesNotContain("Install", actions, StringComparison.Ordinal);
     }
 
+    /// <summary>Which hosts a row is for decides what its Update actually does.
+    /// A catalog driving two hosts through one row is unreadable without it being
+    /// said, and "says nothing" reads as "Copilot only".</summary>
+    [Fact]
+    public void Every_row_says_which_hosts_it_is_for()
+    {
+        var service = FakeCopilotToolService.With(
+            Tool("plugin:architecture", "architecture") with { Hosts = CopilotToolHosts.Both },
+            Tool("plugin:claude-desktop", "claude-desktop") with { Hosts = CopilotToolHosts.Claude },
+            Tool("plugin:copilot-app", "copilot-app") with { Hosts = CopilotToolHosts.Copilot });
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        var labels = pane.FindAll("[data-testid='tools-row-hosts']").Select(badge => badge.TextContent).ToArray();
+
+        Assert.Equal(["Copilot + Claude", "Claude", "Copilot"], labels);
+    }
+
+    /// <summary>The badge carries what each host answered, when there is more than
+    /// one answer to carry. A row whose hosts agree gets no tooltip — the columns
+    /// already say it.</summary>
+    [Fact]
+    public void A_row_whose_hosts_disagree_names_both_answers()
+    {
+        var tool = Tool("plugin:architecture", "architecture") with
+        {
+            HostStates =
+            [
+                new(CopilotToolHosts.Copilot, true, "1.2.0", "1.2.0", "Enabled plugin"),
+                new(CopilotToolHosts.Claude, false, "not installed", "1.2.0", "Not installed")
+            ]
+        };
+        using var context = Context(FakeCopilotToolService.With(tool));
+
+        var badge = context.Render<ToolsPane>().Find("[data-testid='tools-row-hosts']");
+
+        Assert.Contains("Copilot: Enabled plugin", badge.GetAttribute("title"), StringComparison.Ordinal);
+        Assert.Contains("Claude: Not installed", badge.GetAttribute("title"), StringComparison.Ordinal);
+    }
+
+    /// <summary>A plugin Copilot already has and Claude has never heard of is
+    /// still a plugin this machine is short of, and one press acts on both.</summary>
+    [Fact]
+    public void A_plugin_missing_on_only_one_host_still_offers_to_install_it()
+    {
+        var actions = ActionsFor(Tool("plugin:architecture", "architecture") with
+        {
+            HostStates =
+            [
+                new(CopilotToolHosts.Copilot, true, "1.2.0", "1.2.0", "Enabled plugin"),
+                new(CopilotToolHosts.Claude, false, "not installed", "1.2.0", "Not installed")
+            ]
+        });
+
+        Assert.Contains("Install", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Up to date", actions, StringComparison.Ordinal);
+    }
+
+    /// <summary>A marketplace has no version to be behind, so it never earns an
+    /// Update the way a tool does. What it has is two states and one verb for
+    /// each.</summary>
+    [Theory]
+    [InlineData(true, "Update")]
+    [InlineData(false, "Add")]
+    public void A_marketplace_row_offers_adding_or_refreshing_it(bool known, string expected)
+    {
+        var actions = ActionsFor(Marketplace(known));
+
+        Assert.Contains(expected, actions, StringComparison.Ordinal);
+    }
+
+    /// <summary>It is not a tool this machine opts into — it is where the Claude
+    /// plugins that do come from — so the only way to stop wanting one is to
+    /// remove it.</summary>
+    [Fact]
+    public void A_marketplace_row_cannot_be_disabled()
+    {
+        var actions = ActionsFor(Marketplace(known: true));
+
+        Assert.DoesNotContain("Disable", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Enable", actions, StringComparison.Ordinal);
+    }
+
+    /// <summary>A marketplace Claude has never been told about is the one gap that
+    /// fails a whole block of rows for a single reason, so "Update all" is offered
+    /// for it even though a marketplace has no version to be behind.</summary>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void Update_all_is_offered_while_a_marketplace_is_still_missing(bool known, bool expectDisabled)
+    {
+        using var context = Context(FakeCopilotToolService.With(Marketplace(known)));
+
+        var pane = context.Render<ToolsPane>();
+        var updateAll = pane.FindAll(".tools-panel__toolbar-actions button")[1];
+
+        Assert.Equal(expectDisabled, updateAll.HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void Adding_a_marketplace_sends_a_name_and_a_source()
+    {
+        var service = FakeCopilotToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(CopilotToolKind.Marketplace));
+
+        pane.Find("[data-testid='tools-add-name'] input").Input("jsdotnet-copilot");
+        pane.Find("[data-testid='tools-add-source'] input").Input("JSdotNet/Copilot");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        var draft = Assert.Single(service.Added);
+        Assert.Equal(CopilotToolKind.Marketplace, draft.Kind);
+        Assert.Equal("jsdotnet-copilot", draft.Id);
+        Assert.Equal("JSdotNet/Copilot", draft.Source);
+
+        // A marketplace is a Claude mechanism whatever the hosts selector last had,
+        // and the selector is not on screen for one.
+        Assert.Equal(CopilotToolHosts.Claude, draft.Hosts);
+    }
+
+    [Fact]
+    public void A_marketplace_with_no_source_never_reaches_the_port()
+    {
+        var service = FakeCopilotToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(CopilotToolKind.Marketplace));
+
+        pane.Find("[data-testid='tools-add-name'] input").Input("jsdotnet-copilot");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        Assert.Empty(service.Added);
+        Assert.Contains("A marketplace needs a source.", pane.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Adding_a_claude_only_plugin_sends_its_hosts_and_its_claude_names()
+    {
+        var service = FakeCopilotToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-hosts'] select").Change(nameof(CopilotToolHosts.Claude));
+
+        pane.Find("[data-testid='tools-add-name'] input").Input("jsdotnet-project-guidelines");
+        pane.Find("[data-testid='tools-add-source'] input").Input("JSdotNet/Copilot:plugins/guidelines");
+        pane.Find("[data-testid='tools-add-claude-name'] input").Input("guidelines");
+        pane.Find("[data-testid='tools-add-claude-marketplace'] input").Input("anthropic-skills");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        var draft = Assert.Single(service.Added);
+        Assert.Equal(CopilotToolHosts.Claude, draft.Hosts);
+        Assert.Equal("guidelines", draft.ClaudeName);
+        Assert.Equal("anthropic-skills", draft.ClaudeMarketplace);
+    }
+
+    /// <summary>Both blank in the ordinary case: the Claude id falls back to the
+    /// plugin's own name and to the first marketplace in the catalog, and writing
+    /// either out when it only restates the fallback makes the catalog harder to
+    /// read.</summary>
+    [Fact]
+    public void A_copilot_only_plugin_is_not_asked_about_claude_at_all()
+    {
+        using var context = Context(FakeCopilotToolService.With());
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-hosts'] select").Change(nameof(CopilotToolHosts.Copilot));
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-claude-name']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-claude-marketplace']"));
+    }
+
+    [Fact]
+    public void Adding_an_mcp_server_sends_the_claude_registration_it_was_given()
+    {
+        var service = FakeCopilotToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(CopilotToolKind.McpServer));
+
+        pane.Find("[data-testid='tools-add-package-id'] input").Input("JSdotNet.MCP.Guidelines");
+        pane.Find("[data-testid='tools-add-name'] input").Input("jsdotnet-project-guidelines");
+        pane.Find("[data-testid='tools-add-claude-server-name'] input").Input("jsdotnet-coding-guidelines");
+        pane.Find("[data-testid='tools-add-claude-command'] input").Input("jsdotnet-guidelines-mcpserver");
+        pane.Find("[data-testid='tools-add-claude-args'] input").Input("agent mcp");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        var draft = Assert.Single(service.Added);
+        Assert.Equal(CopilotToolKind.McpServer, draft.Kind);
+        Assert.Equal("jsdotnet-coding-guidelines", draft.ClaudeServerName);
+        Assert.Equal("jsdotnet-guidelines-mcpserver", draft.ClaudeCommand);
+        Assert.Equal(["agent", "mcp"], draft.ClaudeArgs);
+    }
+
     private static BunitContext Context(ICopilotToolService service)
     {
         var context = new BunitContext();
@@ -327,6 +530,23 @@ public sealed class ToolsPaneTests
 
         return context.Render<ToolsPane>().Find(".tools-table__actions").TextContent;
     }
+
+    /// <summary>A Claude marketplace row, either already known to Claude or not
+    /// yet added. Its Available column is honest rather than empty: there is no
+    /// published version to compare a marketplace against.</summary>
+    private static CopilotToolInfo Marketplace(bool known) => new(
+        "marketplace:jsdotnet-copilot",
+        CopilotToolKind.Marketplace,
+        "jsdotnet-copilot",
+        "JSdotNet/Copilot",
+        ConfiguredEnabled: true,
+        Installed: known,
+        known ? "configured" : "not installed",
+        CopilotToolOutput.NoVersion,
+        known ? "Configured marketplace" : "Not added to Claude yet")
+    {
+        Hosts = CopilotToolHosts.Claude
+    };
 
     private static CopilotToolInfo Tool(bool enabled, bool installed, string installedVersion, string availableVersion) =>
         new(
