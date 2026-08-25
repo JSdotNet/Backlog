@@ -56,16 +56,32 @@ jobs:
           -p:GenerateAppxPackageOnBuild=false
 
       # xunit v3 runs on Microsoft.Testing.Platform, which global.json opts
-      # `dotnet test` into. That mode names the solution with --solution rather
-      # than taking it positionally, and it has no --settings, so the serial
-      # execution _ci.runsettings used to configure is not expressed here yet.
-      # TODO: restore the TRX artifact and the serial run under MTP.
+      # `dotnet test` into. The solution is named with --solution, and the four
+      # options below are what .github/_ci.runsettings and the VSTest loggers used
+      # to say before MTP replaced both:
+      #
+      #   MaxCpuCount 1                -> --max-parallel-test-modules 1
+      #   ParallelizeTestCollections   -> --parallel none
+      #   --logger trx                 -> --report-trx (the reporter is an opt-in
+      #                                   extension under MTP, which is why every
+      #                                   test project references TrxReport)
+      #   --results-directory          -> unchanged, and it is what the upload
+      #                                   step below collects.
+      #
+      # MTP swallows an option it does not recognise and then runs nothing, exiting
+      # 5 with "Zero tests ran" rather than rejecting the argument -- so a stale
+      # flag here reads as a green-looking run of no tests. Change these only
+      # against `dotnet test --help`.
       - name: Run tests
         run: >
           dotnet test
           --solution Backlog.sln
           --no-build
           --configuration Release
+          --max-parallel-test-modules 1
+          --results-directory TestResults
+          --report-trx
+          --parallel none
           -p:RuntimeIdentifierOverride=win-x64
           -p:WindowsPackageType=None
           -p:AppxPackageSigningEnabled=false

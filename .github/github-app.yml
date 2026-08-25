@@ -43,15 +43,21 @@ pre_flight:
       -p:AppxPackageSigningEnabled=false
       -p:GenerateAppxPackageOnBuild=false
 
+  # Microsoft.Testing.Platform, opted into by global.json when the suite moved to
+  # xunit v3. The options mirror pull-request.yml -- see the comment there for what
+  # each one replaces. MTP swallows an option it does not recognise and then runs
+  # nothing, exiting 5 with "Zero tests ran", so a stale flag here is a pre-flight
+  # that never tested anything.
   - name: Run tests
     run: >
-      dotnet test Backlog.sln
+      dotnet test
+      --solution Backlog.sln
       --no-build
       --configuration Release
-      --settings .github\_ci.runsettings
-      --logger trx
-      --results-directory ./TestResults
-      -m:1
+      --max-parallel-test-modules 1
+      --results-directory TestResults
+      --report-trx
+      --parallel none
       -p:RuntimeIdentifierOverride=win-x64
       -p:WindowsPackageType=None
       -p:AppxPackageSigningEnabled=false
