@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// never printed, and a hand-made fixture would have agreed with that regex just
 /// as happily as with the fix.</para>
 /// </summary>
-public class CopilotToolOutputTests
+public class DevToolOutputTests
 {
     /// <summary>GitHub Copilot CLI 1.0.80, verbatim.</summary>
     private const string PluginListOutput = """
@@ -44,7 +44,7 @@ public class CopilotToolOutputTests
     [Fact]
     public void The_plugin_list_reads_the_cli_bullet_form()
     {
-        var plugins = CopilotToolOutput.ParsePluginList(PluginListOutput);
+        var plugins = DevToolOutput.ParsePluginList(PluginListOutput);
 
         Assert.Equal("0.4.0", plugins["architecture"]);
         Assert.Equal("0.1.0", plugins["github"]);
@@ -56,7 +56,7 @@ public class CopilotToolOutputTests
     [Fact]
     public void A_marketplace_suffix_is_not_part_of_the_plugin_name()
     {
-        var plugins = CopilotToolOutput.ParsePluginList(PluginListOutput);
+        var plugins = DevToolOutput.ParsePluginList(PluginListOutput);
 
         Assert.Equal("0.4.0", plugins["winui"]);
         Assert.DoesNotContain("winui@win-dev-skills", plugins.Keys);
@@ -68,7 +68,7 @@ public class CopilotToolOutputTests
     [Fact]
     public void Neither_the_header_nor_the_bullet_becomes_a_plugin()
     {
-        var plugins = CopilotToolOutput.ParsePluginList(PluginListOutput);
+        var plugins = DevToolOutput.ParsePluginList(PluginListOutput);
 
         Assert.DoesNotContain("Installed", plugins.Keys);
         Assert.DoesNotContain("•", plugins.Keys);
@@ -81,7 +81,7 @@ public class CopilotToolOutputTests
     [Fact]
     public void A_disabled_plugin_is_still_installed()
     {
-        var plugins = CopilotToolOutput.ParsePluginList(PluginListOutput);
+        var plugins = DevToolOutput.ParsePluginList(PluginListOutput);
 
         Assert.True(plugins.ContainsKey("winui"));
         Assert.DoesNotContain("disabled", plugins["winui"], StringComparison.OrdinalIgnoreCase);
@@ -90,18 +90,18 @@ public class CopilotToolOutputTests
     [Fact]
     public void A_plugin_without_a_version_still_counts_as_installed()
     {
-        var plugins = CopilotToolOutput.ParsePluginList("""
+        var plugins = DevToolOutput.ParsePluginList("""
             Installed plugins:
               • mystery
             """);
 
-        Assert.Equal(CopilotToolOutput.Installed, plugins["mystery"]);
+        Assert.Equal(DevToolOutput.Installed, plugins["mystery"]);
     }
 
     [Fact]
     public void The_global_tool_list_reads_package_ids_case_insensitively()
     {
-        var tools = CopilotToolOutput.ParseDotNetToolList(DotNetToolListOutput);
+        var tools = DevToolOutput.ParseDotNetToolList(DotNetToolListOutput);
 
         Assert.Equal("1.0.12", tools["jsdotnet.mcp.guidelines"]);
         Assert.Equal("1.0.12", tools["JSdotNet.MCP.Guidelines"]);
@@ -113,7 +113,7 @@ public class CopilotToolOutputTests
     [Fact]
     public void The_tool_search_takes_the_row_whose_id_matches_whole()
     {
-        var version = CopilotToolOutput.ParseDotNetToolSearchVersion(DotNetToolSearchOutput, "JSdotNet.MCP.Guidelines");
+        var version = DevToolOutput.ParseDotNetToolSearchVersion(DotNetToolSearchOutput, "JSdotNet.MCP.Guidelines");
 
         Assert.Equal("1.0.12", version);
     }
@@ -121,9 +121,9 @@ public class CopilotToolOutputTests
     [Fact]
     public void The_tool_search_reports_unknown_for_a_package_it_did_not_list()
     {
-        var version = CopilotToolOutput.ParseDotNetToolSearchVersion(DotNetToolSearchOutput, "JSdotNet.MCP.Missing");
+        var version = DevToolOutput.ParseDotNetToolSearchVersion(DotNetToolSearchOutput, "JSdotNet.MCP.Missing");
 
-        Assert.Equal(CopilotToolOutput.Unknown, version);
+        Assert.Equal(DevToolOutput.Unknown, version);
     }
 
     [Theory]
@@ -137,7 +137,7 @@ public class CopilotToolOutputTests
         string repository,
         string manifestPath)
     {
-        var parsed = CopilotToolOutput.ParsePluginSource(source);
+        var parsed = DevToolOutput.ParsePluginSource(source);
 
         Assert.NotNull(parsed);
         Assert.Equal(owner, parsed.Owner);
@@ -151,7 +151,7 @@ public class CopilotToolOutputTests
     [InlineData("not-a-source")]
     [InlineData("https://example.com/owner/repo")]
     public void An_unrecognised_source_resolves_to_nothing(string source) =>
-        Assert.Null(CopilotToolOutput.ParsePluginSource(source));
+        Assert.Null(DevToolOutput.ParsePluginSource(source));
 
     [Fact]
     public void The_plugin_manifest_carries_the_published_version()
@@ -164,7 +164,7 @@ public class CopilotToolOutputTests
             }
             """;
 
-        Assert.Equal("0.4.0", CopilotToolOutput.ParsePluginManifestVersion(manifest));
+        Assert.Equal("0.4.0", DevToolOutput.ParsePluginManifestVersion(manifest));
     }
 
     [Theory]
@@ -173,7 +173,7 @@ public class CopilotToolOutputTests
     [InlineData("{ \"name\": \"architecture\" }")]
     [InlineData("{ \"version\": 4 }")]
     public void A_manifest_that_does_not_parse_reports_nothing_rather_than_throwing(string json) =>
-        Assert.Null(CopilotToolOutput.ParsePluginManifestVersion(json));
+        Assert.Null(DevToolOutput.ParsePluginManifestVersion(json));
 
     /// <summary>The local HEAD and the remote HEAD arrive at different widths —
     /// <c>rev-parse</c> can be asked for a short one, <c>ls-remote</c> cannot —
@@ -182,15 +182,15 @@ public class CopilotToolOutputTests
     [Fact]
     public void A_local_and_a_remote_head_compare_at_the_same_width()
     {
-        var local = CopilotToolOutput.ShortCommit("92f9b2bc987cb1b1db2c32741774ba5e43ddffac");
-        var remote = CopilotToolOutput.ShortCommit("add2b0e0f9351d080b10ca2447f241bd8e87be17");
+        var local = DevToolOutput.ShortCommit("92f9b2bc987cb1b1db2c32741774ba5e43ddffac");
+        var remote = DevToolOutput.ShortCommit("add2b0e0f9351d080b10ca2447f241bd8e87be17");
 
         Assert.Equal("92f9b2b", local);
         Assert.Equal("add2b0e", remote);
-        Assert.True(CopilotToolInfo.VersionDiffers(local, remote));
+        Assert.True(DevToolInfo.VersionDiffers(local, remote));
     }
 
     [Fact]
     public void A_head_that_is_already_short_survives_untouched() =>
-        Assert.Equal("92f9b2b", CopilotToolOutput.ShortCommit("  92f9b2b\n"));
+        Assert.Equal("92f9b2b", DevToolOutput.ShortCommit("  92f9b2b\n"));
 }

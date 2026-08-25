@@ -68,7 +68,7 @@ public sealed class HomeKnowledgePaneTests
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
         context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
-        context.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
+        context.Services.AddSingleton<IDevToolService, UnsupportedDevToolService>();
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the

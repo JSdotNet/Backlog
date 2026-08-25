@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Backlog.Modules.DevPc.Abstractions;
 
-public enum CopilotToolKind
+public enum DevToolKind
 {
     Plugin,
     McpServer,
@@ -34,7 +34,7 @@ public enum CopilotToolKind
 /// half.</para>
 /// </summary>
 [Flags]
-public enum CopilotToolHosts
+public enum DevToolHosts
 {
     None = 0,
     Copilot = 1,
@@ -51,23 +51,23 @@ public enum CopilotToolHosts
 /// entry is one entry, and this is where the two answers live so that neither has
 /// to be flattened away to make room for the other.</para>
 /// </summary>
-public sealed record CopilotToolHostState(
-    CopilotToolHosts Host,
+public sealed record DevToolHostState(
+    DevToolHosts Host,
     bool Installed,
     string InstalledVersion,
     string AvailableVersion,
     string Status);
 
-public enum CopilotToolAction
+public enum DevToolAction
 {
     Update,
     Enable,
     Disable
 }
 
-public sealed record CopilotToolInfo(
+public sealed record DevToolInfo(
     string Key,
-    CopilotToolKind Kind,
+    DevToolKind Kind,
     string Name,
     string? Source,
     bool ConfiguredEnabled,
@@ -80,7 +80,7 @@ public sealed record CopilotToolInfo(
     /// harness, the unsupported service and every test that builds one
     /// positionally still compile — and so an entry nobody has thought about
     /// lands on the same "both hosts" the catalog format means by silence.</summary>
-    public CopilotToolHosts Hosts { get; init; } = CopilotToolHosts.Both;
+    public DevToolHosts Hosts { get; init; } = DevToolHosts.Both;
 
     /// <summary>What each targeted host answered, or empty when the host behind
     /// this row does not separate them.
@@ -90,7 +90,7 @@ public sealed record CopilotToolInfo(
     /// properties below read the per-host detail when it is there and fall back to
     /// the single values when it is not, so an old-shaped row behaves exactly as
     /// it always did.</para></summary>
-    public IReadOnlyList<CopilotToolHostState> HostStates { get; init; } = [];
+    public IReadOnlyList<DevToolHostState> HostStates { get; init; } = [];
 
     public bool UpdateAvailable => HostStates.Count > 0
         ? HostStates.Any(state => VersionDiffers(state.InstalledVersion, state.AvailableVersion))
@@ -128,7 +128,7 @@ public sealed record CopilotToolInfo(
 
     private static bool IsKnownVersion(string availableVersion) =>
         !string.IsNullOrWhiteSpace(availableVersion)
-        && !availableVersion.Trim().Equals(CopilotToolOutput.Unknown, StringComparison.OrdinalIgnoreCase);
+        && !availableVersion.Trim().Equals(DevToolOutput.Unknown, StringComparison.OrdinalIgnoreCase);
 
     public static bool VersionDiffers(string installedVersion, string availableVersion)
     {
@@ -153,9 +153,9 @@ public sealed record CopilotToolInfo(
         // the newest of them and the one with teeth: a marketplace row carries it
         // opposite the word "configured", and comparing those two as versions
         // reported an update on every check forever.
-        if (trimmed.Equals(CopilotToolOutput.Unknown, StringComparison.OrdinalIgnoreCase)
-            || trimmed.Equals(CopilotToolOutput.NotInstalled, StringComparison.OrdinalIgnoreCase)
-            || trimmed.Equals(CopilotToolOutput.NoVersion, StringComparison.OrdinalIgnoreCase)
+        if (trimmed.Equals(DevToolOutput.Unknown, StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals(DevToolOutput.NotInstalled, StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals(DevToolOutput.NoVersion, StringComparison.OrdinalIgnoreCase)
             || trimmed.Equals("source", StringComparison.OrdinalIgnoreCase))
         {
             return null;
@@ -175,7 +175,7 @@ public sealed record CopilotToolInfo(
 /// <para>
 /// <paramref name="PluginKind"/> is the catalog's own <c>kind</c> string,
 /// <c>repository-skills</c> and its siblings, and is deliberately not the
-/// <see cref="CopilotToolKind"/> enum beside it. The enum says which array an
+/// <see cref="DevToolKind"/> enum beside it. The enum says which array an
 /// entry lives in; this says what the host does with it once it is there, and
 /// the host reads it as free text it may not recognise.
 /// </para>
@@ -187,18 +187,18 @@ public sealed record CopilotToolInfo(
 /// fallback would make the catalog harder to read for no gain, so a blank one is
 /// left out of the entry entirely.
 /// </para></summary>
-public sealed record CopilotToolDraft(
-    CopilotToolKind Kind,
+public sealed record DevToolDraft(
+    DevToolKind Kind,
     string Id,
     string? Source = null,
     string? DisplayName = null,
     string? PluginKind = null)
 {
-    /// <summary>Which hosts the new entry is for. <see cref="CopilotToolHosts.Both"/>
+    /// <summary>Which hosts the new entry is for. <see cref="DevToolHosts.Both"/>
     /// is written as no <c>hosts</c> property at all, matching what the format
     /// means by silence and what every catalog written before Claude support
     /// already says.</summary>
-    public CopilotToolHosts Hosts { get; init; } = CopilotToolHosts.Both;
+    public DevToolHosts Hosts { get; init; } = DevToolHosts.Both;
 
     /// <summary>What the plugin is called in the Claude marketplace, when that is
     /// not what Copilot calls it.</summary>
@@ -226,12 +226,12 @@ public sealed record CopilotToolDraft(
 /// <para>Checking tools means running about a dozen processes — a CLI probe, two
 /// inventory listings, and a version lookup per configured tool — and until this
 /// existed the only trace of any of them was the single sentence in
-/// <see cref="CopilotToolCatalog.Message"/>. A failing <c>dotnet tool search</c>
+/// <see cref="DevToolCatalog.Message"/>. A failing <c>dotnet tool search</c>
 /// or a <c>plugin install</c> that refused had already been captured and was then
 /// dropped on the floor, which left the operator with a summary and nothing to
 /// read behind it.</para>
 /// </summary>
-public sealed record CopilotToolCommand(string CommandLine, int ExitCode, string Output);
+public sealed record DevToolCommand(string CommandLine, int ExitCode, string Output);
 
 /// <summary>What the tools surface has to draw.
 /// <para>
@@ -250,8 +250,8 @@ public sealed record CopilotToolCommand(string CommandLine, int ExitCode, string
 /// uses still compiles. A host that really answers this port sets them anyway —
 /// the defaults describe the host that cannot.
 /// </para></summary>
-public sealed record CopilotToolCatalog(
-    IReadOnlyList<CopilotToolInfo> Tools,
+public sealed record DevToolCatalog(
+    IReadOnlyList<DevToolInfo> Tools,
     string Message,
     bool CatalogExists = false,
     string CatalogPath = "",
@@ -263,22 +263,22 @@ public sealed record CopilotToolCatalog(
     /// that has no processes behind it — the browser harness, the unsupported
     /// service — still constructs this without it, and diagnostics arriving is
     /// not a reason for those to stop compiling.</para></summary>
-    public IReadOnlyList<CopilotToolCommand> Commands { get; init; } = [];
+    public IReadOnlyList<DevToolCommand> Commands { get; init; } = [];
 }
 
-public sealed record CopilotToolActionResult(bool Succeeded, string Message)
+public sealed record DevToolActionResult(bool Succeeded, string Message)
 {
-    /// <inheritdoc cref="CopilotToolCatalog.Commands" />
-    public IReadOnlyList<CopilotToolCommand> Commands { get; init; } = [];
+    /// <inheritdoc cref="DevToolCatalog.Commands" />
+    public IReadOnlyList<DevToolCommand> Commands { get; init; } = [];
 
-    public static CopilotToolActionResult Ok(string message, IReadOnlyList<CopilotToolCommand>? commands = null) =>
+    public static DevToolActionResult Ok(string message, IReadOnlyList<DevToolCommand>? commands = null) =>
         new(true, message) { Commands = commands ?? [] };
 
-    public static CopilotToolActionResult Failed(string message, IReadOnlyList<CopilotToolCommand>? commands = null) =>
+    public static DevToolActionResult Failed(string message, IReadOnlyList<DevToolCommand>? commands = null) =>
         new(false, message) { Commands = commands ?? [] };
 }
 
-public sealed record CopilotToolConfigurationPaths(string CatalogPath, string PcConfigPath)
+public sealed record DevToolConfigurationPaths(string CatalogPath, string PcConfigPath)
 {
     private const string DefaultRepositoryRoot = "%USERPROFILE%\\.copilot\\repos\\Backlog";
     private const string ToolFolderName = ".tools";
@@ -297,7 +297,7 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
     /// the catalog they already had.</para></summary>
     public const string LegacyCatalogFileName = "copilot-tools.json";
 
-    public static CopilotToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null, string? storageRootDirectory = null)
+    public static DevToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null, string? storageRootDirectory = null)
     {
         if (!string.IsNullOrWhiteSpace(storageRootDirectory))
         {
@@ -312,27 +312,27 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
             : FromStorageRoot(localCatalogRoot, machineName);
     }
 
-    public static CopilotToolConfigurationPaths FromRepositoryRoot(string repositoryRoot, string? machineName = null)
+    public static DevToolConfigurationPaths FromRepositoryRoot(string repositoryRoot, string? machineName = null)
         => FromStorageRoot(repositoryRoot, machineName);
 
-    public static CopilotToolConfigurationPaths FromStorageRoot(string storageRoot, string? machineName = null)
+    public static DevToolConfigurationPaths FromStorageRoot(string storageRoot, string? machineName = null)
     {
         var expandedRoot = Environment.ExpandEnvironmentVariables(storageRoot);
         var pcName = NormalizeMachineName(machineName ?? Environment.MachineName);
         var toolFolder = Path.Combine(expandedRoot, ToolFolderName);
 
-        return new CopilotToolConfigurationPaths(
+        return new DevToolConfigurationPaths(
             ResolveCatalogFile(toolFolder),
             ResolveCatalogFile(Path.Combine(toolFolder, pcName)));
     }
 
-    public static CopilotToolConfigurationPaths FromCatalogPath(string catalogPath, string? machineName = null)
+    public static DevToolConfigurationPaths FromCatalogPath(string catalogPath, string? machineName = null)
     {
         var expandedCatalog = Environment.ExpandEnvironmentVariables(catalogPath);
         var toolRoot = Path.GetDirectoryName(expandedCatalog) ?? Environment.CurrentDirectory;
         var pcName = NormalizeMachineName(machineName ?? Environment.MachineName);
 
-        return new CopilotToolConfigurationPaths(
+        return new DevToolConfigurationPaths(
             expandedCatalog,
             ResolveCatalogFile(Path.Combine(toolRoot, pcName)));
     }
@@ -394,9 +394,9 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
     }
 }
 
-public sealed record CopilotToolConfigurationDocument(JsonNode Root, bool PcConfigExists, string CatalogPath, string PcConfigPath);
+public sealed record DevToolConfigurationDocument(JsonNode Root, bool PcConfigExists, string CatalogPath, string PcConfigPath);
 
-public static class CopilotToolConfiguration
+public static class DevToolConfiguration
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -415,7 +415,7 @@ public static class CopilotToolConfiguration
     /// <summary>Whether there is a catalog to read at all. Both hosts ask here
     /// rather than calling <see cref="File.Exists(string)"/> themselves, so the
     /// answer the pane branches on has one definition.</summary>
-    public static bool CatalogExists(CopilotToolConfigurationPaths paths) => File.Exists(paths.CatalogPath);
+    public static bool CatalogExists(DevToolConfigurationPaths paths) => File.Exists(paths.CatalogPath);
 
     /// <summary>Where the Claude marketplaces live in the catalog. A path rather
     /// than a property name because it is the one array that is nested, and
@@ -425,10 +425,10 @@ public static class CopilotToolConfiguration
 
     /// <summary>The key a tool is addressed by, minted in one place so the
     /// prefixes <see cref="ParseKey"/> reads are the prefixes callers write.</summary>
-    public static string KeyFor(CopilotToolKind kind, string id) => kind switch
+    public static string KeyFor(DevToolKind kind, string id) => kind switch
     {
-        CopilotToolKind.Plugin => $"plugin:{id}",
-        CopilotToolKind.Marketplace => $"marketplace:{id}",
+        DevToolKind.Plugin => $"plugin:{id}",
+        DevToolKind.Marketplace => $"marketplace:{id}",
         _ => $"mcp:{id}"
     };
 
@@ -440,8 +440,8 @@ public static class CopilotToolConfiguration
     /// predate Claude support has to keep working rather than lose its Claude
     /// half to a property nobody wrote.</para>
     /// </summary>
-    public static CopilotToolHosts ParseHosts(JsonNode? entry) =>
-        CopilotToolOutput.ParseHosts(entry?["hosts"] is JsonArray hosts
+    public static DevToolHosts ParseHosts(JsonNode? entry) =>
+        DevToolOutput.ParseHosts(entry?["hosts"] is JsonArray hosts
             ? hosts.Select(node => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : node?.ToString())
             : null);
 
@@ -451,7 +451,7 @@ public static class CopilotToolConfiguration
     /// hand-written.</summary>
     /// <exception cref="InvalidOperationException">A catalog is already there.
     /// Creating over it would discard every entry in it.</exception>
-    public static async Task CreateCatalogAsync(CopilotToolConfigurationPaths paths, CancellationToken ct = default)
+    public static async Task CreateCatalogAsync(DevToolConfigurationPaths paths, CancellationToken ct = default)
     {
         await CatalogWriteLock.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -480,7 +480,7 @@ public static class CopilotToolConfiguration
     /// <exception cref="InvalidOperationException">There is no catalog yet, the
     /// draft is missing something the entry cannot be written without, or the id
     /// is already taken for that kind.</exception>
-    public static async Task AddToCatalogAsync(CopilotToolConfigurationPaths paths, CopilotToolDraft draft, CancellationToken ct = default)
+    public static async Task AddToCatalogAsync(DevToolConfigurationPaths paths, DevToolDraft draft, CancellationToken ct = default)
     {
         var id = draft.Id?.Trim() ?? string.Empty;
         var source = draft.Source?.Trim() ?? string.Empty;
@@ -489,8 +489,8 @@ public static class CopilotToolConfiguration
         {
             throw new InvalidOperationException(draft.Kind switch
             {
-                CopilotToolKind.Plugin => "A plugin needs a name.",
-                CopilotToolKind.Marketplace => "A marketplace needs a name.",
+                DevToolKind.Plugin => "A plugin needs a name.",
+                DevToolKind.Marketplace => "A marketplace needs a name.",
                 _ => "An MCP server needs a package id."
             });
         }
@@ -499,12 +499,12 @@ public static class CopilotToolConfiguration
         // is rejected here rather than written and failed against later. An MCP
         // server needs none: its package id is where it comes from. A marketplace
         // is all source — the name is only how the CLI refers to it afterwards.
-        if (draft.Kind is CopilotToolKind.Plugin && source.Length == 0)
+        if (draft.Kind is DevToolKind.Plugin && source.Length == 0)
         {
             throw new InvalidOperationException("A plugin needs a source.");
         }
 
-        if (draft.Kind is CopilotToolKind.Marketplace && source.Length == 0)
+        if (draft.Kind is DevToolKind.Marketplace && source.Length == 0)
         {
             throw new InvalidOperationException("A marketplace needs a source.");
         }
@@ -531,7 +531,7 @@ public static class CopilotToolConfiguration
 
             var entry = new JsonObject { [idName] = id };
 
-            if (draft.Kind is CopilotToolKind.Marketplace)
+            if (draft.Kind is DevToolKind.Marketplace)
             {
                 // A marketplace carries no enabled flag: it is not a tool this
                 // machine may or may not want, it is where the Claude plugins that
@@ -543,7 +543,7 @@ public static class CopilotToolConfiguration
                 return;
             }
 
-            if (draft.Kind is CopilotToolKind.Plugin)
+            if (draft.Kind is DevToolKind.Plugin)
             {
                 entry["source"] = source;
                 if (!string.IsNullOrWhiteSpace(draft.PluginKind))
@@ -589,7 +589,7 @@ public static class CopilotToolConfiguration
     /// <summary>Drops one entry from the catalog.</summary>
     /// <exception cref="InvalidOperationException">Nothing in the catalog
     /// answers to that key.</exception>
-    public static async Task RemoveFromCatalogAsync(CopilotToolConfigurationPaths paths, string key, CancellationToken ct = default)
+    public static async Task RemoveFromCatalogAsync(DevToolConfigurationPaths paths, string key, CancellationToken ct = default)
     {
         var (arrayName, idName, idValue) = ParseKey(key);
 
@@ -629,7 +629,7 @@ public static class CopilotToolConfiguration
     /// override file has nothing to prune, which is a no-op rather than an
     /// error.</para>
     /// </summary>
-    public static async Task RemoveEnabledOverrideAsync(CopilotToolConfigurationPaths paths, string key, CancellationToken ct = default)
+    public static async Task RemoveEnabledOverrideAsync(DevToolConfigurationPaths paths, string key, CancellationToken ct = default)
     {
         if (!File.Exists(paths.PcConfigPath))
         {
@@ -666,7 +666,7 @@ public static class CopilotToolConfiguration
     /// <exception cref="InvalidOperationException">The text is not a catalog.
     /// Thrown before the catalog file is opened, so a rejected import leaves it
     /// exactly as it was.</exception>
-    public static async Task ImportCatalogAsync(CopilotToolConfigurationPaths paths, string json, CancellationToken ct = default)
+    public static async Task ImportCatalogAsync(DevToolConfigurationPaths paths, string json, CancellationToken ct = default)
     {
         if (!TryReadCatalog(json, out var root, out var error))
         {
@@ -782,7 +782,7 @@ public static class CopilotToolConfiguration
         return null;
     }
 
-    public static async Task<CopilotToolConfigurationDocument> ReadAsync(CopilotToolConfigurationPaths paths, CancellationToken ct = default)
+    public static async Task<DevToolConfigurationDocument> ReadAsync(DevToolConfigurationPaths paths, CancellationToken ct = default)
     {
         await using var catalogStream = File.OpenRead(paths.CatalogPath);
         var root = await JsonNode.ParseAsync(catalogStream, cancellationToken: ct).ConfigureAwait(false)
@@ -790,7 +790,7 @@ public static class CopilotToolConfiguration
 
         if (!File.Exists(paths.PcConfigPath))
         {
-            return new CopilotToolConfigurationDocument(root, false, paths.CatalogPath, paths.PcConfigPath);
+            return new DevToolConfigurationDocument(root, false, paths.CatalogPath, paths.PcConfigPath);
         }
 
         await using var pcStream = File.OpenRead(paths.PcConfigPath);
@@ -800,10 +800,10 @@ public static class CopilotToolConfiguration
         MergeArray(root, pcRoot, "plugins", "name");
         MergeArray(root, pcRoot, "mcpServers", "packageId");
 
-        return new CopilotToolConfigurationDocument(root, true, paths.CatalogPath, paths.PcConfigPath);
+        return new DevToolConfigurationDocument(root, true, paths.CatalogPath, paths.PcConfigPath);
     }
 
-    public static async Task WriteEnabledOverrideAsync(CopilotToolConfigurationPaths paths, string key, bool enabled, CancellationToken ct = default)
+    public static async Task WriteEnabledOverrideAsync(DevToolConfigurationPaths paths, string key, bool enabled, CancellationToken ct = default)
     {
         var root = await ReadPcConfigOrEmptyAsync(paths.PcConfigPath, ct).ConfigureAwait(false);
         var (arrayName, idName, idValue) = ParseKey(key);
@@ -923,24 +923,24 @@ public static class CopilotToolConfiguration
     }
 
     /// <summary>Writes <c>hosts</c> only when it says something the format does not
-    /// already say by omission. <see cref="CopilotToolHosts.Both"/> is what an entry
+    /// already say by omission. <see cref="DevToolHosts.Both"/> is what an entry
     /// with no such property means, so writing it would add a line that changes
     /// nothing and invites the reader to wonder why the entry beside it lacks
     /// one.</summary>
-    private static void WriteHosts(JsonObject entry, CopilotToolHosts hosts)
+    private static void WriteHosts(JsonObject entry, DevToolHosts hosts)
     {
-        if (hosts is CopilotToolHosts.Both or CopilotToolHosts.None)
+        if (hosts is DevToolHosts.Both or DevToolHosts.None)
         {
             return;
         }
 
         var names = new JsonArray();
-        if (hosts.HasFlag(CopilotToolHosts.Copilot))
+        if (hosts.HasFlag(DevToolHosts.Copilot))
         {
             names.Add("copilot");
         }
 
-        if (hosts.HasFlag(CopilotToolHosts.Claude))
+        if (hosts.HasFlag(DevToolHosts.Claude))
         {
             names.Add("claude");
         }
@@ -952,7 +952,7 @@ public static class CopilotToolConfiguration
     /// the draft named no command. The section exists to be handed to
     /// <c>claude mcp add</c>, and one with no command is a registration that could
     /// never be made.</summary>
-    private static JsonObject? ClaudeServerSection(CopilotToolDraft draft)
+    private static JsonObject? ClaudeServerSection(DevToolDraft draft)
     {
         if (string.IsNullOrWhiteSpace(draft.ClaudeCommand))
         {
@@ -1074,26 +1074,26 @@ public static class CopilotToolConfiguration
     }
 }
 
-public interface ICopilotToolService
+public interface IDevToolService
 {
-    Task<CopilotToolCatalog> ListAsync(CancellationToken ct = default);
+    Task<DevToolCatalog> ListAsync(CancellationToken ct = default);
 
-    Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default);
+    Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default);
 
-    Task<CopilotToolActionResult> UpdateAllAsync(CancellationToken ct = default);
+    Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default);
 
-    Task<CopilotToolActionResult> EnableAsync(string key, CancellationToken ct = default);
+    Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default);
 
-    Task<CopilotToolActionResult> DisableAsync(string key, CancellationToken ct = default);
+    Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default);
 
     /// <summary>Writes the empty catalog a machine with none starts from. The
-    /// one act that is available when <see cref="CopilotToolCatalog.CatalogExists"/>
+    /// one act that is available when <see cref="DevToolCatalog.CatalogExists"/>
     /// is false.</summary>
-    Task<CopilotToolActionResult> CreateCatalogAsync(CancellationToken ct = default);
+    Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default);
 
-    Task<CopilotToolActionResult> AddAsync(CopilotToolDraft draft, CancellationToken ct = default);
+    Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default);
 
-    Task<CopilotToolActionResult> RemoveAsync(string key, CancellationToken ct = default);
+    Task<DevToolActionResult> RemoveAsync(string key, CancellationToken ct = default);
 
     /// <summary>Replaces the whole catalog with the document in
     /// <paramref name="json"/>.
@@ -1103,39 +1103,39 @@ public interface ICopilotToolService
     /// here would put <c>Microsoft.AspNetCore.Components.Forms</c> in a port that
     /// a console host and a test both have to be able to call.
     /// </para></summary>
-    Task<CopilotToolActionResult> ImportAsync(string json, CancellationToken ct = default);
+    Task<DevToolActionResult> ImportAsync(string json, CancellationToken ct = default);
 }
 
-public sealed class UnsupportedCopilotToolService : ICopilotToolService
+public sealed class UnsupportedDevToolService : IDevToolService
 {
-    private const string Message = "Copilot tool management is only available in the desktop app.";
+    private const string Message = "Tool management is only available in the desktop app.";
 
     /// <summary>No catalog, no path to name, and nothing on this host can edit
     /// one — so the pane draws the message and none of the affordances.</summary>
-    public Task<CopilotToolCatalog> ListAsync(CancellationToken ct = default) =>
-        Task.FromResult(new CopilotToolCatalog([], Message, CatalogExists: false, CatalogPath: string.Empty, CanEditCatalog: false));
+    public Task<DevToolCatalog> ListAsync(CancellationToken ct = default) =>
+        Task.FromResult(new DevToolCatalog([], Message, CatalogExists: false, CatalogPath: string.Empty, CanEditCatalog: false));
 
-    public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>
-        Task.FromResult(CopilotToolActionResult.Failed(Message));
+    public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
 
-    public Task<CopilotToolActionResult> UpdateAllAsync(CancellationToken ct = default) =>
-        Task.FromResult(CopilotToolActionResult.Failed(Message));
+    public Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
 
-    public Task<CopilotToolActionResult> EnableAsync(string key, CancellationToken ct = default) =>
-        Task.FromResult(CopilotToolActionResult.Failed(Message));
+    public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
 
-    public Task<CopilotToolActionResult> DisableAsync(string key, CancellationToken ct = default) =>
-        Task.FromResult(CopilotToolActionResult.Failed(Message));
+    public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
 
-    public Task<CopilotToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
-        Task.FromResult(CopilotToolActionResult.Failed(Message));
+    public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
 
-    public Task<CopilotToolActionResult> AddAsync(CopilotToolDraft draft, CancellationToken ct = default) =>
-        Task.FromResult(CopilotToolActionResult.Failed(Message));
+    public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
 
-    public Task<CopilotToolActionResult> RemoveAsync(string key, CancellationToken ct = default) =>
-        Task.FromResult(CopilotToolActionResult.Failed(Message));
+    public Task<DevToolActionResult> RemoveAsync(string key, CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
 
-    public Task<CopilotToolActionResult> ImportAsync(string json, CancellationToken ct = default) =>
-        Task.FromResult(CopilotToolActionResult.Failed(Message));
+    public Task<DevToolActionResult> ImportAsync(string json, CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
 }

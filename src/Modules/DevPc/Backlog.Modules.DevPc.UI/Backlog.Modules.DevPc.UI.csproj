@@ -34,7 +34,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
-    <!-- The module's published surface only: the ICopilotToolService port and
+    <!-- The module's published surface only: the IDevToolService port and
          the DTOs it answers with. Which host implements it, and whether that
          host can do more than read, stays behind that line. -->
     <ProjectReference Include="..\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />

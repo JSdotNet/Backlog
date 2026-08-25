@@ -16,7 +16,7 @@ namespace Backlog.Modules.DevPc.Abstractions;
 /// real output and a fake process is not. Starting processes stays in the host
 /// adapter, where the machine is.</para>
 /// </summary>
-public static partial class CopilotToolOutput
+public static partial class DevToolOutput
 {
     /// <summary>What a version reads as when the tool is absent, when no lookup
     /// answered, and when the tool is present but said nothing about which
@@ -134,7 +134,7 @@ public static partial class CopilotToolOutput
     /// <para>Catalog entries are written in the Copilot CLI's own
     /// <c>owner/repo:path</c> shorthand rather than as URLs, so a resolver that
     /// only understood absolute GitHub URLs recognised none of them.</para></summary>
-    public static CopilotPluginSource? ParsePluginSource(string? source)
+    public static PluginSource? ParsePluginSource(string? source)
     {
         if (string.IsNullOrWhiteSpace(source))
         {
@@ -296,19 +296,19 @@ public static partial class CopilotToolOutput
     /// Which hosts a <c>hosts</c> array names.
     ///
     /// <para>Nothing, an empty array, and an array of blanks all mean both hosts —
-    /// see <see cref="CopilotToolConfiguration.ParseHosts" /> for why silence has
+    /// see <see cref="DevToolConfiguration.ParseHosts" /> for why silence has
     /// to mean both. A name this version has not met is ignored rather than
     /// rejected, so a catalog written for a third host still installs its Copilot
     /// and Claude entries here.</para>
     /// </summary>
-    public static CopilotToolHosts ParseHosts(IEnumerable<string?>? values)
+    public static DevToolHosts ParseHosts(IEnumerable<string?>? values)
     {
         if (values is null)
         {
-            return CopilotToolHosts.Both;
+            return DevToolHosts.Both;
         }
 
-        var hosts = CopilotToolHosts.None;
+        var hosts = DevToolHosts.None;
         var named = false;
 
         foreach (var value in values)
@@ -323,15 +323,15 @@ public static partial class CopilotToolOutput
 
             if (text.Equals("copilot", StringComparison.OrdinalIgnoreCase))
             {
-                hosts |= CopilotToolHosts.Copilot;
+                hosts |= DevToolHosts.Copilot;
             }
             else if (text.Equals("claude", StringComparison.OrdinalIgnoreCase))
             {
-                hosts |= CopilotToolHosts.Claude;
+                hosts |= DevToolHosts.Claude;
             }
         }
 
-        return named ? hosts : CopilotToolHosts.Both;
+        return named ? hosts : DevToolHosts.Both;
     }
 
     /// <summary>A commit sha cut to the width everything else uses.
@@ -348,7 +348,7 @@ public static partial class CopilotToolOutput
         return trimmed.Length <= ShortCommitLength ? trimmed : trimmed[..ShortCommitLength];
     }
 
-    private static CopilotPluginSource? FromUrl(Uri uri)
+    private static PluginSource? FromUrl(Uri uri)
     {
         if (!uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
         {
@@ -367,10 +367,10 @@ public static partial class CopilotToolOutput
             ? string.Join('/', segments[4..])
             : null;
 
-        return new CopilotPluginSource(segments[0], TrimGitSuffix(segments[1]), path);
+        return new PluginSource(segments[0], TrimGitSuffix(segments[1]), path);
     }
 
-    private static CopilotPluginSource? FromShorthand(string source)
+    private static PluginSource? FromShorthand(string source)
     {
         var separator = source.IndexOf(':');
         var repository = separator < 0 ? source : source[..separator];
@@ -378,7 +378,7 @@ public static partial class CopilotToolOutput
         var segments = repository.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
         return segments.Length == 2
-            ? new CopilotPluginSource(segments[0], TrimGitSuffix(segments[1]), string.IsNullOrWhiteSpace(path) ? null : path)
+            ? new PluginSource(segments[0], TrimGitSuffix(segments[1]), string.IsNullOrWhiteSpace(path) ? null : path)
             : null;
     }
 
@@ -497,7 +497,7 @@ public static partial class CopilotToolOutput
     /// <para><see cref="PluginPath" /> is null for a repository that is itself one
     /// plugin, which is why the manifest path is derived here instead of being
     /// stitched together at each call site.</para></summary>
-    public sealed record CopilotPluginSource(string Owner, string Repository, string? PluginPath)
+    public sealed record PluginSource(string Owner, string Repository, string? PluginPath)
     {
         /// <summary>Forward slashes throughout: this addresses a GitHub API
         /// resource, not a file on the machine reading it.</summary>

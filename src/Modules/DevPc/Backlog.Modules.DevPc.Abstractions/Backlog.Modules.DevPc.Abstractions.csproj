@@ -3,16 +3,16 @@
   <!--
     The Dev PC Management module's public surface — everything a host, an
     adapter or this context's own UI is allowed to see (ADR 0005, ADR 0009):
-      ICopilotToolService   the port: list the machine's configured tools, and
+      IDevToolService       the port: list the machine's configured tools, and
                             update, enable or disable one
-      CopilotToolInfo etc.  what a caller receives instead of the config file —
+      DevToolInfo etc.      what a caller receives instead of the config file —
                             the DTOs and enums in that port's signatures
-      CopilotToolConfiguration
+      DevToolConfiguration
                             the .tools/copilot-tools.json format and the
                             per-machine override rule, this context's published
                             language: a shared catalog overlaid by one PC's own
                             config, merged by plugin name and package id
-      UnsupportedCopilotToolService
+      UnsupportedDevToolService
                             the null object every host that cannot manage tools
                             composes instead of an adapter
 

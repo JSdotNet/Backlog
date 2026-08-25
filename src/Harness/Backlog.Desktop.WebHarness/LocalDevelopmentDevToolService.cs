@@ -7,7 +7,7 @@ using Backlog.Modules.Backlog.Abstractions.Services;
 
 namespace Backlog.Desktop.WebHarness;
 
-internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
+internal sealed class LocalDevelopmentDevToolService : IDevToolService
 {
     /// <summary>
     /// Stand-ins for the dozen processes the desktop head runs to answer a
@@ -17,7 +17,7 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
     /// out loud what they are. One of them failed, because the failing one is
     /// the entire reason the log exists.
     /// </summary>
-    private static readonly CopilotToolCommand[] SampleCommands =
+    private static readonly DevToolCommand[] SampleCommands =
     [
         new("copilot --version", 0, "Sample output: this harness reads the catalog and starts no processes."),
         new("dotnet tool search JSdotNet.MCP.Guidelines", 1, "Sample failure: nothing was searched.")
@@ -25,20 +25,20 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
 
     private readonly IBacklogStore _store;
 
-    public LocalDevelopmentCopilotToolService(IBacklogStore store)
+    public LocalDevelopmentDevToolService(IBacklogStore store)
     {
         _store = store;
     }
 
-    public async Task<CopilotToolCatalog> ListAsync(CancellationToken ct = default)
+    public async Task<DevToolCatalog> ListAsync(CancellationToken ct = default)
     {
         var paths = Paths;
-        if (!CopilotToolConfiguration.CatalogExists(paths))
+        if (!DevToolConfiguration.CatalogExists(paths))
         {
             // The path travels with the "not found" answer: it is what the pane
             // names in its empty state, and what the create button is offering to
             // write. An empty list on its own cannot say either.
-            return new CopilotToolCatalog(
+            return new DevToolCatalog(
                 [],
                 $"Tool catalog was not found at {paths.CatalogPath}.",
                 CatalogExists: false,
@@ -46,13 +46,13 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
                 CanEditCatalog: true);
         }
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths, ct).ConfigureAwait(false);
-        var tools = new List<CopilotToolInfo>();
+        var config = await DevToolConfiguration.ReadAsync(paths, ct).ConfigureAwait(false);
+        var tools = new List<DevToolInfo>();
 
         // The marketplaces lead, the way they do in the desktop head, because the
         // pane's marketplace row is one of the surfaces this harness exists to make
         // reachable from a browser at all.
-        foreach (var marketplace in CopilotToolConfiguration.MarketplaceEntries(config.Root))
+        foreach (var marketplace in DevToolConfiguration.MarketplaceEntries(config.Root))
         {
             var name = GetString(marketplace, "name");
             if (string.IsNullOrWhiteSpace(name))
@@ -60,18 +60,18 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
                 continue;
             }
 
-            tools.Add(new CopilotToolInfo(
-                CopilotToolConfiguration.KeyFor(CopilotToolKind.Marketplace, name),
-                CopilotToolKind.Marketplace,
+            tools.Add(new DevToolInfo(
+                DevToolConfiguration.KeyFor(DevToolKind.Marketplace, name),
+                DevToolKind.Marketplace,
                 name,
                 GetString(marketplace, "source"),
                 ConfiguredEnabled: true,
                 Installed: true,
                 "configured",
-                CopilotToolOutput.NoVersion,
+                DevToolOutput.NoVersion,
                 "Configured from local JSON")
             {
-                Hosts = CopilotToolHosts.Claude
+                Hosts = DevToolHosts.Claude
             });
         }
 
@@ -84,12 +84,12 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
             }
 
             var enabled = GetBool(plugin, "enabled");
-            var hosts = CopilotToolConfiguration.ParseHosts(plugin);
+            var hosts = DevToolConfiguration.ParseHosts(plugin);
             var installedVersion = VersionOr(plugin, "installedVersion", enabled ? "configured" : "disabled");
             var availableVersion = VersionOr(plugin, "availableVersion", "catalog");
-            tools.Add(new CopilotToolInfo(
-                CopilotToolConfiguration.KeyFor(CopilotToolKind.Plugin, name),
-                CopilotToolKind.Plugin,
+            tools.Add(new DevToolInfo(
+                DevToolConfiguration.KeyFor(DevToolKind.Plugin, name),
+                DevToolKind.Plugin,
                 name,
                 GetString(plugin, "source"),
                 enabled,
@@ -113,11 +113,11 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
 
             var name = GetString(server, "name");
             var enabled = GetBool(server, "enabled");
-            var hosts = CopilotToolConfiguration.ParseHosts(server);
+            var hosts = DevToolConfiguration.ParseHosts(server);
             var displayName = string.IsNullOrWhiteSpace(name) ? packageId : $"{name} ({packageId})";
             var installedVersion = VersionOr(server, "installedVersion", enabled ? "configured" : "disabled");
             var availableVersion = VersionOr(server, "availableVersion", "catalog");
-            var states = new List<CopilotToolHostState>
+            var states = new List<DevToolHostState>
             {
                 new(hosts, enabled, installedVersion, availableVersion, "The .NET tool, shared by both hosts")
             };
@@ -126,20 +126,20 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
             // the catalog rather than probed, because nothing here starts a
             // process — but drawn, because the pane's per-host detail is one of the
             // shapes a browser session is here to look at.
-            if (hosts.HasFlag(CopilotToolHosts.Claude) && server["claude"] is { } claude)
+            if (hosts.HasFlag(DevToolHosts.Claude) && server["claude"] is { } claude)
             {
                 var claudeName = GetString(claude, "name") is { Length: > 0 } registered ? registered : name;
-                states.Add(new CopilotToolHostState(
-                    CopilotToolHosts.Claude,
+                states.Add(new DevToolHostState(
+                    DevToolHosts.Claude,
                     enabled,
                     GetString(claude, "command"),
                     GetString(claude, "command"),
                     $"Registered with Claude as '{claudeName}'"));
             }
 
-            tools.Add(new CopilotToolInfo(
-                CopilotToolConfiguration.KeyFor(CopilotToolKind.McpServer, packageId),
-                CopilotToolKind.McpServer,
+            tools.Add(new DevToolInfo(
+                DevToolConfiguration.KeyFor(DevToolKind.McpServer, packageId),
+                DevToolKind.McpServer,
                 displayName,
                 packageId,
                 enabled,
@@ -156,36 +156,36 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
         var message = config.PcConfigExists
             ? $"Showing tools from {config.CatalogPath} with PC config {config.PcConfigPath}."
             : $"Showing tools from {config.CatalogPath}. PC config will be created at {config.PcConfigPath}.";
-        return new CopilotToolCatalog(tools, message, CatalogExists: true, CatalogPath: config.CatalogPath, CanEditCatalog: true)
+        return new DevToolCatalog(tools, message, CatalogExists: true, CatalogPath: config.CatalogPath, CanEditCatalog: true)
         {
             Commands = SampleCommands
         };
     }
 
-    public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>
-        Task.FromResult(CopilotToolActionResult.Failed("Tool updates are only available in the desktop app."));
+    public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed("Tool updates are only available in the desktop app."));
 
-    public async Task<CopilotToolActionResult> UpdateAllAsync(CancellationToken ct = default)
+    public async Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default)
     {
         var catalog = await ListAsync(ct).ConfigureAwait(false);
         if (!catalog.Tools.Any(tool => tool.CanUpdate))
         {
-            return CopilotToolActionResult.Ok("No enabled tools have updates available.");
+            return DevToolActionResult.Ok("No enabled tools have updates available.");
         }
 
-        return CopilotToolActionResult.Failed("Tool updates are only available in the desktop app.");
+        return DevToolActionResult.Failed("Tool updates are only available in the desktop app.");
     }
 
-    public Task<CopilotToolActionResult> EnableAsync(string key, CancellationToken ct = default) =>
+    public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) =>
         SetEnabledAsync(key, enabled: true, ct);
 
-    public Task<CopilotToolActionResult> DisableAsync(string key, CancellationToken ct = default) =>
+    public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) =>
         SetEnabledAsync(key, enabled: false, ct);
 
-    private async Task<CopilotToolActionResult> SetEnabledAsync(string key, bool enabled, CancellationToken ct)
+    private async Task<DevToolActionResult> SetEnabledAsync(string key, bool enabled, CancellationToken ct)
     {
-        await CopilotToolConfiguration.WriteEnabledOverrideAsync(Paths, key, enabled, ct).ConfigureAwait(false);
-        return CopilotToolActionResult.Ok($"{key} was {(enabled ? "enabled" : "disabled")} in the local PC config.");
+        await DevToolConfiguration.WriteEnabledOverrideAsync(Paths, key, enabled, ct).ConfigureAwait(false);
+        return DevToolActionResult.Ok($"{key} was {(enabled ? "enabled" : "disabled")} in the local PC config.");
     }
 
     // Editing the catalog is a file write and nothing else, so the harness does it
@@ -193,56 +193,56 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
     // session is where the pane's create, add, remove and import are driven, and a
     // stubbed answer there would be a surface nobody has actually operated.
 
-    public Task<CopilotToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
+    public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
         EditCatalogAsync(
-            paths => CopilotToolConfiguration.CreateCatalogAsync(paths, ct),
+            paths => DevToolConfiguration.CreateCatalogAsync(paths, ct),
             paths => $"Created a tool catalog at {paths.CatalogPath}.");
 
-    public Task<CopilotToolActionResult> AddAsync(CopilotToolDraft draft, CancellationToken ct = default) =>
+    public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) =>
         EditCatalogAsync(
-            paths => CopilotToolConfiguration.AddToCatalogAsync(paths, draft, ct),
+            paths => DevToolConfiguration.AddToCatalogAsync(paths, draft, ct),
             _ => $"{draft.Id} was added to the catalog.");
 
-    public Task<CopilotToolActionResult> RemoveAsync(string key, CancellationToken ct = default) =>
+    public Task<DevToolActionResult> RemoveAsync(string key, CancellationToken ct = default) =>
         EditCatalogAsync(
             async paths =>
             {
-                await CopilotToolConfiguration.RemoveFromCatalogAsync(paths, key, ct).ConfigureAwait(false);
+                await DevToolConfiguration.RemoveFromCatalogAsync(paths, key, ct).ConfigureAwait(false);
 
                 // The per-PC override outlives the catalog entry unless it goes
                 // with it, and the same tool added again would then arrive
                 // already disabled by a decision nobody remembers making.
-                await CopilotToolConfiguration.RemoveEnabledOverrideAsync(paths, key, ct).ConfigureAwait(false);
+                await DevToolConfiguration.RemoveEnabledOverrideAsync(paths, key, ct).ConfigureAwait(false);
             },
-            _ => $"{CopilotToolConfiguration.ParseKey(key).IdValue} was removed from the catalog.");
+            _ => $"{DevToolConfiguration.ParseKey(key).IdValue} was removed from the catalog.");
 
-    public Task<CopilotToolActionResult> ImportAsync(string json, CancellationToken ct = default) =>
+    public Task<DevToolActionResult> ImportAsync(string json, CancellationToken ct = default) =>
         EditCatalogAsync(
-            paths => CopilotToolConfiguration.ImportCatalogAsync(paths, json, ct),
+            paths => DevToolConfiguration.ImportCatalogAsync(paths, json, ct),
             paths => $"The catalog at {paths.CatalogPath} was replaced. The previous one is beside it as .bak.");
 
     /// <summary>The same wrapper the desktop host uses, for the same reason:
     /// <c>.tools</c> is a folder on somebody's disk, so a refused write is an
     /// ordinary outcome and has to reach the pane as a message rather than as an
     /// exception that takes the tools surface down.</summary>
-    private async Task<CopilotToolActionResult> EditCatalogAsync(
-        Func<CopilotToolConfigurationPaths, Task> edit,
-        Func<CopilotToolConfigurationPaths, string> describe)
+    private async Task<DevToolActionResult> EditCatalogAsync(
+        Func<DevToolConfigurationPaths, Task> edit,
+        Func<DevToolConfigurationPaths, string> describe)
     {
         var paths = Paths;
 
         try
         {
             await edit(paths).ConfigureAwait(false);
-            return CopilotToolActionResult.Ok(describe(paths));
+            return DevToolActionResult.Ok(describe(paths));
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException or JsonException)
         {
-            return CopilotToolActionResult.Failed(ex.Message);
+            return DevToolActionResult.Failed(ex.Message);
         }
     }
 
-    private CopilotToolConfigurationPaths Paths => CopilotToolConfigurationPaths.FromStorageRoot(_store.RootDirectory);
+    private DevToolConfigurationPaths Paths => DevToolConfigurationPaths.FromStorageRoot(_store.RootDirectory);
 
     private static IEnumerable<JsonNode> GetArray(JsonNode root, string name) =>
         root[name]?.AsArray().Where(node => node is not null).Cast<JsonNode>() ?? [];
@@ -256,18 +256,18 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
     /// gives the browser is the <em>shape</em>: a row with two host states, so the
     /// pane's per-host rendering is reachable without a machine that has both CLIs
     /// on it.</summary>
-    private static IReadOnlyList<CopilotToolHostState> HostStates(CopilotToolHosts hosts, bool enabled, string installedVersion, string availableVersion)
+    private static IReadOnlyList<DevToolHostState> HostStates(DevToolHosts hosts, bool enabled, string installedVersion, string availableVersion)
     {
-        var states = new List<CopilotToolHostState>();
+        var states = new List<DevToolHostState>();
 
-        if (hosts.HasFlag(CopilotToolHosts.Copilot))
+        if (hosts.HasFlag(DevToolHosts.Copilot))
         {
-            states.Add(new CopilotToolHostState(CopilotToolHosts.Copilot, enabled, installedVersion, availableVersion, "Configured from local JSON"));
+            states.Add(new DevToolHostState(DevToolHosts.Copilot, enabled, installedVersion, availableVersion, "Configured from local JSON"));
         }
 
-        if (hosts.HasFlag(CopilotToolHosts.Claude))
+        if (hosts.HasFlag(DevToolHosts.Claude))
         {
-            states.Add(new CopilotToolHostState(CopilotToolHosts.Claude, enabled, installedVersion, availableVersion, "Configured from local JSON"));
+            states.Add(new DevToolHostState(DevToolHosts.Claude, enabled, installedVersion, availableVersion, "Configured from local JSON"));
         }
 
         return states;

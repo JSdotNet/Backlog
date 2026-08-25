@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// the port said it worked, and what a row offers for the tool it is showing.
 ///
 /// <para>The pane is rendered directly rather than through Home: what it draws is
-/// decided entirely by the <see cref="CopilotToolCatalog"/> it is handed, and going
+/// decided entirely by the <see cref="DevToolCatalog"/> it is handed, and going
 /// through the shell would mean standing up a workspace to change a boolean.</para>
 ///
 /// <para>The command log is tested here for the same reason: it is the pane's
@@ -28,7 +28,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void No_catalog_offers_creating_one_and_names_where_it_goes()
     {
-        using var context = Context(FakeCopilotToolService.WithoutCatalog(@"C:\tools\copilot-tools.json"));
+        using var context = Context(FakeDevToolService.WithoutCatalog(@"C:\tools\copilot-tools.json"));
 
         var pane = context.Render<ToolsPane>();
 
@@ -48,7 +48,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void An_empty_catalog_offers_adding_a_tool_rather_than_creating_the_catalog_again()
     {
-        using var context = Context(FakeCopilotToolService.With());
+        using var context = Context(FakeDevToolService.With());
 
         var pane = context.Render<ToolsPane>();
 
@@ -61,7 +61,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void A_populated_catalog_draws_the_table_and_a_remove_on_every_row()
     {
-        using var context = Context(FakeCopilotToolService.With(Tool("plugin:architecture", "architecture"), Tool("mcp:Guidelines", "guidelines")));
+        using var context = Context(FakeDevToolService.With(Tool("plugin:architecture", "architecture"), Tool("mcp:Guidelines", "guidelines")));
 
         var pane = context.Render<ToolsPane>();
 
@@ -78,7 +78,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void A_host_that_cannot_edit_the_catalog_is_offered_none_of_the_four_acts()
     {
-        var service = FakeCopilotToolService.With(Tool("plugin:architecture", "architecture")) with { CanEdit = false };
+        var service = FakeDevToolService.With(Tool("plugin:architecture", "architecture")) with { CanEdit = false };
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
@@ -92,7 +92,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void Creating_the_catalog_calls_the_port_and_re_reads_it()
     {
-        var service = FakeCopilotToolService.WithoutCatalog();
+        var service = FakeDevToolService.WithoutCatalog();
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
@@ -107,7 +107,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void An_edit_the_port_refuses_leaves_the_reason_on_screen_and_does_not_re_read()
     {
-        var service = FakeCopilotToolService.WithoutCatalog() with { Succeeds = false };
+        var service = FakeDevToolService.WithoutCatalog() with { Succeeds = false };
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
@@ -120,13 +120,13 @@ public sealed class ToolsPaneTests
         // A refresh here would replace the refusal with the ordinary "showing
         // tools from ..." line, which is the one moment it is worth less.
         Assert.Equal(readsBefore, service.Reads);
-        Assert.Contains(FakeCopilotToolService.RefusalMessage, pane.Markup, StringComparison.Ordinal);
+        Assert.Contains(FakeDevToolService.RefusalMessage, pane.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Adding_a_plugin_sends_the_draft_the_form_was_filled_with()
     {
-        var service = FakeCopilotToolService.With();
+        var service = FakeDevToolService.With();
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
@@ -137,7 +137,7 @@ public sealed class ToolsPaneTests
         pane.Find("[data-testid='tools-add-submit']").Click();
 
         var draft = Assert.Single(service.Added);
-        Assert.Equal(CopilotToolKind.Plugin, draft.Kind);
+        Assert.Equal(DevToolKind.Plugin, draft.Kind);
         Assert.Equal("architecture", draft.Id);
         Assert.Equal("JSdotNet/Copilot:plugins/architecture", draft.Source);
         Assert.Empty(pane.FindAll("[data-testid='tools-add-dialog']"));
@@ -146,7 +146,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void A_plugin_with_no_source_never_reaches_the_port()
     {
-        var service = FakeCopilotToolService.With();
+        var service = FakeDevToolService.With();
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
@@ -165,7 +165,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void Importing_sends_whatever_is_in_the_paste_box()
     {
-        var service = FakeCopilotToolService.With();
+        var service = FakeDevToolService.With();
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
@@ -181,7 +181,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void Removing_a_tool_asks_first_and_only_calls_the_port_on_the_confirm()
     {
-        var service = FakeCopilotToolService.With(Tool("plugin:architecture", "architecture"));
+        var service = FakeDevToolService.With(Tool("plugin:architecture", "architecture"));
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
@@ -199,7 +199,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void Cancelling_the_remove_question_removes_nothing()
     {
-        var service = FakeCopilotToolService.With(Tool("plugin:architecture", "architecture"));
+        var service = FakeDevToolService.With(Tool("plugin:architecture", "architecture"));
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
@@ -213,7 +213,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void The_commands_the_host_ran_are_on_screen_behind_a_fold()
     {
-        var service = FakeCopilotToolService.With() with
+        var service = FakeDevToolService.With() with
         {
             Commands =
             [
@@ -248,7 +248,7 @@ public sealed class ToolsPaneTests
     [Fact]
     public void A_host_that_ran_nothing_shows_no_fold()
     {
-        using var context = Context(FakeCopilotToolService.With());
+        using var context = Context(FakeDevToolService.With());
 
         var pane = context.Render<ToolsPane>();
 
@@ -304,10 +304,10 @@ public sealed class ToolsPaneTests
     [Fact]
     public void Every_row_says_which_hosts_it_is_for()
     {
-        var service = FakeCopilotToolService.With(
-            Tool("plugin:architecture", "architecture") with { Hosts = CopilotToolHosts.Both },
-            Tool("plugin:claude-desktop", "claude-desktop") with { Hosts = CopilotToolHosts.Claude },
-            Tool("plugin:copilot-app", "copilot-app") with { Hosts = CopilotToolHosts.Copilot });
+        var service = FakeDevToolService.With(
+            Tool("plugin:architecture", "architecture") with { Hosts = DevToolHosts.Both },
+            Tool("plugin:claude-desktop", "claude-desktop") with { Hosts = DevToolHosts.Claude },
+            Tool("plugin:copilot-app", "copilot-app") with { Hosts = DevToolHosts.Copilot });
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
@@ -326,11 +326,11 @@ public sealed class ToolsPaneTests
         {
             HostStates =
             [
-                new(CopilotToolHosts.Copilot, true, "1.2.0", "1.2.0", "Enabled plugin"),
-                new(CopilotToolHosts.Claude, false, "not installed", "1.2.0", "Not installed")
+                new(DevToolHosts.Copilot, true, "1.2.0", "1.2.0", "Enabled plugin"),
+                new(DevToolHosts.Claude, false, "not installed", "1.2.0", "Not installed")
             ]
         };
-        using var context = Context(FakeCopilotToolService.With(tool));
+        using var context = Context(FakeDevToolService.With(tool));
 
         var badge = context.Render<ToolsPane>().Find("[data-testid='tools-row-hosts']");
 
@@ -347,8 +347,8 @@ public sealed class ToolsPaneTests
         {
             HostStates =
             [
-                new(CopilotToolHosts.Copilot, true, "1.2.0", "1.2.0", "Enabled plugin"),
-                new(CopilotToolHosts.Claude, false, "not installed", "1.2.0", "Not installed")
+                new(DevToolHosts.Copilot, true, "1.2.0", "1.2.0", "Enabled plugin"),
+                new(DevToolHosts.Claude, false, "not installed", "1.2.0", "Not installed")
             ]
         });
 
@@ -389,7 +389,7 @@ public sealed class ToolsPaneTests
     [InlineData(true, true)]
     public void Update_all_is_offered_while_a_marketplace_is_still_missing(bool known, bool expectDisabled)
     {
-        using var context = Context(FakeCopilotToolService.With(Marketplace(known)));
+        using var context = Context(FakeDevToolService.With(Marketplace(known)));
 
         var pane = context.Render<ToolsPane>();
         var updateAll = pane.FindAll(".tools-panel__toolbar-actions button")[1];
@@ -400,36 +400,36 @@ public sealed class ToolsPaneTests
     [Fact]
     public void Adding_a_marketplace_sends_a_name_and_a_source()
     {
-        var service = FakeCopilotToolService.With();
+        var service = FakeDevToolService.With();
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
         pane.Find("[data-testid='tools-add-open']").Click();
-        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(CopilotToolKind.Marketplace));
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Marketplace));
 
         pane.Find("[data-testid='tools-add-name'] input").Input("jsdotnet-copilot");
         pane.Find("[data-testid='tools-add-source'] input").Input("JSdotNet/Copilot");
         pane.Find("[data-testid='tools-add-submit']").Click();
 
         var draft = Assert.Single(service.Added);
-        Assert.Equal(CopilotToolKind.Marketplace, draft.Kind);
+        Assert.Equal(DevToolKind.Marketplace, draft.Kind);
         Assert.Equal("jsdotnet-copilot", draft.Id);
         Assert.Equal("JSdotNet/Copilot", draft.Source);
 
         // A marketplace is a Claude mechanism whatever the hosts selector last had,
         // and the selector is not on screen for one.
-        Assert.Equal(CopilotToolHosts.Claude, draft.Hosts);
+        Assert.Equal(DevToolHosts.Claude, draft.Hosts);
     }
 
     [Fact]
     public void A_marketplace_with_no_source_never_reaches_the_port()
     {
-        var service = FakeCopilotToolService.With();
+        var service = FakeDevToolService.With();
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
         pane.Find("[data-testid='tools-add-open']").Click();
-        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(CopilotToolKind.Marketplace));
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Marketplace));
 
         pane.Find("[data-testid='tools-add-name'] input").Input("jsdotnet-copilot");
         pane.Find("[data-testid='tools-add-submit']").Click();
@@ -441,12 +441,12 @@ public sealed class ToolsPaneTests
     [Fact]
     public void Adding_a_claude_only_plugin_sends_its_hosts_and_its_claude_names()
     {
-        var service = FakeCopilotToolService.With();
+        var service = FakeDevToolService.With();
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
         pane.Find("[data-testid='tools-add-open']").Click();
-        pane.Find("[data-testid='tools-add-hosts'] select").Change(nameof(CopilotToolHosts.Claude));
+        pane.Find("[data-testid='tools-add-hosts'] select").Change(nameof(DevToolHosts.Claude));
 
         pane.Find("[data-testid='tools-add-name'] input").Input("jsdotnet-project-guidelines");
         pane.Find("[data-testid='tools-add-source'] input").Input("JSdotNet/Copilot:plugins/guidelines");
@@ -455,7 +455,7 @@ public sealed class ToolsPaneTests
         pane.Find("[data-testid='tools-add-submit']").Click();
 
         var draft = Assert.Single(service.Added);
-        Assert.Equal(CopilotToolHosts.Claude, draft.Hosts);
+        Assert.Equal(DevToolHosts.Claude, draft.Hosts);
         Assert.Equal("guidelines", draft.ClaudeName);
         Assert.Equal("anthropic-skills", draft.ClaudeMarketplace);
     }
@@ -467,11 +467,11 @@ public sealed class ToolsPaneTests
     [Fact]
     public void A_copilot_only_plugin_is_not_asked_about_claude_at_all()
     {
-        using var context = Context(FakeCopilotToolService.With());
+        using var context = Context(FakeDevToolService.With());
 
         var pane = context.Render<ToolsPane>();
         pane.Find("[data-testid='tools-add-open']").Click();
-        pane.Find("[data-testid='tools-add-hosts'] select").Change(nameof(CopilotToolHosts.Copilot));
+        pane.Find("[data-testid='tools-add-hosts'] select").Change(nameof(DevToolHosts.Copilot));
 
         Assert.Empty(pane.FindAll("[data-testid='tools-add-claude-name']"));
         Assert.Empty(pane.FindAll("[data-testid='tools-add-claude-marketplace']"));
@@ -480,12 +480,12 @@ public sealed class ToolsPaneTests
     [Fact]
     public void Adding_an_mcp_server_sends_the_claude_registration_it_was_given()
     {
-        var service = FakeCopilotToolService.With();
+        var service = FakeDevToolService.With();
         using var context = Context(service);
 
         var pane = context.Render<ToolsPane>();
         pane.Find("[data-testid='tools-add-open']").Click();
-        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(CopilotToolKind.McpServer));
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.McpServer));
 
         pane.Find("[data-testid='tools-add-package-id'] input").Input("JSdotNet.MCP.Guidelines");
         pane.Find("[data-testid='tools-add-name'] input").Input("jsdotnet-project-guidelines");
@@ -495,13 +495,13 @@ public sealed class ToolsPaneTests
         pane.Find("[data-testid='tools-add-submit']").Click();
 
         var draft = Assert.Single(service.Added);
-        Assert.Equal(CopilotToolKind.McpServer, draft.Kind);
+        Assert.Equal(DevToolKind.McpServer, draft.Kind);
         Assert.Equal("jsdotnet-coding-guidelines", draft.ClaudeServerName);
         Assert.Equal("jsdotnet-guidelines-mcpserver", draft.ClaudeCommand);
         Assert.Equal(["agent", "mcp"], draft.ClaudeArgs);
     }
 
-    private static BunitContext Context(ICopilotToolService service)
+    private static BunitContext Context(IDevToolService service)
     {
         var context = new BunitContext();
 
@@ -511,9 +511,9 @@ public sealed class ToolsPaneTests
         return context;
     }
 
-    private static CopilotToolInfo Tool(string key, string name) => new(
+    private static DevToolInfo Tool(string key, string name) => new(
         key,
-        key.StartsWith("plugin:", StringComparison.Ordinal) ? CopilotToolKind.Plugin : CopilotToolKind.McpServer,
+        key.StartsWith("plugin:", StringComparison.Ordinal) ? DevToolKind.Plugin : DevToolKind.McpServer,
         name,
         "source",
         ConfiguredEnabled: true,
@@ -524,9 +524,9 @@ public sealed class ToolsPaneTests
 
     /// <summary>The one row's action cell, as text. The pane is rendered with a
     /// single tool so the cell is unambiguous without reaching for an index.</summary>
-    private static string ActionsFor(CopilotToolInfo tool)
+    private static string ActionsFor(DevToolInfo tool)
     {
-        using var context = Context(FakeCopilotToolService.With(tool));
+        using var context = Context(FakeDevToolService.With(tool));
 
         return context.Render<ToolsPane>().Find(".tools-table__actions").TextContent;
     }
@@ -534,24 +534,24 @@ public sealed class ToolsPaneTests
     /// <summary>A Claude marketplace row, either already known to Claude or not
     /// yet added. Its Available column is honest rather than empty: there is no
     /// published version to compare a marketplace against.</summary>
-    private static CopilotToolInfo Marketplace(bool known) => new(
+    private static DevToolInfo Marketplace(bool known) => new(
         "marketplace:jsdotnet-copilot",
-        CopilotToolKind.Marketplace,
+        DevToolKind.Marketplace,
         "jsdotnet-copilot",
         "JSdotNet/Copilot",
         ConfiguredEnabled: true,
         Installed: known,
         known ? "configured" : "not installed",
-        CopilotToolOutput.NoVersion,
+        DevToolOutput.NoVersion,
         known ? "Configured marketplace" : "Not added to Claude yet")
     {
-        Hosts = CopilotToolHosts.Claude
+        Hosts = DevToolHosts.Claude
     };
 
-    private static CopilotToolInfo Tool(bool enabled, bool installed, string installedVersion, string availableVersion) =>
+    private static DevToolInfo Tool(bool enabled, bool installed, string installedVersion, string availableVersion) =>
         new(
             "plugin:architecture",
-            CopilotToolKind.Plugin,
+            DevToolKind.Plugin,
             "architecture",
             "JSdotNet/Copilot:plugins/architecture",
             enabled,
@@ -562,11 +562,11 @@ public sealed class ToolsPaneTests
 
     /// <summary>A port that records what it was asked and answers from a fixed
     /// catalog. A record so a test can vary one field of it without a builder.</summary>
-    private sealed record FakeCopilotToolService : ICopilotToolService
+    private sealed record FakeDevToolService : IDevToolService
     {
         public const string RefusalMessage = "The catalog is read-only on this machine.";
 
-        private readonly List<CopilotToolInfo> _tools = [];
+        private readonly List<DevToolInfo> _tools = [];
 
         public bool CatalogExists { get; init; } = true;
 
@@ -579,32 +579,32 @@ public sealed class ToolsPaneTests
         /// <summary>What the host would have run. Init-only like the flags beside
         /// it, so a test that does not care about the transcript never mentions
         /// one and the fold stays off its screen.</summary>
-        public IReadOnlyList<CopilotToolCommand> Commands { get; init; } = [];
+        public IReadOnlyList<DevToolCommand> Commands { get; init; } = [];
 
         public int Reads { get; private set; }
 
         public int Creates { get; private set; }
 
-        public List<CopilotToolDraft> Added { get; } = [];
+        public List<DevToolDraft> Added { get; } = [];
 
         public List<string> Removed { get; } = [];
 
         public List<string> Imported { get; } = [];
 
-        public static FakeCopilotToolService With(params CopilotToolInfo[] tools)
+        public static FakeDevToolService With(params DevToolInfo[] tools)
         {
-            var service = new FakeCopilotToolService();
+            var service = new FakeDevToolService();
             service._tools.AddRange(tools);
             return service;
         }
 
-        public static FakeCopilotToolService WithoutCatalog(string catalogPath = @"C:\tools\copilot-tools.json") =>
+        public static FakeDevToolService WithoutCatalog(string catalogPath = @"C:\tools\copilot-tools.json") =>
             new() { CatalogExists = false, CatalogPath = catalogPath };
 
-        public Task<CopilotToolCatalog> ListAsync(CancellationToken ct = default)
+        public Task<DevToolCatalog> ListAsync(CancellationToken ct = default)
         {
             Reads++;
-            return Task.FromResult(new CopilotToolCatalog(
+            return Task.FromResult(new DevToolCatalog(
                 CatalogExists ? _tools : [],
                 CatalogExists ? "Showing tools." : $"Tool catalog was not found at {CatalogPath}.",
                 CatalogExists,
@@ -615,39 +615,39 @@ public sealed class ToolsPaneTests
             });
         }
 
-        public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => Answer();
+        public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => Answer();
 
-        public Task<CopilotToolActionResult> UpdateAllAsync(CancellationToken ct = default) => Answer();
+        public Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default) => Answer();
 
-        public Task<CopilotToolActionResult> EnableAsync(string key, CancellationToken ct = default) => Answer();
+        public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) => Answer();
 
-        public Task<CopilotToolActionResult> DisableAsync(string key, CancellationToken ct = default) => Answer();
+        public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) => Answer();
 
-        public Task<CopilotToolActionResult> CreateCatalogAsync(CancellationToken ct = default)
+        public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default)
         {
             Creates++;
             return Answer();
         }
 
-        public Task<CopilotToolActionResult> AddAsync(CopilotToolDraft draft, CancellationToken ct = default)
+        public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default)
         {
             Added.Add(draft);
             return Answer();
         }
 
-        public Task<CopilotToolActionResult> RemoveAsync(string key, CancellationToken ct = default)
+        public Task<DevToolActionResult> RemoveAsync(string key, CancellationToken ct = default)
         {
             Removed.Add(key);
             return Answer();
         }
 
-        public Task<CopilotToolActionResult> ImportAsync(string json, CancellationToken ct = default)
+        public Task<DevToolActionResult> ImportAsync(string json, CancellationToken ct = default)
         {
             Imported.Add(json);
             return Answer();
         }
 
-        private Task<CopilotToolActionResult> Answer() => Task.FromResult(
-            Succeeds ? CopilotToolActionResult.Ok("Done.") : CopilotToolActionResult.Failed(RefusalMessage));
+        private Task<DevToolActionResult> Answer() => Task.FromResult(
+            Succeeds ? DevToolActionResult.Ok("Done.") : DevToolActionResult.Failed(RefusalMessage));
     }
 }

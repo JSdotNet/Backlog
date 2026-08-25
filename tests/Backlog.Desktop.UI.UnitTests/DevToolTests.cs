@@ -2,7 +2,7 @@ using System.Text.Json.Nodes;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
-public class CopilotToolTests
+public class DevToolTests
 {
     [Theory]
     [InlineData("1.2.3", "1.2.4", true)]
@@ -11,9 +11,9 @@ public class CopilotToolTests
     [InlineData("not installed", "1.2.3", false)]
     public void Update_available_only_compares_known_versions(string installed, string available, bool expected)
     {
-        var tool = new CopilotToolInfo(
+        var tool = new DevToolInfo(
             "plugin:test",
-            CopilotToolKind.Plugin,
+            DevToolKind.Plugin,
             "test",
             "https://github.com/example/test",
             ConfiguredEnabled: true,
@@ -28,9 +28,9 @@ public class CopilotToolTests
     [Fact]
     public void Disabled_tools_are_not_updateable()
     {
-        var tool = new CopilotToolInfo(
+        var tool = new DevToolInfo(
             "plugin:test",
-            CopilotToolKind.Plugin,
+            DevToolKind.Plugin,
             "test",
             "https://github.com/example/test",
             ConfiguredEnabled: false,
@@ -72,10 +72,10 @@ public class CopilotToolTests
         Assert.Equal(expected, tool.AvailableVersionKnown);
     }
 
-    private static CopilotToolInfo Tool(bool enabled, bool installed, string installedVersion, string availableVersion) =>
+    private static DevToolInfo Tool(bool enabled, bool installed, string installedVersion, string availableVersion) =>
         new(
             "plugin:test",
-            CopilotToolKind.Plugin,
+            DevToolKind.Plugin,
             "test",
             "https://github.com/example/test",
             enabled,
@@ -114,7 +114,7 @@ public class CopilotToolTests
             }
             """);
 
-        var config = await CopilotToolConfiguration.ReadAsync(CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc"));
+        var config = await DevToolConfiguration.ReadAsync(DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc"));
 
         var plugins = config.Root["plugins"]!.AsArray();
         Assert.False(plugins[0]!["enabled"]!.GetValue<bool>());
@@ -138,12 +138,12 @@ public class CopilotToolTests
               ]
             }
             """);
-        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
-        await CopilotToolConfiguration.WriteEnabledOverrideAsync(paths, "plugin:architecture", false);
-        await CopilotToolConfiguration.WriteEnabledOverrideAsync(paths, "mcp:JSdotNet.MCP.Guidelines", false);
+        await DevToolConfiguration.WriteEnabledOverrideAsync(paths, "plugin:architecture", false);
+        await DevToolConfiguration.WriteEnabledOverrideAsync(paths, "mcp:JSdotNet.MCP.Guidelines", false);
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths);
         Assert.True(config.PcConfigExists);
         Assert.False(config.Root["plugins"]![0]!["enabled"]!.GetValue<bool>());
         Assert.False(config.Root["mcpServers"]![0]!["enabled"]!.GetValue<bool>());
@@ -163,7 +163,7 @@ public class CopilotToolTests
         var nestedStartPath = Path.Combine(root, "src", "App", "Backlog.Desktop", "bin", "Debug");
         Directory.CreateDirectory(nestedStartPath);
 
-        var paths = CopilotToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath);
+        var paths = DevToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath);
 
         Assert.Equal(catalogPath, paths.CatalogPath);
 
@@ -182,7 +182,7 @@ public class CopilotToolTests
         var nestedStartPath = Path.Combine(repositoryRoot, "src", "App", "Backlog.Desktop", "bin", "Debug");
         Directory.CreateDirectory(nestedStartPath);
 
-        var paths = CopilotToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath, storageRoot);
+        var paths = DevToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath, storageRoot);
 
         Assert.Equal(Path.Combine(storageRoot, ".tools", "ai-tools.json"), paths.CatalogPath);
         Assert.Equal(Path.Combine(storageRoot, ".tools", "dev-pc", "ai-tools.json"), paths.PcConfigPath);
@@ -204,11 +204,11 @@ public class CopilotToolTests
         await File.WriteAllTextAsync(legacyCatalog, """{ "plugins": [], "mcpServers": [] }""");
         await File.WriteAllTextAsync(legacyPcConfig, """{ "plugins": [] }""");
 
-        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
         Assert.Equal(legacyCatalog, paths.CatalogPath);
         Assert.Equal(legacyPcConfig, paths.PcConfigPath);
-        Assert.True(CopilotToolConfiguration.CatalogExists(paths));
+        Assert.True(DevToolConfiguration.CatalogExists(paths));
     }
 
     /// <summary>A machine mid-rename has both files. The one the rename produced
@@ -221,7 +221,7 @@ public class CopilotToolTests
         await File.WriteAllTextAsync(Path.Combine(root, ".tools", "copilot-tools.json"), """{ "plugins": [] }""");
         await File.WriteAllTextAsync(Path.Combine(root, ".tools", "ai-tools.json"), """{ "plugins": [] }""");
 
-        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
         Assert.Equal(Path.Combine(root, ".tools", "ai-tools.json"), paths.CatalogPath);
     }
@@ -239,7 +239,7 @@ public class CopilotToolTests
         var nestedStartPath = Path.Combine(root, "src", "App", "Backlog.Desktop", "bin", "Debug");
         Directory.CreateDirectory(nestedStartPath);
 
-        var paths = CopilotToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath);
+        var paths = DevToolConfigurationPaths.CreateDefault("dev-pc", nestedStartPath);
 
         Assert.Equal(legacyCatalog, paths.CatalogPath);
     }
@@ -250,9 +250,9 @@ public class CopilotToolTests
     public async Task Creating_a_catalog_writes_the_new_name()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
-        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
-        await CopilotToolConfiguration.CreateCatalogAsync(paths);
+        await DevToolConfiguration.CreateCatalogAsync(paths);
 
         Assert.Equal("ai-tools.json", Path.GetFileName(paths.CatalogPath));
         Assert.True(File.Exists(Path.Combine(root, ".tools", "ai-tools.json")));
@@ -264,15 +264,15 @@ public class CopilotToolTests
         // Deliberately not CreateTempToolConfigRoot: a machine that has never had
         // a catalog has no .tools folder either, and creating one has to make it.
         var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
-        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
-        Assert.False(CopilotToolConfiguration.CatalogExists(paths));
+        Assert.False(DevToolConfiguration.CatalogExists(paths));
 
-        await CopilotToolConfiguration.CreateCatalogAsync(paths);
+        await DevToolConfiguration.CreateCatalogAsync(paths);
 
-        Assert.True(CopilotToolConfiguration.CatalogExists(paths));
+        Assert.True(DevToolConfiguration.CatalogExists(paths));
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths);
         Assert.Empty(config.Root["plugins"]!.AsArray());
         Assert.Empty(config.Root["mcpServers"]!.AsArray());
     }
@@ -281,13 +281,13 @@ public class CopilotToolTests
     public async Task Creating_a_catalog_over_one_that_exists_is_refused_and_changes_nothing()
     {
         var root = CreateTempToolConfigRoot();
-        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
         await File.WriteAllTextAsync(paths.CatalogPath, """
             { "plugins": [ { "name": "architecture", "source": "JSdotNet/Copilot:plugins/architecture", "enabled": true } ], "mcpServers": [] }
             """);
         var before = await File.ReadAllBytesAsync(paths.CatalogPath);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => CopilotToolConfiguration.CreateCatalogAsync(paths));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => DevToolConfiguration.CreateCatalogAsync(paths));
 
         Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath));
     }
@@ -297,14 +297,14 @@ public class CopilotToolTests
     {
         var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
 
-        await CopilotToolConfiguration.AddToCatalogAsync(
+        await DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "JSdotNet/Copilot:plugins/architecture", PluginKind: "repository-skills"));
-        await CopilotToolConfiguration.AddToCatalogAsync(
+            new DevToolDraft(DevToolKind.Plugin, "architecture", "JSdotNet/Copilot:plugins/architecture", PluginKind: "repository-skills"));
+        await DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new CopilotToolDraft(CopilotToolKind.McpServer, "JSdotNet.MCP.Guidelines", DisplayName: "guidelines"));
+            new DevToolDraft(DevToolKind.McpServer, "JSdotNet.MCP.Guidelines", DisplayName: "guidelines"));
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths);
         var plugin = Assert.Single(config.Root["plugins"]!.AsArray())!;
         Assert.Equal("architecture", plugin["name"]!.GetValue<string>());
         Assert.Equal("JSdotNet/Copilot:plugins/architecture", plugin["source"]!.GetValue<string>());
@@ -332,10 +332,10 @@ public class CopilotToolTests
         // Case-insensitively, matching every lookup in the catalog: two entries
         // differing only in case would be one tool with two rows.
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CopilotToolConfiguration.AddToCatalogAsync(paths, new CopilotToolDraft(CopilotToolKind.Plugin, "Architecture", "b")));
+            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "Architecture", "b")));
 
         Assert.Contains("already", refused.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Single((await CopilotToolConfiguration.ReadAsync(paths)).Root["plugins"]!.AsArray());
+        Assert.Single((await DevToolConfiguration.ReadAsync(paths)).Root["plugins"]!.AsArray());
     }
 
     [Fact]
@@ -344,20 +344,20 @@ public class CopilotToolTests
         var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
 
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CopilotToolConfiguration.AddToCatalogAsync(paths, new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "   ")));
+            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "   ")));
 
         Assert.Contains("source", refused.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Empty((await CopilotToolConfiguration.ReadAsync(paths)).Root["plugins"]!.AsArray());
+        Assert.Empty((await DevToolConfiguration.ReadAsync(paths)).Root["plugins"]!.AsArray());
     }
 
     [Fact]
     public async Task Adding_before_there_is_a_catalog_says_to_create_one()
     {
         var root = CreateTempToolConfigRoot();
-        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CopilotToolConfiguration.AddToCatalogAsync(paths, new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "a")));
+            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "a")));
 
         Assert.Contains("Create it first", refused.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(File.Exists(paths.CatalogPath));
@@ -375,19 +375,19 @@ public class CopilotToolTests
               "mcpServers": []
             }
             """);
-        await CopilotToolConfiguration.WriteEnabledOverrideAsync(paths, "plugin:architecture", false);
+        await DevToolConfiguration.WriteEnabledOverrideAsync(paths, "plugin:architecture", false);
 
-        await CopilotToolConfiguration.RemoveFromCatalogAsync(paths, "plugin:architecture");
-        await CopilotToolConfiguration.RemoveEnabledOverrideAsync(paths, "plugin:architecture");
+        await DevToolConfiguration.RemoveFromCatalogAsync(paths, "plugin:architecture");
+        await DevToolConfiguration.RemoveEnabledOverrideAsync(paths, "plugin:architecture");
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths);
         var remaining = Assert.Single(config.Root["plugins"]!.AsArray())!;
         Assert.Equal("qa", remaining["name"]!.GetValue<string>());
 
         // The point of pruning the override: add it back and it comes back
         // enabled rather than carrying a disable nobody remembers making.
-        await CopilotToolConfiguration.AddToCatalogAsync(paths, new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "a"));
-        var reread = await CopilotToolConfiguration.ReadAsync(paths);
+        await DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "a"));
+        var reread = await DevToolConfiguration.ReadAsync(paths);
         var readded = reread.Root["plugins"]!.AsArray()
             .Single(node => node!["name"]!.GetValue<string>() == "architecture")!;
         Assert.True(readded["enabled"]!.GetValue<bool>());
@@ -398,7 +398,7 @@ public class CopilotToolTests
     {
         var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
 
-        await CopilotToolConfiguration.RemoveEnabledOverrideAsync(paths, "plugin:architecture");
+        await DevToolConfiguration.RemoveEnabledOverrideAsync(paths, "plugin:architecture");
 
         Assert.False(File.Exists(paths.PcConfigPath));
     }
@@ -410,7 +410,7 @@ public class CopilotToolTests
         var before = await File.ReadAllBytesAsync(paths.CatalogPath);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CopilotToolConfiguration.RemoveFromCatalogAsync(paths, "plugin:architecture"));
+            DevToolConfiguration.RemoveFromCatalogAsync(paths, "plugin:architecture"));
 
         Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath));
     }
@@ -423,11 +423,11 @@ public class CopilotToolTests
             """);
         var before = await File.ReadAllTextAsync(paths.CatalogPath);
 
-        await CopilotToolConfiguration.ImportCatalogAsync(paths, """
+        await DevToolConfiguration.ImportCatalogAsync(paths, """
             { "plugins": [ { "name": "qa", "source": "b", "enabled": false } ], "mcpServers": [] }
             """);
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths);
         var plugin = Assert.Single(config.Root["plugins"]!.AsArray())!;
 
         // A replace and not a merge: the entry the imported file does not carry
@@ -445,7 +445,7 @@ public class CopilotToolTests
         var before = await File.ReadAllBytesAsync(paths.CatalogPath);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CopilotToolConfiguration.ImportCatalogAsync(paths, "{ not json at all"));
+            DevToolConfiguration.ImportCatalogAsync(paths, "{ not json at all"));
 
         Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath));
 
@@ -460,7 +460,7 @@ public class CopilotToolTests
     [InlineData("""{ "mcpServers": [ { "name": "guidelines" } ] }""", "packageId")]
     public void A_document_that_is_not_a_catalog_is_refused_with_a_reason(string json, string expected)
     {
-        Assert.False(CopilotToolConfiguration.TryReadCatalog(json, out _, out var error));
+        Assert.False(DevToolConfiguration.TryReadCatalog(json, out _, out var error));
         Assert.Contains(expected, error, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -469,7 +469,7 @@ public class CopilotToolTests
     {
         // The bar is deliberately low. A hand-edited catalog that has only
         // grown plugins so far is a real file, not a malformed one.
-        Assert.True(CopilotToolConfiguration.TryReadCatalog(
+        Assert.True(DevToolConfiguration.TryReadCatalog(
             """{ "plugins": [ { "name": "architecture", "source": "a" } ] }""",
             out var root,
             out _));
@@ -477,10 +477,10 @@ public class CopilotToolTests
         Assert.Single(root["plugins"]!.AsArray());
     }
 
-    private static async Task<CopilotToolConfigurationPaths> CreateCatalogWithAsync(string json)
+    private static async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
     {
         var root = CreateTempToolConfigRoot();
-        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
         await File.WriteAllTextAsync(paths.CatalogPath, json);
         return paths;
     }
@@ -514,7 +514,7 @@ public class ClaudeToolOutputTests
     [Fact]
     public void An_installed_claude_plugin_is_keyed_by_its_marketplace_qualified_id()
     {
-        var plugins = CopilotToolOutput.ParseClaudePluginList(PluginListJson);
+        var plugins = DevToolOutput.ParseClaudePluginList(PluginListJson);
 
         // Case-insensitively, matching every other lookup against the catalog: the
         // catalog spells names the way a person typed them and the CLI does not
@@ -529,7 +529,7 @@ public class ClaudeToolOutputTests
     [Fact]
     public void A_plugin_claude_has_switched_off_is_still_installed()
     {
-        var plugins = CopilotToolOutput.ParseClaudePluginList(PluginListJson);
+        var plugins = DevToolOutput.ParseClaudePluginList(PluginListJson);
 
         Assert.False(plugins["qa@jsdotnet-copilot"].Enabled);
         Assert.Equal("0.9.0", plugins["qa@jsdotnet-copilot"].Version);
@@ -541,9 +541,9 @@ public class ClaudeToolOutputTests
     [Fact]
     public void A_plugin_with_no_version_reads_as_installed()
     {
-        var plugins = CopilotToolOutput.ParseClaudePluginList(PluginListJson);
+        var plugins = DevToolOutput.ParseClaudePluginList(PluginListJson);
 
-        Assert.Equal(CopilotToolOutput.Installed, plugins["documentation@jsdotnet-copilot"].Version);
+        Assert.Equal(DevToolOutput.Installed, plugins["documentation@jsdotnet-copilot"].Version);
     }
 
     /// <summary>The CLI ships on its own cadence and prints warnings and login
@@ -556,7 +556,7 @@ public class ClaudeToolOutputTests
     [InlineData("{ \"plugins\": [] }")]
     public void A_body_that_is_not_a_plugin_list_reads_as_nothing_installed(string body)
     {
-        Assert.Empty(CopilotToolOutput.ParseClaudePluginList(body));
+        Assert.Empty(DevToolOutput.ParseClaudePluginList(body));
     }
 
     /// <summary>The same list, wrapped in an object. Both shapes have come out of
@@ -565,7 +565,7 @@ public class ClaudeToolOutputTests
     [Fact]
     public void A_plugin_list_wrapped_in_an_object_is_read_the_same_way()
     {
-        var plugins = CopilotToolOutput.ParseClaudePluginList("""
+        var plugins = DevToolOutput.ParseClaudePluginList("""
             { "plugins": [ { "id": "qa@jsdotnet-copilot", "version": "1.0.0" } ] }
             """);
 
@@ -575,7 +575,7 @@ public class ClaudeToolOutputTests
     [Fact]
     public void Configured_marketplaces_are_read_by_name()
     {
-        var names = CopilotToolOutput.ParseClaudeMarketplaceList("""
+        var names = DevToolOutput.ParseClaudeMarketplaceList("""
             [
               { "name": "jsdotnet-copilot", "source": { "source": "github", "repo": "JSdotNet/Copilot" } },
               { "name": "anthropic-skills", "source": { "source": "github", "repo": "anthropics/skills" } }
@@ -591,13 +591,13 @@ public class ClaudeToolOutputTests
     [InlineData("not json")]
     public void A_body_that_is_not_a_marketplace_list_reads_as_none_configured(string body)
     {
-        Assert.Empty(CopilotToolOutput.ParseClaudeMarketplaceList(body));
+        Assert.Empty(DevToolOutput.ParseClaudeMarketplaceList(body));
     }
 
     [Fact]
     public void A_registered_mcp_server_reports_its_scope_and_command()
     {
-        var details = CopilotToolOutput.ParseClaudeMcpServer("""
+        var details = DevToolOutput.ParseClaudeMcpServer("""
             jsdotnet-coding-guidelines:
               Scope: User config (available in all your projects)
               Status: ✓ Connected
@@ -621,7 +621,7 @@ public class ClaudeToolOutputTests
     [InlineData("Error: no mcp server named 'x' found")]
     public void An_absent_mcp_server_is_reported_as_absent_rather_than_as_a_failure(string output)
     {
-        Assert.Null(CopilotToolOutput.ParseClaudeMcpServer(output));
+        Assert.Null(DevToolOutput.ParseClaudeMcpServer(output));
     }
 
     /// <summary>A registration somebody made at project or local scope is theirs.
@@ -633,7 +633,7 @@ public class ClaudeToolOutputTests
     [InlineData("  Scope: User config (available in all your projects)", true)]
     public void Only_a_user_scope_registration_is_ours_to_change(string scopeLine, bool expected)
     {
-        var details = CopilotToolOutput.ParseClaudeMcpServer($"a-server:{Environment.NewLine}{scopeLine}{Environment.NewLine}  Command: a-command");
+        var details = DevToolOutput.ParseClaudeMcpServer($"a-server:{Environment.NewLine}{scopeLine}{Environment.NewLine}  Command: a-command");
 
         Assert.NotNull(details);
         Assert.Equal(expected, details.IsUserScope);
@@ -651,7 +651,7 @@ public class ClaudeToolOutputTests
         string? defaultMarketplace,
         string expected)
     {
-        Assert.Equal(expected, CopilotToolOutput.ClaudePluginId(name, claudeName, claudeMarketplace, defaultMarketplace));
+        Assert.Equal(expected, DevToolOutput.ClaudePluginId(name, claudeName, claudeMarketplace, defaultMarketplace));
     }
 
     /// <summary>A catalog with no marketplaces at all can resolve no Claude plugin
@@ -660,8 +660,8 @@ public class ClaudeToolOutputTests
     [Fact]
     public void A_plugin_with_no_marketplace_anywhere_has_no_claude_id()
     {
-        Assert.Null(CopilotToolOutput.ClaudePluginId("architecture", null, null, null));
-        Assert.Null(CopilotToolOutput.ClaudePluginId("architecture", null, "   ", "  "));
+        Assert.Null(DevToolOutput.ClaudePluginId("architecture", null, null, null));
+        Assert.Null(DevToolOutput.ClaudePluginId("architecture", null, "   ", "  "));
     }
 }
 
@@ -673,25 +673,25 @@ public class ClaudeToolOutputTests
 /// "Copilot only" would have dropped all of them out of the Claude half without a
 /// single file changing.</para>
 /// </summary>
-public class CopilotToolHostTests
+public class DevToolHostTests
 {
     [Fact]
     public void An_entry_with_no_hosts_property_is_for_both()
     {
         var entry = JsonNode.Parse("""{ "name": "architecture" }""");
 
-        Assert.Equal(CopilotToolHosts.Both, CopilotToolConfiguration.ParseHosts(entry));
+        Assert.Equal(DevToolHosts.Both, DevToolConfiguration.ParseHosts(entry));
     }
 
     [Theory]
-    [InlineData("""{ "hosts": [] }""", CopilotToolHosts.Both)]
-    [InlineData("""{ "hosts": [ "  " ] }""", CopilotToolHosts.Both)]
-    [InlineData("""{ "hosts": [ "copilot" ] }""", CopilotToolHosts.Copilot)]
-    [InlineData("""{ "hosts": [ "claude" ] }""", CopilotToolHosts.Claude)]
-    [InlineData("""{ "hosts": [ "Copilot", "CLAUDE" ] }""", CopilotToolHosts.Both)]
-    public void The_hosts_array_is_read_case_insensitively(string json, CopilotToolHosts expected)
+    [InlineData("""{ "hosts": [] }""", DevToolHosts.Both)]
+    [InlineData("""{ "hosts": [ "  " ] }""", DevToolHosts.Both)]
+    [InlineData("""{ "hosts": [ "copilot" ] }""", DevToolHosts.Copilot)]
+    [InlineData("""{ "hosts": [ "claude" ] }""", DevToolHosts.Claude)]
+    [InlineData("""{ "hosts": [ "Copilot", "CLAUDE" ] }""", DevToolHosts.Both)]
+    public void The_hosts_array_is_read_case_insensitively(string json, DevToolHosts expected)
     {
-        Assert.Equal(expected, CopilotToolConfiguration.ParseHosts(JsonNode.Parse(json)));
+        Assert.Equal(expected, DevToolConfiguration.ParseHosts(JsonNode.Parse(json)));
     }
 
     /// <summary>A host name this version has not met is ignored rather than
@@ -701,8 +701,8 @@ public class CopilotToolHostTests
     public void An_unknown_host_name_is_ignored()
     {
         Assert.Equal(
-            CopilotToolHosts.Claude,
-            CopilotToolConfiguration.ParseHosts(JsonNode.Parse("""{ "hosts": [ "claude", "cursor" ] }""")));
+            DevToolHosts.Claude,
+            DevToolConfiguration.ParseHosts(JsonNode.Parse("""{ "hosts": [ "claude", "cursor" ] }""")));
     }
 
     /// <summary>One press acts on every host the entry targets, so an update
@@ -711,8 +711,8 @@ public class CopilotToolHostTests
     public void An_update_on_one_host_makes_the_row_updateable()
     {
         var tool = Tool(
-            new CopilotToolHostState(CopilotToolHosts.Copilot, true, "1.0.0", "1.0.0", "Enabled plugin"),
-            new CopilotToolHostState(CopilotToolHosts.Claude, true, "1.0.0", "1.1.0", "Update available"));
+            new DevToolHostState(DevToolHosts.Copilot, true, "1.0.0", "1.0.0", "Enabled plugin"),
+            new DevToolHostState(DevToolHosts.Claude, true, "1.0.0", "1.1.0", "Update available"));
 
         Assert.True(tool.CanUpdate);
         Assert.True(tool.UpdateAvailable);
@@ -724,8 +724,8 @@ public class CopilotToolHostTests
     public void A_tool_missing_on_one_host_can_still_be_installed()
     {
         var tool = Tool(
-            new CopilotToolHostState(CopilotToolHosts.Copilot, true, "1.0.0", "1.0.0", "Enabled plugin"),
-            new CopilotToolHostState(CopilotToolHosts.Claude, false, "not installed", "1.0.0", "Not installed"));
+            new DevToolHostState(DevToolHosts.Copilot, true, "1.0.0", "1.0.0", "Enabled plugin"),
+            new DevToolHostState(DevToolHosts.Claude, false, "not installed", "1.0.0", "Not installed"));
 
         Assert.True(tool.CanInstall);
         Assert.False(tool.CanUpdate);
@@ -735,8 +735,8 @@ public class CopilotToolHostTests
     public void A_tool_both_hosts_have_at_the_published_version_offers_nothing()
     {
         var tool = Tool(
-            new CopilotToolHostState(CopilotToolHosts.Copilot, true, "1.0.0", "1.0.0", "Enabled plugin"),
-            new CopilotToolHostState(CopilotToolHosts.Claude, true, "1.0.0", "1.0.0", "Enabled plugin"));
+            new DevToolHostState(DevToolHosts.Copilot, true, "1.0.0", "1.0.0", "Enabled plugin"),
+            new DevToolHostState(DevToolHosts.Claude, true, "1.0.0", "1.0.0", "Enabled plugin"));
 
         Assert.False(tool.CanUpdate);
         Assert.False(tool.CanInstall);
@@ -750,9 +750,9 @@ public class CopilotToolHostTests
     [Fact]
     public void A_row_with_no_host_states_falls_back_to_its_single_values()
     {
-        var tool = new CopilotToolInfo(
+        var tool = new DevToolInfo(
             "plugin:architecture",
-            CopilotToolKind.Plugin,
+            DevToolKind.Plugin,
             "architecture",
             "a",
             ConfiguredEnabled: true,
@@ -761,15 +761,15 @@ public class CopilotToolHostTests
             "1.1.0",
             "Update available");
 
-        Assert.Equal(CopilotToolHosts.Both, tool.Hosts);
+        Assert.Equal(DevToolHosts.Both, tool.Hosts);
         Assert.Empty(tool.HostStates);
         Assert.True(tool.CanUpdate);
         Assert.False(tool.CanInstall);
     }
 
-    private static CopilotToolInfo Tool(params CopilotToolHostState[] states) => new(
+    private static DevToolInfo Tool(params DevToolHostState[] states) => new(
         "plugin:architecture",
-        CopilotToolKind.Plugin,
+        DevToolKind.Plugin,
         "architecture",
         "JSdotNet/Copilot:plugins/architecture",
         ConfiguredEnabled: true,
@@ -778,7 +778,7 @@ public class CopilotToolHostTests
         "1.0.0",
         "Enabled plugin")
     {
-        Hosts = CopilotToolHosts.Both,
+        Hosts = DevToolHosts.Both,
         HostStates = states
     };
 }
@@ -792,11 +792,11 @@ public class ClaudeCatalogTests
     [Fact]
     public void A_marketplace_key_round_trips_through_the_catalog_reader()
     {
-        var key = CopilotToolConfiguration.KeyFor(CopilotToolKind.Marketplace, "jsdotnet-copilot");
+        var key = DevToolConfiguration.KeyFor(DevToolKind.Marketplace, "jsdotnet-copilot");
 
         Assert.Equal("marketplace:jsdotnet-copilot", key);
 
-        var (arrayName, idName, idValue) = CopilotToolConfiguration.ParseKey(key);
+        var (arrayName, idName, idValue) = DevToolConfiguration.ParseKey(key);
 
         Assert.Equal("claude.marketplaces", arrayName);
         Assert.Equal("name", idName);
@@ -820,15 +820,15 @@ public class ClaudeCatalogTests
             }
             """);
 
-        Assert.Equal("jsdotnet-copilot", CopilotToolConfiguration.DefaultMarketplaceName(root));
-        Assert.Equal(2, CopilotToolConfiguration.MarketplaceEntries(root).Count());
+        Assert.Equal("jsdotnet-copilot", DevToolConfiguration.DefaultMarketplaceName(root));
+        Assert.Equal(2, DevToolConfiguration.MarketplaceEntries(root).Count());
     }
 
     [Fact]
     public void A_catalog_with_no_marketplaces_has_no_default()
     {
-        Assert.Null(CopilotToolConfiguration.DefaultMarketplaceName(JsonNode.Parse("""{ "plugins": [] }""")));
-        Assert.Empty(CopilotToolConfiguration.MarketplaceEntries(JsonNode.Parse("""{ "plugins": [] }""")));
+        Assert.Null(DevToolConfiguration.DefaultMarketplaceName(JsonNode.Parse("""{ "plugins": [] }""")));
+        Assert.Empty(DevToolConfiguration.MarketplaceEntries(JsonNode.Parse("""{ "plugins": [] }""")));
     }
 
     /// <summary>Marketplaces are content on their own: adding one is how a machine
@@ -837,18 +837,18 @@ public class ClaudeCatalogTests
     [Fact]
     public void A_catalog_that_is_only_marketplaces_is_accepted()
     {
-        Assert.True(CopilotToolConfiguration.TryReadCatalog(
+        Assert.True(DevToolConfiguration.TryReadCatalog(
             """{ "claude": { "marketplaces": [ { "name": "jsdotnet-copilot", "source": "JSdotNet/Copilot" } ] } }""",
             out var root,
             out _));
 
-        Assert.Equal("jsdotnet-copilot", CopilotToolConfiguration.DefaultMarketplaceName(root));
+        Assert.Equal("jsdotnet-copilot", DevToolConfiguration.DefaultMarketplaceName(root));
     }
 
     [Fact]
     public void A_marketplace_without_a_name_is_refused_with_a_reason()
     {
-        Assert.False(CopilotToolConfiguration.TryReadCatalog(
+        Assert.False(DevToolConfiguration.TryReadCatalog(
             """{ "claude": { "marketplaces": [ { "source": "JSdotNet/Copilot" } ] } }""",
             out _,
             out var error));
@@ -861,12 +861,12 @@ public class ClaudeCatalogTests
     {
         var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
 
-        await CopilotToolConfiguration.AddToCatalogAsync(
+        await DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new CopilotToolDraft(CopilotToolKind.Marketplace, "jsdotnet-copilot", "JSdotNet/Copilot"));
+            new DevToolDraft(DevToolKind.Marketplace, "jsdotnet-copilot", "JSdotNet/Copilot"));
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
-        var marketplace = Assert.Single(CopilotToolConfiguration.MarketplaceEntries(config.Root));
+        var config = await DevToolConfiguration.ReadAsync(paths);
+        var marketplace = Assert.Single(DevToolConfiguration.MarketplaceEntries(config.Root));
 
         Assert.Equal("jsdotnet-copilot", marketplace["name"]!.GetValue<string>());
         Assert.Equal("JSdotNet/Copilot", marketplace["source"]!.GetValue<string>());
@@ -882,7 +882,7 @@ public class ClaudeCatalogTests
         var paths = await CreateCatalogWithAsync("""{ "plugins": [] }""");
 
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CopilotToolConfiguration.AddToCatalogAsync(paths, new CopilotToolDraft(CopilotToolKind.Marketplace, "jsdotnet-copilot", "  ")));
+            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Marketplace, "jsdotnet-copilot", "  ")));
 
         Assert.Contains("source", refused.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -897,10 +897,10 @@ public class ClaudeCatalogTests
             }
             """);
 
-        await CopilotToolConfiguration.RemoveFromCatalogAsync(paths, "marketplace:jsdotnet-copilot");
+        await DevToolConfiguration.RemoveFromCatalogAsync(paths, "marketplace:jsdotnet-copilot");
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
-        Assert.Empty(CopilotToolConfiguration.MarketplaceEntries(config.Root));
+        var config = await DevToolConfiguration.ReadAsync(paths);
+        Assert.Empty(DevToolConfiguration.MarketplaceEntries(config.Root));
     }
 
     /// <summary>Both hosts is what the format means by silence, so writing the
@@ -911,9 +911,9 @@ public class ClaudeCatalogTests
     {
         var paths = await CreateCatalogWithAsync("""{ "plugins": [] }""");
 
-        await CopilotToolConfiguration.AddToCatalogAsync(paths, new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "a"));
+        await DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "a"));
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths);
         Assert.Null(Assert.Single(config.Root["plugins"]!.AsArray())!["hosts"]);
     }
 
@@ -922,22 +922,22 @@ public class ClaudeCatalogTests
     {
         var paths = await CreateCatalogWithAsync("""{ "plugins": [] }""");
 
-        await CopilotToolConfiguration.AddToCatalogAsync(
+        await DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new CopilotToolDraft(CopilotToolKind.Plugin, "jsdotnet-project-guidelines", "JSdotNet/Copilot:plugins/guidelines")
+            new DevToolDraft(DevToolKind.Plugin, "jsdotnet-project-guidelines", "JSdotNet/Copilot:plugins/guidelines")
             {
-                Hosts = CopilotToolHosts.Claude,
+                Hosts = DevToolHosts.Claude,
                 ClaudeName = "guidelines",
                 ClaudeMarketplace = "anthropic-skills"
             });
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths);
         var plugin = Assert.Single(config.Root["plugins"]!.AsArray())!;
 
         Assert.Equal(["claude"], plugin["hosts"]!.AsArray().Select(node => node!.GetValue<string>()));
         Assert.Equal("guidelines", plugin["claudeName"]!.GetValue<string>());
         Assert.Equal("anthropic-skills", plugin["claudeMarketplace"]!.GetValue<string>());
-        Assert.Equal(CopilotToolHosts.Claude, CopilotToolConfiguration.ParseHosts(plugin));
+        Assert.Equal(DevToolHosts.Claude, DevToolConfiguration.ParseHosts(plugin));
     }
 
     [Fact]
@@ -945,16 +945,16 @@ public class ClaudeCatalogTests
     {
         var paths = await CreateCatalogWithAsync("""{ "mcpServers": [] }""");
 
-        await CopilotToolConfiguration.AddToCatalogAsync(
+        await DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new CopilotToolDraft(CopilotToolKind.McpServer, "JSdotNet.MCP.Guidelines", DisplayName: "jsdotnet-project-guidelines")
+            new DevToolDraft(DevToolKind.McpServer, "JSdotNet.MCP.Guidelines", DisplayName: "jsdotnet-project-guidelines")
             {
                 ClaudeServerName = "jsdotnet-coding-guidelines",
                 ClaudeCommand = "jsdotnet-guidelines-mcpserver",
                 ClaudeArgs = ["--stdio"]
             });
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths);
         var claude = Assert.Single(config.Root["mcpServers"]!.AsArray())!["claude"]!;
 
         Assert.Equal("jsdotnet-coding-guidelines", claude["name"]!.GetValue<string>());
@@ -970,19 +970,19 @@ public class ClaudeCatalogTests
     {
         var paths = await CreateCatalogWithAsync("""{ "mcpServers": [] }""");
 
-        await CopilotToolConfiguration.AddToCatalogAsync(
+        await DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new CopilotToolDraft(CopilotToolKind.McpServer, "JSdotNet.MCP.Guidelines") { ClaudeServerName = "guidelines" });
+            new DevToolDraft(DevToolKind.McpServer, "JSdotNet.MCP.Guidelines") { ClaudeServerName = "guidelines" });
 
-        var config = await CopilotToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths);
         Assert.Null(Assert.Single(config.Root["mcpServers"]!.AsArray())!["claude"]);
     }
 
-    private static async Task<CopilotToolConfigurationPaths> CreateCatalogWithAsync(string json)
+    private static async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".tools"));
-        var paths = CopilotToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
         await File.WriteAllTextAsync(paths.CatalogPath, json);
         return paths;
     }
@@ -994,12 +994,12 @@ public class ClaudeCatalogTests
 /// way it always did — so what is asserted here is that "no commands" is an
 /// empty list rather than a null nobody remembered to guard.
 /// </summary>
-public class CopilotToolCommandTests
+public class DevToolCommandTests
 {
     [Fact]
     public void A_catalog_built_without_commands_has_an_empty_log()
     {
-        var catalog = new CopilotToolCatalog([], "Nothing was checked.");
+        var catalog = new DevToolCatalog([], "Nothing was checked.");
 
         Assert.Empty(catalog.Commands);
     }
@@ -1007,31 +1007,31 @@ public class CopilotToolCommandTests
     [Fact]
     public void A_result_built_without_commands_has_an_empty_log()
     {
-        Assert.Empty(CopilotToolActionResult.Ok("Done.").Commands);
-        Assert.Empty(CopilotToolActionResult.Failed("Not done.").Commands);
-        Assert.Empty(new CopilotToolActionResult(true, "Done.").Commands);
+        Assert.Empty(DevToolActionResult.Ok("Done.").Commands);
+        Assert.Empty(DevToolActionResult.Failed("Not done.").Commands);
+        Assert.Empty(new DevToolActionResult(true, "Done.").Commands);
     }
 
     [Fact]
     public void A_result_carries_the_commands_it_is_handed()
     {
-        CopilotToolCommand[] commands =
+        DevToolCommand[] commands =
         [
             new("dotnet tool list --global", 0, "Package Id      Version"),
             new("dotnet tool search missing --exact-match", 1, "No packages found.")
         ];
 
-        Assert.Equal(commands, CopilotToolActionResult.Ok("Done.", commands).Commands);
-        Assert.Equal(commands, CopilotToolActionResult.Failed("Not done.", commands).Commands);
+        Assert.Equal(commands, DevToolActionResult.Ok("Done.", commands).Commands);
+        Assert.Equal(commands, DevToolActionResult.Failed("Not done.", commands).Commands);
     }
 }
 
-public class UnsupportedCopilotToolServiceTests
+public class UnsupportedDevToolServiceTests
 {
     [Fact]
     public async Task Listing_returns_a_clear_unsupported_message()
     {
-        var service = new UnsupportedCopilotToolService();
+        var service = new UnsupportedDevToolService();
 
         var catalog = await service.ListAsync();
 
@@ -1047,7 +1047,7 @@ public class UnsupportedCopilotToolServiceTests
     [Fact]
     public async Task Creating_a_catalog_is_refused()
     {
-        var result = await new UnsupportedCopilotToolService().CreateCatalogAsync();
+        var result = await new UnsupportedDevToolService().CreateCatalogAsync();
 
         Assert.False(result.Succeeded);
         Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -1056,8 +1056,8 @@ public class UnsupportedCopilotToolServiceTests
     [Fact]
     public async Task Adding_a_tool_is_refused()
     {
-        var result = await new UnsupportedCopilotToolService()
-            .AddAsync(new CopilotToolDraft(CopilotToolKind.Plugin, "architecture", "a"));
+        var result = await new UnsupportedDevToolService()
+            .AddAsync(new DevToolDraft(DevToolKind.Plugin, "architecture", "a"));
 
         Assert.False(result.Succeeded);
         Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -1066,7 +1066,7 @@ public class UnsupportedCopilotToolServiceTests
     [Fact]
     public async Task Removing_a_tool_is_refused()
     {
-        var result = await new UnsupportedCopilotToolService().RemoveAsync("plugin:architecture");
+        var result = await new UnsupportedDevToolService().RemoveAsync("plugin:architecture");
 
         Assert.False(result.Succeeded);
         Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -1075,25 +1075,25 @@ public class UnsupportedCopilotToolServiceTests
     [Fact]
     public async Task Importing_a_catalog_is_refused()
     {
-        var result = await new UnsupportedCopilotToolService().ImportAsync("""{ "plugins": [] }""");
+        var result = await new UnsupportedDevToolService().ImportAsync("""{ "plugins": [] }""");
 
         Assert.False(result.Succeeded);
         Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
-    [InlineData(CopilotToolAction.Update)]
-    [InlineData(CopilotToolAction.Enable)]
-    [InlineData(CopilotToolAction.Disable)]
-    public async Task Actions_fail_without_throwing(CopilotToolAction action)
+    [InlineData(DevToolAction.Update)]
+    [InlineData(DevToolAction.Enable)]
+    [InlineData(DevToolAction.Disable)]
+    public async Task Actions_fail_without_throwing(DevToolAction action)
     {
-        var service = new UnsupportedCopilotToolService();
+        var service = new UnsupportedDevToolService();
 
         var result = action switch
         {
-            CopilotToolAction.Update => await service.UpdateAsync("plugin:test"),
-            CopilotToolAction.Enable => await service.EnableAsync("plugin:test"),
-            CopilotToolAction.Disable => await service.DisableAsync("plugin:test"),
+            DevToolAction.Update => await service.UpdateAsync("plugin:test"),
+            DevToolAction.Enable => await service.EnableAsync("plugin:test"),
+            DevToolAction.Disable => await service.DisableAsync("plugin:test"),
             _ => throw new ArgumentOutOfRangeException(nameof(action))
         };
 

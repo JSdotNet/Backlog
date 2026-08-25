@@ -20,8 +20,8 @@
     <!-- The Dashboard module implementation, for AddDashboardModule(). The host is
          the only thing that sees it: the parts ask through the abstractions project. -->
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
-    <!-- Dev PC Management's published surface. LocalDevelopmentCopilotToolService
-         answers the same ICopilotToolService port from the JSON alone, which is
+    <!-- Dev PC Management's published surface. LocalDevelopmentDevToolService
+         answers the same IDevToolService port from the JSON alone, which is
          this harness's own adapter; the port and the catalog format come from
          here rather than from the UI project that renders the answer. -->
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />

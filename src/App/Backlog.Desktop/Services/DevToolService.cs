@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Backlog.Desktop.Services;
 
-public sealed class CopilotToolService : ICopilotToolService
+public sealed class DevToolService : IDevToolService
 {
     /// <summary>What a row and the status line say when the host a catalog entry
     /// targets is not installed on this machine.
@@ -37,34 +37,34 @@ public sealed class CopilotToolService : ICopilotToolService
 
     private readonly IBacklogStore? _store;
     private readonly string? _configPath;
-    private readonly ILogger<CopilotToolService>? _logger;
+    private readonly ILogger<DevToolService>? _logger;
 
-    public CopilotToolService(ILogger<CopilotToolService>? logger = null, string? configPath = null)
+    public DevToolService(ILogger<DevToolService>? logger = null, string? configPath = null)
         : this(null, logger, configPath)
     {
     }
 
-    public CopilotToolService(IBacklogStore store, ILogger<CopilotToolService>? logger = null)
+    public DevToolService(IBacklogStore store, ILogger<DevToolService>? logger = null)
         : this(store, logger, null)
     {
     }
 
-    private CopilotToolService(IBacklogStore? store, ILogger<CopilotToolService>? logger, string? configPath)
+    private DevToolService(IBacklogStore? store, ILogger<DevToolService>? logger, string? configPath)
     {
         _store = store;
         _logger = logger;
         _configPath = configPath;
     }
 
-    public async Task<CopilotToolCatalog> ListAsync(CancellationToken ct = default)
+    public async Task<DevToolCatalog> ListAsync(CancellationToken ct = default)
     {
         var configPaths = ConfigurationPaths;
-        if (!CopilotToolConfiguration.CatalogExists(configPaths))
+        if (!DevToolConfiguration.CatalogExists(configPaths))
         {
             // The path travels with the "not found" answer: it is what the pane
             // names in its empty state, and what the create button is offering to
             // write. An empty list on its own cannot say either.
-            return new CopilotToolCatalog(
+            return new DevToolCatalog(
                 [],
                 $"Tool catalog was not found at {configPaths.CatalogPath}.",
                 CatalogExists: false,
@@ -72,7 +72,7 @@ public sealed class CopilotToolService : ICopilotToolService
                 CanEditCatalog: true);
         }
 
-        var config = await CopilotToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
+        var config = await DevToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
         var root = config.Root;
         var messages = new List<string>();
         var installedPlugins = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -114,8 +114,8 @@ public sealed class CopilotToolService : ICopilotToolService
 
         var claudeCli = await ResolveClaudeCliAsync(log, ct).ConfigureAwait(false);
         var claudeMarketplaces = (IReadOnlySet<string>)new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var claudePlugins = (IReadOnlyDictionary<string, CopilotToolOutput.ClaudePluginState>)
-            new Dictionary<string, CopilotToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase);
+        var claudePlugins = (IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState>)
+            new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase);
 
         if (claudeCli is null)
         {
@@ -127,13 +127,13 @@ public sealed class CopilotToolService : ICopilotToolService
             claudePlugins = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
         }
 
-        var defaultMarketplace = CopilotToolConfiguration.DefaultMarketplaceName(root);
-        var tools = new List<CopilotToolInfo>();
+        var defaultMarketplace = DevToolConfiguration.DefaultMarketplaceName(root);
+        var tools = new List<DevToolInfo>();
 
         // Marketplaces lead the table because they lead the install order: every
         // Claude plugin id resolves against one, so a marketplace that was never
         // added is the single reason a whole block of rows below it will fail.
-        foreach (var marketplace in CopilotToolConfiguration.MarketplaceEntries(root))
+        foreach (var marketplace in DevToolConfiguration.MarketplaceEntries(root))
         {
             var name = GetString(marketplace, "name");
             if (string.IsNullOrWhiteSpace(name))
@@ -142,21 +142,21 @@ public sealed class CopilotToolService : ICopilotToolService
             }
 
             var known = claudeMarketplaces.Contains(name);
-            tools.Add(new CopilotToolInfo(
+            tools.Add(new DevToolInfo(
                 MarketplaceKey(name),
-                CopilotToolKind.Marketplace,
+                DevToolKind.Marketplace,
                 name,
                 GetString(marketplace, "source"),
                 ConfiguredEnabled: true,
                 Installed: known,
-                known ? "configured" : CopilotToolOutput.NotInstalled,
+                known ? "configured" : DevToolOutput.NotInstalled,
                 // A marketplace has no version to compare. It is added or it is
                 // not, and printing a number here would invite a comparison that
                 // means nothing.
-                CopilotToolOutput.NoVersion,
+                DevToolOutput.NoVersion,
                 claudeCli is null ? ClaudeCliMissing : known ? "Configured marketplace" : "Not added to Claude yet")
             {
-                Hosts = CopilotToolHosts.Claude
+                Hosts = DevToolHosts.Claude
             });
         }
 
@@ -195,7 +195,7 @@ public sealed class CopilotToolService : ICopilotToolService
             ? $"Showing tools from {config.CatalogPath} with PC config {config.PcConfigPath}."
             : $"Showing tools from {config.CatalogPath}. PC config will be created at {config.PcConfigPath}.";
         var message = messages.Count == 0 ? sourceMessage : $"{sourceMessage} {string.Join(" ", messages)}";
-        return new CopilotToolCatalog(tools, message, CatalogExists: true, CatalogPath: config.CatalogPath, CanEditCatalog: true)
+        return new DevToolCatalog(tools, message, CatalogExists: true, CatalogPath: config.CatalogPath, CanEditCatalog: true)
         {
             Commands = log.Commands
         };
@@ -206,7 +206,7 @@ public sealed class CopilotToolService : ICopilotToolService
     ///
     /// <para>One row and not two, because the catalog entry is one entry: two rows
     /// would mean two Remove buttons for something the catalog can only lose
-    /// once. The per-host detail lives in <see cref="CopilotToolInfo.HostStates" />
+    /// once. The per-host detail lives in <see cref="DevToolInfo.HostStates" />
     /// instead, and the row's own columns summarise it.</para>
     ///
     /// <para>A host that cannot be inspected contributes no state at all rather
@@ -214,22 +214,22 @@ public sealed class CopilotToolService : ICopilotToolService
     /// plugin is not installed in Claude" look identical once flattened to a
     /// boolean, and only one of them is worth offering an Install for.</para>
     /// </summary>
-    private static async Task<CopilotToolInfo> DescribePluginAsync(
+    private static async Task<DevToolInfo> DescribePluginAsync(
         JsonNode plugin,
         string name,
         (string Command, string[] Prefix)? copilotCli,
         IReadOnlyDictionary<string, string> installedPlugins,
         string? claudeCli,
-        IReadOnlyDictionary<string, CopilotToolOutput.ClaudePluginState> claudePlugins,
+        IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState> claudePlugins,
         string? defaultMarketplace,
         CommandLog log,
         CancellationToken ct)
     {
         var kind = GetString(plugin, "kind");
         var enabled = GetBool(plugin, "enabled");
-        var hosts = CopilotToolConfiguration.ParseHosts(plugin);
+        var hosts = DevToolConfiguration.ParseHosts(plugin);
         var repositoryBacked = IsRepositoryBacked(plugin);
-        var states = new List<CopilotToolHostState>();
+        var states = new List<DevToolHostState>();
         var notes = new List<string>();
 
         // Looked up once and shared. A Claude plugin's source is the same
@@ -240,7 +240,7 @@ public sealed class CopilotToolService : ICopilotToolService
         async Task<string> AvailableAsync() =>
             availableVersion ??= await GetPluginAvailableVersionAsync(plugin, log, ct).ConfigureAwait(false);
 
-        if (hosts.HasFlag(CopilotToolHosts.Copilot))
+        if (hosts.HasFlag(DevToolHosts.Copilot))
         {
             // A repository-backed plugin is a git clone this host manages itself,
             // so it stays knowable with no Copilot CLI at all. Everything else is
@@ -253,19 +253,19 @@ public sealed class CopilotToolService : ICopilotToolService
             else
             {
                 var installedVersion = await GetPluginInstalledVersionAsync(plugin, installedPlugins, log, ct).ConfigureAwait(false);
-                var installed = !installedVersion.Equals(CopilotToolOutput.NotInstalled, StringComparison.OrdinalIgnoreCase);
+                var installed = !installedVersion.Equals(DevToolOutput.NotInstalled, StringComparison.OrdinalIgnoreCase);
                 var available = await AvailableAsync().ConfigureAwait(false);
 
-                states.Add(new CopilotToolHostState(
-                    CopilotToolHosts.Copilot,
+                states.Add(new DevToolHostState(
+                    DevToolHosts.Copilot,
                     installed,
                     installedVersion,
                     available,
-                    DescribeStatus(enabled, installed, CopilotToolInfo.VersionDiffers(installedVersion, available), string.IsNullOrWhiteSpace(kind) ? "plugin" : kind)));
+                    DescribeStatus(enabled, installed, DevToolInfo.VersionDiffers(installedVersion, available), string.IsNullOrWhiteSpace(kind) ? "plugin" : kind)));
             }
         }
 
-        if (hosts.HasFlag(CopilotToolHosts.Claude))
+        if (hosts.HasFlag(DevToolHosts.Claude))
         {
             if (IsCopilotOnlyKind(kind))
             {
@@ -287,23 +287,23 @@ public sealed class CopilotToolService : ICopilotToolService
             else
             {
                 var state = claudePlugins.GetValueOrDefault(pluginId);
-                var installedVersion = state?.Version ?? CopilotToolOutput.NotInstalled;
+                var installedVersion = state?.Version ?? DevToolOutput.NotInstalled;
                 var available = await AvailableAsync().ConfigureAwait(false);
 
-                states.Add(new CopilotToolHostState(
-                    CopilotToolHosts.Claude,
+                states.Add(new DevToolHostState(
+                    DevToolHosts.Claude,
                     state is not null,
                     installedVersion,
                     available,
                     state is { Enabled: false }
                         ? "Installed but switched off in Claude"
-                        : DescribeStatus(enabled, state is not null, CopilotToolInfo.VersionDiffers(installedVersion, available), "Claude plugin")));
+                        : DescribeStatus(enabled, state is not null, DevToolInfo.VersionDiffers(installedVersion, available), "Claude plugin")));
             }
         }
 
-        return new CopilotToolInfo(
+        return new DevToolInfo(
             PluginKey(name),
-            CopilotToolKind.Plugin,
+            DevToolKind.Plugin,
             name,
             GetString(plugin, "source"),
             enabled,
@@ -335,7 +335,7 @@ public sealed class CopilotToolService : ICopilotToolService
     /// state, where it decides what the row offers without displacing the number
     /// the columns are for.</para>
     /// </summary>
-    private static async Task<CopilotToolInfo> DescribeMcpServerAsync(
+    private static async Task<DevToolInfo> DescribeMcpServerAsync(
         JsonNode server,
         string packageId,
         IReadOnlyDictionary<string, string> installedTools,
@@ -346,23 +346,23 @@ public sealed class CopilotToolService : ICopilotToolService
         var name = GetString(server, "name");
         var displayName = string.IsNullOrWhiteSpace(name) ? packageId : $"{name} ({packageId})";
         var enabled = GetBool(server, "enabled");
-        var hosts = CopilotToolConfiguration.ParseHosts(server);
+        var hosts = DevToolConfiguration.ParseHosts(server);
         var toolInstalled = installedTools.ContainsKey(packageId);
-        var installedVersion = installedTools.TryGetValue(packageId, out var version) ? version : CopilotToolOutput.NotInstalled;
+        var installedVersion = installedTools.TryGetValue(packageId, out var version) ? version : DevToolOutput.NotInstalled;
         var availableVersion = await GetDotNetToolAvailableVersionAsync(packageId, log, ct).ConfigureAwait(false);
 
-        var states = new List<CopilotToolHostState>
+        var states = new List<DevToolHostState>
         {
             new(
                 hosts,
                 toolInstalled,
                 installedVersion,
                 availableVersion,
-                DescribeStatus(enabled, toolInstalled, CopilotToolInfo.VersionDiffers(installedVersion, availableVersion), "mcp-server"))
+                DescribeStatus(enabled, toolInstalled, DevToolInfo.VersionDiffers(installedVersion, availableVersion), "mcp-server"))
         };
         var notes = new List<string>();
 
-        if (hosts.HasFlag(CopilotToolHosts.Claude) && server["claude"] is { } claude)
+        if (hosts.HasFlag(DevToolHosts.Claude) && server["claude"] is { } claude)
         {
             var serverName = ClaudeServerName(server, claude);
             var command = GetString(claude, "command");
@@ -382,9 +382,9 @@ public sealed class CopilotToolService : ICopilotToolService
             }
         }
 
-        return new CopilotToolInfo(
+        return new DevToolInfo(
             McpServerKey(packageId),
-            CopilotToolKind.McpServer,
+            DevToolKind.McpServer,
             displayName,
             packageId,
             enabled,
@@ -412,14 +412,14 @@ public sealed class CopilotToolService : ICopilotToolService
     /// machine-wide sweep. Saying so with matching versions is what stops the row
     /// offering to "fix" it.</para>
     /// </summary>
-    private static CopilotToolHostState DescribeClaudeRegistration(string serverName, string command, CopilotToolOutput.ClaudeMcpServerDetails? details)
+    private static DevToolHostState DescribeClaudeRegistration(string serverName, string command, DevToolOutput.ClaudeMcpServerDetails? details)
     {
         if (details is null)
         {
-            return new CopilotToolHostState(
-                CopilotToolHosts.Claude,
+            return new DevToolHostState(
+                DevToolHosts.Claude,
                 Installed: false,
-                CopilotToolOutput.NotInstalled,
+                DevToolOutput.NotInstalled,
                 command,
                 $"Not registered with Claude as '{serverName}'");
         }
@@ -427,27 +427,27 @@ public sealed class CopilotToolService : ICopilotToolService
         if (!details.IsUserScope)
         {
             var scope = string.IsNullOrWhiteSpace(details.Scope) ? "another" : details.Scope;
-            return new CopilotToolHostState(
-                CopilotToolHosts.Claude,
+            return new DevToolHostState(
+                DevToolHosts.Claude,
                 Installed: true,
                 $"{scope} scope",
                 $"{scope} scope",
                 $"Left alone: '{serverName}' is registered at {scope} scope");
         }
 
-        return new CopilotToolHostState(
-            CopilotToolHosts.Claude,
+        return new DevToolHostState(
+            DevToolHosts.Claude,
             Installed: true,
-            string.IsNullOrWhiteSpace(details.Command) ? CopilotToolOutput.Unknown : details.Command,
+            string.IsNullOrWhiteSpace(details.Command) ? DevToolOutput.Unknown : details.Command,
             command,
             string.Equals(details.Command, command, StringComparison.Ordinal)
                 ? $"Registered with Claude as '{serverName}'"
                 : $"Registered with Claude as '{serverName}', pointing elsewhere");
     }
 
-    public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => ApplyAsync(key, null, ct);
+    public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => ApplyAsync(key, null, ct);
 
-    public async Task<CopilotToolActionResult> UpdateAllAsync(CancellationToken ct = default)
+    public async Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default)
     {
         var catalog = await ListAsync(ct).ConfigureAwait(false);
 
@@ -455,7 +455,7 @@ public sealed class CopilotToolService : ICopilotToolService
         // scan that decided what was out of date, then each tool's own commands
         // in the order they ran. Keeping only the last tool's would hide the
         // failure that mattered behind whichever one happened to go last.
-        var commands = new List<CopilotToolCommand>(catalog.Commands);
+        var commands = new List<DevToolCommand>(catalog.Commands);
 
         // A marketplace Claude has never been told about is included even though it
         // has no version to be behind. It is the one gap that fails a whole block
@@ -463,11 +463,11 @@ public sealed class CopilotToolService : ICopilotToolService
         // marketplace — and an "Update all" that skipped it would leave the
         // operator pressing Update on plugin after plugin that cannot resolve.
         var candidates = catalog.Tools
-            .Where(tool => tool.CanUpdate || (tool.Kind is CopilotToolKind.Marketplace && !tool.Installed))
+            .Where(tool => tool.CanUpdate || (tool.Kind is DevToolKind.Marketplace && !tool.Installed))
             .ToArray();
         if (candidates.Length == 0)
         {
-            return CopilotToolActionResult.Ok("No enabled tools have updates available.", commands);
+            return DevToolActionResult.Ok("No enabled tools have updates available.", commands);
         }
 
         var updated = 0;
@@ -488,42 +488,42 @@ public sealed class CopilotToolService : ICopilotToolService
 
         if (failures.Count > 0)
         {
-            return CopilotToolActionResult.Failed($"Updated {updated} tool(s); {failures.Count} failed. {string.Join(" ", failures)}", commands);
+            return DevToolActionResult.Failed($"Updated {updated} tool(s); {failures.Count} failed. {string.Join(" ", failures)}", commands);
         }
 
-        return CopilotToolActionResult.Ok($"Updated {updated} tool(s).", commands);
+        return DevToolActionResult.Ok($"Updated {updated} tool(s).", commands);
     }
 
-    public Task<CopilotToolActionResult> EnableAsync(string key, CancellationToken ct = default) => ApplyAsync(key, true, ct);
+    public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) => ApplyAsync(key, true, ct);
 
-    public Task<CopilotToolActionResult> DisableAsync(string key, CancellationToken ct = default) => ApplyAsync(key, false, ct);
+    public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) => ApplyAsync(key, false, ct);
 
-    public Task<CopilotToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
+    public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
         EditCatalogAsync(
-            paths => CopilotToolConfiguration.CreateCatalogAsync(paths, ct),
+            paths => DevToolConfiguration.CreateCatalogAsync(paths, ct),
             paths => $"Created a tool catalog at {paths.CatalogPath}.");
 
-    public Task<CopilotToolActionResult> AddAsync(CopilotToolDraft draft, CancellationToken ct = default) =>
+    public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) =>
         EditCatalogAsync(
-            paths => CopilotToolConfiguration.AddToCatalogAsync(paths, draft, ct),
+            paths => DevToolConfiguration.AddToCatalogAsync(paths, draft, ct),
             _ => $"{draft.Id} was added to the catalog.");
 
-    public Task<CopilotToolActionResult> RemoveAsync(string key, CancellationToken ct = default) =>
+    public Task<DevToolActionResult> RemoveAsync(string key, CancellationToken ct = default) =>
         EditCatalogAsync(
             async paths =>
             {
-                await CopilotToolConfiguration.RemoveFromCatalogAsync(paths, key, ct).ConfigureAwait(false);
+                await DevToolConfiguration.RemoveFromCatalogAsync(paths, key, ct).ConfigureAwait(false);
 
                 // The per-PC override outlives the catalog entry unless it goes
                 // with it, and the same tool added again would then arrive
                 // already disabled by a decision nobody remembers making.
-                await CopilotToolConfiguration.RemoveEnabledOverrideAsync(paths, key, ct).ConfigureAwait(false);
+                await DevToolConfiguration.RemoveEnabledOverrideAsync(paths, key, ct).ConfigureAwait(false);
             },
-            _ => $"{CopilotToolConfiguration.ParseKey(key).IdValue} was removed from the catalog.");
+            _ => $"{DevToolConfiguration.ParseKey(key).IdValue} was removed from the catalog.");
 
-    public Task<CopilotToolActionResult> ImportAsync(string json, CancellationToken ct = default) =>
+    public Task<DevToolActionResult> ImportAsync(string json, CancellationToken ct = default) =>
         EditCatalogAsync(
-            paths => CopilotToolConfiguration.ImportCatalogAsync(paths, json, ct),
+            paths => DevToolConfiguration.ImportCatalogAsync(paths, json, ct),
             paths => $"The catalog at {paths.CatalogPath} was replaced. The previous one is beside it as .bak.");
 
     /// <summary>
@@ -536,21 +536,21 @@ public sealed class CopilotToolService : ICopilotToolService
     /// so a failed write is an ordinary outcome, and a pane that fell over on one
     /// would take the tools surface down with it.</para>
     /// </summary>
-    private async Task<CopilotToolActionResult> EditCatalogAsync(
-        Func<CopilotToolConfigurationPaths, Task> edit,
-        Func<CopilotToolConfigurationPaths, string> describe)
+    private async Task<DevToolActionResult> EditCatalogAsync(
+        Func<DevToolConfigurationPaths, Task> edit,
+        Func<DevToolConfigurationPaths, string> describe)
     {
         var paths = ConfigurationPaths;
 
         try
         {
             await edit(paths).ConfigureAwait(false);
-            return CopilotToolActionResult.Ok(describe(paths));
+            return DevToolActionResult.Ok(describe(paths));
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException or JsonException)
         {
-            _logger?.LogWarning(ex, "Copilot tool catalog edit failed.");
-            return CopilotToolActionResult.Failed(ex.Message);
+            _logger?.LogWarning(ex, "Tool catalog edit failed.");
+            return DevToolActionResult.Failed(ex.Message);
         }
     }
 
@@ -559,7 +559,7 @@ public sealed class CopilotToolService : ICopilotToolService
     /// the exits that most need it are the ones that leave early: a refusal
     /// carries the output explaining it, and the catch below would otherwise
     /// report an exception message with nothing behind it.</summary>
-    private async Task<CopilotToolActionResult> ApplyAsync(string key, bool? enabled, CancellationToken ct)
+    private async Task<DevToolActionResult> ApplyAsync(string key, bool? enabled, CancellationToken ct)
     {
         var log = new CommandLog();
         var result = await ApplyCoreAsync(key, enabled, log, ct).ConfigureAwait(false);
@@ -567,20 +567,20 @@ public sealed class CopilotToolService : ICopilotToolService
         return result with { Commands = log.Commands };
     }
 
-    private async Task<CopilotToolActionResult> ApplyCoreAsync(string key, bool? enabled, CommandLog log, CancellationToken ct)
+    private async Task<DevToolActionResult> ApplyCoreAsync(string key, bool? enabled, CommandLog log, CancellationToken ct)
     {
         var configPaths = ConfigurationPaths;
-        if (!CopilotToolConfiguration.CatalogExists(configPaths))
+        if (!DevToolConfiguration.CatalogExists(configPaths))
         {
-            return CopilotToolActionResult.Failed($"Tool catalog was not found at {configPaths.CatalogPath}.");
+            return DevToolActionResult.Failed($"Tool catalog was not found at {configPaths.CatalogPath}.");
         }
 
-        var config = await CopilotToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
+        var config = await DevToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
         var root = config.Root;
         var node = FindToolNode(root, key);
         if (node is null)
         {
-            return CopilotToolActionResult.Failed("That tool is no longer in the config.");
+            return DevToolActionResult.Failed("That tool is no longer in the config.");
         }
 
         if (key.StartsWith("marketplace:", StringComparison.OrdinalIgnoreCase))
@@ -590,7 +590,7 @@ public sealed class CopilotToolService : ICopilotToolService
             // offers it add and update and nothing else.
             if (enabled is not null)
             {
-                return CopilotToolActionResult.Failed("A marketplace is not enabled or disabled; remove it from the catalog instead.");
+                return DevToolActionResult.Failed("A marketplace is not enabled or disabled; remove it from the catalog instead.");
             }
 
             try
@@ -600,33 +600,33 @@ public sealed class CopilotToolService : ICopilotToolService
             catch (Exception ex)
             {
                 _logger?.LogWarning(ex, "Claude marketplace action failed for {Key}.", key);
-                return CopilotToolActionResult.Failed($"{GetString(node, "name")} could not be changed: {ex.Message}");
+                return DevToolActionResult.Failed($"{GetString(node, "name")} could not be changed: {ex.Message}");
             }
         }
 
         if (enabled is not null)
         {
-            await CopilotToolConfiguration.WriteEnabledOverrideAsync(configPaths, key, enabled.Value, ct).ConfigureAwait(false);
-            root = (await CopilotToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false)).Root;
+            await DevToolConfiguration.WriteEnabledOverrideAsync(configPaths, key, enabled.Value, ct).ConfigureAwait(false);
+            root = (await DevToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false)).Root;
             node = FindToolNode(root, key) ?? throw new InvalidOperationException("That tool is no longer in the config.");
         }
 
         try
         {
             return key.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase)
-                ? await ApplyPluginAsync(node, CopilotToolConfiguration.DefaultMarketplaceName(root), log, ct).ConfigureAwait(false)
+                ? await ApplyPluginAsync(node, DevToolConfiguration.DefaultMarketplaceName(root), log, ct).ConfigureAwait(false)
                 : await ApplyMcpServerAsync(node, log, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Copilot tool action failed for {Key}.", key);
-            return CopilotToolActionResult.Failed($"{ToolDisplayName(node)} could not be changed: {ex.Message}");
+            _logger?.LogWarning(ex, "Tool action failed for {Key}.", key);
+            return DevToolActionResult.Failed($"{ToolDisplayName(node)} could not be changed: {ex.Message}");
         }
     }
 
-    private CopilotToolConfigurationPaths ConfigurationPaths => _configPath is null
-        ? CopilotToolConfigurationPaths.CreateDefault(storageRootDirectory: _store?.RootDirectory)
-        : CopilotToolConfigurationPaths.FromCatalogPath(_configPath);
+    private DevToolConfigurationPaths ConfigurationPaths => _configPath is null
+        ? DevToolConfigurationPaths.CreateDefault(storageRootDirectory: _store?.RootDirectory)
+        : DevToolConfigurationPaths.FromCatalogPath(_configPath);
 
     /// <summary>
     /// One row's Update, applied to every host the entry targets.
@@ -642,21 +642,21 @@ public sealed class CopilotToolService : ICopilotToolService
     /// skipped line, not a caveat. The catalog said which hosts it is for, and
     /// narrating the ones it is not would bury the ones it is.</para>
     /// </summary>
-    private async Task<CopilotToolActionResult> ApplyPluginAsync(JsonNode plugin, string? defaultMarketplace, CommandLog log, CancellationToken ct)
+    private async Task<DevToolActionResult> ApplyPluginAsync(JsonNode plugin, string? defaultMarketplace, CommandLog log, CancellationToken ct)
     {
         var name = GetRequiredString(plugin, "name");
-        var hosts = CopilotToolConfiguration.ParseHosts(plugin);
+        var hosts = DevToolConfiguration.ParseHosts(plugin);
         var outcomes = new List<string>();
         var failed = false;
 
-        if (hosts.HasFlag(CopilotToolHosts.Copilot))
+        if (hosts.HasFlag(DevToolHosts.Copilot))
         {
             var copilot = await ApplyCopilotPluginAsync(plugin, name, log, ct).ConfigureAwait(false);
             outcomes.Add($"Copilot: {copilot.Message}");
             failed |= !copilot.Succeeded;
         }
 
-        if (hosts.HasFlag(CopilotToolHosts.Claude))
+        if (hosts.HasFlag(DevToolHosts.Claude))
         {
             var claude = await ApplyClaudePluginAsync(plugin, name, defaultMarketplace, log, ct).ConfigureAwait(false);
             outcomes.Add($"Claude: {claude.Message}");
@@ -665,15 +665,15 @@ public sealed class CopilotToolService : ICopilotToolService
 
         if (outcomes.Count == 0)
         {
-            return CopilotToolActionResult.Failed($"{name} targets no host, so there was nothing to do.");
+            return DevToolActionResult.Failed($"{name} targets no host, so there was nothing to do.");
         }
 
         var message = $"{name} — {string.Join(" ", outcomes)}";
 
-        return failed ? CopilotToolActionResult.Failed(message) : CopilotToolActionResult.Ok(message);
+        return failed ? DevToolActionResult.Failed(message) : DevToolActionResult.Ok(message);
     }
 
-    private async Task<CopilotToolActionResult> ApplyCopilotPluginAsync(JsonNode plugin, string name, CommandLog log, CancellationToken ct)
+    private async Task<DevToolActionResult> ApplyCopilotPluginAsync(JsonNode plugin, string name, CommandLog log, CancellationToken ct)
     {
         var kind = GetString(plugin, "kind");
         var enabled = GetBool(plugin, "enabled");
@@ -683,12 +683,12 @@ public sealed class CopilotToolService : ICopilotToolService
             var status = enabled
                 ? await RefreshRepositorySourceAsync(plugin, log, ct).ConfigureAwait(false)
                 : "disabled in config";
-            return CopilotToolActionResult.Ok($"{status}.");
+            return DevToolActionResult.Ok($"{status}.");
         }
 
         if (await ResolveCopilotCliAsync(log, ct).ConfigureAwait(false) is not { } cli)
         {
-            return CopilotToolActionResult.Failed(CopilotCliMissing);
+            return DevToolActionResult.Failed(CopilotCliMissing);
         }
 
         var installed = await GetInstalledPluginsAsync(cli, log, ct).ConfigureAwait(false);
@@ -698,20 +698,20 @@ public sealed class CopilotToolService : ICopilotToolService
         {
             if (!isInstalled)
             {
-                return CopilotToolActionResult.Ok("already disabled.");
+                return DevToolActionResult.Ok("already disabled.");
             }
 
             var uninstall = await RunAsync(cli.Command, [.. cli.Prefix, "plugin", "uninstall", name], log, ct).ConfigureAwait(false);
             return uninstall.ExitCode == 0
-                ? CopilotToolActionResult.Ok("disabled.")
-                : CopilotToolActionResult.Failed(CommandFailure(name, uninstall));
+                ? DevToolActionResult.Ok("disabled.")
+                : DevToolActionResult.Failed(CommandFailure(name, uninstall));
         }
 
         var args = isInstalled ? new[] { "plugin", "update", name } : ["plugin", "install", GetRequiredString(plugin, "source")];
         var result = await RunAsync(cli.Command, [.. cli.Prefix, .. args], log, ct).ConfigureAwait(false);
         return result.ExitCode == 0
-            ? CopilotToolActionResult.Ok(isInstalled ? "updated." : "installed.")
-            : CopilotToolActionResult.Failed(CommandFailure(name, result));
+            ? DevToolActionResult.Ok(isInstalled ? "updated." : "installed.")
+            : DevToolActionResult.Failed(CommandFailure(name, result));
     }
 
     /// <summary>
@@ -722,22 +722,22 @@ public sealed class CopilotToolService : ICopilotToolService
     /// plugin the catalog says this machine wants that stays switched off is an
     /// update nobody can see the result of.</para>
     /// </summary>
-    private async Task<CopilotToolActionResult> ApplyClaudePluginAsync(JsonNode plugin, string name, string? defaultMarketplace, CommandLog log, CancellationToken ct)
+    private async Task<DevToolActionResult> ApplyClaudePluginAsync(JsonNode plugin, string name, string? defaultMarketplace, CommandLog log, CancellationToken ct)
     {
         var kind = GetString(plugin, "kind");
         if (IsCopilotOnlyKind(kind))
         {
-            return CopilotToolActionResult.Ok($"skipped, '{kind}' is a Copilot-only mechanism.");
+            return DevToolActionResult.Ok($"skipped, '{kind}' is a Copilot-only mechanism.");
         }
 
         if (await ResolveClaudeCliAsync(log, ct).ConfigureAwait(false) is not { } cli)
         {
-            return CopilotToolActionResult.Failed(ClaudeCliMissing);
+            return DevToolActionResult.Failed(ClaudeCliMissing);
         }
 
         if (ClaudePluginIdFor(plugin, name, defaultMarketplace) is not { } pluginId)
         {
-            return CopilotToolActionResult.Failed(NoMarketplace);
+            return DevToolActionResult.Failed(NoMarketplace);
         }
 
         var installed = await GetInstalledClaudePluginsAsync(cli, log, ct).ConfigureAwait(false);
@@ -748,38 +748,38 @@ public sealed class CopilotToolService : ICopilotToolService
         {
             if (state is null)
             {
-                return CopilotToolActionResult.Ok("already absent.");
+                return DevToolActionResult.Ok("already absent.");
             }
 
             var uninstall = await RunAsync(cli, ["plugin", "uninstall", pluginId, "--scope", "user"], log, ct).ConfigureAwait(false);
             return uninstall.ExitCode == 0
-                ? CopilotToolActionResult.Ok($"{pluginId} uninstalled.")
-                : CopilotToolActionResult.Failed(CommandFailure(pluginId, uninstall));
+                ? DevToolActionResult.Ok($"{pluginId} uninstalled.")
+                : DevToolActionResult.Failed(CommandFailure(pluginId, uninstall));
         }
 
         if (state is null)
         {
             var install = await RunAsync(cli, ["plugin", "install", pluginId, "--scope", "user"], log, ct).ConfigureAwait(false);
             return install.ExitCode == 0
-                ? CopilotToolActionResult.Ok($"{pluginId} installed.")
-                : CopilotToolActionResult.Failed(CommandFailure(pluginId, install));
+                ? DevToolActionResult.Ok($"{pluginId} installed.")
+                : DevToolActionResult.Failed(CommandFailure(pluginId, install));
         }
 
         var update = await RunAsync(cli, ["plugin", "update", pluginId], log, ct).ConfigureAwait(false);
         if (update.ExitCode != 0)
         {
-            return CopilotToolActionResult.Failed(CommandFailure(pluginId, update));
+            return DevToolActionResult.Failed(CommandFailure(pluginId, update));
         }
 
         if (state.Enabled)
         {
-            return CopilotToolActionResult.Ok($"{pluginId} updated.");
+            return DevToolActionResult.Ok($"{pluginId} updated.");
         }
 
         var enable = await RunAsync(cli, ["plugin", "enable", pluginId], log, ct).ConfigureAwait(false);
         return enable.ExitCode == 0
-            ? CopilotToolActionResult.Ok($"{pluginId} updated and enabled.")
-            : CopilotToolActionResult.Failed(CommandFailure(pluginId, enable));
+            ? DevToolActionResult.Ok($"{pluginId} updated and enabled.")
+            : DevToolActionResult.Failed(CommandFailure(pluginId, enable));
     }
 
     /// <summary>
@@ -790,13 +790,13 @@ public sealed class CopilotToolService : ICopilotToolService
     /// one you already know by that name". Which of the two applies is decided by
     /// asking Claude what it already has rather than by what the catalog hopes.</para>
     /// </summary>
-    private async Task<CopilotToolActionResult> ApplyMarketplaceAsync(JsonNode marketplace, CommandLog log, CancellationToken ct)
+    private async Task<DevToolActionResult> ApplyMarketplaceAsync(JsonNode marketplace, CommandLog log, CancellationToken ct)
     {
         var name = GetRequiredString(marketplace, "name");
 
         if (await ResolveClaudeCliAsync(log, ct).ConfigureAwait(false) is not { } cli)
         {
-            return CopilotToolActionResult.Failed(ClaudeCliMissing);
+            return DevToolActionResult.Failed(ClaudeCliMissing);
         }
 
         var known = await GetClaudeMarketplacesAsync(cli, log, ct).ConfigureAwait(false);
@@ -804,15 +804,15 @@ public sealed class CopilotToolService : ICopilotToolService
         {
             var update = await RunAsync(cli, ["plugin", "marketplace", "update", name], log, ct).ConfigureAwait(false);
             return update.ExitCode == 0
-                ? CopilotToolActionResult.Ok($"The {name} marketplace was refreshed.")
-                : CopilotToolActionResult.Failed(CommandFailure(name, update));
+                ? DevToolActionResult.Ok($"The {name} marketplace was refreshed.")
+                : DevToolActionResult.Failed(CommandFailure(name, update));
         }
 
         var source = GetRequiredString(marketplace, "source");
         var add = await RunAsync(cli, ["plugin", "marketplace", "add", source], log, ct).ConfigureAwait(false);
         return add.ExitCode == 0
-            ? CopilotToolActionResult.Ok($"The {name} marketplace was added.")
-            : CopilotToolActionResult.Failed(CommandFailure(name, add));
+            ? DevToolActionResult.Ok($"The {name} marketplace was added.")
+            : DevToolActionResult.Failed(CommandFailure(name, add));
     }
 
     /// <summary>
@@ -824,7 +824,7 @@ public sealed class CopilotToolService : ICopilotToolService
     /// there yet, and disabling in the other order would leave Claude holding a
     /// registration for something that has just been uninstalled.</para>
     /// </summary>
-    private async Task<CopilotToolActionResult> ApplyMcpServerAsync(JsonNode server, CommandLog log, CancellationToken ct)
+    private async Task<DevToolActionResult> ApplyMcpServerAsync(JsonNode server, CommandLog log, CancellationToken ct)
     {
         var packageId = GetRequiredString(server, "packageId");
         var enabled = GetBool(server, "enabled");
@@ -863,7 +863,7 @@ public sealed class CopilotToolService : ICopilotToolService
             outcomes.Add(".NET tool: already absent.");
         }
 
-        if (CopilotToolConfiguration.ParseHosts(server).HasFlag(CopilotToolHosts.Claude) && server["claude"] is { } claude)
+        if (DevToolConfiguration.ParseHosts(server).HasFlag(DevToolHosts.Claude) && server["claude"] is { } claude)
         {
             var registration = await ApplyClaudeMcpRegistrationAsync(server, claude, enabled, log, ct).ConfigureAwait(false);
             outcomes.Add($"Claude: {registration.Message}");
@@ -872,7 +872,7 @@ public sealed class CopilotToolService : ICopilotToolService
 
         var message = $"{packageId} — {string.Join(" ", outcomes)}";
 
-        return failed ? CopilotToolActionResult.Failed(message) : CopilotToolActionResult.Ok(message);
+        return failed ? DevToolActionResult.Failed(message) : DevToolActionResult.Ok(message);
     }
 
     /// <summary>
@@ -888,48 +888,48 @@ public sealed class CopilotToolService : ICopilotToolService
     /// rather than edited, because the CLI offers no edit — and a stale command is
     /// how a renamed tool leaves Claude pointing at an executable that is gone.</para>
     /// </summary>
-    private async Task<CopilotToolActionResult> ApplyClaudeMcpRegistrationAsync(JsonNode server, JsonNode claude, bool enabled, CommandLog log, CancellationToken ct)
+    private async Task<DevToolActionResult> ApplyClaudeMcpRegistrationAsync(JsonNode server, JsonNode claude, bool enabled, CommandLog log, CancellationToken ct)
     {
         var name = ClaudeServerName(server, claude);
         if (string.IsNullOrWhiteSpace(name))
         {
-            return CopilotToolActionResult.Failed("the entry has no Claude server name.");
+            return DevToolActionResult.Failed("the entry has no Claude server name.");
         }
 
         if (await ResolveClaudeCliAsync(log, ct).ConfigureAwait(false) is not { } cli)
         {
-            return CopilotToolActionResult.Failed(ClaudeCliMissing);
+            return DevToolActionResult.Failed(ClaudeCliMissing);
         }
 
         var details = await GetClaudeMcpServerAsync(cli, name, log, ct).ConfigureAwait(false);
 
         if (details is not null && !details.IsUserScope)
         {
-            return CopilotToolActionResult.Ok($"left alone, '{name}' is registered at {details.Scope} scope.");
+            return DevToolActionResult.Ok($"left alone, '{name}' is registered at {details.Scope} scope.");
         }
 
         if (!enabled)
         {
             if (details is null)
             {
-                return CopilotToolActionResult.Ok($"'{name}' was already unregistered.");
+                return DevToolActionResult.Ok($"'{name}' was already unregistered.");
             }
 
             var remove = await RunAsync(cli, ["mcp", "remove", name, "--scope", "user"], log, ct).ConfigureAwait(false);
             return remove.ExitCode == 0
-                ? CopilotToolActionResult.Ok($"'{name}' was unregistered.")
-                : CopilotToolActionResult.Failed(CommandFailure(name, remove));
+                ? DevToolActionResult.Ok($"'{name}' was unregistered.")
+                : DevToolActionResult.Failed(CommandFailure(name, remove));
         }
 
         var command = GetString(claude, "command");
         if (string.IsNullOrWhiteSpace(command))
         {
-            return CopilotToolActionResult.Failed($"'{name}' has no claude.command to register.");
+            return DevToolActionResult.Failed($"'{name}' has no claude.command to register.");
         }
 
         if (details is not null && string.Equals(details.Command, command, StringComparison.Ordinal))
         {
-            return CopilotToolActionResult.Ok($"'{name}' was already registered.");
+            return DevToolActionResult.Ok($"'{name}' was already registered.");
         }
 
         if (details is not null)
@@ -937,14 +937,14 @@ public sealed class CopilotToolService : ICopilotToolService
             var remove = await RunAsync(cli, ["mcp", "remove", name, "--scope", "user"], log, ct).ConfigureAwait(false);
             if (remove.ExitCode != 0)
             {
-                return CopilotToolActionResult.Failed(CommandFailure(name, remove));
+                return DevToolActionResult.Failed(CommandFailure(name, remove));
             }
         }
 
         var add = await RunAsync(cli, ["mcp", "add", "--scope", "user", name, "--", command, .. ClaudeServerArgs(claude)], log, ct).ConfigureAwait(false);
         return add.ExitCode == 0
-            ? CopilotToolActionResult.Ok(details is null ? $"'{name}' was registered." : $"'{name}' was re-registered.")
-            : CopilotToolActionResult.Failed(CommandFailure(name, add));
+            ? DevToolActionResult.Ok(details is null ? $"'{name}' was registered." : $"'{name}' was re-registered.")
+            : DevToolActionResult.Failed(CommandFailure(name, add));
     }
 
     private static async Task<Dictionary<string, string>> GetInstalledPluginsAsync((string Command, string[] Prefix) cli, CommandLog log, CancellationToken ct)
@@ -955,14 +955,14 @@ public sealed class CopilotToolService : ICopilotToolService
             throw new InvalidOperationException(CommandFailure("Copilot plugin list", result));
         }
 
-        return new Dictionary<string, string>(CopilotToolOutput.ParsePluginList(result.Output), StringComparer.OrdinalIgnoreCase);
+        return new Dictionary<string, string>(DevToolOutput.ParsePluginList(result.Output), StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>What Claude has installed at any scope, or nothing when the listing
     /// failed. A failure is not thrown here the way the Copilot listing throws:
     /// every Claude row can still say something useful without it, and the command
     /// log already carries whatever the CLI printed.</summary>
-    private static async Task<IReadOnlyDictionary<string, CopilotToolOutput.ClaudePluginState>> GetInstalledClaudePluginsAsync(
+    private static async Task<IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState>> GetInstalledClaudePluginsAsync(
         string cli,
         CommandLog log,
         CancellationToken ct)
@@ -970,8 +970,8 @@ public sealed class CopilotToolService : ICopilotToolService
         var result = await RunAsync(cli, ["plugin", "list", "--json"], log, ct).ConfigureAwait(false);
 
         return result.ExitCode == 0
-            ? CopilotToolOutput.ParseClaudePluginList(result.Output)
-            : new Dictionary<string, CopilotToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase);
+            ? DevToolOutput.ParseClaudePluginList(result.Output)
+            : new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <inheritdoc cref="GetInstalledClaudePluginsAsync" />
@@ -980,7 +980,7 @@ public sealed class CopilotToolService : ICopilotToolService
         var result = await RunAsync(cli, ["plugin", "marketplace", "list", "--json"], log, ct).ConfigureAwait(false);
 
         return result.ExitCode == 0
-            ? CopilotToolOutput.ParseClaudeMarketplaceList(result.Output)
+            ? DevToolOutput.ParseClaudeMarketplaceList(result.Output)
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -993,11 +993,11 @@ public sealed class CopilotToolService : ICopilotToolService
     /// parser decides which of the two it is from the text, so both streams are
     /// handed to it.</para>
     /// </summary>
-    private static async Task<CopilotToolOutput.ClaudeMcpServerDetails?> GetClaudeMcpServerAsync(string cli, string name, CommandLog log, CancellationToken ct)
+    private static async Task<DevToolOutput.ClaudeMcpServerDetails?> GetClaudeMcpServerAsync(string cli, string name, CommandLog log, CancellationToken ct)
     {
         var result = await RunAsync(cli, ["mcp", "get", name], log, ct).ConfigureAwait(false);
 
-        return CopilotToolOutput.ParseClaudeMcpServer(string.IsNullOrWhiteSpace(result.Output) ? result.Error : result.Output);
+        return DevToolOutput.ParseClaudeMcpServer(string.IsNullOrWhiteSpace(result.Output) ? result.Error : result.Output);
     }
 
     private static async Task<Dictionary<string, string>> GetInstalledDotNetToolsAsync(CommandLog log, CancellationToken ct)
@@ -1008,7 +1008,7 @@ public sealed class CopilotToolService : ICopilotToolService
             throw new InvalidOperationException(CommandFailure("dotnet tool list", result));
         }
 
-        return new Dictionary<string, string>(CopilotToolOutput.ParseDotNetToolList(result.Output), StringComparer.OrdinalIgnoreCase);
+        return new Dictionary<string, string>(DevToolOutput.ParseDotNetToolList(result.Output), StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>What nuget.org publishes for one MCP server package.
@@ -1022,8 +1022,8 @@ public sealed class CopilotToolService : ICopilotToolService
         var result = await RunAsync("dotnet", ["tool", "search", packageId], log, ct).ConfigureAwait(false);
 
         return result.ExitCode == 0
-            ? CopilotToolOutput.ParseDotNetToolSearchVersion(result.Output, packageId)
-            : CopilotToolOutput.Unknown;
+            ? DevToolOutput.ParseDotNetToolSearchVersion(result.Output, packageId)
+            : DevToolOutput.Unknown;
     }
 
     /// <summary>What the plugin's source publishes today.
@@ -1045,19 +1045,19 @@ public sealed class CopilotToolService : ICopilotToolService
         {
             if (ExistingRepositoryPath(plugin) is not { } repoPath)
             {
-                return CopilotToolOutput.Unknown;
+                return DevToolOutput.Unknown;
             }
 
             var head = await RunAsync("git", ["-C", repoPath, "ls-remote", "origin", "HEAD"], log, ct).ConfigureAwait(false);
 
             return head.ExitCode == 0 && FirstField(head.Output) is { Length: > 0 } sha
-                ? CopilotToolOutput.ShortCommit(sha)
-                : CopilotToolOutput.Unknown;
+                ? DevToolOutput.ShortCommit(sha)
+                : DevToolOutput.Unknown;
         }
 
-        if (CopilotToolOutput.ParsePluginSource(GetString(plugin, "source")) is not { } source)
+        if (DevToolOutput.ParsePluginSource(GetString(plugin, "source")) is not { } source)
         {
-            return CopilotToolOutput.Unknown;
+            return DevToolOutput.Unknown;
         }
 
         var manifest = await RunAsync(
@@ -1067,8 +1067,8 @@ public sealed class CopilotToolService : ICopilotToolService
             ct).ConfigureAwait(false);
 
         return manifest.ExitCode == 0
-            ? CopilotToolOutput.ParsePluginManifestVersion(manifest.Output) ?? CopilotToolOutput.Unknown
-            : CopilotToolOutput.Unknown;
+            ? DevToolOutput.ParsePluginManifestVersion(manifest.Output) ?? DevToolOutput.Unknown
+            : DevToolOutput.Unknown;
     }
 
     private static async Task<string> GetPluginInstalledVersionAsync(JsonNode plugin, IReadOnlyDictionary<string, string> installedPlugins, CommandLog log, CancellationToken ct)
@@ -1081,7 +1081,7 @@ public sealed class CopilotToolService : ICopilotToolService
 
         if (!IsRepositoryBacked(plugin) || ExistingRepositoryPath(plugin) is not { } repoPath)
         {
-            return CopilotToolOutput.NotInstalled;
+            return DevToolOutput.NotInstalled;
         }
 
         // The full sha, cut to the same width as the remote one it will be
@@ -1090,7 +1090,7 @@ public sealed class CopilotToolService : ICopilotToolService
         var result = await RunAsync("git", ["-C", repoPath, "rev-parse", "HEAD"], log, ct).ConfigureAwait(false);
 
         return result.ExitCode == 0 && FirstField(result.Output) is { Length: > 0 } sha
-            ? CopilotToolOutput.ShortCommit(sha)
+            ? DevToolOutput.ShortCommit(sha)
             : "source";
     }
 
@@ -1156,7 +1156,7 @@ public sealed class CopilotToolService : ICopilotToolService
         if (key.StartsWith("marketplace:", StringComparison.OrdinalIgnoreCase))
         {
             var name = key["marketplace:".Length..];
-            return CopilotToolConfiguration.MarketplaceEntries(root)
+            return DevToolConfiguration.MarketplaceEntries(root)
                 .FirstOrDefault(node => GetString(node, "name").Equals(name, StringComparison.OrdinalIgnoreCase));
         }
 
@@ -1172,11 +1172,11 @@ public sealed class CopilotToolService : ICopilotToolService
 
     private static bool GetBool(JsonNode node, string name) => node[name]?.GetValue<bool>() ?? false;
 
-    private static string PluginKey(string name) => CopilotToolConfiguration.KeyFor(CopilotToolKind.Plugin, name);
+    private static string PluginKey(string name) => DevToolConfiguration.KeyFor(DevToolKind.Plugin, name);
 
-    private static string McpServerKey(string packageId) => CopilotToolConfiguration.KeyFor(CopilotToolKind.McpServer, packageId);
+    private static string McpServerKey(string packageId) => DevToolConfiguration.KeyFor(DevToolKind.McpServer, packageId);
 
-    private static string MarketplaceKey(string name) => CopilotToolConfiguration.KeyFor(CopilotToolKind.Marketplace, name);
+    private static string MarketplaceKey(string name) => DevToolConfiguration.KeyFor(DevToolKind.Marketplace, name);
 
     private static string ToolDisplayName(JsonNode node) => GetString(node, "name") is { Length: > 0 } name ? name : GetString(node, "packageId");
 
@@ -1190,7 +1190,7 @@ public sealed class CopilotToolService : ICopilotToolService
         || kind.Equals("repository-canvases", StringComparison.OrdinalIgnoreCase);
 
     private static string? ClaudePluginIdFor(JsonNode plugin, string name, string? defaultMarketplace) =>
-        CopilotToolOutput.ClaudePluginId(
+        DevToolOutput.ClaudePluginId(
             name,
             GetString(plugin, "claudeName"),
             GetString(plugin, "claudeMarketplace"),
@@ -1234,14 +1234,14 @@ public sealed class CopilotToolService : ICopilotToolService
     /// simply read "Enabled plugin" while silently doing half its job is what this
     /// exists to prevent.</para>
     /// </summary>
-    private static string AggregateStatus(bool enabled, IReadOnlyList<CopilotToolHostState> states, IReadOnlyList<string> notes, string kind)
+    private static string AggregateStatus(bool enabled, IReadOnlyList<DevToolHostState> states, IReadOnlyList<string> notes, string kind)
     {
         var headline = states.Count == 0
             ? enabled ? "Nothing could be checked" : "Disabled in config"
             : DescribeStatus(
                 enabled,
                 states.All(state => state.Installed),
-                states.Any(state => CopilotToolInfo.VersionDiffers(state.InstalledVersion, state.AvailableVersion)),
+                states.Any(state => DevToolInfo.VersionDiffers(state.InstalledVersion, state.AvailableVersion)),
                 kind);
 
         return notes.Count == 0 ? headline : $"{headline} · {string.Join(" · ", notes)}";
@@ -1256,11 +1256,11 @@ public sealed class CopilotToolService : ICopilotToolService
     /// absent from Claude is not summarised by either number alone — so both are
     /// named rather than one being picked.</para>
     /// </summary>
-    private static string Summarize(IReadOnlyList<CopilotToolHostState> states, Func<CopilotToolHostState, string> select)
+    private static string Summarize(IReadOnlyList<DevToolHostState> states, Func<DevToolHostState, string> select)
     {
         if (states.Count == 0)
         {
-            return CopilotToolOutput.Unknown;
+            return DevToolOutput.Unknown;
         }
 
         var values = states.Select(select).ToArray();
@@ -1270,11 +1270,11 @@ public sealed class CopilotToolService : ICopilotToolService
             : string.Join(" · ", states.Select(state => $"{HostLabel(state.Host)} {select(state)}"));
     }
 
-    private static string HostLabel(CopilotToolHosts hosts) => hosts switch
+    private static string HostLabel(DevToolHosts hosts) => hosts switch
     {
-        CopilotToolHosts.Copilot => "copilot",
-        CopilotToolHosts.Claude => "claude",
-        CopilotToolHosts.Both => "shared",
+        DevToolHosts.Copilot => "copilot",
+        DevToolHosts.Claude => "claude",
+        DevToolHosts.Both => "shared",
         _ => "none"
     };
 
@@ -1416,12 +1416,12 @@ public sealed class CopilotToolService : ICopilotToolService
         /// pane, so the tail is dropped rather than handed to the renderer.</summary>
         private const int OutputLimit = 4000;
 
-        private readonly List<CopilotToolCommand> _commands = [];
+        private readonly List<DevToolCommand> _commands = [];
 
-        public IReadOnlyList<CopilotToolCommand> Commands => _commands;
+        public IReadOnlyList<DevToolCommand> Commands => _commands;
 
         public void Record(string fileName, IReadOnlyList<string> arguments, CommandResult result) =>
-            _commands.Add(new CopilotToolCommand(Describe(fileName, arguments), result.ExitCode, Captured(result)));
+            _commands.Add(new DevToolCommand(Describe(fileName, arguments), result.ExitCode, Captured(result)));
 
         /// <summary>The command as something a reader could paste into a shell,
         /// which is the form they will want it in when they go to reproduce
