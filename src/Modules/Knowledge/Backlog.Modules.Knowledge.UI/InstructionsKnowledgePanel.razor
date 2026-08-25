@@ -109,7 +109,9 @@
                                       FrontmatterSource="@(_chapter.Chapter is null ? selectedDocument.Content : _chapter.Text)"
                                       Fill="true"
                                       TestId="instructions-document"
-                                      BodyContent="@(_chapter.Chapter is null ? null : ChapterEditor())" />
+                                      KnowledgeDocumentPath="@DocumentPath(selectedDocument)"
+                                      OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
+                                      BodyContent="@(_chapter.Chapter is null ? null : ChapterEditor(selectedDocument))" />
                         }
                     </div>
                 }
@@ -130,6 +132,21 @@
 
     [Parameter]
     public string? SelectedPath { get; set; }
+
+    /// <summary>
+    /// Raised when a reader follows a reference out of an instruction file.
+    /// <para>
+    /// This is the section whose own folder is not a section: <c>.github</c>,
+    /// <c>.claude</c> and <c>.agents</c> hold no chapters the menu shows, so nothing
+    /// here ever resolves to a document in this panel. What these files do is link
+    /// into the folders that <em>are</em> sections — an instruction file is mostly a
+    /// rule plus the design or domain chapter the rule comes from — and that is the
+    /// traffic this carries. The panel says which chapter was asked for; the host
+    /// decides whether it exists and switches sections to show it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<KnowledgeChapterLink> OnNavigateToChapter { get; set; }
 
     private InstructionRepositoryView? ActiveRepository =>
         string.IsNullOrWhiteSpace(RepositoryAlias)
@@ -228,10 +245,31 @@
     /// and paragraph markdown makes of it. The buffer is untouched.
     /// </para>
     /// </summary>
-    private RenderFragment ChapterEditor() => @<KnowledgeChapterEditor Chapter="@_chapter.Chapter"
-                                                                       InitialText="@_chapter.Text"
-                                                                       HideFrontmatter="true"
-                                                                       OnSaved="OnChapterSavedAsync" />;
+    private RenderFragment ChapterEditor(InstructionDocument document) =>
+        @<KnowledgeChapterEditor Chapter="@_chapter.Chapter"
+                                 InitialText="@_chapter.Text"
+                                 HideFrontmatter="true"
+                                 KnowledgeDocumentPath="@DocumentPath(document)"
+                                 OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
+                                 OnSaved="OnChapterSavedAsync" />;
+
+    /// <summary>The document's path as a link in it resolves against: the same
+    /// repository-relative path the header prints, with the platform's separators
+    /// turned back into the ones a markdown path is written with.
+    ///
+    /// <para>This area needs no folder prefix — its root <em>is</em> the repository
+    /// root, which is why its configured relative path is empty — so the only
+    /// normalisation is the slashes. Discovery stores them the platform's way
+    /// because it built them from real paths on disk.</para></summary>
+    private static string DocumentPath(InstructionDocument document) =>
+        document.RelativePath.Replace('\\', '/').TrimStart('/');
+
+    /// <summary>Follows a reference by asking the host for that chapter. A
+    /// reference to a sibling instruction file resolves to nothing — there is no
+    /// section holding it — and stays the text the author wrote rather than
+    /// becoming a control that goes nowhere.</summary>
+    private Task NavigateKnowledgeReferenceAsync(KnowledgeReference reference) =>
+        KnowledgeChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
 
     private GitHubRepositoryRef StorageInstructionRepository() => new("storage", "Storage", "Folder")
     {

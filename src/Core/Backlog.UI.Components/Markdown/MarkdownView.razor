@@ -744,6 +744,27 @@
     [Parameter]
     public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
 
+    /// <summary>
+    /// The repository-relative path of the knowledge document these blocks were
+    /// read from, carrying its area folder — <c>.domain/roadmap/features.md</c>.
+    ///
+    /// <para>Without it a relative link in the prose is unreadable, and the
+    /// knowledge folders write almost every link relative: a sibling as
+    /// <c>domain.md#roadmap-item-gathering</c> and another context as
+    /// <c>../backlog/domain.md#backlog-entry</c>, because those folders are read in
+    /// plain markdown viewers too. The blocks say nothing about where they came
+    /// from, so the host has to.</para>
+    ///
+    /// <para>Handing it over also says this <em>is</em> a knowledge document, which
+    /// is why it opens the inline hook on its own. The instruction files are read
+    /// in the knowledge pane and carry no <c>meta</c> fence at all, so
+    /// <see cref="RenderKnowledgeMetadata"/> — a question about fences — has
+    /// nothing to say about them. Both signals stay opt-in and an entry's body
+    /// gives neither, which is what keeps a path in one a path being quoted.</para>
+    /// </summary>
+    [Parameter]
+    public string? KnowledgeDocumentPath { get; set; }
+
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]
     public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
@@ -928,43 +949,30 @@
     private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) =>
         MarkdownRender.Inlines(parts, InlineTarget);
 
-    /// <summary>The hook handed to the inline renderer, and null where a host has
-    /// not said this is a knowledge document — which is what keeps a code span in
-    /// an entry's body a code span.</summary>
-    private MarkdownRender.MarkdownInlineTarget? InlineTarget =>
-        RenderKnowledgeMetadata ? new MarkdownRender.MarkdownInlineTarget(KnowledgeTarget) : null;
-
     /// <summary>
-    /// A code span or a relative link that names a knowledge chapter, drawn as
-    /// the reference it is.
+    /// The hook handed to the inline renderer, and null where a host has said
+    /// neither of the two things that make this a knowledge document — which is
+    /// what keeps a code span in an entry's body a code span.
     ///
-    /// <para>The convention writes references in prose the same way it writes
-    /// them in a <c>meta</c> fence — <c>.domain/sessions/domain.md#invariants</c>
-    /// in a code span — and a reader who can follow the one in the record and not
-    /// the identical one two lines above it is being told the two are different
-    /// things. They are the same thing, so they go through the same plumbing: the
-    /// host's <see cref="KnowledgeHrefFor"/> and
-    /// <see cref="OnKnowledgeNavigate"/>, and the same component the record
-    /// draws.</para>
+    /// <para>What the hook then does is
+    /// <see cref="KnowledgeInlineTargets"/>'s, and deliberately not this view's:
+    /// the arc42 read-only fallback and the design sections render their own block
+    /// trees straight through <see cref="MarkdownRender"/>, and a rule that lived
+    /// here would have had to be written a second and third time to reach
+    /// them.</para>
     ///
-    /// <para>Only where a host said it is reading a knowledge document, and only
-    /// for text <see cref="KnowledgeReference.ParseKnowledgePath"/> is willing to
-    /// call a reference — a code span in prose is a path far less often than it
-    /// is a command or a word, and everything it refuses stays the
-    /// <c>&lt;code&gt;</c> it has always been. An <c>http</c> link never reaches
-    /// here at all: it names no knowledge folder, so it falls through to the
-    /// anchor <see cref="MarkdownRender"/> already writes.</para>
+    /// <para>Two signals rather than one because they answer different questions.
+    /// <see cref="RenderKnowledgeMetadata"/> asks whether a <c>meta</c> fence is a
+    /// record, which the instruction files — read in the same pane, carrying
+    /// frontmatter instead — never had an opinion about;
+    /// <see cref="KnowledgeDocumentPath"/> says outright which knowledge document
+    /// this is. Either is a host stating that the prose here is convention-written
+    /// prose. Neither is anything an entry's body says.</para>
     /// </summary>
-    private RenderFragment? KnowledgeTarget(string target, string text) =>
-        KnowledgeReference.ParseKnowledgePath(target) is { } reference
-            ? KnowledgeLink(reference, string.Equals(target, text, StringComparison.Ordinal) ? null : text)
+    private MarkdownRender.MarkdownInlineTarget? InlineTarget =>
+        RenderKnowledgeMetadata || !string.IsNullOrWhiteSpace(KnowledgeDocumentPath)
+            ? KnowledgeInlineTargets.For(KnowledgeDocumentPath, KnowledgeHrefFor, OnKnowledgeNavigate)
             : null;
-
-    private RenderFragment KnowledgeLink(KnowledgeReference reference, string? text) =>
-        @<KnowledgeReferenceLink Reference="@reference"
-                                 Text="@text"
-                                 Href="@KnowledgeHrefFor?.Invoke(reference)"
-                                 OnNavigate="@OnKnowledgeNavigate" />;
 
     /// <summary>The alignment class for a column, read defensively: a body row
     /// may have more cells than the delimiter row described, and a column nobody

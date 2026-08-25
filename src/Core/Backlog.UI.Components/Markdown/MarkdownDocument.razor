@@ -62,6 +62,8 @@
     {
         <div class="markdown-document__read" data-testid="@Suffix("read")">
             <MarkdownView Blocks="@_blocks"
+                          KnowledgeDocumentPath="@KnowledgeDocumentPath"
+                          OnKnowledgeNavigate="@OnKnowledgeNavigate"
                           Comments="@Comments"
                           OnAddComment="OnAddComment"
                           OnResolveComment="OnResolveComment" />
@@ -179,6 +181,23 @@
 
     [Parameter]
     public EventCallback<string> OnResolveComment { get; set; }
+
+    /// <summary>The repository-relative path of the knowledge document this text
+    /// came from, forwarded to the read view so a relative link in it resolves to
+    /// the chapter it names instead of to the reader's browser.
+    ///
+    /// <para>It travels through here because this component is the read view of
+    /// every knowledge chapter an area lets a reader write: three of the five
+    /// sections hand their body to an editing surface, and the surface renders the
+    /// chapter through this. Left unset — which is every entry body and every
+    /// other surface — nothing about the rendering changes.</para></summary>
+    [Parameter]
+    public string? KnowledgeDocumentPath { get; set; }
+
+    /// <summary>Raised with the reference a reader followed out of the read view.
+    /// Only the host knows what "go there" means, so nothing here moves.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }

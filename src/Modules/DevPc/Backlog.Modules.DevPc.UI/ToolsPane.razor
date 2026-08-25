@@ -178,8 +178,19 @@
                                                 <span class="tools-table__note" data-testid="tools-row-note">@note</span>
                                             }
                                         </div>
-                                        <span role="cell" class="tools-table__version" data-testid="tools-row-installed">@InstalledLabel(tool)</span>
-                                        <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
+                                        @* Each version cell names itself. The row's four columns only
+                                           fit while the pane is wide enough for them — it is a surface
+                                           beside a workspace, so it often is not — and below that the
+                                           row stacks and the heading row goes. Two bare version strings
+                                           in a column say nothing about which is which, so the label is
+                                           in the markup at every width and the stylesheet decides when
+                                           it shows. *@
+                                        <span role="cell" class="tools-table__version" data-testid="tools-row-installed">
+                                            <span class="tools-table__cell-label">Installed</span>@InstalledLabel(tool)
+                                        </span>
+                                        <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">
+                                            <span class="tools-table__cell-label">Available</span>@tool.AvailableVersion
+                                        </span>
                                         <div role="cell" class="tools-table__actions">
                                             @if (tool.Kind is DevToolKind.Marketplace)
                                             {
@@ -276,9 +287,11 @@
                                 }
                             </div>
                         </div>
+
                     }
                 </section>
             }
+
         }
 
         @if (_commands.Count > 0)
@@ -312,9 +325,15 @@
             @* SelectField rather than EnumSelect: the enum member is McpServer and
                the humanised form of that reads "Mcp Server", which is not what the
                product calls it anywhere else. *@
+            @* Form, like every field below it: the two selects at the top of this
+               dialog are the ones that decide which of those fields exist, so of
+               everything here they are the last things that should read as
+               captions rather than as controls. *@
             <SelectField Label="Kind"
+                         Form="true"
                          CurrentValue="@_draftKind.ToString()"
                          Options="@KindOptions"
+                         HelpText="What the tool is. Changing it changes what the form asks for below."
                          TestId="tools-add-kind"
                          OnChanged="OnDraftKindChanged" />
 
@@ -328,8 +347,10 @@
                    given — and the condition this replaced would have offered it to
                    applications silently. *@
                 <SelectField Label="Hosts"
+                             Form="true"
                              CurrentValue="@_draftHosts.ToString()"
                              Options="@HostOptions"
+                             HelpText="Which host CLIs it is installed for. Including Claude adds the fields it needs."
                              TestId="tools-add-hosts"
                              OnChanged="OnDraftHostsChanged" />
             }
@@ -364,10 +385,12 @@
                            ErrorMessage="@_draftSourceError"
                            TestId="tools-add-source" />
                 <SelectField Label="Kind of plugin"
+                             Form="true"
                              CurrentValue="@_draftPluginKind"
                              Options="@PluginKindOptions"
                              IncludeEmptyOption="true"
                              EmptyLabel="Plugin (default)"
+                             HelpText="Optional. Only the kinds the desktop host branches on; a plain plugin needs none."
                              TestId="tools-add-plugin-kind"
                              OnChanged="value => _draftPluginKind = value ?? string.Empty" />
 
@@ -396,9 +419,15 @@
                    through to the MCP server. Without this, choosing Application
                    would have drawn a package id and a Claude registration, and
                    submitted whatever was typed into them as an application. *@
+                @* Form, like the two selects above it. This is the third of the
+                   dialog's mode switches — it decides whether the command fields
+                   below exist — and a switch that reads as a caption is the thing
+                   the form shape was added for. *@
                 <SelectField Label="Installed by"
+                             Form="true"
                              CurrentValue="@_draftProvider.ToString()"
                              Options="@ProviderOptions"
+                             HelpText="How this machine gets it. Choosing a command asks for the probe to run."
                              TestId="tools-add-provider"
                              OnChanged="OnDraftProviderChanged" />
                 <TextField Label="ID"

@@ -6,7 +6,7 @@
             <h5 class="knowledge-subheading">@heading.Text</h5>
             break;
         case DesignKnowledgeParagraph paragraph:
-            <p class="knowledge-p">@MarkdownRender.Inlines(paragraph.Content)</p>
+            <p class="knowledge-p">@MarkdownRender.Inlines(paragraph.Content, InlineTarget)</p>
             break;
         case DesignKnowledgeList list:
             if (list.Ordered)
@@ -14,7 +14,7 @@
                 <ol class="knowledge-list">
                     @foreach (var item in list.Items)
                     {
-                        <li>@MarkdownRender.Inlines(item)</li>
+                        <li>@MarkdownRender.Inlines(item, InlineTarget)</li>
                     }
                 </ol>
             }
@@ -23,13 +23,13 @@
                 <ul class="knowledge-list">
                     @foreach (var item in list.Items)
                     {
-                        <li>@MarkdownRender.Inlines(item)</li>
+                        <li>@MarkdownRender.Inlines(item, InlineTarget)</li>
                     }
                 </ul>
             }
             break;
         case DesignKnowledgeQuote quote:
-            <blockquote class="knowledge-quote">@MarkdownRender.Inlines(quote.Content)</blockquote>
+            <blockquote class="knowledge-quote">@MarkdownRender.Inlines(quote.Content, InlineTarget)</blockquote>
             break;
         case DesignKnowledgeTable table:
             <div class="knowledge-table-wrap @(table.IsTokenTable ? "knowledge-table-wrap--tokens" : string.Empty)">
@@ -74,6 +74,19 @@
 
     [Parameter]
     public string DiagramTitle { get; set; } = "Diagram";
+
+    /// <summary>How a reference written in this prose is drawn, built by the panel
+    /// through <c>KnowledgeInlineTargets</c>.
+    ///
+    /// <para>Passing nothing was the whole bug in the design section: these blocks
+    /// went straight to the inline renderer with no hook at all, so every link in
+    /// them became an anchor with <c>target="_blank"</c> on a repository path — a
+    /// browser window asking the app's own origin for <c>.design/color-scheme.md</c>.
+    /// The hook is the panel's rather than this component's because only the panel
+    /// knows which file the blocks were parsed out of and what following a
+    /// reference should do.</para></summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
 }
 
 
