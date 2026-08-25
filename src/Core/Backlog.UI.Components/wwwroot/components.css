@@ -2749,19 +2749,31 @@ button.task-panel__check:focus-visible {
 
 /* The box sits exactly where the title was, so the row does not change height
    when it opens — an edit that moved everything under it would cost the reader
-   their place.
+   their place. And nothing is drawn under it, in any state: a field that has
+   replaced a title is that title with a caret in it, and a line under it is the
+   one thing that would make it look like something else.
 
-   The line under it belongs to the field the pencil opened, and to that field
-   alone: there it is the edit arriving, and it is also that field's focus
-   indicator, which is what lets the outline go without breaking
-   `.design/accessibility.md#focus` — outline: none is allowed with a compliant
-   replacement, and --border-width-2 of --color-border-focus is one. The two fields
-   that are open from the start take the outline back instead; see below. */
+   That line used to be here, on the field the pencil opens, where it read as the
+   edit arriving — and it doubled as that field's focus indicator, which is what
+   let the outline go. Neither job survived the two fields that are open from the
+   start: on a direct-rename row and on the add row there is no moment of arrival
+   to announce, and down a column of steps the same border read as an orange rule
+   under every title, so both had already overridden it away. That left the
+   pencil's field the only one still wearing one, and the difference between the
+   three fields was chrome rather than meaning.
+
+   So the ring is paid for rather than borrowed off the border, the way every
+   other component here pays for it and the way
+   `.design/accessibility.md#focus-visibility` asks: --color-border-focus at
+   --border-width-2, offset, and an outline rather than a shadow so it survives
+   Windows High Contrast. A text field matches :focus-visible however the caret
+   got there, so the field the pencil opens is ringed from the moment it opens —
+   which is the arrival the border used to announce, said by the one thing here
+   that a reader has to be able to see anyway. */
 .task-item__rename-input {
     width: 100%;
     padding: 0;
     border: none;
-    border-bottom: var(--border-width-2) solid var(--color-border-focus);
     border-radius: 0;
     background: transparent;
     color: var(--color-text-primary);
@@ -2769,48 +2781,28 @@ button.task-panel__check:focus-visible {
 }
 
 .task-item__rename-input:focus-visible {
-    outline: none;
-}
-
-/*
-  The fields that are the title rather than an edit of it: a direct-rename row, and
-  the add row at the bottom of the list.
-
-  No line under either, in any state. On a field that is open from the start an
-  underline is not the edit arriving — it is permanent chrome on every row, shouting
-  at a reader who is only reading, and down a column of steps it read as an orange
-  rule under every title. Bringing it back on hover and focus was the previous
-  answer and it solved the wrong half: it still put a border under the one row the
-  caret was in, to say "editable" about a field the caret is already sitting in.
-
-  Which leaves the focus ring to be paid for rather than borrowed off the border, so
-  it is paid for the way every other component here pays for it and the way
-  `.design/accessibility.md#focus` asks: --color-border-focus at --border-width-2,
-  offset, and an outline rather than a shadow so it survives Windows High Contrast.
-
-  The add row is named beside the direct one because it is not --direct — its field
-  is a composer and not a title — and without being named it would keep the base
-  rule's permanent underline, inside a box that is already dashed the whole way
-  round.
-*/
-.task-item__rename--direct .task-item__rename-input,
-.task-item--add .task-item__rename-input {
-    border-bottom: none;
-    transition: background-color var(--transition-fast);
-}
-
-.task-item__rename--direct .task-item__rename-input:focus-visible,
-.task-item--add .task-item__rename-input:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
-/* Editable, said quietly. The underline was doing one job worth keeping — telling a
+/* Editable, said quietly — and only on the fields where saying it is worth
+   anything: the ones that are the title rather than an edit of it, which is a
+   direct-rename row and the add row at the bottom of the list.
+
+   The underline those two dropped was doing one job worth keeping — telling a
    reader that a line of text will take a caret — and under the pointer is the one
-   place it can say so without charging a reader who is only reading for it. A tint
-   of the surface a selected row already wears, so no token is invented and none has
-   to be re-measured; a background rather than a border, so it cannot be mistaken
-   for the focus ring above it. */
+   place it can say so without charging a reader who is only reading for it. A
+   tint of the surface a selected row already wears, so no token is invented and
+   none has to be re-measured; a background rather than a border, so it cannot be
+   mistaken for the focus ring above it.
+
+   Not on the field the pencil opens: it exists only while it is being typed in,
+   so there is no reader to promise a caret to. */
+.task-item__rename--direct .task-item__rename-input,
+.task-item--add .task-item__rename-input {
+    transition: background-color var(--transition-fast);
+}
+
 .task-item__rename--direct .task-item__rename-input:hover,
 .task-item--add .task-item__rename-input:hover {
     background: var(--color-background-raised);
