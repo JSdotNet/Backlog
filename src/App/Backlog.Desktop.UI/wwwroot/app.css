@@ -2214,6 +2214,21 @@ h1, h2, h3 {
     display: block;
 }
 
+/* Which hosts a row is for. Deliberately quiet — it is a qualifier on the name
+   above it, not a status of its own — but always drawn, because a row that says
+   nothing about hosts reads as one that is only about Copilot. */
+.tools-table__hosts {
+    display: inline-block;
+    margin-block: 0.15rem;
+    padding: 0.05rem 0.4rem;
+    border: var(--border-width) solid rgba(242, 193, 78, 0.28);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
 .tools-table__version {
     color: var(--color-text-secondary);
     overflow-wrap: anywhere;

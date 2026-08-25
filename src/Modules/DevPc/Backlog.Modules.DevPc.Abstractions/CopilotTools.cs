@@ -10,8 +10,53 @@ namespace Backlog.Modules.DevPc.Abstractions;
 public enum CopilotToolKind
 {
     Plugin,
-    McpServer
+    McpServer,
+
+    /// <summary>A Claude plugin marketplace — the place Claude plugins are
+    /// installed <em>from</em>, rather than a tool in its own right.
+    ///
+    /// <para>It earns a row because it is the one piece of Claude setup that has
+    /// to be right before any Claude plugin can resolve at all: an id is
+    /// <c>&lt;name&gt;@&lt;marketplace&gt;</c>, and a machine whose marketplace was
+    /// never added fails every Claude plugin for one reason that was nowhere on
+    /// the screen.</para></summary>
+    Marketplace
 }
+
+/// <summary>
+/// Which AI host a catalog entry is for.
+///
+/// <para>Flags rather than an enum with a Both member alone, because the question
+/// asked of it is always "does this entry target that host" and a bit test is the
+/// honest form of that. A catalog entry that says nothing means both: the
+/// catalogs predate Claude support entirely, and reading silence as "Copilot
+/// only" would have quietly dropped every existing entry out of the Claude
+/// half.</para>
+/// </summary>
+[Flags]
+public enum CopilotToolHosts
+{
+    None = 0,
+    Copilot = 1,
+    Claude = 2,
+    Both = Copilot | Claude
+}
+
+/// <summary>
+/// What one host has to say about one catalog entry.
+///
+/// <para>A plugin that targets both hosts is installed twice, from two different
+/// mechanisms, and the two answers routinely disagree — Copilot has it at 1.2.0
+/// and Claude has never heard of it. The row stays one row because the catalog
+/// entry is one entry, and this is where the two answers live so that neither has
+/// to be flattened away to make room for the other.</para>
+/// </summary>
+public sealed record CopilotToolHostState(
+    CopilotToolHosts Host,
+    bool Installed,
+    string InstalledVersion,
+    string AvailableVersion,
+    string Status);
 
 public enum CopilotToolAction
 {
@@ -31,9 +76,32 @@ public sealed record CopilotToolInfo(
     string AvailableVersion,
     string Status)
 {
-    public bool UpdateAvailable => VersionDiffers(InstalledVersion, AvailableVersion);
+    /// <summary>Which hosts this entry is for. Init-only with a default, so the
+    /// harness, the unsupported service and every test that builds one
+    /// positionally still compile — and so an entry nobody has thought about
+    /// lands on the same "both hosts" the catalog format means by silence.</summary>
+    public CopilotToolHosts Hosts { get; init; } = CopilotToolHosts.Both;
 
-    public bool CanUpdate => ConfiguredEnabled && Installed && UpdateAvailable;
+    /// <summary>What each targeted host answered, or empty when the host behind
+    /// this row does not separate them.
+    ///
+    /// <para>Empty is not "no hosts": it is a host that reports one aggregate
+    /// answer, which is what every caller did before Claude existed. The derived
+    /// properties below read the per-host detail when it is there and fall back to
+    /// the single values when it is not, so an old-shaped row behaves exactly as
+    /// it always did.</para></summary>
+    public IReadOnlyList<CopilotToolHostState> HostStates { get; init; } = [];
+
+    public bool UpdateAvailable => HostStates.Count > 0
+        ? HostStates.Any(state => VersionDiffers(state.InstalledVersion, state.AvailableVersion))
+        : VersionDiffers(InstalledVersion, AvailableVersion);
+
+    /// <summary>An update on <em>any</em> targeted host is an update to offer. One
+    /// press acts on every host the entry targets, so a Claude plugin that is a
+    /// version behind is worth a button even when the Copilot copy is current.</summary>
+    public bool CanUpdate => ConfiguredEnabled && (HostStates.Count > 0
+        ? HostStates.Any(state => state.Installed && VersionDiffers(state.InstalledVersion, state.AvailableVersion))
+        : Installed && UpdateAvailable);
 
     /// <summary>A tool this machine is configured to have and does not.
     ///
@@ -41,17 +109,26 @@ public sealed record CopilotToolInfo(
     /// same offer and the screen had only the one: an enabled tool that is absent
     /// cannot be updated, so it fell through to whatever the "nothing to do"
     /// branch said and was announced as up to date beside its own "not installed"
-    /// version.</para></summary>
-    public bool CanInstall => ConfiguredEnabled && !Installed;
+    /// version.</para>
+    ///
+    /// <para>Missing on any one targeted host counts. A plugin Copilot already has
+    /// and Claude has not is still a plugin this machine is short of.</para></summary>
+    public bool CanInstall => ConfiguredEnabled && (HostStates.Count > 0
+        ? HostStates.Any(state => !state.Installed)
+        : !Installed);
 
     /// <summary>Whether a lookup actually answered with a version.
     ///
     /// <para>"Up to date" is a claim about something somebody found. When the
     /// lookup failed there is no version to have matched, and saying so is the
     /// difference between a checked tool and an unchecked one.</para></summary>
-    public bool AvailableVersionKnown =>
-        !string.IsNullOrWhiteSpace(AvailableVersion)
-        && !AvailableVersion.Trim().Equals(CopilotToolOutput.Unknown, StringComparison.OrdinalIgnoreCase);
+    public bool AvailableVersionKnown => HostStates.Count > 0
+        ? HostStates.Any(state => IsKnownVersion(state.AvailableVersion))
+        : IsKnownVersion(AvailableVersion);
+
+    private static bool IsKnownVersion(string availableVersion) =>
+        !string.IsNullOrWhiteSpace(availableVersion)
+        && !availableVersion.Trim().Equals(CopilotToolOutput.Unknown, StringComparison.OrdinalIgnoreCase);
 
     public static bool VersionDiffers(string installedVersion, string availableVersion)
     {
@@ -71,8 +148,14 @@ public sealed record CopilotToolInfo(
         }
 
         var trimmed = version.Trim();
+
+        // Four values that occupy a version column without being one. The dash is
+        // the newest of them and the one with teeth: a marketplace row carries it
+        // opposite the word "configured", and comparing those two as versions
+        // reported an update on every check forever.
         if (trimmed.Equals(CopilotToolOutput.Unknown, StringComparison.OrdinalIgnoreCase)
             || trimmed.Equals(CopilotToolOutput.NotInstalled, StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals(CopilotToolOutput.NoVersion, StringComparison.OrdinalIgnoreCase)
             || trimmed.Equals("source", StringComparison.OrdinalIgnoreCase))
         {
             return null;
@@ -95,13 +178,47 @@ public sealed record CopilotToolInfo(
 /// <see cref="CopilotToolKind"/> enum beside it. The enum says which array an
 /// entry lives in; this says what the host does with it once it is there, and
 /// the host reads it as free text it may not recognise.
+/// </para>
+/// <para>
+/// The Claude fields are all optional and all nullable, because every one of them
+/// has a documented fallback in the catalog format — a plugin's Claude name falls
+/// back to its name, its marketplace to the first one configured, an MCP server's
+/// Claude name to the server's own. Writing a property that only restates the
+/// fallback would make the catalog harder to read for no gain, so a blank one is
+/// left out of the entry entirely.
 /// </para></summary>
 public sealed record CopilotToolDraft(
     CopilotToolKind Kind,
     string Id,
     string? Source = null,
     string? DisplayName = null,
-    string? PluginKind = null);
+    string? PluginKind = null)
+{
+    /// <summary>Which hosts the new entry is for. <see cref="CopilotToolHosts.Both"/>
+    /// is written as no <c>hosts</c> property at all, matching what the format
+    /// means by silence and what every catalog written before Claude support
+    /// already says.</summary>
+    public CopilotToolHosts Hosts { get; init; } = CopilotToolHosts.Both;
+
+    /// <summary>What the plugin is called in the Claude marketplace, when that is
+    /// not what Copilot calls it.</summary>
+    public string? ClaudeName { get; init; }
+
+    /// <summary>Which marketplace the plugin resolves against, when it is not the
+    /// first one in the catalog.</summary>
+    public string? ClaudeMarketplace { get; init; }
+
+    /// <summary>What the MCP server is registered as with <c>claude mcp add</c>.</summary>
+    public string? ClaudeServerName { get; init; }
+
+    /// <summary>The executable <c>claude mcp add</c> is pointed at. An MCP server
+    /// entry with no command is registered nowhere — the shared .NET tool install
+    /// still happens, because that half is what both hosts share.</summary>
+    public string? ClaudeCommand { get; init; }
+
+    /// <summary>The arguments that follow the command, in order.</summary>
+    public IReadOnlyList<string> ClaudeArgs { get; init; } = [];
+}
 
 /// <summary>
 /// One command a host ran while answering, with everything it printed.
@@ -165,7 +282,20 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
 {
     private const string DefaultRepositoryRoot = "%USERPROFILE%\\.copilot\\repos\\Backlog";
     private const string ToolFolderName = ".tools";
-    private const string CatalogFileName = "copilot-tools.json";
+
+    /// <summary>What the catalog is called now that it drives two hosts. The file
+    /// was <c>copilot-tools.json</c> when Copilot was the only thing in it, and the
+    /// name had become a lie about its contents.</summary>
+    public const string CatalogFileName = "ai-tools.json";
+
+    /// <summary>What it used to be called.
+    ///
+    /// <para>Read, never written. The catalog lives in a synced folder that several
+    /// machines share and that a person hand-edits, so an upgrade that only looked
+    /// for the new name would present every one of those machines with the
+    /// "no catalog yet" empty state and a create button pointed at a path beside
+    /// the catalog they already had.</para></summary>
+    public const string LegacyCatalogFileName = "copilot-tools.json";
 
     public static CopilotToolConfigurationPaths CreateDefault(string? machineName = null, string? startPath = null, string? storageRootDirectory = null)
     {
@@ -189,10 +319,11 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
     {
         var expandedRoot = Environment.ExpandEnvironmentVariables(storageRoot);
         var pcName = NormalizeMachineName(machineName ?? Environment.MachineName);
+        var toolFolder = Path.Combine(expandedRoot, ToolFolderName);
 
         return new CopilotToolConfigurationPaths(
-            Path.Combine(expandedRoot, ToolFolderName, CatalogFileName),
-            Path.Combine(expandedRoot, ToolFolderName, pcName, CatalogFileName));
+            ResolveCatalogFile(toolFolder),
+            ResolveCatalogFile(Path.Combine(toolFolder, pcName)));
     }
 
     public static CopilotToolConfigurationPaths FromCatalogPath(string catalogPath, string? machineName = null)
@@ -203,7 +334,29 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
 
         return new CopilotToolConfigurationPaths(
             expandedCatalog,
-            Path.Combine(toolRoot, pcName, CatalogFileName));
+            ResolveCatalogFile(Path.Combine(toolRoot, pcName)));
+    }
+
+    /// <summary>
+    /// Which of the two names a folder's catalog actually goes by.
+    ///
+    /// <para>The new name wins whenever it is on disk, and the legacy one is only
+    /// answered with when it is the only one there — so a machine mid-rename, with
+    /// both files present, reads the one the rename produced rather than the one it
+    /// left behind. A folder with neither answers with the new name, which is what
+    /// the create button then writes.</para>
+    /// </summary>
+    private static string ResolveCatalogFile(string folder)
+    {
+        var current = Path.Combine(folder, CatalogFileName);
+        if (File.Exists(current))
+        {
+            return current;
+        }
+
+        var legacy = Path.Combine(folder, LegacyCatalogFileName);
+
+        return File.Exists(legacy) ? legacy : current;
     }
 
     private static string? FindCatalogRoot(string startPath)
@@ -214,7 +367,11 @@ public sealed record CopilotToolConfigurationPaths(string CatalogPath, string Pc
 
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, ToolFolderName, CatalogFileName)))
+            // Either name stops the walk. A repository that has not been renamed
+            // yet is still a repository with a catalog in it, and walking past it
+            // would land on whichever ancestor happened to have one.
+            if (File.Exists(Path.Combine(directory.FullName, ToolFolderName, CatalogFileName))
+                || File.Exists(Path.Combine(directory.FullName, ToolFolderName, LegacyCatalogFileName)))
             {
                 return directory.FullName;
             }
@@ -260,10 +417,33 @@ public static class CopilotToolConfiguration
     /// answer the pane branches on has one definition.</summary>
     public static bool CatalogExists(CopilotToolConfigurationPaths paths) => File.Exists(paths.CatalogPath);
 
+    /// <summary>Where the Claude marketplaces live in the catalog. A path rather
+    /// than a property name because it is the one array that is nested, and
+    /// spelling it as one keeps every array reader in this file taking the same
+    /// kind of argument.</summary>
+    public const string MarketplacesPath = "claude.marketplaces";
+
     /// <summary>The key a tool is addressed by, minted in one place so the
     /// prefixes <see cref="ParseKey"/> reads are the prefixes callers write.</summary>
-    public static string KeyFor(CopilotToolKind kind, string id) =>
-        kind is CopilotToolKind.Plugin ? $"plugin:{id}" : $"mcp:{id}";
+    public static string KeyFor(CopilotToolKind kind, string id) => kind switch
+    {
+        CopilotToolKind.Plugin => $"plugin:{id}",
+        CopilotToolKind.Marketplace => $"marketplace:{id}",
+        _ => $"mcp:{id}"
+    };
+
+    /// <summary>
+    /// Which hosts an entry declares, read from its <c>hosts</c> array.
+    ///
+    /// <para>Absent, empty, and present-but-all-blank all mean both. The catalog
+    /// format uses silence for the common case, and a machine whose entries all
+    /// predate Claude support has to keep working rather than lose its Claude
+    /// half to a property nobody wrote.</para>
+    /// </summary>
+    public static CopilotToolHosts ParseHosts(JsonNode? entry) =>
+        CopilotToolOutput.ParseHosts(entry?["hosts"] is JsonArray hosts
+            ? hosts.Select(node => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : node?.ToString())
+            : null);
 
     /// <summary>Writes the empty catalog a machine starts from: the two arrays
     /// every reader here expects, indented the way the rest of the file is, so
@@ -307,17 +487,26 @@ public static class CopilotToolConfiguration
 
         if (id.Length == 0)
         {
-            throw new InvalidOperationException(draft.Kind is CopilotToolKind.Plugin
-                ? "A plugin needs a name."
-                : "An MCP server needs a package id.");
+            throw new InvalidOperationException(draft.Kind switch
+            {
+                CopilotToolKind.Plugin => "A plugin needs a name.",
+                CopilotToolKind.Marketplace => "A marketplace needs a name.",
+                _ => "An MCP server needs a package id."
+            });
         }
 
         // A plugin with no source is an entry the host cannot install from, so it
         // is rejected here rather than written and failed against later. An MCP
-        // server needs none: its package id is where it comes from.
+        // server needs none: its package id is where it comes from. A marketplace
+        // is all source — the name is only how the CLI refers to it afterwards.
         if (draft.Kind is CopilotToolKind.Plugin && source.Length == 0)
         {
             throw new InvalidOperationException("A plugin needs a source.");
+        }
+
+        if (draft.Kind is CopilotToolKind.Marketplace && source.Length == 0)
+        {
+            throw new InvalidOperationException("A marketplace needs a source.");
         }
 
         await CatalogWriteLock.WaitAsync(ct).ConfigureAwait(false);
@@ -342,6 +531,18 @@ public static class CopilotToolConfiguration
 
             var entry = new JsonObject { [idName] = id };
 
+            if (draft.Kind is CopilotToolKind.Marketplace)
+            {
+                // A marketplace carries no enabled flag: it is not a tool this
+                // machine may or may not want, it is where the Claude plugins that
+                // do want it are resolved from.
+                entry["source"] = source;
+                array.Add(entry);
+
+                await WriteCatalogAsync(paths.CatalogPath, root, ct).ConfigureAwait(false);
+                return;
+            }
+
             if (draft.Kind is CopilotToolKind.Plugin)
             {
                 entry["source"] = source;
@@ -349,6 +550,9 @@ public static class CopilotToolConfiguration
                 {
                     entry["kind"] = draft.PluginKind.Trim();
                 }
+
+                WriteIfPresent(entry, "claudeName", draft.ClaudeName);
+                WriteIfPresent(entry, "claudeMarketplace", draft.ClaudeMarketplace);
             }
             else
             {
@@ -363,8 +567,14 @@ public static class CopilotToolConfiguration
                 {
                     entry["source"] = source;
                 }
+
+                if (ClaudeServerSection(draft) is { } claude)
+                {
+                    entry["claude"] = claude;
+                }
             }
 
+            WriteHosts(entry, draft.Hosts);
             entry["enabled"] = true;
             array.Add(entry);
 
@@ -392,7 +602,7 @@ public static class CopilotToolConfiguration
             }
 
             var root = await ReadCatalogAsync(paths.CatalogPath, ct).ConfigureAwait(false);
-            var array = root[arrayName] as JsonArray;
+            var array = FindArray(root, arrayName);
             var entry = array is null ? null : FindObject(array, idName, idValue);
 
             if (array is null || entry is null)
@@ -429,7 +639,7 @@ public static class CopilotToolConfiguration
         var root = await ReadPcConfigOrEmptyAsync(paths.PcConfigPath, ct).ConfigureAwait(false);
         var (arrayName, idName, idValue) = ParseKey(key);
 
-        if (root[arrayName] is not JsonArray array || FindObject(array, idName, idValue) is not { } entry)
+        if (FindArray(root, arrayName) is not { } array || FindObject(array, idName, idValue) is not { } entry)
         {
             return;
         }
@@ -523,15 +733,21 @@ public static class CopilotToolConfiguration
 
         var plugins = document["plugins"] as JsonArray;
         var servers = document["mcpServers"] as JsonArray;
+        var marketplaces = FindArray(document, MarketplacesPath);
 
-        if (plugins is null && servers is null)
+        // Marketplaces count as content on their own. A machine that installs only
+        // Claude plugins is set up by adding the marketplace first, and refusing
+        // that catalog would mean the import could not be used to bootstrap the one
+        // thing every Claude plugin id resolves against.
+        if (plugins is null && servers is null && marketplaces is null)
         {
-            error = "A tool catalog needs a \"plugins\" or an \"mcpServers\" array.";
+            error = "A tool catalog needs a \"plugins\", an \"mcpServers\" or a \"claude.marketplaces\" array.";
             return false;
         }
 
         if (!EveryEntryCarriesAnId(plugins, "plugins", "name", out error)
-            || !EveryEntryCarriesAnId(servers, "mcpServers", "packageId", out error))
+            || !EveryEntryCarriesAnId(servers, "mcpServers", "packageId", out error)
+            || !EveryEntryCarriesAnId(marketplaces, MarketplacesPath, "name", out error))
         {
             return false;
         }
@@ -539,6 +755,31 @@ public static class CopilotToolConfiguration
         root = document;
         error = string.Empty;
         return true;
+    }
+
+    /// <summary>The Claude marketplaces a catalog declares, in the order it
+    /// declares them — which matters, because the first is the default.</summary>
+    public static IEnumerable<JsonNode> MarketplaceEntries(JsonNode? root) =>
+        FindArray(root, MarketplacesPath)?.Where(node => node is not null).Cast<JsonNode>() ?? [];
+
+    /// <summary>
+    /// The marketplace a plugin resolves against when it names none.
+    ///
+    /// <para>The first one in the array, and the ordering of a JSON array is the
+    /// only thing making it the default — so this reads it in one place rather
+    /// than leaving each caller to decide that <c>[0]</c> is meaningful.</para>
+    /// </summary>
+    public static string? DefaultMarketplaceName(JsonNode? root)
+    {
+        foreach (var marketplace in MarketplaceEntries(root))
+        {
+            if (marketplace["name"] is JsonValue value && value.TryGetValue<string>(out var name) && !string.IsNullOrWhiteSpace(name))
+            {
+                return name.Trim();
+            }
+        }
+
+        return null;
     }
 
     public static async Task<CopilotToolConfigurationDocument> ReadAsync(CopilotToolConfigurationPaths paths, CancellationToken ct = default)
@@ -623,16 +864,122 @@ public static class CopilotToolConfiguration
         }
     }
 
+    /// <summary>
+    /// The array at a dotted path, making every object along the way.
+    ///
+    /// <para>Only the marketplaces are nested today, and the alternative was a
+    /// second family of readers and writers that knew about <c>claude</c>
+    /// specifically. One path-walking lookup keeps <see cref="ParseKey"/> able to
+    /// answer for all three kinds with the same tuple.</para>
+    /// </summary>
     private static JsonArray GetOrCreateArray(JsonObject root, string arrayName)
     {
-        if (root[arrayName] is JsonArray existing)
+        var segments = arrayName.Split('.');
+        var parent = root;
+
+        for (var index = 0; index < segments.Length - 1; index++)
+        {
+            if (parent[segments[index]] is not JsonObject child)
+            {
+                child = [];
+                parent[segments[index]] = child;
+            }
+
+            parent = child;
+        }
+
+        var leaf = segments[^1];
+        if (parent[leaf] is JsonArray existing)
         {
             return existing;
         }
 
         var array = new JsonArray();
-        root[arrayName] = array;
+        parent[leaf] = array;
         return array;
+    }
+
+    /// <inheritdoc cref="GetOrCreateArray" />
+    /// <summary>The array at a dotted path, or nothing when any step of it is
+    /// missing. The reading half of <see cref="GetOrCreateArray"/>, which never
+    /// writes into a document it was only asked to look at.</summary>
+    private static JsonArray? FindArray(JsonNode? root, string arrayName)
+    {
+        JsonNode? node = root;
+        foreach (var segment in arrayName.Split('.'))
+        {
+            node = node?[segment];
+        }
+
+        return node as JsonArray;
+    }
+
+    private static void WriteIfPresent(JsonObject entry, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            entry[name] = value.Trim();
+        }
+    }
+
+    /// <summary>Writes <c>hosts</c> only when it says something the format does not
+    /// already say by omission. <see cref="CopilotToolHosts.Both"/> is what an entry
+    /// with no such property means, so writing it would add a line that changes
+    /// nothing and invites the reader to wonder why the entry beside it lacks
+    /// one.</summary>
+    private static void WriteHosts(JsonObject entry, CopilotToolHosts hosts)
+    {
+        if (hosts is CopilotToolHosts.Both or CopilotToolHosts.None)
+        {
+            return;
+        }
+
+        var names = new JsonArray();
+        if (hosts.HasFlag(CopilotToolHosts.Copilot))
+        {
+            names.Add("copilot");
+        }
+
+        if (hosts.HasFlag(CopilotToolHosts.Claude))
+        {
+            names.Add("claude");
+        }
+
+        entry["hosts"] = names;
+    }
+
+    /// <summary>The <c>claude</c> section of an MCP server entry, or nothing when
+    /// the draft named no command. The section exists to be handed to
+    /// <c>claude mcp add</c>, and one with no command is a registration that could
+    /// never be made.</summary>
+    private static JsonObject? ClaudeServerSection(CopilotToolDraft draft)
+    {
+        if (string.IsNullOrWhiteSpace(draft.ClaudeCommand))
+        {
+            return null;
+        }
+
+        var claude = new JsonObject
+        {
+            ["name"] = string.IsNullOrWhiteSpace(draft.ClaudeServerName)
+                ? (string.IsNullOrWhiteSpace(draft.DisplayName) ? draft.Id.Trim() : draft.DisplayName.Trim())
+                : draft.ClaudeServerName.Trim(),
+            ["command"] = draft.ClaudeCommand.Trim()
+        };
+
+        var args = draft.ClaudeArgs.Where(argument => !string.IsNullOrWhiteSpace(argument)).ToArray();
+        if (args.Length > 0)
+        {
+            var values = new JsonArray();
+            foreach (var argument in args)
+            {
+                values.Add(argument.Trim());
+            }
+
+            claude["args"] = values;
+        }
+
+        return claude;
     }
 
     private static JsonObject? FindObject(JsonArray array, string idName, string idValue) =>
@@ -657,6 +1004,11 @@ public static class CopilotToolConfiguration
         if (key.StartsWith("mcp:", StringComparison.OrdinalIgnoreCase))
         {
             return ("mcpServers", "packageId", key["mcp:".Length..]);
+        }
+
+        if (key.StartsWith("marketplace:", StringComparison.OrdinalIgnoreCase))
+        {
+            return (MarketplacesPath, "name", key["marketplace:".Length..]);
         }
 
         throw new ArgumentException("Unknown tool key.", nameof(key));
