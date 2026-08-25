@@ -3833,7 +3833,6 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
-.design-document__header,
 .design-section__header,
 .domain-context__header,
 .domain-document__header,
@@ -3844,6 +3843,18 @@ h1, h2, h3 {
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--spacing-md);
+}
+
+/* The design document header stacks instead of splitting. It holds the file's
+   path and then the file's own metadata record, and the record already draws the
+   name with the status held to the right edge of its line — the split this
+   header used to make is now made one level down, inside
+   `.knowledge-record__headline`, where the two things sharing the line share a
+   parent. Laid out as two rows so the path stays the eyebrow above the name it
+   has always been. */
+.design-document__header {
+    display: grid;
+    gap: var(--spacing-2xs);
 }
 
 /* The domain document header gave its title and path to the file view that now
@@ -3861,8 +3872,13 @@ h1, h2, h3 {
     margin-left: auto;
 }
 
+/* A heading handed to a knowledge record arrives with the block margins it has
+   as a block of its own, and left alone they push the status off the line the
+   record exists to share. The shared stylesheet resets the markdown heading the
+   file view hands over; these are the design pane's own `h3` and `h4`. */
 .design-document__header h3,
 .design-section__header h4,
+.design-section__record h4,
 .domain-context__header h3,
 .domain-document__header h3,
 .domain-section__header h4 {
