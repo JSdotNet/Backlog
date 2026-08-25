@@ -1,4 +1,4 @@
-@implements IDisposable
+﻿@implements IDisposable
 @inject BacklogDesktopState State
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
@@ -153,9 +153,18 @@
                 }
                 else
                 {
-                    @* Copying is off: an entry's text is edited beside the list, and a
-                       clipboard button on every row would be the loudest control in a
-                       column whose job is scanning. *@
+                    @* Copying is on, and what it hands over is this pane's answer
+                       rather than the row's. An entry row carries no Body on purpose —
+                       see EntryTasks — so a copy left to the shared row's default would
+                       be a bare title, which is not a brief anyone can paste.
+
+                       The taste argument this used to refuse on — a clipboard button on
+                       every row being the loudest thing in a column whose job is
+                       scanning — is answered where it belongs, in the row's own CSS: the
+                       button sits in the disabled-text colour and only reaches full
+                       contrast once the row is hovered or the button focused. Quiet, but
+                       present, because an affordance that appears on hover cannot be
+                       found by touch or by keyboard. *@
                     <TaskListView @ref="_list"
                                   Tasks="@EntryTasks()"
                                   SelectedId="@SelectedTaskId"
@@ -166,7 +175,7 @@
                                   Reorderable="true"
                                   OnReorder="OnEntryReorderedAsync"
                                   GroupCompleted="true"
-                                  AllowCopy="false"
+                                  RowCopyValue="@EntryCopyText"
                                   RowCssClass="@RepositoryMark"
                                   AriaLabel="Backlog entries"
                                   TestId="entry-list">
@@ -466,6 +475,51 @@
         State.Rows.FirstOrDefault(row => string.Equals(EntryTaskId(row), id, StringComparison.Ordinal));
 
     /// <summary>
+    /// What a row in the entry list copies, and what the panel it opens into
+    /// copies with it: the entry's title, a blank line, and everything written
+    /// under it.
+    /// <para>
+    /// The pane's answer rather than the row's, for the same reason
+    /// <c>RepositoryMark</c> is: a <c>TaskRow</c> is a task and has no markdown on
+    /// it. It has no <c>Body</c> either — <c>EntryTasks</c> leaves that off so the
+    /// column does not grow a disclosure per row — so without this the copy would
+    /// be a title on its own, which is a label rather than the brief somebody came
+    /// to paste.
+    /// </para>
+    /// <para>
+    /// <c>ParsedEntry.Body</c> and not <c>GetNote</c>: the body runs to the end of
+    /// the document and so brings every step with it. That is the point. A task
+    /// whose steps were left behind is half a task, and the reader who copied it
+    /// would find that out in the tool they pasted into.
+    /// </para>
+    /// <para>
+    /// The metadata line does not come along, because the parser has already read
+    /// it off. `task` `*high` `!ready` is this app writing down what it knows about
+    /// the entry, not text a person wrote, and it means nothing anywhere else.
+    /// </para>
+    /// <para>
+    /// Null for an entry with nothing under its title, rather than the title with
+    /// two newlines welded on — that would copy a trailing blank line every time.
+    /// The row reads null as "use the shared default", which is the title; the
+    /// panel has no default to fall back to, so it is handed the title outright.
+    /// Either way both surfaces copy the same thing.
+    /// </para>
+    /// </summary>
+    private string? EntryCopyText(TaskRow task) =>
+        EntryFor(task.Id) is { } entry ? EntryCopyText(entry) : null;
+
+    /// <summary>The same answer for the panel, which has the entry in hand and so
+    /// needs no resolve. One method for both surfaces on purpose: a reader who
+    /// copies from the row and a reader who copies from the panel they opened it
+    /// into must not get two different texts for the same task.</summary>
+    private static string? EntryCopyText(EntryRow entry)
+    {
+        var body = EntryTextParser.Parse(entry.RawText).Body.Trim();
+
+        return body.Length == 0 ? null : $"{DetailTitle(entry)}\n\n{body}";
+    }
+
+    /// <summary>
     /// The two pickers at the end of a list row: what the entry is filed against,
     /// and where it has got to.
     /// <para>
@@ -627,6 +681,7 @@
                        OnToggle="() => State.ToggleDoneAsync(row)"
                        OnRename="title => State.RenameEntryAsync(row, title)"
                        OnTabBackward="MoveFocusToListAsync"
+                       CopyValue="@(EntryCopyText(row) ?? DetailTitle(row))"
                        CssClass="entry-detail__panel"
                        TestId="entry-panel">
                 <StatusContent>
@@ -836,6 +891,11 @@
                        the bottom would rewrite that order on screen while the
                        markdown kept the real one.
 
+                       Copying needs nothing said here, unlike the entry list above.
+                       StepTasks already puts the step's note on the row as its Body,
+                       so the shared row's own default — the title, a blank line, then
+                       the body — is already the shape a step is worth pasting in.
+
                        Keyed on the entry, because the add row and an open rename hold
                        drafts of their own. Without a key this is one component for every
                        entry the reader opens, and a half-typed step would follow them to
@@ -854,7 +914,6 @@
                                   Reorderable="true"
                                   OnReorder="move => OnStepReorderedAsync(row, move)"
                                   GroupCompleted="false"
-                                  AllowCopy="false"
                                   BodyLabel="Notes"
                                   AriaLabel="Steps"
                                   EmptyMessage=""

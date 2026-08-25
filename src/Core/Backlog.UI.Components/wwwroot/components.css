@@ -2955,14 +2955,15 @@ button.task-panel__check:focus-visible {
     margin-top: var(--spacing-2xs);
 }
 
-/* Right of the row: it acts on the task's text rather than on its state, so it
-   sits at the end rather than beside the circle. Quiet until the row is reached
-   — always present, because an affordance that only appears on hover cannot be
-   found by touch or by keyboard, but not competing with the title until then. */
+/* Behind the state and behind the host's slot, ahead of the bin: it acts on the
+   task's text rather than on what the task is, so it reads after the row has
+   finished saying what the task is. Quiet until the row is reached — always
+   present, because an affordance that only appears on hover cannot be found by
+   touch or by keyboard, but not competing with the title until then. */
 .task-item__copy {
     display: inline-flex;
     align-items: center;
-    justify-self: end;
+    flex: 0 0 auto;
 }
 
 .task-item__copy-button {
@@ -3284,6 +3285,38 @@ button.task-panel__check:focus-visible {
    hyphenate a single word. */
 .task-panel__status {
     flex: 0 0 auto;
+}
+
+/* Behind the state on the heading line, the same order the row reads in: what
+   the task is, where it has got to, then the one control that takes it away with
+   you. Quiet until the panel is reached, like the row's — but the panel is
+   already the thing the reader chose, so it lifts on any hover over the panel
+   rather than waiting for the header. */
+.task-panel__copy {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+.task-panel__copy-button {
+    color: var(--color-text-disabled);
+}
+
+.task-panel:hover .task-panel__copy-button,
+.task-panel__copy-button:hover,
+.task-panel__copy-button:focus-visible {
+    color: var(--color-text-primary);
+}
+
+/* Announced, not drawn — the heading line must not reflow because someone
+   copied the task. The row's status line makes the same bargain. */
+.task-panel__copy-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 
 .task-panel__tags {

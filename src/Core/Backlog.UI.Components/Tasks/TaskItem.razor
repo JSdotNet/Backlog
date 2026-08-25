@@ -1,4 +1,4 @@
-@inject IJSRuntime Js
+﻿@inject IJSRuntime Js
 
 @*
     One task, as a row: a circle that completes it, the line itself, the two things
@@ -213,20 +213,6 @@
         </button>
     }
 
-    @if (AllowCopy)
-    {
-        @* Right of the row, where the star used to be: it is the one thing here
-           that acts on the task's text rather than on its state, so it belongs
-           at the end rather than beside the circle. *@
-        <CopyButton Text="@CopyText"
-                    Label="@($"Copy {Task.Title}")"
-                    CssClass="task-item__copy"
-                    ButtonCssClass="task-item__copy-button"
-                    StatusCssClass="task-item__copy-status"
-                    ButtonTestId="@Suffix("copy")"
-                    StatusTestId="@Suffix("copy-status")" />
-    }
-
     @if (Actions is not null)
     {
         @* What the host can do to this task that this library has no opinion
@@ -234,10 +220,12 @@
            row cannot know what those are, and a host that had nowhere to put them
            would build a second row beside this one to hold them.
 
-           After the copy button, because everything to the left of here is about
-           the task's own text or state and these are about what happens to it
-           elsewhere. Only the bin below is further right, and that is not a slot
-           this library filled — it is the one control on the row that ends the row.
+           Before the copy button rather than after it. Everything from the circle
+           to here says what the task is and where it has got to — including the
+           state a host puts in this slot — and copying is the one act on the row
+           that takes that away with you. It reads last of the things that leave
+           the row standing, so the reader settles the task and then lifts it.
+
            Clicks stop here for the same reason the pencil stops them: pushing a
            task is not opening it. *@
         <span class="task-item__actions"
@@ -247,6 +235,25 @@
               @onclick:stopPropagation="true">
             @Actions(Task)
         </span>
+    }
+
+    @if (AllowCopy)
+    {
+        @* Behind the state, and behind the host's own slot with it. This is the
+           one control on the row that acts on the task's text rather than on what
+           the task is, and a reader reaches for it once the rest of the row has
+           told them this is the task they wanted — so it sits after the answer
+           rather than in front of the question.
+
+           Still ahead of the bin. Everything to the left of the bin leaves the row
+           where it is. *@
+        <CopyButton Text="@CopyText"
+                    Label="@($"Copy {Task.Title}")"
+                    CssClass="task-item__copy"
+                    ButtonCssClass="task-item__copy-button"
+                    StatusCssClass="task-item__copy-status"
+                    ButtonTestId="@Suffix("copy")"
+                    StatusTestId="@Suffix("copy-status")" />
     }
 
     @if (CanDelete)
