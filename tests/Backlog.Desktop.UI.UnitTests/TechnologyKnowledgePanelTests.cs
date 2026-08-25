@@ -147,6 +147,7 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
 
         if (withTechFolder)
         {
+            WriteTechIndex(tech, "shared.md", "desktop.md");
             File.WriteAllText(Path.Combine(tech, "technology-graph.md"), TechnologyGraph);
             File.WriteAllText(Path.Combine(tech, "shared.md"), SharedLayer);
             File.WriteAllText(Path.Combine(tech, "desktop.md"), DesktopLayer);
@@ -179,7 +180,6 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         # Technology graph
         ```meta
         status: draft
-        order: ["shared.md", "desktop.md"]
         ```
 
         Repository technology overview.
@@ -248,5 +248,26 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         /// machine and a green suite on a fast one.
         /// </summary>
         public async ValueTask DisposeAsync() => await Context.DisposeAsync();
+    }
+
+    /// <summary>
+    /// The committed reading order for a <c>.tech</c> fixture. The layer sequence
+    /// lives here now rather than in the root document's fence, so a fixture that
+    /// cares about order writes the index the reader actually consults.
+    /// </summary>
+    private static void WriteTechIndex(string techPath, params string[] layers)
+    {
+        Directory.CreateDirectory(Path.Combine(techPath, "_meta"));
+
+        var entries = new List<string>
+        {
+            "{ \"type\": \"file\", \"name\": \"technology-graph.md\", \"path\": \".tech/technology-graph.md\", \"title\": \"Technology graph\", \"status\": \"draft\", \"root\": true }"
+        };
+        entries.AddRange(layers.Select(layer =>
+            $"{{ \"type\": \"file\", \"name\": \"{layer}\", \"path\": \".tech/{layer}\", \"title\": \"{layer}\", \"status\": null }}"));
+
+        File.WriteAllText(
+            Path.Combine(techPath, "_meta", "index.json"),
+            "{ \"schemaVersion\": 1, \"scope\": \".tech\", \"problems\": [], \"entries\": [" + string.Join(", ", entries) + "] }");
     }
 }

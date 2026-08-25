@@ -3,7 +3,6 @@
 ```meta
 type: context-map
 status: draft
-order: ["inbox", "capture", "backlog", "roadmap", "second-brain", "productivity", "environment", "repository-management", "dev-pc-management", "sessions", "monitoring", "technology-stack"]
 ```
 
 > Strategic DDD view of the Backlog product domain: bounded-context roles,

@@ -64,7 +64,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "backlog-entry",
           "level": 2,
-          "line": 22,
+          "line": 21,
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
@@ -81,7 +81,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "sub-item",
           "level": 3,
-          "line": 133,
+          "line": 132,
           "status": "draft"
         }
       },
@@ -94,7 +94,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "projection-ref",
           "level": 3,
-          "line": 156,
+          "line": 155,
           "status": "draft"
         }
       },
@@ -107,7 +107,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "recurrence",
           "level": 3,
-          "line": 167,
+          "line": 166,
           "status": "draft"
         }
       },
@@ -120,7 +120,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "attachment",
           "level": 3,
-          "line": 184,
+          "line": 183,
           "status": "draft"
         }
       },
@@ -133,7 +133,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "usage-event",
           "level": 3,
-          "line": 207,
+          "line": 206,
           "status": "draft"
         }
       },
@@ -146,7 +146,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "ai-work-log",
           "level": 3,
-          "line": 217,
+          "line": 216,
           "status": "draft"
         }
       },
@@ -159,7 +159,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-type",
           "level": 3,
-          "line": 228,
+          "line": 227,
           "status": "draft"
         }
       },
@@ -172,7 +172,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-status",
           "level": 3,
-          "line": 237,
+          "line": 236,
           "status": "draft"
         }
       },
@@ -185,7 +185,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "priority",
           "level": 3,
-          "line": 246,
+          "line": 245,
           "status": "draft"
         }
       },
@@ -198,7 +198,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "sub-item-status",
           "level": 3,
-          "line": 255,
+          "line": 254,
           "status": "draft"
         }
       },
@@ -211,7 +211,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "recurrence-unit",
           "level": 3,
-          "line": 264,
+          "line": 263,
           "status": "draft"
         }
       },
@@ -224,7 +224,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "weekday",
           "level": 3,
-          "line": 273,
+          "line": 272,
           "status": "draft"
         }
       },
@@ -237,7 +237,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "readiness",
           "level": 3,
-          "line": 283,
+          "line": 282,
           "status": "draft"
         }
       },
@@ -250,7 +250,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "projection",
           "level": 2,
-          "line": 302,
+          "line": 301,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#progress-signal",
@@ -267,7 +267,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "occurrence-spawning",
           "level": 2,
-          "line": 316,
+          "line": 315,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -285,7 +285,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "statuschanged",
           "level": 2,
-          "line": 358,
+          "line": 357,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -302,7 +302,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entryprojected",
           "level": 2,
-          "line": 385,
+          "line": 384,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -320,7 +320,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entrycompleted",
           "level": 2,
-          "line": 413,
+          "line": 412,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -338,7 +338,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "occurrencespawned",
           "level": 2,
-          "line": 439,
+          "line": 438,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -356,7 +356,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "aiworklogged",
           "level": 2,
-          "line": 468,
+          "line": 467,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -373,7 +373,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 503,
+          "line": 502,
           "status": "draft"
         }
       },
@@ -1225,7 +1225,7 @@
           "path": ".domain/capture/domain.md",
           "slug": "capture",
           "level": 2,
-          "line": 23,
+          "line": 22,
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item"
@@ -1241,7 +1241,7 @@
           "path": ".domain/capture/domain.md",
           "slug": "source-metadata",
           "level": 3,
-          "line": 41,
+          "line": 40,
           "status": "draft"
         }
       },
@@ -1254,7 +1254,7 @@
           "path": ".domain/capture/domain.md",
           "slug": "tag",
           "level": 3,
-          "line": 55,
+          "line": 54,
           "status": "draft"
         }
       },
@@ -1267,7 +1267,7 @@
           "path": ".domain/capture/domain.md",
           "slug": "capture-source",
           "level": 3,
-          "line": 65,
+          "line": 64,
           "status": "draft"
         }
       },
@@ -1280,7 +1280,7 @@
           "path": ".domain/capture/domain.md",
           "slug": "source-adapter",
           "level": 2,
-          "line": 84,
+          "line": 83,
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
@@ -1298,7 +1298,7 @@
           "path": ".domain/capture/domain.md",
           "slug": "delivery",
           "level": 2,
-          "line": 105,
+          "line": 104,
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item"
@@ -1314,7 +1314,7 @@
           "path": ".domain/capture/domain.md",
           "slug": "itemcaptured",
           "level": 2,
-          "line": 118,
+          "line": 117,
           "status": "draft",
           "related": [
             ".domain/capture/domain.md#capture",
@@ -1331,7 +1331,7 @@
           "path": ".domain/capture/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 150,
+          "line": 149,
           "status": "draft"
         }
       },
@@ -1702,7 +1702,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "machine-registry",
           "level": 2,
-          "line": 30,
+          "line": 29,
           "status": "draft",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry",
@@ -1720,7 +1720,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "machine",
           "level": 3,
-          "line": 45,
+          "line": 44,
           "status": "draft"
         }
       },
@@ -1733,7 +1733,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "tool-version",
           "level": 3,
-          "line": 65,
+          "line": 64,
           "status": "draft"
         }
       },
@@ -1746,7 +1746,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "pending-update",
           "level": 3,
-          "line": 75,
+          "line": 74,
           "status": "draft"
         }
       },
@@ -1759,7 +1759,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "uptime-metric",
           "level": 3,
-          "line": 86,
+          "line": 85,
           "status": "draft"
         }
       },
@@ -1772,7 +1772,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "compliance-snapshot",
           "level": 3,
-          "line": 95,
+          "line": 94,
           "status": "draft"
         }
       },
@@ -1785,7 +1785,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "update-record",
           "level": 3,
-          "line": 106,
+          "line": 105,
           "status": "draft"
         }
       },
@@ -1798,7 +1798,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "tool-baseline",
           "level": 3,
-          "line": 116,
+          "line": 115,
           "status": "draft"
         }
       },
@@ -1811,7 +1811,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "team-tools-baseline",
           "level": 3,
-          "line": 126,
+          "line": 125,
           "status": "draft"
         }
       },
@@ -1824,7 +1824,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "fleet-health-snapshot",
           "level": 3,
-          "line": 137,
+          "line": 136,
           "status": "draft"
         }
       },
@@ -1837,7 +1837,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "trend-metrics",
           "level": 3,
-          "line": 147,
+          "line": 146,
           "status": "draft"
         }
       },
@@ -1850,7 +1850,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "fleet-analytics",
           "level": 3,
-          "line": 156,
+          "line": 155,
           "status": "draft"
         }
       },
@@ -1863,7 +1863,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "machine-status",
           "level": 3,
-          "line": 166,
+          "line": 165,
           "status": "draft"
         }
       },
@@ -1876,7 +1876,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "remote-control",
           "level": 2,
-          "line": 175,
+          "line": 174,
           "status": "draft",
           "related": [
             ".arc42/06-runtime-view.md#remote-pc-wake-and-status-update",
@@ -1893,7 +1893,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "remote-update",
           "level": 2,
-          "line": 189,
+          "line": 188,
           "status": "draft",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry"
@@ -1909,7 +1909,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "machinestatuschanged",
           "level": 2,
-          "line": 203,
+          "line": 202,
           "status": "draft",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
@@ -1926,7 +1926,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "complianceupdated",
           "level": 2,
-          "line": 230,
+          "line": 229,
           "status": "draft",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
@@ -1944,7 +1944,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 259,
+          "line": 258,
           "status": "draft"
         }
       },
@@ -2255,7 +2255,7 @@
           "path": ".domain/environment/domain.md",
           "slug": "environment-catalog",
           "level": 2,
-          "line": 21,
+          "line": 20,
           "status": "draft",
           "related": [
             ".domain/repository-management/domain.md#repository-registry",
@@ -2272,7 +2272,7 @@
           "path": ".domain/environment/domain.md",
           "slug": "environment",
           "level": 3,
-          "line": 34,
+          "line": 33,
           "status": "draft"
         }
       },
@@ -2285,7 +2285,7 @@
           "path": ".domain/environment/domain.md",
           "slug": "environment-shortcut",
           "level": 3,
-          "line": 45,
+          "line": 44,
           "status": "draft"
         }
       },
@@ -2298,7 +2298,7 @@
           "path": ".domain/environment/domain.md",
           "slug": "launch-target",
           "level": 3,
-          "line": 55,
+          "line": 54,
           "status": "draft"
         }
       },
@@ -2311,7 +2311,7 @@
           "path": ".domain/environment/domain.md",
           "slug": "access-hint",
           "level": 3,
-          "line": 66,
+          "line": 65,
           "status": "draft"
         }
       },
@@ -2324,7 +2324,7 @@
           "path": ".domain/environment/domain.md",
           "slug": "environment-type",
           "level": 3,
-          "line": 77,
+          "line": 76,
           "status": "draft"
         }
       },
@@ -2337,7 +2337,7 @@
           "path": ".domain/environment/domain.md",
           "slug": "environment-shortcut-resolution",
           "level": 2,
-          "line": 87,
+          "line": 86,
           "status": "draft",
           "related": [
             ".domain/environment/domain.md#environment-catalog",
@@ -2355,7 +2355,7 @@
           "path": ".domain/environment/domain.md",
           "slug": "environmentshortcutused",
           "level": 2,
-          "line": 102,
+          "line": 101,
           "status": "draft",
           "related": [
             ".domain/environment/domain.md#environment-catalog",
@@ -2372,7 +2372,7 @@
           "path": ".domain/environment/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 129,
+          "line": 128,
           "status": "draft"
         }
       },
@@ -2614,7 +2614,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "inbox-item",
           "level": 2,
-          "line": 24,
+          "line": 23,
           "status": "draft",
           "related": [
             ".domain/capture/domain.md#capture",
@@ -2631,7 +2631,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "routing-target",
           "level": 3,
-          "line": 42,
+          "line": 41,
           "status": "draft"
         }
       },
@@ -2644,7 +2644,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "tag",
           "level": 3,
-          "line": 53,
+          "line": 52,
           "status": "draft"
         }
       },
@@ -2657,7 +2657,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "inbox-status",
           "level": 3,
-          "line": 64,
+          "line": 63,
           "status": "draft"
         }
       },
@@ -2670,7 +2670,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "capture-source",
           "level": 3,
-          "line": 78,
+          "line": 77,
           "status": "draft"
         }
       },
@@ -2683,7 +2683,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "triage",
           "level": 2,
-          "line": 88,
+          "line": 87,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -2700,7 +2700,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "classification",
           "level": 2,
-          "line": 103,
+          "line": 102,
           "status": "draft"
         }
       },
@@ -2713,7 +2713,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "itemtriaged",
           "level": 2,
-          "line": 116,
+          "line": 115,
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
@@ -2731,7 +2731,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 152,
+          "line": 151,
           "status": "draft"
         }
       },
@@ -3065,7 +3065,7 @@
           "path": ".domain/monitoring/domain.md",
           "slug": "progress-signal",
           "level": 2,
-          "line": 24,
+          "line": 23,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -3083,7 +3083,7 @@
           "path": ".domain/monitoring/domain.md",
           "slug": "signal-payload",
           "level": 3,
-          "line": 41,
+          "line": 40,
           "status": "draft"
         }
       },
@@ -3096,7 +3096,7 @@
           "path": ".domain/monitoring/domain.md",
           "slug": "signal-type",
           "level": 3,
-          "line": 53,
+          "line": 52,
           "status": "draft"
         }
       },
@@ -3109,7 +3109,7 @@
           "path": ".domain/monitoring/domain.md",
           "slug": "signal-aggregation",
           "level": 2,
-          "line": 72,
+          "line": 71,
           "status": "draft"
         }
       },
@@ -3122,7 +3122,7 @@
           "path": ".domain/monitoring/domain.md",
           "slug": "dashboard",
           "level": 2,
-          "line": 85,
+          "line": 84,
           "status": "draft",
           "related": [
             ".arc42/08-crosscutting-concepts.md#observability"
@@ -3138,7 +3138,7 @@
           "path": ".domain/monitoring/domain.md",
           "slug": "followupcaptured",
           "level": 2,
-          "line": 100,
+          "line": 99,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#dashboard",
@@ -3155,7 +3155,7 @@
           "path": ".domain/monitoring/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 129,
+          "line": 128,
           "status": "draft"
         }
       },
@@ -3456,7 +3456,7 @@
           "path": ".domain/productivity/domain.md",
           "slug": "productivity-ledger",
           "level": 2,
-          "line": 21,
+          "line": 20,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#aiworklogged",
@@ -3473,7 +3473,7 @@
           "path": ".domain/productivity/domain.md",
           "slug": "productivity-entry",
           "level": 3,
-          "line": 36,
+          "line": 35,
           "status": "draft"
         }
       },
@@ -3486,7 +3486,7 @@
           "path": ".domain/productivity/domain.md",
           "slug": "work-subject-ref",
           "level": 3,
-          "line": 47,
+          "line": 46,
           "status": "draft"
         }
       },
@@ -3499,7 +3499,7 @@
           "path": ".domain/productivity/domain.md",
           "slug": "productivity-metric",
           "level": 3,
-          "line": 58,
+          "line": 57,
           "status": "draft"
         }
       },
@@ -3512,7 +3512,7 @@
           "path": ".domain/productivity/domain.md",
           "slug": "activity-kind",
           "level": 3,
-          "line": 69,
+          "line": 68,
           "status": "draft"
         }
       },
@@ -3525,7 +3525,7 @@
           "path": ".domain/productivity/domain.md",
           "slug": "ai-tool",
           "level": 3,
-          "line": 80,
+          "line": 79,
           "status": "draft"
         }
       },
@@ -3538,7 +3538,7 @@
           "path": ".domain/productivity/domain.md",
           "slug": "productivity-analysis",
           "level": 2,
-          "line": 91,
+          "line": 90,
           "status": "draft",
           "related": [
             ".domain/productivity/domain.md#productivity-ledger"
@@ -3554,7 +3554,7 @@
           "path": ".domain/productivity/domain.md",
           "slug": "productivityrecorded",
           "level": 2,
-          "line": 107,
+          "line": 106,
           "status": "draft",
           "related": [
             ".domain/productivity/domain.md#productivity-ledger",
@@ -3571,7 +3571,7 @@
           "path": ".domain/productivity/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 139,
+          "line": 138,
           "status": "draft"
         }
       },
@@ -3852,7 +3852,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "repository-registry",
           "level": 2,
-          "line": 22,
+          "line": 21,
           "status": "draft",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry",
@@ -3870,7 +3870,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "repository",
           "level": 3,
-          "line": 38,
+          "line": 37,
           "status": "draft"
         }
       },
@@ -3883,7 +3883,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "package-manifest",
           "level": 3,
-          "line": 53,
+          "line": 52,
           "status": "draft"
         }
       },
@@ -3896,7 +3896,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "package",
           "level": 3,
-          "line": 64,
+          "line": 63,
           "status": "draft"
         }
       },
@@ -3909,7 +3909,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "technology-stack-entry",
           "level": 3,
-          "line": 74,
+          "line": 73,
           "status": "draft"
         }
       },
@@ -3922,7 +3922,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "github-metadata",
           "level": 3,
-          "line": 84,
+          "line": 83,
           "status": "draft"
         }
       },
@@ -3935,7 +3935,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "health-details",
           "level": 3,
-          "line": 94,
+          "line": 93,
           "status": "draft"
         }
       },
@@ -3948,7 +3948,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "security-alert",
           "level": 3,
-          "line": 105,
+          "line": 104,
           "status": "draft"
         }
       },
@@ -3961,7 +3961,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "package-freshness-metric",
           "level": 3,
-          "line": 116,
+          "line": 115,
           "status": "draft"
         }
       },
@@ -3974,7 +3974,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "health-score-snapshot",
           "level": 3,
-          "line": 126,
+          "line": 125,
           "status": "draft"
         }
       },
@@ -3987,7 +3987,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "github-health-metric",
           "level": 3,
-          "line": 136,
+          "line": 135,
           "status": "draft"
         }
       },
@@ -4000,7 +4000,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "technology-snapshot",
           "level": 3,
-          "line": 146,
+          "line": 145,
           "status": "draft"
         }
       },
@@ -4013,7 +4013,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "tech-baselines",
           "level": 3,
-          "line": 155,
+          "line": 154,
           "status": "draft"
         }
       },
@@ -4026,7 +4026,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "portfolio-analytics",
           "level": 3,
-          "line": 166,
+          "line": 165,
           "status": "draft"
         }
       },
@@ -4039,7 +4039,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "repository-type",
           "level": 3,
-          "line": 176,
+          "line": 175,
           "status": "draft"
         }
       },
@@ -4052,7 +4052,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "severity",
           "level": 3,
-          "line": 185,
+          "line": 184,
           "status": "draft"
         }
       },
@@ -4065,7 +4065,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "repository-scan",
           "level": 2,
-          "line": 194,
+          "line": 193,
           "status": "draft",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry",
@@ -4082,7 +4082,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "bulk-operations",
           "level": 2,
-          "line": 208,
+          "line": 207,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry"
@@ -4098,7 +4098,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 221,
+          "line": 220,
           "status": "draft"
         }
       },
@@ -4459,7 +4459,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "roadmap-plan",
           "level": 2,
-          "line": 40,
+          "line": 39,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -4477,7 +4477,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "roadmap-item",
           "level": 3,
-          "line": 101,
+          "line": 100,
           "status": "draft"
         }
       },
@@ -4490,7 +4490,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "milestone",
           "level": 3,
-          "line": 146,
+          "line": 145,
           "status": "draft"
         }
       },
@@ -4503,7 +4503,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "planned-window",
           "level": 3,
-          "line": 165,
+          "line": 164,
           "status": "draft"
         }
       },
@@ -4516,7 +4516,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "repository-scope",
           "level": 3,
-          "line": 180,
+          "line": 179,
           "status": "draft"
         }
       },
@@ -4529,7 +4529,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "dependency",
           "level": 3,
-          "line": 196,
+          "line": 195,
           "status": "draft"
         }
       },
@@ -4542,7 +4542,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "planning-lane",
           "level": 3,
-          "line": 212,
+          "line": 211,
           "status": "draft"
         }
       },
@@ -4555,7 +4555,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "backlog-entry-link",
           "level": 3,
-          "line": 228,
+          "line": 227,
           "status": "draft"
         }
       },
@@ -4568,7 +4568,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "roadmap-tag",
           "level": 3,
-          "line": 241,
+          "line": 240,
           "status": "draft"
         }
       },
@@ -4581,7 +4581,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "knowledge-ref",
           "level": 3,
-          "line": 273,
+          "line": 272,
           "status": "draft"
         }
       },
@@ -4594,7 +4594,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "planning-priority",
           "level": 3,
-          "line": 294,
+          "line": 293,
           "status": "draft"
         }
       },
@@ -4607,7 +4607,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "milestone-kind",
           "level": 3,
-          "line": 310,
+          "line": 309,
           "status": "draft"
         }
       },
@@ -4620,7 +4620,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "plan-sequencing",
           "level": 2,
-          "line": 322,
+          "line": 321,
           "status": "draft",
           "related": [
             ".domain/roadmap/domain.md#roadmap-plan"
@@ -4636,7 +4636,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "repository-scope-resolution",
           "level": 2,
-          "line": 346,
+          "line": 345,
           "status": "draft",
           "related": [
             ".domain/repository-management/naming.md#repository",
@@ -4653,7 +4653,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "roadmap-item-gathering",
           "level": 2,
-          "line": 365,
+          "line": 364,
           "status": "draft",
           "related": [
             ".domain/roadmap/domain.md#roadmap-plan",
@@ -4671,7 +4671,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "roadmapitemscheduled",
           "level": 2,
-          "line": 398,
+          "line": 397,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#progress-signal"
@@ -5413,7 +5413,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "knowledge-note",
           "level": 2,
-          "line": 22,
+          "line": 21,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -5430,7 +5430,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "project-ref",
           "level": 3,
-          "line": 54,
+          "line": 53,
           "status": "draft"
         }
       },
@@ -5443,7 +5443,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "backlog-link",
           "level": 3,
-          "line": 64,
+          "line": 63,
           "status": "draft"
         }
       },
@@ -5456,7 +5456,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "tag",
           "level": 3,
-          "line": 74,
+          "line": 73,
           "status": "draft"
         }
       },
@@ -5469,7 +5469,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "roadmap-contribution",
           "level": 3,
-          "line": 91,
+          "line": 90,
           "status": "draft"
         }
       },
@@ -5482,7 +5482,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "para-category",
           "level": 3,
-          "line": 114,
+          "line": 113,
           "status": "draft"
         }
       },
@@ -5495,7 +5495,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "note-source",
           "level": 3,
-          "line": 128,
+          "line": 127,
           "status": "draft"
         }
       },
@@ -5508,7 +5508,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "cross-linking",
           "level": 2,
-          "line": 137,
+          "line": 136,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry"
@@ -5524,7 +5524,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 151,
+          "line": 150,
           "status": "draft"
         }
       },
@@ -5852,7 +5852,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-log",
           "level": 2,
-          "line": 41,
+          "line": 40,
           "status": "active",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
@@ -5869,7 +5869,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent-session",
           "level": 3,
-          "line": 73,
+          "line": 72,
           "status": "active"
         }
       },
@@ -5882,7 +5882,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-identity",
           "level": 3,
-          "line": 92,
+          "line": 91,
           "status": "active"
         }
       },
@@ -5895,7 +5895,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "working-location",
           "level": 3,
-          "line": 103,
+          "line": 102,
           "status": "active"
         }
       },
@@ -5908,7 +5908,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "activity-window",
           "level": 3,
-          "line": 117,
+          "line": 116,
           "status": "active"
         }
       },
@@ -5921,7 +5921,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-stream",
           "level": 3,
-          "line": 129,
+          "line": 128,
           "status": "active"
         }
       },
@@ -5934,7 +5934,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-entry",
           "level": 3,
-          "line": 144,
+          "line": 143,
           "status": "active"
         }
       },
@@ -5947,7 +5947,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-enrichment-summary",
           "level": 3,
-          "line": 159,
+          "line": 158,
           "status": "active"
         }
       },
@@ -5960,7 +5960,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-catalog",
           "level": 3,
-          "line": 174,
+          "line": 173,
           "status": "active"
         }
       },
@@ -5973,7 +5973,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent",
           "level": 3,
-          "line": 189,
+          "line": 188,
           "status": "active"
         }
       },
@@ -5986,7 +5986,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-state",
           "level": 3,
-          "line": 202,
+          "line": 201,
           "status": "active"
         }
       },
@@ -5999,7 +5999,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "reporting-capability",
           "level": 3,
-          "line": 220,
+          "line": 219,
           "status": "active"
         }
       },
@@ -6012,7 +6012,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "liveness-assessment",
           "level": 2,
-          "line": 238,
+          "line": 237,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-state",
@@ -6029,7 +6029,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-grouping",
           "level": 2,
-          "line": 259,
+          "line": 258,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-log",
@@ -6046,7 +6046,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-publishing",
           "level": 2,
-          "line": 285,
+          "line": 284,
           "status": "proposed",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
@@ -6064,7 +6064,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-enrichment",
           "level": 2,
-          "line": 305,
+          "line": 304,
           "status": "proposed",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
@@ -6082,7 +6082,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-value-objects",
           "level": 2,
-          "line": 325,
+          "line": 324,
           "status": "active"
         }
       },
@@ -6095,7 +6095,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 338,
+          "line": 337,
           "status": "active"
         }
       },
@@ -6728,7 +6728,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "technology-registry",
           "level": 2,
-          "line": 24,
+          "line": 23,
           "status": "draft",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
@@ -6746,7 +6746,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "technology",
           "level": 3,
-          "line": 39,
+          "line": 38,
           "status": "draft"
         }
       },
@@ -6759,7 +6759,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "breaking-change",
           "level": 3,
-          "line": 54,
+          "line": 53,
           "status": "draft"
         }
       },
@@ -6772,7 +6772,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "deprecated-tech-in-use",
           "level": 3,
-          "line": 65,
+          "line": 64,
           "status": "draft"
         }
       },
@@ -6785,7 +6785,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "migration-approval",
           "level": 3,
-          "line": 76,
+          "line": 75,
           "status": "draft"
         }
       },
@@ -6798,7 +6798,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "technology-baseline",
           "level": 3,
-          "line": 87,
+          "line": 86,
           "status": "draft"
         }
       },
@@ -6811,7 +6811,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "version-constraint",
           "level": 3,
-          "line": 99,
+          "line": 98,
           "status": "draft"
         }
       },
@@ -6824,7 +6824,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "deprecation-notice",
           "level": 3,
-          "line": 109,
+          "line": 108,
           "status": "draft"
         }
       },
@@ -6837,7 +6837,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "adoption-snapshot",
           "level": 3,
-          "line": 120,
+          "line": 119,
           "status": "draft"
         }
       },
@@ -6850,7 +6850,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "version-usage-metric",
           "level": 3,
-          "line": 131,
+          "line": 130,
           "status": "draft"
         }
       },
@@ -6863,7 +6863,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "adoption-trend",
           "level": 3,
-          "line": 141,
+          "line": 140,
           "status": "draft"
         }
       },
@@ -6876,7 +6876,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "compatibility-matrix",
           "level": 3,
-          "line": 151,
+          "line": 150,
           "status": "draft"
         }
       },
@@ -6889,7 +6889,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "adoption-analytics",
           "level": 3,
-          "line": 161,
+          "line": 160,
           "status": "draft"
         }
       },
@@ -6902,7 +6902,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "tech-status",
           "level": 3,
-          "line": 171,
+          "line": 170,
           "status": "draft"
         }
       },
@@ -6915,7 +6915,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "tech-category",
           "level": 3,
-          "line": 180,
+          "line": 179,
           "status": "draft"
         }
       },
@@ -6928,7 +6928,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "adoption-tracking",
           "level": 2,
-          "line": 189,
+          "line": 188,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#progress-signal"
@@ -6944,7 +6944,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "deprecation-management",
           "level": 2,
-          "line": 203,
+          "line": 202,
           "status": "draft"
         }
       },
@@ -6957,7 +6957,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 216,
+          "line": 215,
           "status": "draft"
         }
       },

@@ -2,7 +2,6 @@
 
 ```meta
 status: active
-order: ["design-principles.md", "color-scheme.md", "typography-and-layout.md", "interaction-guidelines.md", "content-editing.md", "accessibility.md", "component-libraries.md"]
 related: [".arc42/02-constraints.md#technical-constraints", ".arc42/04-solution-strategy.md#technology-choices", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 

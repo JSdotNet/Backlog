@@ -145,13 +145,15 @@ public sealed class KnowledgePaneSectionReferenceTests : IDisposable
 
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");
 
-        // The root document, because the layer list is read from its `order`.
+        // The root document. The layer list itself comes from the folder's
+        // committed `_meta/index.json`; with none written here the reader falls
+        // back to filename order, which is what this fixture wants anyway.
+        // `KnowledgeReadingOrderTests` covers the declared path.
         File.WriteAllText(Path.Combine(root, ".tech", "technology-graph.md"), """
             # Technology graph
 
             ```meta
             status: draft
-            order: ["shared.md"]
             ```
 
             Repository technology overview.

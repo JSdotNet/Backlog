@@ -99,7 +99,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "roadmap-plan",
           "level": 2,
-          "line": 40,
+          "line": 39,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",

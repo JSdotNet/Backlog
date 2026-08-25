@@ -3,7 +3,6 @@
 ```meta
 type: domain
 status: draft
-order: ["features.md", "model.md", "dependencies.md", "naming.md"]
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value

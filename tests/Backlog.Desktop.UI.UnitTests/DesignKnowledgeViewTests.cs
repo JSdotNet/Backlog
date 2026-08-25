@@ -476,7 +476,6 @@ public sealed class DesignKnowledgeViewTests : IDisposable
         ```meta
         status: active
         related: [".design/interaction-guidelines.md"]
-        order: ["interaction-guidelines.md"]
         ```
 
         The palette and how it is applied.

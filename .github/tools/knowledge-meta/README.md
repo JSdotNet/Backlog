@@ -60,7 +60,7 @@ followed, so a scoped graph stays about its own folder.
 |---|---|
 | `metadata.mjs` | Parses the `meta` blocks — the single implementation of the schema defined by the `knowledge-chapter-metadata` instructions. Shared with the `knowledge-graph` canvas. |
 | `graph.mjs` | Graph construction, scope discovery, and scope projection. Imported by the CLI *and* by the `knowledge-graph` canvas, so the written indexes and the live view can never disagree. |
-| `outline.mjs` | Reading-order resolution from the `order` field on each directory's root document. |
+| `outline.mjs` | Reading-order resolution from the order recorded in each area's committed `index.json`. |
 | `build.mjs` | CLI wrapper: writes both artifacts per scope, prints stats, exits non-zero on errors. |
 
 This folder is self-contained — copy it into a repository as
@@ -173,12 +173,18 @@ sorting filenames.
 At the repository scope the top level is `type: "area"` — one entry per
 knowledge folder, in canonical area order.
 
-Ordering comes from the `order` field on the file-level `meta` block of each
-directory's **root document**, which always sorts first. A directory with no
-root document falls back to filename sort — which is why the numbered `.arc42`
-chapters need no declaration. Entries listed but missing are errors; entries
-present but unlisted are warnings and get appended alphabetically. See
-the `knowledge-chapter-metadata` instructions.
+Ordering is declared **in this file**. The entry marked `root: true` is the
+directory's root document and always sorts first; the remaining entries keep the
+order recorded here. Titles and statuses are re-read from the Markdown on every
+run, so regeneration is a fixed point — the order survives it, and the file comes
+back byte-identical unless the Markdown actually changed.
+
+To reorder a folder, move the entries here and re-run the build. A file present
+on disk but unlisted is appended alphabetically and reported as a warning, so a
+new document cannot silently drift to the end; an entry listed but no longer on
+disk is dropped without comment. A directory with no `root: true` entry has no
+declared order and falls back to filename sort — which is why the numbered
+`.arc42` chapters need no declaration.
 
 `_`-prefixed folders (such as `_meta/` itself) are tooling, not content, and
 are excluded from the outline.
