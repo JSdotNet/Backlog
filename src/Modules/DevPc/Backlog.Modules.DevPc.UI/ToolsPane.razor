@@ -1,11 +1,23 @@
-@inject ICopilotToolService CopilotTools
+@inject IDevToolService DevTools
 
 @*
-    The system tools pane: which Copilot plugins, repository tools and MCP
-    servers this machine is configured for, and what can be updated, enabled or
-    disabled. It asks ICopilotToolService and renders the answer — which host is
-    behind that port, and whether that host can do anything but read, is not
-    something the pane knows.
+    The system tools pane: which Copilot plugins, repository tools, MCP servers
+    and applications this machine is configured for, and what can be updated,
+    enabled or disabled. It asks IDevToolService and renders the answer — which
+    host is behind that port, and whether that host can do anything but read, is
+    not something the pane knows.
+
+    Grouped, because the subject grew. Six rows of AI tooling is a list; the
+    machine's whole software inventory is a document, and the kind heading and
+    the catalog's own group headings are the structure it arrives with. Groups
+    with nothing outstanding fold themselves away: a correctly set-up machine
+    should open this pane to headings and no rows.
+
+    Three shapes of row rather than one. Most rows report a version and offer an
+    Update or an Install. A checklist row has no version anywhere and reports
+    whether it was detected. And a manual row reports nothing at all — nothing
+    can check it, so its control is a box somebody ticks, and the box is the one
+    control here that is not a verb.
 
     It owns its own loading for the same reason KnowledgePane does: the list is
     the pane's subject, and a shell holding it would be holding state about a
@@ -29,7 +41,7 @@
         <div>
             <p class="tools-panel__eyebrow">System tools</p>
             <h2 id="installed-tools-title" class="tools-panel__title">System tools</h2>
-            <p class="tools-panel__subtitle">Configured and disabled Copilot and Claude plugins, marketplaces, repository tools, and MCP servers.</p>
+            <p class="tools-panel__subtitle">What this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.</p>
         </div>
         <div class="tools-panel__header-actions">
             @* The library's badge wearing this pane's count class. *@
@@ -88,111 +100,198 @@
         }
         else
         {
-            <div class="tools-table" role="table" aria-label="Configured Copilot and Claude tools">
-                <div class="tools-table__row tools-table__row--head" role="row">
-                    <span role="columnheader">Tool</span>
-                    <span role="columnheader">Installed</span>
-                    <span role="columnheader">Available</span>
-                    <span role="columnheader">Actions</span>
-                </div>
+            @* Grouped rather than one list, because the catalog stopped being six
+               rows of AI tooling and became this machine's whole software
+               inventory. Fifty-odd ungrouped rows lose the structure the setup
+               guide they come from is made of — and the kind heading is the first
+               thing a reader needs, because "a plugin is missing" and "an
+               application is missing" are two different afternoons. *@
+            @foreach (var kind in ToolKinds)
+            {
+                <section class="tools-kind" data-tool-kind="@kind.Kind" data-testid="tools-kind">
+                    <SectionHeader Level="3"
+                                   Title="@kind.Title"
+                                   Description="@KindCount(kind)"
+                                   CssClass="tools-kind__header" />
 
-                @foreach (var tool in _tools)
-                {
-                    <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" data-tool-key="@tool.Key" @key="tool.Key">
-                        <div role="cell" class="tools-table__tool">
-                            <strong>@tool.Name</strong>
-                            @* The library's badge wearing this table's host class.
-                               Which hosts an entry is for decides what its Update
-                               actually does, and a catalog that drives two of them
-                               with one row is unreadable without it being said. *@
-                            <Badge BaseClass="tools-table__hosts"
-                                   Kind=""
-                                   Title="@HostTitle(tool)"
-                                   TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
-                            <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
+                    @foreach (var group in kind.Groups)
+                    {
+                        <div class="tools-group" data-tool-group="@group.Key">
+                            @if (group.Title is { Length: > 0 } groupTitle)
+                            {
+                                @* Only the sub-groups fold. A kind with one
+                                   unnamed group is the three plugins and the
+                                   three MCP servers this pane started as, and a
+                                   disclosure over three rows is a control that
+                                   costs more than it saves. *@
+                                <FoldControl CssClass="tools-group__fold"
+                                             Expanded="@IsExpanded(group)"
+                                             ExpandedChanged="expanded => SetExpanded(group, expanded)"
+                                             Controls="@group.RegionId"
+                                             Label="@GroupLabel(group, groupTitle)"
+                                             TestId="tools-group-toggle" />
+                            }
+
+                            <div class="tools-table"
+                                 role="table"
+                                 aria-label="@group.AriaLabel(kind.Title)"
+                                 id="@group.RegionId"
+                                 hidden="@(!IsExpanded(group))">
+                                <div class="tools-table__row tools-table__row--head" role="row">
+                                    <span role="columnheader">Tool</span>
+                                    <span role="columnheader">Installed</span>
+                                    <span role="columnheader">Available</span>
+                                    <span role="columnheader">Actions</span>
+                                </div>
+
+                                @foreach (var tool in group.Tools)
+                                {
+                                    <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" data-tool-key="@tool.Key" @key="tool.Key">
+                                        <div role="cell" class="tools-table__tool">
+                                            <strong>@tool.Name</strong>
+                                            @* The library's badge wearing this table's host class.
+                                               Which hosts an entry is for decides what its Update
+                                               actually does, and a catalog that drives two of them
+                                               with one row is unreadable without it being said.
+
+                                               An application has no host at all — it is machine
+                                               software, not a registration with an AI tool — so it
+                                               gets no badge rather than a badge reading "No host",
+                                               which answered a question the row never asked. *@
+                                            @if (tool.Hosts is not DevToolHosts.None)
+                                            {
+                                                <Badge BaseClass="tools-table__hosts"
+                                                       Kind=""
+                                                       Title="@HostTitle(tool)"
+                                                       TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
+                                            }
+                                            <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @StatusOf(tool)</span>
+                                            @if (NoteOf(tool) is { Length: > 0 } note)
+                                            {
+                                                @* The catalog's own warning, on a line of its own
+                                                   rather than run together with the status. Several
+                                                   of these are the only reason a row reads the way it
+                                                   does — a version that legitimately reads backwards,
+                                                   a probe that is a heuristic, a package that does not
+                                                   exist — and appended to the status they were a
+                                                   sentence nobody finished reading. *@
+                                                <span class="tools-table__note" data-testid="tools-row-note">@note</span>
+                                            }
+                                        </div>
+                                        @* Each version cell names itself. The row's four columns only
+                                           fit while the pane is wide enough for them — it is a surface
+                                           beside a workspace, so it often is not — and below that the
+                                           row stacks and the heading row goes. Two bare version strings
+                                           in a column say nothing about which is which, so the label is
+                                           in the markup at every width and the stylesheet decides when
+                                           it shows. *@
+                                        <span role="cell" class="tools-table__version" data-testid="tools-row-installed">
+                                            <span class="tools-table__cell-label">Installed</span>@InstalledLabel(tool)
+                                        </span>
+                                        <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">
+                                            <span class="tools-table__cell-label">Available</span>@tool.AvailableVersion
+                                        </span>
+                                        <div role="cell" class="tools-table__actions">
+                                            @if (tool.Kind is DevToolKind.Marketplace)
+                                            {
+                                                @* A marketplace has no version to be behind, so it
+                                                   never earns an Update through CanUpdate the way a
+                                                   tool does. What it has is two states — Claude
+                                                   knows it or does not — and one verb for each. *@
+                                                <AppButton Variant="ButtonVariant.Secondary"
+                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                           OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                                    @(tool.Installed ? "Update" : "Add")
+                                                </AppButton>
+                                            }
+                                            else if (tool.ConfirmedByHand && tool.ConfiguredEnabled)
+                                            {
+                                                @* The one row whose control is not a verb. Nothing
+                                                   can check it, so the only honest answer on it is
+                                                   somebody's word — and a box, unlike a button, can
+                                                   be taken back. It went through Update once, and
+                                                   that was the defect: ticking it removed the only
+                                                   control the row had, so a mis-click was permanent
+                                                   short of hand-editing the per-PC file.
+
+                                                   Only while the machine wants the row at all. A
+                                                   switched-off row has nothing to confirm, and a
+                                                   tick on one would be a statement about something
+                                                   this machine has said it is not doing. *@
+                                                <Checkbox Checked="@tool.Acknowledged"
+                                                          CheckedChanged="acknowledged => AcknowledgeAsync(tool, acknowledged)"
+                                                          Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                          Label="Done here"
+                                                          CssClass="tools-table__ack"
+                                                          TestId="tools-row-acknowledge" />
+                                            }
+                                            else if (tool.CanUpdate)
+                                            {
+                                                <AppButton Variant="ButtonVariant.Secondary"
+                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                           OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                                    Update
+                                                </AppButton>
+                                            }
+                                            else if (tool.CanInstall)
+                                            {
+                                                @* The same action as an update. The port has one
+                                                   verb for "make this machine match the config",
+                                                   and behind it the host already runs
+                                                   "plugin install" or "tool install" for a tool
+                                                   that is enabled and absent — what changes here
+                                                   is only that the row now offers it.
+
+                                                   CanInstall is false for a row with no mechanism
+                                                   behind it, which is what keeps the checklist rows
+                                                   and the install-by-hand packages from being given
+                                                   a button with nothing to run. *@
+                                                <AppButton Variant="ButtonVariant.Secondary"
+                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                           OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                                    Install
+                                                </AppButton>
+                                            }
+                                            else
+                                            {
+                                                <span class="tools-table__action-note">@ActionNote(tool)</span>
+                                            }
+                                            @if (tool.Kind is not DevToolKind.Marketplace)
+                                            {
+                                                @* Not for a marketplace. It is not a tool this
+                                                   machine opts into — it is where the Claude
+                                                   plugins that do come from — so the only way to
+                                                   stop wanting one is to remove it. *@
+                                                <AppButton Variant="ButtonVariant.Ghost"
+                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                           OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? DevToolAction.Disable : DevToolAction.Enable)">
+                                                    @(tool.ConfiguredEnabled ? "Disable" : "Enable")
+                                                </AppButton>
+                                            }
+                                            @if (CanEdit)
+                                            {
+                                                @* The row's test id is shared by every row, so a driver
+                                                   scopes it through the row's data-tool-key. One id per
+                                                   row would be an id nobody could write a selector for
+                                                   without knowing the catalog first. *@
+                                                <DeleteButton Label="Remove"
+                                                              AriaLabel="@($"Remove {tool.Name} from the catalog")"
+                                                              Size="ButtonSize.Small"
+                                                              ShowIcon="false"
+                                                              Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                              TestId="tools-row-remove"
+                                                              OnClick="() => AskToRemove(tool)" />
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
                         </div>
-                        @* Each version cell names itself. The row's four columns only
-                           fit while the pane is wide enough for them — it is a surface
-                           beside a workspace, so it often is not — and below that the
-                           row stacks and the heading row goes. Two bare version strings
-                           in a column say nothing about which is which, so the label is
-                           in the markup at every width and the stylesheet decides when
-                           it shows. *@
-                        <span role="cell" class="tools-table__version">
-                            <span class="tools-table__cell-label">Installed</span>@tool.InstalledVersion
-                        </span>
-                        <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">
-                            <span class="tools-table__cell-label">Available</span>@tool.AvailableVersion
-                        </span>
-                        <div role="cell" class="tools-table__actions">
-                            @if (tool.Kind is CopilotToolKind.Marketplace)
-                            {
-                                @* A marketplace has no version to be behind, so it
-                                   never earns an Update through CanUpdate the way a
-                                   tool does. What it has is two states — Claude
-                                   knows it or does not — and one verb for each. *@
-                                <AppButton Variant="ButtonVariant.Secondary"
-                                           Disabled="@(_toolsLoading || ToolActionBusy)"
-                                           OnClick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
-                                    @(tool.Installed ? "Update" : "Add")
-                                </AppButton>
-                            }
-                            else if (tool.CanUpdate)
-                            {
-                                <AppButton Variant="ButtonVariant.Secondary"
-                                           Disabled="@(_toolsLoading || ToolActionBusy)"
-                                           OnClick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
-                                    Update
-                                </AppButton>
-                            }
-                            else if (tool.CanInstall)
-                            {
-                                @* The same action as an update. The port has one
-                                   verb for "make this machine match the config",
-                                   and behind it the host already runs
-                                   "plugin install" or "tool install" for a tool
-                                   that is enabled and absent — what changes here
-                                   is only that the row now offers it. *@
-                                <AppButton Variant="ButtonVariant.Secondary"
-                                           Disabled="@(_toolsLoading || ToolActionBusy)"
-                                           OnClick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
-                                    Install
-                                </AppButton>
-                            }
-                            else
-                            {
-                                <span class="tools-table__action-note">@ActionNote(tool)</span>
-                            }
-                            @if (tool.Kind is not CopilotToolKind.Marketplace)
-                            {
-                                @* Not for a marketplace. It is not a tool this
-                                   machine opts into — it is where the Claude
-                                   plugins that do come from — so the only way to
-                                   stop wanting one is to remove it. *@
-                                <AppButton Variant="ButtonVariant.Ghost"
-                                           Disabled="@(_toolsLoading || ToolActionBusy)"
-                                           OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
-                                    @(tool.ConfiguredEnabled ? "Disable" : "Enable")
-                                </AppButton>
-                            }
-                            @if (CanEdit)
-                            {
-                                @* The row's test id is shared by every row, so a driver
-                                   scopes it through the row's data-tool-key. One id per
-                                   row would be an id nobody could write a selector for
-                                   without knowing the catalog first. *@
-                                <DeleteButton Label="Remove"
-                                              AriaLabel="@($"Remove {tool.Name} from the catalog")"
-                                              Size="ButtonSize.Small"
-                                              ShowIcon="false"
-                                              Disabled="@(_toolsLoading || ToolActionBusy)"
-                                              TestId="tools-row-remove"
-                                              OnClick="() => AskToRemove(tool)" />
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
+
+                    }
+                </section>
+            }
+
         }
 
         @if (_commands.Count > 0)
@@ -238,11 +337,15 @@
                          TestId="tools-add-kind"
                          OnChanged="OnDraftKindChanged" />
 
-            @if (_draftKind is not CopilotToolKind.Marketplace)
+            @if (_draftKind is DevToolKind.Plugin or DevToolKind.McpServer)
             {
-                @* A marketplace has no hosts to choose between: it is a Claude
-                   mechanism and nothing else, so offering the choice would be
-                   offering an answer that cannot be given. *@
+                @* Named kinds rather than "not a marketplace", because the list
+                   grew a third kind that has no hosts either. A marketplace is a
+                   Claude mechanism and nothing else; an application is installed
+                   into the machine rather than into an AI host. Offering either of
+                   them the choice would be offering an answer that cannot be
+                   given — and the condition this replaced would have offered it to
+                   applications silently. *@
                 <SelectField Label="Hosts"
                              Form="true"
                              CurrentValue="@_draftHosts.ToString()"
@@ -252,7 +355,7 @@
                              OnChanged="OnDraftHostsChanged" />
             }
 
-            @if (_draftKind is CopilotToolKind.Marketplace)
+            @if (_draftKind is DevToolKind.Marketplace)
             {
                 <TextField Label="Name"
                            Value="@_draftMarketplaceName"
@@ -267,7 +370,7 @@
                            ErrorMessage="@_draftSourceError"
                            TestId="tools-add-source" />
             }
-            else if (_draftKind is CopilotToolKind.Plugin)
+            else if (_draftKind is DevToolKind.Plugin)
             {
                 <TextField Label="Name"
                            Value="@_draftPluginName"
@@ -291,7 +394,7 @@
                              TestId="tools-add-plugin-kind"
                              OnChanged="value => _draftPluginKind = value ?? string.Empty" />
 
-                @if (_draftHosts.HasFlag(CopilotToolHosts.Claude))
+                @if (_draftHosts.HasFlag(DevToolHosts.Claude))
                 {
                     @* Both blank in the ordinary case: a plugin's Claude id falls
                        back to its own name and to the first marketplace in the
@@ -309,6 +412,71 @@
                                TestId="tools-add-claude-marketplace" />
                 }
             }
+            else if (_draftKind is DevToolKind.Application)
+            {
+                @* An explicit branch, and not because it needs different fields —
+                   because the chain it joins is binary-exhaustive and falls
+                   through to the MCP server. Without this, choosing Application
+                   would have drawn a package id and a Claude registration, and
+                   submitted whatever was typed into them as an application. *@
+                @* Form, like the two selects above it. This is the third of the
+                   dialog's mode switches — it decides whether the command fields
+                   below exist — and a switch that reads as a caption is the thing
+                   the form shape was added for. *@
+                <SelectField Label="Installed by"
+                             Form="true"
+                             CurrentValue="@_draftProvider.ToString()"
+                             Options="@ProviderOptions"
+                             HelpText="How this machine gets it. Choosing a command asks for the probe to run."
+                             TestId="tools-add-provider"
+                             OnChanged="OnDraftProviderChanged" />
+                <TextField Label="ID"
+                           Value="@_draftApplicationId"
+                           ValueChanged="value => _draftApplicationId = value"
+                           HelpText="@ApplicationIdHelp"
+                           ErrorMessage="@_draftIdError"
+                           TestId="tools-add-app-id" />
+                <TextField Label="Name"
+                           Value="@_draftDisplayName"
+                           ValueChanged="value => _draftDisplayName = value"
+                           HelpText="Optional. What the row reads as; defaults to the id."
+                           TestId="tools-add-name" />
+
+                @if (_draftProvider is DevToolProvider.Command)
+                {
+                    @* The other three mechanisms know how to find their own
+                       package. A command entry is the one that has to be told, and
+                       one that was not can never answer whether the machine has
+                       it — so the detect command is required here rather than
+                       written and drawn forever as a row of unknowns. *@
+                    <TextField Label="Detect command"
+                               Value="@_draftDetectCommand"
+                               ValueChanged="value => _draftDetectCommand = value"
+                               HelpText="What answers whether this machine already has it."
+                               ErrorMessage="@_draftDetectError"
+                               TestId="tools-add-detect-command" />
+                    <TextField Label="Detect arguments"
+                               Value="@_draftDetectArgs"
+                               ValueChanged="value => _draftDetectArgs = value"
+                               HelpText="Optional. Separated by spaces, in the order they are passed."
+                               TestId="tools-add-detect-args" />
+                    <TextField Label="Expect"
+                               Value="@_draftDetectExpect"
+                               ValueChanged="value => _draftDetectExpect = value"
+                               HelpText="Optional. The substring that means yes, when the command answers in prose rather than with a version."
+                               TestId="tools-add-detect-expect" />
+                    <TextField Label="Install command"
+                               Value="@_draftInstallCommand"
+                               ValueChanged="value => _draftInstallCommand = value"
+                               HelpText="Leave blank for a checklist item: something worth looking for that is not ours to press a button about."
+                               TestId="tools-add-install-command" />
+                    <TextField Label="Install arguments"
+                               Value="@_draftInstallArgs"
+                               ValueChanged="value => _draftInstallArgs = value"
+                               HelpText="Optional. Separated by spaces, in the order they are passed."
+                               TestId="tools-add-install-args" />
+                }
+            }
             else
             {
                 <TextField Label="Package ID"
@@ -323,7 +491,7 @@
                            HelpText="Optional. What the row reads as beside the package id."
                            TestId="tools-add-name" />
 
-                @if (_draftHosts.HasFlag(CopilotToolHosts.Claude))
+                @if (_draftHosts.HasFlag(DevToolHosts.Claude))
                 {
                     @* The .NET tool above is shared by both hosts. These three are
                        the extra step Claude needs on top of it: a user-scope
@@ -420,16 +588,16 @@
     private string? _toolMessage;
     private string? _toolActionKey;
     private bool _commandsShown;
-    private IReadOnlyList<CopilotToolInfo> _tools = [];
-    private IReadOnlyList<CopilotToolCommand> _commands = [];
+    private IReadOnlyList<DevToolInfo> _tools = [];
+    private IReadOnlyList<DevToolCommand> _commands = [];
 
     private bool _catalogExists;
     private bool _canEditCatalog;
     private string _catalogPath = string.Empty;
 
     private bool _addOpen;
-    private CopilotToolKind _draftKind = CopilotToolKind.Plugin;
-    private CopilotToolHosts _draftHosts = CopilotToolHosts.Both;
+    private DevToolKind _draftKind = DevToolKind.Plugin;
+    private DevToolHosts _draftHosts = DevToolHosts.Default;
     private string _draftPluginName = string.Empty;
     private string _draftSource = string.Empty;
     private string _draftPluginKind = string.Empty;
@@ -441,14 +609,22 @@
     private string _draftClaudeServerName = string.Empty;
     private string _draftClaudeCommand = string.Empty;
     private string _draftClaudeArgs = string.Empty;
+    private DevToolProvider _draftProvider = DevToolProvider.Winget;
+    private string _draftApplicationId = string.Empty;
+    private string _draftDetectCommand = string.Empty;
+    private string _draftDetectArgs = string.Empty;
+    private string _draftDetectExpect = string.Empty;
+    private string _draftInstallCommand = string.Empty;
+    private string _draftInstallArgs = string.Empty;
     private string? _draftIdError;
     private string? _draftSourceError;
+    private string? _draftDetectError;
 
     private bool _importOpen;
     private string _importJson = string.Empty;
     private string? _importError;
 
-    private CopilotToolInfo? _removing;
+    private DevToolInfo? _removing;
 
     /// <summary>Raised when somebody dismisses the pane. Whether that hides it,
     /// collapses a stack or does nothing is the shell's decision — the pane only
@@ -491,21 +667,191 @@
     /// every Claude plugin id resolves against one, so a missing marketplace is a
     /// whole block of rows failing for a single reason.</summary>
     private bool CanUpdateAnyTool =>
-        _tools.Any(tool => tool.CanUpdate || (tool.Kind is CopilotToolKind.Marketplace && !tool.Installed));
+        _tools.Any(tool => tool.CanUpdate || (tool.Kind is DevToolKind.Marketplace && !tool.Installed));
 
-    /// <summary>What a row says when there is nothing to press.
+    /// <summary>
+    /// What a row says when there is nothing to press.
     ///
-    /// <para>Three answers rather than the two it had. "Up to date" used to cover
-    /// every row without an update button, which put it beside "not installed" on
-    /// enabled tools the machine did not have, and beside "unknown" on tools whose
-    /// version lookup had failed. Neither of those is a tool that is up to
-    /// date.</para></summary>
-    private static string ActionNote(CopilotToolInfo tool) => tool switch
+    /// <para>Six answers rather than the two it started with. "Up to date" used to
+    /// cover every row without an update button, which put it beside "not
+    /// installed" on enabled tools the machine did not have, and beside "unknown"
+    /// on tools whose version lookup had failed. Neither of those is a tool that
+    /// is up to date.</para>
+    ///
+    /// <para>The two newest arms are what applications brought. A checklist row
+    /// has no version on either side, so every version-shaped answer is a claim
+    /// about nothing — "Version unknown" was true and useless, because the row
+    /// never had one to look up. And a row with no mechanism behind it is not a
+    /// row that failed; it is one somebody has to go and do, which is a different
+    /// sentence and a different afternoon.</para>
+    /// </summary>
+    private static string ActionNote(DevToolInfo tool) => tool switch
     {
         { ConfiguredEnabled: false } => "Disabled",
+        { ConfirmedByHand: true } => tool.Acknowledged ? "Confirmed by hand" : "Not confirmed yet",
+        _ when ReportsDetection(tool) => tool.Installed ? "Detected" : "Not detected",
+        { Installable: false } => HasNote(tool) ? "Install by hand — see the note" : "Install by hand",
         { AvailableVersionKnown: false } => "Version unknown",
         _ => "Up to date"
     };
+
+    /// <summary>
+    /// Whether this row answers "is it there" rather than "which version".
+    ///
+    /// <para>The no-version sentinel in the installed column is what says so, and
+    /// it is put there by exactly one thing: a probe that matched — or failed to
+    /// match — a substring in some prose, because the thing it asks about has no
+    /// version anywhere. Rendering that as a version column is how "Dev Drive
+    /// configured" came to read "—" opposite "Version unknown", which is three
+    /// words about a lookup nobody attempted.</para>
+    /// </summary>
+    private static bool ReportsDetection(DevToolInfo tool) =>
+        tool.Kind is DevToolKind.Application
+        && !tool.ConfirmedByHand
+        && string.Equals(tool.InstalledVersion.Trim(), DevToolOutput.NoVersion, StringComparison.Ordinal);
+
+    /// <summary>What the Installed column reads, which is not always a version.
+    ///
+    /// <para>A manual row never says a version and never says "installed": nothing
+    /// looked, and the column has to keep saying so — that is the whole reason the
+    /// manual provider is not just an unchecked box on an ordinary row.</para></summary>
+    private static string InstalledLabel(DevToolInfo tool) => tool switch
+    {
+        { ConfirmedByHand: true } => tool.Acknowledged ? "Confirmed by hand" : "Not confirmed",
+        _ when ReportsDetection(tool) => tool.Installed ? "Detected" : "Not detected",
+        _ => tool.InstalledVersion
+    };
+
+    /// <summary>
+    /// The row's status, without whatever the catalog had to add to it.
+    ///
+    /// <para>The port hands both down one string, joined by a middle dot: the
+    /// status is what was found and the notes are what the entry wanted said
+    /// about it, and a host with nothing to add sends the status alone. Split
+    /// here rather than left as one line because several of the notes are two
+    /// sentences of warning, and run together with "not installed" they read as
+    /// part of the finding rather than as the caveat on it.</para>
+    /// </summary>
+    private static string StatusOf(DevToolInfo tool) => Split(tool.Status).Status;
+
+    /// <inheritdoc cref="StatusOf" />
+    private static string? NoteOf(DevToolInfo tool) => Split(tool.Status).Note;
+
+    private static bool HasNote(DevToolInfo tool) => NoteOf(tool) is { Length: > 0 };
+
+    private const string NoteSeparator = " · ";
+
+    private static (string Status, string? Note) Split(string status)
+    {
+        var index = status.IndexOf(NoteSeparator, StringComparison.Ordinal);
+
+        return index < 0
+            ? (status, null)
+            : (status[..index], status[(index + NoteSeparator.Length)..]);
+    }
+
+    /// <summary>
+    /// The rows, filed under a heading per kind and — for applications — a
+    /// sub-heading per group.
+    ///
+    /// <para>Grouped in the order the rows arrive rather than in an order this
+    /// pane decides: <see cref="Enumerable.GroupBy{TSource, TKey}(IEnumerable{TSource}, Func{TSource, TKey})"/>
+    /// yields groups by first appearance, and the sequence the port answers in is
+    /// the sequence the catalog is written in — which for a setup guide is the
+    /// order somebody is meant to do the steps in.</para>
+    /// </summary>
+    private IReadOnlyList<ToolKindGroup> ToolKinds =>
+        _tools
+            .GroupBy(tool => tool.Kind)
+            .Select(kind => new ToolKindGroup(
+                kind.Key,
+                KindTitle(kind.Key),
+                kind
+                    .GroupBy(tool => string.IsNullOrWhiteSpace(tool.Group) ? null : tool.Group.Trim())
+                    .Select(group => new ToolGroup($"{kind.Key}:{group.Key ?? "all"}", group.Key, group.ToArray()))
+                    .ToArray()))
+            .ToArray();
+
+    /// <summary>The heading a kind files under, spelled out with no catch-all for
+    /// the reason the port's own key mint has none: a kind added to the enum and
+    /// not named here should fail to compile rather than inherit a heading that
+    /// is about something else.</summary>
+    private static string KindTitle(DevToolKind kind) => kind switch
+    {
+        DevToolKind.Plugin => "Plugins",
+        DevToolKind.McpServer => "MCP servers",
+        DevToolKind.Marketplace => "Claude marketplaces",
+        DevToolKind.Application => "Applications"
+    };
+
+    /// <summary>How much is under a heading, and how much of it still wants
+    /// something. The second number is the one worth reading: a closed group has
+    /// to be able to say it is closed because there is nothing in it to do.</summary>
+    private static string KindCount(ToolKindGroup kind) => Counted(kind.Count, kind.Outstanding);
+
+    private static string GroupLabel(ToolGroup group, string title) =>
+        $"{title} — {Counted(group.Tools.Count, group.Outstanding)}";
+
+    private static string Counted(int count, int outstanding) => outstanding == 0
+        ? $"{count} row(s), nothing outstanding"
+        : $"{count} row(s), {outstanding} outstanding";
+
+    /// <summary>
+    /// Whether a row still wants something done about it.
+    ///
+    /// <para>What decides which groups open by themselves. A machine that is set
+    /// up correctly should open this pane to headings and no rows; the fifty-odd
+    /// rows behind them are worth having and are not worth scrolling past every
+    /// time. A row this machine has switched off wants nothing by definition —
+    /// that is what switching it off said.</para>
+    /// </summary>
+    private static bool NeedsAttention(DevToolInfo tool) => tool switch
+    {
+        { ConfiguredEnabled: false } => false,
+        { ConfirmedByHand: true } => !tool.Acknowledged,
+        { Kind: DevToolKind.Marketplace } => !tool.Installed,
+        _ => tool.CanUpdate || tool.CanInstall
+    };
+
+    /// <summary>Whichever groups somebody has opened or closed by hand. Held per
+    /// group key so it survives a refresh: checking for updates re-reads every row
+    /// and would otherwise close a group the reader had just opened to watch.</summary>
+    private readonly Dictionary<string, bool> _expanded = new(StringComparer.Ordinal);
+
+    /// <summary>A hand toggle wins; otherwise a group opens when it has something
+    /// outstanding, and an ungrouped kind is always open — it is the three-row
+    /// list this pane started as, and there is nothing there to fold away.</summary>
+    private bool IsExpanded(ToolGroup group) => _expanded.TryGetValue(group.Key, out var expanded)
+        ? expanded
+        : group.Title is null || group.Outstanding > 0;
+
+    private void SetExpanded(ToolGroup group, bool expanded) => _expanded[group.Key] = expanded;
+
+    /// <summary>One heading's worth of rows: a kind's whole list when the entries
+    /// file themselves under nothing, and one of a kind's sub-groups when they
+    /// do.</summary>
+    private sealed record ToolGroup(string Key, string? Title, IReadOnlyList<DevToolInfo> Tools)
+    {
+        public int Outstanding => Tools.Count(NeedsAttention);
+
+        /// <summary>What the fold's trigger points <c>aria-controls</c> at. Derived
+        /// from the key rather than generated, so the id a driver reads off the
+        /// trigger is the id of the table it opens, across re-renders.</summary>
+        public string RegionId => "tools-group-" + new string(Key.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
+
+        /// <summary>The table's own label. A screen reader landing in one of a
+        /// dozen tables needs to know which, and "Configured tools" said twelve
+        /// times is the same as saying nothing.</summary>
+        public string AriaLabel(string kindTitle) => Title is { Length: > 0 } title ? $"{kindTitle}: {title}" : kindTitle;
+    }
+
+    /// <summary>Every group under one kind's heading.</summary>
+    private sealed record ToolKindGroup(DevToolKind Kind, string Title, IReadOnlyList<ToolGroup> Groups)
+    {
+        public int Count => Groups.Sum(group => group.Tools.Count);
+
+        public int Outstanding => Groups.Sum(group => group.Outstanding);
+    }
 
     private const string ImportPlaceholder = """{ "plugins": [], "mcpServers": [] }""";
 
@@ -535,19 +881,42 @@
 
     private static readonly IReadOnlyList<SelectorOption> KindOptions =
     [
-        new(nameof(CopilotToolKind.Plugin), "Plugin"),
-        new(nameof(CopilotToolKind.McpServer), "MCP server"),
-        new(nameof(CopilotToolKind.Marketplace), "Claude marketplace")
+        new(nameof(DevToolKind.Plugin), "Plugin"),
+        new(nameof(DevToolKind.McpServer), "MCP server"),
+        new(nameof(DevToolKind.Marketplace), "Claude marketplace"),
+        new(nameof(DevToolKind.Application), "Application")
     ];
+
+    /// <summary>What can install an application. The one kind whose mechanism is
+    /// declared rather than implied by the kind itself, which is why this list
+    /// exists at all — the other three are their own mechanism.</summary>
+    private static readonly IReadOnlyList<SelectorOption> ProviderOptions =
+    [
+        new(nameof(DevToolProvider.Winget), "winget package"),
+        new(nameof(DevToolProvider.VsCodeExtension), "VS Code extension"),
+        new(nameof(DevToolProvider.Command), "A command it declares"),
+        new(nameof(DevToolProvider.Manual), "Nothing — confirmed by hand")
+    ];
+
+    /// <summary>The id is a different thing per mechanism, and naming the wrong
+    /// one is the mistake this form is most likely to invite: a winget id and an
+    /// extension id look alike and are not interchangeable.</summary>
+    private string ApplicationIdHelp => _draftProvider switch
+    {
+        DevToolProvider.Winget => "The exact winget package id, as 'winget search' lists it.",
+        DevToolProvider.VsCodeExtension => "The extension's marketplace id: publisher.name.",
+        DevToolProvider.Command => "A slug for this check. It is what the row and any per-PC override are addressed by.",
+        DevToolProvider.Manual => "A slug for this check. Nothing is run for it; it carries a tick per machine."
+    };
 
     /// <summary>Both first, because it is both the default and the common answer:
     /// an entry that says nothing about hosts is an entry for both, and the catalog
     /// writes the property only when the answer is one of the other two.</summary>
     private static readonly IReadOnlyList<SelectorOption> HostOptions =
     [
-        new(nameof(CopilotToolHosts.Both), "Copilot and Claude"),
-        new(nameof(CopilotToolHosts.Copilot), "Copilot only"),
-        new(nameof(CopilotToolHosts.Claude), "Claude only")
+        new(nameof(DevToolHosts.Default), "Copilot and Claude"),
+        new(nameof(DevToolHosts.Copilot), "Copilot only"),
+        new(nameof(DevToolHosts.Claude), "Claude only")
     ];
 
     /// <summary>The plugin kinds the desktop host actually branches on, plus the
@@ -568,7 +937,7 @@
     private string CommandLog =>
         string.Join(Environment.NewLine + Environment.NewLine, _commands.Select(Transcribe));
 
-    private static string Transcribe(CopilotToolCommand command)
+    private static string Transcribe(DevToolCommand command)
     {
         var lines = new List<string> { $"$ {command.CommandLine}" };
 
@@ -591,7 +960,7 @@
         _toolMessage = null;
         try
         {
-            var catalog = await CopilotTools.ListAsync();
+            var catalog = await DevTools.ListAsync();
             _tools = catalog.Tools;
             _toolMessage = catalog.Message;
             _catalogExists = catalog.CatalogExists;
@@ -614,7 +983,7 @@
         _toolActionKey = UpdateAllKey;
         try
         {
-            var result = await CopilotTools.UpdateAllAsync();
+            var result = await DevTools.UpdateAllAsync();
             _toolMessage = result.Message;
             if (result.Succeeded)
             {
@@ -632,17 +1001,17 @@
         }
     }
 
-    private async Task ApplyToolActionAsync(CopilotToolInfo tool, CopilotToolAction action)
+    private async Task ApplyToolActionAsync(DevToolInfo tool, DevToolAction action)
     {
         _toolActionKey = tool.Key;
         try
         {
             var result = action switch
             {
-                CopilotToolAction.Update => await CopilotTools.UpdateAsync(tool.Key),
-                CopilotToolAction.Enable => await CopilotTools.EnableAsync(tool.Key),
-                CopilotToolAction.Disable => await CopilotTools.DisableAsync(tool.Key),
-                _ => CopilotToolActionResult.Failed("Unknown tool action.")
+                DevToolAction.Update => await DevTools.UpdateAsync(tool.Key),
+                DevToolAction.Enable => await DevTools.EnableAsync(tool.Key),
+                DevToolAction.Disable => await DevTools.DisableAsync(tool.Key),
+                _ => DevToolActionResult.Failed("Unknown tool action.")
             };
 
             _toolMessage = result.Message;
@@ -661,7 +1030,36 @@
         }
     }
 
-    private Task CreateCatalogAsync() => RunCatalogEditAsync(CreateKey, () => CopilotTools.CreateCatalogAsync());
+    /// <summary>
+    /// The one row whose control is not an action verb.
+    /// </summary>
+    /// <param name="acknowledged">Whichever way the box has just gone. Passed
+    /// through rather than toggled from what the row last showed: the row is
+    /// re-read after every action, and a toggle computed from a stale copy would
+    /// write back the state nobody asked for.</param>
+    private async Task AcknowledgeAsync(DevToolInfo tool, bool acknowledged)
+    {
+        _toolActionKey = tool.Key;
+        try
+        {
+            var result = await DevTools.AcknowledgeAsync(tool.Key, acknowledged);
+            _toolMessage = result.Message;
+            if (result.Succeeded)
+            {
+                await RefreshToolsAsync();
+            }
+
+            // See UpdateAllToolsAsync: the action's commands win over the
+            // refresh's, because the action is what the reader pressed.
+            _commands = result.Commands;
+        }
+        finally
+        {
+            _toolActionKey = null;
+        }
+    }
+
+    private Task CreateCatalogAsync() => RunCatalogEditAsync(CreateKey, () => DevTools.CreateCatalogAsync());
 
     private void OpenAddDialog()
     {
@@ -675,11 +1073,16 @@
 
     private void OnDraftKindChanged(string? value)
     {
+        // Spelled out for every kind, because the arm this joins is the same
+        // fall-through the add form's field chain was: a kind not named here
+        // silently becomes a plugin, and the dialog then reads back the kind the
+        // reader did not pick.
         _draftKind = value switch
         {
-            nameof(CopilotToolKind.McpServer) => CopilotToolKind.McpServer,
-            nameof(CopilotToolKind.Marketplace) => CopilotToolKind.Marketplace,
-            _ => CopilotToolKind.Plugin
+            nameof(DevToolKind.McpServer) => DevToolKind.McpServer,
+            nameof(DevToolKind.Marketplace) => DevToolKind.Marketplace,
+            nameof(DevToolKind.Application) => DevToolKind.Application,
+            _ => DevToolKind.Plugin
         };
 
         // The fields the other kind filled in are not this kind's fields, and a
@@ -687,13 +1090,28 @@
         // over whichever field takes its place.
         _draftIdError = null;
         _draftSourceError = null;
+        _draftDetectError = null;
+    }
+
+    private void OnDraftProviderChanged(string? value)
+    {
+        _draftProvider = value switch
+        {
+            nameof(DevToolProvider.VsCodeExtension) => DevToolProvider.VsCodeExtension,
+            nameof(DevToolProvider.Command) => DevToolProvider.Command,
+            nameof(DevToolProvider.Manual) => DevToolProvider.Manual,
+            _ => DevToolProvider.Winget
+        };
+
+        // The command boxes leave the screen with the mechanism that has them.
+        _draftDetectError = null;
     }
 
     private void OnDraftHostsChanged(string? value) => _draftHosts = value switch
     {
-        nameof(CopilotToolHosts.Copilot) => CopilotToolHosts.Copilot,
-        nameof(CopilotToolHosts.Claude) => CopilotToolHosts.Claude,
-        _ => CopilotToolHosts.Both
+        nameof(DevToolHosts.Copilot) => DevToolHosts.Copilot,
+        nameof(DevToolHosts.Claude) => DevToolHosts.Claude,
+        _ => DevToolHosts.Default
     };
 
     /// <summary>
@@ -706,18 +1124,32 @@
     {
         _draftIdError = null;
         _draftSourceError = null;
+        _draftDetectError = null;
 
-        var plugin = _draftKind is CopilotToolKind.Plugin;
-        var marketplace = _draftKind is CopilotToolKind.Marketplace;
-        var id = (marketplace ? _draftMarketplaceName : plugin ? _draftPluginName : _draftPackageId).Trim();
+        var plugin = _draftKind is DevToolKind.Plugin;
+        var marketplace = _draftKind is DevToolKind.Marketplace;
+        var application = _draftKind is DevToolKind.Application;
+        var command = application && _draftProvider is DevToolProvider.Command;
+
+        // Spelled out per kind rather than as the two-way ternary this replaced,
+        // whose else was the MCP server's package id: an application submitted
+        // whatever was in a box it never showed, under an id nobody typed.
+        var id = (_draftKind switch
+        {
+            DevToolKind.Plugin => _draftPluginName,
+            DevToolKind.Marketplace => _draftMarketplaceName,
+            DevToolKind.Application => _draftApplicationId,
+            DevToolKind.McpServer => _draftPackageId
+        }).Trim();
 
         if (id.Length == 0)
         {
             _draftIdError = _draftKind switch
             {
-                CopilotToolKind.Plugin => "A plugin needs a name.",
-                CopilotToolKind.Marketplace => "A marketplace needs a name.",
-                _ => "An MCP server needs a package id."
+                DevToolKind.Plugin => "A plugin needs a name.",
+                DevToolKind.Marketplace => "A marketplace needs a name.",
+                DevToolKind.Application => "An application needs an id.",
+                DevToolKind.McpServer => "An MCP server needs a package id."
             };
         }
 
@@ -729,12 +1161,18 @@
             _draftSourceError = plugin ? "A plugin needs a source." : "A marketplace needs a source.";
         }
 
-        if (_draftIdError is not null || _draftSourceError is not null)
+        // The same thing the port refuses, refused under the field it is about.
+        if (command && string.IsNullOrWhiteSpace(_draftDetectCommand))
+        {
+            _draftDetectError = "A command application needs a detect command.";
+        }
+
+        if (_draftIdError is not null || _draftSourceError is not null || _draftDetectError is not null)
         {
             return;
         }
 
-        var draft = new CopilotToolDraft(
+        var draft = new DevToolDraft(
             _draftKind,
             id,
             plugin || marketplace ? _draftSource.Trim() : null,
@@ -742,16 +1180,28 @@
             plugin ? NullIfBlank(_draftPluginKind) : null)
         {
             // A marketplace is a Claude mechanism whatever the form last had
-            // selected, and the hosts selector is not on screen for one.
-            Hosts = marketplace ? CopilotToolHosts.Claude : _draftHosts,
+            // selected, and an application is not an AI host's tool at all —
+            // neither has the hosts selector on screen, so neither inherits
+            // whatever it was left on.
+            Hosts = marketplace ? DevToolHosts.Claude : application ? DevToolHosts.None : _draftHosts,
             ClaudeName = plugin ? NullIfBlank(_draftClaudeName) : null,
             ClaudeMarketplace = plugin ? NullIfBlank(_draftClaudeMarketplace) : null,
-            ClaudeServerName = plugin || marketplace ? null : NullIfBlank(_draftClaudeServerName),
-            ClaudeCommand = plugin || marketplace ? null : NullIfBlank(_draftClaudeCommand),
-            ClaudeArgs = plugin || marketplace ? [] : SplitArgs(_draftClaudeArgs)
+            ClaudeServerName = plugin || marketplace || application ? null : NullIfBlank(_draftClaudeServerName),
+            ClaudeCommand = plugin || marketplace || application ? null : NullIfBlank(_draftClaudeCommand),
+            ClaudeArgs = plugin || marketplace || application ? [] : SplitArgs(_draftClaudeArgs),
+
+            // Written even when it is the default, unlike everything above: the
+            // catalog's silence means "both hosts" and "no override" for the rest,
+            // and means nothing at all for a mechanism.
+            Provider = application ? _draftProvider : DevToolProvider.Winget,
+            DetectCommand = command ? NullIfBlank(_draftDetectCommand) : null,
+            DetectArgs = command ? SplitArgs(_draftDetectArgs) : [],
+            DetectExpect = command ? NullIfBlank(_draftDetectExpect) : null,
+            InstallCommand = command ? NullIfBlank(_draftInstallCommand) : null,
+            InstallArgs = command ? SplitArgs(_draftInstallArgs) : []
         };
 
-        if (await RunCatalogEditAsync(AddKey, () => CopilotTools.AddAsync(draft)))
+        if (await RunCatalogEditAsync(AddKey, () => DevTools.AddAsync(draft)))
         {
             _addOpen = false;
             ResetDraft();
@@ -796,7 +1246,7 @@
 
         _importError = null;
 
-        if (await RunCatalogEditAsync(ImportKey, () => CopilotTools.ImportAsync(_importJson)))
+        if (await RunCatalogEditAsync(ImportKey, () => DevTools.ImportAsync(_importJson)))
         {
             _importOpen = false;
             _importJson = string.Empty;
@@ -805,7 +1255,7 @@
 
     /// <summary>Arms the confirm dialog. Nothing is removed here — the first click
     /// asks, and only the confirm calls the port.</summary>
-    private void AskToRemove(CopilotToolInfo tool) => _removing = tool;
+    private void AskToRemove(DevToolInfo tool) => _removing = tool;
 
     private void CancelRemove() => _removing = null;
 
@@ -817,7 +1267,7 @@
         }
 
         _removing = null;
-        await RunCatalogEditAsync(tool.Key, () => CopilotTools.RemoveAsync(tool.Key));
+        await RunCatalogEditAsync(tool.Key, () => DevTools.RemoveAsync(tool.Key));
     }
 
     /// <summary>
@@ -829,7 +1279,7 @@
     /// line, which is the one moment that line is worth less than what it
     /// overwrites.</para>
     /// </summary>
-    private async Task<bool> RunCatalogEditAsync(string busyKey, Func<Task<CopilotToolActionResult>> edit)
+    private async Task<bool> RunCatalogEditAsync(string busyKey, Func<Task<DevToolActionResult>> edit)
     {
         _toolActionKey = busyKey;
         try
@@ -853,8 +1303,8 @@
 
     private void ResetDraft()
     {
-        _draftKind = CopilotToolKind.Plugin;
-        _draftHosts = CopilotToolHosts.Both;
+        _draftKind = DevToolKind.Plugin;
+        _draftHosts = DevToolHosts.Default;
         _draftPluginName = string.Empty;
         _draftSource = string.Empty;
         _draftPluginKind = string.Empty;
@@ -866,26 +1316,34 @@
         _draftClaudeServerName = string.Empty;
         _draftClaudeCommand = string.Empty;
         _draftClaudeArgs = string.Empty;
+        _draftProvider = DevToolProvider.Winget;
+        _draftApplicationId = string.Empty;
+        _draftDetectCommand = string.Empty;
+        _draftDetectArgs = string.Empty;
+        _draftDetectExpect = string.Empty;
+        _draftInstallCommand = string.Empty;
+        _draftInstallArgs = string.Empty;
         _draftIdError = null;
         _draftSourceError = null;
+        _draftDetectError = null;
     }
 
     /// <summary>Which hosts a row is for, short enough to sit beside the name.
-    /// "Both" is spelled out rather than left blank: a row that says nothing about
+    /// Both hosts is spelled out rather than left blank: a row that says nothing about
     /// hosts is indistinguishable from one whose badge failed to render, and the
     /// whole point of the badge is that the answer is never assumed.</summary>
-    private static string HostLabel(CopilotToolHosts hosts) => hosts switch
+    private static string HostLabel(DevToolHosts hosts) => hosts switch
     {
-        CopilotToolHosts.Copilot => "Copilot",
-        CopilotToolHosts.Claude => "Claude",
-        CopilotToolHosts.Both => "Copilot + Claude",
+        DevToolHosts.Copilot => "Copilot",
+        DevToolHosts.Claude => "Claude",
+        DevToolHosts.Default => "Copilot + Claude",
         _ => "No host"
     };
 
     /// <summary>The badge's tooltip: what each host answered, when they answered
     /// differently enough to be worth reading one by one. A row whose hosts agree
     /// gets no tooltip, because the columns already say it.</summary>
-    private static string? HostTitle(CopilotToolInfo tool) => tool.HostStates.Count < 2
+    private static string? HostTitle(DevToolInfo tool) => tool.HostStates.Count < 2
         ? null
         : string.Join(" · ", tool.HostStates.Select(state => $"{HostLabel(state.Host)}: {state.Status}"));
 

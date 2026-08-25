@@ -138,9 +138,9 @@ public static class MauiProgram
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is
         // safe to register unconditionally.
         builder.Services.AddSingleton<IAppUpdateService, MsixAppUpdateService>();
-        builder.Services.AddSingleton<ICopilotToolService>(sp => new CopilotToolService(
+        builder.Services.AddSingleton<IDevToolService>(sp => new DevToolService(
             sp.GetRequiredService<IBacklogStore>(),
-            sp.GetService<ILogger<CopilotToolService>>()));
+            sp.GetService<ILogger<DevToolService>>()));
 
         // The session list reads the two agents' own folders in the profile of
         // whoever is signed in, so unlike the tool service above there is nothing

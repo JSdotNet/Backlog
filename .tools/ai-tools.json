@@ -212,5 +212,477 @@
       ],
       "enabled": true
     }
-  ]
+  ],
+  "applications": [
+      {
+        "id": "Microsoft.PowerShell",
+        "name": "PowerShell 7",
+        "provider": "winget",
+        "group": "Developer Configurations baseline",
+        "probe": {
+          "command": "pwsh",
+          "args": [
+            "--version"
+          ]
+        },
+        "enabled": true
+      },
+      {
+        "id": "Git.Git",
+        "name": "Git",
+        "provider": "winget",
+        "group": "Developer Configurations baseline",
+        "probe": {
+          "command": "git",
+          "args": [
+            "--version"
+          ]
+        },
+        "enabled": true
+      },
+      {
+        "id": "GitHub.cli",
+        "name": "GitHub CLI",
+        "provider": "winget",
+        "group": "Developer Configurations baseline",
+        "probe": {
+          "command": "gh",
+          "args": [
+            "--version"
+          ]
+        },
+        "enabled": true
+      },
+      {
+        "id": "Microsoft.Coreutils",
+        "name": "Coreutils for Windows",
+        "provider": "winget",
+        "group": "Developer Configurations baseline",
+        "enabled": true
+      },
+      {
+        "id": "Microsoft.WSL",
+        "name": "Windows Subsystem for Linux",
+        "provider": "winget",
+        "group": "Developer Configurations baseline",
+        "probe": {
+          "command": "wsl",
+          "args": [
+            "--version"
+          ],
+          "encoding": "utf-16le"
+        },
+        "enabled": true
+      },
+      {
+        "id": "Microsoft.VCRedist.2015+.x64",
+        "name": "VC++ Redistributable 2015+ (x64)",
+        "provider": "winget",
+        "group": "Developer Configurations baseline",
+        "note": "winget configure fails with an internal error in a non-elevated shell until this is installed.",
+        "enabled": true
+      },
+      {
+        "id": "Microsoft.Office",
+        "name": "Microsoft 365 apps",
+        "provider": "winget",
+        "group": "Microsoft 365 and productivity",
+        "note": "Click-to-Run updates on its own channel, so the winget manifest version routinely reads lower than what is installed. Sign-in and activation are interactive.",
+        "detectOnly": true,
+        "enabled": true
+      },
+      {
+        "id": "Microsoft.Teams",
+        "name": "Microsoft Teams",
+        "provider": "winget",
+        "group": "Microsoft 365 and productivity",
+        "enabled": true
+      },
+      {
+        "id": "AgileBits.1Password",
+        "name": "1Password",
+        "provider": "winget",
+        "group": "Microsoft 365 and productivity",
+        "enabled": true
+      },
+      {
+        "id": "Microsoft.WindowsTerminal",
+        "name": "Windows Terminal",
+        "provider": "winget",
+        "group": "Microsoft 365 and productivity",
+        "enabled": true
+      },
+      {
+        "id": "Microsoft.VisualStudioCode",
+        "name": "Visual Studio Code",
+        "provider": "winget",
+        "group": "Team developer tools",
+        "probe": {
+          "command": "code",
+          "args": [
+            "--version"
+          ],
+          "shell": true
+        },
+        "enabled": true
+      },
+      {
+        "id": "Anthropic.Claude",
+        "name": "Claude Desktop",
+        "provider": "winget",
+        "group": "Team developer tools",
+        "note": "The MSIX distribution versions independently of the winget exe manifest, so the installed version routinely reads ahead of the available one. That is not an update.",
+        "enabled": true
+      },
+      {
+        "id": "Anthropic.ClaudeCode",
+        "name": "Claude Code",
+        "provider": "winget",
+        "group": "Team developer tools",
+        "enabled": true
+      },
+      {
+        "id": "Microsoft.Aspire",
+        "name": "Aspire CLI",
+        "provider": "winget",
+        "group": "Team developer tools",
+        "probe": {
+          "command": "aspire",
+          "args": [
+            "--version"
+          ]
+        },
+        "enabled": true
+      },
+      {
+        "id": "Microsoft.Azure.StorageExplorer",
+        "name": "Azure Storage Explorer",
+        "provider": "winget",
+        "group": "Team developer tools",
+        "enabled": true
+      },
+      {
+        "id": "GitHub.GitHubDesktop",
+        "name": "GitHub Desktop",
+        "provider": "winget",
+        "group": "Team developer tools",
+        "note": "Marked \"if needed\" in the HowTo — catalogued, not expected on every machine.",
+        "enabled": false
+      },
+      {
+        "id": "Atlassian.Sourcetree",
+        "name": "Sourcetree",
+        "provider": "winget",
+        "group": "Team developer tools",
+        "note": "Marked \"if needed\" in the HowTo. Installs silently, then requires interactive account setup on first run.",
+        "enabled": false
+      },
+      {
+        "id": "Microsoft.VisualStudio.Professional",
+        "name": "Visual Studio 2026 Professional",
+        "provider": "winget",
+        "group": "Visual Studio family",
+        "note": "winget installs the shell only; workloads need --override and 20-60 minutes. The 2026 products dropped the year from the package id, unlike 2017/2019/2022.",
+        "detectOnly": true,
+        "enabled": true
+      },
+      {
+        "id": "Microsoft.SQLServerManagementStudio.22",
+        "name": "SQL Server Management Studio 22",
+        "provider": "winget",
+        "group": "Visual Studio family",
+        "note": "Runs the Visual Studio bootstrapper; a very long install.",
+        "detectOnly": true,
+        "enabled": true
+      },
+      {
+        "id": "JetBrains.ReSharper",
+        "name": "ReSharper",
+        "provider": "winget",
+        "group": "Visual Studio family",
+        "note": "Marked \"if your team uses it\" in the HowTo. Installs, but Visual Studio integration and licence activation are interactive.",
+        "detectOnly": true,
+        "enabled": false
+      },
+      {
+        "id": "ms-dotnettools.vscode-dotnet-runtime",
+        "name": ".NET Install Tool",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "microsoft-aspire.aspire-vscode",
+        "name": "Aspire",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "ms-vscode.azurecli",
+        "name": "Azure CLI Tools",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "ms-azure-devops.azure-pipelines",
+        "name": "Azure Pipelines",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "ms-dotnettools.csharp",
+        "name": "C#",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "ms-dotnettools.csdevkit",
+        "name": "C# Dev Kit",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "streetsidesoftware.code-spell-checker",
+        "name": "Code Spell Checker",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "GitHub.vscode-pull-request-github",
+        "name": "GitHub Pull Requests",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "yzane.markdown-pdf",
+        "name": "Markdown PDF",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "DavidAnson.vscode-markdownlint",
+        "name": "markdownlint",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "jebbs.plantuml",
+        "name": "PlantUML",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "ms-vscode.PowerShell",
+        "name": "PowerShell",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "esbenp.prettier-vscode",
+        "name": "Prettier - Code formatter",
+        "provider": "vscode-extension",
+        "group": "VS Code extensions",
+        "enabled": true
+      },
+      {
+        "id": "Docker.DockerDesktop",
+        "name": "Docker Desktop",
+        "provider": "winget",
+        "group": "Container workflow",
+        "note": "Needs elevation, and a reboot for the WSL 2 backend.",
+        "probe": {
+          "command": "docker",
+          "args": [
+            "--version"
+          ]
+        },
+        "enabled": true
+      },
+      {
+        "id": "dev-drive",
+        "name": "Dev Drive configured",
+        "provider": "command",
+        "group": "Dev Drive and package caches",
+        "note": "A heuristic. The authoritative per-volume flag, fsutil devdrv query D:, needs elevation and returns Access Denied without it, so this checks for ReFS on D: instead.",
+        "detect": {
+          "command": "powershell",
+          "args": [
+            "-NoProfile",
+            "-Command",
+            "(Get-Volume -DriveLetter D).FileSystemType"
+          ],
+          "expect": "ReFS"
+        },
+        "enabled": true
+      },
+      {
+        "id": "nuget-cache-on-dev-drive",
+        "name": "NuGet cache on Dev Drive",
+        "provider": "command",
+        "group": "Dev Drive and package caches",
+        "detect": {
+          "command": "dotnet",
+          "args": [
+            "nuget",
+            "locals",
+            "global-packages",
+            "--list"
+          ],
+          "expect": "D:\\"
+        },
+        "enabled": true
+      },
+      {
+        "id": "npm-cache-on-dev-drive",
+        "name": "npm cache on Dev Drive",
+        "provider": "command",
+        "group": "Dev Drive and package caches",
+        "note": "The HowTo scopes this to \"when npm is installed\", so an absent npm is not a failure.",
+        "detect": {
+          "command": "npm",
+          "args": [
+            "config",
+            "get",
+            "cache"
+          ],
+          "expect": "D:\\"
+        },
+        "enabled": true
+      },
+      {
+        "id": "git-pull-rebase",
+        "name": "git pull.rebase is true",
+        "provider": "command",
+        "group": "Git configuration",
+        "note": "An unset key exits 1 with empty output. That is \"not configured\", not an error.",
+        "detect": {
+          "command": "git",
+          "args": [
+            "config",
+            "--global",
+            "pull.rebase"
+          ],
+          "expect": "true"
+        },
+        "install": {
+          "command": "git",
+          "args": [
+            "config",
+            "--global",
+            "pull.rebase",
+            "true"
+          ]
+        },
+        "enabled": true
+      },
+      {
+        "id": "git-rebase-autostash",
+        "name": "git rebase.autoStash is true",
+        "provider": "command",
+        "group": "Git configuration",
+        "detect": {
+          "command": "git",
+          "args": [
+            "config",
+            "--global",
+            "rebase.autoStash"
+          ],
+          "expect": "true"
+        },
+        "install": {
+          "command": "git",
+          "args": [
+            "config",
+            "--global",
+            "rebase.autoStash",
+            "true"
+          ]
+        },
+        "enabled": true
+      },
+      {
+        "id": "windows-update-clear",
+        "name": "Windows Update has nothing pending",
+        "provider": "manual",
+        "group": "Manual verification",
+        "note": "MsrcSeverity comes back empty on every pending update in practice, so \"nothing critical pending\" cannot be determined at all, elevated or not.",
+        "enabled": true
+      },
+      {
+        "id": "office-signed-in",
+        "name": "Office apps activated and signed in",
+        "provider": "manual",
+        "group": "Manual verification",
+        "enabled": true
+      },
+      {
+        "id": "outlook-teams-sync",
+        "name": "Outlook and Teams sign in and sync",
+        "provider": "manual",
+        "group": "Manual verification",
+        "enabled": true
+      },
+      {
+        "id": "onepassword-vaults",
+        "name": "1Password unlocks and the required vaults are visible",
+        "provider": "manual",
+        "group": "Manual verification",
+        "enabled": true
+      },
+      {
+        "id": "onenote-available",
+        "name": "OneNote available",
+        "provider": "manual",
+        "group": "Manual verification",
+        "note": "No standalone winget package exists — OneNote ships inside Microsoft.Office. The only standalone is the Store package XPFFZHVGQWWLHB, which needs a signed-in Store account.",
+        "enabled": true
+      },
+      {
+        "id": "resharper-in-vs",
+        "name": "ReSharper visible and enabled in Visual Studio",
+        "provider": "manual",
+        "group": "Manual verification",
+        "enabled": false
+      },
+      {
+        "id": "ssms-connects",
+        "name": "SSMS connects to an expected SQL Server endpoint",
+        "provider": "manual",
+        "group": "Manual verification",
+        "enabled": true
+      },
+      {
+        "id": "storage-explorer-subscription",
+        "name": "Storage Explorer reaches an expected subscription",
+        "provider": "manual",
+        "group": "Manual verification",
+        "enabled": true
+      },
+      {
+        "id": "open-with-code",
+        "name": "Open with Code appears in the Explorer context menu",
+        "provider": "manual",
+        "group": "Manual verification",
+        "note": "The registry key HKCU:\\Software\\Classes\\Directory\\shell\\VSCode proves the key exists, not that the menu renders, so this stays manual.",
+        "enabled": true
+      },
+      {
+        "id": "dev-tools-first-run",
+        "name": "Dev tools open without first-run errors",
+        "provider": "manual",
+        "group": "Manual verification",
+        "enabled": true
+      }
+    ]
 }
