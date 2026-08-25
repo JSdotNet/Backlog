@@ -444,6 +444,45 @@ html, body {
     height: 32rem;
 }
 
+/* The Archify half of a diagram pair. An iframe has no intrinsic height and no
+   opinion about what is inside it, so without a number here the frame falls back
+   to the browser's 150px default and shows a letterbox slice of a whole
+   document. These artifacts draw a 1000x560 viewBox with the viewer's own
+   toolbar, title and legend stacked around it, which comes to a little over
+   640px at every column width this pair produces; 42rem clears that, so the
+   document arrives whole rather than with its legend below the fold.
+
+   Nothing is clipped when it does not: the viewer keeps the drawing in a
+   scrolling container of its own, so a diagram wider than the column can still
+   be reached. That is the failure worth having — a cropped picture looks
+   complete and is not.
+
+   `border: 0` is a statement, not an omission, and it stays that way: an iframe
+   arrives with a default border of its own, so leaving this alone is not the
+   same as not having one. The frame is deliberately absent because this pair is
+   a comparison — the mermaid half sits bare on the page, and a box drawn around
+   only the other half made one diagram look like a picture and the other like a
+   website we went and fetched. The seam it used to mark is not information the
+   reader needs; the `Archify` caption above the pane already says which renderer
+   drew it. Do not put it back to hide the residue described next.
+
+   No background either, for the same reason a radius would be pointless: the
+   document inside paints its own opaque page, so anything declared here is
+   covered the moment it loads and only shows through while it is still on its
+   way. What remains visible is that document's own background — the near-black
+   of Archify's dark palette against this page's --color-background, a seam of a
+   few percent luminance rather than the light-on-dark rectangle it was. Closing
+   it completely would mean editing a generated artifact, which the next
+   regeneration would silently undo. See `DiagramPair.razor` for the `?theme`
+   parameter that gets it this close from the outside. */
+.sb-archify-frame {
+    display: block;
+    width: 100%;
+    height: 42rem;
+    border: 0;
+    background: transparent;
+}
+
 .sb-label {
     font-size: var(--font-size-xs);
     text-transform: uppercase;

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Slice flow",
+    "output": "slice-flow.architecture.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "desktop", "type": "frontend", "label": "Desktop UI", "pos": [60, 120], "size": [170, 64] },
+    { "id": "mobile", "type": "frontend", "label": "Mobile UI", "pos": [60, 300], "size": [170, 64] },
+    { "id": "storybook", "type": "frontend", "label": "Storybook", "pos": [60, 480], "size": [170, 64] },
+    { "id": "library", "type": "frontend", "label": "Backlog.UI.Components", "pos": [420, 300], "size": [230, 64] },
+    { "id": "css", "type": "frontend", "label": "components.css", "pos": [840, 196], "size": [180, 64] },
+    { "id": "js", "type": "frontend", "label": "components.js", "pos": [840, 404], "size": [180, 64] }
+  ],
+  "connections": [
+    { "id": "desktop-uses-library", "from": "desktop", "to": "library" },
+    { "id": "mobile-uses-library", "from": "mobile", "to": "library" },
+    { "id": "storybook-uses-library", "from": "storybook", "to": "library" },
+    { "id": "library-emits-css", "from": "library", "to": "css" },
+    { "id": "library-emits-js", "from": "library", "to": "js" }
+  ]
+}
