@@ -33,6 +33,32 @@
         </div>
     </Story>
 
+    <Story Name="SelectField — Form"
+           Description="The same component in the shape TextField draws: a visible label above a bordered control, with optional help text wired into aria-describedby. For a select in a dialog or a settings form, where the bare inline control above reads as a caption rather than as something to change. Shown beside a TextField, because looking like its neighbours is the whole point."
+           Code="@SelectFieldFormCode">
+        <div class="sb-columns">
+            <div>
+                <p class="sb-label">Form="true"</p>
+                <SelectField CurrentValue="@_kind"
+                             Options="Kinds"
+                             Label="Kind"
+                             Form="true"
+                             HelpText="What the tool is. Changing it changes what the form asks for below."
+                             TestId="select-kind"
+                             OnChanged="v => _kind = v ?? string.Empty" />
+                <p class="sb-state" data-testid="select-kind-value">Kind = @Show(_kind)</p>
+            </div>
+            <div>
+                <p class="sb-label">TextField, for comparison</p>
+                <TextField Value="@_name"
+                           ValueChanged="v => _name = v"
+                           Label="Name"
+                           HelpText="The shape the select above is matching."
+                           TestId="select-form-name" />
+            </div>
+        </div>
+    </Story>
+
     <Story Name="BadgeSelect"
            Description="The same select, rendered as the badge it sets. Used wherever a status is both shown and changed in place."
            Code="@BadgeSelectCode">
@@ -205,6 +231,15 @@
         new("grace", "Grace")
     ];
 
+    /// <summary>What a form-shape select is usually for: a small closed set where
+    /// the choice decides what the rest of the form asks for.</summary>
+    private static readonly IReadOnlyList<SelectorOption> Kinds =
+    [
+        new("plugin", "Plugin"),
+        new("mcp-server", "MCP server"),
+        new("marketplace", "Claude marketplace")
+    ];
+
     private static readonly IReadOnlyList<SelectorOption> Statuses =
     [
         new("draft", "Draft"),
@@ -243,6 +278,8 @@
 
     private string _area = "product";
     private string? _owner;
+    private string _kind = "plugin";
+    private string _name = string.Empty;
     private string _status = "ready";
     private DemoPriority _priority = DemoPriority.High;
     private string _entryStatus = "active";
@@ -262,6 +299,12 @@
         <SelectField CurrentValue="@_owner" Options="Owners" Label="Owner"
                      IncludeEmptyOption="true" EmptyLabel="Unassigned"
                      OnChanged="v => _owner = v" />
+        """;
+
+    private const string SelectFieldFormCode = """
+        <SelectField CurrentValue="@_kind" Options="Kinds" Label="Kind" Form="true"
+                     HelpText="What the tool is. Changing it changes what the form asks for below."
+                     OnChanged="v => _kind = v ?? string.Empty" />
         """;
 
     private const string BadgeSelectCode = """

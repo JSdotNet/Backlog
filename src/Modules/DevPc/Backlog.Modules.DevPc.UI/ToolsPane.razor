@@ -226,9 +226,15 @@
             @* SelectField rather than EnumSelect: the enum member is McpServer and
                the humanised form of that reads "Mcp Server", which is not what the
                product calls it anywhere else. *@
+            @* Form, like every field below it: the two selects at the top of this
+               dialog are the ones that decide which of those fields exist, so of
+               everything here they are the last things that should read as
+               captions rather than as controls. *@
             <SelectField Label="Kind"
+                         Form="true"
                          CurrentValue="@_draftKind.ToString()"
                          Options="@KindOptions"
+                         HelpText="What the tool is. Changing it changes what the form asks for below."
                          TestId="tools-add-kind"
                          OnChanged="OnDraftKindChanged" />
 
@@ -238,8 +244,10 @@
                    mechanism and nothing else, so offering the choice would be
                    offering an answer that cannot be given. *@
                 <SelectField Label="Hosts"
+                             Form="true"
                              CurrentValue="@_draftHosts.ToString()"
                              Options="@HostOptions"
+                             HelpText="Which host CLIs it is installed for. Including Claude adds the fields it needs."
                              TestId="tools-add-hosts"
                              OnChanged="OnDraftHostsChanged" />
             }
@@ -274,10 +282,12 @@
                            ErrorMessage="@_draftSourceError"
                            TestId="tools-add-source" />
                 <SelectField Label="Kind of plugin"
+                             Form="true"
                              CurrentValue="@_draftPluginKind"
                              Options="@PluginKindOptions"
                              IncludeEmptyOption="true"
                              EmptyLabel="Plugin (default)"
+                             HelpText="Optional. Only the kinds the desktop host branches on; a plain plugin needs none."
                              TestId="tools-add-plugin-kind"
                              OnChanged="value => _draftPluginKind = value ?? string.Empty" />
 

@@ -41,6 +41,12 @@ screen's classes. It almost always can:
 - **`CssClass`** appends to it, for a modifier on top of the component's own.
 - **`Bare`**, on the components that shape a wrapper, drops the wrapper so the
   screen keeps its own layout — `Tabs`, `TextField`, `TextArea`.
+- **`Form`**, on `SelectField`, is the same kind of switch pointing the other
+  way: it *adds* the wrapper, so a select in a dialog wears a visible label
+  above a bordered control instead of the bare inline control the metadata
+  editors need. A component whose default shape suits one host and not another
+  grows a second shape rather than a second component, and the per-part class
+  parameters below default per shape so adopting one costs a single parameter.
 - The per-part class parameters (`TitleCssClass`, `DescriptionCssClass`,
   `ListCssClass`, …) hand over the inner class names, and passing `null` drops
   that element's class entirely.
