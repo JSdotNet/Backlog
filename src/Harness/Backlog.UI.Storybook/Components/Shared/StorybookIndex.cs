@@ -109,7 +109,13 @@ internal static class StorybookIndex
             new("markdown/diagrams", "Diagrams in markdown", "What happens when a fenced block names a diagram language: MarkdownView hands it to DiagramView."),
             new("markdown/rich-text", "Rich text editing", "MarkdownEditor: a formatting toolbar over the markdown source, and what each button writes."),
             new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
-            new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
+            new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data.", Exact: true),
+
+            // Directly under the page that introduces DiagramView, because it puts
+            // DiagramView beside something else and cannot be read before it. Not a
+            // component chapter at all: it is evidence about a rule `.design` has
+            // already settled, kept where the diagrams it compares are.
+            new("diagrams/archify", "Mermaid beside Archify", "The same diagram drawn twice — the live mermaid render next to a generated Archify document — and what the second one adds, loses and costs."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
 
             // Last in the group, and the one place the ordering rule is bent rather

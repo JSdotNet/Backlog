@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Entry lifecycle",
+    "output": "entry-lifecycle.lifecycle.html",
+    "viewBox": [1020, 566],
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "main", "label": "Lifecycle phases" },
+    { "id": "loops", "label": "Return paths" }
+  ],
+  "states": [
+    { "id": "captured", "type": "start", "label": "Captured", "lane": "main", "col": 0 },
+    { "id": "triage", "type": "decision", "label": "Ready to work?", "lane": "main", "col": 1 },
+    { "id": "active", "type": "active", "label": "In progress", "lane": "main", "col": 2 },
+    { "id": "review", "type": "decision", "label": "Review passes?", "lane": "main", "col": 3 },
+    { "id": "done", "type": "success", "label": "Done", "lane": "main", "col": 4 },
+    { "id": "blocked", "type": "waiting", "label": "Blocked", "lane": "loops", "col": 0 },
+    { "id": "refine", "type": "active", "label": "Refine", "lane": "loops", "col": 1 }
+  ],
+  "transitions": [
+    { "id": "capture-to-triage", "from": "captured", "to": "triage", "fromSide": "right", "toSide": "left", "route": "straight" },
+    { "id": "triage-to-refine", "from": "triage", "to": "refine", "label": "no", "fromSide": "bottom", "toSide": "bottom", "via": [[248, 380], [556, 380]] },
+    { "id": "refine-to-triage", "from": "refine", "to": "triage", "fromSide": "right", "toSide": "top", "via": [[900, 307], [900, 58], [248, 58]] },
+    { "id": "triage-to-active", "from": "triage", "to": "active", "label": "yes", "fromSide": "right", "toSide": "left", "route": "straight" },
+    { "id": "active-to-review", "from": "active", "to": "review", "fromSide": "right", "toSide": "left", "route": "straight" },
+    { "id": "review-to-active", "from": "review", "to": "active", "label": "no", "fromSide": "top", "toSide": "top", "via": [[556, 100], [402, 100]] },
+    { "id": "review-to-done", "from": "review", "to": "done", "label": "yes", "fromSide": "right", "toSide": "left", "route": "straight" },
+    { "id": "active-to-blocked", "from": "active", "to": "blocked", "label": "blocked", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "labelDx": 50, "labelDy": 58 },
+    { "id": "blocked-to-active", "from": "blocked", "to": "active", "fromSide": "top", "toSide": "bottom" }
+  ]
+}

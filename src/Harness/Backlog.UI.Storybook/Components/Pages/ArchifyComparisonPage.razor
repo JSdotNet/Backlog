@@ -1,0 +1,191 @@
+@page "/diagrams/archify"
+
+<PageTitle>Mermaid beside Archify — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Mermaid beside Archify"
+           Summary="Three of the demo diagrams from the Diagrams page, each shown next to an Archify document authored from the same facts. It is evidence for a rule that is already decided, gathered so the rule can be looked at again with both renderers on screen — not a proposal to change it."
+           Guidelines="@Rules">
+    <Alert Message="@StandingRule" Role="note" CssClass="sb-callout" />
+
+    <Story Name="A component map"
+           Description="Six boxes and five arrows on either side. Nothing was dropped in the crossing: every component and every connection in the mermaid is in the Archify document, and the shape of the dependency — three surfaces onto one library, one library onto two built assets — reads the same way in both panes.
+
+What differs is what it cost to get there. The mermaid is about two hundred bytes and lives in a fenced block inside the document that talks about it. The artifact beside it is roughly 675 KB, because Archify has no SVG export worth having: the stylesheet and the viewer runtime are what make the picture, so the whole self-contained HTML document is the artifact. It cannot go in a markdown fence, and it holds no link back to the source it was authored from. It is a frozen re-authoring kept in step by hand, which means it goes stale silently — the day someone edits the mermaid, this pane keeps confidently showing the old answer."
+           Code="@PairCode"
+           Source="@Flowchart"
+           SourceLanguage="mermaid"
+           SourceLabel="slice-flow.mmd">
+        <DiagramPair Title="Slice flow"
+                     Mermaid="@Flowchart"
+                     ArchifyArtifact="archify/slice-flow.architecture.html"
+                     TestId="archify-pair-architecture" />
+    </Story>
+
+    <Story Name="A call sequence"
+           Description="All four messages, in order, with both `-->>` arrows typed as returns rather than flattened into ordinary calls. A sequence is the kind of diagram Archify handles most comfortably, and reading the two panes against each other turns up no missing fact.
+
+It turns up an added one. `participants[].type` is required by the schema, and its enum is component-shaped, so nothing validates until every participant has been classified. The mermaid says `participant S as Store` and stops there; the specification had to call that a `database`, and `User` an `external`. Neither claim is anywhere in the source. The Archify document now asserts something about this system that the diagram it came from never said, and nothing on the picture distinguishes an authored fact from one the schema demanded."
+           Code="@SequenceSpec"
+           Language="json"
+           Source="@Sequence"
+           SourceLanguage="mermaid"
+           SourceLabel="auto-save.mmd">
+        <DiagramPair Title="Auto-save"
+                     Mermaid="@Sequence"
+                     ArchifyArtifact="archify/auto-save.sequence.html"
+                     TestId="archify-pair-sequence" />
+    </Story>
+
+    <Story Name="A lifecycle written as a flowchart"
+           Description="Archify types a diagram by what it means, not by how its source was spelled. This one is a `flowchart LR` in mermaid, but what it describes is a state machine — captured, triaged, worked, reviewed, done, with a blocked side-trip — so the specification is a `lifecycle`. That mapping is the intended one, and it is also why the two panes do not look alike: `Start([Captured])` becomes a `start` state and `{Ready to work?}` a `decision`, so the stadium terminals and the diamonds are gone. A reader comparing shapes will not find them. A reader comparing meanings will.
+
+Every fact survived. Seven states, nine transitions, and the `no`, `yes` and `blocked` labels all sit where they sat.
+
+The placement did not, and cannot. Archify pins a secondary lane's columns 0 to 2 under the main rail's columns 2 to 4. `Refine`'s partner is the `Ready to work?` decision, which is at main column 1 — and there is no secondary column that can ever sit under column 1. So `Refine` ends up under `Review passes?`, a state it has nothing to do with, and the whole Triage-to-Refine-and-back relationship is carried by two long explicit routes instead of by the two boxes being near each other. The transitions are faithful; the placement is not, and no option in the schema fixes it.
+
+The third band, labelled `03 / Outcomes`, is empty because only two lanes were declared. It is chrome the lifecycle renderer draws on its own, not authored content, and the only way to stop it reading as an omission would have been to invent a state to fill it with."
+           Code="@LifecycleSpec"
+           Language="json"
+           Source="@FlowWithDecisions"
+           SourceLanguage="mermaid"
+           SourceLabel="entry-lifecycle.mmd">
+        <DiagramPair Title="Entry lifecycle"
+                     Mermaid="@FlowWithDecisions"
+                     ArchifyArtifact="archify/entry-lifecycle.lifecycle.html"
+                     TestId="archify-pair-lifecycle" />
+    </Story>
+
+    <Story Name="What has no counterpart"
+           Description="One pane, because there is nothing to put beside it. Archify offers five diagram types — architecture, workflow, sequence, dataflow and lifecycle — and none of them is a class or entity diagram. There is no way to say `aggregate root`, `value object`, or `0..*` in any of them.
+
+That is not a corner case in this repository. Twelve of its fifty-one mermaid blocks are `classDiagram`, and every one of them is a bounded context's aggregate model — the `model.md` in each `.domain` folder. The largest single category of diagram this repository writes has no counterpart on the other side, so the three pairs above cannot be read as one tool standing in for another."
+           Source="@ClassDiagram"
+           SourceLanguage="mermaid"
+           SourceLabel="backlog/model.md (abridged)">
+        <DiagramView Title="Backlog entry model" Language="mermaid" Source="@ClassDiagram" ShowSource="false" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("component-libraries.md#diagram-and-graph-strategy", "The standing rule this page is evidence about: which renderer draws which kind of picture."),
+        new("content-editing.md#supported-constructs", "What a knowledge document may contain — and therefore what a diagram has to fit inside to be part of one."),
+        new("color-scheme.md#chart-roles", "The hues a node, an edge and a lane may use, which an artifact carrying its own stylesheet never reads.")
+    ];
+
+    private const string StandingRule =
+        "`.design/component-libraries.md` already decides this: mermaid renders the knowledge-base diagrams, "
+        + "and Markdown stays the canonical source. Nothing on this page changes that, and nothing in the "
+        + "knowledge folders is drawn by Archify. The page exists so the two can be seen together — with what "
+        + "each one costs and what each one loses said out loud — if the rule is ever re-opened.";
+
+    // Taken verbatim from the Diagrams page. The comparison is only worth
+    // anything if both pages are showing the same diagram, so these are copies of
+    // that page's constants rather than fresh sources that happen to look similar.
+    private const string Flowchart = """
+        flowchart TD
+            A[Desktop UI] --> B[Backlog.UI.Components]
+            C[Mobile UI] --> B
+            D[Storybook] --> B
+            B --> E[components.css]
+            B --> F[components.js]
+        """;
+
+    private const string Sequence = """
+        sequenceDiagram
+            participant U as User
+            participant E as Editor
+            participant S as Store
+            U->>E: types
+            E->>S: save (debounced)
+            S-->>E: saved
+            E-->>U: SaveIndicator shows Saved
+        """;
+
+    private const string FlowWithDecisions = """
+        flowchart LR
+            Start([Captured]) --> Triage{Ready to work?}
+            Triage -- no --> Refine[Refine]
+            Refine --> Triage
+            Triage -- yes --> Active[In progress]
+            Active --> Review{Review passes?}
+            Review -- no --> Active
+            Review -- yes --> Done([Done])
+            Active -.blocked.-> Blocked[Blocked]
+            Blocked --> Active
+        """;
+
+    // An abridged form of the aggregate diagram in .domain/backlog/model.md: the
+    // root, an owned entity, a value object and one enumeration. Shortened so it
+    // fits a story, and not invented — the point of the last story is what this
+    // repository actually writes, so a made-up domain would prove nothing.
+    private const string ClassDiagram = """
+        classDiagram
+            class BacklogEntry {
+                <<aggregate root>>
+                +Id id
+                +String title
+                +EntryStatus status
+            }
+            class SubItem {
+                <<entity>>
+                +Id id
+                +String title
+            }
+            class Recurrence {
+                <<value object>>
+                +Integer interval
+                +RecurrenceUnit unit
+            }
+            class EntryStatus {
+                <<enumeration>>
+                draft
+                ready
+                in_progress
+                done
+                archived
+            }
+
+            BacklogEntry "1" *-- "0..*" SubItem : contains
+            BacklogEntry "1" *-- "0..1" Recurrence : repeats by
+            BacklogEntry --> EntryStatus : has status
+        """;
+
+    private const string PairCode = """
+        <DiagramPair Title="Slice flow"
+                     Mermaid="@source"
+                     ArchifyArtifact="archify/slice-flow.architecture.html"
+                     TestId="archify-pair-architecture" />
+        """;
+
+    // The two stories whose finding is about the specification rather than the
+    // call show the specification. Nothing derives one from the mermaid — there is
+    // no converter — so what these excerpts contain is what a person decided.
+    private const string SequenceSpec = """
+        {
+          "diagram_type": "sequence",
+          "participants": [
+            { "id": "user", "type": "external", "label": "User" },
+            { "id": "editor", "type": "frontend", "label": "Editor" },
+            { "id": "store", "type": "database", "label": "Store" }
+          ]
+        }
+        """;
+
+    private const string LifecycleSpec = """
+        {
+          "diagram_type": "lifecycle",
+          "lanes": [
+            { "id": "main", "label": "Lifecycle phases" },
+            { "id": "loops", "label": "Return paths" }
+          ],
+          "states": [
+            { "id": "captured", "type": "start", "label": "Captured", "lane": "main", "col": 0 },
+            { "id": "triage", "type": "decision", "label": "Ready to work?", "lane": "main", "col": 1 },
+            { "id": "refine", "type": "active", "label": "Refine", "lane": "loops", "col": 1 }
+          ]
+        }
+        """;
+}

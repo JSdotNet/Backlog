@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Auto-save",
+    "output": "auto-save.sequence.html",
+    "viewBox": [1000, 560],
+    "quality_profile": "showcase",
+    "column_fit": "spread"
+  },
+  "participants": [
+    { "id": "user", "type": "external", "label": "User" },
+    { "id": "editor", "type": "frontend", "label": "Editor" },
+    { "id": "store", "type": "database", "label": "Store" }
+  ],
+  "messages": [
+    { "id": "types", "from": "user", "to": "editor", "y": 200, "label": "types", "variant": "default" },
+    { "id": "save-debounced", "from": "editor", "to": "store", "y": 290, "label": "save (debounced)", "variant": "default" },
+    { "id": "saved", "from": "store", "to": "editor", "y": 380, "label": "saved", "variant": "return" },
+    { "id": "indicator", "from": "editor", "to": "user", "y": 470, "label": "SaveIndicator shows Saved", "variant": "return" }
+  ]
+}
