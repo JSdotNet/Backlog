@@ -318,6 +318,7 @@
                           RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
                           ShowDiagramSource="@ShowDiagramSource"
                           KnowledgeFolder="@KnowledgeFolder"
+                          KnowledgeDocumentPath="@KnowledgeDocumentPath"
                           OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
                           OnKnowledgeNavigate="@OnKnowledgeNavigate"
                           KnowledgeHrefFor="@KnowledgeHrefFor"
@@ -375,6 +376,25 @@
     /// <summary>The full path, shown opposite the name.</summary>
     [Parameter]
     public string? Path { get; set; }
+
+    /// <summary>
+    /// The repository-relative path of the knowledge document this pane is showing,
+    /// carrying its area folder. Forwarded verbatim to
+    /// <c>MarkdownView.KnowledgeDocumentPath</c>, which is what a relative link in
+    /// the body resolves against.
+    ///
+    /// <para>Separate from <see cref="Path"/> rather than read off it, for two
+    /// reasons. The path beside the name is what the header prints, and an area
+    /// spells that however it likes — arc42 names a chapter
+    /// <c>08-concepts.md</c>, relative to its own folder, and resolving a link
+    /// against that would put every one of them in a folder that does not exist.
+    /// And a pane showing a file has a path whether or not the file is knowledge at
+    /// all, so reading the link rules off it would turn them on for an instruction
+    /// file, a source file and a log. Both are opt-in, and a host that means it
+    /// says so.</para>
+    /// </summary>
+    [Parameter]
+    public string? KnowledgeDocumentPath { get; set; }
 
     /// <summary>Who or what the file comes from, e.g. "GitHub Copilot".</summary>
     [Parameter]

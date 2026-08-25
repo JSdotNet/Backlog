@@ -134,6 +134,7 @@
                           RenderKnowledgeMetadataFields="false"
                           ShowDiagramSource="false"
                           KnowledgeFolder="KnowledgeFolder.Arc42"
+                          KnowledgeDocumentPath="@DocumentPath(_selected)"
                           OnKnowledgeStatusChanged="ChangeChapterStatusAsync"
                           OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
                           Comments="@ChapterComments()"
@@ -357,7 +358,24 @@
     /// already parsed is shown instead — the way in is what is lost, not the
     /// chapter. The file view cannot render this itself: it takes a body as text,
     /// and this is the only form the catalog kept.</summary>
-    private RenderFragment ParsedChapter(KnowledgeDocument document) => @<KnowledgeMarkdownView Blocks="@document.ContentBlocks" />;
+    private RenderFragment ParsedChapter(KnowledgeDocument document) =>
+        @<KnowledgeMarkdownView Blocks="@document.ContentBlocks"
+                                InlineTarget="@KnowledgeInlineTargets.For(DocumentPath(document), null, EventCallback.Factory.Create<KnowledgeReference>(this, NavigateKnowledgeReferenceAsync))"
+                                OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync" />;
+
+    /// <summary>The chapter's path as the rest of the product spells one:
+    /// repository-relative, with the area folder on the front.
+    ///
+    /// <para>The catalog reads the folder and names what it finds relative to it —
+    /// <c>08-concepts.md</c>, <c>adr/0001-….md</c> — which is the right spelling for
+    /// a menu selection and the wrong one for resolving a link against. A sibling
+    /// link in a chapter has to land in the arc42 folder, and against an
+    /// area-relative base it would land in the repository root instead: every link
+    /// in every chapter, one folder too high. So the prefix goes on here, at the
+    /// one place that knows which folder the catalog was read from, rather than
+    /// being guessed at inside the resolver.</para></summary>
+    private static string DocumentPath(KnowledgeDocument document) =>
+        ".arc42/" + document.Path.Replace('\\', '/').TrimStart('/');
 
     /// <summary>What kind of file the header calls this. arc42 keeps no per-file
     /// kind label the way Domain does, so the one distinction it does draw is the

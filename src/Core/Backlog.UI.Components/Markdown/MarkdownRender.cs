@@ -52,8 +52,17 @@ public static class MarkdownRender
     /// in an entry's body is a path being quoted. Only the caller knows which
     /// document it is rendering.
     /// </para>
+    /// <para>
+    /// Which inline it came from travels with it, because the two are not the same
+    /// question. A link was written to be followed and the author already said so
+    /// with the syntax, so resolving it against the document around it is reading
+    /// what they meant; a code span was written to be read, and <c>domain.md</c> in
+    /// one is the most quotable file name in the repository. Without the
+    /// distinction the caller would have to guess it from the target matching the
+    /// text, which a link whose words are its own URL also does.
+    /// </para>
     /// </summary>
-    public delegate RenderFragment? MarkdownInlineTarget(string target, string text);
+    public delegate RenderFragment? MarkdownInlineTarget(string target, string text, MarkdownInlineKind kind);
 
     public static RenderFragment Inlines(IReadOnlyList<MdInline> parts) => Inlines(parts, null);
 
@@ -71,10 +80,10 @@ public static class MarkdownRender
                 // Both hooked cases come first so the caller gets the refusal —
                 // returning null — rather than having to reproduce the default it
                 // is declining to replace.
-                case MdCodeSpan codeSpan when target?.Invoke(codeSpan.Text, codeSpan.Text) is { } replacement:
+                case MdCodeSpan codeSpan when target?.Invoke(codeSpan.Text, codeSpan.Text, MarkdownInlineKind.CodeSpan) is { } replacement:
                     builder.AddContent(seq++, replacement);
                     break;
-                case MdLink hooked when target?.Invoke(hooked.Url, hooked.Text) is { } replacement:
+                case MdLink hooked when target?.Invoke(hooked.Url, hooked.Text, MarkdownInlineKind.Link) is { } replacement:
                     builder.AddContent(seq++, replacement);
                     break;
 
@@ -162,18 +171,40 @@ public static class MarkdownRender
         // needs them.
         if (trimmed.Any(char.IsControl)) return false;
 
+        if (!NamesScheme(trimmed)) return true;
+
+        var scheme = trimmed[..trimmed.IndexOf(':', StringComparison.Ordinal)];
+        return scheme.Equals("http", StringComparison.OrdinalIgnoreCase)
+            || scheme.Equals("https", StringComparison.OrdinalIgnoreCase)
+            || scheme.Equals("mailto", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Whether a link target opens with something a browser would read as a URL
+    /// scheme, rather than being relative to the document it was written in.
+    ///
+    /// <para>Public because a caller deciding what to do with a target it could not
+    /// place has to know which of two answers it is looking at. A relative target
+    /// that resolves nowhere is the author's mistake and belongs on screen as the
+    /// words they wrote; one that names a scheme was never the caller's to place,
+    /// and handing it back here is what keeps an <c>https</c> link the anchor it
+    /// has always been. Asking the question in one place is what stops the two
+    /// readings drifting: <see cref="IsNavigable"/>'s allow-list decides which
+    /// schemes are welcome, and this decides only whether there is one.</para>
+    /// </summary>
+    public static bool NamesScheme(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return false;
+
+        var trimmed = url.Trim();
+
         var colon = trimmed.IndexOf(':', StringComparison.Ordinal);
-        if (colon < 0) return true;
+        if (colon < 0) return false;
 
         // A colon after the path has begun is part of the path, not a scheme:
         // "notes/10:30.md" is relative, "//host/x" is protocol-relative.
         var pathStart = trimmed.IndexOfAny(['/', '?', '#']);
-        if (pathStart >= 0 && pathStart < colon) return true;
-
-        var scheme = trimmed[..colon];
-        return scheme.Equals("http", StringComparison.OrdinalIgnoreCase)
-            || scheme.Equals("https", StringComparison.OrdinalIgnoreCase)
-            || scheme.Equals("mailto", StringComparison.OrdinalIgnoreCase);
+        return pathStart < 0 || pathStart > colon;
     }
 
     private static void Wrap(RenderTreeBuilder builder, ref int seq, string element, string? className, string text)
@@ -183,4 +214,23 @@ public static class MarkdownRender
         builder.AddContent(seq++, text);
         builder.CloseElement();
     }
+}
+
+/// <summary>
+/// Which inline a <see cref="MarkdownRender.MarkdownInlineTarget"/> is being asked
+/// about. Two members and no more, because the hook is only ever offered the two
+/// inlines that carry a target somebody might follow.
+/// </summary>
+public enum MarkdownInlineKind
+{
+    /// <summary>A code span, whose target is its own text. The convention writes a
+    /// reference this way, but so does everything else that wants monospace, so a
+    /// caller reading one is looking at a path far less often than at a command or
+    /// a single word.</summary>
+    CodeSpan,
+
+    /// <summary>A markdown link, whose target is its URL. The author wrote the
+    /// syntax of a thing to be followed, which is the difference that lets a
+    /// caller resolve it against the document around it.</summary>
+    Link
 }

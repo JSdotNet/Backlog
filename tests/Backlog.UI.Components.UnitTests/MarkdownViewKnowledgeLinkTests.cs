@@ -146,6 +146,161 @@ public sealed class MarkdownViewKnowledgeLinkTests
         Assert.Empty(view.FindAll("button.knowledge-ref--action"));
     }
 
+    [Fact]
+    public void A_relative_link_navigates_to_the_chapter_it_resolves_to()
+    {
+        // How the knowledge folders actually write a cross-context link. It used
+        // to reach MarkdownRender as a schemeless URL, which is a relative href
+        // with `target="_blank"` on it — the reader's browser, opening a path that
+        // means nothing outside a checkout.
+        using var context = new BunitContext();
+        var followed = new List<KnowledgeReference>();
+
+        var view = Render(
+            context,
+            "Gathered under a [backlog entry](../backlog/domain.md#backlog-entry).",
+            parameters => parameters
+                .Add(v => v.RenderKnowledgeMetadata, true)
+                .Add(v => v.KnowledgeDocumentPath, ".domain/roadmap/features.md")
+                .Add(v => v.OnKnowledgeNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, followed.Add)));
+
+        var button = view.Find("button.knowledge-ref--action");
+
+        Assert.Equal("backlog entry", button.TextContent);
+        Assert.Empty(view.FindAll("a.md-link"));
+
+        button.Click();
+
+        var reference = Assert.Single(followed);
+        Assert.Equal(".domain/backlog/domain.md", reference.Path);
+        Assert.Equal("backlog-entry", reference.Slug);
+    }
+
+    [Fact]
+    public void An_anchor_on_its_own_resolves_to_the_chapter_that_is_open()
+    {
+        using var context = new BunitContext();
+        var followed = new List<KnowledgeReference>();
+
+        var view = Render(
+            context,
+            "See [the deviation](#surface-and-border-deviation) below.",
+            parameters => parameters
+                .Add(v => v.RenderKnowledgeMetadata, true)
+                .Add(v => v.KnowledgeDocumentPath, ".design/component-libraries.md")
+                .Add(v => v.OnKnowledgeNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, followed.Add)));
+
+        view.Find("button.knowledge-ref--action").Click();
+
+        var reference = Assert.Single(followed);
+        Assert.Equal(".design/component-libraries.md", reference.Path);
+        Assert.Equal("surface-and-border-deviation", reference.Slug);
+    }
+
+    [Theory]
+    // An image beside the chapter, linked rather than embedded.
+    [InlineData("assets/backlog-entry-inline-markdown-editing.png")]
+    // A path that climbs out of the repository.
+    [InlineData("../../../etc/passwd")]
+    // A real file, outside every section.
+    [InlineData("../../README.md")]
+    public void A_relative_link_that_reaches_no_chapter_is_text_rather_than_a_browser_anchor(string target)
+    {
+        // The words stay, because the author wrote them; the destination does
+        // not, because there is none. Same bargain MarkdownRender already strikes
+        // for a scheme it will not put in an href.
+        using var context = new BunitContext();
+
+        var view = Render(
+            context,
+            $"See [the thing]({target}).",
+            parameters => parameters
+                .Add(v => v.RenderKnowledgeMetadata, true)
+                .Add(v => v.KnowledgeDocumentPath, ".domain/roadmap/features.md"));
+
+        Assert.Equal("the thing", view.Find("span.md-link--inert").TextContent);
+        Assert.Empty(view.FindAll("a.md-link"));
+        Assert.Empty(view.FindAll(".knowledge-ref"));
+    }
+
+    [Fact]
+    public void A_link_into_a_dot_folder_that_is_not_a_section_is_inert_like_its_code_span_is()
+    {
+        // The two spellings of one target had drifted apart: written as a code span
+        // it parsed from the repository root, found no section and stayed
+        // <code>; written as a link it was walked against the chapter's own folder
+        // and came back as `.design/.github/…`, which opens with a section and so
+        // rendered as a control that goes nowhere.
+        using var context = new BunitContext();
+
+        var view = Render(
+            context,
+            "Named in [the naming rules](.github/instructions/naming.instructions.md) as well.",
+            parameters => parameters
+                .Add(v => v.RenderKnowledgeMetadata, true)
+                .Add(v => v.KnowledgeDocumentPath, ".design/component-libraries.md")
+                .Add(v => v.OnKnowledgeNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, _ => { })));
+
+        Assert.Equal("the naming rules", view.Find("span.md-link--inert").TextContent);
+        Assert.Empty(view.FindAll(".knowledge-ref"));
+        Assert.Empty(view.FindAll("a.md-link"));
+    }
+
+    [Fact]
+    public void A_relative_link_in_an_entry_body_is_left_exactly_as_it_was()
+    {
+        // Most markdown in this product is not a knowledge document, and none of
+        // this reaches it: an entry body's link renders as the anchor it has
+        // always rendered as, whatever it points at.
+        using var context = new BunitContext();
+
+        var view = Render(context, "See [the thing](../backlog/domain.md#backlog-entry).");
+
+        var link = view.Find("a.md-link");
+
+        Assert.Equal("../backlog/domain.md#backlog-entry", link.GetAttribute("href"));
+        Assert.Equal("_blank", link.GetAttribute("target"));
+        Assert.Empty(view.FindAll(".knowledge-ref"));
+        Assert.Empty(view.FindAll("span.md-link--inert"));
+    }
+
+    [Fact]
+    public void A_relative_code_span_is_still_a_code_span()
+    {
+        // Only links are resolved against the document. A code span in prose is a
+        // file name being quoted far more often than it is a destination, and
+        // `domain.md` is the most quotable name in the repository.
+        using var context = new BunitContext();
+
+        var view = Render(context, "Written in `domain.md` as well.", parameters => parameters
+            .Add(v => v.RenderKnowledgeMetadata, true)
+            .Add(v => v.KnowledgeDocumentPath, ".domain/roadmap/features.md"));
+
+        Assert.Equal("domain.md", view.Find("code.md-inline-code").TextContent);
+        Assert.Empty(view.FindAll(".knowledge-ref"));
+    }
+
+    [Fact]
+    public void The_document_path_alone_says_this_is_a_knowledge_document()
+    {
+        // The instruction files are read in the pane and carry no `meta` fence, so
+        // the fence-reading switch says nothing about them. Saying which document
+        // is being rendered is itself the statement that it is one.
+        using var context = new BunitContext();
+        var followed = new List<KnowledgeReference>();
+
+        var view = Render(
+            context,
+            "See [the rule](.design/accessibility.md#names-roles).",
+            parameters => parameters
+                .Add(v => v.KnowledgeDocumentPath, ".github/instructions/ui-components.instructions.md")
+                .Add(v => v.OnKnowledgeNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, followed.Add)));
+
+        view.Find("button.knowledge-ref--action").Click();
+
+        Assert.Equal(".design/accessibility.md", Assert.Single(followed).Path);
+    }
+
     private static IRenderedComponent<MarkdownView> Render(
         BunitContext context,
         string source,

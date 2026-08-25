@@ -296,6 +296,31 @@ public sealed class FileViewKnowledgeTests
     }
 
     [Fact]
+    public void The_document_a_link_resolves_against_is_the_one_the_host_named()
+    {
+        // The body is text, and a relative link in it means nothing until
+        // something says which file the text came from. This pane is the only
+        // thing in the chain that knows, so it is the thing that has to say —
+        // separately from the path beside the name, because that one is what the
+        // header prints and an area's own spelling of it is not always
+        // repository-relative.
+        using var context = new BunitContext();
+        var followed = new List<KnowledgeReference>();
+
+        var view = Render(
+            context,
+            parameters => parameters
+                .Add(v => v.RenderKnowledgeMetadata, true)
+                .Add(v => v.KnowledgeDocumentPath, ".domain/roadmap/features.md")
+                .Add(v => v.OnKnowledgeNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, followed.Add)),
+            "# Features\n\nGathered under a [backlog entry](../backlog/domain.md#backlog-entry).\n");
+
+        view.Find(".file-view__body button.knowledge-ref--action").Click();
+
+        Assert.Equal(".domain/backlog/domain.md", Assert.Single(followed).Path);
+    }
+
+    [Fact]
     public void A_file_nobody_annotates_renders_exactly_the_body_it_always_did()
     {
         // All of this is opt-in, so the pane a host asks nothing extra of has to

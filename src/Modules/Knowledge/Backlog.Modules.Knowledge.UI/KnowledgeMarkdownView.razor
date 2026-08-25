@@ -11,7 +11,18 @@
                         <StatusBadge BaseClass="knowledge-status" Kind="" Status="@heading.Metadata.Status" />
                         @foreach (var related in heading.Metadata.Related)
                         {
-                            <a class="knowledge-relation" href="@KnowledgeHref(related)">@related</a>
+                            @* The relation as the rest of the product draws one.
+                               It used to be a hand-rolled anchor whose href was
+                               `KnowledgeHref`, and that method answered "#" for
+                               everything that was not an http URL — which is
+                               every reference a `related` field has ever held. So
+                               every relation this view drew was a link back to
+                               the top of the page. *@
+                            @if (KnowledgeReference.Parse(related) is { } reference)
+                            {
+                                <KnowledgeReferenceLink Reference="@reference"
+                                                        OnNavigate="@OnKnowledgeNavigate" />
+                            }
                         }
                     </p>
                 }
@@ -19,7 +30,7 @@
             break;
 
         case KnowledgeParagraphBlock paragraph:
-            <p class="knowledge-p">@MarkdownRender.Inlines(paragraph.Content)</p>
+            <p class="knowledge-p">@MarkdownRender.Inlines(paragraph.Content, InlineTarget)</p>
             break;
 
         case KnowledgeListBlock list:
@@ -28,7 +39,7 @@
                 <ol class="knowledge-list">
                     @foreach (var item in list.Items)
                     {
-                        <li>@MarkdownRender.Inlines(item)</li>
+                        <li>@MarkdownRender.Inlines(item, InlineTarget)</li>
                     }
                 </ol>
             }
@@ -37,14 +48,14 @@
                 <ul class="knowledge-list">
                     @foreach (var item in list.Items)
                     {
-                        <li>@MarkdownRender.Inlines(item)</li>
+                        <li>@MarkdownRender.Inlines(item, InlineTarget)</li>
                     }
                 </ul>
             }
             break;
 
         case KnowledgeQuoteBlock quote:
-            <blockquote class="knowledge-quote">@MarkdownRender.Inlines(quote.Content)</blockquote>
+            <blockquote class="knowledge-quote">@MarkdownRender.Inlines(quote.Content, InlineTarget)</blockquote>
             break;
 
         case KnowledgeCodeBlock codeBlock:
@@ -61,7 +72,7 @@
                 {
                     var row = table.Rows[rowIndex];
                     <div class="knowledge-table__row @(rowIndex == 0 ? "knowledge-table__row--head" : string.Empty)" role="row">
-                        <span role="@(rowIndex == 0 ? "columnheader" : "cell")">@MarkdownRender.Inlines(row)</span>
+                        <span role="@(rowIndex == 0 ? "columnheader" : "cell")">@MarkdownRender.Inlines(row, InlineTarget)</span>
                     </div>
                 }
             </div>
@@ -77,6 +88,20 @@
     [Parameter, EditorRequired]
     public IReadOnlyList<KnowledgeBlock> Blocks { get; set; } = [];
 
+    /// <summary>How a reference written in this prose is drawn, built by the panel
+    /// through <c>KnowledgeInlineTargets</c>. Passing nothing left every link here
+    /// an anchor on a repository path, which is a browser window and not a
+    /// chapter.</summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
+
+    /// <summary>Raised with the reference a reader followed, whether out of the
+    /// prose or off a heading's relation list. Without a handler both fall back to
+    /// the inert form, which is the honest rendering of a reference nobody can
+    /// follow — and the state this view is in on the standalone page.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+
     private RenderFragment RenderHeading(KnowledgeHeadingBlock heading) => builder =>
     {
         var element = heading.Level switch { 1 => "h2", 2 => "h3", 3 => "h4", _ => "h5" };
@@ -85,6 +110,4 @@
         builder.AddContent(2, heading.Text);
         builder.CloseElement();
     };
-
-    private static string KnowledgeHref(string target) => target.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? target : "#";
 }
