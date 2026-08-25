@@ -298,6 +298,34 @@ public sealed class ToolsPaneTests
         Assert.DoesNotContain("Install", actions, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Each version cell carries its own label, because the heading row is not
+    /// always there to carry it. Narrow enough and the four columns stack — the pane
+    /// can be 338px wide while the row's tracks need 504px — and a stack under a
+    /// hidden heading row leaves two bare version strings with nothing saying which
+    /// is installed and which is available. The labels are in the markup at every
+    /// width and the stylesheet decides when they show; see
+    /// <see cref="ToolsTableLayoutTests"/> for the other half.
+    /// </summary>
+    [Fact]
+    public void Every_version_cell_says_which_version_it_is()
+    {
+        using var context = Context(FakeCopilotToolService.With(
+            Tool(enabled: true, installed: true, "0.4.0", "0.5.0")));
+
+        var row = context.Render<ToolsPane>().Find("[data-tool-key]");
+        var cells = row.QuerySelectorAll(".tools-table__version");
+
+        Assert.Equal(2, cells.Length);
+        Assert.Equal(["Installed", "Available"], cells
+            .Select(cell => cell.QuerySelector(".tools-table__cell-label")!.TextContent)
+            .ToArray());
+
+        // The label sits beside the version rather than replacing it.
+        Assert.Contains("0.4.0", cells[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("0.5.0", cells[1].TextContent, StringComparison.Ordinal);
+    }
+
     /// <summary>Which hosts a row is for decides what its Update actually does.
     /// A catalog driving two hosts through one row is unreadable without it being
     /// said, and "says nothing" reads as "Copilot only".</summary>
