@@ -13,13 +13,36 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+
+    <!--
+      xunit v3 runs each test assembly as its own process, so a test project is
+      an executable rather than a library. Set once here for the same reason the
+      package references are: a new test project must not be able to forget it
+      and fail with an unhelpful entry-point error.
+    -->
+    <OutputType>Exe</OutputType>
+
+    <!--
+      xUnit1051 is new in the v3 analyzers: it asks every call that accepts a
+      CancellationToken to pass TestContext.Current.CancellationToken so a test
+      stops promptly when the run is cancelled. It fires 324 times across the
+      suite. Silenced here so the v3 move stays a migration rather than a
+      rewrite of every await in the test suite — the same reasoning that kept
+      transitive pinning off in Directory.Packages.props. Adopting it is
+      tracked as its own change.
+    -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
+    <!-- CI publishes a TRX artifact. Under Microsoft.Testing.Platform the
+         reporter is an opt-in extension rather than a logger built into the
+         runner, so the report-trx option only exists if this is referenced. -->
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3" />
   </ItemGroup>
 
   <ItemGroup>

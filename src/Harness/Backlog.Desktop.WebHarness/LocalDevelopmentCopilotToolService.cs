@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
@@ -19,7 +20,7 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
     private static readonly CopilotToolCommand[] SampleCommands =
     [
         new("copilot --version", 0, "Sample output: this harness reads the catalog and starts no processes."),
-        new("dotnet tool search JSdotNet.MCP.Guidelines --exact-match", 1, "Sample failure: nothing was searched.")
+        new("dotnet tool search JSdotNet.MCP.Guidelines", 1, "Sample failure: nothing was searched.")
     ];
 
     private readonly IBacklogStore _store;
@@ -32,9 +33,17 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
     public async Task<CopilotToolCatalog> ListAsync(CancellationToken ct = default)
     {
         var paths = Paths;
-        if (!File.Exists(paths.CatalogPath))
+        if (!CopilotToolConfiguration.CatalogExists(paths))
         {
-            return new CopilotToolCatalog([], $"Tool catalog was not found at {paths.CatalogPath}.");
+            // The path travels with the "not found" answer: it is what the pane
+            // names in its empty state, and what the create button is offering to
+            // write. An empty list on its own cannot say either.
+            return new CopilotToolCatalog(
+                [],
+                $"Tool catalog was not found at {paths.CatalogPath}.",
+                CatalogExists: false,
+                CatalogPath: paths.CatalogPath,
+                CanEditCatalog: true);
         }
 
         var config = await CopilotToolConfiguration.ReadAsync(paths, ct).ConfigureAwait(false);
@@ -91,7 +100,10 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
         var message = config.PcConfigExists
             ? $"Showing tools from {config.CatalogPath} with PC config {config.PcConfigPath}."
             : $"Showing tools from {config.CatalogPath}. PC config will be created at {config.PcConfigPath}.";
-        return new CopilotToolCatalog(tools, message) { Commands = SampleCommands };
+        return new CopilotToolCatalog(tools, message, CatalogExists: true, CatalogPath: config.CatalogPath, CanEditCatalog: true)
+        {
+            Commands = SampleCommands
+        };
     }
 
     public Task<CopilotToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>
@@ -118,6 +130,60 @@ internal sealed class LocalDevelopmentCopilotToolService : ICopilotToolService
     {
         await CopilotToolConfiguration.WriteEnabledOverrideAsync(Paths, key, enabled, ct).ConfigureAwait(false);
         return CopilotToolActionResult.Ok($"{key} was {(enabled ? "enabled" : "disabled")} in the local PC config.");
+    }
+
+    // Editing the catalog is a file write and nothing else, so the harness does it
+    // for real rather than refusing the way it refuses an install: a browser
+    // session is where the pane's create, add, remove and import are driven, and a
+    // stubbed answer there would be a surface nobody has actually operated.
+
+    public Task<CopilotToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
+        EditCatalogAsync(
+            paths => CopilotToolConfiguration.CreateCatalogAsync(paths, ct),
+            paths => $"Created a tool catalog at {paths.CatalogPath}.");
+
+    public Task<CopilotToolActionResult> AddAsync(CopilotToolDraft draft, CancellationToken ct = default) =>
+        EditCatalogAsync(
+            paths => CopilotToolConfiguration.AddToCatalogAsync(paths, draft, ct),
+            _ => $"{draft.Id} was added to the catalog.");
+
+    public Task<CopilotToolActionResult> RemoveAsync(string key, CancellationToken ct = default) =>
+        EditCatalogAsync(
+            async paths =>
+            {
+                await CopilotToolConfiguration.RemoveFromCatalogAsync(paths, key, ct).ConfigureAwait(false);
+
+                // The per-PC override outlives the catalog entry unless it goes
+                // with it, and the same tool added again would then arrive
+                // already disabled by a decision nobody remembers making.
+                await CopilotToolConfiguration.RemoveEnabledOverrideAsync(paths, key, ct).ConfigureAwait(false);
+            },
+            _ => $"{CopilotToolConfiguration.ParseKey(key).IdValue} was removed from the catalog.");
+
+    public Task<CopilotToolActionResult> ImportAsync(string json, CancellationToken ct = default) =>
+        EditCatalogAsync(
+            paths => CopilotToolConfiguration.ImportCatalogAsync(paths, json, ct),
+            paths => $"The catalog at {paths.CatalogPath} was replaced. The previous one is beside it as .bak.");
+
+    /// <summary>The same wrapper the desktop host uses, for the same reason:
+    /// <c>.tools</c> is a folder on somebody's disk, so a refused write is an
+    /// ordinary outcome and has to reach the pane as a message rather than as an
+    /// exception that takes the tools surface down.</summary>
+    private async Task<CopilotToolActionResult> EditCatalogAsync(
+        Func<CopilotToolConfigurationPaths, Task> edit,
+        Func<CopilotToolConfigurationPaths, string> describe)
+    {
+        var paths = Paths;
+
+        try
+        {
+            await edit(paths).ConfigureAwait(false);
+            return CopilotToolActionResult.Ok(describe(paths));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException or JsonException)
+        {
+            return CopilotToolActionResult.Failed(ex.Message);
+        }
     }
 
     private CopilotToolConfigurationPaths Paths => CopilotToolConfigurationPaths.FromStorageRoot(_store.RootDirectory);

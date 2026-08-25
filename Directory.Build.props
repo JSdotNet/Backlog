@@ -25,7 +25,7 @@
     <!-- The MAUI heads and Microsoft.Maui.Core in ServiceDefaults must move in
          lockstep, so the workload version is a property rather than three
          separately maintained package versions. -->
-    <MauiVersion>10.0.90</MauiVersion>
+    <MauiVersion>10.0.100</MauiVersion>
   </PropertyGroup>
 
 </Project>

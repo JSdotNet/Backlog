@@ -170,6 +170,24 @@
                                   RowCssClass="@RepositoryMark"
                                   AriaLabel="Backlog entries"
                                   TestId="entry-list">
+                        <RowActions Context="task">
+                            @* The two edits a reader makes while scanning rather than
+                               while reading one entry: what this is filed against, and
+                               how far it has got. Both were on the row already — the
+                               repository as the stripe down its edge, the status as a
+                               badge beside the title — and neither could be changed
+                               without opening the entry first.
+
+                               A row the list is drawing is always a row the pane has,
+                               so the resolve back to the entry is total in practice;
+                               the branch is here because RowActions is handed a
+                               TaskRow and a TaskRow is a task, with no area, no
+                               repository and no status vocabulary on it. *@
+                            @if (EntryFor(task.Id) is { } entry)
+                            {
+                                @RenderRowPickers(entry, task.Title)
+                            }
+                        </RowActions>
                         <AfterOpenRows>
                             @RenderAddEntry()
                         </AfterOpenRows>
@@ -390,11 +408,11 @@
     /// here than the title.
     /// </para>
     /// <para>
-    /// <c>Status</c> is here and reads as the same badge the open entry's heading
-    /// shows, in the app's own lowercase rather than the enum's spelling. A reader
-    /// scanning the column can see which entries are in progress without opening
-    /// any of them, and one who does open a row finds the fact where they just left
-    /// it instead of somewhere further down the panel.
+    /// <c>Status</c> is absent too, and that is a move rather than a loss: the row
+    /// carries a status <em>picker</em> now, at the end of it, and the read-only
+    /// badge said the same word two elements to the left of a control that says it
+    /// and can change it. Of the two, the one a reader's eye lands on first should
+    /// not be the one they cannot act on.
     /// </para>
     /// </summary>
     private IReadOnlyList<TaskRow> EntryTasks() =>
@@ -403,7 +421,7 @@
             string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle,
             Done: row.PreviewStatus is EntryStatus.Done,
             InMyDay: IsInMyDay(row),
-            Group: row.PreviewArea,
+            Group: EntryGroup(row),
             Due: FormatDate(row.PreviewDueOn),
             Reminder: FormatReminder(row.PreviewRemindAt),
             Repeats: row.PreviewRecurrence is not null,
@@ -411,14 +429,89 @@
             StepCount: row.PreviewSubItems.Count,
             Note: row.HasExpandableContent,
             Tags: row.PreviewMetadataTags,
-            DependsOn: row.PreviewDependsOn,
-            Status: Humanize(row.PreviewStatus.ToString()))
+            DependsOn: row.PreviewDependsOn)
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence)
         })];
 
+    /// <summary>
+    /// The area, for the quiet line under the title — unless the picker at the end
+    /// of the row is already set to it.
+    /// <para>
+    /// An area is one field with two readings. Most of them are piles somebody
+    /// typed, and nothing else on the row says "errands", so the line has to. Some
+    /// of them name a configured repository, and then the repository picker is
+    /// showing that alias two controls to the right — a metadata line repeating it
+    /// would be the same word twice on a row whose width the title is already
+    /// competing for.
+    /// </para>
+    /// <para>
+    /// Both halves of the test are needed, because the two <c>RepositoryFor</c>s
+    /// are not the same question. <c>State</c>'s resolves the row's own area;
+    /// the pane's is what the picker is set to, which with the
+    /// additional-repositories feature off is the first configured repository no
+    /// matter what the row says. Dropping the line on the pane's answer alone would
+    /// hide "errands" behind a picker reading "backlog".
+    /// </para>
+    /// </summary>
+    private string? EntryGroup(EntryRow row) =>
+        KnowledgeRepositories.Count > 0
+        && State.RepositoryFor(row) is { } filed
+        && RepositoryFor(row) is { } shown
+        && string.Equals(filed.Alias, shown.Alias, StringComparison.Ordinal)
+            ? null
+            : row.PreviewArea;
+
     private EntryRow? EntryFor(string id) =>
         State.Rows.FirstOrDefault(row => string.Equals(EntryTaskId(row), id, StringComparison.Ordinal));
+
+    /// <summary>
+    /// The two pickers at the end of a list row: what the entry is filed against,
+    /// and where it has got to.
+    /// <para>
+    /// In the row's action slot rather than beside the title, and that is settled by
+    /// the markup rather than by taste: the status badge these replace was drawn
+    /// <em>inside</em> <c>task-item__body</c>, which is a <c>button</c>, and a
+    /// <c>select</c> cannot legally nest in one. The slot is where a host's own
+    /// controls go — a fixed track at the end of the row, so the title is still the
+    /// only thing that gives up width.
+    /// </para>
+    /// <para>
+    /// The slot already stops <c>click</c> and <c>mousedown</c>, so operating either
+    /// picker neither opens the row nor starts a rename. Keys are covered by where
+    /// the handlers are rather than by a third guard: the row's own key handling
+    /// sits on the body button and the list's on its add field, and both are
+    /// siblings of this span rather than ancestors of it. Drag is the one thing the
+    /// slot does not already answer — the <c>li</c> is <c>draggable</c> and a
+    /// <c>dragstart</c> raised inside it would be the row asking to be re-ranked —
+    /// so the pointer is told there is nothing to pick up here and the event is
+    /// stopped before it reaches the row that would act on it.
+    /// </para>
+    /// <para>
+    /// The label on each names the entry, the way the row's own pencil does, because
+    /// a column of these is otherwise one control announced twenty times.
+    /// </para>
+    /// </summary>
+    private RenderFragment RenderRowPickers(EntryRow row, string title) =>
+        @<span class="entry-row__pickers" draggable="false" @ondragstart:stopPropagation="true">
+            @if (KnowledgeRepositories.Count > 0)
+            {
+                @* The same list, the same resolve and the same write the panel's
+                   picker uses, so the additional-repositories feature is honoured
+                   here by construction rather than by a second reading of it. *@
+                <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
+                                    Options="@RepositoryOptions()"
+                                    Label="@($"Change repository of {title}")"
+                                    TestId="row-area-badge"
+                                    OnChanged="value => OnRepositoryChangedAsync(row, value)" />
+            }
+
+            <StatusSelector CurrentValue="@row.PreviewStatus.ToString()"
+                            Options="@StatusSelectorOptions()"
+                            Label="@($"Change status of {title}")"
+                            TestId="row-status-badge"
+                            OnChanged="value => OnStatusChangedAsync(row, value)" />
+        </span>;
 
     /// <summary>
     /// Which repository a row belongs to, as the identity mark's classes.

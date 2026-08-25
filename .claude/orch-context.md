@@ -6,8 +6,8 @@ read by the `claude-desktop` plugin's orchestrator once per run.
 This is the Claude Code copy of the runtime facts. `.github/copilot-orch-context.md` is the
 GitHub Copilot copy and carries the same facts; neither toolchain supports includes, so the
 two files are maintained side by side. **When the AppHost path, resource names, startup
-signals, or QA depth change, update both.** Model choice is not in this file — it lives in
-`.claude/model-selection.md`.
+signals, or QA depth change, update both.** Model choice is not configured in this
+repository; orchestration runs use the plugin defaults unless overridden per run.
 
 ## Application
 

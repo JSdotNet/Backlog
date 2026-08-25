@@ -1,8 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <Sdk Name="Aspire.AppHost.Sdk" Version="13.4.6" />
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.5.2" />
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsAspireHost>true</IsAspireHost>
+    <!--
+      Aspire 13.5 asks every AppHost to opt in to the CLI bundle, which makes
+      `dotnet run` acquire a version-pinned CLI through dnx and delegate to
+      `aspire run`. Left off here so this package update changes versions only:
+      opting in changes how the host is launched, not which version it resolves,
+      and that belongs in its own change. ASPIRE010 is the advisory for staying
+      opted out, so it is silenced deliberately rather than left to nag.
+    -->
+    <AspireUseCliBundle>false</AspireUseCliBundle>
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

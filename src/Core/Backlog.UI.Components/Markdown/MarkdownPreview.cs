@@ -245,11 +245,13 @@ public static class MarkdownPreview
             if (task.Success)
             {
                 FlushParagraph();
+                var taskText = task.Groups["text"].Value;
                 items.Add(new RawItem(
                     IndentOf(line),
                     Ordered: false,
                     Done: task.Groups["marker"].Value is "x" or "X",
-                    ParseInlines(task.Groups["text"].Value, footnotes),
+                    taskText,
+                    ParseInlines(taskText, footnotes),
                     taskIndex++));
                 continue;
             }
@@ -258,7 +260,8 @@ public static class MarkdownPreview
             if (bullet.Success)
             {
                 FlushParagraph();
-                items.Add(new RawItem(IndentOf(line), Ordered: false, Done: null, ParseInlines(bullet.Groups[1].Value, footnotes), null));
+                var bulletText = bullet.Groups[1].Value;
+                items.Add(new RawItem(IndentOf(line), Ordered: false, Done: null, bulletText, ParseInlines(bulletText, footnotes), null));
                 continue;
             }
 
@@ -266,7 +269,23 @@ public static class MarkdownPreview
             if (numbered.Success)
             {
                 FlushParagraph();
-                items.Add(new RawItem(IndentOf(line), Ordered: true, Done: null, ParseInlines(numbered.Groups[1].Value, footnotes), null));
+                var numberedText = numbered.Groups[1].Value;
+                items.Add(new RawItem(IndentOf(line), Ordered: true, Done: null, numberedText, ParseInlines(numberedText, footnotes), null));
+                continue;
+            }
+
+            // A line with no marker of its own, written further in than the item
+            // above it, is that item continued — someone wrapped a bullet rather
+            // than starting a new one. Without this the list ended here and the
+            // rest of the sentence became a paragraph outside it.
+            if (items.Count > 0 && IndentOf(line) > items[^1].Indent)
+            {
+                var continued = items[^1];
+                var text = continued.Text + " " + trimmed;
+
+                // The joined text is re-read whole, so emphasis opened on the
+                // first line and closed on the second is still emphasis.
+                items[^1] = continued with { Text = text, Content = ParseInlines(text, footnotes) };
                 continue;
             }
 
@@ -299,12 +318,14 @@ public static class MarkdownPreview
         return width;
     }
 
-    /// <summary>One list line before nesting: what it said, and how far in it
-    /// was written.</summary>
+    /// <summary>One list line before nesting: what it said, how far in it was
+    /// written, and the source text behind it — kept so a wrapped line can be
+    /// joined on and the whole item re-read as one.</summary>
     private sealed record RawItem(
         int Indent,
         bool Ordered,
         bool? Done,
+        string Text,
         IReadOnlyList<MdInline> Content,
         int? TaskIndex);
 
