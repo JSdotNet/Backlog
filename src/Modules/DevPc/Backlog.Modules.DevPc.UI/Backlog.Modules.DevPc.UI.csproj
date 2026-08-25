@@ -28,6 +28,22 @@
     <RootNamespace>Backlog.Modules.DevPc.UI</RootNamespace>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- The same pair the abstractions and the desktop host set, for the same
+         reason and now that the pane switches over DevToolKind too: a heading
+         per kind is a switch with no catch-all arm, because a catch-all would
+         file a kind nobody has thought about under a heading that is about
+         something else.
+
+         CS8509 (a named member no arm covers) is an error: adding a kind and not
+                giving it a heading fails the build.
+         CS8524 (the (DevToolKind)4 an int cast can produce, which no exhaustive
+                switch can name) is off: it can only arise from a cast of a value
+                the port has no way to answer with. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
+    <NoWarn>$(NoWarn);CS8524</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
   </ItemGroup>

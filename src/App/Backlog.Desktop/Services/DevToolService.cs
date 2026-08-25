@@ -630,6 +630,75 @@ public sealed class DevToolService : IDevToolService
 
     public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) => ApplyAsync(key, false, ct);
 
+    /// <summary>
+    /// Ticks — or unticks — the box on a row nothing can check.
+    ///
+    /// <para>Per machine, in the per-PC file, because "this laptop is signed in"
+    /// is not a fact to sync to the next one.</para>
+    ///
+    /// <para>Its own port method rather than a meaning hidden inside
+    /// <see cref="UpdateAsync"/>, which is where it lived first and could not
+    /// stay: Update is what a row offers while there is something left to do, so
+    /// ticking the box removed the only control the row had and the tick became
+    /// permanent. The state is passed in rather than toggled here for the same
+    /// reason — the checkbox already knows which way it went.</para>
+    /// </summary>
+    public async Task<DevToolActionResult> AcknowledgeAsync(string key, bool acknowledged, CancellationToken ct = default)
+    {
+        var log = new CommandLog();
+        var result = await AcknowledgeCoreAsync(key, acknowledged, log, ct).ConfigureAwait(false);
+
+        return result with { Commands = log.Commands };
+    }
+
+    private async Task<DevToolActionResult> AcknowledgeCoreAsync(string key, bool acknowledged, CommandLog log, CancellationToken ct)
+    {
+        var configPaths = ConfigurationPaths;
+        if (!DevToolConfiguration.CatalogExists(configPaths))
+        {
+            return DevToolActionResult.Failed($"Tool catalog was not found at {configPaths.CatalogPath}.");
+        }
+
+        if (DevToolConfiguration.KindOf(key) is not DevToolKind.Application)
+        {
+            return DevToolActionResult.Failed("Only an application row is confirmed by hand.");
+        }
+
+        try
+        {
+            var config = await DevToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
+            if (FindToolNode(config.Root, key) is not JsonObject entry
+                || DevToolConfiguration.ReadApplication(entry) is not { } application)
+            {
+                return DevToolActionResult.Failed("That tool is no longer in the config.");
+            }
+
+            // A row with a mechanism behind it has an answer somebody can go and
+            // find, and a hand-written tick over the top of one is how a probe
+            // gets overruled by a habit.
+            if (application.Provider is not DevToolProvider.Manual)
+            {
+                return DevToolActionResult.Failed($"{application.Name} is checked by running something, so there is nothing to confirm by hand.");
+            }
+
+            await DevToolConfiguration.WriteAcknowledgementAsync(configPaths, application.Key, acknowledged, ct).ConfigureAwait(false);
+
+            log.RecordStep(
+                $"{configPaths.PcConfigPath}: {application.Key} acknowledged = {acknowledged.ToString().ToLowerInvariant()}",
+                0,
+                "Nothing was run; this row records what a person confirmed rather than what a machine found.");
+
+            return DevToolActionResult.Ok(acknowledged
+                ? $"{application.Name} is marked as done on this machine."
+                : $"{application.Name} is no longer marked as done on this machine.");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException or JsonException)
+        {
+            _logger?.LogWarning(ex, "Acknowledgement failed for {Key}.", key);
+            return DevToolActionResult.Failed($"That could not be recorded: {ex.Message}");
+        }
+    }
+
     public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
         EditCatalogAsync(
             paths => DevToolConfiguration.CreateCatalogAsync(paths, ct),
@@ -755,7 +824,7 @@ public sealed class DevToolService : IDevToolService
             {
                 DevToolKind.Plugin => await ApplyPluginAsync(node, DevToolConfiguration.DefaultMarketplaceName(root), log, ct).ConfigureAwait(false),
                 DevToolKind.McpServer => await ApplyMcpServerAsync(node, log, ct).ConfigureAwait(false),
-                DevToolKind.Application => await ApplyApplicationAsync(configPaths, node, enabled, log, ct).ConfigureAwait(false),
+                DevToolKind.Application => await ApplyApplicationAsync(node, log, ct).ConfigureAwait(false),
                 DevToolKind.Marketplace => throw new InvalidOperationException("A marketplace is handled above.")
             };
         }
@@ -1607,9 +1676,11 @@ public sealed class DevToolService : IDevToolService
             // No version on either side. There is nothing to look up, and a number
             // here would invite a comparison that means nothing.
             DevToolOutput.NoVersion,
-            // The one act a manual row has is confirming it, so it keeps an action
-            // while it is unconfirmed and loses it once it is.
-            !application.Acknowledged,
+            // Never, in either direction. There is nothing to install and nothing
+            // that could report having installed it; the row's one act is the tick,
+            // which goes through AcknowledgeAsync and not through an Install button
+            // that would have to mean two things at once.
+            Installable: false,
             notes,
             application.Acknowledged ? "Confirmed by hand" : "Nothing can check this — confirm it by hand");
     }
@@ -1683,16 +1754,20 @@ public sealed class DevToolService : IDevToolService
             // heard of it.
             Hosts = DevToolHosts.None,
             Installable = Installable,
-            Acknowledged = application.Acknowledged
+            Acknowledged = application.Acknowledged,
+            ConfirmedByHand = application.Provider is DevToolProvider.Manual,
+
+            // Whatever the entry filed itself under, unchanged. The pane groups on
+            // it and does not interpret it: a heading this version has never seen
+            // is a heading somebody added to the catalog, not an error.
+            Group = application.Group
         };
 
     /// <summary>
     /// One application row's action, through whichever mechanism it declared.
     /// </summary>
     private static async Task<DevToolActionResult> ApplyApplicationAsync(
-        DevToolConfigurationPaths paths,
         JsonNode node,
-        bool? enabled,
         CommandLog log,
         CancellationToken ct)
     {
@@ -1715,13 +1790,14 @@ public sealed class DevToolService : IDevToolService
             DevToolProvider.Winget => await ApplyWingetApplicationAsync(application, log, ct).ConfigureAwait(false),
             DevToolProvider.VsCodeExtension => await ApplyExtensionApplicationAsync(application, log, ct).ConfigureAwait(false),
             DevToolProvider.Command => await ApplyCommandApplicationAsync(application, log, ct).ConfigureAwait(false),
-            // Only the row's own action ticks the box. Enabling a manual row says
-            // this machine wants the thing done; it is not somebody saying they
-            // have done it, and treating the two as one press is how a checklist
-            // acquires a tick nobody made.
-            DevToolProvider.Manual => enabled is null
-                ? await AcknowledgeApplicationAsync(paths, application, log, ct).ConfigureAwait(false)
-                : DevToolActionResult.Ok($"{application.Name} is switched on for this machine; confirm it by hand when it is done.")
+            // Nothing to run and nothing to record. Enabling a manual row says
+            // this machine wants the thing done; saying it has been done is a
+            // separate act with a port method of its own
+            // (<see cref="AcknowledgeAsync"/>), because a tick that arrived
+            // through Update could never be taken back — the row had no action
+            // left once it was ticked.
+            DevToolProvider.Manual => DevToolActionResult.Ok(
+                $"{application.Name} is confirmed by hand; tick it on the row when it is done.")
         };
     }
 
@@ -1785,35 +1861,6 @@ public sealed class DevToolService : IDevToolService
         return result.ExitCode == 0
             ? DevToolActionResult.Ok($"{application.Name} installed.")
             : DevToolActionResult.Failed(DescribeInstallFailure(application.Name, install, result));
-    }
-
-    /// <summary>
-    /// Ticks — or unticks — the box on a row nothing can check.
-    ///
-    /// <para>Per machine, in the per-PC file, because "this laptop is signed in"
-    /// is not a fact to sync to the next one. It goes through the row's one action
-    /// rather than through a port method of its own, which is a compromise worth
-    /// naming: the pane's Install is the only verb the service exposes, and a row
-    /// with no way to say "done" would be a row that could only ever read as not
-    /// done.</para>
-    /// </summary>
-    private static async Task<DevToolActionResult> AcknowledgeApplicationAsync(
-        DevToolConfigurationPaths paths,
-        DevToolApplication application,
-        CommandLog log,
-        CancellationToken ct)
-    {
-        var acknowledged = !application.Acknowledged;
-        await DevToolConfiguration.WriteAcknowledgementAsync(paths, application.Key, acknowledged, ct).ConfigureAwait(false);
-
-        log.RecordStep(
-            $"{paths.PcConfigPath}: {application.Key} acknowledged = {acknowledged.ToString().ToLowerInvariant()}",
-            0,
-            "Nothing was run; this row records what a person confirmed rather than what a machine found.");
-
-        return DevToolActionResult.Ok(acknowledged
-            ? $"{application.Name} is marked as done on this machine."
-            : $"{application.Name} is no longer marked as done on this machine.");
     }
 
     /// <summary>
@@ -2408,7 +2455,7 @@ public sealed class DevToolService : IDevToolService
         DevToolHosts.Copilot => "copilot",
         DevToolHosts.Claude => "claude",
         DevToolHosts.ClaudeDesktop => "claude desktop",
-        DevToolHosts.Both => "shared",
+        DevToolHosts.Default => "shared",
         _ => "none"
     };
 

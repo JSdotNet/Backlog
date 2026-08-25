@@ -358,7 +358,7 @@ public sealed record DevToolApplication(
 /// <summary>
 /// Which AI host a catalog entry is for.
 ///
-/// <para>Flags rather than an enum with a Both member alone, because the question
+/// <para>Flags rather than an enum with a single both-hosts member, because the question
 /// asked of it is always "does this entry target that host" and a bit test is the
 /// honest form of that. A catalog entry that says nothing means both: the
 /// catalogs predate Claude support entirely, and reading silence as "Copilot
@@ -384,7 +384,7 @@ public enum DevToolHosts
     /// <see cref="ClaudeDesktop"/> in here would make each of them claim a
     /// registration that was never made, and the pane would offer an Install for
     /// each. The desktop host is opt-in, by an entry naming it.</para></summary>
-    Both = Copilot | Claude
+    Default = Copilot | Claude
 }
 
 /// <summary>
@@ -425,7 +425,7 @@ public sealed record DevToolInfo(
     /// harness, the unsupported service and every test that builds one
     /// positionally still compile — and so an entry nobody has thought about
     /// lands on the same "both hosts" the catalog format means by silence.</summary>
-    public DevToolHosts Hosts { get; init; } = DevToolHosts.Both;
+    public DevToolHosts Hosts { get; init; } = DevToolHosts.Default;
 
     /// <summary>What each targeted host answered, or empty when the host behind
     /// this row does not separate them.
@@ -437,6 +437,20 @@ public sealed record DevToolInfo(
     /// it always did.</para></summary>
     public IReadOnlyList<DevToolHostState> HostStates { get; init; } = [];
 
+    /// <summary>Which heading the row files under, or nothing for a row that has
+    /// none.
+    ///
+    /// <para>Init-only with a default, for the reason <see cref="Hosts"/> is: a
+    /// caller that builds one of these positionally keeps compiling, and a row
+    /// nobody has filed lands in the same "everything else" the catalog means by
+    /// leaving the property out.</para>
+    ///
+    /// <para>It is a property of the entry rather than of the array order,
+    /// because nothing preserves array order once a person hand-edits the file —
+    /// and the setup guide this catalog follows is a sequence of steps that six
+    /// rows can carry implicitly and fifty cannot.</para></summary>
+    public string? Group { get; init; }
+
     /// <summary>Whether the person said they had done this, for a row nothing can
     /// probe.
     ///
@@ -444,6 +458,20 @@ public sealed record DevToolInfo(
     /// the two would be the lie the whole manual provider exists to avoid: nothing
     /// checked this machine, somebody ticked a box on it.</para></summary>
     public bool Acknowledged { get; init; }
+
+    /// <summary>Whether a person's word is the only answer this row has.
+    ///
+    /// <para>The screen has to draw this row differently from every other one —
+    /// a box to tick rather than a state that was found — and it cannot infer
+    /// that from <see cref="Acknowledged"/>, which is false both for a manual row
+    /// nobody has ticked and for the thirty probed rows that have no box at all.
+    /// Without it the two are the same row and the tick is the only thing that
+    /// tells them apart, which is the wrong way round: what a row can be asked is
+    /// not decided by what it last answered.</para>
+    ///
+    /// <para>Defaults to false, so every row that something can genuinely check
+    /// keeps saying so by saying nothing.</para></summary>
+    public bool ConfirmedByHand { get; init; }
 
     /// <summary>Whether there is a mechanism behind this row at all.
     ///
@@ -657,11 +685,11 @@ public sealed record DevToolDraft(
     string? DisplayName = null,
     string? PluginKind = null)
 {
-    /// <summary>Which hosts the new entry is for. <see cref="DevToolHosts.Both"/>
+    /// <summary>Which hosts the new entry is for. <see cref="DevToolHosts.Default"/>
     /// is written as no <c>hosts</c> property at all, matching what the format
     /// means by silence and what every catalog written before Claude support
     /// already says.</summary>
-    public DevToolHosts Hosts { get; init; } = DevToolHosts.Both;
+    public DevToolHosts Hosts { get; init; } = DevToolHosts.Default;
 
     /// <summary>What the plugin is called in the Claude marketplace, when that is
     /// not what Copilot calls it.</summary>
@@ -1628,13 +1656,13 @@ public static class DevToolConfiguration
     }
 
     /// <summary>Writes <c>hosts</c> only when it says something the format does not
-    /// already say by omission. <see cref="DevToolHosts.Both"/> is what an entry
+    /// already say by omission. <see cref="DevToolHosts.Default"/> is what an entry
     /// with no such property means, so writing it would add a line that changes
     /// nothing and invites the reader to wonder why the entry beside it lacks
     /// one.</summary>
     private static void WriteHosts(JsonObject entry, DevToolHosts hosts)
     {
-        if (hosts is DevToolHosts.Both or DevToolHosts.None)
+        if (hosts is DevToolHosts.Default or DevToolHosts.None)
         {
             return;
         }
@@ -2062,6 +2090,23 @@ public interface IDevToolService
 
     Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default);
 
+    /// <summary>
+    /// Records — or withdraws — a person's word about a row nothing can probe.
+    ///
+    /// <para>A method of its own rather than a meaning folded into
+    /// <see cref="UpdateAsync"/>, which is where it started and could not stay.
+    /// Update is what a row offers <em>while</em> there is something to do, so a
+    /// manual row that had been ticked lost its only action and with it the only
+    /// way to untick it: the box was one-way, and a mis-click was permanent
+    /// short of hand-editing the per-PC file.</para>
+    ///
+    /// <para>The desired state is passed rather than toggled, so the caller is
+    /// the checkbox's own value and not a guess about what the row last showed —
+    /// two presses racing cannot land on the state neither of them asked
+    /// for.</para>
+    /// </summary>
+    Task<DevToolActionResult> AcknowledgeAsync(string key, bool acknowledged, CancellationToken ct = default);
+
     /// <summary>Writes the empty catalog a machine with none starts from. The
     /// one act that is available when <see cref="DevToolCatalog.CatalogExists"/>
     /// is false.</summary>
@@ -2101,6 +2146,9 @@ public sealed class UnsupportedDevToolService : IDevToolService
         Task.FromResult(DevToolActionResult.Failed(Message));
 
     public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
+
+    public Task<DevToolActionResult> AcknowledgeAsync(string key, bool acknowledged, CancellationToken ct = default) =>
         Task.FromResult(DevToolActionResult.Failed(Message));
 
     public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>

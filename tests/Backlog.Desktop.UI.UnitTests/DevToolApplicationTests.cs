@@ -409,7 +409,7 @@ public class DevToolApplicationTests
     [Fact]
     public void The_desktop_host_has_to_be_asked_for()
     {
-        Assert.False(DevToolHosts.Both.HasFlag(DevToolHosts.ClaudeDesktop));
+        Assert.False(DevToolHosts.Default.HasFlag(DevToolHosts.ClaudeDesktop));
         Assert.True(DevToolOutput.ParseHosts(["claude", "claude-desktop"]).HasFlag(DevToolHosts.ClaudeDesktop));
         Assert.False(DevToolOutput.ParseHosts(["claude"]).HasFlag(DevToolHosts.ClaudeDesktop));
     }

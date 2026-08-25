@@ -680,15 +680,15 @@ public class DevToolHostTests
     {
         var entry = JsonNode.Parse("""{ "name": "architecture" }""");
 
-        Assert.Equal(DevToolHosts.Both, DevToolConfiguration.ParseHosts(entry));
+        Assert.Equal(DevToolHosts.Default, DevToolConfiguration.ParseHosts(entry));
     }
 
     [Theory]
-    [InlineData("""{ "hosts": [] }""", DevToolHosts.Both)]
-    [InlineData("""{ "hosts": [ "  " ] }""", DevToolHosts.Both)]
+    [InlineData("""{ "hosts": [] }""", DevToolHosts.Default)]
+    [InlineData("""{ "hosts": [ "  " ] }""", DevToolHosts.Default)]
     [InlineData("""{ "hosts": [ "copilot" ] }""", DevToolHosts.Copilot)]
     [InlineData("""{ "hosts": [ "claude" ] }""", DevToolHosts.Claude)]
-    [InlineData("""{ "hosts": [ "Copilot", "CLAUDE" ] }""", DevToolHosts.Both)]
+    [InlineData("""{ "hosts": [ "Copilot", "CLAUDE" ] }""", DevToolHosts.Default)]
     public void The_hosts_array_is_read_case_insensitively(string json, DevToolHosts expected)
     {
         Assert.Equal(expected, DevToolConfiguration.ParseHosts(JsonNode.Parse(json)));
@@ -761,7 +761,7 @@ public class DevToolHostTests
             "1.1.0",
             "Update available");
 
-        Assert.Equal(DevToolHosts.Both, tool.Hosts);
+        Assert.Equal(DevToolHosts.Default, tool.Hosts);
         Assert.Empty(tool.HostStates);
         Assert.True(tool.CanUpdate);
         Assert.False(tool.CanInstall);
@@ -778,7 +778,7 @@ public class DevToolHostTests
         "1.0.0",
         "Enabled plugin")
     {
-        Hosts = DevToolHosts.Both,
+        Hosts = DevToolHosts.Default,
         HostStates = states
     };
 }
@@ -1641,16 +1641,16 @@ public class ApplicationCatalogTests
 public class ClaudeDesktopHostTests
 {
     /// <summary>The load-bearing assertion of the whole host change.
-    /// <see cref="DevToolHosts.Both"/> is what a catalog entry means by saying
+    /// <see cref="DevToolHosts.Default"/> is what a catalog entry means by saying
     /// nothing, and every entry on every machine says nothing. Folding the new
     /// host into it would make each of them claim a registration that was never
     /// made and offer an Install for it.</summary>
     [Fact]
     public void The_silent_default_does_not_include_claude_desktop()
     {
-        Assert.False(DevToolHosts.Both.HasFlag(DevToolHosts.ClaudeDesktop));
-        Assert.Equal(DevToolHosts.Copilot | DevToolHosts.Claude, DevToolHosts.Both);
-        Assert.Equal(DevToolHosts.Both, DevToolOutput.ParseHosts(null));
+        Assert.False(DevToolHosts.Default.HasFlag(DevToolHosts.ClaudeDesktop));
+        Assert.Equal(DevToolHosts.Copilot | DevToolHosts.Claude, DevToolHosts.Default);
+        Assert.Equal(DevToolHosts.Default, DevToolOutput.ParseHosts(null));
     }
 
     [Fact]

@@ -2169,6 +2169,46 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+/* One heading's worth of the inventory. The kind is the outer heading and the
+   catalog's own group is the inner one, because fifty rows in one list lose the
+   structure the setup guide they come from is made of. */
+.tools-kind {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.tools-kind__header {
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.tools-kind__header .section-header__title {
+    color: var(--color-primary);
+    font-size: var(--font-size-base);
+}
+
+/* The count, and how much of it is still outstanding. Quiet: it is a qualifier
+   on the heading, and the number that matters is the second one. */
+.tools-kind__header .section-header__description {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tools-group {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* The sub-group's disclosure. It reads at the weight of the table's meta text
+   rather than as a heading of its own: the kind above it is the heading, and
+   this is a row of the inventory that happens to fold. */
+.tools-group__fold .fold__trigger {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 .tools-table {
     display: grid;
     min-width: 0;
@@ -2249,6 +2289,28 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     line-height: 1.4;
+}
+
+/* What the catalog had to say about the row, on a line of its own under the
+   status. Several of these are the only reason a row reads the way it does — a
+   version that legitimately reads backwards, a probe that is a heuristic — and
+   run together with the status they read as part of the finding. */
+.tools-table__note {
+    display: block;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-style: italic;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+/* The tick on a row nothing can check. The library's checkbox wearing one extra
+   rule: the actions cell is the narrowest column in the table, and a two-word
+   label that wraps there makes the row twice as tall as the fifty around it.
+   Everything else about it is deliberately the library's, because it is the same
+   control it is anywhere else — it is not a button and must not read as one. */
+.tools-table__ack {
+    white-space: nowrap;
 }
 
 /* The add and import dialogs. Narrow on purpose: both are three or four fields

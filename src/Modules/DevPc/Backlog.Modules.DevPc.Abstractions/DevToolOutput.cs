@@ -332,14 +332,14 @@ public static partial class DevToolOutput
     /// and Claude entries here.</para>
     ///
     /// <para><c>claude-desktop</c> is a host in its own right and is never part of
-    /// what silence means — see <see cref="DevToolHosts.Both" />. An entry reaches
+    /// what silence means — see <see cref="DevToolHosts.Default" />. An entry reaches
     /// the desktop app only by naming it.</para>
     /// </summary>
     public static DevToolHosts ParseHosts(IEnumerable<string?>? values)
     {
         if (values is null)
         {
-            return DevToolHosts.Both;
+            return DevToolHosts.Default;
         }
 
         var hosts = DevToolHosts.None;
@@ -373,7 +373,7 @@ public static partial class DevToolOutput
             }
         }
 
-        return named ? hosts : DevToolHosts.Both;
+        return named ? hosts : DevToolHosts.Default;
     }
 
     /// <summary>A commit sha cut to the width everything else uses.

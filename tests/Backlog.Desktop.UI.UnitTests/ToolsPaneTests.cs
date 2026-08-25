@@ -305,7 +305,7 @@ public sealed class ToolsPaneTests
     public void Every_row_says_which_hosts_it_is_for()
     {
         var service = FakeDevToolService.With(
-            Tool("plugin:architecture", "architecture") with { Hosts = DevToolHosts.Both },
+            Tool("plugin:architecture", "architecture") with { Hosts = DevToolHosts.Default },
             Tool("plugin:claude-desktop", "claude-desktop") with { Hosts = DevToolHosts.Claude },
             Tool("plugin:copilot-app", "copilot-app") with { Hosts = DevToolHosts.Copilot });
         using var context = Context(service);
@@ -501,6 +501,381 @@ public sealed class ToolsPaneTests
         Assert.Equal(["agent", "mcp"], draft.ClaudeArgs);
     }
 
+    /// <summary>The catalog stopped being six rows of AI tooling and became this
+    /// machine's whole software inventory, so the kind is the first thing a row
+    /// has to be filed under: "a plugin is missing" and "an application is
+    /// missing" are two different afternoons.</summary>
+    [Fact]
+    public void Rows_are_filed_under_a_heading_per_kind()
+    {
+        using var context = Context(FakeDevToolService.With(
+            Tool("plugin:architecture", "architecture"),
+            Tool("mcp:Guidelines", "guidelines"),
+            Application("Git.Git", "Git")));
+
+        var pane = context.Render<ToolsPane>();
+        var kinds = pane.FindAll("[data-testid='tools-kind']");
+
+        Assert.Equal(
+            [nameof(DevToolKind.Plugin), nameof(DevToolKind.McpServer), nameof(DevToolKind.Application)],
+            kinds.Select(section => section.GetAttribute("data-tool-kind")));
+        Assert.Contains("Plugins", kinds[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("MCP servers", kinds[1].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Applications", kinds[2].TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Within the applications the entry's own group is the sub-heading.
+    /// The setup guide this catalog follows is a sequence of steps, and fifty rows
+    /// in one list lose it.</summary>
+    [Fact]
+    public void Applications_are_filed_under_the_group_the_catalog_gave_them()
+    {
+        using var context = Context(FakeDevToolService.With(
+            Application("Git.Git", "Git", group: "Developer Configurations baseline"),
+            Application("git-pull-rebase", "git pull.rebase is true", group: "Git configuration"),
+            Application("git-rebase-autostash", "git rebase.autoStash is true", group: "Git configuration")));
+
+        var pane = context.Render<ToolsPane>();
+        var groups = pane.FindAll("[data-tool-group]");
+
+        Assert.Equal(2, groups.Count);
+
+        var git = pane.Find("[data-tool-group='Application:Git configuration']");
+
+        Assert.NotNull(git.QuerySelector("[data-tool-key='app:git-pull-rebase']"));
+        Assert.NotNull(git.QuerySelector("[data-tool-key='app:git-rebase-autostash']"));
+        Assert.Null(git.QuerySelector("[data-tool-key='app:Git.Git']"));
+
+        // The trigger says how much is behind it, so a folded group can be read
+        // without opening it.
+        Assert.Contains("Git configuration", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("2 row(s)", git.QuerySelector("[data-testid='tools-group-toggle']")!.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>A machine that is set up correctly should open this pane to
+    /// headings and no rows. The fifty-odd rows behind them are worth having and
+    /// are not worth scrolling past every time.</summary>
+    [Fact]
+    public void A_group_with_nothing_outstanding_starts_folded_and_one_with_work_does_not()
+    {
+        using var context = Context(FakeDevToolService.With(
+            Application("Microsoft.VisualStudioCode", "Visual Studio Code", group: "Baseline"),
+            Application("Microsoft.PowerToys", "PowerToys", group: "Team tools", installed: false, installedVersion: "not installed", availableVersion: "0.96.1")));
+
+        var pane = context.Render<ToolsPane>();
+
+        Assert.True(pane.Find("[data-tool-group='Application:Baseline'] .tools-table").HasAttribute("hidden"));
+        Assert.False(pane.Find("[data-tool-group='Application:Team tools'] .tools-table").HasAttribute("hidden"));
+    }
+
+    [Fact]
+    public void A_folded_group_opens_when_it_is_asked_to()
+    {
+        using var context = Context(FakeDevToolService.With(
+            Application("Microsoft.VisualStudioCode", "Visual Studio Code", group: "Baseline")));
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-group-toggle']").Click();
+
+        Assert.False(pane.Find("[data-tool-group='Application:Baseline'] .tools-table").HasAttribute("hidden"));
+    }
+
+    /// <summary>The package manager knows it and cannot install it unattended —
+    /// an IDE whose workloads need an hour and an override, a suite whose
+    /// activation is a sign-in. The row still reports what is installed; it just
+    /// has no button, and it says where the reason is.</summary>
+    [Fact]
+    public void A_package_that_has_to_be_installed_by_hand_is_offered_no_button()
+    {
+        var tool = Application(
+            "Microsoft.Office",
+            "Microsoft 365 apps",
+            installed: false,
+            installable: false,
+            installedVersion: "not installed",
+            availableVersion: "16.0.18827.20164",
+            status: "Not installed · Click-to-Run activation is interactive.");
+
+        using var context = Context(FakeDevToolService.With(tool));
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Equal("Install by hand — see the note", pane.Find(".tools-table__action-note").TextContent);
+        Assert.DoesNotContain(
+            pane.FindAll(".tools-table__actions button"),
+            button => button.TextContent.Trim() == "Install");
+
+        // The reason is on the row rather than in a status line that scrolls away.
+        Assert.Equal("Click-to-Run activation is interactive.", pane.Find("[data-testid='tools-row-note']").TextContent);
+    }
+
+    /// <summary>A checklist row has no version on either side, so every
+    /// version-shaped answer is a claim about nothing. "Version unknown" was true
+    /// and useless: the row never had one to look up.</summary>
+    [Theory]
+    [InlineData(true, "Detected")]
+    [InlineData(false, "Not detected")]
+    public void A_checklist_row_reports_detection_rather_than_a_version(bool detected, string expected)
+    {
+        var tool = Application(
+            "dev-drive",
+            "Dev Drive configured",
+            installed: detected,
+            installable: false,
+            installedVersion: DevToolOutput.NoVersion,
+            availableVersion: DevToolOutput.NoVersion,
+            status: detected ? "Checklist item: done" : "Checklist item: not done yet");
+
+        using var context = Context(FakeDevToolService.With(tool));
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Equal(expected, pane.Find("[data-testid='tools-row-installed']").TextContent);
+        Assert.Equal(expected, pane.Find(".tools-table__action-note").TextContent);
+        Assert.DoesNotContain("Version unknown", pane.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Up to date", pane.Markup, StringComparison.Ordinal);
+    }
+
+    /// <summary>Two of the checklist rows declare an install of their own — a git
+    /// config that can set itself. Those are checklist items that can fix
+    /// themselves, and they keep the button the others do not have.</summary>
+    [Fact]
+    public void A_checklist_row_that_can_fix_itself_still_offers_the_fix()
+    {
+        var actions = ActionsFor(Application(
+            "git-pull-rebase",
+            "git pull.rebase is true",
+            installed: false,
+            installedVersion: DevToolOutput.NoVersion,
+            availableVersion: DevToolOutput.NoVersion,
+            status: "Not configured"));
+
+        Assert.Contains("Install", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Not detected", actions, StringComparison.Ordinal);
+    }
+
+    /// <summary>Nothing checked this machine; somebody ticked a box on it. The row
+    /// says so in the Installed column too, because a manual row drawn as a found
+    /// state is what would make the other fifty worth less.</summary>
+    [Theory]
+    [InlineData(false, "Not confirmed")]
+    [InlineData(true, "Confirmed by hand")]
+    public void A_row_nothing_can_check_never_reads_as_verified(bool acknowledged, string expected)
+    {
+        using var context = Context(FakeDevToolService.With(ManualApplication(acknowledged)));
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Equal(expected, pane.Find("[data-testid='tools-row-installed']").TextContent);
+        Assert.Empty(pane.FindAll(".tools-table__action-note"));
+    }
+
+    /// <summary>The defect the acknowledgement port method exists for: ticking the
+    /// box used to go through Update, which was the row's only control — so the
+    /// tick removed the only way to take it back.</summary>
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public void A_manual_row_can_be_ticked_and_unticked(bool acknowledged, bool expected)
+    {
+        var service = FakeDevToolService.With(ManualApplication(acknowledged));
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-row-acknowledge'] input").Change(expected);
+
+        Assert.Equal(("app:office-signed-in", expected), Assert.Single(service.Acknowledgements));
+    }
+
+    /// <summary>A manual row is never offered an install: there is nothing to run
+    /// and nothing that could report having run it.</summary>
+    [Fact]
+    public void A_manual_row_is_offered_a_box_and_not_a_button()
+    {
+        using var context = Context(FakeDevToolService.With(ManualApplication(acknowledged: false)));
+        var pane = context.Render<ToolsPane>();
+
+        Assert.NotNull(pane.Find("[data-testid='tools-row-acknowledge']"));
+        Assert.DoesNotContain(
+            pane.FindAll(".tools-table__actions button"),
+            button => button.TextContent.Trim() is "Install" or "Update");
+    }
+
+    /// <summary>A row this machine has switched off has nothing to confirm, and a
+    /// tick on one would be a statement about something it has said it is not
+    /// doing.</summary>
+    [Fact]
+    public void A_manual_row_this_machine_has_switched_off_is_offered_no_box()
+    {
+        var tool = ManualApplication(acknowledged: false) with { ConfiguredEnabled = false };
+        using var context = Context(FakeDevToolService.With(tool));
+
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-row-acknowledge']"));
+        Assert.Equal("Disabled", pane.Find(".tools-table__action-note").TextContent);
+    }
+
+    /// <summary>The add form's kind chain is binary-exhaustive and falls through
+    /// to the MCP server, so an application without a branch of its own would have
+    /// been offered a package id and a Claude registration.</summary>
+    [Fact]
+    public void Choosing_an_application_asks_about_an_application()
+    {
+        using var context = Context(FakeDevToolService.With());
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Application));
+
+        Assert.NotNull(pane.Find("[data-testid='tools-add-provider']"));
+        Assert.NotNull(pane.Find("[data-testid='tools-add-app-id']"));
+
+        // Neither the MCP server's fields nor the hosts selector: an application is
+        // installed into the machine, not into an AI host.
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-package-id']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-claude-command']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-hosts']"));
+
+        // The command boxes belong to the one mechanism that has to be told how to
+        // find itself, and winget is not it.
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-detect-command']"));
+    }
+
+    [Fact]
+    public void Adding_a_winget_application_sends_its_id_and_its_provider()
+    {
+        var service = FakeDevToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Application));
+
+        pane.Find("[data-testid='tools-add-app-id'] input").Input("Microsoft.PowerToys");
+        pane.Find("[data-testid='tools-add-name'] input").Input("PowerToys");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        var draft = Assert.Single(service.Added);
+        Assert.Equal(DevToolKind.Application, draft.Kind);
+        Assert.Equal("Microsoft.PowerToys", draft.Id);
+        Assert.Equal("PowerToys", draft.DisplayName);
+        Assert.Equal(DevToolProvider.Winget, draft.Provider);
+        Assert.Null(draft.Source);
+
+        // Not a host's tool, whatever the hosts selector was last left on for some
+        // other kind.
+        Assert.Equal(DevToolHosts.None, draft.Hosts);
+    }
+
+    [Fact]
+    public void Adding_a_command_application_sends_the_commands_it_was_given()
+    {
+        var service = FakeDevToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Application));
+        pane.Find("[data-testid='tools-add-provider'] select").Change(nameof(DevToolProvider.Command));
+
+        pane.Find("[data-testid='tools-add-app-id'] input").Input("git-pull-rebase");
+        pane.Find("[data-testid='tools-add-name'] input").Input("git pull.rebase is true");
+        pane.Find("[data-testid='tools-add-detect-command'] input").Input("git");
+        pane.Find("[data-testid='tools-add-detect-args'] input").Input("config --global pull.rebase");
+        pane.Find("[data-testid='tools-add-detect-expect'] input").Input("true");
+        pane.Find("[data-testid='tools-add-install-command'] input").Input("git");
+        pane.Find("[data-testid='tools-add-install-args'] input").Input("config --global pull.rebase true");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        var draft = Assert.Single(service.Added);
+        Assert.Equal(DevToolProvider.Command, draft.Provider);
+        Assert.Equal("git", draft.DetectCommand);
+        Assert.Equal(["config", "--global", "pull.rebase"], draft.DetectArgs);
+        Assert.Equal("true", draft.DetectExpect);
+        Assert.Equal("git", draft.InstallCommand);
+        Assert.Equal(["config", "--global", "pull.rebase", "true"], draft.InstallArgs);
+    }
+
+    /// <summary>The other mechanisms know how to find their own package. A command
+    /// entry that was not told can never answer whether the machine has it, so it
+    /// is refused under the field it is about rather than written and drawn
+    /// forever as a row of unknowns.</summary>
+    [Fact]
+    public void A_command_application_with_no_detect_command_never_reaches_the_port()
+    {
+        var service = FakeDevToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Application));
+        pane.Find("[data-testid='tools-add-provider'] select").Change(nameof(DevToolProvider.Command));
+
+        pane.Find("[data-testid='tools-add-app-id'] input").Input("dev-drive");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        Assert.Empty(service.Added);
+        Assert.Contains("A command application needs a detect command.", pane.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_application_with_no_id_never_reaches_the_port()
+    {
+        var service = FakeDevToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.Application));
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        Assert.Empty(service.Added);
+        Assert.Contains("An application needs an id.", pane.Markup, StringComparison.Ordinal);
+    }
+
+    /// <summary>One application row, as the port would answer it. Ungrouped by
+    /// default, because an ungrouped kind is always open and a test about an
+    /// action cell should not also be a test about a disclosure.</summary>
+    private static DevToolInfo Application(
+        string id,
+        string name,
+        string? group = null,
+        bool installed = true,
+        bool installable = true,
+        bool enabled = true,
+        string installedVersion = "1.0.0",
+        string availableVersion = "1.0.0",
+        string status = "Application installed") =>
+        new(
+            $"app:{id}",
+            DevToolKind.Application,
+            name,
+            "winget",
+            enabled,
+            installed,
+            installedVersion,
+            availableVersion,
+            status)
+        {
+            Hosts = DevToolHosts.None,
+            Group = group,
+            Installable = installable
+        };
+
+    /// <summary>A row nothing can probe: its detected state is the acknowledgement
+    /// and nothing else.</summary>
+    private static DevToolInfo ManualApplication(bool acknowledged) =>
+        Application(
+            "office-signed-in",
+            "Office apps activated and signed in",
+            installed: acknowledged,
+            installable: false,
+            installedVersion: DevToolOutput.NotInstalled,
+            availableVersion: DevToolOutput.NoVersion,
+            status: acknowledged ? "Confirmed by hand" : "Nothing can check this") with
+        {
+            Acknowledged = acknowledged,
+            ConfirmedByHand = true
+        };
+
     private static BunitContext Context(IDevToolService service)
     {
         var context = new BunitContext();
@@ -589,6 +964,11 @@ public sealed class ToolsPaneTests
 
         public List<string> Removed { get; } = [];
 
+        /// <summary>Every acknowledgement the pane asked for, with the state it
+        /// asked for. The state matters as much as the key: the defect this
+        /// method exists for was a tick that could only ever go one way.</summary>
+        public List<(string Key, bool Acknowledged)> Acknowledgements { get; } = [];
+
         public List<string> Imported { get; } = [];
 
         public static FakeDevToolService With(params DevToolInfo[] tools)
@@ -622,6 +1002,12 @@ public sealed class ToolsPaneTests
         public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) => Answer();
 
         public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) => Answer();
+
+        public Task<DevToolActionResult> AcknowledgeAsync(string key, bool acknowledged, CancellationToken ct = default)
+        {
+            Acknowledgements.Add((key, acknowledged));
+            return Answer();
+        }
 
         public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default)
         {

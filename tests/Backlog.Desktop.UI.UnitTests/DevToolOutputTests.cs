@@ -753,9 +753,9 @@ public class DevToolOutputTests
     [Fact]
     public void Saying_nothing_still_means_the_two_hosts_it_always_meant()
     {
-        Assert.Equal(DevToolHosts.Both, DevToolOutput.ParseHosts(null));
-        Assert.Equal(DevToolHosts.Both, DevToolOutput.ParseHosts([]));
-        Assert.Equal(DevToolHosts.Both, DevToolOutput.ParseHosts([null, "", "   "]));
+        Assert.Equal(DevToolHosts.Default, DevToolOutput.ParseHosts(null));
+        Assert.Equal(DevToolHosts.Default, DevToolOutput.ParseHosts([]));
+        Assert.Equal(DevToolHosts.Default, DevToolOutput.ParseHosts([null, "", "   "]));
     }
 
     /// <summary>A catalog written for a host this version has not met still
