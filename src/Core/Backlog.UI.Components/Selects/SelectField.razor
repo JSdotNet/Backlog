@@ -1,30 +1,50 @@
 @*
     A labelled `<select>` over a list of options, optionally with an empty entry
-    at the top. The wrapper classes stay the caller's business through CssClass
-    so a host can keep whatever badge styling it already ships.
+    at the top.
+
+    It has two shapes. By default it is the bare control the inline metadata
+    editors wear: the whole thing is a `<label>` around the select, and the name
+    is there to be read aloud rather than read, because in a row of metadata the
+    value is the only thing that should occupy the row.
+
+    `Form` switches it to the shape `TextField` draws - a visible label above a
+    bordered control - for a select in a dialog or a settings form. There, a bare
+    centred caption beside bordered inputs does not read as a control somebody is
+    invited to change, which matters most for exactly the selects that are worth
+    changing: the ones that decide which of the other fields exist.
+
+    Which classes each part wears stays the caller's business in either shape,
+    through BaseClass, LabelCssClass and SelectCssClass, so a host can keep
+    whatever badge styling it already ships.
 *@
 
-<label class="@WrapperClass" data-testid="@TestId">
-    <span class="sr-only">@Label</span>
-    <select id="@Id"
-            class="metadata-editor__select"
-            value="@CurrentValue"
-            aria-label="@Label"
-            title="@Label"
-            disabled="@Disabled"
-            @onchange="OnChange">
-        @if (IncludeEmptyOption)
+@if (Form)
+{
+    <div class="@WrapperClass" data-testid="@TestId">
+        @if (HasVisibleLabel)
         {
-            <option value="">@EmptyLabel</option>
+            <label class="@LabelClass" for="@FieldId">@Label</label>
         }
-        @foreach (var option in Options)
+        @SelectPart
+        @if (HasHelp)
         {
-            <option value="@option.Value">@option.Label</option>
+            <p id="@HelpId" class="field__help">@HelpText</p>
         }
-    </select>
-</label>
+    </div>
+}
+else
+{
+    <label class="@WrapperClass" data-testid="@TestId">
+        <span class="sr-only">@Label</span>
+        @SelectPart
+    </label>
+}
 
 @code {
+    /// <summary>Only ever used by the form shape, so it is only ever emitted
+    /// there - see <see cref="FieldId"/>.</summary>
+    private readonly string _generatedId = "select-" + Guid.NewGuid().ToString("N");
+
     [Parameter]
     public string? CurrentValue { get; set; }
 
@@ -49,16 +69,113 @@
     [Parameter]
     public string EmptyLabel { get; set; } = "None";
 
-    /// <summary>Extra classes appended to the wrapper label.</summary>
+    /// <summary>Renders the field the way <c>TextField</c> does: a visible label
+    /// above a bordered control, with the help text below it. The counterpart of
+    /// <c>TextField.Bare</c> - one parameter that picks a shape, rather than a
+    /// second component that is this one with different class names.</summary>
+    [Parameter]
+    public bool Form { get; set; }
+
+    /// <summary>A line under the control saying what picking a value does. Wired
+    /// into <c>aria-describedby</c> rather than left floating beside the select,
+    /// so the consequence reaches a screen reader with the field.
+    /// <para>
+    /// The form shape only. The inline shape is one row high and that row belongs
+    /// to the value; growing it to fit a paragraph would change every metadata row
+    /// in the product to serve one caller that asked for the wrong shape.
+    /// </para></summary>
+    [Parameter]
+    public string? HelpText { get; set; }
+
+    /// <summary>Replaces the wrapper's own class. Defaults to
+    /// <c>metadata-editor</c>, or <c>field field--select</c> under
+    /// <see cref="Form"/>.</summary>
+    [Parameter]
+    public string? BaseClass { get; set; }
+
+    /// <summary>Replaces <c>field__label</c> on the visible label. The form shape
+    /// only, because it is the only shape that renders one.</summary>
+    [Parameter]
+    public string? LabelCssClass { get; set; }
+
+    /// <summary>Replaces the class on the <c>select</c> itself. Defaults to
+    /// <c>metadata-editor__select</c>, or <c>field__input</c> under
+    /// <see cref="Form"/> - which is what makes a select in a form wear the same
+    /// border, padding and focus ring as the inputs beside it, rather than a
+    /// second copy of them.</summary>
+    [Parameter]
+    public string? SelectCssClass { get; set; }
+
+    /// <summary>Extra classes appended to the wrapper.</summary>
     [Parameter]
     public string? CssClass { get; set; }
 
     [Parameter]
     public EventCallback<string?> OnChanged { get; set; }
 
+    private string ResolvedBaseClass => string.IsNullOrWhiteSpace(BaseClass)
+        ? (Form ? "field field--select" : "metadata-editor")
+        : BaseClass;
+
     private string WrapperClass => string.IsNullOrWhiteSpace(CssClass)
-        ? "metadata-editor"
-        : $"metadata-editor {CssClass}";
+        ? ResolvedBaseClass
+        : $"{ResolvedBaseClass} {CssClass}";
+
+    private string LabelClass => string.IsNullOrWhiteSpace(LabelCssClass)
+        ? "field__label"
+        : LabelCssClass;
+
+    private string SelectClass => string.IsNullOrWhiteSpace(SelectCssClass)
+        ? (Form ? "field__input" : "metadata-editor__select")
+        : SelectCssClass;
+
+    private bool HasVisibleLabel => Form && !string.IsNullOrWhiteSpace(Label);
+
+    private bool HasHelp => Form && !string.IsNullOrWhiteSpace(HelpText);
+
+    /// <summary>The id the visible label points at, generated when the host names
+    /// none. Only the form shape gets one: the id exists to pair a label with its
+    /// control, the inline shape has no label to pair, and generating one anyway
+    /// would put an <c>id</c> attribute on every metadata select in the product
+    /// for nothing to read.</summary>
+    private string? FieldId => string.IsNullOrWhiteSpace(Id)
+        ? (Form ? _generatedId : null)
+        : Id;
+
+    private string HelpId => (FieldId ?? _generatedId) + "-help";
+
+    /// <summary>The name for anything that cannot see the label. Dropped once a
+    /// visible one is rendered, because an <c>aria-label</c> beside a
+    /// <c>label for</c> replaces the words on the screen with a second copy of
+    /// them - the rule <c>TextField</c> already follows. Dropped again when there
+    /// is no label at all: an empty <c>aria-label</c> is a name that says nothing
+    /// while claiming the control has one, which is worse for a screen reader
+    /// than no attribute and the fallback to the option text.</summary>
+    private string? AccessibleName => HasVisibleLabel || string.IsNullOrWhiteSpace(Label)
+        ? null
+        : Label;
+
+    /// <summary>Its own fragment so the two shapes share one select rather than
+    /// each writing an attribute list of their own - two copies is how they stop
+    /// matching.</summary>
+    private RenderFragment SelectPart =>
+        @<select id="@FieldId"
+                 class="@SelectClass"
+                 value="@CurrentValue"
+                 aria-label="@AccessibleName"
+                 title="@AccessibleName"
+                 aria-describedby="@(HasHelp ? HelpId : null)"
+                 disabled="@Disabled"
+                 @onchange="OnChange">
+            @if (IncludeEmptyOption)
+            {
+                <option value="">@EmptyLabel</option>
+            }
+            @foreach (var option in Options)
+            {
+                <option value="@option.Value">@option.Label</option>
+            }
+        </select>;
 
     private Task OnChange(ChangeEventArgs e) => OnChanged.InvokeAsync(e.Value?.ToString());
 }
