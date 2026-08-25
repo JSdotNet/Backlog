@@ -111,8 +111,19 @@
                                    TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
                             <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
                         </div>
-                        <span role="cell" class="tools-table__version">@tool.InstalledVersion</span>
-                        <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
+                        @* Each version cell names itself. The row's four columns only
+                           fit while the pane is wide enough for them — it is a surface
+                           beside a workspace, so it often is not — and below that the
+                           row stacks and the heading row goes. Two bare version strings
+                           in a column say nothing about which is which, so the label is
+                           in the markup at every width and the stylesheet decides when
+                           it shows. *@
+                        <span role="cell" class="tools-table__version">
+                            <span class="tools-table__cell-label">Installed</span>@tool.InstalledVersion
+                        </span>
+                        <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">
+                            <span class="tools-table__cell-label">Available</span>@tool.AvailableVersion
+                        </span>
                         <div role="cell" class="tools-table__actions">
                             @if (tool.Kind is CopilotToolKind.Marketplace)
                             {

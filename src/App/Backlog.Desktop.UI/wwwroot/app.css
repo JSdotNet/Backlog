@@ -2169,12 +2169,27 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+/* container-type is what lets the row below answer to the pane rather than to the
+   window. The pane is a surface the shell opens beside a workspace, so its width is
+   never the window's — the same mismatch the filter bar's container query exists
+   for, where a viewport threshold fires at the wrong moment or not at all.
+
+   overflow-x: auto rather than hidden, because the clipping it replaces was silent.
+   The row's four tracks need 504px and the pane can have 338px of it, and hidden
+   overflow deleted the Available column and every action in the row without leaving
+   a scrollbar to say so. The restack below is what stops that happening at all;
+   auto is what keeps whatever the restack does not foresee — an unbreakable version
+   string, a label wider than its track — reachable rather than gone. The block axis
+   stays clipped, so the rows still stop at the frame's rounded corners. */
 .tools-table {
     display: grid;
     min-width: 0;
     border: var(--border-width) solid rgba(242, 193, 78, 0.22);
     border-radius: var(--border-radius-sm);
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    container-type: inline-size;
+    container-name: tools-table;
 }
 
 .tools-table__row {
@@ -2229,6 +2244,20 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
+/* The label a cell carries for itself, for the widths where the heading row is not
+   there to carry it. Drawn as the heading it stands in for, so a stacked row reads
+   as the same four things in a column rather than as a new vocabulary. Hidden by
+   default: at any width where the heading row is up, this is the same word twice. */
+.tools-table__cell-label {
+    display: none;
+    margin-inline-end: var(--spacing-xs);
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 .tools-table__version {
     color: var(--color-text-secondary);
     overflow-wrap: anywhere;
@@ -2249,6 +2278,47 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     line-height: 1.4;
+}
+
+/*
+  Below the width its own columns need, the table stops being a table.
+
+  32rem is the row's own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5 + 8
+  is 29rem of track minimums, three --spacing-sm gaps and two of row padding bring
+  it to 31.5rem, and under that the four tracks cannot all be drawn. Above it they
+  fit; there is no band left where the row is wider than its box.
+
+  A stack rather than a scroll box, because this pane is a list of tools and not a
+  grid of figures — the reader is looking down it for one entry and then acting on
+  it, and an action they have to scroll sideways to find is barely better than one
+  that was clipped. The library's DataTable makes the other choice for the tables
+  that really are grids, and keeps its scroll box for exactly that reason.
+
+  The heading row goes, because four column names above a single column name
+  nothing, and each version cell puts its own label up instead. Precisely one of the
+  two is live at any width.
+*/
+@container tools-table (max-width: 32rem) {
+    .tools-table__row--head {
+        display: none;
+    }
+
+    .tools-table__row {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-xs);
+        align-items: start;
+        padding: var(--spacing-md) var(--spacing-sm);
+    }
+
+    .tools-table__cell-label {
+        display: inline;
+    }
+
+    /* The actions were the point of the fix: full width, wrapping, and last in the
+       row rather than beside a column that pushed them out of the box. */
+    .tools-table__actions {
+        margin-block-start: var(--spacing-xs);
+    }
 }
 
 /* The add and import dialogs. Narrow on purpose: both are three or four fields
