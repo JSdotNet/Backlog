@@ -4,6 +4,15 @@ using Backlog.UI.Components.Markdown;
 
 using Backlog.Modules.Knowledge.Abstractions;
 
+// Aliased rather than imported, because both names are already taken in this
+// namespace: the arc42 reader grew a `KnowledgeMeta` of its own and the
+// technology reader a `KnowledgeMetadata`, each predating the shared pair.
+// Design is the first of the three to read a block through the library; moving
+// the other two is their own change, and until then an unqualified name here
+// would silently resolve to the neighbour rather than to the library.
+using KnowledgeRecord = Backlog.UI.Components.Knowledge.KnowledgeMetadata;
+using KnowledgeRecordReader = Backlog.UI.Components.Knowledge.KnowledgeMeta;
+
 namespace Backlog.Desktop.UI.Knowledge;
 
 /// <summary>
@@ -43,6 +52,31 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
 
         files = OrderFiles(files);
         return Task.FromResult(DesignKnowledgeModel.Available(location.ScopeLabel ?? "storage", folderPath, files));
+    }
+
+    /// <summary>
+    /// Writes a status into the <c>meta</c> fence under the addressed heading —
+    /// the file's own when the path names a file, a chapter's when it carries an
+    /// anchor.
+    /// <para>
+    /// Through the same writer the architecture, domain and technology folders
+    /// use, and deliberately: where a status lives in a Markdown file is one fact
+    /// about this repository's documentation, not five. All this method adds is
+    /// which folder is being written and where that folder currently is.
+    /// </para>
+    /// </summary>
+    public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
+        if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
+
+        var location = source.Resolve(".design", repositoryAlias);
+        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Design knowledge is unavailable.");
+        if (location.FullPath is null) throw new InvalidOperationException("Design knowledge folder path is unavailable.");
+
+        KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".design/", status);
+        return Task.CompletedTask;
     }
 
     private static List<DesignKnowledgeFile> OrderFiles(List<DesignKnowledgeFile> files)
@@ -290,29 +324,36 @@ public static class DesignKnowledgeParser
         return index;
     }
 
-    private static DesignKnowledgeMeta TryParseMeta(string[] lines, ref int index)
+    /// <summary>
+    /// The fenced <c>meta</c> block under the heading the cursor is sitting on,
+    /// read by the shared knowledge reader rather than by a second one of this
+    /// parser's own.
+    /// <para>
+    /// This used to keep a flat <c>key: value</c> dictionary, which is why
+    /// <c>related</c> arrived at the view as raw paths and every field the schema
+    /// defines beyond status and related was dropped on the floor. Collecting the
+    /// fence body and handing it over means the design pane reads a block exactly
+    /// as every other knowledge surface reads one — references parsed, absent
+    /// fields absent.
+    /// </para>
+    /// </summary>
+    private static KnowledgeRecord TryParseMeta(string[] lines, ref int index)
     {
         if (index >= lines.Length || !lines[index].Trim().Equals("```meta", StringComparison.OrdinalIgnoreCase))
         {
-            return DesignKnowledgeMeta.Empty;
+            return KnowledgeRecord.Empty;
         }
 
         index++;
-        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var body = new List<string>();
         while (index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal))
         {
-            var line = lines[index].Trim();
-            var separator = line.IndexOf(':');
-            if (separator > 0)
-            {
-                fields[line[..separator].Trim()] = line[(separator + 1)..].Trim();
-            }
-
+            body.Add(lines[index]);
             index++;
         }
 
         if (index < lines.Length) index++;
-        return new DesignKnowledgeMeta(fields);
+        return KnowledgeRecordReader.Parse(string.Join('\n', body));
     }
 
     private static bool TryParseHeading(string line, out ParsedHeading heading)
@@ -356,7 +397,7 @@ public sealed record DesignKnowledgeFile(
     string FileName,
     string Title,
     string Summary,
-    DesignKnowledgeMeta Meta,
+    KnowledgeRecord Meta,
     IReadOnlyList<DesignKnowledgeSection> Sections)
 {
     public IEnumerable<DesignKnowledgeTable> TokenTables =>
@@ -366,33 +407,15 @@ public sealed record DesignKnowledgeFile(
 public sealed record DesignKnowledgeSection(
     string Heading,
     string Anchor,
-    DesignKnowledgeMeta Meta,
+    KnowledgeRecord Meta,
     IReadOnlyList<DesignKnowledgeBlock> Blocks);
 
-public sealed record DesignKnowledgeMeta(IReadOnlyDictionary<string, string> Fields)
-{
-    public static DesignKnowledgeMeta Empty { get; } = new(new Dictionary<string, string>());
-
-    public string Status => Fields.TryGetValue("status", out var status) ? status : "unknown";
-
-    public IReadOnlyList<string> Related => ReadList("related");
-
-    public IReadOnlyList<string> Order => ReadList("order");
-
-    public bool HasFields => Fields.Count > 0;
-
-    private IReadOnlyList<string> ReadList(string key)
-    {
-        if (!Fields.TryGetValue(key, out var value)) return [];
-        var trimmed = value.Trim();
-        if (trimmed.StartsWith('[') && trimmed.EndsWith(']')) trimmed = trimmed[1..^1];
-        if (trimmed.Length == 0) return [];
-
-        return [.. trimmed.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(item => item.Trim().Trim('"', '\''))
-            .Where(item => item.Length > 0)];
-    }
-}
+// DesignKnowledgeMeta was here: a second reader for the `meta` fence, keeping a
+// flat dictionary of strings and answering "unknown" for a status no file had
+// stated. Both were visible to the reader — `related` reached the pane as raw
+// paths because nothing had parsed them into references, and a chapter that said
+// nothing was labelled with a word the folder does not define. The shared
+// KnowledgeMetadata is the one record now.
 
 public abstract record DesignKnowledgeBlock;
 

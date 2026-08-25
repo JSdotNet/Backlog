@@ -37,14 +37,30 @@
            absolute machine path above a document that already says which file it
            is — one line of chrome before every reader reached the first word. *@
 
+        @* A status the reader picked and this pane could not write. It belongs
+           above the documents rather than beside the control: it is the pane's
+           failed attempt at the file, not anything the file says, and the same
+           trade the other knowledge panes make with their save errors. *@
+        @if (_statusError is { } statusError)
+        {
+            <Alert Message="@statusError" BaseClass="design-knowledge__message" />
+        }
+
         @if (string.IsNullOrWhiteSpace(SelectedPath))
         {
             <nav class="design-knowledge__nav" aria-label="Design knowledge documents">
                 @foreach (var file in _model.Files)
                 {
+                    @* A link to a document is a different subject from the
+                       document, so a status here is not the document's answer
+                       given twice — it is what makes the list scannable. Drawn
+                       folder-aware, because the same word means different things
+                       in different folders and this one is `.design`; drawn as
+                       nothing at all for a file that states no status, which the
+                       badge it replaced could not do. *@
                     <a href="#@FileAnchor(file)" class="design-knowledge__nav-link">
                         <span>@file.Title</span>
-                        <StatusBadge BaseClass="knowledge-status" Kind="" Status="@file.Meta.Status" />
+                        <KnowledgeStatusPill Status="@file.Meta.Status" Folder="KnowledgeFolder.Design" />
                     </a>
                 }
             </nav>
@@ -58,19 +74,41 @@
                        that is the one view where a document has to name itself:
                        several of them are stacked and nothing else says which is
                        which. A selected chapter is named by the file view below,
-                       so the header there had been reduced to a lone status
-                       badge — a word like "unknown" floating above the file,
-                       answering a question nobody had asked yet. The file's
-                       status is still on its nav link in the overview and on
-                       every section that carries one. *@
+                       and the file's own record goes in that view's header
+                       instead — a file-level block belongs beside the name, on
+                       the part of the surface that stays put while the body
+                       scrolls (.design/content-editing.md, "Knowledge Metadata
+                       Blocks").
+
+                       Here in the overview this header *is* that surface's
+                       header, so the record is drawn in it, around the name
+                       rather than beside it. Fields off: the reader is looking
+                       at eight documents and what they want from each is whether
+                       it is current, and the fields printed back as rows are the
+                       fence again with the fence taken off.
+
+                       An empty block draws nothing at all — KnowledgeMetaView
+                       renders nothing for one — so the heading has to be drawn
+                       on its own in that case rather than handed to a record
+                       that is going to stand down and take it off the page. *@
                     @if (EditableChapter(file) is null)
                     {
                         <header class="design-document__header">
-                            <div>
-                                <p class="design-document__file">@file.FileName</p>
+                            <p class="design-document__file">@file.FileName</p>
+                            @if (file.Meta.IsEmpty)
+                            {
                                 <h3>@file.Title</h3>
-                            </div>
-                            <StatusBadge BaseClass="knowledge-status" Kind="" Status="@file.Meta.Status" />
+                            }
+                            else
+                            {
+                                <KnowledgeMetaView Metadata="@file.Meta"
+                                                   Folder="KnowledgeFolder.Design"
+                                                   ShowFields="false"
+                                                   AriaLabel="@($"{file.Title} metadata")"
+                                                   CssClass="design-document__record"
+                                                   Heading="@DocumentHeading(file)"
+                                                   OnStatusChanged="status => ChangeFileStatusAsync(file, status)" />
+                            }
                         </header>
                     }
 
@@ -78,8 +116,6 @@
                        file's own opening sentences lifted out of the file and
                        printed above it, so a reader met the same prose twice
                        before reaching anything else. *@
-
-                    <DesignKnowledgeMetadata Meta="file.Meta" />
 
                     @* The token strip is the folder overview's answer to not
                        being able to see the file: a designer scanning eight
@@ -107,15 +143,46 @@
 
                     @if (EditableChapter(file) is { } chapter)
                     {
-                        @* One chapter, so the whole file including its meta fence:
+                        @* One chapter, so the whole file including its meta fences:
                            this text is written back over the source, and a buffer
                            that had the parsed sections stitched back together
                            would not be the file it came from. Shown through the
                            same file view the rest of the product shows a file
-                           through, which is where the name and the path now live —
-                           the metadata and the token strip stay above it, because
-                           they are what a designer opens this section for and
-                           neither of them is the file's text.
+                           through, which is where the name, the path and the
+                           file's own metadata record live. The record used to sit
+                           above the view as a strip of its own; a file-level block
+                           belongs in the header of the surface reading the file,
+                           beside the name, and drawn twice it would read as two
+                           facts about one file.
+
+                           The view renders the read body itself, from Body, and
+                           that is the whole of what this branch got wrong before:
+                           an editor handed over as BodyContent is a body the view
+                           does not parse, so every chapter's block stayed the raw
+                           fence it was written as and the file's own block was
+                           drawn twice — once in the header, once as that fence at
+                           the top of the body. Parsed here, each `##` fence is
+                           folded into its own heading and the `#` one is drawn in
+                           the header alone, which is what .design/content-editing.md
+                           ("Knowledge Metadata Blocks") asks for at both levels.
+                           Fields off for the reason the overview turns them off:
+                           the file is right there, and the fence is in it.
+
+                           No BodyContent at all, unlike the other knowledge panes:
+                           they draw the file view whatever the read returned and
+                           need a fallback for a chapter with no text. Here the
+                           chapter is the branch's own condition — EditableChapter
+                           is a readable chapter or nothing — so the unreadable case
+                           is the section list below, which is a better fallback
+                           than any this could pass: it keeps the per-chapter
+                           records instead of trading them for a re-render of what
+                           the parse already holds.
+
+                           Editing is a mode of the header rather than a surface
+                           mounted on arrival, so the reader who came to read gets
+                           the file and the reader who came to write asks for the
+                           buffer. CanEdit is unconditional for the same reason
+                           BodyContent is absent.
 
                            Asked to fill rather than given a height: the chapter is
                            as long as it is, and a body that sized to its content
@@ -124,9 +191,20 @@
                            it instead of in it. *@
                         <FileView Name="@file.Title"
                                   Path="@file.FileName"
+                                  Body="@_chapter.Text"
                                   Fill="true"
                                   TestId="design-chapter-file"
-                                  BodyContent="@ChapterEditor(chapter)" />
+                                  AllowCopy="true"
+                                  AllowChapterCopy="true"
+                                  RenderKnowledgeMetadata="true"
+                                  RenderKnowledgeMetadataFields="false"
+                                  ShowDiagramSource="false"
+                                  KnowledgeFolder="KnowledgeFolder.Design"
+                                  OnKnowledgeStatusChanged="change => ChangeChapterStatusAsync(file, change)"
+                                  CanEdit="true"
+                                  Editing="@_editing"
+                                  EditingChanged="OnEditingChangedAsync"
+                                  EditBodyContent="@ChapterEditor(chapter)" />
                     }
                     else
                     {
@@ -137,11 +215,32 @@
                         @foreach (var section in file.Sections)
                         {
                             <section class="design-section" id="@section.Anchor">
-                                <header class="design-section__header">
-                                    <h4>@section.Heading</h4>
-                                    <StatusBadge BaseClass="knowledge-status" Kind="" Status="@section.Meta.Status" />
-                                </header>
-                                <DesignKnowledgeMetadata Meta="section.Meta" />
+                                @* A chapter's block folded into the chapter's own
+                                   heading, status at the right edge of the line.
+                                   It used to be a badge in a header and a strip
+                                   under it — one subject, two answers, the second
+                                   of them the raw fence in another shape.
+
+                                   Empty means the heading on its own, for the
+                                   reason the document header above says: a record
+                                   with nothing in it renders nothing, heading
+                                   included. *@
+                                @if (section.Meta.IsEmpty)
+                                {
+                                    <header class="design-section__header">
+                                        <h4>@section.Heading</h4>
+                                    </header>
+                                }
+                                else
+                                {
+                                    <KnowledgeMetaView Metadata="@section.Meta"
+                                                       Folder="KnowledgeFolder.Design"
+                                                       ShowFields="false"
+                                                       AriaLabel="@($"{section.Heading} metadata")"
+                                                       CssClass="design-section__record"
+                                                       Heading="@SectionHeading(section)"
+                                                       OnStatusChanged="status => ChangeSectionStatusAsync(file, section, status)" />
+                                }
                                 <KnowledgeBlocks Blocks="section.Blocks" DiagramTitle="@section.Heading" />
                             </section>
                         }
@@ -156,6 +255,9 @@
     private DesignKnowledgeModel? _model;
     private string? _loadedRepositoryAlias;
     private KnowledgeChapterContent _chapter = KnowledgeChapterContent.None;
+    private KnowledgeChapterEditor? _editor;
+    private string? _statusError;
+    private bool _editing;
 
     [Parameter]
     public string? RepositoryAlias { get; set; }
@@ -179,7 +281,7 @@
         // The selection can move without the scope moving, and the guard above is
         // there precisely to skip a re-parse when it does — so the chapter is
         // read outside it.
-        _chapter = await LoadChapterAsync();
+        await ReadChapterAsync();
     }
 
     /// <summary>The configured folder moved, so every cached read is stale —
@@ -200,10 +302,151 @@
     {
         _model = await DesignKnowledge.LoadAsync(RepositoryAlias);
         _loadedRepositoryAlias = RepositoryAlias;
+        await ReadChapterAsync();
+    }
+
+    /// <summary>
+    /// The open chapter off disk, and the editing mode kept or dropped with it.
+    /// <para>
+    /// A different file is read fresh, so nothing the last one was doing carries
+    /// over — the mode belongs to the file view's header now, and left set it
+    /// would open the next document straight into a textarea nobody asked for. A
+    /// re-read of the <em>same</em> file must not reset it: every keystroke's
+    /// debounce comes back through here after a save, and resetting there would
+    /// close the editor under the reader who is typing.
+    /// </para>
+    /// </summary>
+    private async Task ReadChapterAsync()
+    {
+        var previous = _chapter.Chapter?.RelativePath;
         _chapter = await LoadChapterAsync();
+
+        if (!string.Equals(previous, _chapter.Chapter?.RelativePath, StringComparison.OrdinalIgnoreCase)) _editing = false;
+
+        // Blazor assigns a component reference but never clears it, so an editor
+        // that has stopped rendering would still be reachable. Cleared with the
+        // chapter it belonged to, which is the condition the markup renders it on.
+        if (_chapter.Chapter is null) _editor = null;
     }
 
     private Task OnChapterSavedAsync() => ReloadAsync();
+
+    /// <summary>
+    /// Into the editor, or back out of it.
+    /// <para>
+    /// Leaving flushes whatever the debounce still owes and re-reads the folder, so
+    /// the read view the reader lands back on is the file as it now is — the nav
+    /// link, the records beside the headings and the file's own record in the
+    /// header are all derived from the parse, and none of them would follow a save
+    /// on their own. The flush goes first, while the surface holding the pending
+    /// write is still on screen.
+    /// </para>
+    /// </summary>
+    private async Task OnEditingChangedAsync(bool editing)
+    {
+        if (editing)
+        {
+            _editing = true;
+            return;
+        }
+
+        await FlushEditorAsync();
+        _editing = false;
+        await ReloadAsync();
+    }
+
+    /// <summary>Flushes the editing surface if one is on screen. Guarded on the
+    /// condition the markup renders it on, because a captured reference outlives
+    /// the component it points at.</summary>
+    private Task FlushEditorAsync() =>
+        _editor is not null && _editing && _chapter.Chapter is not null ? _editor.FlushAsync() : Task.CompletedTask;
+
+    /// <summary>The document's name, for the record's headline to hold the status
+    /// against. Handed over as a fragment rather than as a string because the
+    /// heading and the status only genuinely share a line if they share a
+    /// parent.</summary>
+    private RenderFragment DocumentHeading(DesignKnowledgeFile file) => @<h3>@file.Title</h3>;
+
+    /// <summary>The chapter's heading, for the same reason.</summary>
+    private RenderFragment SectionHeading(DesignKnowledgeSection section) => @<h4>@section.Heading</h4>;
+
+    /// <summary>
+    /// A status picked on a document in the folder overview, written to the fence
+    /// under that file's title.
+    /// </summary>
+    private Task ChangeFileStatusAsync(DesignKnowledgeFile file, string status) =>
+        WriteStatusAsync($".design/{file.FileName}", status);
+
+    /// <summary>
+    /// A status picked on a chapter in the folder overview, written to the fence
+    /// under that chapter's heading. Addressed by the slug of the heading rather
+    /// than by the section's anchor: the anchor is prefixed for uniqueness across
+    /// the whole folder, and the writer goes looking for the heading itself.
+    /// </summary>
+    private Task ChangeSectionStatusAsync(DesignKnowledgeFile file, DesignKnowledgeSection section, string status) =>
+        WriteStatusAsync($".design/{file.FileName}#{Slug(section.Heading)}", status);
+
+    /// <summary>
+    /// A status picked anywhere in the open file, written to the fence it belongs
+    /// to.
+    /// <para>
+    /// The view reports the heading the control sat under, and that is what decides
+    /// the subject: the file's title is the file's own block, in the header, and
+    /// every other heading is a chapter of it. Both cases are real now that the
+    /// view renders the body — each `##` fence is a record with its own control, so
+    /// a handler that only knew the title would have quietly dropped every chapter's
+    /// pick and left the reader watching a select snap back.
+    /// </para>
+    /// </summary>
+    private async Task ChangeChapterStatusAsync(DesignKnowledgeFile file, KnowledgeStatusChange change)
+    {
+        if (change.Heading is not { } heading) return;
+
+        var itemPath = string.Equals(heading, file.Title, StringComparison.OrdinalIgnoreCase)
+            ? $".design/{file.FileName}"
+            : $".design/{file.FileName}#{Slug(heading)}";
+
+        // The body goes first; KnowledgeChapterEditor.FlushAsync says why. It is
+        // rarely anything but a no-op — these controls live in the read view and
+        // the editor is only on screen while writing, so leaving edit mode has
+        // already flushed — but a debounce can still be a moment behind, and the
+        // ordering must not depend on it.
+        await FlushEditorAsync();
+
+        await WriteStatusAsync(itemPath, change.Status);
+    }
+
+    /// <summary>
+    /// The one place this pane writes a status. Reloading afterwards is not
+    /// optional: the nav link, the token strip and every other record on screen
+    /// are read from the parsed folder, so without it the pane would keep showing
+    /// what the file said before the write.
+    /// </summary>
+    private async Task WriteStatusAsync(string itemPath, string status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return;
+
+        _statusError = null;
+        try
+        {
+            await DesignKnowledge.UpdateStatusAsync(RepositoryAlias, itemPath, status);
+            await ReloadAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _statusError = ex.Message;
+        }
+    }
+
+    /// <summary>The heading slug the status writer addresses a chapter by. Kept
+    /// here rather than shared with <see cref="DesignKnowledgeParser"/>'s anchor,
+    /// which prefixes the file name so an id is unique across the whole folder —
+    /// the writer wants the heading alone.</summary>
+    private static string Slug(string heading)
+    {
+        var chars = heading.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray();
+        return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
+    }
 
     /// <summary>The root's classes, carrying the chapter modifier when a file
     /// view is on screen to take the pane's scrollbar. Derived from what actually
@@ -215,11 +458,16 @@
             ? "design-knowledge design-knowledge--chapter"
             : "design-knowledge";
 
-    /// <summary>The chapter as a buffer, for the file view's body. No Title is
-    /// handed over: the file view's header above it already names the file, and the
-    /// document bar inside it is there for the actions.</summary>
-    private RenderFragment ChapterEditor(KnowledgeChapterRef chapter) => @<KnowledgeChapterEditor Chapter="@chapter"
+    /// <summary>The chapter as a buffer, and nothing else: no title, because the
+    /// file view's header above it already names the file, and Bare because that
+    /// header now carries the way in and out of editing too — the bar would put a
+    /// second Edit button directly under the first and render the chapter again
+    /// underneath the one already on screen. Only there while the reader is
+    /// writing.</summary>
+    private RenderFragment ChapterEditor(KnowledgeChapterRef chapter) => @<KnowledgeChapterEditor @ref="_editor"
+                                                                                                  Chapter="@chapter"
                                                                                                   InitialText="@_chapter.Text"
+                                                                                                  Bare="true"
                                                                                                   OnSaved="OnChapterSavedAsync" />;
 
     /// <summary>

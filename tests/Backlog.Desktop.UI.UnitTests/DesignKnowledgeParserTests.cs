@@ -35,7 +35,14 @@ graph TD
 
         Assert.Equal("Color scheme", file.Title);
         Assert.Equal("approved", file.Meta.Status);
-        Assert.Equal([".design/design-principles.md", ".arc42/10-quality-requirements.md"], file.Meta.Related);
+
+        // Parsed into references rather than kept as the strings the fence spelled.
+        // That is the whole point of reading the block through the shared reader:
+        // a `related` entry is an address, and the raw path was what the design
+        // pane used to print back at the reader.
+        Assert.Equal(
+            [".design/design-principles.md", ".arc42/10-quality-requirements.md"],
+            file.Meta.Related.Select(reference => reference.Raw));
         Assert.Equal("Dark mode only.", file.Summary);
 
         var section = Assert.Single(file.Sections);
@@ -43,6 +50,30 @@ graph TD
         Assert.Equal("active", section.Meta.Status);
         Assert.Contains(section.Blocks, block => block is DesignKnowledgeTable { IsTokenTable: true });
         Assert.Contains(section.Blocks, block => block is DesignKnowledgeDiagram { Language: "mermaid" });
+    }
+
+    /// <summary>
+    /// A block that states nothing states nothing. The reader used to answer
+    /// "unknown" for an absent status, which is a word no design file writes and
+    /// which every surface then printed as though the file had.
+    /// </summary>
+    [Fact]
+    public void A_heading_that_carries_no_block_states_no_status()
+    {
+        using var folder = new TemporaryFolder();
+        var path = Path.Combine(folder.Path, "typography-and-layout.md");
+        File.WriteAllText(path, """
+# Typography and layout
+
+## Metadata lines
+
+The record is drawn against its subject.
+""");
+
+        var file = DesignKnowledgeParser.ParseFile(folder.Path, path);
+
+        Assert.Null(file.Meta.Status);
+        Assert.Null(Assert.Single(file.Sections).Meta.Status);
     }
 
     [Fact]
