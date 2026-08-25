@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -94,7 +95,200 @@ public sealed record DevToolCommandSpec(
     IReadOnlyList<string> Args,
     string? Expect = null,
     bool Shell = false,
-    string? Encoding = null);
+    string? Encoding = null)
+{
+    /// <summary>What Windows is actually asked to start.
+    ///
+    /// <para><c>code</c> is the case this exists for. It resolves to
+    /// <c>…\Microsoft VS Code\bin\code.cmd</c>, and a launcher that redirects its
+    /// streams cannot use <c>UseShellExecute</c> — so starting it directly throws
+    /// "not a valid application for this OS platform" before a single byte of
+    /// output exists to explain why.</para></summary>
+    public string FileName => Shell ? "cmd.exe" : Command;
+
+    /// <summary>The arguments in the order the launcher hands them to
+    /// <c>ArgumentList</c>, with the command itself folded in when it is being run
+    /// through the shell.
+    ///
+    /// <para>A list and never a joined string: <c>cmd.exe</c> is handed <c>/c</c>,
+    /// the command, and each argument as separate items, so a winget id with a
+    /// literal <c>+</c> in it and a path with a space both arrive intact. Every
+    /// hand-quoted form of this loses one of the two.</para></summary>
+    public IReadOnlyList<string> LaunchArguments => Shell ? ["/c", Command, .. Args] : Args;
+
+    /// <summary>How this command's redirected output has to be read.
+    ///
+    /// <para>UTF-8 unless the entry says otherwise, because that is what winget
+    /// writes to a pipe whatever the console code page is. <c>wsl.exe</c> is the
+    /// exception the field exists for: it writes UTF-16LE with no BOM, and a UTF-8
+    /// reader turns <c>WSL</c> into <c>W\0S\0L\0</c> — output that parses as
+    /// nothing at all rather than as an error anyone could see.</para></summary>
+    public Encoding OutputEncoding => ReadEncoding(Encoding);
+
+    /// <summary>Names an encoding, falling back to UTF-8 rather than throwing.
+    /// The value comes out of a hand-edited catalog, and a typo in it should cost
+    /// one command its non-default reader rather than take the whole listing down
+    /// from inside a probe.</summary>
+    private static Encoding ReadEncoding(string? name) => name?.Trim().ToLowerInvariant() switch
+    {
+        null or "" or "utf-8" or "utf8" => System.Text.Encoding.UTF8,
+        "utf-16" or "utf-16le" or "unicode" => System.Text.Encoding.Unicode,
+        "utf-16be" or "bigendianunicode" => System.Text.Encoding.BigEndianUnicode,
+        var other => NamedEncoding(other)
+    };
+
+    private static Encoding NamedEncoding(string name)
+    {
+        try
+        {
+            return System.Text.Encoding.GetEncoding(name);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException)
+        {
+            return System.Text.Encoding.UTF8;
+        }
+    }
+}
+
+/// <summary>
+/// The commands the automated providers run, spelled once.
+///
+/// <para>Here rather than in the desktop adapter that launches them, for the same
+/// reason the stdout parsers are: an argument list is the half of a command
+/// surface that can be checked without a machine to run it on, and every trap
+/// these carry — <c>--silent</c> is <c>-h</c> while <c>-s</c> is <c>--source</c>,
+/// the msstore copy of a package needs a signed-in Store account — is a trap that
+/// shows up in a diff and never in a suite that mocked the process away.</para>
+/// </summary>
+public static class DevToolCommands
+{
+    /// <summary>Which source a package is taken from, always named.
+    ///
+    /// <para>Left unsaid, winget may resolve an id to its <c>msstore</c> twin,
+    /// which needs a signed-in Store account and fails <c>0x8A150044</c> on a
+    /// machine that has none — an install that reads as broken tooling rather than
+    /// as the account it is really about.</para></summary>
+    private const string WingetSource = "winget";
+
+    /// <summary>What every winget call carries: no prompts, and the source
+    /// agreement accepted up front. Without them a first run on a fresh machine
+    /// blocks on a y/n nobody can see, behind a redirected pipe, until the
+    /// timeout.</summary>
+    private static readonly string[] WingetQuiet = ["--disable-interactivity", "--accept-source-agreements"];
+
+    public static DevToolCommandSpec WingetVersion() => new("winget", ["--version"]);
+
+    /// <summary>Everything installed, in one call.
+    ///
+    /// <para>Unfiltered on purpose. A <c>--id</c> per catalog row would be one
+    /// process launch per row and thirty of them per refresh; the whole table is
+    /// read once and the rows are matched against it in memory.</para></summary>
+    public static DevToolCommandSpec WingetList() => new("winget", ["list", .. WingetQuiet]);
+
+    /// <summary>Everything with a newer version, in one call.
+    ///
+    /// <para><c>--include-unknown</c> because a package whose installed version
+    /// winget cannot read drops out of this listing entirely without it — and
+    /// those are exactly the MSIX and click-to-run entries that most often have
+    /// one.</para></summary>
+    public static DevToolCommandSpec WingetUpgrade() => new("winget", ["upgrade", "--include-unknown", .. WingetQuiet]);
+
+    /// <summary>What one package's manifest publishes. The per-row fallback, for a
+    /// package the two batched listings could not answer for — which is a package
+    /// this machine does not have.</summary>
+    public static DevToolCommandSpec WingetShow(string id) =>
+        new("winget", ["show", "--id", id, "--exact", "--source", WingetSource, .. WingetQuiet]);
+
+    /// <summary>An unattended install of one package.
+    ///
+    /// <para><c>--silent</c> is spelled out because its short form is <c>-h</c>:
+    /// the <c>-s</c> a reader expects is <c>--source</c>, and the two are one
+    /// keystroke apart in a line where the wrong one installs from the Microsoft
+    /// Store.</para></summary>
+    public static DevToolCommandSpec WingetInstall(string id) =>
+        new("winget", [
+            "install",
+            "--id", id,
+            "--exact",
+            "--source", WingetSource,
+            "--silent",
+            "--accept-source-agreements",
+            "--accept-package-agreements",
+            "--disable-interactivity",
+            "--nowarn"
+        ]);
+
+    /// <inheritdoc cref="DevToolCommandSpec.FileName" />
+    public static DevToolCommandSpec VsCodeVersion() => new("code", ["--version"], Shell: true);
+
+    /// <summary>Every installed extension and its version in one call — the whole
+    /// inventory for every extension row in the catalog.</summary>
+    public static DevToolCommandSpec VsCodeExtensionList() =>
+        new("code", ["--list-extensions", "--show-versions"], Shell: true);
+
+    /// <summary>Installs or updates one extension. An extension that is already
+    /// there exits 0 with a sentence saying so, which is why the caller does not
+    /// have to know which of the two it is doing.</summary>
+    public static DevToolCommandSpec VsCodeInstallExtension(string id) =>
+        new("code", ["--install-extension", id], Shell: true);
+
+    /// <summary>Where the marketplace answers what the CLI cannot: an extension's
+    /// latest published version. There is no <c>code --list-outdated</c>, no
+    /// <c>--check-updates</c> and no JSON output of any kind.</summary>
+    public const string MarketplaceQueryUrl = "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery";
+
+    /// <summary>The Accept header the gallery answers JSON to. Without the
+    /// <c>api-version</c> in it the endpoint replies with a page rather than a
+    /// document.</summary>
+    public const string MarketplaceQueryAccept = "application/json;api-version=7.2-preview.1";
+
+    /// <summary>
+    /// One query for every extension in the catalog.
+    ///
+    /// <para><c>filterType 7</c> is an exact <c>publisher.name</c> match, and
+    /// several criteria go in one filter — so the whole Available column costs one
+    /// HTTP call rather than one per row.</para>
+    ///
+    /// <para><c>flags</c> is 402 and deliberately not 914. The extra bit in 914 is
+    /// <c>IncludeLatestVersionOnly</c>, which answers with the newest build of any
+    /// channel: <c>ms-vscode.PowerShell</c> replies with a pre-release while the
+    /// stable channel — the one <c>code --install-extension</c> actually installs —
+    /// sits several versions below it. That is a permanent update offer for a
+    /// version the install can never deliver.</para>
+    /// </summary>
+    public static string MarketplaceExtensionQuery(IEnumerable<string> ids)
+    {
+        var criteria = new JsonArray();
+        var count = 0;
+
+        foreach (var id in ids)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                continue;
+            }
+
+            criteria.Add(new JsonObject { ["filterType"] = 7, ["value"] = id.Trim() });
+            count++;
+        }
+
+        var query = new JsonObject
+        {
+            ["filters"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["criteria"] = criteria,
+                    ["pageNumber"] = 1,
+                    ["pageSize"] = Math.Max(count, 1)
+                }
+            },
+            ["flags"] = 402
+        };
+
+        return query.ToJsonString();
+    }
+}
 
 /// <summary>
 /// One entry of the catalog's <c>applications</c> array, read into something a
@@ -251,6 +445,19 @@ public sealed record DevToolInfo(
     /// checked this machine, somebody ticked a box on it.</para></summary>
     public bool Acknowledged { get; init; }
 
+    /// <summary>Whether there is a mechanism behind this row at all.
+    ///
+    /// <para>False is the checklist row and the row the package manager knows and
+    /// cannot install unattended — "Dev Drive configured", an IDE whose workloads
+    /// need an override and an hour. Both are worth reporting and neither has a
+    /// button, and without this they were indistinguishable from a tool that is
+    /// simply missing: the row offered an Install that had nothing to run and
+    /// reported the nothing as a failure.</para>
+    ///
+    /// <para>Defaults to true, so every row that predates applications keeps the
+    /// answer it always had.</para></summary>
+    public bool Installable { get; init; } = true;
+
     public bool UpdateAvailable => HostStates.Count > 0
         ? HostStates.Any(state => VersionDiffers(state.InstalledVersion, state.AvailableVersion))
         : VersionDiffers(InstalledVersion, AvailableVersion);
@@ -258,7 +465,7 @@ public sealed record DevToolInfo(
     /// <summary>An update on <em>any</em> targeted host is an update to offer. One
     /// press acts on every host the entry targets, so a Claude plugin that is a
     /// version behind is worth a button even when the Copilot copy is current.</summary>
-    public bool CanUpdate => ConfiguredEnabled && (HostStates.Count > 0
+    public bool CanUpdate => Installable && ConfiguredEnabled && (HostStates.Count > 0
         ? HostStates.Any(state => state.Installed && VersionDiffers(state.InstalledVersion, state.AvailableVersion))
         : Installed && UpdateAvailable);
 
@@ -272,7 +479,7 @@ public sealed record DevToolInfo(
     ///
     /// <para>Missing on any one targeted host counts. A plugin Copilot already has
     /// and Claude has not is still a plugin this machine is short of.</para></summary>
-    public bool CanInstall => ConfiguredEnabled && (HostStates.Count > 0
+    public bool CanInstall => Installable && ConfiguredEnabled && (HostStates.Count > 0
         ? HostStates.Any(state => !state.Installed)
         : !Installed);
 
@@ -285,9 +492,18 @@ public sealed record DevToolInfo(
         ? HostStates.Any(state => IsKnownVersion(state.AvailableVersion))
         : IsKnownVersion(AvailableVersion);
 
+    /// <summary>Whether a string in a version column is a version somebody
+    /// looked up.
+    ///
+    /// <para><see cref="DevToolOutput.NoVersion"/> counts as no: it is what a row
+    /// with nothing to compare puts there, and "up to date" said about a dash is
+    /// a claim about nothing. A checklist row — "Dev Drive configured", answered
+    /// by a substring in some prose — is exactly that shape, and it read as up to
+    /// date whether or not the machine had done the thing.</para></summary>
     private static bool IsKnownVersion(string availableVersion) =>
         !string.IsNullOrWhiteSpace(availableVersion)
-        && !availableVersion.Trim().Equals(DevToolOutput.Unknown, StringComparison.OrdinalIgnoreCase);
+        && !availableVersion.Trim().Equals(DevToolOutput.Unknown, StringComparison.OrdinalIgnoreCase)
+        && !availableVersion.Trim().Equals(DevToolOutput.NoVersion, StringComparison.Ordinal);
 
     /// <summary>
     /// Whether the available version is an update to the installed one.
@@ -1561,6 +1777,46 @@ public static class DevToolConfiguration
         throw new ArgumentException("Unknown tool key.", nameof(key));
     }
 
+    /// <summary>
+    /// Which kind a key addresses.
+    ///
+    /// <para>Here rather than as another chain of <c>StartsWith</c> at each call
+    /// site, because the two chains that already existed were both written as a
+    /// ternary whose <em>else</em> was "MCP server" — so a key with a prefix
+    /// neither arm named was not rejected, it was quietly run as an MCP server
+    /// against an entry that was not one. An <c>app:</c> key would have been the
+    /// first to hit that.</para>
+    ///
+    /// <para>It throws on an unknown prefix for the same reason
+    /// <see cref="ParseKey"/> does: a key is minted by <see cref="KeyFor"/> and
+    /// nowhere else, so one that parses as nothing is a bug in this file rather
+    /// than bad input from a user.</para>
+    /// </summary>
+    public static DevToolKind KindOf(string key)
+    {
+        if (key.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase))
+        {
+            return DevToolKind.Plugin;
+        }
+
+        if (key.StartsWith("mcp:", StringComparison.OrdinalIgnoreCase))
+        {
+            return DevToolKind.McpServer;
+        }
+
+        if (key.StartsWith("marketplace:", StringComparison.OrdinalIgnoreCase))
+        {
+            return DevToolKind.Marketplace;
+        }
+
+        if (key.StartsWith("app:", StringComparison.OrdinalIgnoreCase))
+        {
+            return DevToolKind.Application;
+        }
+
+        throw new ArgumentException("Unknown tool key.", nameof(key));
+    }
+
     private static JsonObject EmptyCatalog() => new()
     {
         ["plugins"] = new JsonArray(),
@@ -1619,6 +1875,179 @@ public static class DevToolConfiguration
 
         File.Move(tempPath, catalogPath, overwrite: true);
     }
+}
+
+/// <summary>
+/// The Claude desktop app's own MCP server list, which is a file and not a CLI.
+///
+/// <para>The MSIX package declares no execution alias, so nothing of Claude
+/// Desktop's is ever on PATH, and the app's internal update channel can only
+/// change a server that is already registered — it structurally cannot add one.
+/// Editing <c>claude_desktop_config.json</c> is the whole mechanism.</para>
+///
+/// <para>Which makes this the one host whose registration is a document merge,
+/// and the one whose failure mode is losing something. The file is the app's
+/// entire settings store — preferences, the global shortcut, the Cowork files
+/// path, feature switches — so a writer that serialises its own idea of the
+/// document wipes all of it. Everything here reads the document it was given and
+/// puts one property back.</para>
+/// </summary>
+public static class DevToolClaudeDesktopConfig
+{
+    /// <summary>The file every path candidate below ends in.</summary>
+    public const string FileName = "claude_desktop_config.json";
+
+    /// <summary>Where the servers live in it.</summary>
+    public const string ServersPropertyName = "mcpServers";
+
+    /// <summary>What has to happen before a change here is live.
+    ///
+    /// <para>The app reads this file once at startup and memoises it, with no
+    /// watch on it. Closing the window is not enough — the process stays in the
+    /// tray holding the old list — so a row that reported the server as running
+    /// after a write would be wrong until the person happened to reboot.</para></summary>
+    public const string RestartRequired = "Quit Claude Desktop from the tray and relaunch it for this to take effect.";
+
+    /// <summary>
+    /// Where the config might be, best first.
+    ///
+    /// <para>Three, because the app has moved: the roaming path is where a
+    /// current install keeps it, the packaged <c>LocalCache</c> path is the MSIX
+    /// redirection of that same roaming folder, and <c>Claude-Data</c> is the
+    /// older layout. A machine that has been upgraded can have more than one of
+    /// them on disk, so the order is the answer rather than a preference.</para>
+    ///
+    /// <para>Takes the two roots as arguments so the order can be checked without
+    /// a Claude install to check it against.</para>
+    /// </summary>
+    public static IReadOnlyList<string> ConfigPathCandidates(string appDataRoaming, string appDataLocal) =>
+    [
+        Path.Combine(appDataRoaming, "Claude", FileName),
+        Path.Combine(appDataLocal, "Packages", "Claude_pzs8sxrjxfjjc", "LocalCache", "Roaming", "Claude", FileName),
+        Path.Combine(appDataLocal, "Claude-Data", FileName)
+    ];
+
+    /// <summary>
+    /// What the config says one server is, or nothing when it says nothing.
+    ///
+    /// <para>An absent <c>mcpServers</c> is zero servers and not a broken file:
+    /// the app omits the property entirely until the first server is registered,
+    /// so every machine that has never used one reads this way.</para>
+    /// </summary>
+    public static DevToolClaudeDesktopServer? ReadServer(JsonNode? root, string name)
+    {
+        if (root?[ServersPropertyName] is not JsonObject servers || servers[name] is not JsonObject entry)
+        {
+            return null;
+        }
+
+        var command = entry["command"] is JsonValue value && value.TryGetValue<string>(out var text) ? text : string.Empty;
+        var args = new List<string>();
+
+        if (entry["args"] is JsonArray declared)
+        {
+            foreach (var argument in declared)
+            {
+                if (argument is JsonValue item && item.TryGetValue<string>(out var argumentText))
+                {
+                    args.Add(argumentText);
+                }
+            }
+        }
+
+        return new DevToolClaudeDesktopServer(command, args);
+    }
+
+    /// <summary>
+    /// Puts one server into the document and hands the whole document back.
+    ///
+    /// <para>The document, not a new one built from the servers: every other key
+    /// in it is the person's own settings, and the version of this that emitted
+    /// <c>{"mcpServers": …}</c> would be indistinguishable from a correct one
+    /// until somebody noticed their preferences had gone.</para>
+    ///
+    /// <para>Only <c>command</c>, <c>args</c> and <c>env</c> are written, and only
+    /// when there is something to write. The app's own validator takes stdio
+    /// servers and nothing else — no <c>type</c>, no <c>url</c>, no
+    /// <c>transport</c> — and silently strips whatever else it finds, so a
+    /// property added here would vanish without ever being reported.</para>
+    /// </summary>
+    public static JsonObject MergeServer(
+        JsonObject root,
+        string name,
+        string command,
+        IReadOnlyList<string>? args = null,
+        IReadOnlyDictionary<string, string>? env = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+
+        if (root[ServersPropertyName] is not JsonObject servers)
+        {
+            servers = [];
+            root[ServersPropertyName] = servers;
+        }
+
+        var entry = new JsonObject { ["command"] = command };
+
+        if (args is { Count: > 0 })
+        {
+            var values = new JsonArray();
+            foreach (var argument in args)
+            {
+                values.Add(argument);
+            }
+
+            entry["args"] = values;
+        }
+
+        if (env is { Count: > 0 })
+        {
+            var values = new JsonObject();
+            foreach (var pair in env)
+            {
+                values[pair.Key] = pair.Value;
+            }
+
+            entry["env"] = values;
+        }
+
+        servers[name] = entry;
+
+        return root;
+    }
+
+    /// <summary>
+    /// Takes one server out of the document, leaving everything else exactly as
+    /// it was — including an <c>mcpServers</c> that is now empty.
+    ///
+    /// <para>The empty object stays rather than being tidied away. It is the
+    /// difference between "this machine has no servers registered" and "this
+    /// machine has never registered one", and only one of those is a config a
+    /// person has been editing.</para>
+    /// </summary>
+    public static JsonObject RemoveServer(JsonObject root, string name)
+    {
+        if (root[ServersPropertyName] is JsonObject servers)
+        {
+            servers.Remove(name);
+        }
+
+        return root;
+    }
+}
+
+/// <summary>One entry of the Claude desktop app's server list, in the only shape
+/// its own validator accepts: a command, and the arguments it is given. There is
+/// no transport to read — the file holds stdio servers and nothing else.</summary>
+public sealed record DevToolClaudeDesktopServer(string Command, IReadOnlyList<string> Args)
+{
+    /// <summary>The registration as one line, which is what the row compares
+    /// against the catalog's own command. The arguments are part of it: a
+    /// registration pointing at the right executable with the wrong arguments is
+    /// a registration that does not work, and the command alone cannot say
+    /// so.</summary>
+    public string CommandLine => string.Join(' ', new[] { Command }.Concat(Args));
 }
 
 public interface IDevToolService

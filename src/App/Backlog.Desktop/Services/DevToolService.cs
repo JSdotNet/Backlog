@@ -35,6 +35,70 @@ public sealed class DevToolService : IDevToolService
     /// legible in the command log next to a CLI that ran and refused.</summary>
     private const int CommandNotFound = -1;
 
+    /// <inheritdoc cref="CommandNotFound" />
+    /// <summary>The exit code stood in for a command that was still running when
+    /// its time ran out. Distinct from <see cref="CommandNotFound"/> for the same
+    /// reason that one is distinct from a real failure: "winget never answered" and
+    /// "winget answered no" are different problems and the log is where somebody
+    /// tells them apart.</summary>
+    private const int CommandTimedOut = -2;
+
+    /// <inheritdoc cref="ClaudeCliMissing" />
+    private const string WingetCliMissing = "The winget CLI was not found on this machine.";
+
+    /// <inheritdoc cref="ClaudeCliMissing" />
+    private const string VsCodeCliMissing = "The VS Code CLI ('code') was not found on this machine.";
+
+    /// <inheritdoc cref="ClaudeCliMissing" />
+    private const string ClaudeDesktopMissing = "The Claude desktop app was not found on this machine.";
+
+    /// <summary>
+    /// How long a listing waits for one command before giving up on it.
+    ///
+    /// <para>There was no timeout at all, and the pane calls the listing with no
+    /// token — survivable while everything it ran was <c>claude plugin list</c>,
+    /// which answers instantly or not at all. <c>winget list</c> against a cold
+    /// source is minutes of nothing, and a source that is unreachable is forever:
+    /// one of those hung the tools tab with no way back.</para>
+    ///
+    /// <para>Two minutes rather than a few seconds because the slow case here is
+    /// legitimate — winget really does take that long the first time after a
+    /// reboot — and a probe killed early reports "not installed" about a machine
+    /// that has it.</para>
+    /// </summary>
+    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromMinutes(2);
+
+    /// <summary>How long an install gets. A Docker Desktop or a Visual Studio
+    /// workload is genuinely tens of minutes of downloading, and the probe budget
+    /// would kill both of them part-way through — which is worse than waiting,
+    /// because a half-installed package is a machine somebody has to repair by
+    /// hand.</summary>
+    private static readonly TimeSpan InstallTimeout = TimeSpan.FromMinutes(45);
+
+    /// <summary>How many per-package <c>winget show</c> calls one refresh may
+    /// spend.
+    ///
+    /// <para>The two batched listings answer for every package that is installed.
+    /// What is left is the packages this machine does not have, and each of those
+    /// costs a process launch and a source round-trip to learn a version the row
+    /// does not act on — so a catalog listing twenty missing apps would spend a
+    /// minute of the refresh on the Available column alone. What is skipped is
+    /// named on the status line rather than silently truncated.</para></summary>
+    private const int WingetShowBudget = 6;
+
+    /// <summary>
+    /// The one HTTP client in this class, for the one thing no CLI can answer:
+    /// what a VS Code extension's latest published version is.
+    ///
+    /// <para>Static because the alternative in a class of static methods is a
+    /// client per refresh, and a socket per refresh after that. Its own timeout is
+    /// short: this is one column of a listing, and the listing is honest about not
+    /// knowing.</para></summary>
+    private static readonly HttpClient Marketplace = new() { Timeout = TimeSpan.FromSeconds(20) };
+
+    private static readonly IReadOnlyDictionary<string, string> NoVersions =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
     private readonly IBacklogStore? _store;
     private readonly string? _configPath;
     private readonly ILogger<DevToolService>? _logger;
@@ -180,6 +244,20 @@ public sealed class DevToolService : IDevToolService
                 ct).ConfigureAwait(false));
         }
 
+        // Resolved once, before the loop, and only when some entry asks for it.
+        // The Claude desktop app is a file rather than a CLI: the answer is one
+        // config document that every row targeting it reads, and re-reading it per
+        // row would be one more chance for two rows to disagree about the same
+        // file.
+        var claudeDesktop = GetArray(root, "mcpServers").Any(server => DevToolConfiguration.ParseHosts(server).HasFlag(DevToolHosts.ClaudeDesktop))
+            ? await ResolveClaudeDesktopAsync(log, ct).ConfigureAwait(false)
+            : null;
+
+        if (claudeDesktop?.Error is { Length: > 0 } desktopError)
+        {
+            messages.Add(desktopError);
+        }
+
         foreach (var server in GetArray(root, "mcpServers"))
         {
             var packageId = GetString(server, "packageId");
@@ -188,7 +266,23 @@ public sealed class DevToolService : IDevToolService
                 continue;
             }
 
-            tools.Add(await DescribeMcpServerAsync(server, packageId, installedTools, claudeCli, log, ct).ConfigureAwait(false));
+            tools.Add(await DescribeMcpServerAsync(server, packageId, installedTools, claudeCli, claudeDesktop, log, ct).ConfigureAwait(false));
+        }
+
+        // Applications last, and read as one batch. Every other kind above asks
+        // one CLI a question per entry; this one asks two CLIs and an HTTP
+        // endpoint for the whole array at once, because a machine's software
+        // inventory is thirty-odd rows and a launch per row is a refresh nobody
+        // waits out.
+        var applications = DevToolConfiguration.ReadApplications(root);
+        if (applications.Count > 0)
+        {
+            var inventory = await ReadApplicationInventoryAsync(applications, log, messages, ct).ConfigureAwait(false);
+
+            foreach (var application in applications)
+            {
+                tools.Add(DescribeApplication(application, inventory));
+            }
         }
 
         var sourceMessage = config.PcConfigExists
@@ -340,6 +434,7 @@ public sealed class DevToolService : IDevToolService
         string packageId,
         IReadOnlyDictionary<string, string> installedTools,
         string? claudeCli,
+        ClaudeDesktopState? claudeDesktop,
         CommandLog log,
         CancellationToken ct)
     {
@@ -379,6 +474,28 @@ public sealed class DevToolService : IDevToolService
             {
                 var details = await GetClaudeMcpServerAsync(claudeCli, serverName, log, ct).ConfigureAwait(false);
                 states.Add(DescribeClaudeRegistration(serverName, command, details));
+            }
+        }
+
+        // The desktop app is a third host and not a second reading of the Claude
+        // CLI beside it: its own config file, its own server list, and a change to
+        // either that the other never sees.
+        if (hosts.HasFlag(DevToolHosts.ClaudeDesktop))
+        {
+            if (ClaudeDesktopSection(server) is not { } desktopSection)
+            {
+                notes.Add("No claudeDesktop or claude section to register");
+            }
+            else if (claudeDesktop is null)
+            {
+                notes.Add(ClaudeDesktopMissing);
+            }
+            else
+            {
+                states.Add(DescribeClaudeDesktopRegistration(
+                    ClaudeServerName(server, desktopSection),
+                    ClaudeDesktopCommandLine(desktopSection),
+                    claudeDesktop));
             }
         }
 
@@ -462,8 +579,23 @@ public sealed class DevToolService : IDevToolService
         // of rows for a single reason — every Claude plugin id resolves against a
         // marketplace — and an "Update all" that skipped it would leave the
         // operator pressing Update on plugin after plugin that cannot resolve.
+        // An application is included when it is genuinely behind *or* absent,
+        // which is one more case than the other kinds get. "Update all" for a
+        // software inventory is read as "make this machine match the catalog", and
+        // an app the catalog asks for and the machine does not have is the most
+        // obvious thing that sweep should fix.
+        //
+        // Installable is what keeps it honest: a checklist row, a detect-only
+        // package and a manual acknowledgement are all permanently "not
+        // installed", and each of them would otherwise be attempted — and reported
+        // as a failure — on every sweep forever.
         var candidates = catalog.Tools
-            .Where(tool => tool.CanUpdate || (tool.Kind is DevToolKind.Marketplace && !tool.Installed))
+            .Where(tool => tool.Kind switch
+            {
+                DevToolKind.Marketplace => tool.CanUpdate || !tool.Installed,
+                DevToolKind.Application => tool.CanUpdate || tool.CanInstall,
+                _ => tool.CanUpdate
+            })
             .ToArray();
         if (candidates.Length == 0)
         {
@@ -577,13 +709,14 @@ public sealed class DevToolService : IDevToolService
 
         var config = await DevToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false);
         var root = config.Root;
+        var kind = DevToolConfiguration.KindOf(key);
         var node = FindToolNode(root, key);
         if (node is null)
         {
             return DevToolActionResult.Failed("That tool is no longer in the config.");
         }
 
-        if (key.StartsWith("marketplace:", StringComparison.OrdinalIgnoreCase))
+        if (kind is DevToolKind.Marketplace)
         {
             // A marketplace has no enabled flag to override. It is where Claude
             // plugins come from, not a tool this machine opts into, so the pane
@@ -613,9 +746,18 @@ public sealed class DevToolService : IDevToolService
 
         try
         {
-            return key.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase)
-                ? await ApplyPluginAsync(node, DevToolConfiguration.DefaultMarketplaceName(root), log, ct).ConfigureAwait(false)
-                : await ApplyMcpServerAsync(node, log, ct).ConfigureAwait(false);
+            // Spelled out per kind rather than as the two-way ternary this
+            // replaced, whose else was "MCP server": an app: key was not rejected
+            // by it, it was run as an MCP server against an entry that has no
+            // packageId — an "is missing 'packageId'" on a row about Visual Studio
+            // Code.
+            return kind switch
+            {
+                DevToolKind.Plugin => await ApplyPluginAsync(node, DevToolConfiguration.DefaultMarketplaceName(root), log, ct).ConfigureAwait(false),
+                DevToolKind.McpServer => await ApplyMcpServerAsync(node, log, ct).ConfigureAwait(false),
+                DevToolKind.Application => await ApplyApplicationAsync(configPaths, node, enabled, log, ct).ConfigureAwait(false),
+                DevToolKind.Marketplace => throw new InvalidOperationException("A marketplace is handled above.")
+            };
         }
         catch (Exception ex)
         {
@@ -863,11 +1005,23 @@ public sealed class DevToolService : IDevToolService
             outcomes.Add(".NET tool: already absent.");
         }
 
-        if (DevToolConfiguration.ParseHosts(server).HasFlag(DevToolHosts.Claude) && server["claude"] is { } claude)
+        var hosts = DevToolConfiguration.ParseHosts(server);
+
+        if (hosts.HasFlag(DevToolHosts.Claude) && server["claude"] is { } claude)
         {
             var registration = await ApplyClaudeMcpRegistrationAsync(server, claude, enabled, log, ct).ConfigureAwait(false);
             outcomes.Add($"Claude: {registration.Message}");
             failed |= !registration.Succeeded;
+        }
+
+        // The desktop app after the CLI, and separately from it. The two keep
+        // their own server lists in their own places, and a registration made
+        // through one is invisible to the other.
+        if (hosts.HasFlag(DevToolHosts.ClaudeDesktop))
+        {
+            var desktop = await ApplyClaudeDesktopRegistrationAsync(server, enabled, log, ct).ConfigureAwait(false);
+            outcomes.Add($"Claude Desktop: {desktop.Message}");
+            failed |= !desktop.Succeeded;
         }
 
         var message = $"{packageId} — {string.Join(" ", outcomes)}";
@@ -946,6 +1100,974 @@ public sealed class DevToolService : IDevToolService
             ? DevToolActionResult.Ok(details is null ? $"'{name}' was registered." : $"'{name}' was re-registered.")
             : DevToolActionResult.Failed(CommandFailure(name, add));
     }
+
+    /// <summary>
+    /// Everything the automated providers know about this machine, read once per
+    /// listing.
+    ///
+    /// <para>Two winget calls and one <c>code</c> call answer for every row of
+    /// their provider, which is the whole reason this exists as a batch: a
+    /// <c>--id</c> per row would be one process launch per row, and thirty
+    /// launches is a refresh people stop pressing.</para>
+    ///
+    /// <para>Absent is a normal value throughout. A machine with no winget, no VS
+    /// Code, or no network for the marketplace still lists every row it can and
+    /// says on the status line what it could not check.</para>
+    /// </summary>
+    private sealed record ApplicationInventory(
+        bool WingetPresent,
+        IReadOnlyDictionary<string, DevToolOutput.WingetPackage> WingetPackages,
+        IReadOnlyDictionary<string, string> WingetUpgrades,
+        IReadOnlyDictionary<string, string> WingetManifests,
+        bool VsCodePresent,
+        IReadOnlyDictionary<string, string> Extensions,
+        IReadOnlyDictionary<string, string> ExtensionVersions,
+        IReadOnlyDictionary<string, CommandProbe> Probes);
+
+    /// <summary>What one declared command answered.
+    ///
+    /// <para><paramref name="Detected"/> is separate from the version because
+    /// several probes have no version to give: <c>fsutil devdrv query</c> prints
+    /// prose and <c>git config --global pull.rebase</c> prints <c>true</c>. A row
+    /// that had to invent a number to say "yes" would then be comparing that
+    /// invention against itself and reporting itself up to date.</para></summary>
+    private sealed record CommandProbe(bool Detected, string InstalledVersion, string AvailableVersion);
+
+    private static readonly IReadOnlyDictionary<string, DevToolOutput.WingetPackage> NoPackages =
+        new Dictionary<string, DevToolOutput.WingetPackage>(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly IReadOnlyDictionary<string, CommandProbe> NoProbes =
+        new Dictionary<string, CommandProbe>(StringComparer.OrdinalIgnoreCase);
+
+    /// <inheritdoc cref="ApplicationInventory" />
+    private static async Task<ApplicationInventory> ReadApplicationInventoryAsync(
+        IReadOnlyList<DevToolApplication> applications,
+        CommandLog log,
+        List<string> messages,
+        CancellationToken ct)
+    {
+        var wingetPresent = false;
+        var wingetPackages = NoPackages;
+        var wingetUpgrades = NoVersions;
+        var wingetManifests = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var wingetRows = applications.Where(application => application.Provider is DevToolProvider.Winget).ToArray();
+        if (wingetRows.Length > 0)
+        {
+            wingetPresent = await ResolveWingetCliAsync(log, ct).ConfigureAwait(false) is not null;
+
+            if (!wingetPresent)
+            {
+                messages.Add(WingetCliMissing);
+            }
+            else
+            {
+                var list = await RunAsync(DevToolCommands.WingetList(), log, ct).ConfigureAwait(false);
+                if (list.ExitCode == 0)
+                {
+                    wingetPackages = DevToolOutput.ParseWingetList(list.Output);
+                }
+                else
+                {
+                    messages.Add("The winget package list could not be read.");
+                }
+
+                // The second call is what makes the Available column real. A bare
+                // list only prints an Available cell for a package that has an
+                // upgrade, so a package missing from *this* listing is a package
+                // that is current — which is the answer for almost every row and
+                // costs no further calls.
+                var upgrade = await RunAsync(DevToolCommands.WingetUpgrade(), log, ct).ConfigureAwait(false);
+                if (upgrade.ExitCode == 0)
+                {
+                    wingetUpgrades = DevToolOutput.ParseWingetUpgrade(upgrade.Output);
+                }
+
+                // What is left is the packages this machine does not have, and the
+                // only way to learn what version it would get is one call each.
+                var pending = wingetRows
+                    .Where(application => application.Enabled && !wingetPackages.ContainsKey(application.Id))
+                    .Select(application => application.Id)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                foreach (var id in pending.Take(WingetShowBudget))
+                {
+                    var show = await RunAsync(DevToolCommands.WingetShow(id), log, ct).ConfigureAwait(false);
+                    if (show.ExitCode == 0 && DevToolOutput.ParseWingetShowVersion(show.Output) is { } manifestVersion)
+                    {
+                        wingetManifests[id] = manifestVersion;
+                    }
+                }
+
+                if (pending.Length > WingetShowBudget)
+                {
+                    // Named rather than silently dropped. A truncated lookup that
+                    // says nothing is indistinguishable from a lookup that failed,
+                    // and both leave the same "unknown" in the column.
+                    messages.Add(
+                        $"Only the first {WingetShowBudget} missing winget packages were looked up this refresh; "
+                        + $"{string.Join(", ", pending.Skip(WingetShowBudget))} still read as version unknown.");
+                }
+            }
+        }
+
+        var vsCodePresent = false;
+        var extensions = NoVersions;
+        var extensionVersions = NoVersions;
+
+        var extensionRows = applications.Where(application => application.Provider is DevToolProvider.VsCodeExtension).ToArray();
+        if (extensionRows.Length > 0)
+        {
+            vsCodePresent = await ResolveVsCodeCliAsync(log, ct).ConfigureAwait(false) is not null;
+
+            if (!vsCodePresent)
+            {
+                messages.Add(VsCodeCliMissing);
+            }
+            else
+            {
+                var list = await RunAsync(DevToolCommands.VsCodeExtensionList(), log, ct).ConfigureAwait(false);
+                if (list.ExitCode == 0)
+                {
+                    extensions = DevToolOutput.ParseVsCodeExtensionList(list.Output);
+                }
+                else
+                {
+                    messages.Add("The VS Code extension list could not be read.");
+                }
+            }
+
+            // Asked for even with no CLI here, because the two answer different
+            // questions and only one of them needs VS Code on this machine.
+            extensionVersions = await ReadMarketplaceVersionsAsync(
+                extensionRows.Where(application => application.Enabled).Select(application => application.Id),
+                log,
+                ct).ConfigureAwait(false);
+        }
+
+        var probes = new Dictionary<string, CommandProbe>(StringComparer.OrdinalIgnoreCase);
+        foreach (var application in applications)
+        {
+            // A disabled row is a row this machine has said it does not want, and
+            // running its probe would be spending a process to answer a question
+            // nobody asked.
+            if (!application.Enabled)
+            {
+                continue;
+            }
+
+            // A command row's detect always runs — it is the only thing that can
+            // answer for that row at all.
+            //
+            // The optional cross-check on the other providers runs only when the
+            // batched listing came up empty for that row, and that gate is the
+            // difference between four process launches per refresh and twenty:
+            // most of this catalog declares a probe, and re-asking PATH about a
+            // package winget has just reported by version buys nothing. What it
+            // does buy is the case it was added for — a portable install that
+            // answers on PATH and is registered nowhere, which the package manager
+            // reports as simply missing.
+            var spec = application.Provider switch
+            {
+                DevToolProvider.Command => application.Detect ?? application.Probe,
+                DevToolProvider.Winget => wingetPackages.ContainsKey(application.Id) ? null : application.Probe,
+                DevToolProvider.VsCodeExtension => extensions.ContainsKey(application.Id) ? null : application.Probe,
+                DevToolProvider.Manual => null
+            };
+
+            if (spec is null)
+            {
+                continue;
+            }
+
+            probes[application.Id] = await ProbeCommandAsync(spec, log, ct).ConfigureAwait(false);
+        }
+
+        return new ApplicationInventory(
+            wingetPresent,
+            wingetPackages,
+            wingetUpgrades,
+            wingetManifests,
+            vsCodePresent,
+            extensions,
+            extensionVersions,
+            probes.Count == 0 ? NoProbes : probes);
+    }
+
+    /// <summary>Whether this machine has winget, asked the cheapest way there is.
+    /// Null rather than an assumption, for the same reason the Copilot CLI is
+    /// resolved before anything is asked of it: every winget row would otherwise
+    /// report Windows' "file not found" as though it were that package's own
+    /// problem.</summary>
+    private static async Task<string?> ResolveWingetCliAsync(CommandLog log, CancellationToken ct)
+    {
+        var probe = await RunAsync(DevToolCommands.WingetVersion(), log, ct).ConfigureAwait(false);
+
+        return probe.ExitCode == 0 ? DevToolCommands.WingetVersion().Command : null;
+    }
+
+    /// <inheritdoc cref="ResolveWingetCliAsync" />
+    /// <remarks><c>code</c> is not an executable — it is a <c>.cmd</c> shim, which
+    /// is why this goes through the shell like every other <c>code</c> call. Run
+    /// directly it does not report "not installed", it throws.</remarks>
+    private static async Task<string?> ResolveVsCodeCliAsync(CommandLog log, CancellationToken ct)
+    {
+        var probe = await RunAsync(DevToolCommands.VsCodeVersion(), log, ct).ConfigureAwait(false);
+
+        return probe.ExitCode == 0 ? DevToolCommands.VsCodeVersion().Command : null;
+    }
+
+    /// <summary>
+    /// The latest published version of every catalog extension, in one call.
+    ///
+    /// <para>Best effort by construction. There is no CLI that can answer this —
+    /// no <c>--list-outdated</c>, no <c>--check-updates</c>, no JSON — so it is
+    /// this endpoint or nothing, and "nothing" has to be an ordinary outcome
+    /// rather than a listing that failed. An empty result leaves the column
+    /// reading "unknown", which the pane renders as "Version unknown" instead of
+    /// a "Up to date" nobody checked.</para>
+    /// </summary>
+    private static async Task<IReadOnlyDictionary<string, string>> ReadMarketplaceVersionsAsync(
+        IEnumerable<string> ids,
+        CommandLog log,
+        CancellationToken ct)
+    {
+        var wanted = ids
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (wanted.Length == 0)
+        {
+            return NoVersions;
+        }
+
+        var description = $"POST {DevToolCommands.MarketplaceQueryUrl} ({wanted.Length} extension(s))";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, DevToolCommands.MarketplaceQueryUrl)
+            {
+                Content = new StringContent(DevToolCommands.MarketplaceExtensionQuery(wanted), Encoding.UTF8, "application/json")
+            };
+
+            // Added without validation because the gallery's api-version lives in
+            // the Accept header itself, and the parsed header type rejects the
+            // parameter form it needs.
+            request.Headers.TryAddWithoutValidation("Accept", DevToolCommands.MarketplaceQueryAccept);
+
+            using var response = await Marketplace.SendAsync(request, ct).ConfigureAwait(false);
+            var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                log.RecordStep(description, (int)response.StatusCode, json);
+                return NoVersions;
+            }
+
+            var versions = DevToolOutput.ParseMarketplaceExtensionVersions(json);
+            log.RecordStep(description, 0, $"{versions.Count} of {wanted.Length} extension(s) answered with a stable version.");
+
+            return versions;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException or InvalidOperationException or UriFormatException)
+        {
+            log.RecordStep(description, CommandNotFound, exception.Message);
+
+            return NoVersions;
+        }
+    }
+
+    /// <summary>
+    /// What one declared command says about this machine.
+    ///
+    /// <para>A non-zero exit is not a failure here, it is the answer "no".
+    /// <c>git config --global pull.rebase</c> for a key nobody has set exits 1
+    /// with an empty stdout, and surfacing that as a broken row would put an error
+    /// on the screen for a setting that is simply not configured — which is
+    /// exactly what the row exists to report.</para>
+    ///
+    /// <para>An <c>expect</c> answers from the text instead, because the probes
+    /// that need it print prose rather than a version. Both version columns stay
+    /// the no-version sentinel: there is no number, and inventing one would make
+    /// the row equal to itself and read as up to date whether or not the machine
+    /// had done the thing.</para>
+    /// </summary>
+    private static async Task<CommandProbe> ProbeCommandAsync(DevToolCommandSpec spec, CommandLog log, CancellationToken ct)
+    {
+        var result = await RunAsync(spec, log, ct).ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(spec.Expect))
+        {
+            return new CommandProbe(
+                result.Output.Contains(spec.Expect, StringComparison.OrdinalIgnoreCase),
+                DevToolOutput.NoVersion,
+                DevToolOutput.NoVersion);
+        }
+
+        if (result.ExitCode != 0)
+        {
+            return new CommandProbe(false, DevToolOutput.NotInstalled, DevToolOutput.Unknown);
+        }
+
+        // Unknown and not the installed version: a declared command has no
+        // published version anywhere to compare against, and copying the installed
+        // one into this column would announce "up to date" about a lookup that
+        // never happened.
+        return new CommandProbe(
+            true,
+            DevToolOutput.ParseVersionProbe(result.Output) ?? DevToolOutput.Installed,
+            DevToolOutput.Unknown);
+    }
+
+    /// <summary>One application entry as one row, through whichever mechanism it
+    /// declared. Exhaustive on purpose: a provider added to the enum and not
+    /// handled here should fail to compile rather than fall into whichever arm
+    /// happened to be last.</summary>
+    private static DevToolInfo DescribeApplication(DevToolApplication application, ApplicationInventory inventory) =>
+        application.Provider switch
+        {
+            DevToolProvider.Winget => DescribeWingetApplication(application, inventory),
+            DevToolProvider.VsCodeExtension => DescribeExtensionApplication(application, inventory),
+            DevToolProvider.Command => DescribeCommandApplication(application, inventory),
+            DevToolProvider.Manual => DescribeManualApplication(application)
+        };
+
+    private static DevToolInfo DescribeWingetApplication(DevToolApplication application, ApplicationInventory inventory)
+    {
+        var notes = ApplicationNotes(application);
+
+        if (!inventory.WingetPresent)
+        {
+            notes.Add(WingetCliMissing);
+
+            // The PATH cross-check is the only answer left, and on a machine with
+            // no package manager it is a real one: a row whose command answers is
+            // a row this machine has, however it got there. Without this the probe
+            // ran and its answer was thrown away.
+            if (inventory.Probes.GetValueOrDefault(application.Id) is { } fallback)
+            {
+                return ApplicationRow(
+                    application,
+                    fallback.Detected,
+                    fallback.InstalledVersion,
+                    DevToolOutput.Unknown,
+                    Installable: false,
+                    notes,
+                    fallback.Detected ? $"Answers on PATH as '{application.Probe?.Command}'" : "Not installed");
+            }
+
+            return ApplicationRow(application, false, DevToolOutput.Unknown, DevToolOutput.Unknown, Installable: false, notes, "Nothing could be checked");
+        }
+
+        var package = inventory.WingetPackages.GetValueOrDefault(application.Id);
+        var installed = package is not null;
+
+        // winget prints a literal "Unknown" in the Version column for packages
+        // whose installed version it cannot read — MSIX and click-to-run entries
+        // mostly. The package is there; only its number is not.
+        var installedVersion = package?.InstalledVersion is { Length: > 0 } version
+            && !version.Equals(DevToolOutput.Unknown, StringComparison.OrdinalIgnoreCase)
+                ? version
+                : installed ? DevToolOutput.Installed : DevToolOutput.NotInstalled;
+
+        var availableVersion =
+            inventory.WingetUpgrades.GetValueOrDefault(application.Id)
+            ?? package?.AvailableVersion
+            ?? inventory.WingetManifests.GetValueOrDefault(application.Id)
+            // Installed and absent from the upgrade listing is winget saying it is
+            // current. Leaving this unknown instead would put "Version unknown" on
+            // every up-to-date row on the machine.
+            ?? (installed ? installedVersion : DevToolOutput.Unknown);
+
+        if (application.DetectOnly)
+        {
+            notes.Add("Install this one by hand: winget knows it and cannot install it unattended.");
+        }
+
+        AddProbeDisagreement(application, inventory, installed, notes);
+
+        return ApplicationRow(
+            application,
+            installed,
+            installedVersion,
+            availableVersion,
+            !application.DetectOnly,
+            notes,
+            DescribeStatus(application.Enabled, installed, DevToolInfo.VersionDiffers(installedVersion, availableVersion), "application"));
+    }
+
+    private static DevToolInfo DescribeExtensionApplication(DevToolApplication application, ApplicationInventory inventory)
+    {
+        var notes = ApplicationNotes(application);
+
+        if (!inventory.VsCodePresent)
+        {
+            notes.Add(VsCodeCliMissing);
+
+            return ApplicationRow(application, false, DevToolOutput.Unknown, DevToolOutput.Unknown, Installable: false, notes, "Nothing could be checked");
+        }
+
+        // Both lookups are case-insensitive dictionaries, which is the whole trick:
+        // the marketplace and the catalog spell it ms-vscode.PowerShell and the CLI
+        // answers ms-vscode.powershell. An ordinal match finds neither in the other
+        // and every extension reads as missing.
+        var installedVersion = inventory.Extensions.GetValueOrDefault(application.Id);
+        var installed = installedVersion is not null;
+        var availableVersion = inventory.ExtensionVersions.GetValueOrDefault(application.Id) ?? DevToolOutput.Unknown;
+
+        if (application.DetectOnly)
+        {
+            notes.Add("Install this one by hand.");
+        }
+
+        AddProbeDisagreement(application, inventory, installed, notes);
+
+        return ApplicationRow(
+            application,
+            installed,
+            installedVersion ?? DevToolOutput.NotInstalled,
+            availableVersion,
+            !application.DetectOnly,
+            notes,
+            DescribeStatus(application.Enabled, installed, DevToolInfo.VersionDiffers(installedVersion ?? DevToolOutput.NotInstalled, availableVersion), "extension"));
+    }
+
+    /// <summary>
+    /// One declared-command row, which is two rows wearing one provider: a tool
+    /// that says how to install itself, and a checklist item that declined to.
+    ///
+    /// <para>The checklist item is the reason the absence of an <c>install</c> is
+    /// meaningful rather than incomplete. "Dev Drive configured" and "the NuGet
+    /// cache is redirected" are worth reporting and are not ours to press a button
+    /// about, and a row that offered one would run nothing and call the nothing a
+    /// failure.</para>
+    /// </summary>
+    private static DevToolInfo DescribeCommandApplication(DevToolApplication application, ApplicationInventory inventory)
+    {
+        var notes = ApplicationNotes(application);
+        var checklist = application.Install is null;
+
+        if (application.Detect is null)
+        {
+            notes.Add("This entry declares no detect command, so nothing was checked.");
+
+            return ApplicationRow(application, false, DevToolOutput.Unknown, DevToolOutput.Unknown, Installable: false, notes, "Nothing could be checked");
+        }
+
+        if (inventory.Probes.GetValueOrDefault(application.Id) is not { } probe)
+        {
+            // Only reachable for a row this machine has switched off, which is
+            // why the headline is the switch rather than the probe.
+            return ApplicationRow(application, false, DevToolOutput.NotInstalled, DevToolOutput.Unknown, Installable: false, notes, "Disabled in config");
+        }
+
+        if (checklist)
+        {
+            notes.Add("No install command: this one is a checklist item.");
+        }
+
+        var headline = checklist
+            ? probe.Detected ? "Checklist item: done" : "Checklist item: not done yet"
+            : DescribeStatus(application.Enabled, probe.Detected, DevToolInfo.VersionDiffers(probe.InstalledVersion, probe.AvailableVersion), "application");
+
+        return ApplicationRow(
+            application,
+            probe.Detected,
+            probe.InstalledVersion,
+            probe.AvailableVersion,
+            !checklist && !application.DetectOnly,
+            notes,
+            headline);
+    }
+
+    /// <summary>
+    /// A row nothing can honestly answer: a sign-in, a menu entry that renders, a
+    /// first run without errors.
+    ///
+    /// <para>Nothing runs for it, ever, and its detected state is the
+    /// acknowledgement and nothing else. That is the distinction the whole manual
+    /// provider exists to hold: not "this machine has it" but "somebody said so on
+    /// this machine", and drawing the two the same way is what would make the
+    /// other thirty rows worth less.</para>
+    /// </summary>
+    private static DevToolInfo DescribeManualApplication(DevToolApplication application)
+    {
+        var notes = ApplicationNotes(application);
+
+        return ApplicationRow(
+            application,
+            application.Acknowledged,
+            application.Acknowledged ? "confirmed by hand" : DevToolOutput.NotInstalled,
+            // No version on either side. There is nothing to look up, and a number
+            // here would invite a comparison that means nothing.
+            DevToolOutput.NoVersion,
+            // The one act a manual row has is confirming it, so it keeps an action
+            // while it is unconfirmed and loses it once it is.
+            !application.Acknowledged,
+            notes,
+            application.Acknowledged ? "Confirmed by hand" : "Nothing can check this — confirm it by hand");
+    }
+
+    /// <summary>What a row has to say beyond its status: the catalog's own note,
+    /// and a provider this version has never heard of.</summary>
+    private static List<string> ApplicationNotes(DevToolApplication application)
+    {
+        var notes = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(application.Note))
+        {
+            notes.Add(application.Note.Trim());
+        }
+
+        if (!application.ProviderRecognised)
+        {
+            // Reported rather than dropped. The entry named a mechanism nobody
+            // here knows, and a row that simply was not there would hide a typo in
+            // a hand-edited file behind an inventory that looked complete.
+            notes.Add($"The catalog asks for a '{application.DeclaredProvider}' provider, which this version does not know, so nothing was run for it.");
+        }
+
+        return notes;
+    }
+
+    /// <summary>The optional PATH cross-check, which is only interesting when it
+    /// disagrees. The package manager reports what is registered and the command
+    /// reports what answers, which are not the same question — and the two
+    /// disagreeing is worth seeing rather than picking a winner between.</summary>
+    private static void AddProbeDisagreement(DevToolApplication application, ApplicationInventory inventory, bool installed, List<string> notes)
+    {
+        // Only asked of a row the package manager could not find, so the only
+        // disagreement reachable here is the one worth reporting: something that
+        // answers on PATH and is registered nowhere.
+        if (installed || application.Probe is not { } probeSpec || inventory.Probes.GetValueOrDefault(application.Id) is not { Detected: true })
+        {
+            return;
+        }
+
+        notes.Add($"'{probeSpec.Command}' answers on PATH but the package manager does not list it");
+    }
+
+    /// <summary>The shape every application row shares, so the four describers
+    /// above differ only in the answers they found and not in how a row is
+    /// built.</summary>
+    private static DevToolInfo ApplicationRow(
+        DevToolApplication application,
+        bool installed,
+        string installedVersion,
+        string availableVersion,
+        bool Installable,
+        IReadOnlyList<string> notes,
+        string headline) =>
+        new(
+            application.Key,
+            DevToolKind.Application,
+            application.Name,
+            // The provider stands in for the source column, because for an
+            // application that is what "where does this come from" means.
+            DevToolConfiguration.ProviderName(application.Provider),
+            application.Enabled,
+            installed,
+            installedVersion,
+            availableVersion,
+            notes.Count == 0 ? headline : $"{headline} · {string.Join(" · ", notes)}")
+        {
+            // Not a host's tool. Copilot and Claude are the two AI hosts a plugin
+            // is installed into, and an application is installed into the machine —
+            // claiming either would put an Install for it on a host that has never
+            // heard of it.
+            Hosts = DevToolHosts.None,
+            Installable = Installable,
+            Acknowledged = application.Acknowledged
+        };
+
+    /// <summary>
+    /// One application row's action, through whichever mechanism it declared.
+    /// </summary>
+    private static async Task<DevToolActionResult> ApplyApplicationAsync(
+        DevToolConfigurationPaths paths,
+        JsonNode node,
+        bool? enabled,
+        CommandLog log,
+        CancellationToken ct)
+    {
+        if (node is not JsonObject entry || DevToolConfiguration.ReadApplication(entry) is not { } application)
+        {
+            return DevToolActionResult.Failed("That application entry has no id.");
+        }
+
+        if (!application.Enabled)
+        {
+            // Disabling is a statement about this machine, not an uninstall. There
+            // is no safe general "remove" here — a winget package may be something
+            // three other things depend on — so the row stops asking for it and
+            // leaves what is there alone.
+            return DevToolActionResult.Ok($"{application.Name} is switched off on this machine; nothing was installed or removed.");
+        }
+
+        return application.Provider switch
+        {
+            DevToolProvider.Winget => await ApplyWingetApplicationAsync(application, log, ct).ConfigureAwait(false),
+            DevToolProvider.VsCodeExtension => await ApplyExtensionApplicationAsync(application, log, ct).ConfigureAwait(false),
+            DevToolProvider.Command => await ApplyCommandApplicationAsync(application, log, ct).ConfigureAwait(false),
+            // Only the row's own action ticks the box. Enabling a manual row says
+            // this machine wants the thing done; it is not somebody saying they
+            // have done it, and treating the two as one press is how a checklist
+            // acquires a tick nobody made.
+            DevToolProvider.Manual => enabled is null
+                ? await AcknowledgeApplicationAsync(paths, application, log, ct).ConfigureAwait(false)
+                : DevToolActionResult.Ok($"{application.Name} is switched on for this machine; confirm it by hand when it is done.")
+        };
+    }
+
+    private static async Task<DevToolActionResult> ApplyWingetApplicationAsync(DevToolApplication application, CommandLog log, CancellationToken ct)
+    {
+        if (application.DetectOnly)
+        {
+            return DevToolActionResult.Failed($"{application.Name} cannot be installed unattended; install it by hand.");
+        }
+
+        if (await ResolveWingetCliAsync(log, ct).ConfigureAwait(false) is null)
+        {
+            return DevToolActionResult.Failed(WingetCliMissing);
+        }
+
+        var spec = DevToolCommands.WingetInstall(application.Id);
+        var result = await RunAsync(spec, log, ct, InstallTimeout).ConfigureAwait(false);
+
+        return result.ExitCode == 0
+            ? DevToolActionResult.Ok($"{application.Id} installed.")
+            : DevToolActionResult.Failed(DescribeInstallFailure(application.Id, spec, result));
+    }
+
+    private static async Task<DevToolActionResult> ApplyExtensionApplicationAsync(DevToolApplication application, CommandLog log, CancellationToken ct)
+    {
+        if (application.DetectOnly)
+        {
+            return DevToolActionResult.Failed($"{application.Name} is marked as installed by hand.");
+        }
+
+        if (await ResolveVsCodeCliAsync(log, ct).ConfigureAwait(false) is null)
+        {
+            return DevToolActionResult.Failed(VsCodeCliMissing);
+        }
+
+        // One verb for install and update both. An extension that is already there
+        // exits 0 with a sentence saying so, so there is nothing for the caller to
+        // decide between; a missing one exits 1 with "not found".
+        var spec = DevToolCommands.VsCodeInstallExtension(application.Id);
+        var result = await RunAsync(spec, log, ct, InstallTimeout).ConfigureAwait(false);
+
+        return result.ExitCode == 0
+            ? DevToolActionResult.Ok($"{application.Id} installed or already current.")
+            : DevToolActionResult.Failed(CommandFailure(application.Id, result));
+    }
+
+    private static async Task<DevToolActionResult> ApplyCommandApplicationAsync(DevToolApplication application, CommandLog log, CancellationToken ct)
+    {
+        if (application.Install is not { } install)
+        {
+            return DevToolActionResult.Ok($"{application.Name} is a checklist item, so there is nothing to install.");
+        }
+
+        if (application.DetectOnly)
+        {
+            return DevToolActionResult.Failed($"{application.Name} is marked as installed by hand.");
+        }
+
+        var result = await RunAsync(install, log, ct, InstallTimeout).ConfigureAwait(false);
+
+        return result.ExitCode == 0
+            ? DevToolActionResult.Ok($"{application.Name} installed.")
+            : DevToolActionResult.Failed(DescribeInstallFailure(application.Name, install, result));
+    }
+
+    /// <summary>
+    /// Ticks — or unticks — the box on a row nothing can check.
+    ///
+    /// <para>Per machine, in the per-PC file, because "this laptop is signed in"
+    /// is not a fact to sync to the next one. It goes through the row's one action
+    /// rather than through a port method of its own, which is a compromise worth
+    /// naming: the pane's Install is the only verb the service exposes, and a row
+    /// with no way to say "done" would be a row that could only ever read as not
+    /// done.</para>
+    /// </summary>
+    private static async Task<DevToolActionResult> AcknowledgeApplicationAsync(
+        DevToolConfigurationPaths paths,
+        DevToolApplication application,
+        CommandLog log,
+        CancellationToken ct)
+    {
+        var acknowledged = !application.Acknowledged;
+        await DevToolConfiguration.WriteAcknowledgementAsync(paths, application.Key, acknowledged, ct).ConfigureAwait(false);
+
+        log.RecordStep(
+            $"{paths.PcConfigPath}: {application.Key} acknowledged = {acknowledged.ToString().ToLowerInvariant()}",
+            0,
+            "Nothing was run; this row records what a person confirmed rather than what a machine found.");
+
+        return DevToolActionResult.Ok(acknowledged
+            ? $"{application.Name} is marked as done on this machine."
+            : $"{application.Name} is no longer marked as done on this machine.");
+    }
+
+    /// <summary>
+    /// A failed install, said in a form somebody can act on.
+    ///
+    /// <para>An elevation failure gets the command spelled out beside it. There is
+    /// no <c>runas</c> path here and there will not be:
+    /// <see cref="ProcessStartInfo.UseShellExecute"/> is false, which forbids a
+    /// verb, and an elevated second process would lose the captured stdout that is
+    /// the entire reason the pane shows a command log. So the honest answer is the
+    /// exact line to paste into an admin shell.</para>
+    /// </summary>
+    private static string DescribeInstallFailure(string name, DevToolCommandSpec spec, CommandResult result)
+    {
+        var failure = CommandFailure(name, result);
+
+        return NeedsElevation(result)
+            ? $"{failure} This one needs an elevated shell: {string.Join(' ', new[] { spec.FileName }.Concat(spec.LaunchArguments))}"
+            : failure;
+    }
+
+    /// <summary>Whether a failure was really about privileges. Read from the text
+    /// rather than the exit code because winget hands through the installer's own
+    /// code, and every installer numbers this differently.</summary>
+    private static bool NeedsElevation(CommandResult result)
+    {
+        var text = $"{result.Output} {result.Error}";
+
+        return text.Contains("elevat", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("administrator", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("access is denied", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// What this machine's Claude desktop app is and where its config lives.
+    /// </summary>
+    /// <param name="Installed">Whether the app is here at all. A config file being
+    /// present proves it; when there is none the MSIX package is asked directly,
+    /// because the classic uninstall registry returns nothing for a packaged
+    /// app.</param>
+    /// <param name="ConfigPath">The file to read and write — the one that exists,
+    /// or the one that would be created.</param>
+    /// <param name="Config">The document as it is on disk, or nothing when there
+    /// is no file. Nothing is also what an unreadable file gives, and
+    /// <paramref name="Error"/> is how the two are told apart: a write over a file
+    /// that could not be parsed would discard settings this app never owned.</param>
+    private sealed record ClaudeDesktopState(bool Installed, string ConfigPath, JsonObject? Config, string? Error);
+
+    /// <inheritdoc cref="ClaudeDesktopState" />
+    private static async Task<ClaudeDesktopState> ResolveClaudeDesktopAsync(CommandLog log, CancellationToken ct)
+    {
+        var candidates = DevToolClaudeDesktopConfig.ConfigPathCandidates(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+
+        if (candidates.FirstOrDefault(File.Exists) is not { } path)
+        {
+            // No config is not the same as no app: a freshly installed Claude
+            // Desktop that has never registered a server has no such file, and
+            // reading that as "not installed" would refuse a registration the
+            // machine is perfectly able to take.
+            var installed = await ProbeClaudeDesktopPackageAsync(log, ct).ConfigureAwait(false);
+
+            return new ClaudeDesktopState(installed, candidates[0], null, installed ? null : ClaudeDesktopMissing);
+        }
+
+        try
+        {
+            var text = await File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
+
+            return new ClaudeDesktopState(true, path, JsonNode.Parse(text) as JsonObject, null);
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return new ClaudeDesktopState(true, path, null, $"The Claude Desktop config at {path} could not be read: {exception.Message}");
+        }
+    }
+
+    /// <summary>Whether the MSIX package is installed.
+    ///
+    /// <para>Asked of the package manager rather than of the disk. Claude Desktop
+    /// ships as MSIX: it writes no classic uninstall registry key, declares no
+    /// execution alias so nothing of it is on PATH, and its files live under
+    /// <c>C:\Program Files\WindowsApps</c>, which is ACL-locked — a walk of that
+    /// folder does not fail, it hangs.</para></summary>
+    private static async Task<bool> ProbeClaudeDesktopPackageAsync(CommandLog log, CancellationToken ct)
+    {
+        var probe = await RunAsync(
+            "powershell",
+            ["-NoProfile", "-NonInteractive", "-Command", "(Get-AppxPackage -Name Claude).Version"],
+            log,
+            ct).ConfigureAwait(false);
+
+        return probe.ExitCode == 0 && !string.IsNullOrWhiteSpace(probe.Output);
+    }
+
+    /// <summary>Where an entry says what the desktop app should register.
+    /// <c>claudeDesktop</c> when it has one, and the <c>claude</c> section
+    /// otherwise — the command is usually the same one the CLI is given, and
+    /// making every entry say it twice would be two places for it to drift.</summary>
+    private static JsonNode? ClaudeDesktopSection(JsonNode server) => server["claudeDesktop"] ?? server["claude"];
+
+    /// <summary>The registration as one line, which is what the row compares. The
+    /// arguments are part of it: a registration pointing at the right executable
+    /// with the wrong arguments is a registration that does not work, and the
+    /// command alone cannot say so.</summary>
+    private static string ClaudeDesktopCommandLine(JsonNode section) =>
+        string.Join(' ', new[] { GetString(section, "command") }.Concat(ClaudeServerArgs(section))).Trim();
+
+    /// <summary>
+    /// What the desktop app's config says about one server.
+    ///
+    /// <para>An absent <c>mcpServers</c> is zero servers and not a broken file —
+    /// the app omits the property entirely until something registers — so every
+    /// machine that has never used one reads as "not registered" rather than as an
+    /// error.</para>
+    /// </summary>
+    private static DevToolHostState DescribeClaudeDesktopRegistration(string serverName, string commandLine, ClaudeDesktopState desktop)
+    {
+        if (!desktop.Installed)
+        {
+            return new DevToolHostState(DevToolHosts.ClaudeDesktop, Installed: false, DevToolOutput.NotInstalled, commandLine, ClaudeDesktopMissing);
+        }
+
+        if (desktop.Config is null && desktop.Error is { Length: > 0 })
+        {
+            return new DevToolHostState(DevToolHosts.ClaudeDesktop, Installed: false, DevToolOutput.Unknown, commandLine, desktop.Error);
+        }
+
+        if (DevToolClaudeDesktopConfig.ReadServer(desktop.Config, serverName) is not { } registered)
+        {
+            return new DevToolHostState(
+                DevToolHosts.ClaudeDesktop,
+                Installed: false,
+                DevToolOutput.NotInstalled,
+                commandLine,
+                $"Not registered with Claude Desktop as '{serverName}'");
+        }
+
+        return new DevToolHostState(
+            DevToolHosts.ClaudeDesktop,
+            Installed: true,
+            string.IsNullOrWhiteSpace(registered.CommandLine) ? DevToolOutput.Unknown : registered.CommandLine,
+            commandLine,
+            string.Equals(registered.CommandLine, commandLine, StringComparison.Ordinal)
+                ? $"Registered with Claude Desktop as '{serverName}'"
+                : $"Registered with Claude Desktop as '{serverName}', pointing elsewhere");
+    }
+
+    /// <summary>
+    /// The Claude desktop app's half of one MCP server row, which is a file edit
+    /// and not a command.
+    ///
+    /// <para>The MSIX package declares no execution alias, so there is no CLI to
+    /// call, and the app's own update channel can only change a server that is
+    /// already registered. Editing the config is the entire mechanism — which
+    /// makes this the one action here whose failure mode is destroying something,
+    /// because the same file holds the person's preferences, shortcut and feature
+    /// switches. The document is read, one property is put back, and the whole of
+    /// it is written through a temp file.</para>
+    /// </summary>
+    private static async Task<DevToolActionResult> ApplyClaudeDesktopRegistrationAsync(JsonNode server, bool enabled, CommandLog log, CancellationToken ct)
+    {
+        if (ClaudeDesktopSection(server) is not { } section)
+        {
+            return DevToolActionResult.Failed("the entry has no claudeDesktop or claude section to register.");
+        }
+
+        var name = ClaudeServerName(server, section);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return DevToolActionResult.Failed("the entry has no server name.");
+        }
+
+        var desktop = await ResolveClaudeDesktopAsync(log, ct).ConfigureAwait(false);
+
+        if (!desktop.Installed)
+        {
+            return DevToolActionResult.Failed(ClaudeDesktopMissing);
+        }
+
+        if (desktop.Error is { Length: > 0 } error)
+        {
+            // Refused rather than overwritten. Whatever is in that file is the
+            // person's settings, and replacing an unreadable document with a clean
+            // one would be the one failure here that cannot be undone.
+            return DevToolActionResult.Failed(error);
+        }
+
+        var root = desktop.Config ?? [];
+        var registered = DevToolClaudeDesktopConfig.ReadServer(root, name);
+
+        if (!enabled)
+        {
+            if (registered is null)
+            {
+                return DevToolActionResult.Ok($"'{name}' was already absent from Claude Desktop.");
+            }
+
+            DevToolClaudeDesktopConfig.RemoveServer(root, name);
+            await WriteClaudeDesktopConfigAsync(desktop.ConfigPath, root, name, "removed", log, ct).ConfigureAwait(false);
+
+            return DevToolActionResult.Ok($"'{name}' was removed from Claude Desktop. {DevToolClaudeDesktopConfig.RestartRequired}");
+        }
+
+        var command = GetString(section, "command");
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            return DevToolActionResult.Failed($"'{name}' has no command to register.");
+        }
+
+        var commandLine = ClaudeDesktopCommandLine(section);
+        if (registered is not null && string.Equals(registered.CommandLine, commandLine, StringComparison.Ordinal))
+        {
+            return DevToolActionResult.Ok($"'{name}' was already registered with Claude Desktop.");
+        }
+
+        DevToolClaudeDesktopConfig.MergeServer(root, name, command, ClaudeServerArgs(section));
+        await WriteClaudeDesktopConfigAsync(desktop.ConfigPath, root, name, registered is null ? "registered" : "re-registered", log, ct).ConfigureAwait(false);
+
+        return DevToolActionResult.Ok(
+            $"'{name}' was {(registered is null ? "registered with" : "re-registered with")} Claude Desktop. {DevToolClaudeDesktopConfig.RestartRequired}");
+    }
+
+    /// <summary>
+    /// Writes the whole config through a temp file and moves it into place, the
+    /// way the catalog writer does — and for a sharper version of the same reason.
+    /// This file is not ours: the app may be reading it, and a serialise straight
+    /// into it truncates first, so a failure part-way through leaves a document
+    /// that is neither the old settings nor the new ones and that the app cannot
+    /// parse at startup.
+    /// </summary>
+    private static async Task WriteClaudeDesktopConfigAsync(string path, JsonObject root, string name, string verb, CommandLog log, CancellationToken ct)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? Environment.CurrentDirectory);
+
+        var tempPath = path + ".tmp";
+
+        await using (var stream = File.Create(tempPath))
+        {
+            await JsonSerializer.SerializeAsync(stream, root, ClaudeDesktopJsonOptions, ct).ConfigureAwait(false);
+        }
+
+        File.Move(tempPath, path, overwrite: true);
+
+        // Nothing reached the command log for this, because nothing ran. Without a
+        // line here the pane's account of the action would be silent about the only
+        // thing the action did.
+        log.RecordStep($"{path}: {verb} '{name}'", 0, DevToolClaudeDesktopConfig.RestartRequired);
+    }
+
+    /// <summary>Indented, because this is a file people open and edit by hand and
+    /// arriving as one line would be a change to it that nothing asked for.</summary>
+    private static readonly JsonSerializerOptions ClaudeDesktopJsonOptions = new() { WriteIndented = true };
 
     private static async Task<Dictionary<string, string>> GetInstalledPluginsAsync((string Command, string[] Prefix) cli, CommandLog log, CancellationToken ct)
     {
@@ -1160,6 +2282,17 @@ public sealed class DevToolService : IDevToolService
                 .FirstOrDefault(node => GetString(node, "name").Equals(name, StringComparison.OrdinalIgnoreCase));
         }
 
+        // Ids are matched case-insensitively for the same reason the arrays above
+        // are: a winget id and an extension id are both written by hand into a
+        // catalog, and the marketplace's own casing of an extension id is not what
+        // the CLI prints back.
+        if (key.StartsWith("app:", StringComparison.OrdinalIgnoreCase))
+        {
+            var id = key["app:".Length..];
+            return GetArray(root, DevToolConfiguration.ApplicationsArrayName)
+                .FirstOrDefault(node => GetString(node, DevToolConfiguration.ApplicationIdName).Equals(id, StringComparison.OrdinalIgnoreCase));
+        }
+
         return null;
     }
 
@@ -1274,6 +2407,7 @@ public sealed class DevToolService : IDevToolService
     {
         DevToolHosts.Copilot => "copilot",
         DevToolHosts.Claude => "claude",
+        DevToolHosts.ClaudeDesktop => "claude desktop",
         DevToolHosts.Both => "shared",
         _ => "none"
     };
@@ -1338,8 +2472,33 @@ public sealed class DevToolService : IDevToolService
     }
 
 
-    private static async Task<CommandResult> RunAsync(string fileName, IReadOnlyList<string> arguments, CommandLog log, CancellationToken ct)
+    /// <summary>A command the catalog declared, run the way it declared it — the
+    /// shell wrapper and the reader both come from the spec, so a caller never has
+    /// to remember that <c>code</c> is a <c>.cmd</c> or that <c>wsl</c> answers in
+    /// UTF-16.</summary>
+    private static Task<CommandResult> RunAsync(DevToolCommandSpec spec, CommandLog log, CancellationToken ct, TimeSpan? timeout = null) =>
+        RunAsync(spec.FileName, spec.LaunchArguments, log, ct, timeout, spec.OutputEncoding);
+
+    /// <summary>
+    /// One child process, its output, and every way that can fail turned into a
+    /// <see cref="CommandResult"/> rather than an exception.
+    /// </summary>
+    /// <param name="timeout">How long to wait, defaulting to
+    /// <see cref="ProbeTimeout"/>. An install passes
+    /// <see cref="InstallTimeout"/>.</param>
+    /// <param name="encoding">How to read the redirected streams, defaulting to
+    /// UTF-8 — which is what winget writes to a pipe whatever the console code
+    /// page is, and is not what <c>wsl.exe</c> writes.</param>
+    private static async Task<CommandResult> RunAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        CommandLog log,
+        CancellationToken ct,
+        TimeSpan? timeout = null,
+        Encoding? encoding = null)
     {
+        var reader = encoding ?? Encoding.UTF8;
+
         using var process = new Process();
         process.StartInfo = new ProcessStartInfo(fileName)
         {
@@ -1352,8 +2511,8 @@ public sealed class DevToolService : IDevToolService
             // new one, and opening the tools tab meant a dozen of them blinking
             // across the screen while the pane quietly read their output.
             CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8
+            StandardOutputEncoding = reader,
+            StandardErrorEncoding = reader
         };
 
         foreach (var argument in arguments)
@@ -1372,20 +2531,74 @@ public sealed class DevToolService : IDevToolService
             // Windows' "file not found" escape would take the whole listing down
             // over a host the operator may simply not use. It is recorded like any
             // other command so the log still shows what was looked for.
+            //
+            // It is also how a .cmd shim launched directly fails — "not a valid
+            // application for this OS platform" — which is why a spec that names
+            // one asks for the shell instead of relying on this.
             var missing = new CommandResult(CommandNotFound, string.Empty, ex.Message);
             log.Record(fileName, arguments, missing);
 
             return missing;
         }
 
-        var outputTask = process.StandardOutput.ReadToEndAsync(ct);
-        var errorTask = process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct).ConfigureAwait(false);
-        var result = new CommandResult(process.ExitCode, await outputTask.ConfigureAwait(false), await errorTask.ConfigureAwait(false));
+        var budget = timeout ?? ProbeTimeout;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(budget);
+
+        CommandResult result;
+        try
+        {
+            var outputTask = process.StandardOutput.ReadToEndAsync(deadline.Token);
+            var errorTask = process.StandardError.ReadToEndAsync(deadline.Token);
+            await process.WaitForExitAsync(deadline.Token).ConfigureAwait(false);
+            result = new CommandResult(process.ExitCode, await outputTask.ConfigureAwait(false), await errorTask.ConfigureAwait(false));
+        }
+        catch (OperationCanceledException)
+        {
+            // The whole tree, not the process: winget's own installer runs as a
+            // child of it, and killing only the parent leaves that installer
+            // holding the package lock with nothing left to report on it.
+            //
+            // Killed on both paths, and only one of them is reported. A caller
+            // that cancelled gets its exception back — abandoning the child there
+            // would leave a winget running against a pane that has gone — while a
+            // deadline that fired becomes a result, because a hung CLI is a row
+            // that could not be checked rather than a tools pane that has stopped
+            // existing.
+            KillProcessTree(process);
+
+            if (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+
+            result = new CommandResult(
+                CommandTimedOut,
+                string.Empty,
+                $"Timed out after {budget.TotalSeconds:0} seconds and the process was stopped.");
+        }
 
         log.Record(fileName, arguments, result);
 
         return result;
+    }
+
+    /// <summary>Stops a command that ran out of time, and says nothing when it
+    /// cannot. Between the timeout firing and this line the process may already
+    /// have exited on its own, which is a race rather than a problem — and a
+    /// failure to kill is not something the row can act on either way.</summary>
+    private static void KillProcessTree(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or Win32Exception or NotSupportedException or AggregateException)
+        {
+        }
     }
 
     private static string CommandFailure(string name, CommandResult result)
@@ -1422,6 +2635,17 @@ public sealed class DevToolService : IDevToolService
 
         public void Record(string fileName, IReadOnlyList<string> arguments, CommandResult result) =>
             _commands.Add(new DevToolCommand(Describe(fileName, arguments), result.ExitCode, Captured(result)));
+
+        /// <summary>Something that happened without a process behind it: an HTTP
+        /// call, a config file rewritten in place.
+        ///
+        /// <para>Synthesised rather than left out. The pane's command log is the
+        /// only account of what a refresh or an action did, and the two steps that
+        /// are not commands — the marketplace lookup and the Claude Desktop config
+        /// merge — are precisely the two whose failure is otherwise invisible: a
+        /// column that reads "unknown" and a file that did not change.</para></summary>
+        public void RecordStep(string description, int exitCode, string output) =>
+            _commands.Add(new DevToolCommand(description, exitCode, Captured(new CommandResult(exitCode, output, string.Empty))));
 
         /// <summary>The command as something a reader could paste into a shell,
         /// which is the form they will want it in when they go to reproduce
